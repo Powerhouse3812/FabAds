@@ -124,7 +124,7 @@ export function StudioHome() {
                 key={cfg.id}
                 type="button"
                 onClick={() => navigate(`/iq/genie6/generate/${cfg.id}/form`)}
-                className="g6-lift flex items-center gap-3 rounded-g6-base border border-g6-border-secondary bg-g6-bg-base p-3 text-left transition-all hover:border-g6-primary-border hover:bg-g6-primary-bg/30"
+                className="g6-lift flex items-center gap-3 rounded-g6-base bg-g6-bg-base p-3 text-left transition-all hover:bg-g6-primary-bg/20"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-g6-base bg-g6-bg-spotlight shrink-0">
                   <MicroMotif mode={cfg.id} size={22} />
@@ -204,7 +204,7 @@ export function StudioHome() {
                 key={hook}
                 type="button"
                 onClick={() => navigate("/iq/genie6/generate/product-ad/form")}
-                className="block w-full rounded-g6-base border border-g6-border-secondary bg-g6-bg-base p-2 text-left text-g6-sm text-g6-text-secondary hover:border-g6-primary-border hover:bg-g6-primary-bg/30 hover:text-g6-text transition-colors"
+                className="block w-full rounded-g6-base bg-g6-bg-base p-2 text-left text-g6-sm text-g6-text-secondary hover:bg-g6-primary-bg/20 hover:text-g6-text transition-colors"
               >
                 "{hook}"
               </button>

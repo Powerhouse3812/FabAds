@@ -78,9 +78,9 @@ export function CanvasGenerateForm() {
 
         {/* Center — sample object placeholder OR generated result */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="flex h-64 w-80 items-center justify-center rounded-g6-2xl bg-gradient-to-br from-g6-primary/30 via-g6-primary/15 to-transparent shadow-g6-glow">
+          <div className="flex h-64 w-80 items-center justify-center rounded-g6-2xl border border-g6-border-secondary bg-g6-bg-container/40">
             <div className="flex flex-col items-center gap-3 text-center">
-              <Sparkles className="h-10 w-10 text-g6-primary" />
+              <Sparkles className="h-10 w-10 text-g6-text-tertiary" />
               <p className="text-g6-sm text-g6-text-secondary max-w-xs">
                 Empty canvas — fill the panel and Generate to see results here
               </p>

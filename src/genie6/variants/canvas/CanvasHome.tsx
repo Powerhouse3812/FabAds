@@ -64,7 +64,7 @@ export function CanvasHome() {
         {/* Featured top performer "open on canvas" */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[58%]">
           <div className="relative">
-            <div className="relative h-[360px] w-[480px] overflow-hidden rounded-g6-2xl shadow-g6-glow ring-1 ring-g6-primary/40">
+            <div className="relative h-[360px] w-[480px] overflow-hidden rounded-g6-2xl shadow-g6-md">
               {analytics.topPerformer.thumbnail && (
                 <img src={analytics.topPerformer.thumbnail} alt="" className="h-full w-full object-cover" />
               )}
