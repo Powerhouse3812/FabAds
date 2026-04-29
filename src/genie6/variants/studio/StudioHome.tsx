@@ -78,12 +78,17 @@ export function StudioHome() {
 
         {/* Top performer + KPI row */}
         <section className="grid grid-cols-3 gap-3">
-          <div className="col-span-2 relative overflow-hidden rounded-g6-base border border-g6-border-secondary bg-g6-bg-base">
+          {/* Two-column composition: image left (full bleed), copy right.
+              Replaces the earlier asymmetric fade-to-bg gradient that looked
+              unfinished in light mode. Now the image has its own clear column
+              and the text sits on its own surface — no awkward overlap. */}
+          <div className="col-span-2 relative overflow-hidden rounded-g6-base bg-g6-bg-base flex">
             {analytics.topPerformer.thumbnail && (
-              <img src={analytics.topPerformer.thumbnail} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+              <div className="relative w-2/5 shrink-0 overflow-hidden">
+                <img src={analytics.topPerformer.thumbnail} alt="" className="h-full w-full object-cover" />
+              </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-r from-g6-bg-base via-g6-bg-base/60 to-transparent" />
-            <div className="relative p-5 space-y-2">
+            <div className="flex-1 p-5 space-y-2">
               <span className="inline-flex items-center gap-1 rounded-g6-pill border border-g6-border bg-g6-bg-container px-2 py-0.5 font-g6-mono text-g6-xs font-semibold uppercase text-g6-text-secondary">
                 <Sparkles className="h-2.5 w-2.5 text-g6-text-tertiary" /> top performer
               </span>
