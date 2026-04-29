@@ -5,6 +5,7 @@ import { MicroMotif } from "../../components/MicroMotif";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { sampleOutputs } from "../../mocks/sample-outputs";
+import { greeting } from "../../utils/greeting";
 
 /**
  * Canvas variant — Home.
@@ -167,9 +168,3 @@ export function CanvasHome() {
   );
 }
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "good morning";
-  if (h < 18) return "good afternoon";
-  return "good evening";
-}

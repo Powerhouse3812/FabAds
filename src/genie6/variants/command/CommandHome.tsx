@@ -5,6 +5,7 @@ import { MicroMotif } from "../../components/MicroMotif";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
+import { greeting } from "../../utils/greeting";
 
 /**
  * Command variant — Home.
@@ -200,12 +201,6 @@ export function CommandHome() {
   );
 }
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "good morning";
-  if (h < 18) return "good afternoon";
-  return "good evening";
-}
 
 function KpiCell({
   Icon,

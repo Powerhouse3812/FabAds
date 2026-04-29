@@ -256,6 +256,28 @@
 
 
 /* ============================================================
+   Utility classes — extracted from 49 inline repetitions across
+   variant components (critique iteration 2, Batch F).
+
+   `.g6-eyebrow` — small mono ALL-CAPS label, the most-repeated pattern in
+   the app. One-line replacement for:
+     font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary
+
+   `.g6-page` / `.g6-rail` / `.g6-header-bar` — standardized page chrome
+   padding so variants don't drift between p-3/p-4/p-5/p-6 randomly.
+   ============================================================ */
+
+.g6-eyebrow {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--g6-color-text-tertiary);
+}
+
+
+/* ============================================================
    Variant-specific helper classes (for component layer)
    ============================================================ */
 

@@ -7,6 +7,7 @@ import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
 import { sampleOutputs } from "../../mocks/sample-outputs";
+import { greeting } from "../../utils/greeting";
 
 /**
  * Studio variant — Home.
@@ -215,12 +216,6 @@ export function StudioHome() {
   );
 }
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "good morning";
-  if (h < 18) return "good afternoon";
-  return "good evening";
-}
 
 function KpiTile({ label, value, sub, progress, positive }: { label: string; value: string; sub?: string; progress?: number; positive?: boolean }) {
   return (
