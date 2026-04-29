@@ -1,0 +1,1 @@
+ALTER TABLE public.launches ADD COLUMN completed_step integer NOT NULL DEFAULT 0;

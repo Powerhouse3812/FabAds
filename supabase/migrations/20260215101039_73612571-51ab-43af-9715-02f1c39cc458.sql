@@ -1,0 +1,1 @@
+ALTER TABLE public.launches ADD COLUMN last_modified_by UUID;

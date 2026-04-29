@@ -1,0 +1,1 @@
+ALTER TABLE public.rrm_account_settings ADD COLUMN selected_page_ids text[] NOT NULL DEFAULT '{}';

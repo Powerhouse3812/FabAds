@@ -1,0 +1,514 @@
+/* Genie 6.0 design tokens — Track 5: 4 theme variants × light/dark.
+   Mirrored from FabAds' next-themes via useGenie6Theme hook + variant attribute.
+
+   Selector strategy:
+     [data-theme="..."]                                       → Operator base (default)
+     [data-genie6-variant="mirage"][data-theme="..."]         → Mirage overrides
+     [data-genie6-variant="soft"][data-theme="..."]           → Soft overrides
+     [data-genie6-variant="mercury"][data-theme="..."]        → Mercury overrides
+
+   When NO data-genie6-variant attribute is set (e.g. on FabAds routes),
+   the base [data-theme] blocks apply = Operator look. Genie 6 sets the
+   variant attribute via useGenie6Theme; removed on unmount.
+
+   Each variant block declares ONLY tokens that differ from Operator base.
+   Inheritance keeps the file scannable. */
+
+
+/* ============================================================
+   OPERATOR — base / production default
+   ============================================================ */
+
+[data-theme="light"] {
+  /* Brand */
+  --g6-color-primary: #c3eb42;
+  --g6-color-primary-hover: #d4f267;
+  --g6-color-primary-active: #9cc42d;
+  --g6-color-primary-bg: #f9ffe2;
+  --g6-color-primary-bg-hover: #f3ffce;
+  --g6-color-primary-border: #e6f4a3;
+
+  /* Surfaces — warm off-whites */
+  --g6-color-bg-base: #fbfbf9;
+  --g6-color-bg-container: #ffffff;
+  --g6-color-bg-elevated: #ffffff;
+  --g6-color-bg-spotlight: #f4f4f0;
+  --g6-color-bg-muted: #f7f7f4;
+
+  /* Text */
+  --g6-color-text: rgba(15, 15, 12, 0.92);
+  --g6-color-text-secondary: rgba(15, 15, 12, 0.62);
+  --g6-color-text-tertiary: rgba(15, 15, 12, 0.42);
+  --g6-color-text-disabled: rgba(15, 15, 12, 0.22);
+  --g6-color-text-on-accent: #121212;
+
+  /* Borders */
+  --g6-color-border: #e7e5dc;
+  --g6-color-border-secondary: #efeee7;
+
+  /* Status */
+  --g6-color-error: #ff4d4f;
+  --g6-color-warning: #faad14;
+  --g6-color-success: #52c41a;
+
+  /* Shadows */
+  --g6-shadow-sm: 0 1px 2px rgba(15, 15, 12, 0.04);
+  --g6-shadow-md: 0 1px 3px rgba(15, 15, 12, 0.04), 0 8px 24px rgba(15, 15, 12, 0.06);
+  --g6-shadow-lg: 0 2px 4px rgba(15, 15, 12, 0.04), 0 12px 40px rgba(15, 15, 12, 0.08);
+  --g6-shadow-xl: 0 4px 8px rgba(15, 15, 12, 0.04), 0 24px 64px rgba(15, 15, 12, 0.10);
+  --g6-shadow-primary-btn: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 4px rgba(195, 235, 66, 0.22);
+  --g6-shadow-input-active: 0 0 0 4px rgba(195, 235, 66, 0.18);
+  --g6-shadow-glow: 0 0 0 1px rgba(195, 235, 66, 0.4), 0 0 24px rgba(195, 235, 66, 0.18);
+
+  /* Glass surface */
+  --g6-glass-bg: rgba(255, 255, 255, 0.72);
+  --g6-glass-border: rgba(15, 15, 12, 0.06);
+  --g6-glass-blur: 20px;
+
+  /* Pastel hazes (only meaningful in Soft variant; Operator keeps neutral fallbacks) */
+  --g6-haze-1: rgba(195, 235, 66, 0.05);
+  --g6-haze-2: rgba(195, 235, 66, 0.05);
+  --g6-haze-3: rgba(195, 235, 66, 0.05);
+
+  /* Display font (Mercury overrides) */
+  --g6-font-display: 'Geist', system-ui, -apple-system, sans-serif;
+  --g6-font-display-weight: 800;
+  --g6-font-display-tracking: -0.025em;
+}
+
+[data-theme="dark"] {
+  --g6-color-primary: #c3eb42;
+  --g6-color-primary-hover: #c8e064;
+  --g6-color-primary-active: #86a032;
+  --g6-color-primary-bg: #232915;
+  --g6-color-primary-bg-hover: #36401a;
+  --g6-color-primary-border: #495522;
+
+  --g6-color-bg-base: #0d0d0d;
+  --g6-color-bg-container: #161616;
+  --g6-color-bg-elevated: #1e1e1e;
+  --g6-color-bg-spotlight: #2a2a2a;
+  --g6-color-bg-muted: #1a1a1a;
+
+  --g6-color-text: rgba(255, 255, 255, 0.92);
+  --g6-color-text-secondary: rgba(255, 255, 255, 0.62);
+  --g6-color-text-tertiary: rgba(255, 255, 255, 0.42);
+  --g6-color-text-disabled: rgba(255, 255, 255, 0.22);
+  --g6-color-text-on-accent: #121212;
+
+  --g6-color-border: #2a2a2a;
+  --g6-color-border-secondary: #1f1f1f;
+
+  --g6-color-error: #dc4446;
+  --g6-color-warning: #d89614;
+  --g6-color-success: #49aa19;
+
+  --g6-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --g6-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --g6-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.5), 0 12px 40px rgba(0, 0, 0, 0.5);
+  --g6-shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.5), 0 24px 64px rgba(0, 0, 0, 0.6);
+  --g6-shadow-primary-btn: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(195, 235, 66, 0.22);
+  --g6-shadow-input-active: 0 0 0 4px rgba(195, 235, 66, 0.22);
+  --g6-shadow-glow: 0 0 0 1px rgba(195, 235, 66, 0.5), 0 0 32px rgba(195, 235, 66, 0.25);
+
+  --g6-glass-bg: rgba(22, 22, 22, 0.62);
+  --g6-glass-border: rgba(255, 255, 255, 0.06);
+  --g6-glass-blur: 20px;
+
+  --g6-haze-1: rgba(195, 235, 66, 0.05);
+  --g6-haze-2: rgba(195, 235, 66, 0.05);
+  --g6-haze-3: rgba(195, 235, 66, 0.05);
+
+  --g6-font-display: 'Geist', system-ui, -apple-system, sans-serif;
+  --g6-font-display-weight: 800;
+  --g6-font-display-tracking: -0.025em;
+}
+
+
+/* ============================================================
+   MIRAGE — dark glass + gradient (aspirational AI-tool demo)
+   ============================================================ */
+
+[data-genie6-variant="mirage"][data-theme="dark"] {
+  --g6-color-bg-base: #08080c;
+  --g6-color-bg-container: #14141c;
+  --g6-color-bg-elevated: #1c1c28;
+  --g6-color-bg-spotlight: #28283a;
+  --g6-color-bg-muted: #10101a;
+
+  --g6-color-border: #28283a;
+  --g6-color-border-secondary: #1a1a26;
+
+  /* FabAds sidebar override — Mirage dark blue-tinted black */
+  --sidebar-background: 240 20% 4%;
+  --sidebar-foreground: 0 0% 92%;
+  --sidebar-primary: 74 81% 59%;
+  --sidebar-primary-foreground: 240 20% 4%;
+  --sidebar-accent: 240 20% 12%;
+  --sidebar-accent-foreground: 74 81% 59%;
+  --sidebar-border: 0 0% 100% / 6%;
+  --sidebar-ring: 74 81% 59%;
+
+  /* Stronger glass + bigger blur for hero focal elements */
+  --g6-glass-bg: rgba(20, 20, 28, 0.55);
+  --g6-glass-border: rgba(255, 255, 255, 0.08);
+  --g6-glass-blur: 28px;
+
+  /* Multi-layer dramatic shadows */
+  --g6-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.6), 0 8px 32px rgba(0, 0, 0, 0.55);
+  --g6-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.6), 0 16px 48px rgba(0, 0, 0, 0.6);
+  --g6-shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.6), 0 32px 80px rgba(0, 0, 0, 0.7);
+  --g6-shadow-glow: 0 0 0 1px rgba(195, 235, 66, 0.6), 0 0 48px rgba(195, 235, 66, 0.35);
+}
+
+/* Mirage's light mode is a secondary path — keep readable but signal "this variant feels best dark" */
+[data-genie6-variant="mirage"][data-theme="light"] {
+  --g6-color-bg-base: #f6f6f8;
+  --g6-color-bg-container: #ffffff;
+  --g6-color-bg-spotlight: #ececf2;
+
+  --g6-glass-bg: rgba(255, 255, 255, 0.78);
+  --g6-glass-blur: 24px;
+
+  /* FabAds sidebar override — Mirage light cool gray */
+  --sidebar-background: 240 12% 96%;
+  --sidebar-foreground: 240 10% 12%;
+  --sidebar-primary: 74 81% 45%;
+  --sidebar-primary-foreground: 0 0% 7%;
+  --sidebar-accent: 74 81% 59% / 14%;
+  --sidebar-accent-foreground: 240 10% 12%;
+  --sidebar-border: 240 10% 0% / 8%;
+  --sidebar-ring: 74 81% 59%;
+}
+
+
+/* ============================================================
+   SOFT — pastel hazes + generous whitespace
+   ============================================================ */
+
+[data-genie6-variant="soft"][data-theme="light"] {
+  --g6-color-bg-base: #fffefa;
+  --g6-color-bg-container: #ffffff;
+  --g6-color-bg-elevated: #ffffff;
+  --g6-color-bg-spotlight: #f7f4ed;
+  --g6-color-bg-muted: #fbf9f3;
+
+  --g6-color-border: #ece8df;
+  --g6-color-border-secondary: #f3f0e8;
+
+  /* FabAds sidebar override — Soft warm cream */
+  --sidebar-background: 50 30% 97%;
+  --sidebar-foreground: 30 10% 14%;
+  --sidebar-primary: 74 81% 50%;
+  --sidebar-primary-foreground: 30 10% 8%;
+  --sidebar-accent: 74 81% 59% / 12%;
+  --sidebar-accent-foreground: 30 10% 14%;
+  --sidebar-border: 30 10% 0% / 7%;
+  --sidebar-ring: 74 81% 59%;
+
+  /* Pastel hazes for stat-tile backdrops + accents */
+  --g6-haze-1: rgba(196, 181, 253, 0.18);   /* lavender */
+  --g6-haze-2: rgba(94, 234, 212, 0.16);    /* mint */
+  --g6-haze-3: rgba(252, 165, 165, 0.16);   /* coral */
+
+  /* Softer multi-layer shadows */
+  --g6-shadow-md: 0 1px 3px rgba(15, 15, 12, 0.03), 0 12px 32px rgba(15, 15, 12, 0.05);
+  --g6-shadow-lg: 0 2px 6px rgba(15, 15, 12, 0.04), 0 24px 56px rgba(15, 15, 12, 0.06);
+  --g6-shadow-xl: 0 4px 10px rgba(15, 15, 12, 0.04), 0 40px 80px rgba(15, 15, 12, 0.08);
+}
+
+[data-genie6-variant="soft"][data-theme="dark"] {
+  --g6-color-bg-base: #1a1a16;
+  --g6-color-bg-container: #232320;
+  --g6-color-bg-elevated: #2a2a26;
+  --g6-color-bg-spotlight: #34342f;
+
+  --g6-color-border: #34342e;
+  --g6-color-border-secondary: #28282a;
+
+  --g6-haze-1: rgba(196, 181, 253, 0.10);
+  --g6-haze-2: rgba(94, 234, 212, 0.10);
+  --g6-haze-3: rgba(252, 165, 165, 0.10);
+
+  /* FabAds sidebar override — Soft warm dark */
+  --sidebar-background: 30 8% 10%;
+  --sidebar-foreground: 50 30% 92%;
+  --sidebar-primary: 74 81% 59%;
+  --sidebar-primary-foreground: 30 10% 8%;
+  --sidebar-accent: 30 8% 16%;
+  --sidebar-accent-foreground: 74 81% 59%;
+  --sidebar-border: 0 0% 100% / 6%;
+  --sidebar-ring: 74 81% 59%;
+}
+
+
+/* ============================================================
+   MERCURY — navy/cream + Crimson Pro serif (financial-grade)
+   ============================================================ */
+
+[data-genie6-variant="mercury"][data-theme="light"] {
+  --g6-color-primary: #c3eb42;
+  --g6-color-primary-active: #95b832;
+
+  --g6-color-bg-base: #faf6ee;     /* warm cream */
+  --g6-color-bg-container: #ffffff;
+  --g6-color-bg-elevated: #fdf9f1;
+  --g6-color-bg-spotlight: #efe9dc;
+  --g6-color-bg-muted: #f6f0e3;
+
+  --g6-color-text: rgba(10, 22, 40, 0.92);
+  --g6-color-text-secondary: rgba(10, 22, 40, 0.62);
+  --g6-color-text-tertiary: rgba(10, 22, 40, 0.42);
+  --g6-color-text-disabled: rgba(10, 22, 40, 0.22);
+
+  --g6-color-border: #ddd5c2;
+  --g6-color-border-secondary: #ebe5d4;
+
+  /* Mercury accent pairing — lime + emerald */
+  --g6-color-success: #047857;     /* deep emerald (replaces lime-green status) */
+
+  /* FabAds sidebar override — Mercury cream + navy text */
+  --sidebar-background: 38 50% 95%;
+  --sidebar-foreground: 215 60% 10%;
+  --sidebar-primary: 74 81% 45%;
+  --sidebar-primary-foreground: 215 60% 10%;
+  --sidebar-accent: 158 90% 24% / 10%;       /* emerald accent at 10% */
+  --sidebar-accent-foreground: 158 90% 24%;
+  --sidebar-border: 38 30% 30% / 14%;
+  --sidebar-ring: 158 90% 24%;
+
+  /* Sharp banker shadows — minimal blur, single layer */
+  --g6-shadow-sm: 0 1px 1px rgba(10, 22, 40, 0.06);
+  --g6-shadow-md: 0 1px 2px rgba(10, 22, 40, 0.06), 0 4px 12px rgba(10, 22, 40, 0.05);
+  --g6-shadow-lg: 0 2px 4px rgba(10, 22, 40, 0.07), 0 8px 24px rgba(10, 22, 40, 0.07);
+
+  /* Crimson Pro for display */
+  --g6-font-display: 'Crimson Pro', ui-serif, Charter, Georgia, serif;
+  --g6-font-display-weight: 600;
+  --g6-font-display-tracking: -0.015em;
+}
+
+[data-genie6-variant="mercury"][data-theme="dark"] {
+  --g6-color-primary: #c3eb42;
+  --g6-color-primary-active: #86a032;
+
+  --g6-color-bg-base: #061018;     /* deep navy */
+  --g6-color-bg-container: #0c1825;
+  --g6-color-bg-elevated: #112030;
+  --g6-color-bg-spotlight: #1a2c3f;
+  --g6-color-bg-muted: #0a1620;
+
+  --g6-color-text: rgba(250, 246, 238, 0.92);
+  --g6-color-text-secondary: rgba(250, 246, 238, 0.62);
+  --g6-color-text-tertiary: rgba(250, 246, 238, 0.42);
+  --g6-color-text-disabled: rgba(250, 246, 238, 0.22);
+
+  --g6-color-border: #1a2c3f;
+  --g6-color-border-secondary: #112030;
+
+  --g6-color-success: #10b981;
+
+  /* FabAds sidebar override — Mercury deep navy + cream text */
+  --sidebar-background: 215 60% 6%;
+  --sidebar-foreground: 38 30% 92%;
+  --sidebar-primary: 74 81% 59%;
+  --sidebar-primary-foreground: 215 60% 6%;
+  --sidebar-accent: 215 50% 14%;
+  --sidebar-accent-foreground: 158 80% 45%;  /* emerald accent text */
+  --sidebar-border: 38 30% 100% / 8%;
+  --sidebar-ring: 158 80% 45%;
+
+  --g6-shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.5);
+  --g6-shadow-md: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.45);
+  --g6-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --g6-font-display: 'Crimson Pro', ui-serif, Charter, Georgia, serif;
+  --g6-font-display-weight: 600;
+  --g6-font-display-tracking: -0.015em;
+}
+
+
+/* ============================================================
+   Mode-agnostic tokens (spacing, radius, heights — variant-stable)
+   ============================================================ */
+
+:root {
+  --g6-space-1: 4px;
+  --g6-space-2: 8px;
+  --g6-space-3: 12px;
+  --g6-space-4: 16px;
+  --g6-space-5: 20px;
+  --g6-space-6: 24px;
+  --g6-space-8: 32px;
+  --g6-space-10: 40px;
+  --g6-space-12: 48px;
+  --g6-space-16: 64px;
+  --g6-space-20: 80px;
+
+  --g6-radius-xs: 2px;
+  --g6-radius-sm: 4px;
+  --g6-radius-base: 6px;
+  --g6-radius-lg: 8px;
+  --g6-radius-card: 16px;
+  --g6-radius-xl: 20px;
+  --g6-radius-2xl: 28px;
+  --g6-radius-pill: 100px;
+
+  --g6-height-xs: 16px;
+  --g6-height-sm: 24px;
+  --g6-height-base: 32px;
+  --g6-height-lg: 40px;
+  --g6-height-xl: 52px;
+}
+
+/* Mercury tightens radius — feels banker-sharp */
+[data-genie6-variant="mercury"] {
+  --g6-radius-base: 4px;
+  --g6-radius-lg: 6px;
+  --g6-radius-card: 10px;
+  --g6-radius-xl: 14px;
+  --g6-radius-2xl: 20px;
+}
+
+/* Soft loosens radius — feels gentler */
+[data-genie6-variant="soft"] {
+  --g6-radius-card: 18px;
+  --g6-radius-xl: 24px;
+  --g6-radius-2xl: 32px;
+}
+
+
+/* ============================================================
+   Dot-grid + halo + glass + lift utilities
+   ============================================================ */
+
+.g6-dot-grid {
+  background-image: radial-gradient(circle, var(--g6-color-text-tertiary) 1px, transparent 1px);
+  background-size: 16px 16px;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+.g6-dot-grid-bg {
+  position: relative;
+}
+.g6-dot-grid-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--g6-color-text-tertiary) 1px, transparent 1px);
+  background-size: 16px 16px;
+  opacity: 0.06;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Lime halo backdrop */
+.g6-halo {
+  position: relative;
+}
+.g6-halo::before {
+  content: '';
+  position: absolute;
+  inset: -40% -20%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(195, 235, 66, 0.18) 0%,
+    rgba(195, 235, 66, 0.06) 30%,
+    transparent 60%
+  );
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(40px);
+}
+
+/* Glass surface — uses variant glass tokens */
+.g6-glass {
+  background: var(--g6-glass-bg);
+  border: 1px solid var(--g6-glass-border);
+  backdrop-filter: blur(var(--g6-glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--g6-glass-blur)) saturate(140%);
+}
+
+/* Lift on hover — variant-stable */
+.g6-lift {
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+              box-shadow 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.g6-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--g6-shadow-lg);
+}
+
+/* Soft variant pastel haze utility — applies multi-color radial backdrop */
+.g6-soft-haze-1 {
+  background: radial-gradient(ellipse at top right, var(--g6-haze-1) 0%, transparent 70%),
+              var(--g6-color-bg-container);
+}
+.g6-soft-haze-2 {
+  background: radial-gradient(ellipse at top right, var(--g6-haze-2) 0%, transparent 70%),
+              var(--g6-color-bg-container);
+}
+.g6-soft-haze-3 {
+  background: radial-gradient(ellipse at top right, var(--g6-haze-3) 0%, transparent 70%),
+              var(--g6-color-bg-container);
+}
+
+/* Mirage gradient mode-chip rim — used on mode picker cards in Mirage variant only */
+[data-genie6-variant="mirage"] .g6-mode-chip-rim {
+  background: linear-gradient(135deg,
+    rgba(195, 235, 66, 0.4) 0%,
+    rgba(125, 211, 252, 0.3) 50%,
+    rgba(196, 181, 253, 0.3) 100%);
+  padding: 1px;
+  border-radius: inherit;
+}
+
+
+/* ============================================================
+   Genie 6 root container — applies font-family from variant
+   ============================================================ */
+
+.g6-root {
+  background: var(--g6-color-bg-base);
+  color: var(--g6-color-text);
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+.g6-root .font-mono,
+.g6-root [class*='font-g6-mono'] {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0;
+}
+
+/* Display typography — uses variant's display font (Mercury = Crimson Pro) */
+.g6-root [class*='text-g6-display'],
+.g6-root [class*='text-g6-h1'],
+.g6-root [class*='text-g6-h2'] {
+  font-family: var(--g6-font-display);
+  font-weight: var(--g6-font-display-weight);
+  letter-spacing: var(--g6-font-display-tracking);
+}
+
+
+/* ============================================================
+   Animations — variant-stable
+   ============================================================ */
+
+@keyframes g6-stage-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.g6-stage-active {
+  animation: g6-stage-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes g6-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.g6-fade-up {
+  animation: g6-fade-up 360ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
