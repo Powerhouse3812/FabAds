@@ -39,12 +39,18 @@ export const genie6Routes = (
     <Route path="library/:assetType" element={<Library />} />
     <Route path="library/:assetType/:assetId" element={<Library />} />
 
-    {/* Workspace */}
+    {/* Assets (URL still /workspace for routing — user-facing label is "Assets") */}
     <Route path="workspace" element={<WorkspaceIndex />} />
     <Route path="workspace/brands" element={<WorkspaceView key="ws-brands" />} />
     <Route path="workspace/brands/:brandId" element={<WorkspaceView key="ws-brand-detail" />} />
     <Route path="workspace/categories" element={<WorkspaceView key="ws-categories" />} />
     <Route path="workspace/categories/:categoryId" element={<WorkspaceView key="ws-category-detail" />} />
+    <Route path="workspace/hooks" element={<WorkspaceView key="ws-hooks" />} />
+    <Route path="workspace/angles" element={<WorkspaceView key="ws-angles" />} />
+    <Route path="workspace/concepts" element={<WorkspaceView key="ws-concepts" />} />
+    <Route path="workspace/templates" element={<WorkspaceView key="ws-templates" />} />
+    <Route path="workspace/avatars" element={<WorkspaceView key="ws-avatars" />} />
+    <Route path="workspace/audiences" element={<WorkspaceView key="ws-audiences" />} />
 
     {/* Settings */}
     <Route path="settings" element={<SettingsHub />} />

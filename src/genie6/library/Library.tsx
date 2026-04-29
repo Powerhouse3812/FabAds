@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Sparkles, ArrowUpRight } from "lucide-react";
 import { DotGridPattern } from "../components/DotGridPattern";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
@@ -10,18 +10,30 @@ import { ModularLibrary } from "../variants/modular/ModularLibrary";
 /**
  * Library — variant-aware router.
  *
- * Each architectural variant has its own Library implementation in
- * src/genie6/variants/. They all share the underlying tab content components
- * (GeneratedOutputsTab, HooksTab, etc.) — only the surrounding chrome
- * (tab strip, filters, preview pane orientation) differs per variant.
+ * Library is now strictly Generated Outputs (no sub-nav). Hooks / Angles /
+ * Concepts / Templates / Avatars / Audiences moved to Assets (formerly
+ * Workspace).
  *
- * Zero-data state is variant-agnostic.
+ * Backward-compat redirect: if a deep link uses /library/<old-tab>, send
+ * the user to the equivalent /workspace/<old-tab> (Assets) URL.
  */
+const ASSET_TYPES = new Set(["hooks", "angles", "concepts", "templates", "avatars", "audiences"]);
+
 export function Library() {
   const [searchParams] = useSearchParams();
+  const { assetType } = useParams<{ assetType?: string }>();
   const { variant } = useGenie6Theme();
 
-  // Zero-data flag (Track 4.9)
+  // Redirect old library tabs to their new home in Assets.
+  if (assetType && ASSET_TYPES.has(assetType)) {
+    return <Navigate to={`/iq/genie6/workspace/${assetType}`} replace />;
+  }
+
+  // Redirect /library/outputs → /library (no longer needed in URL since outputs is the only thing).
+  if (assetType === "outputs") {
+    return <Navigate to="/iq/genie6/library" replace />;
+  }
+
   if (searchParams.get("empty") === "1") return <LibraryZeroData />;
 
   switch (variant) {
@@ -37,9 +49,6 @@ export function Library() {
   }
 }
 
-/* ─────────────────────────────────────────────────────────
-   Zero-data state (Track 4.9) — variant-agnostic
-   ───────────────────────────────────────────────────────── */
 function LibraryZeroData() {
   const navigate = useNavigate();
   return (
@@ -54,7 +63,7 @@ function LibraryZeroData() {
             Your library is empty
           </h1>
           <p className="text-g6-base text-g6-text-secondary max-w-md">
-            Generate your first batch and your library will fill with outputs, hooks, angles, concepts, templates, avatars, and audiences.
+            Generate your first batch and your library will fill with outputs from every mode.
           </p>
         </div>
         <button

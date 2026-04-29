@@ -96,7 +96,7 @@ const MODULES: ModuleDef[] = [
     key: "genie6", label: "Genie 6.0", icon: Wand2,
     subItems: [
       { label: "Home", path: "/iq/genie6", icon: Home },
-      { label: "Workspace", path: "/iq/genie6/workspace", icon: FolderTree },
+      { label: "Assets", path: "/iq/genie6/workspace", icon: FolderTree },
       { label: "Generate", path: "/iq/genie6/generate", icon: PenLine },
       { label: "Library", path: "/iq/genie6/library", icon: LibraryIcon },
       { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
