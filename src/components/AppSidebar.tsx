@@ -16,6 +16,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 import { InsightsBoardListPanel } from "@/components/insights/InsightsBoardListPanel";
+import { UserMenu } from "@/components/UserMenu";
+import { ThemeVariantSwitcher } from "@/genie6/shell/ThemeVariantSwitcher";
 import faviconLight from "@/assets/favicon-light.svg";
 import faviconDark from "@/assets/favicon-dark.png";
 
@@ -224,6 +226,46 @@ function DarkModeToggleExpanded() {
         <span className="text-sm">Dark Mode</span>
       </div>
       <Switch checked={isDark} onCheckedChange={(c) => setTheme(c ? "dark" : "light")} />
+    </div>
+  );
+}
+
+/**
+ * Sidebar footer block (iter-3 IA restructure). Replaces what was in the
+ * topbar's right cluster:
+ *   - Theme toggle (compact pill — kept here for one-click flip; full toggle
+ *     also lives inside UserMenu dropdown)
+ *   - Variant switcher (Genie 6 routes ONLY)
+ *   - User menu with absorbed Help / Copilot / ClientSwitcher / Activity / Sign out
+ *
+ * The footer renders as a tight stack with ~64px total height + the variant
+ * row when on Genie 6 routes.
+ */
+function SidebarFooter({ collapsed = false }: { collapsed?: boolean }) {
+  const { pathname } = useLocation();
+  const isGenie6 = pathname.startsWith("/iq/genie6");
+  return (
+    <div className="border-t border-sidebar-border bg-sidebar-background">
+      {/* Variant switcher — Genie 6 only */}
+      {isGenie6 && (
+        <div className={cn("border-b border-sidebar-border", collapsed ? "py-2 flex flex-col items-center gap-1" : "px-3 py-2")}>
+          <ThemeVariantSwitcher />
+        </div>
+      )}
+      {/* Theme + user menu row */}
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-1 py-2">
+          <DarkModeToggleIcon />
+          <UserMenu compact />
+        </div>
+      ) : (
+        <>
+          <DarkModeToggleExpanded />
+          <div className="border-t border-sidebar-border px-1.5 py-1.5">
+            <UserMenu />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -644,9 +686,7 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
           {SYSTEM_MODULES.map(renderModule)}
         </div>
       </ScrollArea>
-      <div className="border-t border-sidebar-border">
-        <DarkModeToggleExpanded />
-      </div>
+      <SidebarFooter />
     </div>
   );
 }
@@ -788,9 +828,9 @@ export function AppSidebar() {
           ))}
         </div>
 
-        {/* Dark mode toggle at bottom of rail */}
+        {/* Sidebar footer: variant switcher (Genie 6 only) + theme + UserMenu */}
         <div className="mt-auto">
-          <DarkModeToggleIcon />
+          <SidebarFooter collapsed />
         </div>
       </div>
 

@@ -2,11 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { AppSidebar, MobileNavContent } from "@/components/AppSidebar";
-import { UserMenu } from "@/components/UserMenu";
-import { ClientSwitcher } from "@/components/ClientSwitcher";
-import { HeaderDatePicker } from "@/components/HeaderDatePicker";
 import { CopilotProvider, useCopilot } from "@/contexts/CopilotContext";
-import { CopilotTrigger } from "@/components/copilot/CopilotTrigger";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
@@ -14,10 +10,11 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
-import { NewGenerationCTA } from "@/genie6/shell/NewGenerationCTA";
-import { HelpIcon } from "@/genie6/shell/HelpIcon";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
-import { ThemeVariantSwitcher } from "@/genie6/shell/ThemeVariantSwitcher";
+// NOTE: After iter-3 IA, the topbar is removed. Profile / Variant / Theme moved
+// to the sidebar footer; ClientSwitcher / Help / Copilot / Activity / Sign-out
+// live inside the UserMenu dropdown there. NewGenerationCTA moves to the right
+// rail (Genie 6 routes only). HeaderDatePicker becomes inline on Reports pages.
 
 const LABEL_MAP: Record<string, string> = {
   iq: "IQ",
@@ -147,9 +144,7 @@ function AppLayoutInner() {
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
-  const isReportsRoute = pathname.startsWith("/reports") || pathname === "/dashboard";
   const isGenie6Route = pathname.startsWith("/iq/genie6");
-  const isGenerateRoute = pathname.startsWith("/iq/genie6/generate");
   const { isPinned, isOpen } = useCopilot();
 
   return (
@@ -157,40 +152,37 @@ function AppLayoutInner() {
       {/* Desktop sidebar */}
       <AppSidebar />
 
-      {/* Content */}
+      {/* Content — topbar removed (iter 3 IA). Right cluster contents
+           absorbed: profile/variant/theme into sidebar footer + UserMenu
+           dropdown. ClientSwitcher / Help / Copilot / Activity Log live
+           inside UserMenu dropdown. HeaderDatePicker for Reports moves to
+           inline filter at top of Reports content area (handled per-page).
+           Breadcrumbs become inline at top of main content (saves the
+           48px h-14 strip globally).
+
+           Mobile: hamburger floats top-left when sidebar collapsed; otherwise
+           sidebar overlays in mobile drawer mode. */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-14 flex items-center border-b border-border px-4 gap-4 flex-shrink-0">
-          {/* Mobile hamburger */}
-          {isMobile && (
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="p-1.5 rounded-md text-foreground hover:bg-accent/10"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          )}
-          <HeaderBreadcrumbs />
-          <div className="ml-auto flex items-center gap-3">
-            {/* Genie 6.0 affordances — only on /iq/genie6/*. Pure-minimal topbar:
-                ThemeVariantSwitcher · NewGenerationCTA (hidden on /generate) ·
-                separator. HelpIcon + CopilotTrigger hidden on Genie6 routes —
-                the ⌘K palette covers everything they did. */}
-            {isGenie6Route && (
-              <>
-                <ThemeVariantSwitcher />
-                {!isGenerateRoute && <NewGenerationCTA />}
-                <span className="h-5 w-px bg-border" aria-hidden />
-              </>
-            )}
-            {!isGenie6Route && <HelpIcon />}
-            <ClientSwitcher />
-            {isReportsRoute && <HeaderDatePicker />}
-            {!isGenie6Route && <CopilotTrigger />}
-            <UserMenu />
-          </div>
-        </header>
+        {/* Mobile floating hamburger (only shown if mobile + sidebar closed) */}
+        {isMobile && !mobileOpen && (
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="fixed top-3 left-3 z-50 p-1.5 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
+            aria-label="Open navigation"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
         <div className="flex-1 flex overflow-hidden">
           <main className="flex-1 flex flex-col overflow-hidden">
+            {/* Inline breadcrumbs strip (replaces the topbar breadcrumbs).
+                 Sticky-light, sits above page content. Hidden on Genie 6
+                 routes since those have their own page chrome. */}
+            {!isGenie6Route && (
+              <div className="border-b border-border px-4 py-2 flex-shrink-0">
+                <HeaderBreadcrumbs />
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto p-4 2xl:p-5 flex flex-col relative">
               <Outlet />
             </div>
