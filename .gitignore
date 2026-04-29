@@ -49,3 +49,4 @@ coverage/
 # Vite
 .vite/
 .vercel
+.claude/
