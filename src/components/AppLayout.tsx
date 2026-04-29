@@ -171,19 +171,21 @@ function AppLayoutInner() {
           )}
           <HeaderBreadcrumbs />
           <div className="ml-auto flex items-center gap-3">
-            {/* Genie 6.0 affordances — only on /iq/genie6/* */}
+            {/* Genie 6.0 affordances — only on /iq/genie6/*. Pure-minimal topbar:
+                ThemeVariantSwitcher · NewGenerationCTA (hidden on /generate) ·
+                separator. HelpIcon + CopilotTrigger hidden on Genie6 routes —
+                the ⌘K palette covers everything they did. */}
             {isGenie6Route && (
               <>
                 <ThemeVariantSwitcher />
-                <HelpIcon />
-                {/* Hide topbar +New CTA on Generate routes — it duplicates the in-page Generate button */}
                 {!isGenerateRoute && <NewGenerationCTA />}
                 <span className="h-5 w-px bg-border" aria-hidden />
               </>
             )}
+            {!isGenie6Route && <HelpIcon />}
             <ClientSwitcher />
             {isReportsRoute && <HeaderDatePicker />}
-            <CopilotTrigger />
+            {!isGenie6Route && <CopilotTrigger />}
             <UserMenu />
           </div>
         </header>
