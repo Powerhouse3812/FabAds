@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
 /**
@@ -14,21 +14,31 @@ import { useTheme } from "next-themes";
  *   command  — ops dashboard (KPIs + brands + activity always visible)
  *   modular  — composable workbench (draggable module cards on dark canvas)
  *
- * Each variant has its own React component implementations per surface
- * (Home / Workspace / Generate / Library / Settings). Page-level routers in
- * src/genie6/variants/ select the right impl by reading this hook.
+ * Theme is universal across variants — light mode = light for all 4, dark
+ * mode = dark for all 4. Variants only differ in JSX layout architecture +
+ * helper classes (g6-canvas-floor, g6-halo, g6-code-h).
  *
- * Old token-only variants (mirage/operator/soft/mercury) were superseded by
- * this architectural-variant system in the same sprint.
+ * IMPLEMENTATION NOTE — external store pattern.
+ *
+ * Earlier revisions used per-component useState + a CustomEvent broadcast
+ * to keep multiple consumers in sync (topbar switcher + each page-level
+ * router). That was fragile under HMR: components mounted before the hook
+ * file was patched could carry a stale closure of setVariant without the
+ * broadcast call, leaving them out of sync.
+ *
+ * This revision uses a module-level store + useSyncExternalStore. A single
+ * `currentVariant` lives at module scope; every consumer subscribes via the
+ * React 18 primitive. setVariant updates the module variable and notifies
+ * all subscribers. There's no per-component state, no closure drift, and
+ * HMR-friendly because the store is shared.
  */
 
 export type GenieVariant = "studio" | "canvas" | "command" | "modular";
 
 const VARIANT_KEY = "genie6-variant";
-const VARIANT_EVENT = "genie6-variant-change";
 const DEFAULT_VARIANT: GenieVariant = "studio";
 
-function readVariant(): GenieVariant {
+function readVariantFromStorage(): GenieVariant {
   if (typeof window === "undefined") return DEFAULT_VARIANT;
   const v = window.localStorage.getItem(VARIANT_KEY);
   return v === "studio" || v === "canvas" || v === "command" || v === "modular"
@@ -36,9 +46,58 @@ function readVariant(): GenieVariant {
     : DEFAULT_VARIANT;
 }
 
+/* ─────────────────────────────────────────────────────────
+   External store — one source of truth across all consumers
+   ───────────────────────────────────────────────────────── */
+let currentVariant: GenieVariant = readVariantFromStorage();
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot(): GenieVariant {
+  return currentVariant;
+}
+
+function getServerSnapshot(): GenieVariant {
+  return DEFAULT_VARIANT;
+}
+
+export function setVariant(next: GenieVariant) {
+  if (next === currentVariant) return;
+  currentVariant = next;
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(VARIANT_KEY, next);
+  }
+  emit();
+}
+
+// Sync if another tab changes the variant.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== VARIANT_KEY) return;
+    const next = readVariantFromStorage();
+    if (next !== currentVariant) {
+      currentVariant = next;
+      emit();
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────────────────
+   Hook
+   ───────────────────────────────────────────────────────── */
 export function useGenie6Theme() {
   const { resolvedTheme } = useTheme();
-  const [variant, setVariantState] = useState<GenieVariant>(readVariant);
+  const variant = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
     const value = resolvedTheme === "dark" ? "dark" : "light";
@@ -50,31 +109,5 @@ export function useGenie6Theme() {
     };
   }, [resolvedTheme, variant]);
 
-  // Listen for variant changes from any other useGenie6Theme caller in the same
-  // tab. The native "storage" event only fires across tabs/windows, NOT same-tab,
-  // so we broadcast our own CustomEvent in setVariant() to keep every consumer
-  // (topbar switcher + page-level routers) in sync without a Context Provider.
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === VARIANT_KEY) setVariantState(readVariant());
-    };
-    const onSameTab = (e: Event) => {
-      const next = (e as CustomEvent<GenieVariant>).detail;
-      if (next) setVariantState(next);
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener(VARIANT_EVENT, onSameTab as EventListener);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener(VARIANT_EVENT, onSameTab as EventListener);
-    };
-  }, []);
-
   return { variant, setVariant };
-
-  function setVariant(next: GenieVariant) {
-    window.localStorage.setItem(VARIANT_KEY, next);
-    setVariantState(next);
-    window.dispatchEvent(new CustomEvent<GenieVariant>(VARIANT_EVENT, { detail: next }));
-  }
 }
