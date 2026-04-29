@@ -15,7 +15,6 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
 import { NewGenerationCTA } from "@/genie6/shell/NewGenerationCTA";
-import { WizardFormToggle } from "@/genie6/shell/WizardFormToggle";
 import { HelpIcon } from "@/genie6/shell/HelpIcon";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
 import { ThemeVariantSwitcher } from "@/genie6/shell/ThemeVariantSwitcher";
@@ -175,7 +174,6 @@ function AppLayoutInner() {
             {isGenie6Route && (
               <>
                 <ThemeVariantSwitcher />
-                <WizardFormToggle />
                 <HelpIcon />
                 <NewGenerationCTA />
                 <span className="h-5 w-px bg-border" aria-hidden />

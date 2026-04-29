@@ -1,18 +1,18 @@
-import { Sparkles, Briefcase, Sun, Landmark } from "lucide-react";
+import { Columns3, Brush, LayoutDashboard, Boxes } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGenie6Theme, type GenieVariant } from "../hooks/useGenie6Theme";
 
 /**
- * Theme variant switcher (Track 5).
+ * Architectural variant switcher.
  *
- * 4 variants: Mirage / Operator / Soft / Mercury. Each is a complete design system
- * (surface palette, accent palette, typography, shadows, radius). Same component code
- * renders different visuals via CSS variable lookup against `[data-genie6-variant]`.
+ * 4 architecturally distinct variants — not token swaps. Each has its own
+ * component implementations per surface (Home / Workspace / Generate / Library /
+ * Settings). Toggling here swaps the entire app architecture.
  *
- * Lives in AppLayout topbar, only when `pathname.startsWith("/iq/genie6")`.
- * Pattern matches the Workspace 3-view switcher — small icon row, not a popping button.
- *
- * Default variant: Operator (production work mode).
+ *   Studio   ↔ Columns3        — 3-column (mode tree + form + preview)
+ *   Canvas   ↔ Brush           — editor-first (viewport + tool rails)
+ *   Command  ↔ LayoutDashboard — ops dashboard (KPI grid)
+ *   Modular  ↔ Boxes           — composable cards
  */
 
 type VariantSpec = {
@@ -24,28 +24,28 @@ type VariantSpec = {
 
 const VARIANTS: VariantSpec[] = [
   {
-    id: "operator",
-    Icon: Briefcase,
-    label: "Operator",
-    description: "Default · agency work mode · clean light/dark parity",
+    id: "studio",
+    Icon: Columns3,
+    label: "Studio",
+    description: "3-column workspace · mode tree + form + live preview · default",
   },
   {
-    id: "mirage",
-    Icon: Sparkles,
-    label: "Mirage",
-    description: "Dark · glass + gradient · demo-ready aspirational",
+    id: "canvas",
+    Icon: Brush,
+    label: "Canvas",
+    description: "Editor-first · massive viewport + vertical tools · Photoshop mental model",
   },
   {
-    id: "soft",
-    Icon: Sun,
-    label: "Soft",
-    description: "Light · pastel hazes · generous whitespace",
+    id: "command",
+    Icon: LayoutDashboard,
+    label: "Command",
+    description: "Ops dashboard · KPIs + brands + activity always visible",
   },
   {
-    id: "mercury",
-    Icon: Landmark,
-    label: "Mercury",
-    description: "Navy/cream · Crimson Pro serif · financial-grade",
+    id: "modular",
+    Icon: Boxes,
+    label: "Modular",
+    description: "Composable cards · draggable modules on dark canvas",
   },
 ];
 
@@ -55,7 +55,7 @@ export function ThemeVariantSwitcher() {
   return (
     <div
       role="tablist"
-      aria-label="Genie 6 theme variant"
+      aria-label="Genie 6 architectural variant"
       className="inline-flex items-center rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-0.5"
     >
       {VARIANTS.map(({ id, Icon, label, description }) => {

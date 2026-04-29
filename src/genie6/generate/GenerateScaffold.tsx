@@ -9,14 +9,14 @@ const VALID_MODES: ModeId[] = [
   "affiliate-ad",
   "ugc-video",
   "forge",
-  "image-to-ad", // merged former image-to-adcopy + image-to-video (Track 4.2)
+  "image-to-ad",
 ];
 
-const PREF_KEY = "genie6-wizard-form-pref";
-
 /**
- * /generate/:mode — reads wizard/form preference and redirects.
- * Also seeds the draft mode so field components know which mode is active.
+ * /iq/genie6/generate/:mode — seed draft state + redirect to /:mode/form.
+ *
+ * Wizard mode was removed (Track 5+); the only flow is the dense form. Onboarding /
+ * wizard tour lives separately at /iq/genie6/wizard for first-time users.
  */
 export function GenerateScaffold() {
   const { mode } = useParams<{ mode: string }>();
@@ -30,10 +30,7 @@ export function GenerateScaffold() {
     }
 
     dispatch({ type: "SET_MODE", mode: mode as ModeId });
-
-    const pref = window.localStorage.getItem(PREF_KEY) as "wizard" | "form" | null;
-    const target = pref === "wizard" ? "wizard" : "form";
-    navigate(`/iq/genie6/generate/${mode}/${target}`, { replace: true });
+    navigate(`/iq/genie6/generate/${mode}/form`, { replace: true });
   }, [mode, navigate, dispatch]);
 
   return null;

@@ -1,113 +1,44 @@
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowUpRight, ChevronRight, Building2, Globe, Upload, Sparkles } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Building2, Globe, Sparkles, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { brands, categories, avatars, voices } from "../mocks";
 import { DotGridPattern } from "../components/DotGridPattern";
+import { useGenie6Theme } from "../hooks/useGenie6Theme";
+import { StudioSettings } from "../variants/studio/StudioSettings";
+import { CanvasSettings } from "../variants/canvas/CanvasSettings";
+import { CommandSettings } from "../variants/command/CommandSettings";
+import { ModularSettings } from "../variants/modular/ModularSettings";
 
-const SECTIONS = [
-  {
-    to: "/iq/genie6/settings/brands",
-    label: "Brand Settings",
-    description: "Profiles · fonts + colors + voice + USPs · compliance per brand × category · competitors",
-    countLabel: "brands",
-    getCount: () => brands.length,
-  },
-  {
-    to: "/iq/genie6/settings/categories",
-    label: "Category Settings",
-    description: "Knowledge bases · reference URLs · winner creatives · feedback log · similar categories",
-    countLabel: "categories",
-    getCount: () => categories.length,
-  },
-  {
-    to: "/iq/genie6/settings/avatars",
-    label: "Avatar Library",
-    description: "Personas for UGC Video mode. Indian + global demographics seeded.",
-    countLabel: "avatars",
-    getCount: () => avatars.length,
-  },
-  {
-    to: "/iq/genie6/settings/voices",
-    label: "Voice Library",
-    description: "Voice samples per language. Match to avatar + audience for UGC.",
-    countLabel: "voices",
-    getCount: () => voices.length,
-  },
-  {
-    to: "/iq/genie6/settings/templates",
-    label: "Templates",
-    description: "Visual layouts saved from winning ads. Apply on future generations.",
-    countLabel: "templates",
-    getCount: () => 0,
-  },
-  {
-    to: "/iq/genie6/settings/disclosure",
-    label: "AI disclosure",
-    description: "When the AI-generated stamp appears on exports — Always · Regulated regions · Never (C2PA standard).",
-    countLabel: "",
-    getCount: () => 0,
-  },
-] as const;
-
+/**
+ * SettingsHub — variant-aware router.
+ *
+ * Each architectural variant has its own Settings hub layout in
+ * src/genie6/variants/. The detail editor pages (BrandSettings,
+ * CategoryKBEditor, etc.) are still shared — only the hub view differs
+ * per variant.
+ *
+ * Zero-data state is variant-agnostic.
+ */
 export function SettingsHub() {
   const [searchParams] = useSearchParams();
+  const { variant } = useGenie6Theme();
+
   if (searchParams.get("empty") === "1") return <SettingsZeroData />;
 
-  return (
-    <div className="mx-auto max-w-4xl px-6 py-8">
-      <header className="mb-8">
-        <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-          settings
-        </p>
-        <h1 className="mt-1 font-g6-sans text-g6-h2 font-bold text-g6-text">
-          Profiles & libraries
-        </h1>
-        <p className="mt-1 text-g6-base text-g6-text-secondary">
-          Brand identity, category knowledge bases, avatar + voice libraries, layout templates.
-        </p>
-      </header>
-
-      <ul className="space-y-2">
-        {SECTIONS.map((s) => (
-          <li key={s.to}>
-            <Link
-              to={s.to}
-              className="group flex items-center gap-4 rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-4 transition-colors hover:border-g6-primary-border hover:bg-g6-primary-bg"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="font-g6-sans text-g6-lg font-semibold text-g6-text">
-                    {s.label}
-                  </h2>
-                  <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">
-                    {s.getCount()} {s.countLabel}
-                  </span>
-                </div>
-                <p className="mt-1 text-g6-sm text-g6-text-secondary">{s.description}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-g6-text-tertiary transition-transform group-hover:translate-x-0.5 group-hover:text-g6-text" />
-            </Link>
-          </li>
-        ))}
-        <li>
-          <a
-            href="/dashboard"
-            className="group flex items-center gap-4 rounded-g6-card border border-g6-border-secondary bg-g6-bg-base p-4 transition-colors hover:bg-g6-bg-container"
-          >
-            <div className="flex-1">
-              <h2 className="font-g6-sans text-g6-lg font-semibold text-g6-text">Account · Plan · Billing</h2>
-              <p className="mt-1 text-g6-sm text-g6-text-secondary">Managed in FabAds settings.</p>
-            </div>
-            <ArrowUpRight className="h-4 w-4 text-g6-text-tertiary group-hover:text-g6-text" />
-          </a>
-        </li>
-      </ul>
-    </div>
-  );
+  switch (variant) {
+    case "canvas":
+      return <CanvasSettings />;
+    case "command":
+      return <CommandSettings />;
+    case "modular":
+      return <ModularSettings />;
+    case "studio":
+    default:
+      return <StudioSettings />;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────
-   Zero-data state (Track 4.9)
+   Zero-data state (Track 4.9) — variant-agnostic
    ───────────────────────────────────────────────────────── */
 function SettingsZeroData() {
   const navigate = useNavigate();

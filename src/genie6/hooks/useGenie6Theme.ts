@@ -2,27 +2,35 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 
 /**
- * Genie 6 theme + variant mirror (Track 5).
+ * Genie 6 theme + architectural variant mirror.
  *
  * Sets two attributes on <html>:
- *   data-theme="light|dark"           — mirrored from FabAds' next-themes
- *   data-genie6-variant="..."         — selected design direction (Track 5)
+ *   data-theme="light|dark"               — mirrored from FabAds' next-themes
+ *   data-genie6-variant="..."             — architectural variant (full layout fork)
  *
- * Variants: mirage | operator | soft | mercury (default = operator).
+ * Architectural variants (each is a complete UI architecture, not a token swap):
+ *   studio   — 3-column workspace (mode tree + form + live preview)         · default
+ *   canvas   — editor-first (massive viewport + vertical tools)
+ *   command  — ops dashboard (KPIs + brands + activity always visible)
+ *   modular  — composable workbench (draggable module cards on dark canvas)
  *
- * On unmount (leaving /iq/genie6/* routes), both attributes are removed so
- * FabAds' .dark-class theme keeps working unaffected on other routes.
+ * Each variant has its own React component implementations per surface
+ * (Home / Workspace / Generate / Library / Settings). Page-level routers in
+ * src/genie6/variants/ select the right impl by reading this hook.
+ *
+ * Old token-only variants (mirage/operator/soft/mercury) were superseded by
+ * this architectural-variant system in the same sprint.
  */
 
-export type GenieVariant = "mirage" | "operator" | "soft" | "mercury";
+export type GenieVariant = "studio" | "canvas" | "command" | "modular";
 
 const VARIANT_KEY = "genie6-variant";
-const DEFAULT_VARIANT: GenieVariant = "operator";
+const DEFAULT_VARIANT: GenieVariant = "studio";
 
 function readVariant(): GenieVariant {
   if (typeof window === "undefined") return DEFAULT_VARIANT;
   const v = window.localStorage.getItem(VARIANT_KEY);
-  return v === "mirage" || v === "operator" || v === "soft" || v === "mercury"
+  return v === "studio" || v === "canvas" || v === "command" || v === "modular"
     ? v
     : DEFAULT_VARIANT;
 }
@@ -31,7 +39,6 @@ export function useGenie6Theme() {
   const { resolvedTheme } = useTheme();
   const [variant, setVariantState] = useState<GenieVariant>(readVariant);
 
-  // Mirror theme + variant onto <html>
   useEffect(() => {
     const value = resolvedTheme === "dark" ? "dark" : "light";
     document.documentElement.dataset.theme = value;
@@ -42,7 +49,6 @@ export function useGenie6Theme() {
     };
   }, [resolvedTheme, variant]);
 
-  // Cross-tab sync
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === VARIANT_KEY) setVariantState(readVariant());

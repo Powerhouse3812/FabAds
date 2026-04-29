@@ -123,8 +123,7 @@ function NewGenerationOverlayDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(next) => (next ? null : onClose())}>
       <DialogContent
-        className="g6-root max-w-2xl border-g6-border bg-g6-bg-elevated p-0 text-g6-text"
-        showCloseButton={false}
+        className="g6-root max-w-2xl border-g6-border bg-g6-bg-elevated p-0 text-g6-text [&>button.absolute]:hidden"
       >
         <div className="g6-dot-grid-bg relative">
           {/* Header */}

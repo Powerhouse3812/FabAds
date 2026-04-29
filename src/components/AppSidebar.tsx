@@ -100,6 +100,7 @@ const MODULES: ModuleDef[] = [
       { label: "Generate", path: "/iq/genie6/generate", icon: PenLine },
       { label: "Library", path: "/iq/genie6/library", icon: LibraryIcon },
       { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
+      { label: "Wizard / Tour", path: "/iq/genie6/wizard", icon: Sparkles },
     ],
   },
   {

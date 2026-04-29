@@ -16,8 +16,8 @@ import { WorkspaceView, WorkspaceIndex } from "./workspace/WorkspaceView";
 import { GenerateOutlet } from "./generate/GenerateOutlet";
 import { GenerateScaffold } from "./generate/GenerateScaffold";
 import { ModePicker } from "./generate/ModePicker";
-import { WizardScaffold } from "./generate/WizardScaffold";
 import { FormScaffold } from "./generate/FormScaffold";
+import { WizardTour } from "./onboarding/WizardTour";
 import { ProgressScreen } from "./generate/ProgressScreen";
 import { ResultsScreen } from "./generate/ResultsScreen";
 
@@ -64,10 +64,12 @@ export const genie6Routes = (
     <Route path="generate" element={<GenerateOutlet />}>
       <Route index element={<ModePicker />} />
       <Route path=":mode" element={<GenerateScaffold />} />
-      <Route path=":mode/wizard" element={<WizardScaffold />} />
       <Route path=":mode/form" element={<FormScaffold />} />
       <Route path=":mode/progress/:batchId" element={<ProgressScreen />} />
       <Route path=":mode/results/:batchId" element={<ResultsScreen />} />
     </Route>
+
+    {/* Onboarding wizard / tour — stub for now, real flow built last */}
+    <Route path="wizard" element={<WizardTour />} />
   </Route>
 );
