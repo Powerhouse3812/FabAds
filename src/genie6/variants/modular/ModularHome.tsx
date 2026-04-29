@@ -53,14 +53,14 @@ export function ModularHome() {
               />
             )}
             <div className="min-w-0 flex-1 space-y-2">
-              <span className="inline-flex items-center gap-1 rounded-g6-pill bg-g6-primary px-2 py-0.5 font-g6-mono text-g6-xs font-bold uppercase text-g6-text-on-accent">
-                <Sparkles className="h-2.5 w-2.5" /> top performer
+              <span className="inline-flex items-center gap-1 rounded-g6-pill border border-g6-border bg-g6-bg-container/60 px-2 py-0.5 font-g6-mono text-g6-xs font-bold uppercase text-g6-text-secondary">
+                <Sparkles className="h-2.5 w-2.5 text-g6-text-tertiary" /> top performer
               </span>
               <p className="text-g6-h4 font-bold text-g6-text">
                 {a.topPerformer.brand} · {a.topPerformer.product}
               </p>
               <div className="flex items-baseline gap-4">
-                <span className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-primary">{a.topPerformer.ctr}% CTR</span>
+                <span className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-text">{a.topPerformer.ctr}% CTR</span>
                 <span className="font-g6-mono text-g6-base font-bold tabular-nums text-g6-text">{a.topPerformer.roas}× ROAS</span>
               </div>
             </div>
@@ -113,7 +113,7 @@ export function ModularHome() {
                   {b.logo ? (
                     <img src={b.logo} alt={b.name} className="h-5 w-5 rounded-sm object-cover bg-g6-bg-spotlight" />
                   ) : (
-                    <div className="h-5 w-5 rounded-sm bg-g6-primary-bg flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-primary">
+                    <div className="h-5 w-5 rounded-sm bg-g6-bg-spotlight flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-text-secondary">
                       {b.name[0]}
                     </div>
                   )}
@@ -129,7 +129,7 @@ export function ModularHome() {
         <ModuleCard title="trending_module" className="lg:col-span-2">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <FindingTile
-              icon={<TrendingUp className="h-3 w-3 text-g6-primary" />}
+              icon={<TrendingUp className="h-3 w-3 text-g6-text-tertiary" />}
               label="angle ↑"
               value={`+${a.trendingFinding.deltaPct}%`}
               sub={a.trendingFinding.angleLabel}

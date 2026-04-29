@@ -108,7 +108,7 @@ export function CommandHome() {
                         {b.logo ? (
                           <img src={b.logo} alt={b.name} className="h-5 w-5 rounded-sm object-cover bg-g6-bg-spotlight" />
                         ) : (
-                          <div className="h-5 w-5 rounded-sm bg-g6-primary-bg flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-primary">
+                          <div className="h-5 w-5 rounded-sm bg-g6-bg-spotlight flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-text-secondary">
                             {b.name[0]}
                           </div>
                         )}
@@ -158,7 +158,7 @@ export function CommandHome() {
       {/* RIGHT — activity feed */}
       <aside className="overflow-y-auto rounded-g6-base border border-g6-border bg-g6-bg-container">
         <header className="border-b border-g6-border-secondary bg-g6-bg-base px-4 py-3 flex items-center gap-2">
-          <Activity className="h-3.5 w-3.5 text-g6-primary" />
+          <Activity className="h-3.5 w-3.5 text-g6-text-tertiary" />
           <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
             Live activity
           </p>

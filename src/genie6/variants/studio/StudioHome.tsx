@@ -51,7 +51,7 @@ export function StudioHome() {
                 {b.logo ? (
                   <img src={b.logo} alt={b.name} className="h-5 w-5 rounded-sm object-cover bg-g6-bg-spotlight" />
                 ) : (
-                  <div className="h-5 w-5 rounded-sm bg-g6-primary-bg flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-primary">
+                  <div className="h-5 w-5 rounded-sm bg-g6-bg-spotlight flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-text-secondary">
                     {b.name[0]}
                   </div>
                 )}
@@ -84,14 +84,14 @@ export function StudioHome() {
             )}
             <div className="absolute inset-0 bg-gradient-to-r from-g6-bg-base via-g6-bg-base/60 to-transparent" />
             <div className="relative p-5 space-y-2">
-              <span className="inline-flex items-center gap-1 rounded-g6-pill bg-g6-primary px-2 py-0.5 font-g6-mono text-g6-xs font-semibold uppercase text-g6-text-on-accent">
-                <Sparkles className="h-2.5 w-2.5" /> top performer
+              <span className="inline-flex items-center gap-1 rounded-g6-pill border border-g6-border bg-g6-bg-container px-2 py-0.5 font-g6-mono text-g6-xs font-semibold uppercase text-g6-text-secondary">
+                <Sparkles className="h-2.5 w-2.5 text-g6-text-tertiary" /> top performer
               </span>
               <p className="text-g6-h4 font-bold text-g6-text">
                 {analytics.topPerformer.brand} · {analytics.topPerformer.product}
               </p>
               <div className="flex items-baseline gap-5 pt-1">
-                <span className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-primary">
+                <span className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-text">
                   {analytics.topPerformer.ctr}% <span className="text-g6-xs text-g6-text-tertiary">CTR</span>
                 </span>
                 <span className="font-g6-mono text-g6-h4 font-bold tabular-nums text-g6-text">
@@ -174,7 +174,7 @@ export function StudioHome() {
           </p>
           <div className="space-y-2">
             <FindingCard
-              icon={<TrendingUp className="h-3.5 w-3.5 text-g6-primary" />}
+              icon={<TrendingUp className="h-3.5 w-3.5 text-g6-text-tertiary" />}
               title="Aspirational angle ↑"
               text={`+${analytics.trendingFinding.deltaPct}% CTR week-over-week`}
               cta="See angles"
@@ -248,7 +248,7 @@ function FindingCard({ icon, title, text, cta, onCta }: { icon?: React.ReactNode
         <button
           type="button"
           onClick={onCta}
-          className="inline-flex items-center gap-1 text-g6-xs font-medium text-g6-primary hover:opacity-70"
+          className="inline-flex items-center gap-1 text-g6-xs font-medium text-g6-text-secondary hover:text-g6-text"
         >
           {cta} <ChevronRight className="h-3 w-3" />
         </button>

@@ -41,7 +41,7 @@ export function LineageChip({ parentWinnerId, className, variant = "compact" }: 
           (className ?? "")
         }
       >
-        <GitBranch className="h-3.5 w-3.5 text-g6-primary" aria-hidden />
+        <GitBranch className="h-3.5 w-3.5 text-g6-text-tertiary" aria-hidden />
         <div className="flex-1 min-w-0">
           <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
             Variant of

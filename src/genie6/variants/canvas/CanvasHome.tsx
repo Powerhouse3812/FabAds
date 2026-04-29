@@ -70,14 +70,14 @@ export function CanvasHome() {
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-g6-bg-base/80 via-transparent to-transparent" />
               <div className="absolute bottom-4 left-4 right-4 space-y-1">
-                <span className="inline-flex items-center gap-1 rounded-g6-pill bg-g6-primary px-2 py-0.5 font-g6-mono text-g6-xs font-bold uppercase text-g6-text-on-accent">
-                  <Sparkles className="h-2.5 w-2.5" /> top performer
+                <span className="inline-flex items-center gap-1 rounded-g6-pill border border-g6-border bg-g6-bg-container/80 backdrop-blur-md px-2 py-0.5 font-g6-mono text-g6-xs font-bold uppercase text-g6-text-secondary">
+                  <Sparkles className="h-2.5 w-2.5 text-g6-text-tertiary" /> top performer
                 </span>
                 <p className="text-g6-h4 font-bold text-g6-text">
                   {analytics.topPerformer.brand} · {analytics.topPerformer.product}
                 </p>
                 <div className="flex items-baseline gap-4">
-                  <span className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-primary">{analytics.topPerformer.ctr}% CTR</span>
+                  <span className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-text">{analytics.topPerformer.ctr}% CTR</span>
                   <span className="font-g6-mono text-g6-base font-bold tabular-nums text-g6-text">{analytics.topPerformer.roas}× ROAS</span>
                 </div>
               </div>
