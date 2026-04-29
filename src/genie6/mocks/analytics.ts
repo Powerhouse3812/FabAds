@@ -13,8 +13,9 @@ export const analyticsAgency: AnalyticsSnapshot = {
     product: "Onion shampoo",
     ctr: 4.73,
     roas: 3.2,
+    // Shampoo / hair-care product close-up (real product feel, not a person photo).
     thumbnail:
-      "https://images.unsplash.com/photo-1559599101-f09722fb4948?auto=format&fit=crop&w=600&q=70",
+      "https://images.unsplash.com/photo-1631730486572-226d1f595b68?auto=format&fit=crop&w=600&q=70",
     mode: "Product Ad",
   },
   trendingFinding: {
@@ -35,9 +36,10 @@ export const analyticsSolo: AnalyticsSnapshot = {
     product: "Vitamin C face wash",
     ctr: 5.18,
     roas: 4.1,
+    // Face wash / skincare product close-up.
     thumbnail:
-      "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=600&q=70",
-    mode: "Image to Video",
+      "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=600&q=70",
+    mode: "Image to Ad",
   },
   trendingFinding: {
     headline: "Image-to-Video is your new winner",

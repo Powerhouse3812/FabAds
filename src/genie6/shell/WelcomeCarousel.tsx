@@ -33,7 +33,7 @@ const SLIDES: Slide[] = [
   {
     badge: "what is genie 6.0",
     title: "Winner-first AI ad generator.",
-    body: "7 modes — Brand, Product, Affiliate, UGC, Forge, Image-to-Adcopy, Image-to-Video. Built for paid social teams who scale ads daily.",
+    body: "6 modes — Brand, Product, Affiliate, UGC, Variants, Image-to-Ad. Built for paid social teams who scale ads daily.",
   },
   {
     badge: "your first generation",
@@ -43,7 +43,7 @@ const SLIDES: Slide[] = [
   {
     badge: "the winner-first loop",
     title: "Feedback compounds. Forever.",
-    body: "Save winners. Forge 10 more from any one. Every variant tracks lineage to its parent. Your library gets smarter with every batch.",
+    body: "Save winners. Generate 10 more variants from any one. Every variant tracks lineage to its parent. Your library gets smarter with every batch.",
     cta: "Get started",
   },
 ];

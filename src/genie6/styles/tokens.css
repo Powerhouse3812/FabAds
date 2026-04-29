@@ -113,30 +113,41 @@
    regular tokens — they don't fork on variant.
    ============================================================ */
 
-/* Canvas variant — always dark cosmic regardless of system theme */
+/* Canvas variant — always dark cosmic regardless of system theme.
+   Includes glass + bg/text/border overrides so the dark surface stays self-consistent
+   even when the user's system theme is light. */
 [data-genie6-variant="canvas"] {
   --g6-color-bg-base: #0a0a0e;
   --g6-color-bg-container: #14141c;
   --g6-color-bg-elevated: #1c1c28;
   --g6-color-bg-spotlight: #28283a;
+  --g6-color-bg-muted: #16161e;
   --g6-color-text: rgba(255, 255, 255, 0.92);
   --g6-color-text-secondary: rgba(255, 255, 255, 0.62);
-  --g6-color-text-tertiary: rgba(255, 255, 255, 0.42);
+  --g6-color-text-tertiary: rgba(255, 255, 255, 0.50);
+  --g6-color-text-disabled: rgba(255, 255, 255, 0.28);
   --g6-color-border: #28283a;
   --g6-color-border-secondary: #1a1a26;
+  --g6-glass-bg: rgba(20, 20, 30, 0.62);
+  --g6-glass-border: rgba(255, 255, 255, 0.08);
 }
 
-/* Modular variant — dark with stronger glass + glow */
+/* Modular variant — dark cosmic with stronger glass + glow. Same self-consistency:
+   glass tokens forced to dark so module cards don't leak light tokens through. */
 [data-genie6-variant="modular"] {
   --g6-color-bg-base: #0d0d12;
   --g6-color-bg-container: rgba(20, 20, 30, 0.6);
   --g6-color-bg-elevated: rgba(28, 28, 40, 0.75);
   --g6-color-bg-spotlight: #28283a;
+  --g6-color-bg-muted: rgba(20, 20, 30, 0.4);
   --g6-color-text: rgba(255, 255, 255, 0.92);
-  --g6-color-text-secondary: rgba(255, 255, 255, 0.62);
-  --g6-color-text-tertiary: rgba(255, 255, 255, 0.42);
-  --g6-color-border: rgba(255, 255, 255, 0.08);
-  --g6-color-border-secondary: rgba(255, 255, 255, 0.05);
+  --g6-color-text-secondary: rgba(255, 255, 255, 0.70);
+  --g6-color-text-tertiary: rgba(255, 255, 255, 0.55);
+  --g6-color-text-disabled: rgba(255, 255, 255, 0.30);
+  --g6-color-border: rgba(255, 255, 255, 0.10);
+  --g6-color-border-secondary: rgba(255, 255, 255, 0.06);
+  --g6-glass-bg: rgba(22, 22, 32, 0.62);
+  --g6-glass-border: rgba(255, 255, 255, 0.08);
   --g6-glass-blur: 28px;
 }
 
