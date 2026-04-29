@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpRight, ChevronRight, Sparkles, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
 import { OutputCard } from "../../components/OutputCard";
+import { HeroPromptInput } from "../../components/HeroPromptInput";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
@@ -22,6 +24,11 @@ import { greeting } from "../../utils/greeting";
 export function StudioHome() {
   const navigate = useNavigate();
   const analytics = analyticsAgency;
+  const [prompt, setPrompt] = useState("");
+  const handlePromptSubmit = () => {
+    if (!prompt.trim()) return;
+    navigate("/iq/genie6/generate/product-ad/form");
+  };
 
   return (
     <div className="grid h-full grid-cols-[200px_1fr_280px] gap-3 p-3">
@@ -111,18 +118,25 @@ export function StudioHome() {
           </div>
         </section>
 
-        {/* Mode launcher */}
-        <section className="space-y-3">
+        {/* Generate section — folded in from the dropped /generate sidebar item.
+             Was a separate ModePicker page; now embedded in Dashboard. Hero
+             prompt input on top + 6 mode tiles below. Submitting the prompt
+             routes to /generate/product-ad/form by default; clicking a tile
+             routes to that mode's form. */}
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-g6-base font-semibold text-g6-text">Pick a mode</h2>
-            <button
-              type="button"
-              onClick={() => navigate("/iq/genie6/generate")}
-              className="text-g6-xs text-g6-text-tertiary hover:text-g6-text"
-            >
-              View all →
-            </button>
+            <h2 className="text-g6-h4 font-bold text-g6-text">Generate</h2>
+            <span className="text-g6-xs text-g6-text-tertiary">paste a URL or pick a mode</span>
           </div>
+
+          <HeroPromptInput
+            value={prompt}
+            onChange={setPrompt}
+            onSubmit={handlePromptSubmit}
+            placeholder="paste a URL or describe the generation"
+            size="lg"
+          />
+
           <div className="grid grid-cols-3 gap-2">
             {modeConfigs.map((cfg) => (
               <button

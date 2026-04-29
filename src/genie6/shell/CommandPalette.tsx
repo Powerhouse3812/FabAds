@@ -112,21 +112,20 @@ function CommandPalette() {
         <CommandSeparator />
 
         <CommandGroup heading="Jump to">
+          {/* Updated for iter-3 IA: Home → Dashboard, Assets → Library, current
+              Library → Generations. Generate folded into Dashboard (no separate
+              entry). Settings still here for global preferences. */}
           <CommandItem onSelect={() => run(() => navigate("/iq/genie6"))}>
             <Home className="h-4 w-4" />
-            Home
+            Dashboard
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate("/iq/genie6/workspace/brands"))}>
             <FolderTree className="h-4 w-4" />
-            Assets
-          </CommandItem>
-          <CommandItem onSelect={() => run(() => navigate("/iq/genie6/generate"))}>
-            <PenLine className="h-4 w-4" />
-            Generate
+            Library
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate("/iq/genie6/library"))}>
             <LibraryIcon className="h-4 w-4" />
-            Library
+            Generations
           </CommandItem>
           <CommandItem onSelect={() => run(() => navigate("/iq/genie6/settings"))}>
             <Settings className="h-4 w-4" />
