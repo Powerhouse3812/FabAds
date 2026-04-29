@@ -55,7 +55,7 @@ export function Genie6Bridge() {
   }, [pathname, openOverlay]);
 
   return (
-    <div className="g6-root flex flex-1 flex-col">
+    <div className="g6-root flex flex-1 flex-col" data-g6-build="2026-04-29-2056">
       <Outlet />
     </div>
   );
