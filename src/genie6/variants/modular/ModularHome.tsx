@@ -78,7 +78,7 @@ export function ModularHome() {
               <div className="h-full rounded-g6-pill bg-g6-primary" style={{ width: `${(a.creditsUsed.used / a.creditsUsed.limit) * 100}%` }} />
             </div>
             <p className="font-g6-mono text-g6-xs text-g6-text-tertiary">
-              {Math.round(((a.creditsUsed.limit - a.creditsUsed.used) / 100) * 0.5)} hrs of generation left
+              {(a.creditsUsed.limit - a.creditsUsed.used).toLocaleString("en-IN")} credits remaining
             </p>
           </div>
         </ModuleCard>
@@ -133,9 +133,20 @@ export function ModularHome() {
               label="angle ↑"
               value={`+${a.trendingFinding.deltaPct}%`}
               sub={a.trendingFinding.angleLabel}
+              onClick={() => navigate("/iq/genie6/workspace/angles")}
             />
-            <FindingTile label="ugc usage" value="3×" sub="vs last month" />
-            <FindingTile label="winners imported" value="5" sub="from Insights" />
+            <FindingTile
+              label="ugc usage"
+              value="3×"
+              sub="vs last month"
+              onClick={() => navigate("/iq/genie6/generate/ugc-video/form")}
+            />
+            <FindingTile
+              label="winners imported"
+              value="5"
+              sub="from Insights"
+              onClick={() => navigate("/iq/genie6/generate/forge/form")}
+            />
           </div>
         </ModuleCard>
 
@@ -211,15 +222,22 @@ function ModuleCard({ title, className, children }: { title: string; className?:
   );
 }
 
-function FindingTile({ icon, label, value, sub }: { icon?: React.ReactNode; label: string; value: string; sub?: string }) {
+function FindingTile({ icon, label, value, sub, onClick }: { icon?: React.ReactNode; label: string; value: string; sub?: string; onClick?: () => void }) {
+  const Wrapper = onClick ? "button" : "div";
   return (
-    <div className="rounded-g6-base border border-g6-border-secondary bg-g6-bg-base/50 p-3">
+    <Wrapper
+      onClick={onClick}
+      className={cn(
+        "rounded-g6-base border border-g6-border-secondary bg-g6-bg-base/50 p-3 text-left w-full",
+        onClick && "transition-colors hover:border-g6-primary-border hover:bg-g6-primary-bg/30 cursor-pointer"
+      )}
+    >
       <div className="flex items-center gap-1 mb-1">
         {icon}
         <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">{label}</p>
       </div>
       <p className="font-g6-mono text-g6-h4 font-bold tabular-nums text-g6-text">{value}</p>
       {sub && <p className="text-g6-xs text-g6-text-tertiary mt-0.5">{sub}</p>}
-    </div>
+    </Wrapper>
   );
 }

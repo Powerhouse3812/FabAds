@@ -164,15 +164,21 @@ export function CommandHome() {
         </header>
         <ul className="divide-y divide-g6-border-secondary">
           {[
-            { kind: "gen", brand: "Mamaearth", text: "12 Product Ad variants", ago: "2m" },
-            { kind: "winner", brand: "Noise", text: "3.92% CTR — new top", ago: "18m" },
-            { kind: "gen", brand: "Boat", text: "8 UGC Video gens", ago: "1h" },
-            { kind: "import", brand: "Sleepyhead", text: "5 winners imported", ago: "2h" },
-            { kind: "gen", brand: "Mensa", text: "16 Brand Ad gens", ago: "3h" },
-            { kind: "winner", brand: "Mamaearth", text: "4.73% CTR — top performer", ago: "5h" },
-            { kind: "gen", brand: "Plum", text: "6 Affiliate Ad copies", ago: "8h" },
+            { kind: "gen", brandId: "mamaearth", brand: "Mamaearth", text: "12 Product Ad variants", ago: "2m" },
+            { kind: "winner", brandId: "noise", brand: "Noise", text: "3.92% CTR — new top", ago: "18m" },
+            { kind: "gen", brandId: "boat", brand: "Boat", text: "8 UGC Video gens", ago: "1h" },
+            { kind: "import", brandId: "sleepyhead", brand: "Sleepyhead", text: "5 winners imported", ago: "2h" },
+            { kind: "gen", brandId: "mensa-brands", brand: "Mensa", text: "16 Brand Ad gens", ago: "3h" },
+            { kind: "winner", brandId: "mamaearth", brand: "Mamaearth", text: "4.73% CTR — top performer", ago: "5h" },
+            { kind: "gen", brandId: "plum", brand: "Plum", text: "6 Affiliate Ad copies", ago: "8h" },
           ].map((ev, i) => (
-            <li key={i} className="px-4 py-3 hover:bg-g6-bg-spotlight cursor-pointer transition-colors">
+            <li
+              key={i}
+              onClick={() => navigate(`/iq/genie6/workspace/brands/${ev.brandId}`)}
+              className="px-4 py-3 hover:bg-g6-bg-spotlight cursor-pointer transition-colors"
+              role="button"
+              tabIndex={0}
+            >
               <div className="flex items-start gap-2">
                 <span className={cn(
                   "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",

@@ -11,6 +11,10 @@ import { ConceptsTab } from "../../library/tabs/ConceptsTab";
 import { TemplatesTab } from "../../library/tabs/TemplatesTab";
 import { AvatarsTab } from "../../library/tabs/AvatarsTab";
 import { AudiencesTab } from "../../library/tabs/AudiencesTab";
+import { EmptyStateOnboarding } from "../../components/EmptyStateOnboarding";
+import { EMPTY_CONFIGS } from "../../components/emptyStateConfigs";
+import { DemoDataToggle } from "../../components/DemoDataToggle";
+import { useDemoData } from "../../hooks/useDemoData";
 
 type ViewMode = "tree" | "master-detail" | "cards";
 type AssetTab = "brands" | "categories" | "hooks" | "angles" | "concepts" | "templates" | "avatars" | "audiences";
@@ -19,14 +23,14 @@ const STORAGE_KEY = "genie6-workspace-view-modular";
 const DEFAULT_VIEW: ViewMode = "cards";
 
 const TABS: Array<{ slug: AssetTab; label: string; count: number }> = [
-  { slug: "brands", label: "brands_module", count: 7 },
-  { slug: "categories", label: "categories_module", count: 6 },
-  { slug: "hooks", label: "hooks_module", count: 84 },
-  { slug: "angles", label: "angles_module", count: 28 },
-  { slug: "concepts", label: "concepts_module", count: 16 },
-  { slug: "templates", label: "templates_module", count: 12 },
-  { slug: "avatars", label: "avatars_module", count: 9 },
-  { slug: "audiences", label: "audiences_module", count: 24 },
+  { slug: "brands", label: "brands", count: 7 },
+  { slug: "categories", label: "categories", count: 6 },
+  { slug: "hooks", label: "hooks", count: 84 },
+  { slug: "angles", label: "angles", count: 28 },
+  { slug: "concepts", label: "concepts", count: 16 },
+  { slug: "templates", label: "templates", count: 12 },
+  { slug: "avatars", label: "avatars", count: 9 },
+  { slug: "audiences", label: "audiences", count: 24 },
 ];
 
 function loadView(): ViewMode {
@@ -55,6 +59,7 @@ export function ModularWorkspace() {
   const activeTabConfig = TABS.find((t) => t.slug === tab) ?? TABS[0];
   const [view, setView] = useState<ViewMode>(loadView);
   const [search, setSearch] = useState("");
+  const { on: demoOn } = useDemoData();
 
   const update = (next: ViewMode) => {
     window.localStorage.setItem(STORAGE_KEY, next);
@@ -62,6 +67,7 @@ export function ModularWorkspace() {
   };
 
   const showViewSwitcher = NEEDS_HIERARCHY.includes(tab);
+  const emptyConfig = EMPTY_CONFIGS[tab];
 
   return (
     <div className="g6-halo relative flex h-full flex-col p-6">
@@ -73,6 +79,7 @@ export function ModularWorkspace() {
           <h1 className="text-g6-h2 font-bold tracking-[-0.02em] text-g6-text mt-1">Assets</h1>
         </div>
         <div className="flex items-center gap-2">
+          <DemoDataToggle />
           {showViewSwitcher && <ViewSwitcher value={view} onChange={update} />}
           <button
             type="button"
@@ -84,22 +91,27 @@ export function ModularWorkspace() {
         </div>
       </header>
 
-      <div className="relative z-10 mb-4 flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <TabPill key={t.slug} href={`/iq/genie6/workspace/${t.slug}`} label={t.label} count={t.count} active={tab === t.slug} />
+      <div className="relative z-10 mb-4 flex flex-wrap items-center gap-2">
+        {TABS.map((t, i) => (
+          <span key={t.slug} className="inline-flex items-center gap-2">
+            <TabPill href={`/iq/genie6/workspace/${t.slug}`} label={t.label} count={t.count} active={tab === t.slug} />
+            {i === 1 && <span className="h-4 w-px bg-g6-border" aria-hidden />}
+          </span>
         ))}
       </div>
 
       <div className="g6-glass relative z-10 flex flex-1 flex-col overflow-hidden rounded-g6-card">
         <header className="flex items-center justify-between border-b border-g6-border-secondary px-4 py-2.5">
           <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-            <span className="text-g6-primary">&gt;</span> {activeTabConfig.label}
+            <span className="text-g6-primary">&gt;</span> {activeTabConfig.label}_module
             {showViewSwitcher && <span className="text-g6-text-disabled"> · {view.replace("-", "_")}_view</span>}
           </p>
           <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
         </header>
         <div className="flex-1 overflow-hidden">
-          {tab === "brands" || tab === "categories" ? (
+          {!demoOn && emptyConfig ? (
+            <EmptyStateOnboarding {...emptyConfig} />
+          ) : tab === "brands" || tab === "categories" ? (
             <>
               {view === "tree" && <WorkspaceTree tab={tab} initialId={params.brandId ?? params.categoryId} />}
               {view === "master-detail" && <WorkspaceMasterDetail tab={tab} initialId={params.brandId ?? params.categoryId} />}

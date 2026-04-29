@@ -17,7 +17,7 @@ export const sampleOutputs: OutputData[] = [
     mode: "product-ad",
     generatedAt: new Date(NOW - 2 * HOUR),
     thumbnail:
-      "https://images.unsplash.com/photo-1559599101-f09722fb4948?auto=format&fit=crop&w=600&q=70",
+      "https://images.unsplash.com/photo-1631730486572-226d1f595b68?auto=format&fit=crop&w=600&q=70",
     headline: "Hair fall is real. This is not.",
     body: "Mamaearth Onion Shampoo — clinically tested for visible reduction in 6 weeks.",
     cta: "Shop ₹699",
@@ -97,7 +97,7 @@ export const sampleOutputs: OutputData[] = [
     mode: "image-to-ad",
     generatedAt: new Date(NOW - 6 * DAY),
     thumbnail:
-      "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=600&q=70",
+      "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=600&q=70",
     headline: "Your favourite static, now in motion.",
     body: "Mamaearth Vitamin C Face Wash — 6s subtle parallax + product reveal.",
     cta: "Buy ₹399",
@@ -105,6 +105,7 @@ export const sampleOutputs: OutputData[] = [
     product: { name: "Vitamin C face wash" },
     qualityScore: 82,
     parentWinnerId: "var_s8m1q5z", // generated from a Sleepyhead winner
+    // Real face-wash product photo (was a generic photo before).
   },
   {
     id: "var_zerocase",

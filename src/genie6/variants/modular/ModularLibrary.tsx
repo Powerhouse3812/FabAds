@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { GripVertical, Search, Plus } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { GeneratedOutputsTab } from "../../library/tabs/GeneratedOutputsTab";
 import { PreviewPane } from "../../components/PreviewPane";
 import { brands } from "../../mocks/brands";
@@ -34,25 +34,21 @@ export function ModularLibrary() {
       </header>
 
       <div className="relative z-10 flex flex-1 gap-3 overflow-hidden">
-        <div className="g6-glass flex flex-1 flex-col overflow-hidden rounded-g6-card">
-          <header className="flex items-center justify-between border-b border-g6-border-secondary px-4 py-3">
-            <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-              <span className="text-g6-primary">&gt;</span> outputs_module
-              <span className="text-g6-text-disabled"> · 142</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate("/iq/genie6/generate")}
-                className="inline-flex items-center gap-1 rounded-g6-pill bg-g6-primary px-2.5 py-1 font-g6-mono text-g6-xs font-bold uppercase text-g6-text-on-accent"
-              >
-                <Plus className="h-3 w-3" /> generate
-              </button>
-              <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
-            </div>
-          </header>
+        {/* Single-module page — no inner module-card wrapper. The page header above already
+            establishes "this is the outputs module"; wrapping again creates redundant breadcrumb
+            (P0 from UX audit, option A). */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex items-center justify-end gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => navigate("/iq/genie6/generate")}
+              className="inline-flex items-center gap-1 rounded-g6-pill bg-g6-primary px-3 py-1.5 font-g6-mono text-g6-xs font-bold uppercase text-g6-text-on-accent shadow-g6-glow"
+            >
+              <Plus className="h-3 w-3" /> generate
+            </button>
+          </div>
 
-          <div className="flex items-center gap-2 border-b border-g6-border-secondary px-4 py-2">
+          <div className="flex items-center gap-2 border-y border-g6-border-secondary py-2 mb-3">
             <div className="flex items-center gap-2 rounded-g6-pill border border-g6-border-secondary bg-g6-bg-base/50 px-2.5 py-1">
               <Search className="h-3.5 w-3.5 text-g6-text-tertiary" />
               <input
@@ -82,7 +78,7 @@ export function ModularLibrary() {
             </select>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto">
             <GeneratedOutputsTab
               brandFilter={brandFilter === "all" ? "all" : brands.find((b) => b.id === brandFilter)?.name ?? "all"}
               perfFilter={perfFilter}

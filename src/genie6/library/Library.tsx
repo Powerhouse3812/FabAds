@@ -1,7 +1,12 @@
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Sparkles, ArrowUpRight } from "lucide-react";
 import { DotGridPattern } from "../components/DotGridPattern";
+import { EmptyStateOnboarding } from "../components/EmptyStateOnboarding";
+import { EMPTY_CONFIGS } from "../components/emptyStateConfigs";
+import { SkeletonOutputGrid } from "../components/Skeletons";
+import { ErrorState } from "../components/ErrorState";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
+import { useDemoData } from "../hooks/useDemoData";
 import { StudioLibrary } from "../variants/studio/StudioLibrary";
 import { CanvasLibrary } from "../variants/canvas/CanvasLibrary";
 import { CommandLibrary } from "../variants/command/CommandLibrary";
@@ -14,6 +19,9 @@ import { ModularLibrary } from "../variants/modular/ModularLibrary";
  * Concepts / Templates / Avatars / Audiences moved to Assets (formerly
  * Workspace).
  *
+ * When demo data is OFF or ?empty=1: render the interactive empty state
+ * (replaces all variants — Library has no tab structure to preserve).
+ *
  * Backward-compat redirect: if a deep link uses /library/<old-tab>, send
  * the user to the equivalent /workspace/<old-tab> (Assets) URL.
  */
@@ -23,6 +31,7 @@ export function Library() {
   const [searchParams] = useSearchParams();
   const { assetType } = useParams<{ assetType?: string }>();
   const { variant } = useGenie6Theme();
+  const { on: demoOn } = useDemoData();
 
   // Redirect old library tabs to their new home in Assets.
   if (assetType && ASSET_TYPES.has(assetType)) {
@@ -34,7 +43,26 @@ export function Library() {
     return <Navigate to="/iq/genie6/library" replace />;
   }
 
-  if (searchParams.get("empty") === "1") return <LibraryZeroData />;
+  // Demo flags for stakeholder walkthroughs
+  if (searchParams.get("loading") === "1") {
+    return (
+      <div className="p-6">
+        <div className="mb-4">
+          <div className="h-8 w-32 rounded bg-g6-bg-spotlight/60 animate-pulse" />
+        </div>
+        <SkeletonOutputGrid count={8} />
+      </div>
+    );
+  }
+
+  if (searchParams.get("error") === "1") {
+    return <ErrorState title="Couldn't load library" message="We couldn't fetch your generated outputs. Network issue, or the index is rebuilding. Retry in a moment." />;
+  }
+
+  // Empty state (either ?empty=1 explicit URL flag, or demo-data toggle is OFF)
+  if (searchParams.get("empty") === "1" || !demoOn) {
+    return <EmptyStateOnboarding {...EMPTY_CONFIGS.library} />;
+  }
 
   switch (variant) {
     case "canvas":
@@ -49,6 +77,8 @@ export function Library() {
   }
 }
 
+/** Legacy zero-data state (kept for direct ?empty=1 callers from outside). */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function LibraryZeroData() {
   const navigate = useNavigate();
   return (

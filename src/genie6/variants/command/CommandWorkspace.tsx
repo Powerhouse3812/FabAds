@@ -13,6 +13,10 @@ import { AvatarsTab } from "../../library/tabs/AvatarsTab";
 import { AudiencesTab } from "../../library/tabs/AudiencesTab";
 import { brands } from "../../mocks/brands";
 import { categories } from "../../mocks/categories";
+import { EmptyStateOnboarding } from "../../components/EmptyStateOnboarding";
+import { EMPTY_CONFIGS } from "../../components/emptyStateConfigs";
+import { DemoDataToggle } from "../../components/DemoDataToggle";
+import { useDemoData } from "../../hooks/useDemoData";
 
 type ViewMode = "tree" | "master-detail" | "cards";
 type AssetTab = "brands" | "categories" | "hooks" | "angles" | "concepts" | "templates" | "avatars" | "audiences";
@@ -56,6 +60,7 @@ export function CommandWorkspace() {
   const tab = detectTab(typeof window !== "undefined" ? window.location.pathname : "");
   const [view, setView] = useState<ViewMode>(loadView);
   const [search, setSearch] = useState("");
+  const { on: demoOn } = useDemoData();
 
   const update = (next: ViewMode) => {
     window.localStorage.setItem(STORAGE_KEY, next);
@@ -64,6 +69,7 @@ export function CommandWorkspace() {
 
   const showViewSwitcher = NEEDS_HIERARCHY.includes(tab);
   const totalAssets = TABS.reduce((sum, t) => sum + t.count, 0);
+  const emptyConfig = EMPTY_CONFIGS[tab];
 
   return (
     <div className="flex h-full flex-col p-3 gap-3">
@@ -76,13 +82,16 @@ export function CommandWorkspace() {
               · {totalAssets} total · {brands.length} brands · {categories.length} categories
             </span>
           </div>
-          <button
-            type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-g6-base bg-g6-primary px-3 text-g6-sm font-bold text-g6-text-on-accent"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add
-          </button>
+          <div className="flex items-center gap-2">
+            <DemoDataToggle />
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1.5 rounded-g6-base bg-g6-primary px-3 text-g6-sm font-bold text-g6-text-on-accent"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          </div>
         </header>
 
         <div className="flex flex-shrink-0 items-center gap-3 border-b border-g6-border-secondary bg-g6-bg-base px-5 py-2 overflow-x-auto">
@@ -93,7 +102,9 @@ export function CommandWorkspace() {
         </div>
 
         <div className="flex-1 overflow-hidden">
-          {tab === "brands" || tab === "categories" ? (
+          {!demoOn && emptyConfig ? (
+            <EmptyStateOnboarding {...emptyConfig} />
+          ) : tab === "brands" || tab === "categories" ? (
             <>
               {view === "tree" && <WorkspaceTree tab={tab} initialId={params.brandId ?? params.categoryId} />}
               {view === "master-detail" && <WorkspaceMasterDetail tab={tab} initialId={params.brandId ?? params.categoryId} />}
@@ -118,20 +129,22 @@ export function CommandWorkspace() {
 function TabPills({ tab }: { tab: AssetTab }) {
   return (
     <nav className="inline-flex items-center gap-1 rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-0.5 whitespace-nowrap">
-      {TABS.map((t) => (
-        <a
-          key={t.slug}
-          href={`/iq/genie6/workspace/${t.slug}`}
-          className={cn(
-            "rounded-g6-base px-3 py-1 text-g6-xs font-medium transition-colors flex items-center gap-1.5",
-            tab === t.slug
-              ? "bg-g6-primary-bg text-g6-text border border-g6-primary-border"
-              : "text-g6-text-secondary hover:text-g6-text"
-          )}
-        >
-          <span>{t.label}</span>
-          <span className="font-g6-mono text-g6-xs text-g6-text-tertiary tabular-nums">{t.count}</span>
-        </a>
+      {TABS.map((t, i) => (
+        <span key={t.slug} className="inline-flex items-center">
+          <a
+            href={`/iq/genie6/workspace/${t.slug}`}
+            className={cn(
+              "rounded-g6-base px-3 py-1 text-g6-xs font-medium transition-colors flex items-center gap-1.5",
+              tab === t.slug
+                ? "bg-g6-primary-bg text-g6-text border border-g6-primary-border"
+                : "text-g6-text-secondary hover:text-g6-text"
+            )}
+          >
+            <span>{t.label}</span>
+            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary tabular-nums">{t.count}</span>
+          </a>
+          {i === 1 && <span className="mx-1 h-5 w-px bg-g6-border" aria-hidden />}
+        </span>
       ))}
     </nav>
   );

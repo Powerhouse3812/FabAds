@@ -249,6 +249,11 @@
 }
 .g6-fade-up { animation: g6-fade-up 360ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
 
+/* Skeleton shimmer — used by SkeletonShimmer component for loading states. */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
 
 /* ============================================================
    Variant-specific helper classes (for component layer)

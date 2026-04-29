@@ -11,6 +11,10 @@ import { ConceptsTab } from "../../library/tabs/ConceptsTab";
 import { TemplatesTab } from "../../library/tabs/TemplatesTab";
 import { AvatarsTab } from "../../library/tabs/AvatarsTab";
 import { AudiencesTab } from "../../library/tabs/AudiencesTab";
+import { EmptyStateOnboarding } from "../../components/EmptyStateOnboarding";
+import { EMPTY_CONFIGS } from "../../components/emptyStateConfigs";
+import { DemoDataToggle } from "../../components/DemoDataToggle";
+import { useDemoData } from "../../hooks/useDemoData";
 
 type ViewMode = "tree" | "master-detail" | "cards";
 type AssetTab = "brands" | "categories" | "hooks" | "angles" | "concepts" | "templates" | "avatars" | "audiences";
@@ -53,6 +57,7 @@ export function CanvasWorkspace() {
   const tab = detectTab(typeof window !== "undefined" ? window.location.pathname : "");
   const [view, setView] = useState<ViewMode>(loadView);
   const [search, setSearch] = useState("");
+  const { on: demoOn } = useDemoData();
 
   const update = (next: ViewMode) => {
     window.localStorage.setItem(STORAGE_KEY, next);
@@ -60,6 +65,7 @@ export function CanvasWorkspace() {
   };
 
   const showViewSwitcher = NEEDS_HIERARCHY.includes(tab);
+  const emptyConfig = EMPTY_CONFIGS[tab];
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -71,6 +77,7 @@ export function CanvasWorkspace() {
         </span>
         <TabPills tab={tab} />
         <div className="ml-auto flex items-center gap-2">
+          <DemoDataToggle />
           {showViewSwitcher && <ViewSwitcher value={view} onChange={update} />}
           <button
             type="button"
@@ -83,7 +90,9 @@ export function CanvasWorkspace() {
       </header>
 
       <div className="relative z-10 flex-1 overflow-hidden">
-        {tab === "brands" || tab === "categories" ? (
+        {!demoOn && emptyConfig ? (
+          <EmptyStateOnboarding {...emptyConfig} />
+        ) : tab === "brands" || tab === "categories" ? (
           <>
             {view === "tree" && <WorkspaceTree tab={tab} initialId={params.brandId ?? params.categoryId} />}
             {view === "master-detail" && <WorkspaceMasterDetail tab={tab} initialId={params.brandId ?? params.categoryId} />}
@@ -107,17 +116,19 @@ export function CanvasWorkspace() {
 function TabPills({ tab }: { tab: AssetTab }) {
   return (
     <nav className="inline-flex items-center gap-1 rounded-g6-pill border border-g6-border-secondary bg-g6-bg-container/80 backdrop-blur-md p-0.5 overflow-x-auto">
-      {TABS.map((t) => (
-        <a
-          key={t.slug}
-          href={`/iq/genie6/workspace/${t.slug}`}
-          className={cn(
-            "rounded-g6-pill px-3 py-1 text-g6-xs font-medium transition-colors whitespace-nowrap",
-            tab === t.slug ? "bg-g6-primary text-g6-text-on-accent" : "text-g6-text-secondary hover:text-g6-text"
-          )}
-        >
-          {t.label}
-        </a>
+      {TABS.map((t, i) => (
+        <span key={t.slug} className="inline-flex items-center">
+          <a
+            href={`/iq/genie6/workspace/${t.slug}`}
+            className={cn(
+              "rounded-g6-pill px-3 py-1 text-g6-xs font-medium transition-colors whitespace-nowrap",
+              tab === t.slug ? "bg-g6-primary text-g6-text-on-accent" : "text-g6-text-secondary hover:text-g6-text"
+            )}
+          >
+            {t.label}
+          </a>
+          {i === 1 && <span className="mx-1 h-4 w-px bg-g6-border" aria-hidden />}
+        </span>
       ))}
     </nav>
   );

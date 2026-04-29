@@ -11,6 +11,10 @@ import { ConceptsTab } from "../../library/tabs/ConceptsTab";
 import { TemplatesTab } from "../../library/tabs/TemplatesTab";
 import { AvatarsTab } from "../../library/tabs/AvatarsTab";
 import { AudiencesTab } from "../../library/tabs/AudiencesTab";
+import { EmptyStateOnboarding } from "../../components/EmptyStateOnboarding";
+import { EMPTY_CONFIGS } from "../../components/emptyStateConfigs";
+import { DemoDataToggle } from "../../components/DemoDataToggle";
+import { useDemoData } from "../../hooks/useDemoData";
 
 type ViewMode = "tree" | "master-detail" | "cards";
 type AssetTab = "brands" | "categories" | "hooks" | "angles" | "concepts" | "templates" | "avatars" | "audiences";
@@ -56,6 +60,7 @@ export function StudioWorkspace() {
   const tab = detectTab(typeof window !== "undefined" ? window.location.pathname : "");
   const [view, setView] = useState<ViewMode>(loadView);
   const [search, setSearch] = useState("");
+  const { on: demoOn } = useDemoData();
 
   const update = (next: ViewMode) => {
     window.localStorage.setItem(STORAGE_KEY, next);
@@ -63,6 +68,7 @@ export function StudioWorkspace() {
   };
 
   const showViewSwitcher = NEEDS_HIERARCHY.includes(tab);
+  const emptyConfig = EMPTY_CONFIGS[tab];
 
   return (
     <div className="flex h-full flex-col p-3">
@@ -74,6 +80,7 @@ export function StudioWorkspace() {
           </div>
           <TabPills tab={tab} />
           <div className="ml-auto flex items-center gap-2">
+            <DemoDataToggle />
             {showViewSwitcher && <ViewSwitcher value={view} onChange={update} />}
             <button
               type="button"
@@ -85,7 +92,9 @@ export function StudioWorkspace() {
           </div>
         </header>
         <div className="flex-1 overflow-hidden">
-          {tab === "brands" || tab === "categories" ? (
+          {!demoOn && emptyConfig ? (
+            <EmptyStateOnboarding {...emptyConfig} />
+          ) : tab === "brands" || tab === "categories" ? (
             <>
               {view === "tree" && <WorkspaceTree tab={tab} initialId={params.brandId ?? params.categoryId} />}
               {view === "master-detail" && <WorkspaceMasterDetail tab={tab} initialId={params.brandId ?? params.categoryId} />}
@@ -110,23 +119,26 @@ export function StudioWorkspace() {
 function TabPills({ tab }: { tab: AssetTab }) {
   return (
     <nav className="inline-flex items-center gap-1 rounded-g6-pill border border-g6-border-secondary bg-g6-bg-container p-0.5 overflow-x-auto">
-      {TABS.map((t) => (
-        <a
-          key={t.slug}
-          href={`/iq/genie6/workspace/${t.slug}`}
-          className={cn(
-            "rounded-g6-pill px-3 py-1 text-g6-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap",
-            tab === t.slug
-              ? "bg-g6-primary text-g6-text-on-accent"
-              : "text-g6-text-secondary hover:text-g6-text"
-          )}
-        >
-          {t.label}
-          <span className={cn(
-            "font-g6-mono tabular-nums",
-            tab === t.slug ? "text-g6-text-on-accent/70" : "text-g6-text-tertiary"
-          )}>{t.count}</span>
-        </a>
+      {TABS.map((t, i) => (
+        <span key={t.slug} className="inline-flex items-center">
+          <a
+            href={`/iq/genie6/workspace/${t.slug}`}
+            className={cn(
+              "rounded-g6-pill px-3 py-1 text-g6-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap",
+              tab === t.slug
+                ? "bg-g6-primary text-g6-text-on-accent"
+                : "text-g6-text-secondary hover:text-g6-text"
+            )}
+          >
+            {t.label}
+            <span className={cn(
+              "font-g6-mono tabular-nums",
+              tab === t.slug ? "text-g6-text-on-accent/70" : "text-g6-text-tertiary"
+            )}>{t.count}</span>
+          </a>
+          {/* Divider after Categories — separates hierarchical (Brands/Categories) from flat-list assets */}
+          {i === 1 && <span className="mx-1 h-4 w-px bg-g6-border" aria-hidden />}
+        </span>
       ))}
     </nav>
   );

@@ -26,6 +26,8 @@ interface SubItem {
   label: string;
   path: string;
   icon?: React.ElementType;
+  /** Optional small chip after the label, e.g. "Soon" */
+  badge?: string;
 }
 
 interface SectionGroup {
@@ -100,7 +102,7 @@ const MODULES: ModuleDef[] = [
       { label: "Generate", path: "/iq/genie6/generate", icon: PenLine },
       { label: "Library", path: "/iq/genie6/library", icon: LibraryIcon },
       { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
-      { label: "Wizard / Tour", path: "/iq/genie6/wizard", icon: Sparkles },
+      { label: "Tour", path: "/iq/genie6/wizard", icon: Sparkles, badge: "Soon" },
     ],
   },
   {
@@ -297,7 +299,12 @@ function RailIcon({
                   )}
                 >
                   {SubIcon && <SubIcon className="h-3.5 w-3.5 shrink-0" />}
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge && (
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground border border-border rounded px-1 py-0.5">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}

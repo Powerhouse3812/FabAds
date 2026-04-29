@@ -176,9 +176,16 @@ export function StudioHome() {
               icon={<TrendingUp className="h-3.5 w-3.5 text-g6-primary" />}
               title="Aspirational angle ↑"
               text={`+${analytics.trendingFinding.deltaPct}% CTR week-over-week`}
+              cta="See angles"
+              onCta={() => navigate("/iq/genie6/workspace/angles")}
             />
             <FindingCard title="From Insights" text="5 new winners imported. Try Variants?" cta="Open" onCta={() => navigate("/iq/genie6/generate/forge/form")} />
-            <FindingCard title="Mode usage" text="UGC up 3× vs last month" />
+            <FindingCard
+              title="Mode usage"
+              text="UGC up 3× vs last month"
+              cta="Open UGC"
+              onCta={() => navigate("/iq/genie6/generate/ugc-video/form")}
+            />
           </div>
         </div>
 

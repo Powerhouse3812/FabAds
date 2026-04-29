@@ -2,6 +2,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, Globe, Sparkles, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DotGridPattern } from "../components/DotGridPattern";
+import { SkeletonBrandCards } from "../components/Skeletons";
+import { ErrorState } from "../components/ErrorState";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
 import { StudioWorkspace } from "../variants/studio/StudioWorkspace";
 import { CanvasWorkspace } from "../variants/canvas/CanvasWorkspace";
@@ -29,6 +31,17 @@ export function WorkspaceView() {
     : "brands";
   const { variant } = useGenie6Theme();
 
+  if (searchParams.get("loading") === "1") {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="h-8 w-40 rounded bg-g6-bg-spotlight/60 animate-pulse" />
+        <SkeletonBrandCards count={8} />
+      </div>
+    );
+  }
+  if (searchParams.get("error") === "1") {
+    return <ErrorState title="Couldn't load assets" message="We couldn't fetch your asset library. Try again in a moment." />;
+  }
   if (searchParams.get("empty") === "1") return <WorkspaceZeroData tab={tab} />;
 
   switch (variant) {

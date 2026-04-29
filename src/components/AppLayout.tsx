@@ -149,6 +149,7 @@ function AppLayoutInner() {
   const { pathname } = useLocation();
   const isReportsRoute = pathname.startsWith("/reports") || pathname === "/dashboard";
   const isGenie6Route = pathname.startsWith("/iq/genie6");
+  const isGenerateRoute = pathname.startsWith("/iq/genie6/generate");
   const { isPinned, isOpen } = useCopilot();
 
   return (
@@ -175,7 +176,8 @@ function AppLayoutInner() {
               <>
                 <ThemeVariantSwitcher />
                 <HelpIcon />
-                <NewGenerationCTA />
+                {/* Hide topbar +New CTA on Generate routes — it duplicates the in-page Generate button */}
+                {!isGenerateRoute && <NewGenerationCTA />}
                 <span className="h-5 w-px bg-border" aria-hidden />
               </>
             )}

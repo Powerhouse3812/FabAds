@@ -13,7 +13,7 @@ export const analyticsAgency: AnalyticsSnapshot = {
     product: "Onion shampoo",
     ctr: 4.73,
     roas: 3.2,
-    // Shampoo / hair-care product close-up (real product feel, not a person photo).
+    // Real shampoo bottle product photo.
     thumbnail:
       "https://images.unsplash.com/photo-1631730486572-226d1f595b68?auto=format&fit=crop&w=600&q=70",
     mode: "Product Ad",
