@@ -106,59 +106,31 @@
 
 
 /* ============================================================
-   ARCHITECTURAL VARIANT — surface preferences
-   Each architectural variant has a default surface preference that overrides
-   light/dark mode tokens for the page background only. (Canvas + Modular prefer
-   dark cosmic; Studio + Command prefer light/work.) Components inside use the
-   regular tokens — they don't fork on variant.
+   ARCHITECTURAL VARIANT — universal theme policy
+   ============================================================
+
+   Per Maalik's directive (2026-04-29): all 4 architectural variants share
+   the SAME color/surface/text/glass tokens. Light mode = light for every
+   variant. Dark mode = dark for every variant. Theme is universal.
+
+   Variants only differ in LAYOUT ARCHITECTURE (3-col workspace vs editor
+   viewport vs ops table vs module cards) and in variant-specific HELPER
+   CLASSES (g6-canvas-floor, g6-halo, g6-code-h). They do NOT override
+   surface or text tokens. This keeps the toggle behavior predictable and
+   removes the earlier "canvas always dark, command always light" forks.
+
+   Variant-specific behaviors that REMAIN allowed:
+     - Modular's stronger glass blur — applied via the glass utility, not
+       a token override.
+     - Canvas's grid floor + corner handles — visual element, theme-aware.
+     - Modular's `> code_header` prefix — token-driven (lime accent stays
+       lime in both modes).
    ============================================================ */
 
-/* Canvas variant — always dark cosmic regardless of system theme.
-   Includes glass + bg/text/border overrides so the dark surface stays self-consistent
-   even when the user's system theme is light. */
-[data-genie6-variant="canvas"] {
-  --g6-color-bg-base: #0a0a0e;
-  --g6-color-bg-container: #14141c;
-  --g6-color-bg-elevated: #1c1c28;
-  --g6-color-bg-spotlight: #28283a;
-  --g6-color-bg-muted: #16161e;
-  --g6-color-text: rgba(255, 255, 255, 0.92);
-  --g6-color-text-secondary: rgba(255, 255, 255, 0.62);
-  --g6-color-text-tertiary: rgba(255, 255, 255, 0.50);
-  --g6-color-text-disabled: rgba(255, 255, 255, 0.28);
-  --g6-color-border: #28283a;
-  --g6-color-border-secondary: #1a1a26;
-  --g6-glass-bg: rgba(20, 20, 30, 0.62);
-  --g6-glass-border: rgba(255, 255, 255, 0.08);
-}
-
-/* Modular variant — dark cosmic with stronger glass + glow. Same self-consistency:
-   glass tokens forced to dark so module cards don't leak light tokens through. */
+/* Modular bumps the glass blur slightly — purely visual, both modes. */
 [data-genie6-variant="modular"] {
-  --g6-color-bg-base: #0d0d12;
-  --g6-color-bg-container: rgba(20, 20, 30, 0.6);
-  --g6-color-bg-elevated: rgba(28, 28, 40, 0.75);
-  --g6-color-bg-spotlight: #28283a;
-  --g6-color-bg-muted: rgba(20, 20, 30, 0.4);
-  --g6-color-text: rgba(255, 255, 255, 0.92);
-  --g6-color-text-secondary: rgba(255, 255, 255, 0.70);
-  --g6-color-text-tertiary: rgba(255, 255, 255, 0.55);
-  --g6-color-text-disabled: rgba(255, 255, 255, 0.30);
-  --g6-color-border: rgba(255, 255, 255, 0.10);
-  --g6-color-border-secondary: rgba(255, 255, 255, 0.06);
-  --g6-glass-bg: rgba(22, 22, 32, 0.62);
-  --g6-glass-border: rgba(255, 255, 255, 0.08);
   --g6-glass-blur: 28px;
 }
-
-/* Command variant — explicit light cream + green accent (Leadverse-leaning) */
-[data-genie6-variant="command"] {
-  --g6-color-bg-base: #fafaf6;
-  --g6-color-bg-container: #ffffff;
-  --g6-color-bg-spotlight: #f4f4f0;
-}
-
-/* Studio variant — clean white + lime (default + safest, no override needed) */
 
 
 /* ============================================================
@@ -282,12 +254,22 @@
    Variant-specific helper classes (for component layer)
    ============================================================ */
 
-/* Canvas — viewport grid floor */
+/* Canvas — viewport grid floor.
+   Theme-aware grid: faint dark lines on light surfaces, faint light lines
+   on dark surfaces. Driven by [data-theme] so the grid is always visible
+   but never dominant in either mode. */
 .g6-canvas-floor {
-  background-image:
-    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+[data-theme="light"] .g6-canvas-floor {
+  background-image:
+    linear-gradient(rgba(15, 15, 12, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 15, 12, .055) 1px, transparent 1px);
+}
+[data-theme="dark"] .g6-canvas-floor {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px);
 }
 
 /* Modular — code-style heading prefix */
