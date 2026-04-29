@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { LayoutPanelLeft, Columns3, LayoutGrid, Plus, GripVertical } from "lucide-react";
+import { LayoutPanelLeft, Columns3, LayoutGrid, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspaceTree } from "../../workspace/views/WorkspaceTree";
 import { WorkspaceMasterDetail } from "../../workspace/views/WorkspaceMasterDetail";
@@ -56,7 +56,6 @@ const NEEDS_HIERARCHY: AssetTab[] = ["brands", "categories"];
 export function ModularWorkspace() {
   const params = useParams<{ brandId?: string; categoryId?: string }>();
   const tab = detectTab(typeof window !== "undefined" ? window.location.pathname : "");
-  const activeTabConfig = TABS.find((t) => t.slug === tab) ?? TABS[0];
   const [view, setView] = useState<ViewMode>(loadView);
   const [search, setSearch] = useState("");
   const { on: demoOn } = useDemoData();
@@ -100,34 +99,30 @@ export function ModularWorkspace() {
         ))}
       </div>
 
-      <div className="g6-glass relative z-10 flex flex-1 flex-col overflow-hidden rounded-g6-card">
-        <header className="flex items-center justify-between border-b border-g6-border-secondary px-4 py-2.5">
-          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-            <span className="text-g6-primary">&gt;</span> {activeTabConfig.label}_module
-            {showViewSwitcher && <span className="text-g6-text-disabled"> · {view.replace("-", "_")}_view</span>}
-          </p>
-          <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
-        </header>
-        <div className="flex-1 overflow-hidden">
-          {!demoOn && emptyConfig ? (
-            <EmptyStateOnboarding {...emptyConfig} />
-          ) : tab === "brands" || tab === "categories" ? (
-            <>
-              {view === "tree" && <WorkspaceTree tab={tab} initialId={params.brandId ?? params.categoryId} />}
-              {view === "master-detail" && <WorkspaceMasterDetail tab={tab} initialId={params.brandId ?? params.categoryId} />}
-              {view === "cards" && <WorkspaceCards tab={tab} initialId={params.brandId ?? params.categoryId} />}
-            </>
-          ) : (
-            <div className="h-full overflow-y-auto p-4">
-              {tab === "hooks" && <HooksTab brandFilter="all" search={search} />}
-              {tab === "angles" && <AnglesTab search={search} />}
-              {tab === "concepts" && <ConceptsTab brandFilter="all" search={search} />}
-              {tab === "templates" && <TemplatesTab />}
-              {tab === "avatars" && <AvatarsTab search={search} />}
-              {tab === "audiences" && <AudiencesTab brandFilter="all" search={search} />}
-            </div>
-          )}
-        </div>
+      {/* Single-asset-tab page: drop the inner module-card wrapper. The page-level
+          `> assets.{tab}` header above + the active tab pill already establish "you are
+          here" — the inner `> {tab}_module · view` was a 4th breadcrumb (P0 fix). The
+          view-switcher state (still meaningful for Brands/Categories) moves up to the
+          tab strip's right side. */}
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+        {!demoOn && emptyConfig ? (
+          <EmptyStateOnboarding {...emptyConfig} />
+        ) : tab === "brands" || tab === "categories" ? (
+          <>
+            {view === "tree" && <WorkspaceTree tab={tab} initialId={params.brandId ?? params.categoryId} />}
+            {view === "master-detail" && <WorkspaceMasterDetail tab={tab} initialId={params.brandId ?? params.categoryId} />}
+            {view === "cards" && <WorkspaceCards tab={tab} initialId={params.brandId ?? params.categoryId} />}
+          </>
+        ) : (
+          <div className="h-full overflow-y-auto pt-2">
+            {tab === "hooks" && <HooksTab brandFilter="all" search={search} />}
+            {tab === "angles" && <AnglesTab search={search} />}
+            {tab === "concepts" && <ConceptsTab brandFilter="all" search={search} />}
+            {tab === "templates" && <TemplatesTab />}
+            {tab === "avatars" && <AvatarsTab search={search} />}
+            {tab === "audiences" && <AudiencesTab brandFilter="all" search={search} />}
+          </div>
+        )}
       </div>
     </div>
   );
