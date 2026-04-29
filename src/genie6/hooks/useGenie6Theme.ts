@@ -25,6 +25,7 @@ import { useTheme } from "next-themes";
 export type GenieVariant = "studio" | "canvas" | "command" | "modular";
 
 const VARIANT_KEY = "genie6-variant";
+const VARIANT_EVENT = "genie6-variant-change";
 const DEFAULT_VARIANT: GenieVariant = "studio";
 
 function readVariant(): GenieVariant {
@@ -49,12 +50,24 @@ export function useGenie6Theme() {
     };
   }, [resolvedTheme, variant]);
 
+  // Listen for variant changes from any other useGenie6Theme caller in the same
+  // tab. The native "storage" event only fires across tabs/windows, NOT same-tab,
+  // so we broadcast our own CustomEvent in setVariant() to keep every consumer
+  // (topbar switcher + page-level routers) in sync without a Context Provider.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === VARIANT_KEY) setVariantState(readVariant());
     };
+    const onSameTab = (e: Event) => {
+      const next = (e as CustomEvent<GenieVariant>).detail;
+      if (next) setVariantState(next);
+    };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener(VARIANT_EVENT, onSameTab as EventListener);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(VARIANT_EVENT, onSameTab as EventListener);
+    };
   }, []);
 
   return { variant, setVariant };
@@ -62,5 +75,6 @@ export function useGenie6Theme() {
   function setVariant(next: GenieVariant) {
     window.localStorage.setItem(VARIANT_KEY, next);
     setVariantState(next);
+    window.dispatchEvent(new CustomEvent<GenieVariant>(VARIANT_EVENT, { detail: next }));
   }
 }
