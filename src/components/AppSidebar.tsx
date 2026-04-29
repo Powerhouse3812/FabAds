@@ -28,6 +28,8 @@ interface SubItem {
   icon?: React.ElementType;
   /** Optional small chip after the label, e.g. "Soon" */
   badge?: string;
+  /** Optional 2nd-level nested sub-items (used by IQ → Genie 5.0 group) */
+  subItems?: SubItem[];
 }
 
 interface SectionGroup {
@@ -97,24 +99,17 @@ const MODULES: ModuleDef[] = [
   {
     key: "genie6", label: "Genie 6.0", icon: Wand2,
     subItems: [
-      { label: "Home", path: "/iq/genie6", icon: Home },
-      { label: "Assets", path: "/iq/genie6/workspace", icon: FolderTree },
-      { label: "Generate", path: "/iq/genie6/generate", icon: PenLine },
-      { label: "Library", path: "/iq/genie6/library", icon: LibraryIcon },
+      // Genie 6 sub-nav (iter 3 IA restructure):
+      //  - Home → Dashboard (rename + denser layout)
+      //  - Assets → Library (was the asset hub; Settings now lives inside each asset)
+      //  - Library → Generations (the outputs view kept its function, just renamed)
+      //  - Generate sub-item dropped — Generate folds into Dashboard as a section
+      //  - Settings stays (global-level prefs + Genie KB content)
+      { label: "Dashboard", path: "/iq/genie6", icon: Home },
+      { label: "Generations", path: "/iq/genie6/library", icon: LibraryIcon },
+      { label: "Library", path: "/iq/genie6/workspace", icon: FolderTree },
       { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
       { label: "Tour", path: "/iq/genie6/wizard", icon: Sparkles, badge: "Soon" },
-    ],
-  },
-  {
-    key: "genie5", label: "Genie 5.0", icon: Sparkles,
-    subItems: [
-      { label: "New Generation", path: "/iq/genie5", icon: Sparkles },
-      { label: "Studio", path: "/iq/genie5/studio", icon: Layers },
-      { label: "Templates", path: "/iq/genie5/templates", icon: FileText },
-      { label: "Brands", path: "/iq/genie5/brands", icon: ImageIcon },
-      { label: "Categories", path: "/iq/genie5/categories", icon: FolderOpen },
-      { label: "Quick Start", path: "/iq/genie5/quick-start", icon: Zap },
-      { label: "AI Setup", path: "/iq/genie5/ai-setup", icon: Sparkles },
     ],
   },
   {
@@ -124,7 +119,21 @@ const MODULES: ModuleDef[] = [
       { label: "Genie 2.0", path: "/iq/genie2", icon: Sparkles },
       { label: "Genie 3.0", path: "/iq/genie3", icon: Zap },
       { label: "Genie 4.0", path: "/iq/genie4", icon: Bot },
-      { label: "Genie 5.0", path: "/iq/genie5", icon: Sparkles },
+      // Genie 5.0 was a separate top-level module with 7 sub-items + a simple
+      // entry inside IQ (duplicate). Iter 3 IA: deleted the simple entry, moved
+      // the rich 7-sub-item version inside IQ as a 2nd-level expandable.
+      {
+        label: "Genie 5.0", path: "/iq/genie5", icon: Sparkles,
+        subItems: [
+          { label: "New Generation", path: "/iq/genie5", icon: Sparkles },
+          { label: "Studio", path: "/iq/genie5/studio", icon: Layers },
+          { label: "Templates", path: "/iq/genie5/templates", icon: FileText },
+          { label: "Brands", path: "/iq/genie5/brands", icon: ImageIcon },
+          { label: "Categories", path: "/iq/genie5/categories", icon: FolderOpen },
+          { label: "Quick Start", path: "/iq/genie5/quick-start", icon: Zap },
+          { label: "AI Setup", path: "/iq/genie5/ai-setup", icon: Sparkles },
+        ],
+      },
       { label: "Video Sage", path: "/iq/video-sage", icon: Video },
       { label: "Copilot", path: "/iq/copilot", icon: MessageSquare },
     ],
@@ -140,10 +149,12 @@ const MODULES: ModuleDef[] = [
 ];
 
 const SYSTEM_MODULES: ModuleDef[] = [
+  // Activity Logs removed (iter 3 IA): activity surfaces only on relevant entities
+  // (per-brand, per-output, etc.) plus the profile dropdown. No standalone /activity-logs
+  // sidebar entry. Route still exists; just not navigable from sidebar.
   { key: "integrations", label: "Integrations", icon: Plug, path: "/integrations" },
   { key: "team", label: "Team", icon: Users, path: "/ums" },
   { key: "clients", label: "Clients", icon: UserPlus, path: "/settings/clients" },
-  { key: "activity-logs", label: "Activity Logs", icon: FileText, path: "/activity-logs" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -154,7 +165,14 @@ function hasSubItems(m: ModuleDef): boolean {
 }
 
 function allSubPaths(m: ModuleDef): string[] {
-  if (m.subItems) return m.subItems.map((s) => s.path);
+  if (m.subItems) {
+    // Flatten 2nd-level nested children too (e.g., IQ → Genie 5.0 → 7 children)
+    return m.subItems.flatMap((s) =>
+      s.subItems && s.subItems.length > 0
+        ? [s.path, ...s.subItems.map((c) => c.path)]
+        : [s.path]
+    );
+  }
   if (m.sections) return m.sections.flatMap((g) => g.items.map((s) => s.path));
   return [];
 }
@@ -287,6 +305,38 @@ function RailIcon({
           <div className="flex flex-col gap-0.5 p-1.5">
             {mod.subItems?.map((item) => {
               const SubIcon = item.icon;
+              // Nested 2nd-level children — render as small section
+              if (item.subItems && item.subItems.length > 0) {
+                return (
+                  <div key={item.path} className="mt-1.5 first:mt-0">
+                    <button
+                      onClick={() => onNavigate(item.path)}
+                      className="w-full text-left px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 hover:text-foreground"
+                    >
+                      {SubIcon && <SubIcon className="h-3 w-3 shrink-0" />}
+                      {item.label}
+                    </button>
+                    {item.subItems.map((child) => {
+                      const ChildIcon = child.icon;
+                      return (
+                        <button
+                          key={child.path}
+                          onClick={() => onNavigate(child.path)}
+                          className={cn(
+                            "w-full text-left pl-6 pr-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2",
+                            isSubItemActive(child.path, pathname, siblingPaths)
+                              ? "bg-accent text-accent-foreground font-medium"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                          )}
+                        >
+                          {ChildIcon && <ChildIcon className="h-3.5 w-3.5 shrink-0" />}
+                          {child.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              }
               return (
                 <button
                   key={item.path}
@@ -366,6 +416,47 @@ function SubPanel({
   const siblingPaths = allSubPaths(mod);
   const renderItem = (item: SubItem) => {
     const ItemIcon = item.icon;
+    // 2-level nested item (used by IQ → Genie 5.0 group). Render as a labelled
+    // section with the parent acting as the section heading + clickable navigate
+    // to the parent path. Children render flat below, indented.
+    if (item.subItems && item.subItems.length > 0) {
+      return (
+        <div key={item.path} className="mt-2 first:mt-0">
+          <button
+            onClick={() => onNavigate(item.path)}
+            className={cn(
+              "w-full text-left px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider flex items-center gap-2",
+              isSubItemActive(item.path, pathname, siblingPaths)
+                ? "text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            )}
+          >
+            {ItemIcon && <ItemIcon className="h-3.5 w-3.5 shrink-0" />}
+            {item.label}
+          </button>
+          <div className="ml-2 flex flex-col gap-0.5 border-l border-sidebar-border pl-2">
+            {item.subItems.map((child) => {
+              const ChildIcon = child.icon;
+              return (
+                <button
+                  key={child.path}
+                  onClick={() => onNavigate(child.path)}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 rounded-md text-sm transition-all duration-150 flex items-center gap-2",
+                    isSubItemActive(child.path, pathname, siblingPaths)
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  )}
+                >
+                  {ChildIcon && <ChildIcon className="h-3.5 w-3.5 shrink-0" />}
+                  {child.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     return (
       <button
         key={item.path}
@@ -378,7 +469,12 @@ function SubPanel({
         )}
       >
         {ItemIcon && <ItemIcon className="h-3.5 w-3.5 shrink-0" />}
-        {item.label}
+        <span className="flex-1">{item.label}</span>
+        {item.badge && (
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground border border-border rounded px-1 py-0.5">
+            {item.badge}
+          </span>
+        )}
       </button>
     );
   };
@@ -470,6 +566,33 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
         <div className="ml-6 flex flex-col gap-0.5">
           {mod.subItems?.map((item) => {
             const siblings = allSubPaths(mod);
+            // Nested 2nd-level children
+            if (item.subItems && item.subItems.length > 0) {
+              return (
+                <div key={item.path} className="mt-1.5 first:mt-0">
+                  <button
+                    onClick={() => go(item.path)}
+                    className="w-full text-left px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50"
+                  >
+                    {item.label}
+                  </button>
+                  {item.subItems.map((child) => (
+                    <button
+                      key={child.path}
+                      onClick={() => go(child.path)}
+                      className={cn(
+                        "w-full text-left pl-6 pr-3 py-1.5 rounded-md text-sm",
+                        isSubItemActive(child.path, pathname, siblings)
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "text-sidebar-foreground/70"
+                      )}
+                    >
+                      {child.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            }
             return (
             <button
               key={item.path}
