@@ -3,12 +3,12 @@ import { GripVertical, ArrowUpRight, Building2, FolderOpen, User, Mic, Layers, S
 import { brands, categories, avatars, voices } from "../../mocks";
 
 const SECTIONS = [
-  { to: "/iq/genie6/settings/brands", Icon: Building2, label: "brands_module", description: "profiles · fonts · voice · USPs · competitors", count: () => `${brands.length} brands` },
-  { to: "/iq/genie6/settings/categories", Icon: FolderOpen, label: "categories_module", description: "knowledge bases · references · winners", count: () => `${categories.length} categories` },
-  { to: "/iq/genie6/settings/avatars", Icon: User, label: "avatars_module", description: "personas for UGC video mode", count: () => `${avatars.length} avatars` },
-  { to: "/iq/genie6/settings/voices", Icon: Mic, label: "voices_module", description: "voice samples per language", count: () => `${voices.length} voices` },
-  { to: "/iq/genie6/settings/templates", Icon: Layers, label: "templates_module", description: "visual layouts from winning ads", count: () => "0 templates" },
-  { to: "/iq/genie6/settings/disclosure", Icon: Shield, label: "disclosure_module", description: "C2PA stamp preference on exports", count: () => "config" },
+  { to: "/iq/genie6/settings/brands", Icon: Building2, label: "Brands", description: "profiles · fonts · voice · USPs · competitors", count: () => `${brands.length} brands` },
+  { to: "/iq/genie6/settings/categories", Icon: FolderOpen, label: "Categories", description: "knowledge bases · references · winners", count: () => `${categories.length} categories` },
+  { to: "/iq/genie6/settings/avatars", Icon: User, label: "Avatars", description: "personas for UGC video mode", count: () => `${avatars.length} avatars` },
+  { to: "/iq/genie6/settings/voices", Icon: Mic, label: "Voices", description: "voice samples per language", count: () => `${voices.length} voices` },
+  { to: "/iq/genie6/settings/templates", Icon: Layers, label: "Templates", description: "visual layouts from winning ads", count: () => "0 templates" },
+  { to: "/iq/genie6/settings/disclosure", Icon: Shield, label: "AI disclosure", description: "C2PA stamp preference on exports", count: () => "config" },
 ] as const;
 
 /**
@@ -41,9 +41,7 @@ export function ModularSettings() {
             className="g6-glass group rounded-g6-card p-4 hover:border-g6-primary-border transition-colors"
           >
             <header className="mb-3 flex items-center justify-between">
-              <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-                <span className="text-g6-primary">&gt;</span> {s.label}
-              </p>
+              <p className="text-g6-xs font-medium text-g6-text-tertiary">{s.label}</p>
               <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
             </header>
             <div className="space-y-3">
@@ -65,9 +63,7 @@ export function ModularSettings() {
           className="lg:col-span-3 rounded-g6-2xl border border-g6-border-secondary bg-g6-bg-base/30 backdrop-blur-md p-4 flex items-center justify-between hover:border-g6-primary-border transition-colors"
         >
           <div className="flex items-center gap-3">
-            <span className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-              <span className="text-g6-primary">&gt;</span> account_module
-            </span>
+            <span className="text-g6-xs font-medium text-g6-text-tertiary">Account</span>
             <span className="text-g6-sm text-g6-text-secondary">Plan · Billing — managed in FabAds settings</span>
           </div>
           <ArrowUpRight className="h-3.5 w-3.5 text-g6-text-tertiary" />

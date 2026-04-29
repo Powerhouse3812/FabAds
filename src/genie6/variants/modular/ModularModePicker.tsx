@@ -41,7 +41,7 @@ export function ModularModePicker() {
 
       <div className="relative z-10 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* prompt_module — full width on desktop */}
-        <ModuleCard title="prompt_module" className="lg:col-span-3">
+        <ModuleCard title="Prompt" className="lg:col-span-3">
           <HeroPromptInput
             value={prompt}
             onChange={setPrompt}
@@ -52,7 +52,7 @@ export function ModularModePicker() {
         </ModuleCard>
 
         {/* modes_module — full width */}
-        <ModuleCard title="modes_module" className="lg:col-span-3">
+        <ModuleCard title="Modes" className="lg:col-span-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {modeConfigs.map((cfg) => (
               <button
@@ -79,7 +79,7 @@ export function ModularModePicker() {
 
         {/* hovered_mode_module — preview of currently hovered mode */}
         {hovered && (
-          <ModuleCard title={`${hovered.replace(/-/g, "_")}_preview`} className="lg:col-span-2">
+          <ModuleCard title="Mode preview" className="lg:col-span-2">
             {(() => {
               const cfg = modeConfigs.find((c) => c.id === hovered);
               if (!cfg) return null;
@@ -90,9 +90,9 @@ export function ModularModePicker() {
                     <h3 className="text-g6-h4 font-bold text-g6-text">{cfg.label}</h3>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <Field label="mental_state" value={cfg.tooltip.mentalState} />
-                    <Field label="best_when" value={cfg.tooltip.bestWhen} />
-                    <Field label="example" value={cfg.tooltip.example} />
+                    <Field label="Mental state" value={cfg.tooltip.mentalState} />
+                    <Field label="Best when" value={cfg.tooltip.bestWhen} />
+                    <Field label="Example" value={cfg.tooltip.example} />
                   </div>
                   <button
                     type="button"
@@ -110,7 +110,7 @@ export function ModularModePicker() {
         )}
 
         {/* suggestions_module */}
-        <ModuleCard title="suggestions_module" className={hovered ? "lg:col-span-1" : "lg:col-span-3"}>
+        <ModuleCard title="Suggestions" className={hovered ? "lg:col-span-1" : "lg:col-span-3"}>
           <ul className="space-y-1.5">
             {[
               "12 product ads for Mamaearth Onion Shampoo",
@@ -138,9 +138,7 @@ function ModuleCard({ title, className, children }: { title: string; className?:
   return (
     <div className={cn("g6-glass rounded-g6-card p-4", className)}>
       <header className="mb-3 flex items-center justify-between">
-        <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-          <span className="text-g6-primary">&gt;</span> {title}
-        </p>
+        <p className="text-g6-xs font-medium text-g6-text-tertiary">{title}</p>
         <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
       </header>
       {children}
@@ -151,7 +149,7 @@ function ModuleCard({ title, className, children }: { title: string; className?:
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-0.5">
-      <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">{label}</p>
+      <p className="text-g6-xs font-medium text-g6-text-tertiary">{label}</p>
       <p className="text-g6-sm text-g6-text leading-snug">{value}</p>
     </div>
   );

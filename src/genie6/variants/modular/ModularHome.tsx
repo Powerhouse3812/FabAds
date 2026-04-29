@@ -43,7 +43,7 @@ export function ModularHome() {
 
       <div className="relative z-10 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* top_performer — spans 2 cols */}
-        <ModuleCard title="top_performer_module" className="lg:col-span-2">
+        <ModuleCard title="Top performer" className="lg:col-span-2">
           <div className="flex gap-4">
             {a.topPerformer.thumbnail && (
               <img
@@ -68,7 +68,7 @@ export function ModularHome() {
         </ModuleCard>
 
         {/* credits_module */}
-        <ModuleCard title="credits_module">
+        <ModuleCard title="Credits">
           <div className="space-y-2">
             <p className="font-g6-mono text-g6-h3 font-bold tabular-nums text-g6-text">
               {a.creditsUsed.used.toLocaleString("en-IN")}
@@ -84,7 +84,7 @@ export function ModularHome() {
         </ModuleCard>
 
         {/* modes_module — full width */}
-        <ModuleCard title="modes_module" className="lg:col-span-3">
+        <ModuleCard title="Modes" className="lg:col-span-3">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
             {modeConfigs.map((cfg) => (
               <button
@@ -101,7 +101,7 @@ export function ModularHome() {
         </ModuleCard>
 
         {/* brands_module */}
-        <ModuleCard title="brands_module">
+        <ModuleCard title="Brands">
           <ul className="space-y-1">
             {brands.slice(0, 5).map((b) => (
               <li key={b.id}>
@@ -126,23 +126,23 @@ export function ModularHome() {
         </ModuleCard>
 
         {/* trending_module */}
-        <ModuleCard title="trending_module" className="lg:col-span-2">
+        <ModuleCard title="Trending" className="lg:col-span-2">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <FindingTile
               icon={<TrendingUp className="h-3 w-3 text-g6-text-tertiary" />}
-              label="angle ↑"
+              label="Top angle"
               value={`+${a.trendingFinding.deltaPct}%`}
               sub={a.trendingFinding.angleLabel}
               onClick={() => navigate("/iq/genie6/workspace/angles")}
             />
             <FindingTile
-              label="ugc usage"
+              label="UGC usage"
               value="3×"
               sub="vs last month"
               onClick={() => navigate("/iq/genie6/generate/ugc-video/form")}
             />
             <FindingTile
-              label="winners imported"
+              label="Winners imported"
               value="5"
               sub="from Insights"
               onClick={() => navigate("/iq/genie6/generate/forge/form")}
@@ -151,7 +151,7 @@ export function ModularHome() {
         </ModuleCard>
 
         {/* recent_module — full width */}
-        <ModuleCard title="recent_module" className="lg:col-span-3">
+        <ModuleCard title="Recent" className="lg:col-span-3">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {sampleOutputs.filter((o) => o.thumbnail).slice(0, 8).map((o) => (
               <button
@@ -212,9 +212,7 @@ function ModuleCard({ title, className, children }: { title: string; className?:
   return (
     <div className={cn("g6-glass rounded-g6-card p-4", className)}>
       <header className="mb-3 flex items-center justify-between">
-        <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-          <span className="text-g6-primary">&gt;</span> {title}
-        </p>
+        <p className="text-g6-xs font-medium text-g6-text-tertiary">{title}</p>
         <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
       </header>
       {children}
@@ -232,9 +230,9 @@ function FindingTile({ icon, label, value, sub, onClick }: { icon?: React.ReactN
         onClick && "transition-colors hover:border-g6-primary-border hover:bg-g6-primary-bg/30 cursor-pointer"
       )}
     >
-      <div className="flex items-center gap-1 mb-1">
+      <div className="flex items-center gap-1.5 mb-1.5">
         {icon}
-        <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">{label}</p>
+        <p className="text-g6-xs font-medium text-g6-text-tertiary">{label}</p>
       </div>
       <p className="font-g6-mono text-g6-h4 font-bold tabular-nums text-g6-text">{value}</p>
       {sub && <p className="text-g6-xs text-g6-text-tertiary mt-0.5">{sub}</p>}

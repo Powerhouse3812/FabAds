@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sparkles, GripVertical, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useDraft } from "../../stores/draftStore";
 import { getModeConfig } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
@@ -22,12 +21,12 @@ const MODULE_GROUPS: Array<{
   title: string;
   fieldTypes: string[];
 }> = [
-  { id: "brand_module", title: "brand_module", fieldTypes: ["brand-picker", "product-picker"] },
-  { id: "source_module", title: "source_module", fieldTypes: ["url-input", "source-image-picker", "source-winner-picker"] },
-  { id: "talent_module", title: "talent_module", fieldTypes: ["avatar-picker", "voice-picker", "script-input"] },
-  { id: "direction_module", title: "direction_module", fieldTypes: ["audience-picker", "angle-picker", "tone-picker"] },
-  { id: "output_module", title: "output_module", fieldTypes: ["sub-method-picker", "output-type-picker", "format-picker", "count-picker"] },
-  { id: "advanced_module", title: "advanced_module", fieldTypes: ["references-panel", "prompt-override"] },
+  { id: "brand_module", title: "Brand", fieldTypes: ["brand-picker", "product-picker"] },
+  { id: "source_module", title: "Source", fieldTypes: ["url-input", "source-image-picker", "source-winner-picker"] },
+  { id: "talent_module", title: "Talent", fieldTypes: ["avatar-picker", "voice-picker", "script-input"] },
+  { id: "direction_module", title: "Direction", fieldTypes: ["audience-picker", "angle-picker", "tone-picker"] },
+  { id: "output_module", title: "Output", fieldTypes: ["sub-method-picker", "output-type-picker", "format-picker", "count-picker"] },
+  { id: "advanced_module", title: "Advanced", fieldTypes: ["references-panel", "prompt-override"] },
 ];
 
 export function ModularGenerateForm() {
@@ -130,9 +129,7 @@ function ModuleCard({ title, children }: { title: string; children: React.ReactN
   return (
     <div className="g6-glass rounded-g6-card p-4">
       <header className="mb-3 flex items-center justify-between">
-        <p className={cn("font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary")}>
-          <span className="text-g6-primary">&gt;</span> {title}
-        </p>
+        <p className="text-g6-xs font-medium text-g6-text-tertiary">{title}</p>
         <GripVertical className="h-3.5 w-3.5 text-g6-text-disabled cursor-grab" aria-hidden />
       </header>
       {children}
