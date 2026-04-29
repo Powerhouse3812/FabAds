@@ -49,18 +49,24 @@ const VARIANTS: VariantSpec[] = [
   },
 ];
 
-export function ThemeVariantSwitcher() {
+export function ThemeVariantSwitcher({ orientation = "horizontal" }: { orientation?: "horizontal" | "vertical" }) {
   const { variant, setVariant } = useGenie6Theme();
+  const isVertical = orientation === "vertical";
 
   // Pure-minimal topbar (post-critique-iteration-2): variant-label pill removed.
   // Active variant is communicated by which icon highlights — same pattern Linear
-  // uses for its workspace switcher. The active icon's title still names the
-  // variant + ⌘shortcut for keyboard users.
+  // uses for its workspace switcher.
+  //
+  // orientation="vertical" — used in collapsed sidebar rail (~56px) where 4
+  // horizontal icons would overflow. Stacks 4 icons in a column instead.
   return (
     <div
       role="tablist"
       aria-label="Genie 6 architectural variant"
-      className="inline-flex items-center rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-0.5"
+      className={cn(
+        "inline-flex items-center rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-0.5",
+        isVertical && "flex-col"
+      )}
     >
       {VARIANTS.map(({ id, Icon, label, description }, i) => {
         const isActive = variant === id;

@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp, Coins, Zap, Sparkles, Activity, ArrowUpRight, Plus } from "lucide-react";
+import { TrendingUp, Coins, Zap, Sparkles, Activity, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
+import { HeroPromptInput } from "../../components/HeroPromptInput";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
@@ -18,6 +20,11 @@ import { greeting } from "../../utils/greeting";
 export function CommandHome() {
   const navigate = useNavigate();
   const a = analyticsAgency;
+  const [prompt, setPrompt] = useState("");
+  const handlePromptSubmit = () => {
+    if (!prompt.trim()) return;
+    navigate("/iq/genie6/generate/product-ad/form");
+  };
 
   return (
     <div className="grid h-full grid-cols-[1fr_300px] gap-3 p-3">
@@ -127,18 +134,20 @@ export function CommandHome() {
           </div>
         </section>
 
-        {/* Mode launcher row */}
-        <section className="p-5 pt-0">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-g6-base font-semibold text-g6-text">Quick generate</h2>
-            <button
-              type="button"
-              onClick={() => navigate("/iq/genie6/generate")}
-              className="inline-flex items-center gap-1 rounded-g6-base bg-g6-primary px-3 py-1.5 text-g6-xs font-bold text-g6-text-on-accent"
-            >
-              <Plus className="h-3 w-3" /> New
-            </button>
+        {/* Generate section — embedded prompt input + mode tiles. Iter-3 IA
+            removed the standalone /generate sidebar item; users start a generation
+            from here on Dashboard. */}
+        <section className="p-5 pt-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-g6-base font-semibold text-g6-text">Generate</h2>
+            <span className="text-g6-xs text-g6-text-tertiary">paste a URL or pick a mode</span>
           </div>
+          <HeroPromptInput
+            value={prompt}
+            onChange={setPrompt}
+            onSubmit={handlePromptSubmit}
+            placeholder="paste a URL or describe the generation"
+          />
           <div className="grid grid-cols-6 gap-2">
             {modeConfigs.map((cfg) => (
               <button

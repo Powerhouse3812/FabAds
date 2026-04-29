@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GripVertical, Plus, Sparkles, TrendingUp, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
+import { HeroPromptInput } from "../../components/HeroPromptInput";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
@@ -26,6 +28,11 @@ import { sampleOutputs } from "../../mocks/sample-outputs";
 export function ModularHome() {
   const navigate = useNavigate();
   const a = analyticsAgency;
+  const [prompt, setPrompt] = useState("");
+  const handlePromptSubmit = () => {
+    if (!prompt.trim()) return;
+    navigate("/iq/genie6/generate/product-ad/form");
+  };
 
   return (
     <div className="g6-halo relative min-h-full p-6">
@@ -81,6 +88,18 @@ export function ModularHome() {
               {(a.creditsUsed.limit - a.creditsUsed.used).toLocaleString("en-IN")} credits remaining
             </p>
           </div>
+        </ModuleCard>
+
+        {/* prompt_module — embed Generate entry point on Dashboard since the
+             standalone Generate sidebar item is removed (iter-3 IA). */}
+        <ModuleCard title="Generate" className="lg:col-span-3">
+          <HeroPromptInput
+            value={prompt}
+            onChange={setPrompt}
+            onSubmit={handlePromptSubmit}
+            placeholder="paste a URL or describe the generation"
+            size="lg"
+          />
         </ModuleCard>
 
         {/* modes_module — full width */}

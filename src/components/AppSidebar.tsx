@@ -246,10 +246,11 @@ function SidebarFooter({ collapsed = false }: { collapsed?: boolean }) {
   const isGenie6 = pathname.startsWith("/iq/genie6");
   return (
     <div className="border-t border-sidebar-border bg-sidebar-background">
-      {/* Variant switcher — Genie 6 only */}
+      {/* Variant switcher — Genie 6 only. Stacks vertically in the collapsed
+          rail (~56px) so 4 icons don't overflow. Horizontal in expanded panel. */}
       {isGenie6 && (
         <div className={cn("border-b border-sidebar-border", collapsed ? "py-2 flex flex-col items-center gap-1" : "px-3 py-2")}>
-          <ThemeVariantSwitcher />
+          <ThemeVariantSwitcher orientation={collapsed ? "vertical" : "horizontal"} />
         </div>
       )}
       {/* Theme + user menu row */}
