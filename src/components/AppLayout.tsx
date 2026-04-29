@@ -25,7 +25,7 @@ const LABEL_MAP: Record<string, string> = {
   copilot: "Copilot",
   genie: "Genie",
   genie6: "Genie 6.0",
-  workspace: "Workspace",
+  workspace: "Assets",
   generate: "Generate",
   library: "Library",
   brands: "Brands",
