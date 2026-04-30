@@ -27,6 +27,7 @@ export type FieldType =
   | "angle-picker"
   | "tone-picker"
   | "format-picker"            // aspect ratio (1:1 / 4:5 / 9:16 / 16:9)
+  | "scene-picker"             // P-3: visual scene/composition (image modes)
   | "count-picker"
   | "references-panel"
   | "prompt-override";
@@ -145,6 +146,7 @@ export const modeConfigs: ModeConfig[] = [
       "audience-picker",
       "angle-picker",
       "tone-picker",
+      "scene-picker",
       "format-picker",
       "count-picker",
       "references-panel",
@@ -155,7 +157,7 @@ export const modeConfigs: ModeConfig[] = [
       { id: "brand", title: "Brand", types: ["brand-picker"] },
       DIRECTION_STEP,
       REFS_STEP,
-      { id: "output", title: "Output settings", types: ["format-picker", "count-picker"] },
+      { id: "output", title: "Output settings", types: ["scene-picker", "format-picker", "count-picker"] },
       REVIEW_STEP,
     ],
   },
@@ -191,6 +193,7 @@ export const modeConfigs: ModeConfig[] = [
       "audience-picker",
       "angle-picker",
       "tone-picker",
+      "scene-picker",
       "format-picker",
       "count-picker",
       "references-panel",
@@ -201,7 +204,7 @@ export const modeConfigs: ModeConfig[] = [
       { id: "source", title: "Brand & Product", types: ["brand-picker", "product-picker"] },
       DIRECTION_STEP,
       REFS_STEP,
-      { id: "output", title: "Output settings", types: ["format-picker", "count-picker"] },
+      { id: "output", title: "Output settings", types: ["scene-picker", "format-picker", "count-picker"] },
       REVIEW_STEP,
     ],
   },
@@ -381,6 +384,7 @@ export const modeConfigs: ModeConfig[] = [
       "audience-picker",
       "angle-picker",
       "tone-picker",
+      "scene-picker",
       "format-picker",
       "count-picker",
       "references-panel",
@@ -390,7 +394,7 @@ export const modeConfigs: ModeConfig[] = [
       { id: "mode", title: "Output + input method", types: ["output-type-picker", "sub-method-picker"] },
       { id: "source", title: "Source", types: ["source-image-picker", "brand-picker"] },
       DIRECTION_STEP,
-      { id: "output", title: "Output settings", types: ["format-picker", "count-picker"] },
+      { id: "output", title: "Output settings", types: ["scene-picker", "format-picker", "count-picker"] },
       REVIEW_STEP,
     ],
   },

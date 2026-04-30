@@ -26,6 +26,7 @@ export interface DraftState {
   voiceId: string | null;
   script: string;
   conceptId: string | null;
+  sceneId: string | null;             // P-3: visual scene/composition (image modes)
   sourceUrl: string;
   wizardStep: number;
 }
@@ -49,6 +50,7 @@ type DraftAction =
   | { type: "SET_VOICE"; voiceId: string | null }
   | { type: "SET_SCRIPT"; script: string }
   | { type: "SET_CONCEPT"; conceptId: string | null }
+  | { type: "SET_SCENE"; sceneId: string | null }
   | { type: "ADD_REFERENCE"; url: string }
   | { type: "REMOVE_REFERENCE"; index: number }
   | { type: "SET_WIZARD_STEP"; step: number }
@@ -74,6 +76,7 @@ const defaultDraft: DraftState = {
   voiceId: null,
   script: "",
   conceptId: null,
+  sceneId: null,
   sourceUrl: "",
   wizardStep: 1,
 };
@@ -121,6 +124,8 @@ function draftReducer(state: DraftState, action: DraftAction): DraftState {
       return { ...state, script: action.script };
     case "SET_CONCEPT":
       return { ...state, conceptId: action.conceptId };
+    case "SET_SCENE":
+      return { ...state, sceneId: action.sceneId };
     case "ADD_REFERENCE":
       return { ...state, references: [...state.references, action.url] };
     case "REMOVE_REFERENCE":

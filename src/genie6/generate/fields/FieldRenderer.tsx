@@ -9,6 +9,7 @@ import { OutputTypePicker } from "./OutputTypePicker";
 import { ProductPicker } from "./ProductPicker";
 import { PromptOverride } from "./PromptOverride";
 import { ReferencesPanel } from "./ReferencesPanel";
+import { ScenePicker } from "./ScenePicker";
 import { ScriptInput } from "./ScriptInput";
 import { SourceImagePicker } from "./SourceImagePicker";
 import { SourceWinnerPicker } from "./SourceWinnerPicker";
@@ -39,6 +40,8 @@ export function FieldRenderer({ type }: { type: FieldType }) {
       return <PromptOverride />;
     case "references-panel":
       return <ReferencesPanel />;
+    case "scene-picker":
+      return <ScenePicker />;
     case "script-input":
       return <ScriptInput />;
     case "source-image-picker":
