@@ -225,7 +225,7 @@ function SlideView({
                 className="g6-fade-up rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-4"
                 style={{ animationDelay: `${i * 90}ms` }}
               >
-                <p className="font-g6-mono text-[11px] uppercase tracking-wider text-g6-primary mb-2">
+                <p className="font-g6-mono text-[11px] uppercase tracking-wider text-g6-primary-active mb-2">
                   {sec.title}
                 </p>
                 <ul className="space-y-1.5 text-g6-sm text-g6-text-secondary">
@@ -242,7 +242,7 @@ function SlideView({
         )}
 
         {step.footnote && (
-          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-primary">
+          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-primary-active">
             {step.footnote}
           </p>
         )}
@@ -290,7 +290,7 @@ function WalkOverlay({
         onClick={() => setCollapsed(false)}
         className="fixed bottom-6 right-6 z-[60] inline-flex h-11 items-center gap-2 rounded-g6-pill border border-g6-border-secondary bg-g6-bg-elevated/95 px-4 font-g6-sans text-g6-sm font-semibold text-g6-text shadow-g6-lg backdrop-blur-md hover:bg-g6-bg-elevated"
       >
-        <Sparkles className="h-3.5 w-3.5 text-g6-primary" />
+        <Sparkles className="h-3.5 w-3.5 text-g6-primary-active" />
         Tour · {idx + 1}/{total}
         <Maximize2 className="h-3 w-3 text-g6-text-tertiary" />
       </button>
@@ -304,7 +304,7 @@ function WalkOverlay({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="font-g6-mono text-[10px] uppercase tracking-wider text-g6-primary">
+        <p className="font-g6-mono text-[10px] uppercase tracking-wider text-g6-primary-active">
           {step.eyebrow}
         </p>
         <div className="flex items-center gap-1.5">
