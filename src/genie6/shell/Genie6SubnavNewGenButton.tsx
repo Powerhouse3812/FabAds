@@ -25,9 +25,6 @@ export function Genie6SubnavNewGenButton() {
     >
       <Sparkles className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1 truncate font-medium">New generation</span>
-      <span className="shrink-0 rounded border border-sidebar-border bg-sidebar-background px-1 py-0 font-mono text-[10px] text-sidebar-foreground/50">
-        ⌘N
-      </span>
     </button>
   );
 }
