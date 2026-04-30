@@ -1,26 +1,51 @@
-import { Check, Plus } from "lucide-react";
+import { useState } from "react";
+import { Check, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDraft } from "../../stores/draftStore";
 import { productsForBrand } from "../../mocks/products";
+import { useUserProducts } from "../../stores/userBrandsStore";
+import { BrandFetchModal } from "../../components/BrandFetchModal";
 
 /**
- * ProductPicker — horizontal-scroll strip of product cards (iter-5 O-5).
+ * ProductPicker — horizontal-scroll strip of product cards (iter-5 O-5+P-1).
  *
- * Was: 2-col grid that grew vertically. Now: snap-to-card row that stays a
- * fixed height regardless of product count. Multi-select supported (selected
- * cards highlight + check overlay).
- *
- * Hidden until a brand is selected.
+ * Snap-to-card row, multi-select. Iter-5 P-1: when no brand is selected,
+ * the empty state now offers a "paste URL → fetch" shortcut so the user can
+ * onboard a new brand from this field too — same modal as BrandPicker's
+ * Add tile.
  */
 export function ProductPicker() {
   const { draft, dispatch } = useDraft();
-  const list = draft.brandId ? productsForBrand(draft.brandId) : [];
+  const userProducts = useUserProducts();
+  const [fetchOpen, setFetchOpen] = useState(false);
+
+  const list = draft.brandId
+    ? [
+        ...productsForBrand(draft.brandId),
+        ...userProducts.filter((p) => p.brandId === draft.brandId),
+      ]
+    : [];
 
   if (!draft.brandId) {
     return (
       <div className="space-y-2">
         <label className="text-g6-sm font-medium text-g6-text">Product(s)</label>
-        <p className="text-g6-sm text-g6-text-tertiary">Select a brand first.</p>
+        <div className="flex items-center justify-between gap-3 rounded-g6-base border border-dashed border-g6-border-secondary bg-g6-bg-container/40 px-3 py-2.5">
+          <p className="text-g6-sm text-g6-text-tertiary">Select a brand first.</p>
+          <button
+            type="button"
+            onClick={() => setFetchOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-g6-pill border border-g6-primary-border bg-g6-primary-bg px-2.5 py-1 text-g6-xs font-medium text-g6-primary-active hover:bg-g6-primary-bg-hover"
+          >
+            <Sparkles className="h-3 w-3" />
+            Or paste URL
+          </button>
+        </div>
+        <BrandFetchModal
+          open={fetchOpen}
+          onOpenChange={setFetchOpen}
+          onSaved={(brandId) => dispatch({ type: "SET_BRAND", brandId })}
+        />
       </div>
     );
   }

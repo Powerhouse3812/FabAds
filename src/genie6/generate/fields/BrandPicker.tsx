@@ -1,30 +1,33 @@
+import { useState } from "react";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDraft } from "../../stores/draftStore";
 import { brands } from "../../mocks/brands";
+import { useUserBrands } from "../../stores/userBrandsStore";
 import { BrandLogo } from "../../components/BrandLogo";
+import { BrandFetchModal } from "../../components/BrandFetchModal";
 
 /**
- * BrandPicker — horizontal-scroll strip of brand cards (iter-5 O-5).
+ * BrandPicker — horizontal-scroll strip of brand cards (iter-5 O-5+P-1).
  *
- * Was: 3-col grid, 200+ vertical px when 6+ brands. Now: snap-to-card
- * horizontal scroll row, ~88px tall regardless of brand count. Same
- * pattern as Home Recent generations — tactile, scannable, never crowds
- * the form. Brand identity (logo + name + colors) still front-and-center
- * but compressed to a 130px-wide card.
+ * Snap-to-card row that stays a fixed height regardless of brand count. The
+ * "Add" tile now opens the BrandFetchModal inline (URL paste → auto-detect
+ * → review → save) instead of navigating away to settings — matches the G5
+ * killer UX. New brands auto-select on save.
  *
- * Uses BrandLogo for graceful onError fallback (Clearbit API was retired —
- * Google s2 favicons resolve most brand marks reliably; missing/failing
- * URLs degrade to a letter-mark in the brand color).
+ * Logo fallback handled by <BrandLogo> (Google s2 favicon → letter mark).
  */
 export function BrandPicker() {
   const { draft, dispatch } = useDraft();
+  const userBrands = useUserBrands();
+  const all = [...userBrands, ...brands];
+  const [fetchOpen, setFetchOpen] = useState(false);
 
   return (
     <div className="space-y-2">
       <label className="text-g6-sm font-medium text-g6-text">Brand</label>
       <div className="scrollbar-none -mx-1 flex w-full snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
-        {brands.map((b) => {
+        {all.map((b) => {
           const selected = draft.brandId === b.id;
           return (
             <button
@@ -78,16 +81,25 @@ export function BrandPicker() {
           );
         })}
 
-        {/* Add brand CTA */}
+        {/* Add brand → opens BrandFetchModal */}
         <button
           type="button"
-          onClick={() => window.location.assign("/iq/genie6/settings/brands")}
-          className="flex w-[88px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-g6-base border-2 border-dashed border-g6-border-secondary bg-transparent p-2.5 text-g6-text-tertiary transition-colors hover:border-g6-border hover:text-g6-text"
+          onClick={() => setFetchOpen(true)}
+          className="flex w-[88px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-g6-base border-2 border-dashed border-g6-border-secondary bg-transparent p-2.5 text-g6-text-tertiary transition-colors hover:border-g6-primary-border hover:text-g6-text"
         >
           <Plus className="h-4 w-4" />
           <span className="text-g6-xs font-medium">Add</span>
+          <span className="text-[9px] text-g6-text-tertiary leading-tight text-center">
+            paste URL
+          </span>
         </button>
       </div>
+
+      <BrandFetchModal
+        open={fetchOpen}
+        onOpenChange={setFetchOpen}
+        onSaved={(brandId) => dispatch({ type: "SET_BRAND", brandId })}
+      />
     </div>
   );
 }
