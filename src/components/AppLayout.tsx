@@ -12,7 +12,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
 import { CommandPaletteProvider } from "@/genie6/shell/CommandPalette";
-import { RightRail } from "@/genie6/shell/RightRail";
 // NOTE: After iter-3 IA, the topbar is removed. Profile / Variant / Theme moved
 // to the sidebar footer; ClientSwitcher / Help / Copilot / Activity / Sign-out
 // live inside the UserMenu dropdown there. NewGenerationCTA moves to the right
@@ -189,8 +188,10 @@ function AppLayoutInner() {
               <Outlet />
             </div>
           </main>
-          {/* Right rail — only on Genie 6 routes. Holds the +New CTA + ⌘K pill. */}
-          {isGenie6Route && <RightRail />}
+          {/* Right rail removed (iter-5): + New gen + ⌘K both reachable from
+              the sleek sub-nav search bar above Dashboard, plus the command
+              palette via ⌘K + ⌘N keyboard shortcuts. No need to duplicate
+              into a separate column. */}
           {/* Pinned copilot panel */}
           {isPinned && isOpen && <CopilotPanel />}
         </div>

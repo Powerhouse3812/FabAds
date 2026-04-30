@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { InsightsBoardListPanel } from "@/components/insights/InsightsBoardListPanel";
 import { UserMenu } from "@/components/UserMenu";
 import { ThemeVariantSwitcher } from "@/genie6/shell/ThemeVariantSwitcher";
+import { Genie6SubnavSearch } from "@/genie6/shell/Genie6SubnavSearch";
 import faviconLight from "@/assets/favicon-light.svg";
 import faviconDark from "@/assets/favicon-dark.png";
 
@@ -345,6 +346,12 @@ function RailIcon({
           <div className="px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold text-foreground">{mod.label}</span>
           </div>
+          {/* Sleek search bar at top of Genie 6 sub-nav (opens command palette). */}
+          {mod.key === "genie6" && (
+            <div className="px-1.5 pt-1.5">
+              <Genie6SubnavSearch />
+            </div>
+          )}
           <div className="flex flex-col gap-0.5 p-1.5">
             {mod.subItems?.map((item) => {
               const SubIcon = item.icon;
@@ -538,6 +545,15 @@ function SubPanel({
         </button>
       </div>
 
+      {/* Sleek search bar at top of Genie 6 sub-nav (opens command palette).
+          Replaces the right-rail's "+ New gen" + ⌘K duo — all those actions
+          live in the palette. */}
+      {mod.key === "genie6" && (
+        <div className="px-2 pb-2">
+          <Genie6SubnavSearch />
+        </div>
+      )}
+
       <div className="px-2">
         <div className="flex flex-col gap-1">
           {mod.subItems?.map(renderItem)}
@@ -606,6 +622,12 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
             <span className="ml-auto text-[10px] text-muted-foreground border border-sidebar-border rounded px-1">Soon</span>
           )}
         </div>
+        {/* Sleek search bar at top of Genie 6 sub-nav (mobile view). */}
+        {mod.key === "genie6" && (
+          <div className="ml-6 mr-3 mb-1.5">
+            <Genie6SubnavSearch />
+          </div>
+        )}
         <div className="ml-6 flex flex-col gap-0.5">
           {mod.subItems?.map((item) => {
             const siblings = allSubPaths(mod);
