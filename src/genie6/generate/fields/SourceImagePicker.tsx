@@ -100,7 +100,7 @@ function SourceImageBody({
           <img
             src={draft.sourceImageUrl}
             alt="Source preview"
-            className="h-8 w-8 rounded object-cover"
+            className="h-8 w-8 rounded-g6-base object-cover"
             onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
           />
           <span className="flex-1 truncate font-g6-mono text-g6-xs text-g6-text-secondary">

@@ -108,7 +108,7 @@ const VISUALS: Record<OutputType, OutputTypeVisual> = {
     Icon: FileText,
     hint: "Text + visual",
     Preview: ({ active }) => (
-      <div className="flex h-10 w-14 items-center gap-1 rounded border-[1.5px] border-g6-border-secondary bg-g6-bg-spotlight/40 p-1">
+      <div className="flex h-10 w-14 items-center gap-1 rounded-g6-base border-[1.5px] border-g6-border-secondary bg-g6-bg-spotlight/40 p-1">
         <div
           className={cn(
             "h-full w-4 shrink-0 rounded-sm",
@@ -137,7 +137,7 @@ const VISUALS: Record<OutputType, OutputTypeVisual> = {
     Icon: Type,
     hint: "Pure copy",
     Preview: ({ active }) => (
-      <div className="flex h-10 w-14 flex-col justify-center gap-1 rounded border-[1.5px] border-g6-border-secondary bg-g6-bg-spotlight/40 px-1.5">
+      <div className="flex h-10 w-14 flex-col justify-center gap-1 rounded-g6-base border-[1.5px] border-g6-border-secondary bg-g6-bg-spotlight/40 px-1.5">
         <div
           className={cn(
             "g6-out-line h-0.5 rounded-full",

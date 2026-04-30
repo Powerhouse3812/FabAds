@@ -388,9 +388,9 @@ function ReviewStage({
                 className="flex items-center gap-2 rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-2"
               >
                 {p.image ? (
-                  <img src={p.image} alt={p.name} className="h-9 w-9 shrink-0 rounded bg-g6-bg-spotlight object-cover" />
+                  <img src={p.image} alt={p.name} className="h-9 w-9 shrink-0 rounded-g6-base bg-g6-bg-spotlight object-cover" />
                 ) : (
-                  <div className="h-9 w-9 shrink-0 rounded bg-g6-bg-spotlight" />
+                  <div className="h-9 w-9 shrink-0 rounded-g6-base bg-g6-bg-spotlight" />
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-g6-xs font-medium text-g6-text">{p.name}</p>

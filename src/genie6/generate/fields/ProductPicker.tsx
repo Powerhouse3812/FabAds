@@ -85,10 +85,10 @@ export function ProductPicker() {
                 <img
                   src={p.thumbnail}
                   alt={p.name}
-                  className="h-12 w-12 shrink-0 rounded bg-g6-bg-spotlight object-cover"
+                  className="h-12 w-12 shrink-0 rounded-g6-base bg-g6-bg-spotlight object-cover"
                 />
               ) : (
-                <div className="h-12 w-12 shrink-0 rounded bg-g6-bg-spotlight" />
+                <div className="h-12 w-12 shrink-0 rounded-g6-base bg-g6-bg-spotlight" />
               )}
 
               <div className="min-w-0 flex-1 space-y-0.5">

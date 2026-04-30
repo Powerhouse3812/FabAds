@@ -67,7 +67,7 @@ const defaultDraft: DraftState = {
   angle: null,
   tone: "Premium",
   format: "4:5",
-  count: 12,
+  count: 5,
   prompt: "",
   briefText: "",
   references: [],

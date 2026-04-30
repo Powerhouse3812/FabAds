@@ -4,13 +4,11 @@ import { useNewGenerationOverlay } from "./NewGenerationOverlay";
 import { resolvePrefillFromRoute } from "../lib/prefillContext";
 
 /**
- * "+ New generation" button — sleek, secondary style. Same visual shape as
- * the Genie 6 sub-nav search bar (rounded border, left icon, label, right
- * shortcut pill). Sits below the search bar in the sub-nav.
+ * "+ New generation" button — primary lime CTA in the Genie 6 sub-nav (Q-1).
  *
- * Iter-5: replaces the right-rail's primary lime "+ New gen" button. Same
- * function (opens NewGenerationOverlay with route-derived prefill) but
- * lives in the sub-nav with secondary styling — doesn't dominate the page.
+ * Was a soft secondary that disappeared into the sidebar; promoted to a
+ * filled primary button so it reads as the entry-point action it actually
+ * is. Opens NewGenerationOverlay with route-derived prefill.
  */
 export function Genie6SubnavNewGenButton() {
   const { open } = useNewGenerationOverlay();
@@ -21,10 +19,10 @@ export function Genie6SubnavNewGenButton() {
       type="button"
       onClick={() => open(resolvePrefillFromRoute(pathname))}
       aria-label="New generation"
-      className="group flex w-full items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-accent/30 px-2.5 py-1.5 text-left text-xs text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+      className="group flex w-full items-center justify-center gap-1.5 rounded-md bg-g6-primary px-3 py-2 text-left text-xs font-semibold text-g6-text-on-accent shadow-g6-primary-btn transition-all hover:bg-g6-primary-hover hover:scale-[1.01] active:scale-[0.99]"
     >
       <Sparkles className="h-3.5 w-3.5 shrink-0" />
-      <span className="flex-1 truncate font-medium">New generation</span>
+      <span className="truncate">New generation</span>
     </button>
   );
 }

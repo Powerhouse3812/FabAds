@@ -66,21 +66,29 @@ export function StudioGenerateForm() {
           <FormModeToggle />
         </header>
 
-        <Section title="Source">
-          {fieldsBy(SOURCE_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
-        </Section>
+        {fieldsBy(SOURCE_FIELDS).length > 0 && (
+          <Section title="Source">
+            {fieldsBy(SOURCE_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
+          </Section>
+        )}
 
-        <Section title="Direction">
-          {fieldsBy(DIRECTION_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
-        </Section>
+        {fieldsBy(DIRECTION_FIELDS).length > 0 && (
+          <Section title="Direction">
+            {fieldsBy(DIRECTION_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
+          </Section>
+        )}
 
-        <Section title="Output settings">
-          {fieldsBy(SETTINGS_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
-        </Section>
+        {fieldsBy(SETTINGS_FIELDS).length > 0 && (
+          <Section title="Output settings">
+            {fieldsBy(SETTINGS_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
+          </Section>
+        )}
 
-        <Section title="Advanced" optional>
-          {fieldsBy(ADVANCED_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
-        </Section>
+        {fieldsBy(ADVANCED_FIELDS).length > 0 && (
+          <Section title="Advanced" optional>
+            {fieldsBy(ADVANCED_FIELDS).map((f) => <FieldRenderer key={f} type={f as any} />)}
+          </Section>
+        )}
 
         <div className="mt-6 flex items-center justify-between border-t border-g6-border-secondary pt-4">
           <span className="font-g6-mono text-g6-sm text-g6-text-secondary">
