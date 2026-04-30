@@ -254,6 +254,44 @@
   100% { transform: translateX(100%); }
 }
 
+/* Output-type mini-preview animations (OutputTypePicker tiles).
+   Trigger only on hover/active via parent .group:hover .g6-out-* selectors. */
+@keyframes g6-out-play-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+@keyframes g6-out-carousel {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-6px); }
+}
+@keyframes g6-out-motion-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(3px, -2px); }
+}
+@keyframes g6-out-text-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes g6-out-line-grow {
+  0%, 100% { width: var(--w-from, 60%); }
+  50% { width: var(--w-to, 95%); }
+}
+.group:hover .g6-out-play, .g6-out-active .g6-out-play {
+  animation: g6-out-play-pulse 1.6s ease-in-out infinite;
+}
+.group:hover .g6-out-carousel, .g6-out-active .g6-out-carousel {
+  animation: g6-out-carousel 2.4s ease-in-out infinite;
+}
+.group:hover .g6-out-motion, .g6-out-active .g6-out-motion {
+  animation: g6-out-motion-drift 2.2s ease-in-out infinite;
+}
+.group:hover .g6-out-cursor, .g6-out-active .g6-out-cursor {
+  animation: g6-out-text-cursor 1.1s steps(1, end) infinite;
+}
+.group:hover .g6-out-line, .g6-out-active .g6-out-line {
+  animation: g6-out-line-grow 2.4s ease-in-out infinite;
+}
+
 
 /* ============================================================
    Utility classes — extracted from 49 inline repetitions across
