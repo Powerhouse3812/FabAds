@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useDraft } from "../../stores/draftStore";
 import { getModeConfig, getFields } from "../../generate/modeConfigs";
@@ -7,6 +7,7 @@ import { FieldRenderer } from "../../generate/fields/FieldRenderer";
 import { brands } from "../../mocks/brands";
 import { useFormMode } from "../../stores/formModeStore";
 import { FormModeToggle } from "../../components/FormModeToggle";
+import { StudioPromptBar } from "../../components/PromptBar/StudioPromptBar";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -33,7 +34,6 @@ const ADVANCED_FIELDS: Array<string> = ["references-panel", "prompt-override"];
 
 export function StudioGenerateForm() {
   const { mode } = useParams<{ mode: string }>();
-  const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
   const [formMode] = useFormMode();
 
@@ -46,13 +46,6 @@ export function StudioGenerateForm() {
   const brand = draft.brandId ? brands.find((b) => b.id === draft.brandId) : null;
   const activeFields = getFields(config, formMode);
   const fieldsBy = (group: string[]) => activeFields.filter((f) => group.includes(f));
-
-  const generate = (testFirst = false) => {
-    const count = testFirst ? 4 : draft.count;
-    navigate(
-      `/iq/genie6/generate/${mode}/progress/demo-batch-${Date.now()}?count=${count}&testFirst=${testFirst}`
-    );
-  };
 
   return (
     <div className="grid h-full grid-cols-[1.4fr_1fr] gap-3 p-3">
@@ -90,27 +83,7 @@ export function StudioGenerateForm() {
           </Section>
         )}
 
-        <div className="mt-6 flex items-center justify-between border-t border-g6-border-secondary pt-4">
-          <span className="font-g6-mono text-g6-sm text-g6-text-secondary">
-            {draft.count} credits · ~{draft.count * 2}s
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => generate(true)}
-              className="rounded-g6-base border border-g6-border bg-g6-bg-base px-4 py-2 text-g6-sm font-medium text-g6-text-secondary hover:text-g6-text"
-            >
-              Test First
-            </button>
-            <button
-              type="button"
-              onClick={() => generate(false)}
-              className="rounded-g6-base bg-g6-primary px-5 py-2 text-g6-sm font-semibold text-g6-text-on-accent shadow-g6-primary-btn"
-            >
-              Generate ▶
-            </button>
-          </div>
-        </div>
+        <StudioPromptBar />
       </main>
 
       {/* RIGHT — live preview only (AI recommendations rail removed iter-5) */}

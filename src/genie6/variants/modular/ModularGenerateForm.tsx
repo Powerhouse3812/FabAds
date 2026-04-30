@@ -1,12 +1,12 @@
 import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Sparkles, GripVertical, Plus } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { GripVertical, Plus } from "lucide-react";
 import { useDraft } from "../../stores/draftStore";
 import { getModeConfig, getFields } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
-import { brands } from "../../mocks/brands";
 import { useFormMode } from "../../stores/formModeStore";
 import { FormModeToggle } from "../../components/FormModeToggle";
+import { ModularPromptBar } from "../../components/PromptBar/ModularPromptBar";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -33,8 +33,7 @@ const MODULE_GROUPS: Array<{
 
 export function ModularGenerateForm() {
   const { mode } = useParams<{ mode: string }>();
-  const navigate = useNavigate();
-  const { draft, dispatch } = useDraft();
+  const { dispatch } = useDraft();
   const [formMode] = useFormMode();
 
   useEffect(() => {
@@ -44,14 +43,6 @@ export function ModularGenerateForm() {
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
   const activeFields = getFields(config, formMode);
-  const brand = draft.brandId ? brands.find((b) => b.id === draft.brandId) : null;
-
-  const generate = (testFirst = false) => {
-    const count = testFirst ? 4 : draft.count;
-    navigate(
-      `/iq/genie6/generate/${mode}/progress/demo-batch-${Date.now()}?count=${count}&testFirst=${testFirst}`
-    );
-  };
 
   // Filter modules to only those whose fieldTypes overlap the active fields
   const visibleModules = MODULE_GROUPS.filter((g) =>
@@ -98,34 +89,9 @@ export function ModularGenerateForm() {
           <span className="font-g6-mono text-g6-xs uppercase tracking-wider">add module</span>
         </button>
 
-        {/* Generate module — spans full width */}
-        <div className="lg:col-span-2 rounded-g6-2xl border border-g6-primary-border bg-gradient-to-br from-g6-primary-bg via-g6-bg-container to-g6-bg-container p-6 text-center">
-          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-primary">
-            <span>&gt;</span> generate
-          </p>
-          <p className="text-g6-base text-g6-text mt-2">
-            {draft.count} {draft.outputType ?? config.defaultOutputType} ads · {brand?.name ?? "no brand"} · {draft.format}
-          </p>
-          <p className="font-g6-mono text-g6-xs text-g6-text-tertiary mt-1">
-            ~{draft.count * 2}s · {draft.count} credits
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => generate(true)}
-              className="rounded-g6-pill border border-g6-border-secondary bg-g6-bg-container px-4 py-1.5 text-g6-sm font-medium text-g6-text-secondary hover:text-g6-text"
-            >
-              Test 4
-            </button>
-            <button
-              type="button"
-              onClick={() => generate(false)}
-              className="inline-flex items-center gap-2 rounded-g6-pill bg-g6-primary px-6 py-2 text-g6-base font-bold text-g6-text-on-accent shadow-g6-glow"
-            >
-              <Sparkles className="h-4 w-4" />
-              Generate ▶
-            </button>
-          </div>
+        {/* Prompt bar — spans full width */}
+        <div className="lg:col-span-2">
+          <ModularPromptBar />
         </div>
       </div>
     </div>

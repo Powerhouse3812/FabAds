@@ -27,6 +27,7 @@ export interface DraftState {
   script: string;
   conceptId: string | null;
   sceneId: string | null;             // P-3: visual scene/composition (image modes)
+  aiModelId: string | null;           // Q-2: AI model selector in prompt bar
   sourceUrl: string;
   wizardStep: number;
 }
@@ -51,6 +52,7 @@ type DraftAction =
   | { type: "SET_SCRIPT"; script: string }
   | { type: "SET_CONCEPT"; conceptId: string | null }
   | { type: "SET_SCENE"; sceneId: string | null }
+  | { type: "SET_AI_MODEL"; aiModelId: string | null }
   | { type: "ADD_REFERENCE"; url: string }
   | { type: "REMOVE_REFERENCE"; index: number }
   | { type: "SET_WIZARD_STEP"; step: number }
@@ -77,6 +79,7 @@ const defaultDraft: DraftState = {
   script: "",
   conceptId: null,
   sceneId: null,
+  aiModelId: null,
   sourceUrl: "",
   wizardStep: 1,
 };
@@ -126,6 +129,8 @@ function draftReducer(state: DraftState, action: DraftAction): DraftState {
       return { ...state, conceptId: action.conceptId };
     case "SET_SCENE":
       return { ...state, sceneId: action.sceneId };
+    case "SET_AI_MODEL":
+      return { ...state, aiModelId: action.aiModelId };
     case "ADD_REFERENCE":
       return { ...state, references: [...state.references, action.url] };
     case "REMOVE_REFERENCE":

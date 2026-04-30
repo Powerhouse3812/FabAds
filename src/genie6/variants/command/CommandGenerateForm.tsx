@@ -6,6 +6,7 @@ import { getModeConfig, getFields } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
 import { useFormMode } from "../../stores/formModeStore";
 import { FormModeToggle } from "../../components/FormModeToggle";
+import { CommandPromptBar } from "../../components/PromptBar/CommandPromptBar";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -30,13 +31,6 @@ export function CommandGenerateForm() {
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
   const activeFields = getFields(config, formMode);
-
-  const generate = (testFirst = false) => {
-    const count = testFirst ? 4 : draft.count;
-    navigate(
-      `/iq/genie6/generate/${mode}/progress/demo-batch-${Date.now()}?count=${count}&testFirst=${testFirst}`
-    );
-  };
 
   return (
     <div className="grid h-full grid-cols-[1fr_280px] gap-4 p-5">
@@ -77,28 +71,7 @@ export function CommandGenerateForm() {
           </div>
         </div>
 
-        {/* Sticky submit footer */}
-        <footer className="sticky bottom-0 flex items-center justify-between border-t border-g6-border-secondary bg-g6-bg-base px-5 py-3">
-          <span className="font-g6-mono text-g6-sm text-g6-text-secondary">
-            <span className="font-semibold text-g6-text tabular-nums">{draft.count}</span> credits · ~<span className="tabular-nums">{draft.count * 2}</span>s
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => generate(true)}
-              className="rounded-g6-base border border-g6-border bg-g6-bg-container px-4 py-2 text-g6-sm font-medium text-g6-text-secondary hover:text-g6-text"
-            >
-              Test 4
-            </button>
-            <button
-              type="button"
-              onClick={() => generate(false)}
-              className="rounded-g6-base bg-g6-primary px-5 py-2 text-g6-sm font-bold text-g6-text-on-accent"
-            >
-              Submit batch ▸
-            </button>
-          </div>
-        </footer>
+        <CommandPromptBar />
       </main>
 
       {/* RIGHT — KPI strip with batch impact (iter-5: 'Est. winners' removed —

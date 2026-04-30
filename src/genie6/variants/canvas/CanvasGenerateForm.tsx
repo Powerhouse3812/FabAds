@@ -8,6 +8,7 @@ import { FieldRenderer } from "../../generate/fields/FieldRenderer";
 import { MicroMotif } from "../../components/MicroMotif";
 import { useFormMode } from "../../stores/formModeStore";
 import { FormModeToggle } from "../../components/FormModeToggle";
+import { CanvasPromptBar } from "../../components/PromptBar/CanvasPromptBar";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -36,13 +37,6 @@ export function CanvasGenerateForm() {
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
   const activeFields = getFields(config, formMode);
-
-  const generate = (testFirst = false) => {
-    const count = testFirst ? 4 : draft.count;
-    navigate(
-      `/iq/genie6/generate/${mode}/progress/demo-batch-${Date.now()}?count=${count}&testFirst=${testFirst}`
-    );
-  };
 
   return (
     <div className="grid h-full grid-cols-[56px_1fr_56px]">
@@ -126,28 +120,8 @@ export function CanvasGenerateForm() {
           </button>
         )}
 
-        {/* Bottom action bar */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-          <div className="flex items-center gap-3 rounded-g6-pill bg-g6-bg-container/95 px-4 py-2 shadow-g6-lg backdrop-blur-md border border-g6-border-secondary">
-            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">
-              {draft.count} credits · ~{draft.count * 2}s
-            </span>
-            <button
-              type="button"
-              onClick={() => generate(true)}
-              className="rounded-g6-pill border border-g6-border bg-g6-bg-base px-3 py-1 text-g6-xs font-medium text-g6-text-secondary hover:text-g6-text"
-            >
-              Test 4
-            </button>
-            <button
-              type="button"
-              onClick={() => generate(false)}
-              className="rounded-g6-pill bg-g6-primary px-4 py-1.5 text-g6-sm font-bold text-g6-text-on-accent shadow-g6-glow"
-            >
-              ✦ Generate ▶
-            </button>
-          </div>
-        </div>
+        {/* Floating prompt bar — replaces the previous bottom action bar */}
+        <CanvasPromptBar />
       </div>
 
       {/* RIGHT TOOL RAIL — utility actions */}
