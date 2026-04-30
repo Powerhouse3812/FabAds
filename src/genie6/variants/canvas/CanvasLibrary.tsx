@@ -33,7 +33,7 @@ export function CanvasLibrary() {
           <span className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
             canvas · library
           </span>
-          <h1 className="text-g6-h4 font-bold text-g6-text">Generated outputs</h1>
+          <h1 className="text-g6-h4 font-bold text-g6-text">Generations</h1>
         </div>
         <button
           type="button"

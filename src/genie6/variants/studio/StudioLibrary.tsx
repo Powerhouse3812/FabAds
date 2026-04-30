@@ -28,8 +28,8 @@ export function StudioLibrary() {
       <main className="flex flex-1 overflow-hidden rounded-g6-card border border-g6-border-secondary bg-g6-bg-container">
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="border-b border-g6-border-secondary bg-g6-bg-base px-5 py-3">
-            <h1 className="text-g6-h4 font-bold text-g6-text">Library</h1>
-            <p className="text-g6-xs text-g6-text-tertiary">All generated outputs · 142 items</p>
+            <h1 className="text-g6-h4 font-bold text-g6-text">Generations</h1>
+            <p className="text-g6-xs text-g6-text-tertiary">142 outputs across all batches</p>
           </header>
           <div className="border-b border-g6-border-secondary bg-g6-bg-base px-5 py-2">
             <FilterBar

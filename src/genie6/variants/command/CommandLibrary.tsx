@@ -28,7 +28,7 @@ export function CommandLibrary() {
           <header className="flex items-center justify-between border-b border-g6-border-secondary bg-g6-bg-base px-5 py-3">
             <div className="flex items-center gap-3">
               <Database className="h-4 w-4 text-g6-primary" />
-              <h1 className="text-g6-h4 font-bold text-g6-text">Generated outputs</h1>
+              <h1 className="text-g6-h4 font-bold text-g6-text">Generations</h1>
               <span className="font-g6-mono text-g6-xs text-g6-text-tertiary uppercase tracking-wider">
                 · 142 outputs
               </span>

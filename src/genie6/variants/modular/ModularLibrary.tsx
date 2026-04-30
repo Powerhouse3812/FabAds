@@ -25,12 +25,12 @@ export function ModularLibrary() {
     <div className="g6-halo relative flex h-full flex-col p-6">
       <header className="relative z-10 mb-4">
         <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-          <span className="text-g6-primary">&gt;</span> library.outputs
+          <span className="text-g6-primary">&gt;</span> generations.outputs
         </p>
         <h1 className="text-g6-h2 font-bold tracking-[-0.02em] text-g6-text mt-1">
-          Library
+          Generations
         </h1>
-        <p className="text-g6-sm text-g6-text-secondary mt-1">All generated outputs · 142 items</p>
+        <p className="text-g6-sm text-g6-text-secondary mt-1">142 outputs across all batches</p>
       </header>
 
       <div className="relative z-10 flex flex-1 gap-3 overflow-hidden">

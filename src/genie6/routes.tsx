@@ -17,7 +17,7 @@ import { GenerateOutlet } from "./generate/GenerateOutlet";
 import { GenerateScaffold } from "./generate/GenerateScaffold";
 import { ModePicker } from "./generate/ModePicker";
 import { FormScaffold } from "./generate/FormScaffold";
-import { WizardTour } from "./onboarding/WizardTour";
+import { TourPresentation } from "./tour/TourPresentation";
 import { ProgressScreen } from "./generate/ProgressScreen";
 import { ResultsScreen } from "./generate/ResultsScreen";
 
@@ -75,7 +75,7 @@ export const genie6Routes = (
       <Route path=":mode/results/:batchId" element={<ResultsScreen />} />
     </Route>
 
-    {/* Onboarding wizard / tour — stub for now, real flow built last */}
-    <Route path="wizard" element={<WizardTour />} />
+    {/* Guided tour — slide deck + walkthrough overlay */}
+    <Route path="wizard" element={<TourPresentation />} />
   </Route>
 );

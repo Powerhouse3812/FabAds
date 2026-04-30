@@ -112,7 +112,7 @@ const MODULES: ModuleDef[] = [
       { label: "Generations", path: "/iq/genie6/library", icon: LibraryIcon },
       { label: "Library", path: "/iq/genie6/workspace", icon: FolderTree },
       { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
-      { label: "Tour", path: "/iq/genie6/wizard", icon: Sparkles, badge: "Soon" },
+      { label: "Tour", path: "/iq/genie6/wizard", icon: Sparkles },
     ],
   },
   {
