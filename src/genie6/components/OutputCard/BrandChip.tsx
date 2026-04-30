@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "../BrandLogo";
 
 export function BrandChip({ name, logo, className }: { name: string; logo?: string; className?: string }) {
   return (
@@ -8,14 +9,7 @@ export function BrandChip({ name, logo, className }: { name: string; logo?: stri
         className
       )}
     >
-      {logo ? (
-        <img src={logo} alt="" className="h-3.5 w-3.5 rounded-full object-cover" />
-      ) : (
-        <span
-          aria-hidden
-          className="inline-block h-3.5 w-3.5 rounded-full bg-g6-primary"
-        />
-      )}
+      <BrandLogo name={name} src={logo} size="h-3.5 w-3.5" rounded="rounded-full" />
       <span className="max-w-[120px] truncate">{name}</span>
     </span>
   );

@@ -4,13 +4,13 @@ import { useDraft } from "../../stores/draftStore";
 import { productsForBrand } from "../../mocks/products";
 
 /**
- * ProductPicker — visual grid of product cards (iter-5 port from Genie 5).
+ * ProductPicker — horizontal-scroll strip of product cards (iter-5 O-5).
  *
- * Was a vertical list of text rows with name + price. Now: a 2-col grid of
- * product cards with thumbnail + name + price + benefits/promo chip. Multi-
- * select supported (selected cards highlight + check mark overlay).
+ * Was: 2-col grid that grew vertically. Now: snap-to-card row that stays a
+ * fixed height regardless of product count. Multi-select supported (selected
+ * cards highlight + check overlay).
  *
- * Hidden until a brand is selected (per current behavior).
+ * Hidden until a brand is selected.
  */
 export function ProductPicker() {
   const { draft, dispatch } = useDraft();
@@ -26,7 +26,7 @@ export function ProductPicker() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <label className="text-g6-sm font-medium text-g6-text">
         Product(s){" "}
         {draft.productIds.length > 0 && (
@@ -35,7 +35,7 @@ export function ProductPicker() {
           </span>
         )}
       </label>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="scrollbar-none -mx-1 flex w-full snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
         {list.map((p) => {
           const selected = draft.productIds.includes(p.id);
           return (
@@ -44,36 +44,39 @@ export function ProductPicker() {
               type="button"
               onClick={() => dispatch({ type: "TOGGLE_PRODUCT", productId: p.id })}
               className={cn(
-                "g6-lift relative flex gap-3 rounded-g6-base p-3 text-left transition-all",
+                "g6-lift relative flex w-[156px] shrink-0 snap-start gap-2 rounded-g6-base p-2.5 text-left transition-all",
                 selected
                   ? "border border-g6-primary bg-g6-primary-bg ring-1 ring-g6-primary/30"
                   : "border border-g6-border-secondary bg-g6-bg-container hover:border-g6-border"
               )}
             >
               {selected && (
-                <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-g6-primary text-g6-text-on-accent">
-                  <Check className="h-3 w-3" />
+                <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-g6-primary text-g6-text-on-accent">
+                  <Check className="h-2.5 w-2.5" />
                 </span>
               )}
 
-              {/* Thumbnail */}
               {p.thumbnail ? (
                 <img
                   src={p.thumbnail}
                   alt={p.name}
-                  className="h-14 w-14 shrink-0 rounded bg-g6-bg-spotlight object-cover"
+                  className="h-12 w-12 shrink-0 rounded bg-g6-bg-spotlight object-cover"
                 />
               ) : (
-                <div className="h-14 w-14 shrink-0 rounded bg-g6-bg-spotlight" />
+                <div className="h-12 w-12 shrink-0 rounded bg-g6-bg-spotlight" />
               )}
 
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-g6-sm font-semibold text-g6-text truncate">{p.name}</p>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="truncate text-g6-sm font-semibold text-g6-text">
+                  {p.name}
+                </p>
                 {p.price && (
-                  <p className="font-g6-mono text-g6-xs text-g6-text-tertiary">{p.price}</p>
+                  <p className="font-g6-mono text-[10px] text-g6-text-tertiary">
+                    {p.price}
+                  </p>
                 )}
                 {p.promo && (
-                  <span className="inline-flex items-center rounded-g6-pill border border-g6-border-secondary bg-g6-bg-base px-1.5 py-0 text-[10px] font-medium text-g6-text-secondary">
+                  <span className="inline-flex items-center rounded-g6-pill border border-g6-border-secondary bg-g6-bg-base px-1.5 py-0 text-[9px] font-medium text-g6-text-secondary">
                     {p.promo}
                   </span>
                 )}
@@ -85,11 +88,13 @@ export function ProductPicker() {
         {/* Add product CTA */}
         <button
           type="button"
-          onClick={() => window.location.assign(`/iq/genie6/settings/brands/${draft.brandId}`)}
-          className="flex items-center justify-center gap-1.5 rounded-g6-base border-2 border-dashed border-g6-border-secondary bg-transparent p-3 text-g6-text-tertiary hover:border-g6-border hover:text-g6-text transition-colors min-h-[80px]"
+          onClick={() =>
+            window.location.assign(`/iq/genie6/settings/brands/${draft.brandId}`)
+          }
+          className="flex w-[88px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-g6-base border-2 border-dashed border-g6-border-secondary bg-transparent p-2.5 text-g6-text-tertiary transition-colors hover:border-g6-border hover:text-g6-text"
         >
           <Plus className="h-4 w-4" />
-          <span className="text-g6-xs font-medium">Add product</span>
+          <span className="text-g6-xs font-medium">Add</span>
         </button>
       </div>
     </div>

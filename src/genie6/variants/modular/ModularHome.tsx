@@ -7,6 +7,7 @@ import { HeroPromptInput } from "../../components/HeroPromptInput";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
+import { BrandLogo } from "../../components/BrandLogo";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 
 /**
@@ -129,13 +130,7 @@ export function ModularHome() {
                   onClick={() => navigate(`/iq/genie6/workspace/brands/${b.id}`)}
                   className="flex w-full items-center gap-2 rounded-g6-base px-2 py-1.5 hover:bg-g6-bg-spotlight transition-colors"
                 >
-                  {b.logo ? (
-                    <img src={b.logo} alt={b.name} className="h-5 w-5 rounded-sm object-cover bg-g6-bg-spotlight" />
-                  ) : (
-                    <div className="h-5 w-5 rounded-sm bg-g6-bg-spotlight flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-text-secondary">
-                      {b.name[0]}
-                    </div>
-                  )}
+                  <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-5 w-5" rounded="rounded-sm" />
                   <span className="text-g6-sm text-g6-text truncate flex-1 text-left">{b.name}</span>
                   <ArrowUpRight className="h-3 w-3 text-g6-text-tertiary" />
                 </button>

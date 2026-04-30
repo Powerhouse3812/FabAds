@@ -7,6 +7,7 @@ import { HeroPromptInput } from "../../components/HeroPromptInput";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
+import { BrandLogo } from "../../components/BrandLogo";
 import { greeting } from "../../utils/greeting";
 
 /**
@@ -112,13 +113,7 @@ export function CommandHome() {
                       onClick={() => navigate(`/iq/genie6/workspace/brands/${b.id}`)}
                     >
                       <td className="px-3 py-2.5 flex items-center gap-2">
-                        {b.logo ? (
-                          <img src={b.logo} alt={b.name} className="h-5 w-5 rounded-sm object-cover bg-g6-bg-spotlight" />
-                        ) : (
-                          <div className="h-5 w-5 rounded-sm bg-g6-bg-spotlight flex items-center justify-center font-g6-mono text-g6-xs font-bold text-g6-text-secondary">
-                            {b.name[0]}
-                          </div>
-                        )}
+                        <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-5 w-5" rounded="rounded-sm" />
                         <span className="font-medium text-g6-text">{b.name}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{gens}</td>

@@ -2,13 +2,18 @@ import { cn } from "@/lib/utils";
 import { useDraft } from "../../stores/draftStore";
 import { avatars } from "../../mocks/library";
 
+/**
+ * AvatarPicker — horizontal-scroll strip (iter-5 O-5). Was a 4-col grid that
+ * grew tall as more avatars were added; now a fixed-height row that scrolls
+ * sideways. Same selection UX, half the vertical real estate.
+ */
 export function AvatarPicker() {
   const { draft, dispatch } = useDraft();
 
   return (
     <div className="space-y-2">
       <label className="text-g6-sm font-medium text-g6-text">Avatar</label>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="scrollbar-none -mx-1 flex w-full snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
         {avatars.map((a) => {
           const active = draft.avatarId === a.id;
           return (
@@ -19,7 +24,7 @@ export function AvatarPicker() {
                 dispatch({ type: "SET_AVATAR", avatarId: active ? null : a.id })
               }
               className={cn(
-                "flex flex-col items-center gap-1.5 rounded-g6-base border p-2 text-center transition-colors",
+                "flex w-[96px] shrink-0 snap-start flex-col items-center gap-1 rounded-g6-base border p-2 text-center transition-colors",
                 active
                   ? "border-g6-primary bg-g6-primary-bg"
                   : "border-g6-border-secondary bg-g6-bg-container hover:border-g6-border"
@@ -35,8 +40,12 @@ export function AvatarPicker() {
               >
                 {a.name[0]}
               </div>
-              <span className="text-g6-xs font-medium text-g6-text">{a.name}</span>
-              <span className="text-g6-xs text-g6-text-tertiary">{a.demographic}</span>
+              <span className="w-full truncate text-g6-xs font-medium text-g6-text">
+                {a.name}
+              </span>
+              <span className="w-full truncate text-[10px] text-g6-text-tertiary">
+                {a.demographic}
+              </span>
             </button>
           );
         })}

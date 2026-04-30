@@ -3,6 +3,7 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { getBrand } from "../mocks/brands";
 import { productsForBrand } from "../mocks/products";
 import { categories } from "../mocks/categories";
+import { BrandLogo } from "../components/BrandLogo";
 
 export function BrandProfileEditor() {
   const { brandId } = useParams<{ brandId: string }>();
@@ -23,26 +24,14 @@ export function BrandProfileEditor() {
 
       {/* Brand header card */}
       <header className="mb-6 flex items-center gap-4 rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-5">
-        {brand.logo ? (
-          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-g6-card bg-white p-2 shadow-g6-sm">
-            <img
-              src={brand.logo}
-              alt={`${brand.name} logo`}
-              className="h-full w-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
-          </div>
-        ) : (
-          <div
-            aria-hidden
-            className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-g6-card font-g6-sans text-g6-h2 font-bold"
-            style={{ backgroundColor: brand.colors[0], color: brand.colors[1] ?? "#fff" }}
-          >
-            {brand.name[0]}
-          </div>
-        )}
+        <BrandLogo
+          name={brand.name}
+          src={brand.logo}
+          tint={brand.colors?.[0]}
+          size="h-16 w-16"
+          rounded="rounded-g6-card"
+          className="shadow-g6-sm"
+        />
         <div className="flex-1">
           <h1 className="font-g6-sans text-g6-h3 font-bold text-g6-text">{brand.name}</h1>
           <p className="mt-1 font-g6-mono text-g6-sm text-g6-text-secondary">{brand.domain}</p>
