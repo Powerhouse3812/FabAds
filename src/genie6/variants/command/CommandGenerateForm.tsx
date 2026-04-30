@@ -2,8 +2,10 @@ import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Sparkles, Coins, Zap } from "lucide-react";
 import { useDraft } from "../../stores/draftStore";
-import { getModeConfig } from "../../generate/modeConfigs";
+import { getModeConfig, getFields } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
+import { useFormMode } from "../../stores/formModeStore";
+import { FormModeToggle } from "../../components/FormModeToggle";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -19,6 +21,7 @@ export function CommandGenerateForm() {
   const { mode } = useParams<{ mode: string }>();
   const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
+  const [formMode] = useFormMode();
 
   useEffect(() => {
     if (mode) dispatch({ type: "SET_MODE", mode: mode as ModeId });
@@ -26,6 +29,7 @@ export function CommandGenerateForm() {
 
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
+  const activeFields = getFields(config, formMode);
 
   const generate = (testFirst = false) => {
     const count = testFirst ? 4 : draft.count;
@@ -55,12 +59,17 @@ export function CommandGenerateForm() {
         </header>
 
         <div className="p-6">
-          <h1 className="text-g6-h3 font-bold text-g6-text mb-2">{config.label}</h1>
-          <p className="text-g6-sm text-g6-text-secondary mb-6">{config.description}</p>
+          <div className="mb-6 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-g6-h3 font-bold text-g6-text mb-2">{config.label}</h1>
+              <p className="text-g6-sm text-g6-text-secondary">{config.description}</p>
+            </div>
+            <FormModeToggle />
+          </div>
 
           {/* Form rendered as table-like rows */}
           <div className="rounded-g6-base border border-g6-border-secondary divide-y divide-g6-border-secondary">
-            {config.formFields.map((f) => (
+            {activeFields.map((f) => (
               <div key={f} className="px-4 py-3">
                 <FieldRenderer type={f} />
               </div>

@@ -3,9 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Sparkles, History, Layers, FolderOpen, Download, Settings, RefreshCcw, Wand2, Image as ImageIcon, Film, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDraft } from "../../stores/draftStore";
-import { getModeConfig, modeConfigs } from "../../generate/modeConfigs";
+import { getModeConfig, getFields, modeConfigs } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
 import { MicroMotif } from "../../components/MicroMotif";
+import { useFormMode } from "../../stores/formModeStore";
+import { FormModeToggle } from "../../components/FormModeToggle";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -25,6 +27,7 @@ export function CanvasGenerateForm() {
   const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
   const [panelOpen, setPanelOpen] = useState(true);
+  const [formMode] = useFormMode();
 
   useEffect(() => {
     if (mode) dispatch({ type: "SET_MODE", mode: mode as ModeId });
@@ -32,6 +35,7 @@ export function CanvasGenerateForm() {
 
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
+  const activeFields = getFields(config, formMode);
 
   const generate = (testFirst = false) => {
     const count = testFirst ? 4 : draft.count;
@@ -91,20 +95,23 @@ export function CanvasGenerateForm() {
         {/* Floating param panel */}
         {panelOpen && (
           <aside className="absolute bottom-20 left-4 top-12 w-[280px] overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container/90 p-4 shadow-g6-lg backdrop-blur-md">
-            <header className="mb-3 flex items-center justify-between">
-              <h2 className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-                {config.label} → params
-              </h2>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(false)}
-                className="text-g6-text-tertiary hover:text-g6-text text-g6-xs"
-              >
-                ✕
-              </button>
+            <header className="mb-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
+                  {config.label} → params
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setPanelOpen(false)}
+                  className="text-g6-text-tertiary hover:text-g6-text text-g6-xs"
+                >
+                  ✕
+                </button>
+              </div>
+              <FormModeToggle />
             </header>
             <div className="space-y-3">
-              {config.formFields.map((f) => <FieldRenderer key={f} type={f} />)}
+              {activeFields.map((f) => <FieldRenderer key={f} type={f} />)}
             </div>
           </aside>
         )}

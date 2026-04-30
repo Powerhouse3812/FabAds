@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useDraft } from "../../stores/draftStore";
-import { getModeConfig } from "../../generate/modeConfigs";
+import { getModeConfig, getFields } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
 import { brands } from "../../mocks/brands";
+import { useFormMode } from "../../stores/formModeStore";
+import { FormModeToggle } from "../../components/FormModeToggle";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -33,6 +35,7 @@ export function StudioGenerateForm() {
   const { mode } = useParams<{ mode: string }>();
   const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
+  const [formMode] = useFormMode();
 
   useEffect(() => {
     if (mode) dispatch({ type: "SET_MODE", mode: mode as ModeId });
@@ -41,8 +44,8 @@ export function StudioGenerateForm() {
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
   const brand = draft.brandId ? brands.find((b) => b.id === draft.brandId) : null;
-
-  const fieldsBy = (group: string[]) => config.formFields.filter((f) => group.includes(f));
+  const activeFields = getFields(config, formMode);
+  const fieldsBy = (group: string[]) => activeFields.filter((f) => group.includes(f));
 
   const generate = (testFirst = false) => {
     const count = testFirst ? 4 : draft.count;
@@ -55,9 +58,12 @@ export function StudioGenerateForm() {
     <div className="grid h-full grid-cols-[1.4fr_1fr] gap-3 p-3">
       {/* MAIN — form with section headers */}
       <main className="overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-5">
-        <header className="mb-4 border-b border-g6-border-secondary pb-3">
-          <h1 className="text-g6-h4 font-bold text-g6-text">{config.label}</h1>
-          <p className="text-g6-sm text-g6-text-secondary mt-1">{config.description}</p>
+        <header className="mb-4 flex items-start justify-between gap-3 border-b border-g6-border-secondary pb-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-g6-h4 font-bold text-g6-text">{config.label}</h1>
+            <p className="text-g6-sm text-g6-text-secondary mt-1">{config.description}</p>
+          </div>
+          <FormModeToggle />
         </header>
 
         <Section title="Source">

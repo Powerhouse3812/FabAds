@@ -405,3 +405,33 @@ export function getModeConfig(mode: ModeId): ModeConfig {
   if (!config) throw new Error(`Unknown mode: ${mode}`);
   return config;
 }
+
+/**
+ * Quick-mode field whitelist per mode (P-5).
+ *
+ * Quick mode shows only what's MUST-FILL to start a generation. Everything
+ * else (audience / angle / tone / scene / format / references / prompt
+ * override) is auto-defaulted by the AI. Power users flip the toggle to
+ * Advanced for full control.
+ */
+const QUICK_FIELDS_BY_MODE: Record<ModeId, FieldType[]> = {
+  "brand-ad": ["sub-method-picker", "brand-picker", "count-picker"],
+  "product-ad": ["sub-method-picker", "brand-picker", "product-picker", "count-picker"],
+  "affiliate-ad": ["sub-method-picker", "url-input", "count-picker"],
+  "ugc-video": ["sub-method-picker", "brand-picker", "product-picker", "avatar-picker", "count-picker"],
+  forge: ["sub-method-picker", "source-winner-picker", "count-picker"],
+  "image-to-ad": ["sub-method-picker", "source-image-picker", "count-picker"],
+};
+
+export type FormMode = "quick" | "advanced";
+
+/**
+ * Returns the form-fields list for the given mode + form-mode. Honors the
+ * field declaration order on the config (so Quick = filtered subset, not
+ * a reordered one).
+ */
+export function getFields(config: ModeConfig, formMode: FormMode): FieldType[] {
+  if (formMode === "advanced") return config.formFields;
+  const quick = QUICK_FIELDS_BY_MODE[config.id] ?? [];
+  return config.formFields.filter((f) => quick.includes(f));
+}

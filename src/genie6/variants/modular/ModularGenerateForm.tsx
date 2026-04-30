@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sparkles, GripVertical, Plus } from "lucide-react";
 import { useDraft } from "../../stores/draftStore";
-import { getModeConfig } from "../../generate/modeConfigs";
+import { getModeConfig, getFields } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
 import { brands } from "../../mocks/brands";
+import { useFormMode } from "../../stores/formModeStore";
+import { FormModeToggle } from "../../components/FormModeToggle";
 import type { ModeId } from "../../types/output";
 
 /**
@@ -33,6 +35,7 @@ export function ModularGenerateForm() {
   const { mode } = useParams<{ mode: string }>();
   const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
+  const [formMode] = useFormMode();
 
   useEffect(() => {
     if (mode) dispatch({ type: "SET_MODE", mode: mode as ModeId });
@@ -40,6 +43,7 @@ export function ModularGenerateForm() {
 
   if (!mode) return null;
   const config = getModeConfig(mode as ModeId);
+  const activeFields = getFields(config, formMode);
   const brand = draft.brandId ? brands.find((b) => b.id === draft.brandId) : null;
 
   const generate = (testFirst = false) => {
@@ -49,26 +53,29 @@ export function ModularGenerateForm() {
     );
   };
 
-  // Filter modules to only those whose fieldTypes overlap the mode's formFields
+  // Filter modules to only those whose fieldTypes overlap the active fields
   const visibleModules = MODULE_GROUPS.filter((g) =>
-    g.fieldTypes.some((f) => config.formFields.includes(f as any))
+    g.fieldTypes.some((f) => activeFields.includes(f as any))
   );
 
   return (
     <div className="g6-halo relative min-h-full p-6">
-      <header className="relative z-10 mb-6">
-        <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-          <span className="text-g6-primary">&gt;</span> generate.{mode.replace(/-/g, "_")}
-        </p>
-        <h1 className="text-g6-h2 font-bold tracking-tight text-g6-text mt-1">
-          {config.label}
-        </h1>
-        <p className="text-g6-sm text-g6-text-secondary mt-1">{config.description}</p>
+      <header className="relative z-10 mb-6 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
+            <span className="text-g6-primary">&gt;</span> generate.{mode.replace(/-/g, "_")}
+          </p>
+          <h1 className="text-g6-h2 font-bold tracking-tight text-g6-text mt-1">
+            {config.label}
+          </h1>
+          <p className="text-g6-sm text-g6-text-secondary mt-1">{config.description}</p>
+        </div>
+        <FormModeToggle />
       </header>
 
       <div className="relative z-10 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {visibleModules.map((module) => {
-          const fields = module.fieldTypes.filter((f) => config.formFields.includes(f as any));
+          const fields = module.fieldTypes.filter((f) => activeFields.includes(f as any));
           if (fields.length === 0) return null;
 
           return (
