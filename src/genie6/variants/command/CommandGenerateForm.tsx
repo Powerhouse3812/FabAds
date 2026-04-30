@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Sparkles, TrendingUp, Coins, Zap } from "lucide-react";
+import { ChevronLeft, Sparkles, Coins, Zap } from "lucide-react";
 import { useDraft } from "../../stores/draftStore";
 import { getModeConfig } from "../../generate/modeConfigs";
 import { FieldRenderer } from "../../generate/fields/FieldRenderer";
@@ -92,7 +92,9 @@ export function CommandGenerateForm() {
         </footer>
       </main>
 
-      {/* RIGHT — KPI strip with batch impact */}
+      {/* RIGHT — KPI strip with batch impact (iter-5: 'Est. winners' removed —
+          violates spec, predicted CTR was explicitly rejected. 'Recent batches'
+          mock list also removed; should fetch real generation history if shown). */}
       <aside className="space-y-3">
         <KpiCard
           Icon={Sparkles}
@@ -112,33 +114,6 @@ export function CommandGenerateForm() {
           value={`~${draft.count * 2}s`}
           sub="first variant in <10s"
         />
-        <KpiCard
-          Icon={TrendingUp}
-          label="Est. winners"
-          value={Math.round(draft.count * 0.18) + ""}
-          sub="based on 18% historical"
-          highlight
-        />
-
-        <div className="mt-6 rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-4">
-          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary mb-2">
-            Recent batches
-          </p>
-          <ul className="space-y-2">
-            {[
-              { brand: "Mamaearth", count: 12, ago: "2h" },
-              { brand: "Noise", count: 8, ago: "5h" },
-              { brand: "Boat", count: 16, ago: "1d" },
-            ].map((b) => (
-              <li key={b.brand} className="flex items-center justify-between text-g6-sm">
-                <span className="text-g6-text">{b.brand}</span>
-                <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">
-                  {b.count} · {b.ago} ago
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
       </aside>
     </div>
   );
