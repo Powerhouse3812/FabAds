@@ -1,8 +1,10 @@
 import { useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import { useGenie6Theme } from "../hooks/useGenie6Theme";
+import { Outlet, useLocation } from "react-router-dom";
+import { useTheme } from "next-themes";
+import { useGenie6Theme, setVariant, type GenieVariant } from "../hooks/useGenie6Theme";
 import { useWelcomeCarousel } from "./WelcomeCarousel";
-import { useCommandPaletteShortcuts } from "./CommandPalette";
+import { useNewGenerationOverlay } from "./NewGenerationOverlay";
+import { resolvePrefillFromRoute } from "../lib/prefillContext";
 
 /**
  * Lightweight wrapper for all /iq/genie6/* routes.
@@ -10,17 +12,20 @@ import { useCommandPaletteShortcuts } from "./CommandPalette";
  * Jobs:
  *  1. Mirror FabAds' next-themes onto <html data-theme=...> via useGenie6Theme().
  *  2. Auto-open WelcomeCarousel on first visit.
- *  3. Bind global keyboard shortcuts (⌘K, ⌘1/2/3/4, ⌘N, ⌘⇧D).
+ *  3. Bind keyboard shortcuts:
+ *       ⌘N   — open New Generation overlay (with route-derived prefill)
+ *       ⌘1/2/3/4 — switch variant directly
+ *       ⌘⇧D — toggle dark mode
  *
- * Note (iter 3): CommandPaletteProvider is now HOISTED to AppLayout (along with
- * NewGenerationOverlay + WelcomeCarousel) so the FabAds shell — including the
- * RightRail rendered next to the Outlet — can also use the palette.
+ * Iter-5: Command palette modal removed. Keyboard shortcuts live here directly,
+ * no longer inside a CommandPaletteProvider. ⌘K binding removed entirely (was
+ * for opening the palette, which is gone).
  *
  * Wraps the Outlet in `g6-root` so Geist + token-based bg/text apply to page content.
  */
 export function Genie6Bridge() {
   useGenie6Theme();
-  useCommandPaletteShortcuts();
+  useGenie6KeyboardShortcuts();
 
   const { open: openCarousel, hasBeenSeen } = useWelcomeCarousel();
 
@@ -29,13 +34,59 @@ export function Genie6Bridge() {
     if (hasBeenSeen()) return;
     const t = setTimeout(() => openCarousel(), 350);
     return () => clearTimeout(t);
-    // Run once per Bridge mount (i.e., once per Genie 6 session entry)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="g6-root flex flex-1 flex-col" data-g6-build="2026-04-30-iter3">
+    <div className="g6-root flex flex-1 flex-col" data-g6-build="2026-04-30-iter5">
       <Outlet />
     </div>
   );
+}
+
+/** Genie 6 keyboard shortcuts. Standalone — no palette dependency. */
+function useGenie6KeyboardShortcuts() {
+  const { variant } = useGenie6Theme();
+  const { setTheme, resolvedTheme } = useTheme();
+  const { open: openNewGenOverlay } = useNewGenerationOverlay();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const inField = tag === "input" || tag === "textarea" || target?.isContentEditable;
+      const meta = e.metaKey || e.ctrlKey;
+
+      if (!meta) return;
+      if (inField) return; // never hijack while user is typing
+
+      // ⌘⇧D — toggle dark mode
+      if (e.key.toLowerCase() === "d" && e.shiftKey) {
+        e.preventDefault();
+        setTheme(resolvedTheme === "dark" ? "light" : "dark");
+        return;
+      }
+
+      // ⌘N — quick new generation (open focused overlay)
+      if (e.key.toLowerCase() === "n" && !e.shiftKey) {
+        e.preventDefault();
+        openNewGenOverlay(resolvePrefillFromRoute(pathname));
+        return;
+      }
+
+      // ⌘1/2/3/4 — switch variant directly
+      if (["1", "2", "3", "4"].includes(e.key)) {
+        const variants: GenieVariant[] = ["studio", "canvas", "command", "modular"];
+        const next = variants[parseInt(e.key, 10) - 1];
+        if (next && next !== variant) {
+          e.preventDefault();
+          setVariant(next);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [variant, setTheme, resolvedTheme, openNewGenOverlay, pathname]);
 }

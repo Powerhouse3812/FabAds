@@ -11,7 +11,6 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
-import { CommandPaletteProvider } from "@/genie6/shell/CommandPalette";
 // NOTE: After iter-3 IA, the topbar is removed. Profile / Variant / Theme moved
 // to the sidebar footer; ClientSwitcher / Help / Copilot / Activity / Sign-out
 // live inside the UserMenu dropdown there. NewGenerationCTA moves to the right
@@ -216,9 +215,7 @@ export function AppLayout() {
     <CopilotProvider>
       <NewGenerationOverlayProvider>
         <WelcomeCarouselProvider>
-          <CommandPaletteProvider>
-            <AppLayoutInner />
-          </CommandPaletteProvider>
+          <AppLayoutInner />
         </WelcomeCarouselProvider>
       </NewGenerationOverlayProvider>
     </CopilotProvider>
