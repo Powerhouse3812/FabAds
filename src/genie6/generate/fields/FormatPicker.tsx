@@ -36,7 +36,8 @@ export function FormatPicker() {
 
   return (
     <div className="space-y-3">
-      <label className="text-g6-sm font-medium text-g6-text">Format</label>
+      <label className="text-g6-sm font-medium text-g6-text">Size</label>
+      <p className="text-g6-xs text-g6-text-tertiary">Where will the ad run? Pick the shape.</p>
       <div className="grid grid-cols-4 gap-2">
         {FORMATS.map((fmt) => {
           const active = draft.format === fmt;

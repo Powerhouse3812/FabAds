@@ -80,7 +80,8 @@ export function TonePicker() {
 
   return (
     <div className="space-y-3">
-      <label className="text-g6-sm font-medium text-g6-text">Tone</label>
+      <label className="text-g6-sm font-medium text-g6-text">Voice & tone</label>
+      <p className="text-g6-xs text-g6-text-tertiary">How should the copy sound? Hover to hear it.</p>
       <div className="flex flex-wrap gap-2">
         {TONES.map((tone) => {
           const active = draft.tone === tone;

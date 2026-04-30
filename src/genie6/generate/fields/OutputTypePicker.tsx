@@ -177,7 +177,8 @@ export function OutputTypePicker() {
 
   return (
     <div className="space-y-3">
-      <label className="text-g6-sm font-medium text-g6-text">Output type</label>
+      <label className="text-g6-sm font-medium text-g6-text">What you'll get</label>
+      <p className="text-g6-xs text-g6-text-tertiary">The deliverable format. Each one renders on hover.</p>
       <div className="grid grid-cols-3 gap-2">
         {allowed.map((t) => {
           const isActive = active === t;
