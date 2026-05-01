@@ -86,19 +86,24 @@ must work in **both shell variants**, not just whichever is convenient.
 inside the Genie sub-panel. Each variant is a **complete UI architecture
 fork**, not a token swap. Hook: `src/genie6/hooks/useGenie6Theme.ts`.
 
-### FabAds shell — sectioned nav with 3 visual variants (as of iter-6 A-5, 2026-05-01)
+### FabAds shell — nav with 4 STRUCTURALLY DISTINCT variants (as of iter-6 A-8, 2026-05-01)
 
-The nav is a **single sectioned-pane component** (`src/components/AppSidebar.tsx`)
-that renders in **3 visual variants**. Variants are a **dev tool for Maalik**
-to A/B compare visual treatments — they're hidden from end users.
+The nav is a **single component** (`src/components/AppSidebar.tsx`) that
+renders in **4 structurally distinct variants**. Variants are a **dev tool
+for Maalik** — hidden from end users, toggled by FabAds-logo click
+(Shift+Click for picker).
 
-**Variants** (cycled by clicking the FabAds logo; Shift+Click opens picker):
+**The variants differ in shape, chrome, and visual hierarchy — not just paint.**
+Token bag carries `shape` (flush/floating/cards) and chrome flags
+(`showChevrons`, `showSubItemDots`, `showActiveBar`, `showModuleIcons`) that
+drive the structural decisions.
 
-| # | Key | Visual |
+| # | Key | Distinction |
 |---|---|---|
-| 1 | `sections` | Default. Follows app theme. Lime active state. Matches content bg. |
-| 2 | `darkAlways` | Always-dark nav regardless of theme. Monochromatic-white selection on the active row only. Subtle vertical gradient on bg. |
-| 3 | `glass` | Frosted glass (backdrop-blur-xl) with subtle lime-to-transparent gradient overlay. Auto-adapts to app theme. |
+| 1 | `sections` | **Classic flush panel** (240px). Lime accent. Full chrome (chevrons + dots + left-bar). Linear/Vercel pattern. |
+| 2 | `darkAlways` | **Always-dark monochromatic** (no lime!) **+ stripped chrome** (no chevrons, no dots, no left-bar). Typography carries hierarchy via tracking + weight + opacity. Editorial / serious-tool feel. |
+| 3 | `glass` | **Detached floating panel** (`m-2` margin + `rounded-2xl` + soft shadow). Apple liquid-glass body. Different SHAPE from V1, not just paint. Decorative gradient orbs in `body::before` give backdrop-blur color to smear. |
+| 4 | `workbench` | **Discrete cards per group**. Each group (RUN/CREATE/TOOLS) renders as its own `rounded-lg` card with gap between them. Notion-blocks pattern. |
 
 Hook: `src/components/sidebar/useFabAdsNavVariant.ts`. Persists via
 localStorage key `fabads-nav-variant`. Default: `"sections"`.

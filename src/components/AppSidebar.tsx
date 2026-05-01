@@ -120,54 +120,60 @@ if (typeof window !== "undefined") {
 /* ─────────────────────────────────────────────────────────
  *  Token swap — variant × isGenieRoute matrix
  *
- *  Returns a token bag that components consume. Three variants × Genie-route
- *  cascade gives us 6 effective combinations. We don't proliferate variant×
- *  Genie permutations — instead, when on a Genie route we ALWAYS use g6
- *  tokens regardless of variant (Genie has its own visual ecosystem).
- *  Variant differences only apply outside Genie routes.
+ *  Token bags now also carry CHROME FLAGS that drive structural decisions
+ *  (showChevrons, showActiveBar, showSubItemDots, showModuleIcons). This is
+ *  what makes variants visually distinct, not just colored differently.
  *
- *  EXCEPT: Glass effect should still apply on Genie routes (frosted bg
- *  blends nicely with Genie's canvas treatments). Dark Always also applies
- *  on Genie routes (forces dark nav even if Genie variant is light-leaning).
+ *  Layout flags (shape):
+ *   floating    — V3 Glass: detached panel with margin + rounded
+ *   cards       — V4 Workbench: each group renders as a discrete card
+ *   (default)   — V1/V2: flush full-height continuous panel
  * ───────────────────────────────────────────────────────── */
 type NavTokens = ReturnType<typeof getTokens>;
 
 function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
-  // Dark Always — always-dark, monochromatic white selection
+  // Dark Always — always-dark + MONOCHROMATIC (no lime) + STRIPPED chrome.
+  // Typography carries hierarchy: white text on active row, grey otherwise.
+  // No chevrons, no dots, no left-bar, no badge borders. Editorial/serious feel.
   if (variant === "darkAlways") {
     return {
-      // Subtle vertical gradient on bg
-      bg: "bg-[linear-gradient(180deg,#1c1c1c_0%,#141414_100%)]",
-      border: "border-white/[0.08]",
-      borderFooter: "border-white/[0.06]",
+      bg: "bg-[linear-gradient(180deg,#1a1a1a_0%,#0e0e0e_100%)]",
+      cardBg: "bg-[linear-gradient(180deg,#1a1a1a_0%,#0e0e0e_100%)]",
+      border: "border-white/[0.06]",
+      borderFooter: "border-white/[0.05]",
       text: "text-white/85",
-      textMuted: "text-white/40",
-      textSecondary: "text-white/65",
-      hoverBg: "hover:bg-white/[0.04]",
-      hoverText: "hover:text-white/95",
-      // Monochromatic white selection on active row only
-      activeBg: "bg-white/[0.08]",
-      activeText: "text-white",
-      activeIconBg: "bg-white/[0.12]",
-      activeBar: "bg-white",
-      // Search + chip fills (no borders — minimalist crit fix)
+      textMuted: "text-white/35",
+      textSecondary: "text-white/55",
+      hoverBg: "hover:bg-white/[0.03]",
+      hoverText: "hover:text-white",
+      // Monochromatic — no lime. White text + tracking shift signals active.
+      activeBg: "bg-transparent",
+      activeText: "text-white font-semibold",
+      activeIconBg: "bg-white/10",
+      activeBar: "bg-transparent", // unused (showActiveBar=false)
       searchBg: "bg-white/[0.04]",
-      searchBgHover: "hover:bg-white/[0.08]",
-      chipBg: "bg-white/[0.08]",
-      chipText: "text-white/55",
+      searchBgHover: "hover:bg-white/[0.07]",
+      chipBg: "bg-white/[0.06]",
+      chipText: "text-white/45",
+      // Chrome flags: stripped
+      showChevrons: false,
+      showSubItemDots: false,
+      showActiveBar: false,
+      showModuleIcons: true, // keep icons — pure typography is too austere for 12 modules
+      // Layout flag
+      shape: "flush" as const,
       glassOverlay: false,
     } as const;
   }
 
-  // Glass — Apple-style frosted glass. Light = white tint at low alpha + heavy
-  // blur + saturate; dark = faint white tint + blur + saturate. Top-edge inner
-  // highlight + lime gradient overlay add depth. Body has decorative gradient
-  // orbs (see index.css when data-fabads-nav-variant="glass") so backdrop-blur
-  // actually has color variation to smear.
+  // Glass — DETACHED FLOATING panel (margin around all edges + rounded-2xl
+  // + soft shadow). Apple liquid-glass body fill. Different SHAPE not just
+  // paint — that's what makes it distinct from Sections.
   if (variant === "glass") {
     if (isGenieRoute) {
       return {
         bg: "bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-150",
+        cardBg: "bg-white/[0.05]",
         border: "border-white/[0.08]",
         borderFooter: "border-white/[0.05]",
         text: "text-g6-text",
@@ -183,13 +189,17 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
         searchBgHover: "hover:bg-white/[0.10]",
         chipBg: "bg-white/[0.08]",
         chipText: "text-g6-text-tertiary",
+        showChevrons: true,
+        showSubItemDots: true,
+        showActiveBar: true,
+        showModuleIcons: true,
+        shape: "floating" as const,
         glassOverlay: true,
       } as const;
     }
     return {
-      // Light: white tint at 50% + heavy blur + saturate (Apple liquid-glass)
-      // Dark variants get inverted tint via dark: prefix below
       bg: "bg-white/50 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-150",
+      cardBg: "bg-white/50 dark:bg-white/[0.05]",
       border: "border-white/40 dark:border-white/[0.08]",
       borderFooter: "border-white/30 dark:border-white/[0.05]",
       text: "text-foreground",
@@ -205,7 +215,69 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       searchBgHover: "hover:bg-white/60 dark:hover:bg-white/[0.10]",
       chipBg: "bg-white/40 dark:bg-white/[0.08]",
       chipText: "text-muted-foreground",
+      showChevrons: true,
+      showSubItemDots: true,
+      showActiveBar: true,
+      showModuleIcons: true,
+      shape: "floating" as const,
       glassOverlay: true,
+    } as const;
+  }
+
+  // Workbench — each group renders as a discrete CARD with gaps between.
+  // Notion-blocks pattern. Visual chunking via card boundaries, not just labels.
+  if (variant === "workbench") {
+    if (isGenieRoute) {
+      return {
+        bg: "bg-g6-bg-base",
+        cardBg: "bg-g6-bg-container",
+        border: "border-g6-border-secondary",
+        borderFooter: "border-g6-border-secondary/60",
+        text: "text-g6-text",
+        textMuted: "text-g6-text-tertiary",
+        textSecondary: "text-g6-text-secondary",
+        hoverBg: "hover:bg-g6-bg-spotlight/50",
+        hoverText: "hover:text-g6-text",
+        activeBg: "bg-g6-primary/10",
+        activeText: "text-g6-primary-active",
+        activeIconBg: "bg-g6-primary/15",
+        activeBar: "bg-g6-primary-active",
+        searchBg: "bg-g6-bg-spotlight/40",
+        searchBgHover: "hover:bg-g6-bg-spotlight/60",
+        chipBg: "bg-g6-bg-spotlight/60",
+        chipText: "text-g6-text-tertiary",
+        showChevrons: true,
+        showSubItemDots: true,
+        showActiveBar: true,
+        showModuleIcons: true,
+        shape: "cards" as const,
+        glassOverlay: false,
+      } as const;
+    }
+    return {
+      bg: "bg-muted/30",
+      cardBg: "bg-background",
+      border: "border-border",
+      borderFooter: "border-border/50",
+      text: "text-foreground",
+      textMuted: "text-muted-foreground",
+      textSecondary: "text-foreground/75",
+      hoverBg: "hover:bg-accent/50",
+      hoverText: "hover:text-foreground",
+      activeBg: "bg-g6-primary/10",
+      activeText: "text-g6-primary-active",
+      activeIconBg: "bg-g6-primary/15",
+      activeBar: "bg-g6-primary-active",
+      searchBg: "bg-background",
+      searchBgHover: "hover:bg-accent/30",
+      chipBg: "bg-muted-foreground/15",
+      chipText: "text-muted-foreground",
+      showChevrons: true,
+      showSubItemDots: true,
+      showActiveBar: true,
+      showModuleIcons: true,
+      shape: "cards" as const,
+      glassOverlay: false,
     } as const;
   }
 
@@ -213,6 +285,7 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
   if (isGenieRoute) {
     return {
       bg: "bg-g6-bg-container",
+      cardBg: "bg-g6-bg-container",
       border: "border-g6-border-secondary",
       borderFooter: "border-g6-border-secondary/60",
       text: "text-g6-text",
@@ -228,11 +301,17 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       searchBgHover: "hover:bg-g6-bg-spotlight/60",
       chipBg: "bg-g6-bg-spotlight/60",
       chipText: "text-g6-text-tertiary",
+      showChevrons: true,
+      showSubItemDots: true,
+      showActiveBar: true,
+      showModuleIcons: true,
+      shape: "flush" as const,
       glassOverlay: false,
     } as const;
   }
   return {
     bg: "bg-background",
+    cardBg: "bg-background",
     border: "border-border",
     borderFooter: "border-border/50",
     text: "text-foreground",
@@ -248,6 +327,11 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     searchBgHover: "hover:bg-accent/60",
     chipBg: "bg-muted-foreground/15",
     chipText: "text-muted-foreground",
+    showChevrons: true,
+    showSubItemDots: true,
+    showActiveBar: true,
+    showModuleIcons: true,
+    shape: "flush" as const,
     glassOverlay: false,
   } as const;
 }
@@ -320,18 +404,22 @@ function SubItemRow({
       type="button"
       onClick={() => onNavigate(item.path)}
       className={cn(
-        "relative w-full text-left pl-9 pr-3 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2",
+        "relative w-full text-left pr-3 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2",
+        // Indent: more when dots are shown, less when stripped (mono variant)
+        tokens.showSubItemDots ? "pl-9" : "pl-6",
         active
-          ? cn(tokens.activeBg, tokens.activeText, "font-medium")
+          ? cn(tokens.activeBg, tokens.activeText, "font-medium tracking-[0.01em]")
           : cn(tokens.textSecondary, tokens.hoverBg, tokens.hoverText)
       )}
     >
-      <span
-        className={cn(
-          "absolute left-5 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full transition-colors",
-          active ? tokens.activeBar : "bg-current opacity-25"
-        )}
-      />
+      {tokens.showSubItemDots && (
+        <span
+          className={cn(
+            "absolute left-5 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full transition-colors",
+            active ? tokens.activeBar : "bg-current opacity-25"
+          )}
+        />
+      )}
       <span className="flex-1 truncate">{item.label}</span>
       {item.badge && (
         <span className={cn("text-[9px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0", tokens.chipBg, tokens.chipText)}>
@@ -375,7 +463,8 @@ function ModuleRowExpanded({
 
   return (
     <div className="relative group/row">
-      {isActive && (
+      {/* Active left-edge bar (suppressed by chrome flag for Mono) */}
+      {isActive && tokens.showActiveBar && (
         <span className={cn("absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r", tokens.activeBar)} />
       )}
       <button
@@ -385,11 +474,11 @@ function ModuleRowExpanded({
         className={cn(
           "w-full text-left pl-3 pr-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2.5",
           isActive
-            ? cn(tokens.activeBg, tokens.activeText, "font-medium")
+            ? cn(tokens.activeBg, tokens.activeText)
             : cn(tokens.text, "opacity-80", tokens.hoverBg, tokens.hoverText, "hover:opacity-100")
         )}
       >
-        <Icon className="h-4 w-4 shrink-0" />
+        {tokens.showModuleIcons && <Icon className="h-4 w-4 shrink-0" />}
         <span className="flex-1 truncate">{mod.label}</span>
         {/* Genie variant icon toggle next to the label (replaces the inline pill) */}
         {isGenie && <GenieVariantIconToggle tokens={tokens} />}
@@ -398,21 +487,24 @@ function ModuleRowExpanded({
             Soon
           </span>
         )}
-        {hasChildren ? (
-          <ChevronRight
-            className={cn(
-              "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-              tokens.textMuted,
-              isOpen && "rotate-90"
-            )}
-          />
-        ) : (
-          <ChevronRight
-            className={cn(
-              "h-3.5 w-3.5 shrink-0 opacity-0 group-hover/row:opacity-60 transition-opacity",
-              tokens.textMuted
-            )}
-          />
+        {/* Chevrons (suppressed by chrome flag for Mono) */}
+        {tokens.showChevrons && (
+          hasChildren ? (
+            <ChevronRight
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                tokens.textMuted,
+                isOpen && "rotate-90"
+              )}
+            />
+          ) : (
+            <ChevronRight
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 opacity-0 group-hover/row:opacity-60 transition-opacity",
+                tokens.textMuted
+              )}
+            />
+          )
         )}
       </button>
 
@@ -673,14 +765,28 @@ export function AppSidebar() {
 
   const groups = groupedModules();
 
+  // Outer shape per variant.
+  //  - flush:    full-height, edge-to-edge, border-r only
+  //  - floating: detached panel — m-2 margin, rounded-2xl, soft shadow, no border-r
+  //  - cards:    flush container BUT body renders cards-per-group (handled in body)
+  const isFloating = tokens.shape === "floating";
+  const isCards = tokens.shape === "cards";
+
   return (
     <aside
       data-fabads-nav-variant={variant}
       className={cn(
-        "relative hidden md:flex h-screen flex-shrink-0 flex-col border-r transition-[width] duration-200 ease-out",
+        "relative hidden md:flex flex-shrink-0 flex-col transition-[width] duration-200 ease-out",
         tokens.bg,
-        tokens.border,
-        collapsed ? "w-[60px]" : "w-[240px]"
+        // Floating: detach with margin + rounded + shadow, NO border-r
+        isFloating
+          ? cn(
+              "my-2 ml-2 mr-1 rounded-2xl shadow-2xl border",
+              tokens.border,
+              "h-[calc(100vh-1rem)]"
+            )
+          : cn("h-screen border-r", tokens.border),
+        collapsed ? "w-[60px]" : isFloating ? "w-[244px]" : isCards ? "w-[260px]" : "w-[240px]"
       )}
     >
       {/* Glass overlay layers (Glass variant only). Stacked, all pointer-events
@@ -766,7 +872,42 @@ export function AppSidebar() {
               )
             )}
           </div>
+        ) : isCards ? (
+          /* WORKBENCH — each group is a discrete card with gap between */
+          <div className="flex flex-col gap-2 px-2">
+            {groups.map(({ group, modules }) =>
+              modules.length === 0 ? null : (
+                <div
+                  key={group}
+                  className={cn(
+                    "rounded-lg border p-1.5",
+                    tokens.cardBg,
+                    tokens.border
+                  )}
+                >
+                  <span className={cn("block px-2.5 pt-1.5 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em]", tokens.textMuted)}>
+                    {group}
+                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    {modules.map((mod) => (
+                      <ModuleRowExpanded
+                        key={mod.key}
+                        mod={mod}
+                        isActive={activeKey === mod.key}
+                        isOpen={openKeys.has(mod.key)}
+                        pathname={pathname}
+                        onToggle={() => toggleOpen(mod.key)}
+                        onNavigate={handleNavigate}
+                        tokens={tokens}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
         ) : (
+          /* SECTIONS / DARK ALWAYS / GLASS — flat sectioned list */
           <div className="flex flex-col gap-2.5 px-2">
             {groups.map(({ group, modules }) =>
               modules.length === 0 ? null : (

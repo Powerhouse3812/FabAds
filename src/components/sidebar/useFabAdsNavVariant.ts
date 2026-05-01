@@ -8,44 +8,51 @@ import { useEffect, useSyncExternalStore } from "react";
  * FabAds logo in the sidebar header (Shift+Click for explicit picker).
  *
  * Sets one attribute on <html>:
- *   data-fabads-nav-variant="sections|darkAlways|glass"
+ *   data-fabads-nav-variant="sections|darkAlways|glass|workbench"
  *
- * Variants:
- *   sections     — default. Sectioned single-pane (240px), follows app theme,
- *                  lime active state, matches content bg.
- *   darkAlways   — always-dark nav regardless of app theme. Monochromatic
- *                  white selection on the active row only (other rows stay
- *                  dim). Subtle vertical gradient on the bg.
- *   glass        — frosted glass with subtle lime-to-transparent gradient
- *                  overlay. Auto-adapts to app theme (light tokens on light,
- *                  dark on dark). backdrop-blur-xl on a translucent bg.
+ * Variants are STRUCTURALLY DISTINCT (not just chromatic re-skins):
+ *
+ *   sections    — default. Classic 240px flush sectioned panel. Lime accent.
+ *                 Full chrome (chevrons, dots, left active-bar). Linear/Vercel.
+ *   darkAlways  — same 240px footprint BUT always-dark + MONOCHROMATIC (no
+ *                 lime, only white/grey) + STRIPPED chrome (no chevrons, no
+ *                 dots, no left-bar). Typography carries hierarchy. Editorial /
+ *                 serious-tool aesthetic.
+ *   glass       — DETACHED FLOATING panel (margin around, rounded-2xl, soft
+ *                 shadow). Apple liquid-glass with backdrop-blur. Distinct
+ *                 SHAPE not just paint.
+ *   workbench   — each group renders as a DISCRETE CARD with gaps between.
+ *                 Notion-blocks pattern. Cards are visually independent.
+ *
+ * Same IA + hierarchy across all 4 (RUN/CREATE/TOOLS, same modules + sub-items).
  *
  * Persistence: localStorage `fabads-nav-variant`. Default: `"sections"`.
  *
  * Architecture: module-level external store + useSyncExternalStore — same
- * pattern as `useGenie6Theme.ts`. HMR-friendly, no closure drift across
- * tabs, and `storage` event syncs across browser tabs.
+ * pattern as `useGenie6Theme.ts`. HMR-friendly, no closure drift, cross-tab
+ * sync via the `storage` event.
  */
 
-export type FabAdsNavVariant = "sections" | "darkAlways" | "glass";
+export type FabAdsNavVariant = "sections" | "darkAlways" | "glass" | "workbench";
 
 const VARIANT_KEY = "fabads-nav-variant";
 const DEFAULT_VARIANT: FabAdsNavVariant = "sections";
 
 /** Cycle order for the logo click-to-cycle. */
-export const VARIANT_CYCLE: FabAdsNavVariant[] = ["sections", "darkAlways", "glass"];
+export const VARIANT_CYCLE: FabAdsNavVariant[] = ["sections", "darkAlways", "glass", "workbench"];
 
 /** Display metadata — shown in picker popover and tooltips. */
 export const VARIANT_META: Record<FabAdsNavVariant, { label: string; index: number; hint: string }> = {
-  sections:   { label: "Sections",    index: 1, hint: "Default · follows theme" },
-  darkAlways: { label: "Dark Always", index: 2, hint: "Nav stays dark regardless of theme" },
-  glass:      { label: "Glass",       index: 3, hint: "Frosted glass with lime gradient" },
+  sections:   { label: "Sections",    index: 1, hint: "Classic flush panel · lime accent · full chrome" },
+  darkAlways: { label: "Dark Always", index: 2, hint: "Always-dark · monochromatic · stripped chrome" },
+  glass:      { label: "Glass",       index: 3, hint: "Floating panel · Apple liquid-glass · detached" },
+  workbench:  { label: "Workbench",   index: 4, hint: "Discrete cards per group · Notion-blocks" },
 };
 
 function readVariantFromStorage(): FabAdsNavVariant {
   if (typeof window === "undefined") return DEFAULT_VARIANT;
   const v = window.localStorage.getItem(VARIANT_KEY);
-  return v === "sections" || v === "darkAlways" || v === "glass" ? v : DEFAULT_VARIANT;
+  return v === "sections" || v === "darkAlways" || v === "glass" || v === "workbench" ? v : DEFAULT_VARIANT;
 }
 
 let currentVariant: FabAdsNavVariant = readVariantFromStorage();
