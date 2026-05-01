@@ -5,7 +5,7 @@ import {
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Tag, Building2, Package, Boxes,
-  Wrench, Workflow, Eraser, Scissors,
+  Workflow, Eraser, Scissors,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -39,13 +39,37 @@ export interface ModuleDef {
   comingSoon?: boolean;
 }
 
-/** Shell-level functional groups used by the "Sections" nav variant. */
-export type ModuleGroup = "RUN" | "DISCOVER" | "CREATE" | "AUTOMATE";
+/** Shell-level functional groups used by the nav. */
+export type ModuleGroup = "RUN" | "CREATE" | "AUTOMATE" | "TOOLS";
 
 /* ------------------------------------------------------------------ */
 /*  Module configuration                                               */
-/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ *  IA — locked iter-6 A-4 (2026-05-01):
+ *
+ *  RUN
+ *    Dashboard
+ *    Reports             (FB / NB / TT / Creative Reporting)
+ *    Industry Insights   (Discover / Intelligence / Boards / Competitors / Saved)
+ *    Launch              (Launches / Targeting Template / AutoPilot / Clones / RRM)
+ *
+ *  CREATE
+ *    Genie               (Overview / Generations / Studio / Settings — plus inline
+ *                          New-Gen CTA + variant pill when active)
+ *    Catalogue           (Category / Brands / Product)
+ *    Creative Library
+ *
+ *  AUTOMATE
+ *    Automation          (Soon)
+ *
+ *  TOOLS                 — top-level modules, NOT children of a "Tools" parent
+ *    Video Sage
+ *    Copilot
+ *    BG Remover          (Soon)
+ *    Object Remover      (Soon)
+ * ------------------------------------------------------------------ */
 export const MODULES: ModuleDef[] = [
+  /* RUN */
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   {
     key: "reports", label: "Reports", icon: BarChart3,
@@ -54,16 +78,6 @@ export const MODULES: ModuleDef[] = [
       { label: "NB", path: "/reports/nb", icon: BarChart3 },
       { label: "TikTok", path: "/reports/tt", icon: Video },
       { label: "Creative Reporting", path: "/reports/creative", icon: Film },
-    ],
-  },
-  {
-    key: "launch", label: "Launch", icon: Rocket,
-    subItems: [
-      { label: "Launches", path: "/launch", icon: History },
-      { label: "Targeting Template", path: "/launch/templates", icon: Target },
-      { label: "AutoPilot", path: "/launch/autopilot", icon: Zap },
-      { label: "Clones", path: "/launch/clones", icon: Copy },
-      { label: "RRM", path: "/rrm", icon: Shield },
     ],
   },
   {
@@ -76,6 +90,18 @@ export const MODULES: ModuleDef[] = [
       { label: "Saved Ads", path: "/insights/saved", icon: Bookmark },
     ],
   },
+  {
+    key: "launch", label: "Launch", icon: Rocket,
+    subItems: [
+      { label: "Launches", path: "/launch", icon: History },
+      { label: "Targeting Template", path: "/launch/templates", icon: Target },
+      { label: "AutoPilot", path: "/launch/autopilot", icon: Zap },
+      { label: "Clones", path: "/launch/clones", icon: Copy },
+      { label: "RRM", path: "/rrm", icon: Shield },
+    ],
+  },
+
+  /* CREATE */
   {
     key: "genie", label: "Genie", icon: Wand2,
     subItems: [
@@ -98,50 +124,57 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },
+
+  /* AUTOMATE */
   { key: "automation", label: "Automation", icon: Workflow, path: "/automation", comingSoon: true },
-  {
-    key: "tools", label: "Tools", icon: Wrench,
-    subItems: [
-      { label: "Video Sage", path: "/iq/video-sage", icon: Video },
-      { label: "Copilot", path: "/iq/copilot", icon: MessageSquare },
-      { label: "BG Remover", path: "/tools/bg-remover", icon: Eraser, badge: "Soon" },
-      { label: "Object Remover", path: "/tools/obj-remover", icon: Scissors, badge: "Soon" },
-    ],
-  },
+
+  /* TOOLS — flat top-level modules (no parent "Tools" label) */
+  { key: "video-sage", label: "Video Sage", icon: Video, path: "/iq/video-sage" },
+  { key: "copilot", label: "Copilot", icon: MessageSquare, path: "/iq/copilot" },
+  { key: "bg-remover", label: "BG Remover", icon: Eraser, path: "/tools/bg-remover", comingSoon: true },
+  { key: "obj-remover", label: "Object Remover", icon: Scissors, path: "/tools/obj-remover", comingSoon: true },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.
 export const SYSTEM_MODULES: ModuleDef[] = [];
 
 /* ------------------------------------------------------------------ */
-/*  Functional grouping (Sections variant only — Rail variant ignores) */
+/*  Functional grouping                                                */
 /* ------------------------------------------------------------------ */
 /**
- * Module key → group label. Used by the "Sections" nav variant to render
- * thin separators + small caps group headers between functional clusters.
+ * Module key → group label. Used to render the small caps group
+ * headers (RUN / CREATE / AUTOMATE / TOOLS) above each cluster.
  *
- * Locked 2026-05-01:
- *   RUN       — operate the business (perf data + activation)
- *   DISCOVER  — research surface
+ * Locked 2026-05-01 (iter-6 A-4):
+ *   RUN       — operate the business: own data + market data + activation
  *   CREATE    — content / asset / brand authoring
- *   AUTOMATE  — system utilities + power tools
+ *   AUTOMATE  — system flows
+ *   TOOLS     — utilities (each tool is a top-level module under this group)
  *
- * Order of groups matches MODULES order; modules within a group preserve
- * their MODULES order as well.
+ * (Earlier iter-6 A-2 had a DISCOVER group containing only Industry Insights;
+ * dropped because a single-module group reads as a layout glitch. Insights
+ * moved into RUN — operationally it's a read surface like Reports.)
  */
 export const MODULE_GROUPS: Record<string, ModuleGroup> = {
+  // RUN
   dashboard: "RUN",
   reports: "RUN",
+  insights: "RUN",
   launch: "RUN",
-  insights: "DISCOVER",
+  // CREATE
   genie: "CREATE",
   catalogue: "CREATE",
   "creative-library": "CREATE",
+  // AUTOMATE
   automation: "AUTOMATE",
-  tools: "AUTOMATE",
+  // TOOLS (each tool is its own module)
+  "video-sage": "TOOLS",
+  copilot: "TOOLS",
+  "bg-remover": "TOOLS",
+  "obj-remover": "TOOLS",
 };
 
-export const GROUP_ORDER: ModuleGroup[] = ["RUN", "DISCOVER", "CREATE", "AUTOMATE"];
+export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "AUTOMATE", "TOOLS"];
 
 /** Returns modules grouped by their functional cluster, preserving order. */
 export function groupedModules(): { group: ModuleGroup; modules: ModuleDef[] }[] {
@@ -152,7 +185,7 @@ export function groupedModules(): { group: ModuleGroup; modules: ModuleDef[] }[]
 }
 
 /* ------------------------------------------------------------------ */
-/*  Helpers (shared by Rail + Sections variants)                       */
+/*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 export function hasSubItems(m: ModuleDef): boolean {
   return !!(m.subItems?.length || m.sections?.length);
@@ -160,7 +193,6 @@ export function hasSubItems(m: ModuleDef): boolean {
 
 export function allSubPaths(m: ModuleDef): string[] {
   if (m.subItems) {
-    // Flatten 2nd-level nested children too (e.g., IQ → Genie 5.0 → 7 children)
     return m.subItems.flatMap((s) =>
       s.subItems && s.subItems.length > 0
         ? [s.path, ...s.subItems.map((c) => c.path)]
@@ -178,25 +210,20 @@ export function firstSubPath(m: ModuleDef): string {
 }
 
 export function deriveActiveModule(pathname: string): string | null {
-  // Order matters — check sub-path modules first
   for (const m of [...MODULES, ...SYSTEM_MODULES]) {
     if (m.path && pathname === m.path) return m.key;
     for (const p of allSubPaths(m)) {
       if (pathname === p || pathname.startsWith(p + "/")) return m.key;
     }
-    // prefix match for direct-path modules that may have deeper paths
     if (m.path && pathname.startsWith(m.path + "/")) return m.key;
   }
-  // Special: /integrations could be RRM or system integrations – prefer system
   if (pathname === "/integrations") return "integrations";
   return null;
 }
 
 export function isSubItemActive(itemPath: string, pathname: string, allPaths: string[] = []): boolean {
   if (itemPath === pathname) return true;
-  // Only allow prefix match if no other sibling path is a better (longer) match
   if (pathname.startsWith(itemPath + "/")) {
-    // Check if another sibling sub-item is a more specific match
     const hasBetterMatch = allPaths.some(
       (p) => p !== itemPath && p.length > itemPath.length && (pathname === p || pathname.startsWith(p + "/"))
     );
