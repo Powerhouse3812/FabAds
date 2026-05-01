@@ -7,8 +7,6 @@ import { OutputCard } from "../../components/OutputCard";
 import { HeroPromptInput } from "../../components/HeroPromptInput";
 import { modeConfigs } from "../../generate/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
-import { brands } from "../../mocks/brands";
-import { BrandLogo } from "../../components/BrandLogo";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { greeting } from "../../utils/greeting";
 
@@ -32,39 +30,9 @@ export function StudioHome() {
   };
 
   return (
-    <div className="grid h-full grid-cols-[200px_1fr_280px] gap-3 p-3">
-      {/* LEFT — brand portfolio rail */}
-      <aside className="overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-3">
-        <div className="flex items-center justify-between mb-2">
-          <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-            Brands · {brands.length}
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate("/iq/genie6/settings/brands")}
-            className="text-g6-xs text-g6-text-tertiary hover:text-g6-text"
-            title="Manage brands"
-          >
-            +
-          </button>
-        </div>
-        <ul className="space-y-0.5">
-          {brands.slice(0, 12).map((b) => (
-            <li key={b.id}>
-              <button
-                type="button"
-                onClick={() => navigate(`/iq/genie6/workspace/brands/${b.id}`)}
-                className="flex w-full items-center gap-2 rounded-g6-base px-2 py-1.5 text-left hover:bg-g6-bg-spotlight transition-colors"
-              >
-                <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-5 w-5" rounded="rounded-sm" />
-                <span className="text-g6-sm text-g6-text truncate">{b.name}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
-      {/* MIDDLE — main workspace */}
+    <div className="grid h-full grid-cols-[1fr_280px] gap-3 p-3">
+      {/* MAIN — workspace (brand portfolio rail removed in iter-6 A-5; brands
+          are managed from Catalogue / Workspace > Brands now). */}
       <main className="overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-6 space-y-6">
         <header>
           <p className="font-g6-mono text-g6-xs uppercase tracking-[0.18em] text-g6-text-tertiary">

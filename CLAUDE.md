@@ -86,38 +86,60 @@ must work in **both shell variants**, not just whichever is convenient.
 inside the Genie sub-panel. Each variant is a **complete UI architecture
 fork**, not a token swap. Hook: `src/genie6/hooks/useGenie6Theme.ts`.
 
-### FabAds shell — single sectioned nav (as of iter-6 A-4, 2026-05-01)
+### FabAds shell — sectioned nav with 3 visual variants (as of iter-6 A-5, 2026-05-01)
 
-After A-2/A-3 explored 3 variants, Maalik picked the **Sections** variant as
-the canonical shell. Rail and Focus were deleted; the variant toggle is gone.
-The sole nav lives in `src/components/AppSidebar.tsx`. Mobile sheet content is
-extracted to `src/components/sidebar/MobileNavContent.tsx` (variant-agnostic).
-Module config + helpers shared at `src/components/sidebar/modules.ts`.
+The nav is a **single sectioned-pane component** (`src/components/AppSidebar.tsx`)
+that renders in **3 visual variants**. Variants are a **dev tool for Maalik**
+to A/B compare visual treatments — they're hidden from end users.
 
-**Pattern**: sectioned single-pane (240px expanded / 60px collapsed) with
-group labels (RUN / CREATE / AUTOMATE / TOOLS) and inline accordion sub-items.
-Cmd+B toggles the collapsed state (state persisted via localStorage key
+**Variants** (cycled by clicking the FabAds logo; Shift+Click opens picker):
+
+| # | Key | Visual |
+|---|---|---|
+| 1 | `sections` | Default. Follows app theme. Lime active state. Matches content bg. |
+| 2 | `darkAlways` | Always-dark nav regardless of theme. Monochromatic-white selection on the active row only. Subtle vertical gradient on bg. |
+| 3 | `glass` | Frosted glass (backdrop-blur-xl) with subtle lime-to-transparent gradient overlay. Auto-adapts to app theme. |
+
+Hook: `src/components/sidebar/useFabAdsNavVariant.ts`. Persists via
+localStorage key `fabads-nav-variant`. Default: `"sections"`.
+
+**Variant indicator**: a small lime numeric badge in the top-right corner of
+the FabAds logo (notification-style) shows which variant is live (1/2/3).
+
+**Pattern (all variants share)**: sectioned single-pane (240px expanded /
+60px collapsed) with group labels (RUN / CREATE / TOOLS) and inline
+accordion sub-items. Cmd+B toggles collapsed state (persisted via
 `fabads-nav-collapsed`).
 
-**BG matching**: nav uses `bg-background` (= content bg) — the only visual
-separator is the thin `border-r border-border`. No more sidebar-vs-content
-bg mismatch.
+**Cmd+K command palette**: global keyboard-driven nav surface. Mounted by
+`AppLayout`. Reachable from the inline "Search · ⌘K" field at the top of
+the sidebar body. Implementation: `src/components/sidebar/CommandPalette.tsx`.
+v1 lists every module + sub-item path; future scope: brands, generations,
+recent paths, AI actions.
 
-**Genie variant theming**: when on `/iq/genie6/*`, the nav swaps to g6 tokens
-(`bg-g6-bg-container`, `text-g6-text`, etc.). The active Genie variant
-(`data-genie6-variant` on `<html>`) cascades through these tokens
-automatically — Studio / Canvas / Command / Modular each give the nav a
-slightly different visual character without per-variant code.
+**Genie variant theming**: on `/iq/genie6/*`, all variants use g6 tokens
+(`bg-g6-bg-container`, `text-g6-text`). The active Genie variant cascades
+via `data-genie6-variant` on `<html>`. Genie variant toggle now lives as a
+**small icon next to the "Genie" label** (not as a pill in sub-menu) —
+click cycles studio → canvas → command → modular. Each variant has a
+distinct lucide icon (Sparkles / Maximize2 / Terminal / Grid3x3) that
+cross-fades on switch.
 
-**Genie variant pill** lives inline under [+ New Generation] when the Genie
-group is expanded. Switching Genie variants from there re-renders the nav
-with the new variant's surface treatment.
+**IA (locked iter-6 A-5)**:
+```
+RUN     Dashboard, Reports, Industry Insights, Launch, Automation
+CREATE  Genie, Catalogue, Creative Library
+TOOLS   Video Sage, Copilot, BG Remover (Soon), Object Remover (Soon)
+```
+TOOLS entries are independent top-level modules (NOT children of a "Tools"
+parent). They share the TOOLS group label but no other visual grouping —
+no shared border, left rail, or bracket. If new shared visual decoration is
+added for accordion sub-items, gate it behind `hasSubItems(mod)` so it
+doesn't accidentally apply to TOOLS rows.
 
-**Future variant idea (deferred)**: dark-always nav — sidebar stays dark
-even when shell theme is light. To add later, branch on a new mode setting
-inside `getTokens()` and surface the toggle as a UserMenu entry, not a dock
-icon. Don't reintroduce the in-dock variant cycle — that pattern is
-intentionally retired.
+**Future variant idea (deferred)**: a Claude-original variant. To add:
+extend `VARIANT_CYCLE` in the hook, add token branch in `getTokens()`,
+update `VARIANT_META` for the picker.
 
 ---
 
@@ -154,11 +176,10 @@ Do not regress on any of these. They have been deliberately dropped:
 
 - **Standalone dark/light toggle in the sidebar** — removed in iter-6 A-2.
   The toggle lives in UserMenu only. Don't re-add it.
-- **Reintroducing the multi-variant nav toggle** — explored in A-2/A-3, retired
-  in A-4. If you need a new nav variant, branch on a setting inside
-  `getTokens()` in `AppSidebar.tsx` (or fork the file if structurally
-  different) and surface the toggle in UserMenu — not as an icon in the
-  bottom dock.
+- **Multi-variant nav as a user-facing setting** — explored in A-2/A-3,
+  retired. As of A-5 the variant cycler is back, but **as a dev tool only**
+  (Maalik-only, hidden from users — toggled via FabAds logo click). Don't
+  surface variant choice in UserMenu or anywhere user-discoverable.
 - **Putting Tools as a parent module with sub-items** — flattened in A-4.
   Each tool (Video Sage / Copilot / BG Remover / Object Remover) is its own
   top-level module under the TOOLS group label. Don't re-nest them.

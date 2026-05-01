@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { AppSidebar, MobileNavContent } from "@/components/AppSidebar";
+import { CommandPalette } from "@/components/sidebar/CommandPalette";
 import { CopilotProvider, useCopilot } from "@/contexts/CopilotContext";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import {
@@ -206,6 +207,9 @@ function AppLayoutInner() {
           <MobileNavContent onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
+
+      {/* Cmd+K command palette — global, keyboard-driven nav */}
+      <CommandPalette />
     </div>
   );
 }

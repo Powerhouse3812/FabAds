@@ -40,33 +40,37 @@ export interface ModuleDef {
 }
 
 /** Shell-level functional groups used by the nav. */
-export type ModuleGroup = "RUN" | "CREATE" | "AUTOMATE" | "TOOLS";
+export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
 
 /* ------------------------------------------------------------------ */
 /*  Module configuration                                               */
 /* ------------------------------------------------------------------ *
- *  IA — locked iter-6 A-4 (2026-05-01):
+ *  IA — locked iter-6 A-5 (2026-05-01):
  *
  *  RUN
  *    Dashboard
  *    Reports             (FB / NB / TT / Creative Reporting)
  *    Industry Insights   (Discover / Intelligence / Boards / Competitors / Saved)
  *    Launch              (Launches / Targeting Template / AutoPilot / Clones / RRM)
+ *    Automation          (no Soon badge — first-class run-the-business surface)
  *
  *  CREATE
  *    Genie               (Overview / Generations / Studio / Settings — plus inline
- *                          New-Gen CTA + variant pill when active)
+ *                          New-Gen CTA when active. Genie variant toggle now
+ *                          lives as a small icon next to the Genie label, not
+ *                          as a pill in sub-menu.)
  *    Catalogue           (Category / Brands / Product)
  *    Creative Library
  *
- *  AUTOMATE
- *    Automation          (Soon)
- *
  *  TOOLS                 — top-level modules, NOT children of a "Tools" parent
+ *                          (visually independent — no shared border/grouping)
  *    Video Sage
  *    Copilot
  *    BG Remover          (Soon)
  *    Object Remover      (Soon)
+ *
+ * (A-4 had AUTOMATE as a separate group with Automation alone. Killed in A-5
+ * — single-module groups read as layout glitches; Automation is operational.)
  * ------------------------------------------------------------------ */
 export const MODULES: ModuleDef[] = [
   /* RUN */
@@ -101,6 +105,8 @@ export const MODULES: ModuleDef[] = [
     ],
   },
 
+  { key: "automation", label: "Automation", icon: Workflow, path: "/automation" },
+
   /* CREATE */
   {
     key: "genie", label: "Genie", icon: Wand2,
@@ -125,9 +131,6 @@ export const MODULES: ModuleDef[] = [
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },
 
-  /* AUTOMATE */
-  { key: "automation", label: "Automation", icon: Workflow, path: "/automation", comingSoon: true },
-
   /* TOOLS — flat top-level modules (no parent "Tools" label) */
   { key: "video-sage", label: "Video Sage", icon: Video, path: "/iq/video-sage" },
   { key: "copilot", label: "Copilot", icon: MessageSquare, path: "/iq/copilot" },
@@ -143,17 +146,17 @@ export const SYSTEM_MODULES: ModuleDef[] = [];
 /* ------------------------------------------------------------------ */
 /**
  * Module key → group label. Used to render the small caps group
- * headers (RUN / CREATE / AUTOMATE / TOOLS) above each cluster.
+ * headers (RUN / CREATE / TOOLS) above each cluster.
  *
- * Locked 2026-05-01 (iter-6 A-4):
- *   RUN       — operate the business: own data + market data + activation
- *   CREATE    — content / asset / brand authoring
- *   AUTOMATE  — system flows
- *   TOOLS     — utilities (each tool is a top-level module under this group)
+ * Locked 2026-05-01 (iter-6 A-5):
+ *   RUN     — operate the business: own data + market data + activation + automation
+ *   CREATE  — content / asset / brand authoring
+ *   TOOLS   — utilities (each tool is a top-level module; no shared grouping)
  *
- * (Earlier iter-6 A-2 had a DISCOVER group containing only Industry Insights;
- * dropped because a single-module group reads as a layout glitch. Insights
- * moved into RUN — operationally it's a read surface like Reports.)
+ * History:
+ *   A-2 had RUN/DISCOVER/CREATE/AUTOMATE — DISCOVER had Insights alone (lonely).
+ *   A-4 merged Insights into RUN, kept AUTOMATE for Automation alone (still lonely).
+ *   A-5 (this) folds Automation into RUN as well, killing AUTOMATE entirely.
  */
 export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   // RUN
@@ -161,12 +164,11 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   reports: "RUN",
   insights: "RUN",
   launch: "RUN",
+  automation: "RUN",
   // CREATE
   genie: "CREATE",
   catalogue: "CREATE",
   "creative-library": "CREATE",
-  // AUTOMATE
-  automation: "AUTOMATE",
   // TOOLS (each tool is its own module)
   "video-sage": "TOOLS",
   copilot: "TOOLS",
@@ -174,7 +176,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   "obj-remover": "TOOLS",
 };
 
-export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "AUTOMATE", "TOOLS"];
+export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];
 
 /** Returns modules grouped by their functional cluster, preserving order. */
 export function groupedModules(): { group: ModuleGroup; modules: ModuleDef[] }[] {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronRight, ChevronsLeft, ChevronsRight, Search, Sparkles, Maximize2, Terminal, Grid3x3 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/UserMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Genie6SubnavNewGenButton } from "@/genie6/shell/Genie6SubnavNewGenButton";
-import { useGenie6Theme } from "@/genie6/hooks/useGenie6Theme";
+import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme";
 import {
   groupedModules,
   type ModuleDef,
@@ -19,6 +19,13 @@ import {
   deriveActiveModule,
   isSubItemActive,
 } from "@/components/sidebar/modules";
+import {
+  useFabAdsNavVariant,
+  VARIANT_META,
+  type FabAdsNavVariant,
+} from "@/components/sidebar/useFabAdsNavVariant";
+import { NavVariantPicker } from "@/components/sidebar/NavVariantPicker";
+import { openPalette } from "@/components/sidebar/CommandPalette";
 import faviconLight from "@/assets/favicon-light.svg";
 import faviconDark from "@/assets/favicon-dark.png";
 
@@ -26,38 +33,38 @@ import faviconDark from "@/assets/favicon-dark.png";
 export { MobileNavContent } from "@/components/sidebar/MobileNavContent";
 
 /* ============================================================================
- *  AppSidebar — single nav variant (iter-6 A-4, 2026-05-01)
+ *  AppSidebar — single sectioned nav with 3 visual variants (iter-6 A-5)
  *
- *  History:
- *    iter-6 A-1: 9-module restructure, NotificationBell, UserMenu flatten
- *    iter-6 A-2: added Sections variant + variant picker
- *    iter-6 A-3: added Focus variant + 3-way variant cycle
- *    iter-6 A-4: simplified to single Sections variant (Maalik picked it).
- *                Killed Rail, Focus, NavVariantToggle, useFabAdsNavVariant.
- *                Improvements borrowed from Focus: tighter spacing, dot
- *                indicators on sub-items, chevron-on-hover for module rows.
- *                BG matched to content (`bg-background`), Genie theming
- *                applied when on /iq/genie6 routes (uses g6 tokens; Genie
- *                variants cascade naturally via data-genie6-variant on <html>).
- *                Collapsible with Cmd+B shortcut + localStorage persistence.
+ *  Variants (Maalik-only dev tool, hidden from end users — toggled by clicking
+ *  the FabAds logo in the sidebar header; Shift+Click opens explicit picker):
  *
- *  Layout:
- *    Expanded (240px): RUN / CREATE / AUTOMATE / TOOLS group labels +
- *                      modules under each + inline accordion sub-items.
- *    Collapsed (60px): icon-only column, hover popovers for sub-items,
- *                      group separators preserved as thin lines.
+ *    sections    — default. Follows app theme. Lime active state. Matches content bg.
+ *    darkAlways  — always-dark nav regardless of app theme. Monochromatic-white
+ *                  selection on the active row only (other rows stay dim).
+ *                  Subtle vertical gradient on the bg.
+ *    glass       — frosted glass + subtle lime-to-transparent gradient overlay.
+ *                  Auto-adapts to app theme (light tokens on light, dark on dark).
  *
  *  IA (locked):
- *    RUN       Dashboard, Reports, Industry Insights, Launch
- *    CREATE    Genie, Catalogue, Creative Library
- *    AUTOMATE  Automation (Soon)
- *    TOOLS     Video Sage, Copilot, BG Remover (Soon), Object Remover (Soon)
+ *    RUN     Dashboard, Reports, Industry Insights, Launch, Automation
+ *    CREATE  Genie, Catalogue, Creative Library
+ *    TOOLS   Video Sage, Copilot, BG Remover (Soon), Object Remover (Soon)
+ *
+ *  Genie variant toggle:
+ *    Lives as a small icon next to the "Genie" label (NOT as a pill in
+ *    sub-menu). Click cycles studio → canvas → command → modular. Icon
+ *    cross-fades to show current variant (Sparkles / Maximize2 / Terminal /
+ *    Grid3x3).
+ *
+ *  Search:
+ *    Inline thin "Search · ⌘K" field at top of body. Click or ⌘K → opens
+ *    global CommandPalette modal (mounted by AppLayout).
+ *
+ *  Cmd+B toggles collapse globally.
  * ============================================================================ */
 
 /* ─────────────────────────────────────────────────────────
- *  Collapsed-state external store — persists to localStorage,
- *  shared across all consumers via useSyncExternalStore.
- *  Cmd+B keyboard shortcut wired here for global availability.
+ *  Collapsed-state external store (Cmd+B)
  * ───────────────────────────────────────────────────────── */
 const COLLAPSED_KEY = "fabads-nav-collapsed";
 
@@ -98,11 +105,9 @@ function useNavCollapsed() {
   return { collapsed, setCollapsed, toggle: () => setCollapsed(!currentCollapsed) };
 }
 
-// Cmd+B (Linear/VS Code convention) toggles the sidebar globally.
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
-      // Don't fire when user is typing in a textarea/contenteditable
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
@@ -113,13 +118,85 @@ if (typeof window !== "undefined") {
 }
 
 /* ─────────────────────────────────────────────────────────
- *  Token swap — match content bg in normal mode; use g6
- *  tokens when on Genie routes so the nav blends with the
- *  current Genie variant's surface treatment.
+ *  Token swap — variant × isGenieRoute matrix
+ *
+ *  Returns a token bag that components consume. Three variants × Genie-route
+ *  cascade gives us 6 effective combinations. We don't proliferate variant×
+ *  Genie permutations — instead, when on a Genie route we ALWAYS use g6
+ *  tokens regardless of variant (Genie has its own visual ecosystem).
+ *  Variant differences only apply outside Genie routes.
+ *
+ *  EXCEPT: Glass effect should still apply on Genie routes (frosted bg
+ *  blends nicely with Genie's canvas treatments). Dark Always also applies
+ *  on Genie routes (forces dark nav even if Genie variant is light-leaning).
  * ───────────────────────────────────────────────────────── */
 type NavTokens = ReturnType<typeof getTokens>;
 
-function getTokens(isGenieRoute: boolean) {
+function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
+  // Dark Always — always-dark, monochromatic white selection
+  if (variant === "darkAlways") {
+    return {
+      // Subtle vertical gradient on bg
+      bg: "bg-[linear-gradient(180deg,#1c1c1c_0%,#141414_100%)]",
+      bgFooter: "bg-[#121212]",
+      border: "border-white/[0.08]",
+      text: "text-white/85",
+      textMuted: "text-white/40",
+      textSecondary: "text-white/65",
+      hoverBg: "hover:bg-white/[0.04]",
+      hoverText: "hover:text-white/95",
+      // Monochromatic white selection on active row only
+      activeBg: "bg-white/[0.08]",
+      activeText: "text-white",
+      activeIconBg: "bg-white/[0.12]",
+      activeBar: "bg-white",
+      pillBorder: "border-white/[0.08]",
+      pillBg: "bg-white/[0.04]",
+      glassOverlay: false,
+    } as const;
+  }
+
+  // Glass — frosted with lime gradient overlay (auto-theme)
+  if (variant === "glass") {
+    if (isGenieRoute) {
+      return {
+        bg: "bg-g6-bg-container/60 backdrop-blur-xl",
+        bgFooter: "bg-g6-bg-base/70 backdrop-blur-xl",
+        border: "border-g6-border-secondary/60",
+        text: "text-g6-text",
+        textMuted: "text-g6-text-tertiary",
+        textSecondary: "text-g6-text-secondary",
+        hoverBg: "hover:bg-g6-bg-spotlight/40",
+        hoverText: "hover:text-g6-text",
+        activeBg: "bg-g6-primary/15",
+        activeText: "text-g6-primary-active",
+        activeIconBg: "bg-g6-primary/20",
+        activeBar: "bg-g6-primary-active",
+        pillBorder: "border-g6-border-secondary/60",
+        pillBg: "bg-g6-bg-spotlight/30",
+        glassOverlay: true,
+      } as const;
+    }
+    return {
+      bg: "bg-background/65 backdrop-blur-xl",
+      bgFooter: "bg-background/75 backdrop-blur-xl",
+      border: "border-border/60",
+      text: "text-foreground",
+      textMuted: "text-muted-foreground",
+      textSecondary: "text-foreground/75",
+      hoverBg: "hover:bg-accent/40",
+      hoverText: "hover:text-foreground",
+      activeBg: "bg-g6-primary/10",
+      activeText: "text-g6-primary-active",
+      activeIconBg: "bg-g6-primary/15",
+      activeBar: "bg-g6-primary-active",
+      pillBorder: "border-border/60",
+      pillBg: "bg-accent/20",
+      glassOverlay: true,
+    } as const;
+  }
+
+  // Sections (default) — Genie tokens on Genie routes, content tokens otherwise
   if (isGenieRoute) {
     return {
       bg: "bg-g6-bg-container",
@@ -133,8 +210,10 @@ function getTokens(isGenieRoute: boolean) {
       activeBg: "bg-g6-primary/10",
       activeText: "text-g6-primary-active",
       activeIconBg: "bg-g6-primary/15",
+      activeBar: "bg-g6-primary-active",
       pillBorder: "border-g6-border-secondary",
       pillBg: "bg-g6-bg-spotlight/40",
+      glassOverlay: false,
     } as const;
   }
   return {
@@ -149,46 +228,61 @@ function getTokens(isGenieRoute: boolean) {
     activeBg: "bg-g6-primary/10",
     activeText: "text-g6-primary-active",
     activeIconBg: "bg-g6-primary/15",
+    activeBar: "bg-g6-primary-active",
     pillBorder: "border-border",
     pillBg: "bg-accent/30",
+    glassOverlay: false,
   } as const;
 }
 
 /* ─────────────────────────────────────────────────────────
- *  Genie variant pill (inline under [+ New Generation])
+ *  Genie variant toggle — small icon next to the Genie label.
+ *  Replaces the inline pill (which was inside Genie sub-menu).
+ *  Click cycles studio → canvas → command → modular.
  * ───────────────────────────────────────────────────────── */
-const GENIE_VARIANTS = [
-  { key: "studio" as const, label: "Studio" },
-  { key: "canvas" as const, label: "Canvas" },
-  { key: "command" as const, label: "Command" },
-  { key: "modular" as const, label: "Modular" },
-];
+const GENIE_VARIANT_META: Record<GenieVariant, { Icon: React.ElementType; label: string }> = {
+  studio:  { Icon: Sparkles,   label: "Studio" },
+  canvas:  { Icon: Maximize2,  label: "Canvas" },
+  command: { Icon: Terminal,   label: "Command" },
+  modular: { Icon: Grid3x3,    label: "Modular" },
+};
+const GENIE_CYCLE: GenieVariant[] = ["studio", "canvas", "command", "modular"];
 
-function GenieVariantPill({ tokens }: { tokens: NavTokens }) {
+function GenieVariantIconToggle({ tokens }: { tokens: NavTokens }) {
   const { variant, setVariant } = useGenie6Theme();
+  const { Icon, label } = GENIE_VARIANT_META[variant];
+  const nextIdx = (GENIE_CYCLE.indexOf(variant) + 1) % GENIE_CYCLE.length;
+  const nextLabel = GENIE_VARIANT_META[GENIE_CYCLE[nextIdx]].label;
+
   return (
-    <div className={cn("flex w-full rounded-full border p-0.5", tokens.pillBorder, tokens.pillBg)}>
-      {GENIE_VARIANTS.map((o) => (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
         <button
-          key={o.key}
           type="button"
-          onClick={() => setVariant(o.key)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setVariant(GENIE_CYCLE[nextIdx]);
+          }}
+          aria-label={`Genie variant: ${label}. Click to switch to ${nextLabel}.`}
           className={cn(
-            "flex-1 rounded-full py-1 text-[10px] font-semibold transition-all duration-150",
-            variant === o.key
-              ? "bg-g6-primary text-g6-text-on-accent shadow-sm"
-              : cn(tokens.textMuted, tokens.hoverText)
+            "flex h-5 w-5 items-center justify-center rounded shrink-0 transition-colors",
+            tokens.textMuted,
+            tokens.hoverBg,
+            tokens.hoverText
           )}
         >
-          {o.label}
+          <Icon className="h-3 w-3" />
         </button>
-      ))}
-    </div>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="text-xs">
+        Genie · {label} → {nextLabel}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
 /* ─────────────────────────────────────────────────────────
- *  Sub-item row — with dot indicator (active = lime, inactive = dim)
+ *  Sub-item row — dot indicator (lime when active, dim otherwise)
  * ───────────────────────────────────────────────────────── */
 function SubItemRow({
   item,
@@ -218,7 +312,7 @@ function SubItemRow({
       <span
         className={cn(
           "absolute left-5 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full transition-colors",
-          active ? "bg-g6-primary-active" : "bg-current opacity-30"
+          active ? tokens.activeBar : "bg-current opacity-25"
         )}
       />
       <span className="flex-1 truncate">{item.label}</span>
@@ -232,9 +326,7 @@ function SubItemRow({
 }
 
 /* ─────────────────────────────────────────────────────────
- *  Module row (expanded mode) — accordion parent
- *  Includes lime active left-edge bar + chevron-on-hover for
- *  modules without sub-items (a borrowed Focus polish).
+ *  Module row (expanded) — accordion parent
  * ───────────────────────────────────────────────────────── */
 function ModuleRowExpanded({
   mod,
@@ -255,22 +347,19 @@ function ModuleRowExpanded({
 }) {
   const Icon = mod.icon;
   const hasChildren = hasSubItems(mod);
+  const isGenie = mod.key === "genie";
 
   const handleClick = () => {
-    if (!hasChildren) {
-      onNavigate(mod.path!);
-    } else {
-      onToggle();
-    }
+    if (!hasChildren) onNavigate(mod.path!);
+    else onToggle();
   };
 
   const siblingPaths = allSubPaths(mod);
 
   return (
     <div className="relative group/row">
-      {/* Active left-edge bar */}
       {isActive && (
-        <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-g6-primary-active" />
+        <span className={cn("absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r", tokens.activeBar)} />
       )}
       <button
         type="button"
@@ -285,6 +374,8 @@ function ModuleRowExpanded({
       >
         <Icon className="h-4 w-4 shrink-0" />
         <span className="flex-1 truncate">{mod.label}</span>
+        {/* Genie variant icon toggle next to the label (replaces the inline pill) */}
+        {isGenie && <GenieVariantIconToggle tokens={tokens} />}
         {mod.comingSoon && (
           <span className={cn("text-[10px] font-medium uppercase tracking-wider rounded px-1 py-0.5 shrink-0 border", tokens.textMuted, tokens.border)}>
             Soon
@@ -299,7 +390,6 @@ function ModuleRowExpanded({
             )}
           />
         ) : (
-          // chevron-on-hover for direct-navigate modules (Focus polish)
           <ChevronRight
             className={cn(
               "h-3.5 w-3.5 shrink-0 opacity-0 group-hover/row:opacity-60 transition-opacity",
@@ -309,14 +399,12 @@ function ModuleRowExpanded({
         )}
       </button>
 
-      {/* Inline accordion content */}
       {hasChildren && isOpen && (
         <div className="mt-0.5 mb-1 flex flex-col gap-0.5 overflow-visible">
-          {/* Genie special: New-gen CTA + variant pill before sub-items */}
-          {mod.key === "genie" && (
-            <div className="px-3 py-1 space-y-2">
+          {/* Genie special: New-gen CTA only (variant pill removed — moved to icon toggle next to title) */}
+          {isGenie && (
+            <div className="px-3 py-1">
               <Genie6SubnavNewGenButton />
-              <GenieVariantPill tokens={tokens} />
             </div>
           )}
           {mod.subItems?.map((item) => (
@@ -329,23 +417,6 @@ function ModuleRowExpanded({
               tokens={tokens}
             />
           ))}
-          {mod.sections?.map((section) => (
-            <div key={section.sectionLabel} className="mt-1.5 first:mt-0">
-              <span className={cn("block pl-9 pr-3 py-1 text-[10px] font-semibold uppercase tracking-wider", tokens.textMuted)}>
-                {section.sectionLabel}
-              </span>
-              {section.items.map((item) => (
-                <SubItemRow
-                  key={item.path}
-                  item={item}
-                  pathname={pathname}
-                  siblingPaths={siblingPaths}
-                  onNavigate={onNavigate}
-                  tokens={tokens}
-                />
-              ))}
-            </div>
-          ))}
         </div>
       )}
     </div>
@@ -353,7 +424,7 @@ function ModuleRowExpanded({
 }
 
 /* ─────────────────────────────────────────────────────────
- *  Module icon (collapsed mode) — hover popover for sub-items
+ *  Module icon (collapsed) — hover popover for sub-items
  * ───────────────────────────────────────────────────────── */
 function ModuleIconCollapsed({
   mod,
@@ -445,7 +516,102 @@ function ModuleIconCollapsed({
 }
 
 /* ─────────────────────────────────────────────────────────
- *  Main — AppSidebar (single variant, sectioned, collapsible)
+ *  Search field — opens Cmd+K palette on click or focus
+ * ───────────────────────────────────────────────────────── */
+function SearchField({ tokens }: { tokens: NavTokens }) {
+  return (
+    <button
+      type="button"
+      onClick={openPalette}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors",
+        tokens.border, tokens.hoverBg
+      )}
+    >
+      <Search className={cn("h-3.5 w-3.5 shrink-0", tokens.textMuted)} />
+      <span className={cn("flex-1 text-left text-[12px]", tokens.textMuted)}>
+        Search
+      </span>
+      <kbd className={cn("ml-auto text-[10px] font-mono rounded px-1.5 py-0.5 border", tokens.border, tokens.textMuted)}>
+        ⌘K
+      </kbd>
+    </button>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  Logo — variant cycler. Click cycles, Shift+Click opens picker.
+ *  Variant index badge shown top-right (notification-style).
+ * ───────────────────────────────────────────────────────── */
+function LogoCycler({
+  isDark,
+  collapsed,
+  tokens,
+}: {
+  isDark: boolean;
+  collapsed: boolean;
+  tokens: NavTokens;
+}) {
+  const { variant, cycle } = useFabAdsNavVariant();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const meta = VARIANT_META[variant];
+  const totalVariants = Object.keys(VARIANT_META).length;
+  const tooltipText = `Click: cycle · Shift+Click: pick · ${meta.label} (${meta.index}/${totalVariants})`;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      e.preventDefault();
+      setPickerOpen(true);
+    } else {
+      cycle();
+    }
+  };
+
+  const trigger = (
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label={tooltipText}
+      title={tooltipText}
+      className={cn(
+        "relative flex items-center gap-2 rounded-md transition-colors",
+        tokens.text,
+        collapsed ? "p-1" : "px-1 py-0.5",
+        tokens.hoverBg
+      )}
+    >
+      <div className="relative shrink-0">
+        <img
+          src={isDark ? faviconDark : faviconLight}
+          alt="FabAds"
+          className="h-6 w-6"
+        />
+        {/* Variant index badge — notification-style dot in top-right corner */}
+        <span className={cn(
+          "absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none",
+          "bg-g6-primary text-g6-text-on-accent ring-2",
+          tokens.bgFooter,
+        )}>
+          {meta.index}
+        </span>
+      </div>
+      {!collapsed && (
+        <span className="text-sm font-semibold tracking-tight">FabAds</span>
+      )}
+    </button>
+  );
+
+  return (
+    <NavVariantPicker
+      open={pickerOpen}
+      onOpenChange={setPickerOpen}
+      trigger={trigger}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  Main — AppSidebar
  * ───────────────────────────────────────────────────────── */
 export function AppSidebar() {
   const { pathname } = useLocation();
@@ -454,17 +620,16 @@ export function AppSidebar() {
   const isDark = theme === "dark";
 
   const isGenieRoute = pathname.startsWith("/iq/genie6");
-  const tokens = getTokens(isGenieRoute);
+  const { variant } = useFabAdsNavVariant();
+  const tokens = getTokens(variant, isGenieRoute);
 
   const activeKey = deriveActiveModule(pathname);
   const { collapsed, toggle: toggleCollapsed } = useNavCollapsed();
 
-  // Open accordion state — only the active module is open by default.
   const [openKeys, setOpenKeys] = useState<Set<string>>(() => {
     return activeKey ? new Set([activeKey]) : new Set();
   });
 
-  // Auto-open the active module's accordion on route change
   useEffect(() => {
     if (!activeKey) return;
     setOpenKeys((prev) => {
@@ -495,28 +660,33 @@ export function AppSidebar() {
 
   return (
     <aside
-      data-fabads-nav-on-genie={isGenieRoute || undefined}
+      data-fabads-nav-variant={variant}
       className={cn(
-        "hidden md:flex h-screen flex-shrink-0 flex-col border-r transition-[width] duration-200 ease-out",
+        "relative hidden md:flex h-screen flex-shrink-0 flex-col border-r transition-[width] duration-200 ease-out",
         tokens.bg,
         tokens.border,
         collapsed ? "w-[60px]" : "w-[240px]"
       )}
     >
-      {/* Header */}
+      {/* Glass gradient overlay layer (Glass variant only) — lime-to-transparent
+          gradient sitting above the bg blur but behind all content. Pointer-
+          events disabled so it never intercepts clicks. */}
+      {tokens.glassOverlay && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(195,235,66,0.08)_0%,rgba(195,235,66,0.02)_45%,transparent_100%)]"
+        />
+      )}
+
+      {/* Header — logo cycler + collapse toggle */}
       <div
         className={cn(
-          "flex items-center h-12 shrink-0 border-b",
+          "relative z-10 flex items-center h-12 shrink-0 border-b",
           tokens.border,
           collapsed ? "justify-center px-0" : "justify-between px-3"
         )}
       >
-        <Link to="/dashboard" className={cn("flex items-center gap-2", tokens.text)}>
-          <img src={isDark ? faviconDark : faviconLight} alt="FabAds" className="h-6 w-6" />
-          {!collapsed && (
-            <span className="text-sm font-semibold tracking-tight">FabAds</span>
-          )}
-        </Link>
+        <LogoCycler isDark={isDark} collapsed={collapsed} tokens={tokens} />
         {!collapsed && (
           <Tooltip delayDuration={400}>
             <TooltipTrigger asChild>
@@ -536,10 +706,16 @@ export function AppSidebar() {
         )}
       </div>
 
+      {/* Search field — only when expanded; collapsed mode skips it (Cmd+K still works globally) */}
+      {!collapsed && (
+        <div className="relative z-10 px-2 pt-2 pb-1 shrink-0">
+          <SearchField tokens={tokens} />
+        </div>
+      )}
+
       {/* Body */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-2">
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto py-2">
         {collapsed ? (
-          /* COLLAPSED — icon-only with thin separators between groups */
           <div className="flex flex-col items-center gap-0.5 px-2">
             {groups.map(({ group, modules }, gi) =>
               modules.length === 0 ? null : (
@@ -560,7 +736,6 @@ export function AppSidebar() {
             )}
           </div>
         ) : (
-          /* EXPANDED — sectioned with group labels */
           <div className="flex flex-col gap-2.5 px-2">
             {groups.map(({ group, modules }) =>
               modules.length === 0 ? null : (
@@ -587,8 +762,8 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* Footer dock — bell + UserMenu (no separate dark-mode toggle, that's in UserMenu) */}
-      <div className={cn("border-t shrink-0", tokens.border, tokens.bgFooter)}>
+      {/* Footer dock */}
+      <div className={cn("relative z-10 border-t shrink-0", tokens.border, tokens.bgFooter)}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-1 py-2">
             <Tooltip delayDuration={400}>
