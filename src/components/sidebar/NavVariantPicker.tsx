@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   useFabAdsNavVariant,
@@ -15,6 +15,11 @@ import {
  *
  * Dev-tool only — visible to Maalik for A/B comparison; users don't discover
  * this surface.
+ *
+ * IMPORTANT: uses `<PopoverAnchor>` (positioning only), NOT `<PopoverTrigger>`,
+ * because the trigger primitive auto-toggles `open` on every click — which
+ * conflicts with our intent (regular click = cycle variant, Shift+Click = open
+ * picker). The parent component fully controls the `open` prop.
  */
 export function NavVariantPicker({
   open,
@@ -29,7 +34,7 @@ export function NavVariantPicker({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverAnchor asChild>{trigger}</PopoverAnchor>
       <PopoverContent side="right" align="start" sideOffset={8} className="w-64 p-1.5">
         {/* Header — spacing-only separation (no border, per crit P2#7) */}
         <div className="px-2 py-1.5 mb-1.5">

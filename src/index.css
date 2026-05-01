@@ -186,3 +186,34 @@ All colors MUST be HSL.
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Glass nav variant — decorative gradient orbs behind the sidebar so
+   backdrop-blur on the nav has actual color variation to smear (otherwise
+   blur over a flat bg looks identical to the non-blur variant).
+
+   Orbs sit fixed in the left strip where the sidebar lives. Pointer-events
+   disabled so they never intercept clicks. Lime + warm tones, deliberately
+   subtle in light mode and slightly brighter in dark mode (since dark glass
+   is more transparent).
+   ────────────────────────────────────────────────────────────────────── */
+html[data-fabads-nav-variant="glass"] body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 220px 380px at 30% 18%, hsl(75 80% 60% / 0.10), transparent 65%),
+    radial-gradient(ellipse 200px 320px at 75% 62%, hsl(75 80% 60% / 0.07), transparent 65%),
+    radial-gradient(ellipse 180px 260px at 25% 92%, hsl(30 75% 65% / 0.05), transparent 65%);
+}
+html.dark[data-fabads-nav-variant="glass"] body::before {
+  background:
+    radial-gradient(ellipse 220px 380px at 30% 18%, hsl(75 75% 55% / 0.18), transparent 65%),
+    radial-gradient(ellipse 200px 320px at 75% 62%, hsl(75 75% 55% / 0.12), transparent 65%),
+    radial-gradient(ellipse 180px 260px at 25% 92%, hsl(280 60% 65% / 0.10), transparent 65%);
+}

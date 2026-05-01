@@ -159,45 +159,51 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     } as const;
   }
 
-  // Glass — frosted with lime gradient overlay (auto-theme)
+  // Glass — Apple-style frosted glass. Light = white tint at low alpha + heavy
+  // blur + saturate; dark = faint white tint + blur + saturate. Top-edge inner
+  // highlight + lime gradient overlay add depth. Body has decorative gradient
+  // orbs (see index.css when data-fabads-nav-variant="glass") so backdrop-blur
+  // actually has color variation to smear.
   if (variant === "glass") {
     if (isGenieRoute) {
       return {
-        bg: "bg-g6-bg-container/60 backdrop-blur-xl",
-        border: "border-g6-border-secondary/60",
-        borderFooter: "border-g6-border-secondary/40",
+        bg: "bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-150",
+        border: "border-white/[0.08]",
+        borderFooter: "border-white/[0.05]",
         text: "text-g6-text",
         textMuted: "text-g6-text-tertiary",
         textSecondary: "text-g6-text-secondary",
-        hoverBg: "hover:bg-g6-bg-spotlight/40",
+        hoverBg: "hover:bg-white/[0.06]",
         hoverText: "hover:text-g6-text",
         activeBg: "bg-g6-primary/15",
         activeText: "text-g6-primary-active",
         activeIconBg: "bg-g6-primary/20",
         activeBar: "bg-g6-primary-active",
-        searchBg: "bg-g6-bg-spotlight/30",
-        searchBgHover: "hover:bg-g6-bg-spotlight/50",
-        chipBg: "bg-g6-bg-spotlight/60",
+        searchBg: "bg-white/[0.06]",
+        searchBgHover: "hover:bg-white/[0.10]",
+        chipBg: "bg-white/[0.08]",
         chipText: "text-g6-text-tertiary",
         glassOverlay: true,
       } as const;
     }
     return {
-      bg: "bg-background/65 backdrop-blur-xl",
-      border: "border-border/60",
-      borderFooter: "border-border/40",
+      // Light: white tint at 50% + heavy blur + saturate (Apple liquid-glass)
+      // Dark variants get inverted tint via dark: prefix below
+      bg: "bg-white/50 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-150",
+      border: "border-white/40 dark:border-white/[0.08]",
+      borderFooter: "border-white/30 dark:border-white/[0.05]",
       text: "text-foreground",
       textMuted: "text-muted-foreground",
       textSecondary: "text-foreground/75",
-      hoverBg: "hover:bg-accent/40",
+      hoverBg: "hover:bg-white/30 dark:hover:bg-white/[0.06]",
       hoverText: "hover:text-foreground",
-      activeBg: "bg-g6-primary/10",
+      activeBg: "bg-g6-primary/15",
       activeText: "text-g6-primary-active",
-      activeIconBg: "bg-g6-primary/15",
+      activeIconBg: "bg-g6-primary/20",
       activeBar: "bg-g6-primary-active",
-      searchBg: "bg-foreground/[0.04]",
-      searchBgHover: "hover:bg-foreground/[0.07]",
-      chipBg: "bg-muted-foreground/15",
+      searchBg: "bg-white/40 dark:bg-white/[0.06]",
+      searchBgHover: "hover:bg-white/60 dark:hover:bg-white/[0.10]",
+      chipBg: "bg-white/40 dark:bg-white/[0.08]",
       chipText: "text-muted-foreground",
       glassOverlay: true,
     } as const;
@@ -677,14 +683,29 @@ export function AppSidebar() {
         collapsed ? "w-[60px]" : "w-[240px]"
       )}
     >
-      {/* Glass gradient overlay layer (Glass variant only) — lime-to-transparent
-          gradient sitting above the bg blur but behind all content. Pointer-
-          events disabled so it never intercepts clicks. */}
+      {/* Glass overlay layers (Glass variant only). Stacked, all pointer-events
+          disabled. Order: bg-blur (already on aside) → light tint → top-edge
+          highlight → lime gradient. Apple-style liquid glass. */}
       {tokens.glassOverlay && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(195,235,66,0.08)_0%,rgba(195,235,66,0.02)_45%,transparent_100%)]"
-        />
+        <>
+          {/* Bright top-edge highlight — simulates light catching the glass.
+              Strongest at the top 80px, fades out by 30%. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0.08)_40%,transparent_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_40%,transparent_100%)]"
+          />
+          {/* Lime brand gradient — subtle, full-height. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(195,235,66,0.10)_0%,rgba(195,235,66,0.04)_45%,transparent_100%)]"
+          />
+          {/* Right-edge specular line — barely visible bright streak that
+              suggests a glass edge meeting content. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-[linear-gradient(180deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.15)_30%,transparent_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.04)_30%,transparent_100%)]"
+          />
+        </>
       )}
 
       {/* Header — logo cycler + collapse toggle. No border-b: spacing alone
