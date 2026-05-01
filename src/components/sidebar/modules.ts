@@ -40,7 +40,7 @@ export interface ModuleDef {
 }
 
 /** Shell-level functional groups used by the nav. */
-export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
+export type ModuleGroup = "RUN" | "CREATE" | "TOOLS" | "EXTENSIONS";
 
 /* ------------------------------------------------------------------ */
 /*  Module configuration                                               */
@@ -101,6 +101,8 @@ export const MODULES: ModuleDef[] = [
       { label: "Targeting Template", path: "/launch/templates", icon: Target },
       { label: "AutoPilot", path: "/launch/autopilot", icon: Zap },
       { label: "Clones", path: "/launch/clones", icon: Copy },
+      // Launch-level settings (nomenclature, default settings, etc.) — added iter-6 A-9
+      { label: "Launch Settings", path: "/launch/settings", icon: Settings },
       { label: "RRM", path: "/rrm", icon: Shield },
     ],
   },
@@ -111,14 +113,22 @@ export const MODULES: ModuleDef[] = [
   {
     key: "genie", label: "Genie", icon: Wand2,
     subItems: [
-      // Nav iter-4 IA (2026-05-01):
-      //   Dashboard → Overview, Library (Assets) → Studio, Generations kept
-      //   Tour removed from nav → CTA card on Overview page
-      //   Settings back in Genie sub-nav
-      { label: "Overview", path: "/iq/genie6", icon: Home },
-      { label: "Generations", path: "/iq/genie6/library", icon: LibraryIcon },
-      { label: "Studio", path: "/iq/genie6/workspace", icon: FolderTree },
-      { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
+      // Nav iter-6 A-9 IA (2026-05-01):
+      //   - "Studio" was misunderstood — was meant to be the new-generation form,
+      //     not the workspace. So:
+      //       a) Old "Studio" sub-item (path /iq/genie6/workspace) renamed to
+      //          "Assets" (workspace data + context now belongs there).
+      //       b) NEW "Studio" sub-item points to /iq/genie6/generate (ModePicker)
+      //          — replaces the lime [+ New Generation] CTA which is removed.
+      //   - There's a naming overlap with the Genie variant pill's "Studio" option
+      //     (one of 4 internal Genie variants: Studio/Canvas/Command/Modular).
+      //     Context disambiguates: this Studio = sidebar sub-item = new-gen form;
+      //     pill Studio = a Genie internal layout variant.
+      { label: "Overview",    path: "/iq/genie6",            icon: Home },
+      { label: "Generations", path: "/iq/genie6/library",    icon: LibraryIcon },
+      { label: "Assets",      path: "/iq/genie6/workspace",  icon: FolderTree },
+      { label: "Studio",      path: "/iq/genie6/generate",   icon: Wand2 },
+      { label: "Settings",    path: "/iq/genie6/settings",   icon: Settings },
     ],
   },
   {
@@ -178,11 +188,32 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];
 
+/* ------------------------------------------------------------------ *
+ *  Variant-specific group overrides
+ *
+ *  In V2 Dark Always ONLY: Industry Insights renders as a paid extension.
+ *  It moves out of RUN into a separate EXTENSIONS group at the bottom of
+ *  the nav, with a small lock icon next to the label. Other variants keep
+ *  Insights in RUN normally.
+ * ------------------------------------------------------------------ */
+export const MODULE_GROUPS_V2_DARKALWAYS: Record<string, ModuleGroup> = {
+  ...MODULE_GROUPS,
+  insights: "EXTENSIONS",
+};
+
+export const GROUP_ORDER_V2_DARKALWAYS: ModuleGroup[] = ["RUN", "CREATE", "TOOLS", "EXTENSIONS"];
+
+/** Module keys that should render with an "extension" affordance (e.g. lock icon). */
+export const MODULE_EXTENSION_KEYS: ReadonlySet<string> = new Set(["insights"]);
+
 /** Returns modules grouped by their functional cluster, preserving order. */
-export function groupedModules(): { group: ModuleGroup; modules: ModuleDef[] }[] {
-  return GROUP_ORDER.map((group) => ({
+export function groupedModules(variantKey?: string): { group: ModuleGroup; modules: ModuleDef[] }[] {
+  const isV2 = variantKey === "darkAlways";
+  const order = isV2 ? GROUP_ORDER_V2_DARKALWAYS : GROUP_ORDER;
+  const groupMap = isV2 ? MODULE_GROUPS_V2_DARKALWAYS : MODULE_GROUPS;
+  return order.map((group) => ({
     group,
-    modules: MODULES.filter((m) => MODULE_GROUPS[m.key] === group),
+    modules: MODULES.filter((m) => groupMap[m.key] === group),
   }));
 }
 

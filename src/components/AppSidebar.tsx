@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
-import { ChevronRight, ChevronsLeft, ChevronsRight, Search, Sparkles, Maximize2, Terminal, Grid3x3 } from "lucide-react";
+import {
+  ChevronRight, ChevronsLeft, ChevronsRight, ChevronsUpDown,
+  Search, Sparkles, Maximize2, Terminal, Grid3x3, Lock, ArrowRight,
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 
 import { UserMenu } from "@/components/UserMenu";
 import { NotificationBell } from "@/components/NotificationBell";
-import { Genie6SubnavNewGenButton } from "@/genie6/shell/Genie6SubnavNewGenButton";
 import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme";
 import {
   groupedModules,
@@ -18,7 +20,11 @@ import {
   allSubPaths,
   deriveActiveModule,
   isSubItemActive,
+  MODULE_EXTENSION_KEYS,
 } from "@/components/sidebar/modules";
+import { brands as sharedBrands } from "@/genie6/mocks/brands";
+import { BrandLogo } from "@/genie6/components/BrandLogo";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useFabAdsNavVariant,
   VARIANT_META,
@@ -120,23 +126,54 @@ if (typeof window !== "undefined") {
 /* ─────────────────────────────────────────────────────────
  *  Token swap — variant × isGenieRoute matrix
  *
- *  Token bags now also carry CHROME FLAGS that drive structural decisions
- *  (showChevrons, showActiveBar, showSubItemDots, showModuleIcons). This is
- *  what makes variants visually distinct, not just colored differently.
+ *  Chrome flags drive structural decisions:
+ *    showChevrons / showSubItemDots / showActiveBar / showModuleIcons
  *
- *  Layout flags (shape):
- *   floating    — V3 Glass: detached panel with margin + rounded
- *   cards       — V4 Workbench: each group renders as a discrete card
- *   (default)   — V1/V2: flush full-height continuous panel
+ *  Layout/shape flags:
+ *    shape: "flush" | "floating" | "cards"
+ *    internalOrbs: render gradient-orb backdrop INSIDE the aside (Glass variants)
+ *    glassOverlay: render top-edge highlight + right-edge specular streak
+ *    profileBlock: render ProfileBlock at top instead of plain LogoCycler
+ *    brandsStrip:  render BrandsRecentStrip after the last group
+ *    ctaCard:      render BottomCTACard between body and footer dock
+ *
+ *  Helper to keep all variants type-unified — every variant exports the same
+ *  flag keys; defaults are false unless a variant opts in.
  * ───────────────────────────────────────────────────────── */
+type NavShape = "flush" | "floating" | "cards";
 type NavTokens = ReturnType<typeof getTokens>;
 
+interface BaseFlags {
+  shape: NavShape;
+  glassOverlay: boolean;
+  internalOrbs: boolean;
+  profileBlock: boolean;
+  brandsStrip: boolean;
+  ctaCard: boolean;
+  showChevrons: boolean;
+  showSubItemDots: boolean;
+  showActiveBar: boolean;
+  showModuleIcons: boolean;
+}
+
+const FLAG_DEFAULTS: BaseFlags = {
+  shape: "flush",
+  glassOverlay: false,
+  internalOrbs: false,
+  profileBlock: false,
+  brandsStrip: false,
+  ctaCard: false,
+  showChevrons: true,
+  showSubItemDots: true,
+  showActiveBar: true,
+  showModuleIcons: true,
+};
+
 function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
-  // Dark Always — always-dark + MONOCHROMATIC (no lime) + STRIPPED chrome.
-  // Typography carries hierarchy: white text on active row, grey otherwise.
-  // No chevrons, no dots, no left-bar, no badge borders. Editorial/serious feel.
+  // Dark Always — always-dark + MONOCHROMATIC + STRIPPED chrome.
   if (variant === "darkAlways") {
     return {
+      ...FLAG_DEFAULTS,
       bg: "bg-[linear-gradient(180deg,#1a1a1a_0%,#0e0e0e_100%)]",
       cardBg: "bg-[linear-gradient(180deg,#1a1a1a_0%,#0e0e0e_100%)]",
       border: "border-white/[0.06]",
@@ -146,11 +183,10 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       textSecondary: "text-white/55",
       hoverBg: "hover:bg-white/[0.03]",
       hoverText: "hover:text-white",
-      // Monochromatic — no lime. White text + tracking shift signals active.
       activeBg: "bg-transparent",
       activeText: "text-white font-semibold",
       activeIconBg: "bg-white/10",
-      activeBar: "bg-transparent", // unused (showActiveBar=false)
+      activeBar: "bg-transparent",
       searchBg: "bg-white/[0.04]",
       searchBgHover: "hover:bg-white/[0.07]",
       chipBg: "bg-white/[0.06]",
@@ -159,20 +195,16 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       showChevrons: false,
       showSubItemDots: false,
       showActiveBar: false,
-      showModuleIcons: true, // keep icons — pure typography is too austere for 12 modules
-      // Layout flag
-      shape: "flush" as const,
-      glassOverlay: false,
+      showModuleIcons: true,
     } as const;
   }
 
-  // Glass — DETACHED FLOATING panel (margin around all edges + rounded-2xl
-  // + soft shadow). Apple liquid-glass body fill. Different SHAPE not just
-  // paint — that's what makes it distinct from Sections.
+  // Glass — Apple subtle frosted glass, FLOATING shape, internal orbs (no body bleed).
   if (variant === "glass") {
     if (isGenieRoute) {
       return {
-        bg: "bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-150",
+        ...FLAG_DEFAULTS,
+        bg: "bg-white/[0.04]",
         cardBg: "bg-white/[0.05]",
         border: "border-white/[0.08]",
         borderFooter: "border-white/[0.05]",
@@ -189,16 +221,14 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
         searchBgHover: "hover:bg-white/[0.10]",
         chipBg: "bg-white/[0.08]",
         chipText: "text-g6-text-tertiary",
-        showChevrons: true,
-        showSubItemDots: true,
-        showActiveBar: true,
-        showModuleIcons: true,
         shape: "floating" as const,
         glassOverlay: true,
+        internalOrbs: true,
       } as const;
     }
     return {
-      bg: "bg-white/50 dark:bg-white/[0.05] backdrop-blur-2xl backdrop-saturate-150",
+      ...FLAG_DEFAULTS,
+      bg: "bg-white/40 dark:bg-white/[0.04]",
       cardBg: "bg-white/50 dark:bg-white/[0.05]",
       border: "border-white/40 dark:border-white/[0.08]",
       borderFooter: "border-white/30 dark:border-white/[0.05]",
@@ -215,20 +245,17 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       searchBgHover: "hover:bg-white/60 dark:hover:bg-white/[0.10]",
       chipBg: "bg-white/40 dark:bg-white/[0.08]",
       chipText: "text-muted-foreground",
-      showChevrons: true,
-      showSubItemDots: true,
-      showActiveBar: true,
-      showModuleIcons: true,
       shape: "floating" as const,
       glassOverlay: true,
+      internalOrbs: true,
     } as const;
   }
 
-  // Workbench — each group renders as a discrete CARD with gaps between.
-  // Notion-blocks pattern. Visual chunking via card boundaries, not just labels.
+  // Workbench — discrete cards per group.
   if (variant === "workbench") {
     if (isGenieRoute) {
       return {
+        ...FLAG_DEFAULTS,
         bg: "bg-g6-bg-base",
         cardBg: "bg-g6-bg-container",
         border: "border-g6-border-secondary",
@@ -246,15 +273,11 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
         searchBgHover: "hover:bg-g6-bg-spotlight/60",
         chipBg: "bg-g6-bg-spotlight/60",
         chipText: "text-g6-text-tertiary",
-        showChevrons: true,
-        showSubItemDots: true,
-        showActiveBar: true,
-        showModuleIcons: true,
         shape: "cards" as const,
-        glassOverlay: false,
       } as const;
     }
     return {
+      ...FLAG_DEFAULTS,
       bg: "bg-muted/30",
       cardBg: "bg-background",
       border: "border-border",
@@ -272,18 +295,76 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       searchBgHover: "hover:bg-accent/30",
       chipBg: "bg-muted-foreground/15",
       chipText: "text-muted-foreground",
-      showChevrons: true,
-      showSubItemDots: true,
-      showActiveBar: true,
-      showModuleIcons: true,
       shape: "cards" as const,
-      glassOverlay: false,
     } as const;
   }
 
-  // Sections (default) — Genie tokens on Genie routes, content tokens otherwise
+  // V5 Glass Dark — deep navy gradient + profile + brands strip + CTA card.
+  // Dramatic / cinematic. Always-dark regardless of theme.
+  if (variant === "glassDark") {
+    return {
+      ...FLAG_DEFAULTS,
+      bg: "bg-[linear-gradient(180deg,#0e1024_0%,#1a1d3a_50%,#080919_100%)]",
+      cardBg: "bg-white/[0.04]",
+      border: "border-white/[0.08]",
+      borderFooter: "border-white/[0.06]",
+      text: "text-white/90",
+      textMuted: "text-white/40",
+      textSecondary: "text-white/65",
+      hoverBg: "hover:bg-white/[0.05]",
+      hoverText: "hover:text-white",
+      activeBg: "bg-white/[0.10]",
+      activeText: "text-white font-medium",
+      activeIconBg: "bg-white/[0.14]",
+      activeBar: "bg-white/80",
+      searchBg: "bg-white/[0.06]",
+      searchBgHover: "hover:bg-white/[0.10]",
+      chipBg: "bg-white/[0.08]",
+      chipText: "text-white/55",
+      shape: "floating" as const,
+      glassOverlay: true,
+      internalOrbs: true,
+      profileBlock: true,
+      brandsStrip: true,
+      ctaCard: true,
+    } as const;
+  }
+
+  // V6 Glass Light — soft warm cream/pink frosty glass + profile + brands + CTA.
+  // Always-light regardless of theme.
+  if (variant === "glassLight") {
+    return {
+      ...FLAG_DEFAULTS,
+      bg: "bg-[linear-gradient(180deg,#fdf6f3_0%,#f5e6df_50%,#f0e7e3_100%)]",
+      cardBg: "bg-white/55",
+      border: "border-black/[0.06]",
+      borderFooter: "border-black/[0.05]",
+      text: "text-zinc-900",
+      textMuted: "text-zinc-500",
+      textSecondary: "text-zinc-700",
+      hoverBg: "hover:bg-white/50",
+      hoverText: "hover:text-zinc-900",
+      activeBg: "bg-white/70",
+      activeText: "text-zinc-900 font-medium",
+      activeIconBg: "bg-white/80",
+      activeBar: "bg-g6-primary-active",
+      searchBg: "bg-white/50",
+      searchBgHover: "hover:bg-white/70",
+      chipBg: "bg-white/60",
+      chipText: "text-zinc-600",
+      shape: "floating" as const,
+      glassOverlay: true,
+      internalOrbs: true,
+      profileBlock: true,
+      brandsStrip: true,
+      ctaCard: true,
+    } as const;
+  }
+
+  // Sections (default).
   if (isGenieRoute) {
     return {
+      ...FLAG_DEFAULTS,
       bg: "bg-g6-bg-container",
       cardBg: "bg-g6-bg-container",
       border: "border-g6-border-secondary",
@@ -301,15 +382,10 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       searchBgHover: "hover:bg-g6-bg-spotlight/60",
       chipBg: "bg-g6-bg-spotlight/60",
       chipText: "text-g6-text-tertiary",
-      showChevrons: true,
-      showSubItemDots: true,
-      showActiveBar: true,
-      showModuleIcons: true,
-      shape: "flush" as const,
-      glassOverlay: false,
     } as const;
   }
   return {
+    ...FLAG_DEFAULTS,
     bg: "bg-background",
     cardBg: "bg-background",
     border: "border-border",
@@ -327,12 +403,6 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     searchBgHover: "hover:bg-accent/60",
     chipBg: "bg-muted-foreground/15",
     chipText: "text-muted-foreground",
-    showChevrons: true,
-    showSubItemDots: true,
-    showActiveBar: true,
-    showModuleIcons: true,
-    shape: "flush" as const,
-    glassOverlay: false,
   } as const;
 }
 
@@ -441,6 +511,7 @@ function ModuleRowExpanded({
   onToggle,
   onNavigate,
   tokens,
+  isExtension,
 }: {
   mod: ModuleDef;
   isActive: boolean;
@@ -449,6 +520,7 @@ function ModuleRowExpanded({
   onToggle: () => void;
   onNavigate: (path: string) => void;
   tokens: NavTokens;
+  isExtension?: boolean;
 }) {
   const Icon = mod.icon;
   const hasChildren = hasSubItems(mod);
@@ -480,6 +552,10 @@ function ModuleRowExpanded({
       >
         {tokens.showModuleIcons && <Icon className="h-4 w-4 shrink-0" />}
         <span className="flex-1 truncate">{mod.label}</span>
+        {/* Extension marker (lock icon) — Industry Insights in V2 Dark Always */}
+        {isExtension && (
+          <Lock className={cn("h-3 w-3 shrink-0", tokens.textMuted)} aria-label="Extension — upgrade required" />
+        )}
         {/* Genie variant icon toggle next to the label (replaces the inline pill) */}
         {isGenie && <GenieVariantIconToggle tokens={tokens} />}
         {mod.comingSoon && (
@@ -510,12 +586,9 @@ function ModuleRowExpanded({
 
       {hasChildren && isOpen && (
         <div className="mt-0.5 mb-1 flex flex-col gap-0.5 overflow-visible">
-          {/* Genie special: New-gen CTA only (variant pill removed — moved to icon toggle next to title) */}
-          {isGenie && (
-            <div className="px-3 py-1">
-              <Genie6SubnavNewGenButton />
-            </div>
-          )}
+          {/* iter-6 A-9: dropped the lime [+ New Generation] CTA from Genie sub-nav.
+              The new "Studio" sub-item (path /iq/genie6/generate) handles new-gen entry.
+              Genie variant icon-toggle stays next to the "Genie" label (above). */}
           {mod.subItems?.map((item) => (
             <SubItemRow
               key={item.path}
@@ -592,11 +665,8 @@ function ModuleIconCollapsed({
         <div className="px-3 py-2 border-b border-border">
           <span className="text-sm font-semibold text-foreground">{mod.label}</span>
         </div>
-        {mod.key === "genie" && (
-          <div className="px-1.5 pt-1.5">
-            <Genie6SubnavNewGenButton />
-          </div>
-        )}
+        {/* iter-6 A-9: Genie6SubnavNewGenButton removed here too — the Studio
+            sub-item is the new entry-point. */}
         <div className="flex flex-col gap-0.5 p-1.5">
           {mod.subItems?.map((item) => (
             <button
@@ -718,6 +788,121 @@ function LogoCycler({
 }
 
 /* ─────────────────────────────────────────────────────────
+ *  ProfileBlock — V5/V6 only. Avatar + name + email at top of nav,
+ *  in place of the plain LogoCycler header. Logo cycler still works
+ *  via a small chevron to the right of the profile (Shift+Click for
+ *  picker preserved via the same NavVariantPicker wrapper).
+ * ───────────────────────────────────────────────────────── */
+function ProfileBlock({
+  isDark,
+  tokens,
+  collapseToggle,
+}: {
+  isDark: boolean;
+  tokens: NavTokens;
+  collapseToggle: React.ReactNode;
+}) {
+  const auth = useAuth();
+  const user = auth?.user;
+  // Stub for the Maalik-comparison demo. Real auth context is checked first.
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Rahul Saini";
+  const displayEmail = user?.email || "rahul@fabads.com";
+  // Initials fallback for avatar
+  const initials = displayName.split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
+
+  return (
+    <div className={cn("relative z-10 px-3 py-3 shrink-0 flex items-center gap-2.5", tokens.text)}>
+      {/* Avatar — initials chip with subtle gradient ring */}
+      <div className={cn(
+        "shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-[12px] font-semibold",
+        tokens.activeIconBg, tokens.text
+      )}>
+        {initials}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold tracking-tight truncate">{displayName}</p>
+        <p className={cn("text-[11px] truncate", tokens.textMuted)}>{displayEmail}</p>
+      </div>
+      {/* Logo cycler chevron — keeps the variant cycle functionality compact.
+          Sits at the right edge; Shift+Click on this opens the picker. */}
+      <div className="shrink-0">
+        {collapseToggle}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  BrandsRecentStrip — V5/V6 only. Lists the first 6 brands
+ *  as colored entity icons + label (mirrors PROJECTS in inspiration).
+ *  Click → navigate to /iq/genie6/workspace/brands/:id.
+ * ───────────────────────────────────────────────────────── */
+function BrandsRecentStrip({
+  tokens,
+  onNavigate,
+}: {
+  tokens: NavTokens;
+  onNavigate: (path: string) => void;
+}) {
+  const visibleBrands = sharedBrands.slice(0, 6);
+  return (
+    <div className="flex flex-col gap-0.5 px-2 pt-2">
+      <span className={cn("px-3 pt-2 pb-1 font-mono text-[10px] uppercase tracking-[0.14em]", tokens.textMuted)}>
+        Brands
+      </span>
+      {visibleBrands.map((b) => (
+        <button
+          key={b.id}
+          type="button"
+          onClick={() => onNavigate(`/iq/genie6/workspace/brands/${b.id}`)}
+          className={cn(
+            "w-full text-left pl-3 pr-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2.5",
+            tokens.text, "opacity-85", tokens.hoverBg, tokens.hoverText, "hover:opacity-100"
+          )}
+        >
+          <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-5 w-5" rounded="rounded-md" />
+          <span className="flex-1 truncate">{b.name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  BottomCTACard — V5/V6 only. Recessed card just above the footer
+ *  dock with a primary action. Default content nudges the guided tour.
+ * ───────────────────────────────────────────────────────── */
+function BottomCTACard({
+  tokens,
+  onNavigate,
+}: {
+  tokens: NavTokens;
+  onNavigate: (path: string) => void;
+}) {
+  return (
+    <div className="relative z-10 px-2 pb-2 shrink-0">
+      <div className={cn(
+        "rounded-lg border p-3 text-center",
+        tokens.cardBg,
+        tokens.border
+      )}>
+        <p className={cn("text-[12px] font-semibold", tokens.text)}>Take the tour</p>
+        <p className={cn("text-[11px] mt-0.5 mb-2", tokens.textMuted)}>
+          12-stop walkthrough of Genie
+        </p>
+        <button
+          type="button"
+          onClick={() => onNavigate("/iq/genie6/wizard")}
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-g6-primary px-3 py-1.5 text-[12px] font-semibold text-g6-text-on-accent hover:bg-g6-primary-hover transition-colors"
+        >
+          Start <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
  *  Main — AppSidebar
  * ───────────────────────────────────────────────────────── */
 export function AppSidebar() {
@@ -763,7 +948,8 @@ export function AppSidebar() {
     [navigate]
   );
 
-  const groups = groupedModules();
+  // V2 Dark Always uses a different group order (Industry Insights → EXTENSIONS).
+  const groups = groupedModules(variant);
 
   // Outer shape per variant.
   //  - flush:    full-height, edge-to-edge, border-r only
@@ -772,11 +958,22 @@ export function AppSidebar() {
   const isFloating = tokens.shape === "floating";
   const isCards = tokens.shape === "cards";
 
+  // Width per variant. New glass variants get extra width to fit the profile
+  // block + brands strip + CTA card without cramping.
+  const expandedWidth =
+    variant === "glassDark" || variant === "glassLight"
+      ? "w-[264px]"
+      : isCards
+        ? "w-[260px]"
+        : isFloating
+          ? "w-[244px]"
+          : "w-[240px]";
+
   return (
     <aside
       data-fabads-nav-variant={variant}
       className={cn(
-        "relative hidden md:flex flex-shrink-0 flex-col transition-[width] duration-200 ease-out",
+        "relative hidden md:flex flex-shrink-0 flex-col transition-[width] duration-200 ease-out overflow-hidden",
         tokens.bg,
         // Floating: detach with margin + rounded + shadow, NO border-r
         isFloating
@@ -786,12 +983,43 @@ export function AppSidebar() {
               "h-[calc(100vh-1rem)]"
             )
           : cn("h-screen border-r", tokens.border),
-        collapsed ? "w-[60px]" : isFloating ? "w-[244px]" : isCards ? "w-[260px]" : "w-[240px]"
+        collapsed ? "w-[60px]" : expandedWidth
       )}
     >
-      {/* Glass overlay layers (Glass variant only). Stacked, all pointer-events
-          disabled. Order: bg-blur (already on aside) → light tint → top-edge
-          highlight → lime gradient. Apple-style liquid glass. */}
+      {/* Internal gradient orbs (Glass variants). Renders INSIDE the aside at
+          z:0 so the parent's overflow-hidden clips them — no bleed-as-shadow
+          outside the panel (the bug from A-7). The blur plate (next layer)
+          sits above and applies backdrop-blur, smearing these orbs into the
+          visible glass effect. */}
+      {tokens.internalOrbs && (
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-0 z-0",
+            // Per-variant orb palette
+            variant === "glassDark"
+              ? "bg-[radial-gradient(ellipse_220px_380px_at_25%_18%,rgba(99,102,241,0.30),transparent_60%),radial-gradient(ellipse_200px_340px_at_75%_55%,rgba(217,70,239,0.22),transparent_60%),radial-gradient(ellipse_180px_280px_at_30%_92%,rgba(195,235,66,0.18),transparent_60%)]"
+              : variant === "glassLight"
+                ? "bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(255,178,148,0.55),transparent_65%),radial-gradient(ellipse_200px_320px_at_72%_50%,rgba(244,114,182,0.40),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(251,191,36,0.30),transparent_65%)]"
+                : // V3 glass — auto-theme subtle lime + warm
+                  "bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(195,235,66,0.18),transparent_65%),radial-gradient(ellipse_200px_320px_at_75%_55%,rgba(195,235,66,0.10),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(255,178,148,0.12),transparent_65%)] dark:bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(195,235,66,0.30),transparent_65%),radial-gradient(ellipse_200px_320px_at_75%_55%,rgba(168,85,247,0.20),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(251,146,60,0.18),transparent_65%)]"
+          )}
+        />
+      )}
+
+      {/* Blur plate — sits at z:1 above orbs but BELOW content. Backdrop-filter
+          captures the orbs (which are below in stacking order) and smears them.
+          This is what produces the actual visible glass effect. */}
+      {tokens.internalOrbs && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[1] backdrop-blur-2xl backdrop-saturate-150"
+        />
+      )}
+
+      {/* Glass overlay layers (Glass variants). Stacked above blur plate.
+          Order: top-edge highlight → lime/brand gradient → right-edge specular.
+          All pointer-events disabled. */}
       {tokens.glassOverlay && (
         <>
           {/* Bright top-edge highlight — simulates light catching the glass.
@@ -814,33 +1042,54 @@ export function AppSidebar() {
         </>
       )}
 
-      {/* Header — logo cycler + collapse toggle. No border-b: spacing alone
-          separates from the search field below (per ui-ux-pro-max crit P1#1). */}
-      <div
-        className={cn(
-          "relative z-10 flex items-center h-12 shrink-0",
-          collapsed ? "justify-center px-0" : "justify-between px-3"
-        )}
-      >
-        <LogoCycler isDark={isDark} collapsed={collapsed} tokens={tokens} />
-        {!collapsed && (
-          <Tooltip delayDuration={400}>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                aria-label="Collapse sidebar"
-                className={cn("p-1 rounded-md transition-colors", tokens.textMuted, tokens.hoverBg, tokens.hoverText)}
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              Collapse · ⌘B
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
+      {/* Header — V5/V6 use ProfileBlock; others use the LogoCycler+collapse-toggle row. */}
+      {tokens.profileBlock && !collapsed ? (
+        <ProfileBlock
+          isDark={isDark}
+          tokens={tokens}
+          collapseToggle={
+            <Tooltip delayDuration={400}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleCollapsed}
+                  aria-label="Collapse sidebar"
+                  className={cn("p-1 rounded-md transition-colors", tokens.textMuted, tokens.hoverBg, tokens.hoverText)}
+                >
+                  <ChevronsUpDown className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Collapse · ⌘B</TooltipContent>
+            </Tooltip>
+          }
+        />
+      ) : (
+        <div
+          className={cn(
+            "relative z-10 flex items-center h-12 shrink-0",
+            collapsed ? "justify-center px-0" : "justify-between px-3"
+          )}
+        >
+          <LogoCycler isDark={isDark} collapsed={collapsed} tokens={tokens} />
+          {!collapsed && (
+            <Tooltip delayDuration={400}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleCollapsed}
+                  aria-label="Collapse sidebar"
+                  className={cn("p-1 rounded-md transition-colors", tokens.textMuted, tokens.hoverBg, tokens.hoverText)}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Collapse · ⌘B
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      )}
 
       {/* Search field — only when expanded; collapsed mode skips it (Cmd+K still works globally) */}
       {!collapsed && (
@@ -899,6 +1148,7 @@ export function AppSidebar() {
                         onToggle={() => toggleOpen(mod.key)}
                         onNavigate={handleNavigate}
                         tokens={tokens}
+                        isExtension={variant === "darkAlways" && MODULE_EXTENSION_KEYS.has(mod.key)}
                       />
                     ))}
                   </div>
@@ -925,6 +1175,7 @@ export function AppSidebar() {
                       onToggle={() => toggleOpen(mod.key)}
                       onNavigate={handleNavigate}
                       tokens={tokens}
+                      isExtension={variant === "darkAlways" && MODULE_EXTENSION_KEYS.has(mod.key)}
                     />
                   ))}
                 </div>
@@ -932,7 +1183,17 @@ export function AppSidebar() {
             )}
           </div>
         )}
+
+        {/* Brands strip (V5/V6) — after the last group, inside scrollable body. */}
+        {!collapsed && tokens.brandsStrip && (
+          <BrandsRecentStrip tokens={tokens} onNavigate={handleNavigate} />
+        )}
       </div>
+
+      {/* Bottom CTA card (V5/V6) — between body scroll and footer dock. */}
+      {!collapsed && tokens.ctaCard && (
+        <BottomCTACard tokens={tokens} onNavigate={handleNavigate} />
+      )}
 
       {/* Footer dock — single thin border-t, inherits aside bg (per crit P1#3) */}
       <div className={cn("relative z-10 border-t shrink-0", tokens.borderFooter)}>

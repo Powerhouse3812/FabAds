@@ -8,23 +8,28 @@ import { useEffect, useSyncExternalStore } from "react";
  * FabAds logo in the sidebar header (Shift+Click for explicit picker).
  *
  * Sets one attribute on <html>:
- *   data-fabads-nav-variant="sections|darkAlways|glass|workbench"
+ *   data-fabads-nav-variant="sections|darkAlways|glass|workbench|glassDark|glassLight"
  *
- * Variants are STRUCTURALLY DISTINCT (not just chromatic re-skins):
+ * Variants are STRUCTURALLY DISTINCT (not just chromatic re-skins). Iter-6 A-9
+ * adds two new dramatic-glass variants from Maalik's inspirations.
  *
  *   sections    — default. Classic 240px flush sectioned panel. Lime accent.
  *                 Full chrome (chevrons, dots, left active-bar). Linear/Vercel.
  *   darkAlways  — same 240px footprint BUT always-dark + MONOCHROMATIC (no
- *                 lime, only white/grey) + STRIPPED chrome (no chevrons, no
- *                 dots, no left-bar). Typography carries hierarchy. Editorial /
- *                 serious-tool aesthetic.
- *   glass       — DETACHED FLOATING panel (margin around, rounded-2xl, soft
- *                 shadow). Apple liquid-glass with backdrop-blur. Distinct
- *                 SHAPE not just paint.
+ *                 lime, only white/grey) + STRIPPED chrome. Industry Insights
+ *                 moves to a separate EXTENSIONS group (gated extension cue).
+ *   glass       — DETACHED FLOATING panel (margin + rounded + soft shadow).
+ *                 Apple liquid-glass — subtle, auto-theme. Internal orb layer +
+ *                 blur plate (A-9 fix; previously the orbs bled outside as a
+ *                 shadow-like artifact).
  *   workbench   — each group renders as a DISCRETE CARD with gaps between.
- *                 Notion-blocks pattern. Cards are visually independent.
+ *                 Notion-blocks pattern.
+ *   glassDark   — NEW (A-9). Deep dark navy gradient glass. Profile block at
+ *                 top + brands/recent strip + bottom CTA card. Cinematic.
+ *   glassLight  — NEW (A-9). Soft warm-pink frosty glass. Profile block at
+ *                 top + brands/recent strip + bottom CTA card. Light, airy.
  *
- * Same IA + hierarchy across all 4 (RUN/CREATE/TOOLS, same modules + sub-items).
+ * Same IA + hierarchy across all 6 (RUN/CREATE/TOOLS, same modules + sub-items).
  *
  * Persistence: localStorage `fabads-nav-variant`. Default: `"sections"`.
  *
@@ -33,26 +38,43 @@ import { useEffect, useSyncExternalStore } from "react";
  * sync via the `storage` event.
  */
 
-export type FabAdsNavVariant = "sections" | "darkAlways" | "glass" | "workbench";
+export type FabAdsNavVariant =
+  | "sections"
+  | "darkAlways"
+  | "glass"
+  | "workbench"
+  | "glassDark"
+  | "glassLight";
 
 const VARIANT_KEY = "fabads-nav-variant";
 const DEFAULT_VARIANT: FabAdsNavVariant = "sections";
 
 /** Cycle order for the logo click-to-cycle. */
-export const VARIANT_CYCLE: FabAdsNavVariant[] = ["sections", "darkAlways", "glass", "workbench"];
+export const VARIANT_CYCLE: FabAdsNavVariant[] = [
+  "sections",
+  "darkAlways",
+  "glass",
+  "workbench",
+  "glassDark",
+  "glassLight",
+];
 
 /** Display metadata — shown in picker popover and tooltips. */
 export const VARIANT_META: Record<FabAdsNavVariant, { label: string; index: number; hint: string }> = {
   sections:   { label: "Sections",    index: 1, hint: "Classic flush panel · lime accent · full chrome" },
   darkAlways: { label: "Dark Always", index: 2, hint: "Always-dark · monochromatic · stripped chrome" },
-  glass:      { label: "Glass",       index: 3, hint: "Floating panel · Apple liquid-glass · detached" },
+  glass:      { label: "Glass",       index: 3, hint: "Floating panel · Apple liquid-glass · subtle" },
   workbench:  { label: "Workbench",   index: 4, hint: "Discrete cards per group · Notion-blocks" },
+  glassDark:  { label: "Glass Dark",  index: 5, hint: "Deep navy glass · profile + brands + CTA card" },
+  glassLight: { label: "Glass Light", index: 6, hint: "Warm frosty glass · profile + brands + CTA card" },
 };
+
+const VALID_VARIANTS: ReadonlySet<string> = new Set(VARIANT_CYCLE);
 
 function readVariantFromStorage(): FabAdsNavVariant {
   if (typeof window === "undefined") return DEFAULT_VARIANT;
   const v = window.localStorage.getItem(VARIANT_KEY);
-  return v === "sections" || v === "darkAlways" || v === "glass" || v === "workbench" ? v : DEFAULT_VARIANT;
+  return v && VALID_VARIANTS.has(v) ? (v as FabAdsNavVariant) : DEFAULT_VARIANT;
 }
 
 let currentVariant: FabAdsNavVariant = readVariantFromStorage();

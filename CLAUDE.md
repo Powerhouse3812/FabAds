@@ -86,24 +86,35 @@ must work in **both shell variants**, not just whichever is convenient.
 inside the Genie sub-panel. Each variant is a **complete UI architecture
 fork**, not a token swap. Hook: `src/genie6/hooks/useGenie6Theme.ts`.
 
-### FabAds shell — nav with 4 STRUCTURALLY DISTINCT variants (as of iter-6 A-8, 2026-05-01)
+### FabAds shell — nav with 6 STRUCTURALLY DISTINCT variants (as of iter-6 A-9, 2026-05-01)
 
 The nav is a **single component** (`src/components/AppSidebar.tsx`) that
-renders in **4 structurally distinct variants**. Variants are a **dev tool
+renders in **6 structurally distinct variants**. Variants are a **dev tool
 for Maalik** — hidden from end users, toggled by FabAds-logo click
 (Shift+Click for picker).
 
 **The variants differ in shape, chrome, and visual hierarchy — not just paint.**
-Token bag carries `shape` (flush/floating/cards) and chrome flags
-(`showChevrons`, `showSubItemDots`, `showActiveBar`, `showModuleIcons`) that
-drive the structural decisions.
+Token bag carries `shape` (flush/floating/cards) + chrome flags
+(`showChevrons`, `showSubItemDots`, `showActiveBar`, `showModuleIcons`) +
+shell-feature flags (`internalOrbs`, `glassOverlay`, `profileBlock`,
+`brandsStrip`, `ctaCard`).
 
 | # | Key | Distinction |
 |---|---|---|
 | 1 | `sections` | **Classic flush panel** (240px). Lime accent. Full chrome (chevrons + dots + left-bar). Linear/Vercel pattern. |
-| 2 | `darkAlways` | **Always-dark monochromatic** (no lime!) **+ stripped chrome** (no chevrons, no dots, no left-bar). Typography carries hierarchy via tracking + weight + opacity. Editorial / serious-tool feel. |
-| 3 | `glass` | **Detached floating panel** (`m-2` margin + `rounded-2xl` + soft shadow). Apple liquid-glass body. Different SHAPE from V1, not just paint. Decorative gradient orbs in `body::before` give backdrop-blur color to smear. |
-| 4 | `workbench` | **Discrete cards per group**. Each group (RUN/CREATE/TOOLS) renders as its own `rounded-lg` card with gap between them. Notion-blocks pattern. |
+| 2 | `darkAlways` | **Always-dark monochromatic** (no lime!) **+ stripped chrome**. Industry Insights moves to a separate **EXTENSIONS** group at the bottom (lock-icon decoration). Editorial / serious-tool feel. |
+| 3 | `glass` | **Detached floating panel** (`m-2` margin + `rounded-2xl` + soft shadow). Apple liquid-glass — internal gradient orbs (z:0) + backdrop-blur plate (z:1) inside the aside. Auto-theme. Subtle. |
+| 4 | `workbench` | **Discrete cards per group**. Each group renders as its own `rounded-lg` card with gap between them. Notion-blocks pattern. |
+| 5 | `glassDark` | **NEW**. Deep navy gradient glass with profile block at top + brands strip + bottom CTA card. Cinematic. Always-dark. |
+| 6 | `glassLight` | **NEW**. Soft warm-pink frosty glass with profile block + brands strip + bottom CTA card. Always-light. |
+
+**EXTENSIONS group** is V2-only (`MODULE_GROUPS_V2_DARKALWAYS` + `GROUP_ORDER_V2_DARKALWAYS` in `modules.ts`). Industry Insights moves out of RUN into EXTENSIONS only when the active variant is darkAlways. `MODULE_EXTENSION_KEYS` decides which modules render with the lock-icon decoration.
+
+**Internal orbs architecture** (V3/V5/V6): orbs at `z:0` inside the aside (clipped by `overflow-hidden`), backdrop-blur plate at `z:1`, content at `z:10`. The blur captures the orbs because they sit below in stacking order, producing real glass smear without the bleed-as-shadow artifact that the previous body::before approach caused.
+
+**Genie sub-nav** (iter-6 A-9): Overview / Generations / Assets / Studio / Settings. The lime `[+ New Generation]` CTA is **gone** from the sub-nav — the new "Studio" sub-item (`/iq/genie6/generate`) is the new-gen entry-point. Genie's variant icon-toggle (Studio/Canvas/Command/Modular pill) stays inline next to the "Genie" label.
+
+**Launch sub-nav**: Launches · Targeting Template · AutoPilot · Clones · Launch Settings · RRM (6 items).
 
 Hook: `src/components/sidebar/useFabAdsNavVariant.ts`. Persists via
 localStorage key `fabads-nav-variant`. Default: `"sections"`.

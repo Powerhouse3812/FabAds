@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 
 import { UserMenu } from "@/components/UserMenu";
 import { NotificationBell } from "@/components/NotificationBell";
-import { Genie6SubnavNewGenButton } from "@/genie6/shell/Genie6SubnavNewGenButton";
 import {
   MODULES,
   SYSTEM_MODULES,
@@ -15,6 +14,7 @@ import {
   deriveActiveModule,
   isSubItemActive,
 } from "@/components/sidebar/modules";
+import { useFabAdsNavVariant } from "@/components/sidebar/useFabAdsNavVariant";
 
 /**
  * Mobile sheet content — single-pane, sectioned by RUN/CREATE/AUTOMATE/TOOLS
@@ -24,7 +24,9 @@ import {
 export function MobileNavContent({ onClose }: { onClose: () => void }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const groups = groupedModules();
+  const { variant } = useFabAdsNavVariant();
+  // Mobile mirrors the desktop variant's grouping (V2 → EXTENSIONS at bottom).
+  const groups = groupedModules(variant);
 
   const go = (path: string) => {
     navigate(path);
@@ -60,11 +62,7 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
           <mod.icon className="h-4 w-4" />
           {mod.label}
         </div>
-        {mod.key === "genie" && (
-          <div className="ml-6 mr-3 mb-1.5">
-            <Genie6SubnavNewGenButton />
-          </div>
-        )}
+        {/* iter-6 A-9: Genie6SubnavNewGenButton removed — Studio sub-item replaces it. */}
         <div className="ml-6 flex flex-col gap-0.5">
           {mod.subItems?.map((item) => {
             const siblings = allSubPaths(mod);

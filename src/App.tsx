@@ -85,6 +85,7 @@ const App = () => (
                 <Route path="launch/new" element={<LaunchFlow />} />
                 <Route path="launch/templates" element={<TargetingTemplates />} />
                 <Route path="launch/clones" element={<ComingSoonPage label="Clones" description="Clone and variant your best-performing launches." />} />
+                <Route path="launch/settings" element={<ComingSoonPage label="Launch Settings" description="Default targeting, nomenclature, naming conventions, and launch presets — manage them once, apply them everywhere." />} />
                 <Route path="launch/campaign-urls" element={<Offers />} />
                 <Route path="launch/:id" element={<LaunchFlow />} />
                 <Route path="iq/genie" element={<Genie />} />
