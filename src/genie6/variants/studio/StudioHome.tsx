@@ -225,6 +225,19 @@ export function StudioHome() {
             ))}
           </div>
         </div>
+        {/* Tour CTA */}
+        <button
+          type="button"
+          onClick={() => navigate("/iq/genie6/wizard")}
+          className="flex w-full items-center gap-3 rounded-g6-base border border-g6-border-secondary bg-g6-bg-base px-3 py-2.5 hover:border-g6-border transition-colors text-left"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-g6-primary-active shrink-0" />
+          <div className="min-w-0">
+            <p className="text-g6-sm font-medium text-g6-text">Guided tour</p>
+            <p className="text-[11px] text-g6-text-tertiary">12-stop Genie walkthrough</p>
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-g6-text-tertiary ml-auto shrink-0" />
+        </button>
       </aside>
     </div>
   );

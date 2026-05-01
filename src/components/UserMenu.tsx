@@ -10,45 +10,34 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  LogOut, Sun, Moon, HelpCircle, MessageSquare, Activity, Building2,
-  ChevronsUpDown,
+  LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
+  Settings, Plug, Users, UserPlus,
 } from "lucide-react";
-import { useCopilot } from "@/contexts/CopilotContext";
 
 /**
- * UserMenu — universal profile dropdown.
+ * UserMenu — profile dropdown (nav iter-4, 2026-05-01).
  *
- * After iter-3 IA restructure, this dropdown absorbs everything that used to
- * live as separate icons in the topbar:
- *   - Theme toggle (was sun/moon icon)
- *   - Help (was HelpIcon)
- *   - Copilot trigger (was the brain icon)
- *   - Client switcher (was ClientSwitcher)
- *   - Activity log (was a sidebar item, now linked from here)
- *   - Sign out (always was here)
- *
- * The trigger is the user avatar; rendered in the sidebar bottom block.
+ * Flat structure — NO sub-menus. Group separators only.
+ * Absorbs: Settings, Integration, Team, Clients, Help, Theme, Sign out.
+ * Removed: Copilot toggle (→ Tools module), Activity Log (→ NotificationBell).
  */
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const { user, role, signOut } = useAuth();
   const { activeClient, clients, setActiveClient } = useClientContext();
   const { setTheme, resolvedTheme } = useTheme();
-  const copilot = useCopilot();
 
   if (!user) return null;
 
   const initials = user.email?.slice(0, 2).toUpperCase() ?? "U";
+  const isDark = resolvedTheme === "dark";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring px-2 py-1.5 hover:bg-sidebar-accent/50 w-full"
+        className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring px-2 py-1.5 hover:bg-sidebar-accent/40 w-full transition-colors"
       >
         <Avatar className="h-7 w-7 shrink-0">
           <AvatarFallback className="text-xs">{initials}</AvatarFallback>
@@ -66,69 +55,75 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
         )}
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" side="top" className="w-64">
+      <DropdownMenuContent align="end" side="top" className="w-56">
+        {/* Identity */}
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{user.email}</p>
-            <p className="text-xs text-muted-foreground capitalize">{role}</p>
+          <div className="flex flex-col space-y-0.5">
+            <p className="text-xs font-semibold truncate">{user.email}</p>
+            <p className="text-[10px] text-muted-foreground capitalize">{role}</p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
 
-        {/* Client switcher (was a separate topbar component) */}
+        {/* Client switcher (only if multiple clients) */}
         {clients.length > 1 && (
           <>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Building2 className="mr-2 h-4 w-4" />
-                <span className="flex-1">Switch client</span>
-                {activeClient && (
-                  <span className="ml-2 text-xs text-muted-foreground truncate max-w-[100px]">
-                    {activeClient.name}
-                  </span>
-                )}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {clients.map((c) => (
-                  <DropdownMenuItem key={c.id} onClick={() => setActiveClient(c.id)}>
-                    {c.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
             <DropdownMenuSeparator />
+            {clients.map((c) => (
+              <DropdownMenuItem
+                key={c.id}
+                onClick={() => setActiveClient(c.id)}
+                className={activeClient?.id === c.id ? "font-medium" : ""}
+              >
+                <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                <span className="truncate">{c.name}</span>
+              </DropdownMenuItem>
+            ))}
           </>
         )}
 
-        {/* Theme toggle */}
-        <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-          {resolvedTheme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-          {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
-          <span className="ml-auto text-xs text-muted-foreground">⌘⇧D</span>
-        </DropdownMenuItem>
-
-        {/* Activity log */}
-        <DropdownMenuItem onClick={() => navigate("/activity-logs")}>
-          <Activity className="mr-2 h-4 w-4" />
-          Activity log
-        </DropdownMenuItem>
-
-        {/* Copilot trigger */}
-        <DropdownMenuItem onClick={() => copilot.toggle()}>
-          <MessageSquare className="mr-2 h-4 w-4" />
-          {copilot.isOpen ? "Close copilot" : "Open copilot"}
-        </DropdownMenuItem>
-
-        {/* Help */}
-        <DropdownMenuItem onClick={() => window.open("https://fabads.com/help", "_blank")}>
-          <HelpCircle className="mr-2 h-4 w-4" />
-          Help &amp; documentation
-        </DropdownMenuItem>
-
+        {/* Account & system settings */}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/settings")}>
+          <Settings className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/integrations")}>
+          <Plug className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Integration
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/ums")}>
+          <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Team
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/settings/clients")}>
+          <UserPlus className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Clients
+        </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
-          <LogOut className="mr-2 h-4 w-4" />
+        {/* Preferences */}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => window.open("https://fabads.com/help", "_blank")}
+        >
+          <HelpCircle className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Help &amp; Support
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>
+          {isDark
+            ? <Sun className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            : <Moon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          }
+          {isDark ? "Light mode" : "Dark mode"}
+          <span className="ml-auto text-[10px] text-muted-foreground">⌘⇧D</span>
+        </DropdownMenuItem>
+
+        {/* Danger */}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={signOut}
+          className="text-destructive focus:text-destructive"
+        >
+          <LogOut className="mr-2 h-3.5 w-3.5" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -1,13 +1,15 @@
-import { useRef, useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useTheme } from "next-themes";
 import {
-  LayoutDashboard, BarChart3, Rocket, Telescope, ImageIcon, Shield, Brain,
-  Plug, Users, FileText, Moon, Sun, ChevronLeft, Menu,
-  Wand2, Sparkles, Zap, Bot, Video, MessageSquare,
-  History, Target, Compass, Map, FolderOpen, Settings, Link2,
-  TrendingUp, PieChart, Film, Layers, Search, Globe, UserPlus,
-  Home, Library as LibraryIcon, PenLine, FolderTree,
+  LayoutDashboard, BarChart3, Rocket, Telescope, ImageIcon, Shield,
+  Moon, Sun, ChevronLeft,
+  Wand2, Zap, Video, MessageSquare,
+  History, Target, Compass, Map, Settings,
+  Film, Search, Globe,
+  Home, Library as LibraryIcon, FolderTree,
+  Bookmark, Copy, Tag, Building2, Package, Boxes,
+  Wrench, Workflow, Eraser, Scissors,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
@@ -17,8 +19,9 @@ import { cn } from "@/lib/utils";
 
 import { InsightsBoardListPanel } from "@/components/insights/InsightsBoardListPanel";
 import { UserMenu } from "@/components/UserMenu";
-import { ThemeVariantSwitcher } from "@/genie6/shell/ThemeVariantSwitcher";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Genie6SubnavNewGenButton } from "@/genie6/shell/Genie6SubnavNewGenButton";
+import { useGenie6Theme } from "@/genie6/hooks/useGenie6Theme";
 import faviconLight from "@/assets/favicon-light.svg";
 import faviconDark from "@/assets/favicon-dark.png";
 
@@ -60,105 +63,69 @@ const MODULES: ModuleDef[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   {
     key: "reports", label: "Reports", icon: BarChart3,
-    sections: [
-      {
-        sectionLabel: "Performance",
-        items: [
-          { label: "Ad Accounts", path: "/reports/performance/ad-accounts", icon: PieChart },
-          { label: "Campaigns", path: "/reports/performance/campaigns", icon: TrendingUp },
-          { label: "Ad Sets", path: "/reports/performance/ad-sets", icon: Layers },
-          { label: "Ads", path: "/reports/performance/ads", icon: ImageIcon },
-        ],
-      },
-      {
-        sectionLabel: "Creative",
-        items: [
-          { label: "Image Report", path: "/reports/creative/image", icon: ImageIcon },
-          { label: "Video Report", path: "/reports/creative/video", icon: Film },
-          { label: "Ad Group Report", path: "/reports/creative/ad-groups", icon: FolderOpen },
-        ],
-      },
+    subItems: [
+      { label: "Facebook", path: "/reports/fb", icon: Globe },
+      { label: "NB", path: "/reports/nb", icon: BarChart3 },
+      { label: "TikTok", path: "/reports/tt", icon: Video },
+      { label: "Creative Reporting", path: "/reports/creative", icon: Film },
     ],
   },
   {
     key: "launch", label: "Launch", icon: Rocket,
     subItems: [
-      { label: "History", path: "/launch", icon: History },
+      { label: "Launches", path: "/launch", icon: History },
+      { label: "Targeting Template", path: "/launch/templates", icon: Target },
       { label: "AutoPilot", path: "/launch/autopilot", icon: Zap },
-      { label: "Targeting Templates", path: "/launch/templates", icon: Target },
-      { label: "Campaign URLs", path: "/launch/campaign-urls", icon: Link2 },
+      { label: "Clones", path: "/launch/clones", icon: Copy },
+      { label: "RRM", path: "/rrm", icon: Shield },
     ],
   },
   {
     key: "insights", label: "Industry Insights", icon: Telescope,
     subItems: [
-      { label: "Intelligence", path: "/insights/intelligence", icon: Search },
       { label: "Discover", path: "/insights/discover", icon: Compass },
+      { label: "Intelligence", path: "/insights/intelligence", icon: Search },
       { label: "Boards", path: "/insights/boards", icon: Map },
       { label: "Competitors", path: "/insights/competitors", icon: Globe },
+      { label: "Saved Ads", path: "/insights/saved", icon: Bookmark },
+    ],
+  },
+  {
+    key: "genie", label: "Genie", icon: Wand2,
+    subItems: [
+      // Nav iter-4 IA (2026-05-01):
+      //   Dashboard → Overview, Library (Assets) → Studio, Generations kept
+      //   Tour removed from nav → CTA card on Overview page
+      //   Settings back in Genie sub-nav
+      { label: "Overview", path: "/iq/genie6", icon: Home },
+      { label: "Generations", path: "/iq/genie6/library", icon: LibraryIcon },
+      { label: "Studio", path: "/iq/genie6/workspace", icon: FolderTree },
+      { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
+    ],
+  },
+  {
+    key: "catalogue", label: "Catalogue", icon: Boxes,
+    subItems: [
+      { label: "Category", path: "/catalogue/categories", icon: Tag },
+      { label: "Brands", path: "/catalogue/brands", icon: Building2 },
+      { label: "Product", path: "/catalogue/products", icon: Package },
     ],
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },
+  { key: "automation", label: "Automation", icon: Workflow, path: "/automation", comingSoon: true },
   {
-    key: "genie6", label: "Genie 6.0", icon: Wand2,
+    key: "tools", label: "Tools", icon: Wrench,
     subItems: [
-      // Genie 6 sub-nav (iter 3 IA restructure):
-      //  - Home → Dashboard (rename + denser layout)
-      //  - Assets → Library (was the asset hub; Settings now lives inside each asset)
-      //  - Library → Generations (the outputs view kept its function, just renamed)
-      //  - Generate sub-item dropped — Generate folds into Dashboard as a section
-      //  - Settings stays (global-level prefs + Genie KB content)
-      { label: "Dashboard", path: "/iq/genie6", icon: Home },
-      { label: "Generations", path: "/iq/genie6/library", icon: LibraryIcon },
-      { label: "Library", path: "/iq/genie6/workspace", icon: FolderTree },
-      { label: "Settings", path: "/iq/genie6/settings", icon: Settings },
-      { label: "Tour", path: "/iq/genie6/wizard", icon: Sparkles },
-    ],
-  },
-  {
-    key: "iq", label: "IQ", icon: Brain,
-    subItems: [
-      { label: "Genie", path: "/iq/genie", icon: Wand2 },
-      { label: "Genie 2.0", path: "/iq/genie2", icon: Sparkles },
-      { label: "Genie 3.0", path: "/iq/genie3", icon: Zap },
-      { label: "Genie 4.0", path: "/iq/genie4", icon: Bot },
-      // Genie 5.0 was a separate top-level module with 7 sub-items + a simple
-      // entry inside IQ (duplicate). Iter 3 IA: deleted the simple entry, moved
-      // the rich 7-sub-item version inside IQ as a 2nd-level expandable.
-      {
-        label: "Genie 5.0", path: "/iq/genie5", icon: Sparkles,
-        subItems: [
-          { label: "New Generation", path: "/iq/genie5", icon: Sparkles },
-          { label: "Studio", path: "/iq/genie5/studio", icon: Layers },
-          { label: "Templates", path: "/iq/genie5/templates", icon: FileText },
-          { label: "Brands", path: "/iq/genie5/brands", icon: ImageIcon },
-          { label: "Categories", path: "/iq/genie5/categories", icon: FolderOpen },
-          { label: "Quick Start", path: "/iq/genie5/quick-start", icon: Zap },
-          { label: "AI Setup", path: "/iq/genie5/ai-setup", icon: Sparkles },
-        ],
-      },
       { label: "Video Sage", path: "/iq/video-sage", icon: Video },
       { label: "Copilot", path: "/iq/copilot", icon: MessageSquare },
-    ],
-  },
-  {
-    key: "rrm", label: "RRM", icon: Shield,
-    subItems: [
-      { label: "Ad Accounts", path: "/rrm", icon: Shield },
-      { label: "Settings", path: "/rrm/settings", icon: Settings },
-      { label: "Integrations", path: "/integrations", icon: Plug },
+      { label: "BG Remover", path: "/tools/bg-remover", icon: Eraser, badge: "Soon" },
+      { label: "Object Remover", path: "/tools/obj-remover", icon: Scissors, badge: "Soon" },
     ],
   },
 ];
 
-const SYSTEM_MODULES: ModuleDef[] = [
-  // Activity Logs removed (iter 3 IA): activity surfaces only on relevant entities
-  // (per-brand, per-output, etc.) plus the profile dropdown. No standalone /activity-logs
-  // sidebar entry. Route still exists; just not navigable from sidebar.
-  { key: "integrations", label: "Integrations", icon: Plug, path: "/integrations" },
-  { key: "team", label: "Team", icon: Users, path: "/ums" },
-  { key: "clients", label: "Clients", icon: UserPlus, path: "/settings/clients" },
-];
+// System modules moved to Profile popover (UserMenu). Rail is clean.
+const SYSTEM_MODULES: ModuleDef[] = [];
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -232,39 +199,28 @@ function DarkModeToggleExpanded() {
 }
 
 /**
- * Sidebar footer block (iter-3 IA restructure). Replaces what was in the
- * topbar's right cluster:
- *   - Theme toggle (compact pill — kept here for one-click flip; full toggle
- *     also lives inside UserMenu dropdown)
- *   - Variant switcher (Genie 6 routes ONLY)
- *   - User menu with absorbed Help / Copilot / ClientSwitcher / Activity / Sign out
- *
- * The footer renders as a tight stack with ~64px total height + the variant
- * row when on Genie 6 routes.
+ * Sidebar footer block (nav iter-4 IA, 2026-05-01).
+ * - Variant switcher moved to Genie sub-panel pill — no longer in footer
+ * - UserMenu absorbs Settings / Integrations / Team / Clients / Help / Theme
+ * - NotificationBell sits next to UserMenu in the collapsed rail
  */
 function SidebarFooter({ collapsed = false }: { collapsed?: boolean }) {
-  const { pathname } = useLocation();
-  const isGenie6 = pathname.startsWith("/iq/genie6");
   return (
     <div className="border-t border-sidebar-border bg-sidebar-background">
-      {/* Variant switcher — Genie 6 only. Stacks vertically in the collapsed
-          rail (~56px) so 4 icons don't overflow. Horizontal in expanded panel. */}
-      {isGenie6 && (
-        <div className={cn("border-b border-sidebar-border", collapsed ? "py-2 flex flex-col items-center gap-1" : "px-3 py-2")}>
-          <ThemeVariantSwitcher orientation={collapsed ? "vertical" : "horizontal"} />
-        </div>
-      )}
-      {/* Theme + user menu row */}
       {collapsed ? (
         <div className="flex flex-col items-center gap-1 py-2">
           <DarkModeToggleIcon />
+          <NotificationBell compact />
           <UserMenu compact />
         </div>
       ) : (
         <>
           <DarkModeToggleExpanded />
-          <div className="border-t border-sidebar-border px-1.5 py-1.5">
-            <UserMenu />
+          <div className="border-t border-sidebar-border px-1.5 py-1.5 flex items-center gap-1">
+            <div className="flex-1">
+              <UserMenu />
+            </div>
+            <NotificationBell />
           </div>
         </>
       )}
@@ -326,8 +282,8 @@ function RailIcon({
       className={cn(
         "relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150",
         isActive
-          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground hover:scale-105"
+          ? "bg-g6-primary/15 text-g6-primary-active"
+          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground hover:scale-105"
       )}
     >
       <Icon className="h-5 w-5" />
@@ -346,9 +302,8 @@ function RailIcon({
           <div className="px-3 py-2 border-b border-border">
             <span className="text-sm font-semibold text-foreground">{mod.label}</span>
           </div>
-          {/* Secondary "+ New generation" button at top of Genie 6 sub-nav
-              (collapsed-rail-hover view). */}
-          {mod.key === "genie6" && (
+          {/* "+ New generation" button at top of Genie sub-nav hover popover. */}
+          {mod.key === "genie" && (
             <div className="px-1.5 pt-1.5">
               <Genie6SubnavNewGenButton />
             </div>
@@ -376,7 +331,7 @@ function RailIcon({
                           className={cn(
                             "w-full text-left pl-6 pr-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2",
                             isSubItemActive(child.path, pathname, siblingPaths)
-                              ? "bg-accent text-accent-foreground font-medium"
+                              ? "bg-g6-primary/10 text-g6-primary-active font-medium"
                               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                           )}
                         >
@@ -395,7 +350,7 @@ function RailIcon({
                   className={cn(
                     "w-full text-left px-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2",
                     isSubItemActive(item.path, pathname, siblingPaths)
-                      ? "bg-accent text-accent-foreground font-medium"
+                      ? "bg-g6-primary/10 text-g6-primary-active font-medium"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   )}
                 >
@@ -423,7 +378,7 @@ function RailIcon({
                       className={cn(
                         "w-full text-left px-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2",
                         isSubItemActive(item.path, pathname, siblingPaths)
-                          ? "bg-accent text-accent-foreground font-medium"
+                          ? "bg-g6-primary/10 text-g6-primary-active font-medium"
                           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                       )}
                     >
@@ -452,6 +407,39 @@ function RailIcon({
 
 /* ------------------------------------------------------------------ */
 /*  Sub-Panel                                                          */
+/* ------------------------------------------------------------------ */
+/*  Genie Variant Pill (inside Genie sub-panel)                        */
+/* ------------------------------------------------------------------ */
+const GENIE_VARIANTS = [
+  { key: "studio" as const, label: "Studio" },
+  { key: "canvas" as const, label: "Canvas" },
+  { key: "command" as const, label: "Command" },
+  { key: "modular" as const, label: "Modular" },
+];
+
+function GenieVariantPill() {
+  const { variant, setVariant } = useGenie6Theme();
+  return (
+    <div className="mt-2 flex w-full rounded-full border border-sidebar-border bg-sidebar-accent/20 p-0.5">
+      {GENIE_VARIANTS.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => setVariant(o.key)}
+          className={cn(
+            "flex-1 rounded-full py-1 text-[10px] font-semibold transition-all duration-150",
+            variant === o.key
+              ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+              : "text-sidebar-foreground/50 hover:text-sidebar-foreground"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 function SubPanel({
   mod,
@@ -495,8 +483,8 @@ function SubPanel({
                   className={cn(
                     "w-full text-left px-3 py-1.5 rounded-md text-sm transition-all duration-150 flex items-center gap-2",
                     isSubItemActive(child.path, pathname, siblingPaths)
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                      ? "bg-g6-primary/10 text-g6-primary-active font-medium"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
                   )}
                 >
                   {ChildIcon && <ChildIcon className="h-3.5 w-3.5 shrink-0" />}
@@ -515,8 +503,8 @@ function SubPanel({
         className={cn(
           "w-full text-left px-3 py-1.5 rounded-md text-sm transition-all duration-150 flex items-center gap-2",
           isSubItemActive(item.path, pathname, siblingPaths)
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            ? "bg-g6-primary/10 text-g6-primary-active font-medium"
+            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
         )}
       >
         {ItemIcon && <ItemIcon className="h-3.5 w-3.5 shrink-0" />}
@@ -546,11 +534,11 @@ function SubPanel({
         </button>
       </div>
 
-      {/* Secondary "+ New generation" button at top of Genie 6 sub-nav
-          (expanded panel view). */}
-      {mod.key === "genie6" && (
-        <div className="px-2 pb-2">
+      {/* "+ New generation" CTA + variant pill at top of Genie sub-panel. */}
+      {mod.key === "genie" && (
+        <div className="px-2 pb-1">
           <Genie6SubnavNewGenButton />
+          <GenieVariantPill />
         </div>
       )}
 
@@ -601,7 +589,7 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
           onClick={() => go(mod.path!)}
           className={cn(
             "w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2",
-            active ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-sidebar-foreground/80"
+            active ? "bg-g6-primary/10 text-g6-primary-active font-medium" : "text-sidebar-foreground/80"
           )}
         >
           <mod.icon className="h-4 w-4" />
@@ -622,9 +610,8 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
             <span className="ml-auto text-[10px] text-muted-foreground border border-sidebar-border rounded px-1">Soon</span>
           )}
         </div>
-        {/* Secondary "+ New generation" button at top of Genie 6 sub-nav
-            (mobile expanded view). */}
-        {mod.key === "genie6" && (
+        {/* "+ New generation" button at top of Genie sub-nav (mobile). */}
+        {mod.key === "genie" && (
           <div className="ml-6 mr-3 mb-1.5">
             <Genie6SubnavNewGenButton />
           </div>
@@ -649,7 +636,7 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
                       className={cn(
                         "w-full text-left pl-6 pr-3 py-1.5 rounded-md text-sm",
                         isSubItemActive(child.path, pathname, siblings)
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          ? "bg-g6-primary/10 text-g6-primary-active font-medium"
                           : "text-sidebar-foreground/70"
                       )}
                     >
@@ -666,7 +653,7 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
               className={cn(
                 "w-full text-left px-3 py-1.5 rounded-md text-sm",
                 isSubItemActive(item.path, pathname, siblings)
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  ? "bg-g6-primary/10 text-g6-primary-active font-medium"
                   : "text-sidebar-foreground/70"
               )}
             >
@@ -687,7 +674,7 @@ export function MobileNavContent({ onClose }: { onClose: () => void }) {
                   className={cn(
                     "w-full text-left px-3 py-1.5 rounded-md text-sm",
                     isSubItemActive(item.path, pathname, siblings)
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      ? "bg-g6-primary/10 text-g6-primary-active font-medium"
                       : "text-sidebar-foreground/70"
                   )}
                 >

@@ -47,6 +47,8 @@ import AdsReport from "@/pages/reports/AdsReport";
 import ImageReport from "@/pages/reports/ImageReport";
 import VideoReport from "@/pages/reports/VideoReport";
 import AdGroupsReport from "@/pages/reports/AdGroupsReport";
+import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
+import { ComingSoonPage } from "@/components/ComingSoonPage";
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -64,18 +66,25 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="reports" element={<Navigate to="/reports/performance/ad-accounts" replace />} />
-                <Route path="reports/performance/ad-accounts" element={<AdAccountsReport />} />
-                <Route path="reports/performance/campaigns" element={<CampaignsReport />} />
-                <Route path="reports/performance/ad-sets" element={<AdSetsReport />} />
-                <Route path="reports/performance/ads" element={<AdsReport />} />
-                <Route path="reports/creative/image" element={<ImageReport />} />
-                <Route path="reports/creative/video" element={<VideoReport />} />
-                <Route path="reports/creative/ad-groups" element={<AdGroupsReport />} />
+                {/* Reports — new flat structure (FB/NB/TT/Creative Reporting) */}
+                <Route path="reports" element={<Navigate to="/reports/fb" replace />} />
+                <Route path="reports/fb" element={<AdAccountsReport />} />
+                <Route path="reports/nb" element={<CampaignsReport />} />
+                <Route path="reports/tt" element={<AdSetsReport />} />
+                <Route path="reports/creative" element={<ImageReport />} />
+                {/* Legacy report routes — keep alive so old bookmarks don't 404 */}
+                <Route path="reports/performance/ad-accounts" element={<Navigate to="/reports/fb" replace />} />
+                <Route path="reports/performance/campaigns" element={<Navigate to="/reports/nb" replace />} />
+                <Route path="reports/performance/ad-sets" element={<Navigate to="/reports/nb" replace />} />
+                <Route path="reports/performance/ads" element={<Navigate to="/reports/fb" replace />} />
+                <Route path="reports/creative/image" element={<Navigate to="/reports/creative" replace />} />
+                <Route path="reports/creative/video" element={<Navigate to="/reports/creative" replace />} />
+                <Route path="reports/creative/ad-groups" element={<Navigate to="/reports/creative" replace />} />
                 <Route path="launch" element={<LaunchHistory />} />
                 <Route path="launch/autopilot" element={<AutoPilotLaunch />} />
                 <Route path="launch/new" element={<LaunchFlow />} />
                 <Route path="launch/templates" element={<TargetingTemplates />} />
+                <Route path="launch/clones" element={<ComingSoonPage label="Clones" description="Clone and variant your best-performing launches." />} />
                 <Route path="launch/campaign-urls" element={<Offers />} />
                 <Route path="launch/:id" element={<LaunchFlow />} />
                 <Route path="iq/genie" element={<Genie />} />
@@ -99,12 +108,13 @@ const App = () => (
                 {/* Genie 6.0 — mounted inside FabAds shell, like Genie 5.0 */}
                 {genie6Routes}
 
-                <Route path="insights" element={<Navigate to="/insights/intelligence" replace />} />
-                <Route path="insights/intelligence" element={<InsightsIntelligence />} />
+                <Route path="insights" element={<Navigate to="/insights/discover" replace />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
+                <Route path="insights/intelligence" element={<InsightsIntelligence />} />
                 <Route path="insights/boards" element={<InsightsBoards />} />
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />
                 <Route path="insights/competitors" element={<InsightsCompetitors />} />
+                <Route path="insights/saved" element={<ComingSoonPage label="Saved Ads" description="Save and organise winning ads from across the web." />} />
                 <Route path="activity-logs" element={<ActivityLogs />} />
                 <Route path="integrations" element={<Integrations />} />
                 <Route path="rrm" element={<RRM />} />
@@ -112,6 +122,20 @@ const App = () => (
                 <Route path="ums" element={<UMS />} />
                 <Route path="settings/clients" element={<ClientManagement />} />
                 <Route path="dashboard" element={<Dashboard />} />
+
+                {/* Catalogue — new FabAds-wide module */}
+                <Route path="catalogue" element={<Navigate to="/catalogue/categories" replace />} />
+                <Route path="catalogue/categories" element={<CatalogueListPage type="categories" />} />
+                <Route path="catalogue/brands" element={<CatalogueListPage type="brands" />} />
+                <Route path="catalogue/products" element={<CatalogueListPage type="products" />} />
+
+                {/* Automation */}
+                <Route path="automation" element={<ComingSoonPage label="Automation" description="Automate launch rules, budget pacing, and creative rotation." />} />
+
+                {/* Tools */}
+                <Route path="tools" element={<Navigate to="/iq/video-sage" replace />} />
+                <Route path="tools/bg-remover" element={<ComingSoonPage label="Background Remover" description="Remove backgrounds from product images in one click." />} />
+                <Route path="tools/obj-remover" element={<ComingSoonPage label="Object Remover" description="Erase unwanted objects from ad creatives." />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

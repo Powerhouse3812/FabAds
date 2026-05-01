@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Play, Plus, ArrowUpRight, Settings, FolderOpen, History, Layers } from "lucide-react";
+import { Sparkles, Play, Plus, ArrowUpRight, Settings, FolderOpen, History, Layers, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
 import { modeConfigs } from "../../generate/modeConfigs";
@@ -163,6 +163,17 @@ export function CanvasHome() {
             <Icon className="h-4 w-4" />
           </button>
         ))}
+
+        {/* Tour CTA */}
+        <button
+          type="button"
+          onClick={() => navigate("/iq/genie6/wizard")}
+          className="flex w-full items-center gap-3 rounded-g6-base border border-g6-border-secondary bg-g6-bg-base/50 px-3 py-2.5 hover:border-g6-border transition-colors text-left mt-2"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-g6-primary-active shrink-0" />
+          <span className="text-g6-xs font-medium text-g6-text-secondary">Guided tour</span>
+          <ChevronRight className="h-3 w-3 text-g6-text-tertiary ml-auto shrink-0" />
+        </button>
       </aside>
     </div>
   );

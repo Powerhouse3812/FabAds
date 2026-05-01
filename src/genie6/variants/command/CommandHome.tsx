@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp, Coins, Zap, Sparkles, Activity, ArrowUpRight } from "lucide-react";
+import { TrendingUp, Coins, Zap, Sparkles, Activity, ArrowUpRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
 import { HeroPromptInput } from "../../components/HeroPromptInput";
@@ -200,6 +200,21 @@ export function CommandHome() {
             </li>
           ))}
         </ul>
+        {/* Tour CTA */}
+        <div className="border-t border-g6-border-secondary p-3">
+          <button
+            type="button"
+            onClick={() => navigate("/iq/genie6/wizard")}
+            className="flex w-full items-center gap-3 rounded-g6-base border border-g6-border-secondary bg-g6-bg-base px-3 py-2.5 hover:border-g6-border transition-colors text-left"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-g6-primary-active shrink-0" />
+            <div className="min-w-0">
+              <p className="text-g6-sm font-medium text-g6-text">Guided tour</p>
+              <p className="text-g6-xs text-g6-text-tertiary">12-stop Genie walkthrough</p>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-g6-text-tertiary ml-auto shrink-0" />
+          </button>
+        </div>
       </aside>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GripVertical, Plus, Sparkles, TrendingUp, ArrowUpRight } from "lucide-react";
+import { GripVertical, Plus, Sparkles, TrendingUp, ArrowUpRight, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
 import { HeroPromptInput } from "../../components/HeroPromptInput";
@@ -199,6 +199,22 @@ export function ModularHome() {
           <Plus className="h-5 w-5" />
           <span className="font-g6-mono text-g6-xs uppercase tracking-wider">add module</span>
         </button>
+
+        {/* tour_module */}
+        <ModuleCard title="Tour">
+          <button
+            type="button"
+            onClick={() => navigate("/iq/genie6/wizard")}
+            className="flex w-full items-center gap-3 rounded-g6-base border border-g6-border-secondary bg-g6-bg-base/50 px-3 py-2.5 hover:border-g6-primary-border hover:bg-g6-primary-bg/20 transition-colors text-left"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-g6-primary-active shrink-0" />
+            <div className="min-w-0">
+              <p className="text-g6-sm font-medium text-g6-text">Guided tour</p>
+              <p className="text-g6-xs text-g6-text-tertiary">12-stop Genie walkthrough</p>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-g6-text-tertiary ml-auto shrink-0" />
+          </button>
+        </ModuleCard>
 
         {/* generate module — full width */}
         <div className="lg:col-span-3 rounded-g6-2xl border border-g6-primary-border bg-gradient-to-br from-g6-primary-bg via-g6-bg-container to-g6-bg-container p-6 text-center">
