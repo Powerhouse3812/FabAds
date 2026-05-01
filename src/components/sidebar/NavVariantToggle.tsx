@@ -1,22 +1,38 @@
-import { Sidebar, LayoutGrid } from "lucide-react";
+import { Sidebar, LayoutGrid, ListTree } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useFabAdsNavVariant } from "@/components/sidebar/useFabAdsNavVariant";
+import {
+  useFabAdsNavVariant,
+  getNextVariant,
+  type FabAdsNavVariant,
+} from "@/components/sidebar/useFabAdsNavVariant";
 
 /**
- * Single-icon toggle that cycles between FabAds shell nav variants.
+ * Single-icon toggle that cycles through FabAds shell nav variants.
  *
- * Behaviour mirrors the dark/light mode toggle (Sun ↔ Moon):
- *   - Renders the icon of the *currently active* variant.
- *   - One click flips to the other variant.
- *   - Tooltip names the *destination* ("Switch to Sections", "Switch to Rail").
+ * Behaviour mirrors the dark/light mode toggle (Sun ↔ Moon), extended to 3
+ * states with a cross-fade between icons:
+ *
+ *   rail      → <Sidebar />     (two-tier rail metaphor)
+ *   sections  → <LayoutGrid />  (sectioned single-pane metaphor)
+ *   focus     → <ListTree />    (drill-in hierarchy metaphor)
+ *
+ * One click cycles to the next variant in order. Tooltip names the
+ * destination ("Switch to Sections", "Switch to Focus", "Switch to Rail").
  *
  * Sits in SidebarFooter where DarkModeToggleIcon used to live.
  */
+
+const VARIANT_LABEL: Record<FabAdsNavVariant, string> = {
+  rail: "Rail",
+  sections: "Sections",
+  focus: "Focus",
+};
+
 export function NavVariantToggle({ compact = false }: { compact?: boolean }) {
   const { variant, cycle } = useFabAdsNavVariant();
-  const isRail = variant === "rail";
-  const tooltip = isRail ? "Switch to Sections" : "Switch to Rail";
+  const next = getNextVariant(variant);
+  const tooltip = `Switch to ${VARIANT_LABEL[next]}`;
 
   return (
     <Tooltip delayDuration={200}>
@@ -30,18 +46,31 @@ export function NavVariantToggle({ compact = false }: { compact?: boolean }) {
             compact ? "w-10 h-10" : "w-9 h-9"
           )}
         >
-          {/* Cross-fade between Sidebar (rail mode) and LayoutGrid (sections mode).
-              Uses the same animation grammar as DarkModeToggleIcon (rotate + scale + fade). */}
+          {/* Cross-fade between three variant icons. Same animation grammar as
+              DarkModeToggleIcon (rotate + scale + fade) — only the active
+              variant's icon is visible at any moment. */}
           <Sidebar
             className={cn(
               "h-5 w-5 absolute transition-all duration-300 ease-in-out",
-              isRail ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-0"
+              variant === "rail"
+                ? "opacity-100 rotate-0 scale-100"
+                : "opacity-0 -rotate-90 scale-0"
             )}
           />
           <LayoutGrid
             className={cn(
               "h-5 w-5 absolute transition-all duration-300 ease-in-out",
-              isRail ? "opacity-0 rotate-90 scale-0" : "opacity-100 rotate-0 scale-100"
+              variant === "sections"
+                ? "opacity-100 rotate-0 scale-100"
+                : "opacity-0 rotate-90 scale-0"
+            )}
+          />
+          <ListTree
+            className={cn(
+              "h-5 w-5 absolute transition-all duration-300 ease-in-out",
+              variant === "focus"
+                ? "opacity-100 rotate-0 scale-100"
+                : "opacity-0 -rotate-90 scale-0"
             )}
           />
         </button>
