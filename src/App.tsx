@@ -48,6 +48,7 @@ import ImageReport from "@/pages/reports/ImageReport";
 import VideoReport from "@/pages/reports/VideoReport";
 import AdGroupsReport from "@/pages/reports/AdGroupsReport";
 import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
+import { CatalogueDetailPage } from "@/catalogue/CatalogueDetailPage";
 import { ComingSoonPage } from "@/components/ComingSoonPage";
 
 const queryClient = new QueryClient();
@@ -127,8 +128,11 @@ const App = () => (
                 {/* Catalogue — new FabAds-wide module */}
                 <Route path="catalogue" element={<Navigate to="/catalogue/categories" replace />} />
                 <Route path="catalogue/categories" element={<CatalogueListPage type="categories" />} />
+                <Route path="catalogue/categories/:id" element={<CatalogueDetailPage type="categories" />} />
                 <Route path="catalogue/brands" element={<CatalogueListPage type="brands" />} />
+                <Route path="catalogue/brands/:id" element={<CatalogueDetailPage type="brands" />} />
                 <Route path="catalogue/products" element={<CatalogueListPage type="products" />} />
+                <Route path="catalogue/products/:id" element={<CatalogueDetailPage type="products" />} />
 
                 {/* Automation */}
                 <Route path="automation" element={<ComingSoonPage label="Automation" description="Automate launch rules, budget pacing, and creative rotation." />} />

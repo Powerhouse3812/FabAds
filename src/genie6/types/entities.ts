@@ -16,6 +16,10 @@ export interface Brand {
   domain: string;
   logo?: string;
   category: string;
+  /** Categories this brand sells in (many-to-many). New iter-6 A-9. Source of truth
+   *  for the catalogue ↔ Genie sync. The legacy `category: string` is the brand's
+   *  primary category label; `categoryIds` is the structured relation. */
+  categoryIds?: CategoryId[];
   tone: string;
   fonts: { display: string; body: string };
   colors: string[]; // hex strings
@@ -28,11 +32,21 @@ export interface Brand {
 export interface Product {
   id: ProductId;
   brandId: BrandId;
+  /** Category this product belongs to (many-to-one). Used by Affiliate Ad mode
+   *  + KB. NEW iter-6 A-9. */
+  categoryId?: CategoryId;
   name: string;
   price: string; // formatted, e.g. "₹699"
   thumbnail?: string;
   benefits: string[];
   promo?: string;
+  /** Landing-page URLs for this product (for Product Ad / Affiliate Ad targeting).
+   *  NEW iter-6 A-9. */
+  landingPages?: string[];
+  /** Campaign URLs (UTM-decorated, e.g. /utm-source=fb&utm-campaign=…). Distinct
+   *  from landingPages — these are the pre-built campaign-URL variants used by
+   *  the Launch flow. NEW iter-6 A-9. */
+  campaignUrls?: string[];
   generatedCount: number;
 }
 
