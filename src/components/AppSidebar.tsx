@@ -138,8 +138,8 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     return {
       // Subtle vertical gradient on bg
       bg: "bg-[linear-gradient(180deg,#1c1c1c_0%,#141414_100%)]",
-      bgFooter: "bg-[#121212]",
       border: "border-white/[0.08]",
+      borderFooter: "border-white/[0.06]",
       text: "text-white/85",
       textMuted: "text-white/40",
       textSecondary: "text-white/65",
@@ -150,8 +150,11 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       activeText: "text-white",
       activeIconBg: "bg-white/[0.12]",
       activeBar: "bg-white",
-      pillBorder: "border-white/[0.08]",
-      pillBg: "bg-white/[0.04]",
+      // Search + chip fills (no borders — minimalist crit fix)
+      searchBg: "bg-white/[0.04]",
+      searchBgHover: "hover:bg-white/[0.08]",
+      chipBg: "bg-white/[0.08]",
+      chipText: "text-white/55",
       glassOverlay: false,
     } as const;
   }
@@ -161,8 +164,8 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     if (isGenieRoute) {
       return {
         bg: "bg-g6-bg-container/60 backdrop-blur-xl",
-        bgFooter: "bg-g6-bg-base/70 backdrop-blur-xl",
         border: "border-g6-border-secondary/60",
+        borderFooter: "border-g6-border-secondary/40",
         text: "text-g6-text",
         textMuted: "text-g6-text-tertiary",
         textSecondary: "text-g6-text-secondary",
@@ -172,15 +175,17 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
         activeText: "text-g6-primary-active",
         activeIconBg: "bg-g6-primary/20",
         activeBar: "bg-g6-primary-active",
-        pillBorder: "border-g6-border-secondary/60",
-        pillBg: "bg-g6-bg-spotlight/30",
+        searchBg: "bg-g6-bg-spotlight/30",
+        searchBgHover: "hover:bg-g6-bg-spotlight/50",
+        chipBg: "bg-g6-bg-spotlight/60",
+        chipText: "text-g6-text-tertiary",
         glassOverlay: true,
       } as const;
     }
     return {
       bg: "bg-background/65 backdrop-blur-xl",
-      bgFooter: "bg-background/75 backdrop-blur-xl",
       border: "border-border/60",
+      borderFooter: "border-border/40",
       text: "text-foreground",
       textMuted: "text-muted-foreground",
       textSecondary: "text-foreground/75",
@@ -190,8 +195,10 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       activeText: "text-g6-primary-active",
       activeIconBg: "bg-g6-primary/15",
       activeBar: "bg-g6-primary-active",
-      pillBorder: "border-border/60",
-      pillBg: "bg-accent/20",
+      searchBg: "bg-foreground/[0.04]",
+      searchBgHover: "hover:bg-foreground/[0.07]",
+      chipBg: "bg-muted-foreground/15",
+      chipText: "text-muted-foreground",
       glassOverlay: true,
     } as const;
   }
@@ -200,8 +207,8 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
   if (isGenieRoute) {
     return {
       bg: "bg-g6-bg-container",
-      bgFooter: "bg-g6-bg-base",
       border: "border-g6-border-secondary",
+      borderFooter: "border-g6-border-secondary/60",
       text: "text-g6-text",
       textMuted: "text-g6-text-tertiary",
       textSecondary: "text-g6-text-secondary",
@@ -211,15 +218,17 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       activeText: "text-g6-primary-active",
       activeIconBg: "bg-g6-primary/15",
       activeBar: "bg-g6-primary-active",
-      pillBorder: "border-g6-border-secondary",
-      pillBg: "bg-g6-bg-spotlight/40",
+      searchBg: "bg-g6-bg-spotlight/40",
+      searchBgHover: "hover:bg-g6-bg-spotlight/60",
+      chipBg: "bg-g6-bg-spotlight/60",
+      chipText: "text-g6-text-tertiary",
       glassOverlay: false,
     } as const;
   }
   return {
     bg: "bg-background",
-    bgFooter: "bg-background",
     border: "border-border",
+    borderFooter: "border-border/50",
     text: "text-foreground",
     textMuted: "text-muted-foreground",
     textSecondary: "text-foreground/75",
@@ -229,8 +238,10 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     activeText: "text-g6-primary-active",
     activeIconBg: "bg-g6-primary/15",
     activeBar: "bg-g6-primary-active",
-    pillBorder: "border-border",
-    pillBg: "bg-accent/30",
+    searchBg: "bg-accent/30",
+    searchBgHover: "hover:bg-accent/60",
+    chipBg: "bg-muted-foreground/15",
+    chipText: "text-muted-foreground",
     glassOverlay: false,
   } as const;
 }
@@ -317,7 +328,7 @@ function SubItemRow({
       />
       <span className="flex-1 truncate">{item.label}</span>
       {item.badge && (
-        <span className={cn("text-[10px] font-medium uppercase tracking-wider rounded px-1 py-0.5 shrink-0 border", tokens.textMuted, tokens.border)}>
+        <span className={cn("text-[9px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0", tokens.chipBg, tokens.chipText)}>
           {item.badge}
         </span>
       )}
@@ -377,7 +388,7 @@ function ModuleRowExpanded({
         {/* Genie variant icon toggle next to the label (replaces the inline pill) */}
         {isGenie && <GenieVariantIconToggle tokens={tokens} />}
         {mod.comingSoon && (
-          <span className={cn("text-[10px] font-medium uppercase tracking-wider rounded px-1 py-0.5 shrink-0 border", tokens.textMuted, tokens.border)}>
+          <span className={cn("text-[9px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0", tokens.chipBg, tokens.chipText)}>
             Soon
           </span>
         )}
@@ -524,15 +535,16 @@ function SearchField({ tokens }: { tokens: NavTokens }) {
       type="button"
       onClick={openPalette}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors",
-        tokens.border, tokens.hoverBg
+        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors",
+        tokens.searchBg,
+        tokens.searchBgHover
       )}
     >
       <Search className={cn("h-3.5 w-3.5 shrink-0", tokens.textMuted)} />
       <span className={cn("flex-1 text-left text-[12px]", tokens.textMuted)}>
         Search
       </span>
-      <kbd className={cn("ml-auto text-[10px] font-mono rounded px-1.5 py-0.5 border", tokens.border, tokens.textMuted)}>
+      <kbd className={cn("ml-auto text-[10px] font-mono rounded px-1.5 py-0.5", tokens.chipBg, tokens.textMuted)}>
         ⌘K
       </kbd>
     </button>
@@ -586,12 +598,9 @@ function LogoCycler({
           alt="FabAds"
           className="h-6 w-6"
         />
-        {/* Variant index badge — notification-style dot in top-right corner */}
-        <span className={cn(
-          "absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none",
-          "bg-g6-primary text-g6-text-on-accent ring-2",
-          tokens.bgFooter,
-        )}>
+        {/* Variant index badge — minimal lime dot in top-right corner.
+            No ring (per crit P2#6); the lime contrast carries on its own. */}
+        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none bg-g6-primary text-g6-text-on-accent">
           {meta.index}
         </span>
       </div>
@@ -678,11 +687,11 @@ export function AppSidebar() {
         />
       )}
 
-      {/* Header — logo cycler + collapse toggle */}
+      {/* Header — logo cycler + collapse toggle. No border-b: spacing alone
+          separates from the search field below (per ui-ux-pro-max crit P1#1). */}
       <div
         className={cn(
-          "relative z-10 flex items-center h-12 shrink-0 border-b",
-          tokens.border,
+          "relative z-10 flex items-center h-12 shrink-0",
           collapsed ? "justify-center px-0" : "justify-between px-3"
         )}
       >
@@ -720,7 +729,8 @@ export function AppSidebar() {
             {groups.map(({ group, modules }, gi) =>
               modules.length === 0 ? null : (
                 <div key={group} className="flex flex-col items-center gap-0.5 w-full">
-                  {gi > 0 && <div className={cn("w-6 border-t my-1.5", tokens.border)} />}
+                  {/* Whitespace gap between groups (no line — per crit P2#5) */}
+                  {gi > 0 && <div className="h-3" />}
                   {modules.map((mod) => (
                     <ModuleIconCollapsed
                       key={mod.key}
@@ -762,8 +772,8 @@ export function AppSidebar() {
         )}
       </div>
 
-      {/* Footer dock */}
-      <div className={cn("relative z-10 border-t shrink-0", tokens.border, tokens.bgFooter)}>
+      {/* Footer dock — single thin border-t, inherits aside bg (per crit P1#3) */}
+      <div className={cn("relative z-10 border-t shrink-0", tokens.borderFooter)}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-1 py-2">
             <Tooltip delayDuration={400}>

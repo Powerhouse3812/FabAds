@@ -31,7 +31,8 @@ export function NavVariantPicker({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side="right" align="start" sideOffset={8} className="w-64 p-1.5">
-        <div className="px-2 py-1.5 mb-1 border-b border-border">
+        {/* Header — spacing-only separation (no border, per crit P2#7) */}
+        <div className="px-2 py-1.5 mb-1.5">
           <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
             Nav variants · dev tool
           </p>
