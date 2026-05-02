@@ -229,14 +229,15 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     }
     return {
       ...FLAG_DEFAULTS,
-      bg: "bg-white/40 dark:bg-white/[0.04]",
-      cardBg: "bg-white/50 dark:bg-white/[0.05]",
+      // A-9.5: more opaque, uniform frost — Apple-pure (iOS 26 liquid-glass).
+      bg: "bg-white/60 dark:bg-white/[0.06]",
+      cardBg: "bg-white/65 dark:bg-white/[0.07]",
       border: "border-white/40 dark:border-white/[0.08]",
       borderFooter: "border-white/30 dark:border-white/[0.05]",
       text: "text-foreground",
       textMuted: "text-muted-foreground",
       textSecondary: "text-foreground/75",
-      hoverBg: "hover:bg-white/30 dark:hover:bg-white/[0.06]",
+      hoverBg: "hover:bg-white/40 dark:hover:bg-white/[0.06]",
       hoverText: "hover:text-foreground",
       activeBg: "bg-g6-primary/15",
       activeText: "text-g6-primary-active",
@@ -580,21 +581,30 @@ function ModuleRowExpanded({
 
   return (
     <div className="relative group/row">
-      {/* A-9.4: removed the left-0 module-row active bar. The single vertical
-          rail in the accordion content (rendered below when isOpen) replaces
-          both this bar AND the per-sub-item dots. */}
+      {/* A-9.5: parent active state now uses an icon-tile treatment (icon
+          background tinted, text colored) instead of full-row bg. Differentiates
+          from child active state (full-row tinted bg + text). */}
       <button
         type="button"
         onClick={handleClick}
         aria-expanded={hasChildren ? isOpen : undefined}
         className={cn(
-          "w-full text-left pl-3 pr-2.5 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2.5",
+          "w-full text-left pl-2 pr-2 py-1 rounded-md text-[13px] transition-colors flex items-center gap-2",
           isActive
-            ? cn(tokens.activeBg, tokens.activeText)
+            ? cn(tokens.activeText, "font-medium")
             : cn(tokens.text, "opacity-80", tokens.hoverBg, tokens.hoverText, "hover:opacity-100")
         )}
       >
-        {tokens.showModuleIcons && <Icon className="h-4 w-4 shrink-0" />}
+        {tokens.showModuleIcons && (
+          <span
+            className={cn(
+              "shrink-0 flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+              isActive ? tokens.activeIconBg : ""
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+        )}
         <span className="flex-1 truncate">{mod.label}</span>
         {/* Extension marker (lock icon) — Industry Insights in V2 Dark Always */}
         {isExtension && (
@@ -632,14 +642,14 @@ function ModuleRowExpanded({
         <div className="relative mt-0.5 mb-1 flex flex-col gap-0.5 overflow-visible">
           {/* A-9.4: single vertical accent bar at the sub-item indent column.
               Replaces the old left-0 module-row bar AND the per-sub-item dots.
-              Cleaner — one continuous mark for the active sub-tree. */}
+              A-9.5: always neutral grey (bg-current at low opacity) — Maalik
+              flagged the colored variant as too loud; grey reads more elegant
+              while the active sub-item row's bg/text still communicates the
+              selection clearly. */}
           {tokens.showActiveBar && (
             <span
               aria-hidden
-              className={cn(
-                "absolute left-[22px] top-1.5 bottom-1.5 w-[2px] rounded-full",
-                isActive ? tokens.activeBar : "bg-current opacity-15"
-              )}
+              className="absolute left-[22px] top-1.5 bottom-1.5 w-[2px] rounded-full bg-current opacity-20"
             />
           )}
           {/* iter-6 A-9: dropped the lime [+ New Generation] CTA from Genie sub-nav.
@@ -679,6 +689,9 @@ function ModuleIconCollapsed({
   const Icon = mod.icon;
   const hasChildren = hasSubItems(mod);
 
+  // A-9.5: collapsed-mode now shows a small label below each icon (low
+  // hierarchy info, ClickUp-style). The whole stack (icon button + label)
+  // becomes the clickable target.
   const iconButton = (
     <button
       type="button"
@@ -687,16 +700,21 @@ function ModuleIconCollapsed({
         else onNavigate(mod.subItems![0].path);
       }}
       className={cn(
-        "relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150",
+        "relative flex w-full flex-col items-center gap-0.5 rounded-lg transition-all duration-150 py-1.5 px-1",
         isActive
-          ? cn(tokens.activeIconBg, tokens.activeText)
-          : cn(tokens.textMuted, tokens.hoverBg, tokens.hoverText, "hover:scale-105")
+          ? cn(tokens.activeBg, tokens.activeText)
+          : cn(tokens.textMuted, tokens.hoverBg, tokens.hoverText)
       )}
     >
-      <Icon className="h-5 w-5" />
-      {mod.comingSoon && (
-        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-      )}
+      <span className="relative flex h-7 w-7 items-center justify-center">
+        <Icon className="h-4 w-4" />
+        {mod.comingSoon && (
+          <span className="absolute top-0 right-0 h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+        )}
+      </span>
+      <span className="text-[9px] font-medium leading-tight line-clamp-1 max-w-full text-center px-0.5">
+        {mod.label}
+      </span>
     </button>
   );
 
@@ -912,6 +930,9 @@ function ProfileBlock({
         <p className="text-[13px] font-semibold tracking-tight truncate">{displayName}</p>
         <p className={cn("text-[11px] truncate", tokens.textMuted)}>{displayEmail}</p>
       </div>
+      {/* A-9.5: NotificationBell moved here from the footer dock so V5/V6/V7
+          have their action cluster at the top, with breathing space at the bottom. */}
+      <NotificationBell compact />
       <div className="shrink-0">
         {collapseToggle}
       </div>
@@ -1055,49 +1076,56 @@ function ClickUpRail({
   tokens: NavTokens;
   onNavigate: (path: string) => void;
 }) {
+  void pathname;
+  // A-9.5 redo: matches ClickUp reference more precisely.
+  // - 80px wide rail (was 96 — too wide)
+  // - top: collapse-arrow only + thin separator (no profile block at top)
+  // - flat list of items (no group labels visible; thin separator between groups)
+  // - each item: icon (centered in a 36px tile) + 1-line label below
+  // - active state: white tile JUST around the icon + label in active color
+  // - bottom: profile/variant cycler (with badge), notification bell
   return (
     <aside
       data-fabads-nav-variant="clickup"
       className={cn(
-        "relative hidden md:flex h-screen w-[96px] flex-shrink-0 flex-col border-r overflow-hidden",
+        "relative hidden md:flex h-screen w-[80px] flex-shrink-0 flex-col border-r overflow-hidden",
         tokens.bg,
         tokens.border
       )}
     >
-      {/* Profile (compact — avatar tile only, narrow rail) */}
-      <ClickUpProfileTop tokens={tokens} />
+      {/* Top: collapse arrow + thin separator (no profile block here) */}
+      <div className="flex items-center justify-center pt-3 pb-1.5 shrink-0">
+        <ChevronsRight className={cn("h-4 w-4 opacity-50", tokens.text)} />
+      </div>
+      <div className={cn("mx-4 mb-2 border-t shrink-0", tokens.borderFooter)} />
 
-      {/* Body — icon + stacked label per module, group separators */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-2">
+      {/* Body — flat icon+label list with thin separators between groups */}
+      <div className="flex-1 min-h-0 overflow-y-auto pb-2">
         {groups.map(({ group, modules }, gi) =>
           modules.length === 0 ? null : (
             <div key={group}>
               {gi > 0 && (
                 <div className={cn("mx-4 my-2 border-t", tokens.borderFooter)} />
               )}
-              <div className="flex flex-col gap-1.5 px-1.5">
-                {/* Clickable modules */}
+              <div className="flex flex-col gap-0.5 px-1">
                 {modules.filter((m) => !m.comingSoon).map((mod) => (
                   <ClickUpRailItem
                     key={mod.key}
                     mod={mod}
                     isActive={activeKey === mod.key}
-                    pathname={pathname}
                     tokens={tokens}
                     onNavigate={onNavigate}
                   />
                 ))}
-                {/* Coming-soon: tiny non-clickable horizontal chips */}
+                {/* Coming-soon — single-word non-clickable chips */}
                 {modules.some((m) => m.comingSoon) && (
-                  <div className="flex flex-wrap items-center justify-center gap-1 px-1 pt-1">
+                  <div className="flex flex-wrap items-center justify-center gap-1 px-1 pt-1.5">
                     {modules.filter((m) => m.comingSoon).map((mod) => (
                       <span
                         key={mod.key}
                         className={cn(
                           "inline-block rounded px-1 py-0.5 text-[8px] uppercase tracking-wider",
-                          tokens.chipBg,
-                          tokens.chipText,
-                          "select-none cursor-default"
+                          tokens.chipBg, tokens.chipText, "select-none cursor-default"
                         )}
                         title={`${mod.label} · coming soon`}
                       >
@@ -1112,15 +1140,16 @@ function ClickUpRail({
         )}
       </div>
 
-      {/* Footer — bell + collapse */}
-      <div className={cn("relative z-10 border-t shrink-0 flex flex-col items-center gap-1 py-2", tokens.borderFooter)}>
+      {/* Bottom: notification bell + profile/variant cycler */}
+      <div className={cn("relative z-10 shrink-0 flex flex-col items-center gap-1.5 py-3 border-t", tokens.borderFooter)}>
         <NotificationBell compact />
+        <ClickUpProfileBottom tokens={tokens} />
       </div>
     </aside>
   );
 }
 
-function ClickUpProfileTop({ tokens }: { tokens: NavTokens }) {
+function ClickUpProfileBottom({ tokens }: { tokens: NavTokens }) {
   const auth = useAuth();
   const user = auth?.user;
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Rahul Saini";
@@ -1147,63 +1176,61 @@ function ClickUpProfileTop({ tokens }: { tokens: NavTokens }) {
       onClick={handleClick}
       title={tooltipText}
       aria-label={tooltipText}
-      className={cn(
-        "relative h-10 w-10 rounded-lg flex items-center justify-center text-[12px] font-semibold transition-transform hover:scale-105 active:scale-95",
-        tokens.activeIconBg, "text-zinc-900"
-      )}
+      className="relative h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-semibold bg-g6-primary text-g6-text-on-accent transition-transform hover:scale-105 active:scale-95"
     >
       {initials}
-      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none bg-g6-primary text-g6-text-on-accent">
+      <span className={cn(
+        "absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none",
+        tokens.text, tokens.cardBg
+      )}>
         {meta.index}
       </span>
     </button>
   );
 
-  return (
-    <div className="flex items-center justify-center px-3 py-3 shrink-0">
-      <NavVariantPicker open={pickerOpen} onOpenChange={setPickerOpen} trigger={trigger} />
-    </div>
-  );
+  return <NavVariantPicker open={pickerOpen} onOpenChange={setPickerOpen} trigger={trigger} />;
 }
 
 function ClickUpRailItem({
   mod,
   isActive,
-  pathname,
   tokens,
   onNavigate,
 }: {
   mod: ModuleDef;
   isActive: boolean;
-  pathname: string;
   tokens: NavTokens;
   onNavigate: (path: string) => void;
 }) {
   const Icon = mod.icon;
   const target = hasSubItems(mod) ? firstSubPath(mod) : mod.path!;
-  // void the unused param warning for pathname (kept in signature for parity)
-  void pathname;
   return (
     <button
       type="button"
       onClick={() => onNavigate(target)}
       className={cn(
-        "group/clickup flex flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors",
-        isActive
-          ? cn(tokens.activeBg, tokens.activeText)
-          : cn(tokens.text, "opacity-80", tokens.hoverBg, tokens.hoverText, "hover:opacity-100")
+        "group/clickup flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors w-full",
+        isActive ? "" : cn("opacity-75", tokens.hoverBg, "hover:opacity-100")
       )}
       title={mod.label}
     >
+      {/* Icon tile — only THIS gets the white-fill when active (matches ClickUp ref) */}
       <span
         className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-          isActive ? "bg-transparent" : ""
+          "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+          isActive
+            ? cn(tokens.activeBg, tokens.activeText)
+            : cn(tokens.text)
         )}
       >
         <Icon className="h-4 w-4" />
       </span>
-      <span className={cn("text-[10px] font-medium leading-tight text-center line-clamp-2 px-0.5", isActive ? "" : "")}>
+      <span
+        className={cn(
+          "text-[9px] font-medium leading-tight text-center line-clamp-1 max-w-full px-0.5",
+          isActive ? cn(tokens.text, "font-semibold") : tokens.textMuted
+        )}
+      >
         {mod.label}
       </span>
     </button>
@@ -1331,8 +1358,11 @@ export function AppSidebar() {
                 "bg-[radial-gradient(ellipse_240px_400px_at_25%_15%,rgba(195,235,66,0.30),transparent_65%),radial-gradient(ellipse_220px_360px_at_75%_55%,rgba(244,208,63,0.16),transparent_65%),radial-gradient(ellipse_200px_300px_at_30%_92%,rgba(168,200,150,0.14),transparent_65%)]"
               : variant === "glassLight"
                 ? "bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(255,178,148,0.55),transparent_65%),radial-gradient(ellipse_200px_320px_at_72%_50%,rgba(244,114,182,0.40),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(251,191,36,0.30),transparent_65%)]"
-                : // V3 glass — auto-theme subtle lime + warm
-                  "bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(195,235,66,0.18),transparent_65%),radial-gradient(ellipse_200px_320px_at_75%_55%,rgba(195,235,66,0.10),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(255,178,148,0.12),transparent_65%)] dark:bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(195,235,66,0.30),transparent_65%),radial-gradient(ellipse_200px_320px_at_75%_55%,rgba(168,85,247,0.20),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(251,146,60,0.18),transparent_65%)]"
+                : // V3 Glass (A-9.5): Apple-pure liquid-glass — colored orbs
+                  // removed per Maalik. Just a subtle white-fade gradient
+                  // (top-bright → uniform translucent) for that opaque-frost
+                  // material feel from iOS 26 / macOS Tahoe.
+                  "bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)_40%,rgba(255,255,255,0.04)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)_40%,transparent_100%)]"
           )}
         />
       )}
@@ -1463,7 +1493,7 @@ export function AppSidebar() {
                     tokens.border
                   )}
                 >
-                  <span className={cn("block px-2.5 pt-1.5 pb-1.5 font-mono text-[10px] uppercase tracking-[0.14em]", tokens.textMuted)}>
+                  <span className={cn("block px-2.5 pt-1 pb-1 font-mono text-[9px] uppercase tracking-[0.14em]", tokens.textMuted)}>
                     {group}
                   </span>
                   <div className="flex flex-col gap-0.5">
@@ -1491,11 +1521,11 @@ export function AppSidebar() {
           </div>
         ) : (
           /* SECTIONS / DARK ALWAYS / GLASS — flat sectioned list */
-          <div className="flex flex-col gap-2.5 px-2">
+          <div className="flex flex-col gap-1.5 px-2">
             {groups.map(({ group, modules }) =>
               modules.length === 0 ? null : (
                 <div key={group} className="flex flex-col gap-0.5">
-                  <span className={cn("px-3 pt-2 pb-1 font-mono text-[10px] uppercase tracking-[0.14em]", tokens.textMuted)}>
+                  <span className={cn("px-3 pt-1.5 pb-0.5 font-mono text-[9px] uppercase tracking-[0.14em]", tokens.textMuted)}>
                     {group}
                   </span>
                   {modules.filter((m) => !m.comingSoon).map((mod) => (
@@ -1531,45 +1561,40 @@ export function AppSidebar() {
       )}
 
       {/* Footer dock — single thin border-t, inherits aside bg (per crit P1#3) */}
-      <div className={cn("relative z-10 border-t shrink-0", tokens.borderFooter)}>
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-1 py-2">
-            <Tooltip delayDuration={400}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={toggleCollapsed}
-                  aria-label="Expand sidebar"
-                  className={cn("flex items-center justify-center w-10 h-10 rounded-lg transition-colors", tokens.textMuted, tokens.hoverBg, tokens.hoverText)}
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                Expand · ⌘B
-              </TooltipContent>
-            </Tooltip>
-            <NotificationBell compact />
-            {/* UserMenu suppressed when ProfileBlock owns the avatar at top
-                (A-9.4 fix — was rendering twice). */}
-            {!tokens.profileBlock && <UserMenu compact />}
-          </div>
-        ) : (
-          <div className="px-1.5 py-1.5 flex items-center gap-1">
-            {tokens.profileBlock ? (
-              // Profile already at top — footer becomes a single bell row
+      {/* A-9.5: when ProfileBlock owns the top, footer is just breathing space.
+          The bell + variant cycler + collapse all live in ProfileBlock now. */}
+      {!tokens.profileBlock && (
+        <div className={cn("relative z-10 border-t shrink-0", tokens.borderFooter)}>
+          {collapsed ? (
+            <div className="flex flex-col items-center gap-1 py-2">
+              <Tooltip delayDuration={400}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    aria-label="Expand sidebar"
+                    className={cn("flex items-center justify-center w-10 h-10 rounded-lg transition-colors", tokens.textMuted, tokens.hoverBg, tokens.hoverText)}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">
+                  Expand · ⌘B
+                </TooltipContent>
+              </Tooltip>
+              <NotificationBell compact />
+              <UserMenu compact />
+            </div>
+          ) : (
+            <div className="px-1.5 py-1.5 flex items-center gap-1">
+              <div className="flex-1">
+                <UserMenu />
+              </div>
               <NotificationBell />
-            ) : (
-              <>
-                <div className="flex-1">
-                  <UserMenu />
-                </div>
-                <NotificationBell />
-              </>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </aside>
   );
 }
