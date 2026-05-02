@@ -49,6 +49,7 @@ import VideoReport from "@/pages/reports/VideoReport";
 import AdGroupsReport from "@/pages/reports/AdGroupsReport";
 import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
 import { CatalogueDetailPage } from "@/catalogue/CatalogueDetailPage";
+import { CatalogueFinder } from "@/catalogue/CatalogueFinder";
 import { ComingSoonPage } from "@/components/ComingSoonPage";
 
 const queryClient = new QueryClient();
@@ -127,12 +128,21 @@ const App = () => (
 
                 {/* Catalogue — new FabAds-wide module */}
                 <Route path="catalogue" element={<Navigate to="/catalogue/categories" replace />} />
-                <Route path="catalogue/categories" element={<CatalogueListPage type="categories" />} />
-                <Route path="catalogue/categories/:id" element={<CatalogueDetailPage type="categories" />} />
-                <Route path="catalogue/brands" element={<CatalogueListPage type="brands" />} />
-                <Route path="catalogue/brands/:id" element={<CatalogueDetailPage type="brands" />} />
-                <Route path="catalogue/products" element={<CatalogueListPage type="products" />} />
-                <Route path="catalogue/products/:id" element={<CatalogueDetailPage type="products" />} />
+                {/* iter-6 A-9.7: Catalogue uses Genie's Finder UI (3-pane drill-down)
+                    by default. Old grid-based List/Detail kept as fallback at /grid for now. */}
+                <Route path="catalogue/categories" element={<CatalogueFinder type="categories" />} />
+                <Route path="catalogue/categories/:id" element={<CatalogueFinder type="categories" />} />
+                <Route path="catalogue/brands" element={<CatalogueFinder type="brands" />} />
+                <Route path="catalogue/brands/:id" element={<CatalogueFinder type="brands" />} />
+                <Route path="catalogue/products" element={<CatalogueFinder type="products" />} />
+                <Route path="catalogue/products/:id" element={<CatalogueFinder type="products" />} />
+                {/* Legacy grid views — accessible via /grid suffix if needed for comparison */}
+                <Route path="catalogue/categories/grid" element={<CatalogueListPage type="categories" />} />
+                <Route path="catalogue/brands/grid" element={<CatalogueListPage type="brands" />} />
+                <Route path="catalogue/products/grid" element={<CatalogueListPage type="products" />} />
+                <Route path="catalogue/categories/grid/:id" element={<CatalogueDetailPage type="categories" />} />
+                <Route path="catalogue/brands/grid/:id" element={<CatalogueDetailPage type="brands" />} />
+                <Route path="catalogue/products/grid/:id" element={<CatalogueDetailPage type="products" />} />
 
                 {/* Automation */}
                 <Route path="automation" element={<ComingSoonPage label="Automation" description="Automate launch rules, budget pacing, and creative rotation." />} />
