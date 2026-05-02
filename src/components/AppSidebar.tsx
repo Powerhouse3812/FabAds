@@ -1076,76 +1076,155 @@ function ClickUpRail({
   tokens: NavTokens;
   onNavigate: (path: string) => void;
 }) {
-  void pathname;
-  // A-9.5 redo: matches ClickUp reference more precisely.
-  // - 80px wide rail (was 96 — too wide)
-  // - top: collapse-arrow only + thin separator (no profile block at top)
-  // - flat list of items (no group labels visible; thin separator between groups)
-  // - each item: icon (centered in a 36px tile) + 1-line label below
-  // - active state: white tile JUST around the icon + label in active color
-  // - bottom: profile/variant cycler (with badge), notification bell
+  // A-9.6: matches the EXPANDED ClickUp reference.
+  // - Always-narrow 80px rail (icon + label stacked)
+  // - Detail panel (240px) opens on the right when active module has sub-items
+  // - Rail width never changes; panel slides in/out
+  //
+  // Find the active module's full def + sibling paths for the detail panel.
+  const activeMod = activeKey
+    ? groups.flatMap((g) => g.modules).find((m) => m.key === activeKey) || null
+    : null;
+  const showPanel = activeMod && hasSubItems(activeMod);
+
   return (
-    <aside
-      data-fabads-nav-variant="clickup"
-      className={cn(
-        "relative hidden md:flex h-screen w-[80px] flex-shrink-0 flex-col border-r overflow-hidden",
-        tokens.bg,
-        tokens.border
-      )}
-    >
-      {/* Top: collapse arrow + thin separator (no profile block here) */}
-      <div className="flex items-center justify-center pt-3 pb-1.5 shrink-0">
-        <ChevronsRight className={cn("h-4 w-4 opacity-50", tokens.text)} />
-      </div>
-      <div className={cn("mx-4 mb-2 border-t shrink-0", tokens.borderFooter)} />
-
-      {/* Body — flat icon+label list with thin separators between groups */}
-      <div className="flex-1 min-h-0 overflow-y-auto pb-2">
-        {groups.map(({ group, modules }, gi) =>
-          modules.length === 0 ? null : (
-            <div key={group}>
-              {gi > 0 && (
-                <div className={cn("mx-4 my-2 border-t", tokens.borderFooter)} />
-              )}
-              <div className="flex flex-col gap-0.5 px-1">
-                {modules.filter((m) => !m.comingSoon).map((mod) => (
-                  <ClickUpRailItem
-                    key={mod.key}
-                    mod={mod}
-                    isActive={activeKey === mod.key}
-                    tokens={tokens}
-                    onNavigate={onNavigate}
-                  />
-                ))}
-                {/* Coming-soon — single-word non-clickable chips */}
-                {modules.some((m) => m.comingSoon) && (
-                  <div className="flex flex-wrap items-center justify-center gap-1 px-1 pt-1.5">
-                    {modules.filter((m) => m.comingSoon).map((mod) => (
-                      <span
-                        key={mod.key}
-                        className={cn(
-                          "inline-block rounded px-1 py-0.5 text-[8px] uppercase tracking-wider",
-                          tokens.chipBg, tokens.chipText, "select-none cursor-default"
-                        )}
-                        title={`${mod.label} · coming soon`}
-                      >
-                        {mod.label.split(" ")[0]}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )
+    <div className="hidden md:flex h-screen flex-shrink-0">
+      {/* Rail (always 80px) */}
+      <aside
+        data-fabads-nav-variant="clickup"
+        className={cn(
+          "relative flex w-[80px] flex-col border-r overflow-hidden",
+          tokens.bg,
+          tokens.border
         )}
+      >
+        {/* Top action cluster — variant cycler + bell (matches V5/V6 position
+            consistency per Maalik A-9.6: "click-up wale version ka variant
+            switch toggle bhi uppr hi shift kro"). */}
+        <div className="flex flex-col items-center gap-1.5 pt-3 pb-2 shrink-0">
+          <ClickUpProfileBottom tokens={tokens} />
+          <NotificationBell compact />
+        </div>
+        <div className={cn("mx-4 mb-2 border-t shrink-0", tokens.borderFooter)} />
+
+        {/* Body — flat icon+label list with thin separators between groups */}
+        <div className="flex-1 min-h-0 overflow-y-auto pb-2">
+          {groups.map(({ group, modules }, gi) =>
+            modules.length === 0 ? null : (
+              <div key={group}>
+                {gi > 0 && (
+                  <div className={cn("mx-4 my-2 border-t", tokens.borderFooter)} />
+                )}
+                <div className="flex flex-col gap-0.5 px-1">
+                  {modules.filter((m) => !m.comingSoon).map((mod) => (
+                    <ClickUpRailItem
+                      key={mod.key}
+                      mod={mod}
+                      isActive={activeKey === mod.key}
+                      tokens={tokens}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                  {modules.some((m) => m.comingSoon) && (
+                    <div className="flex flex-wrap items-center justify-center gap-1 px-1 pt-1.5">
+                      {modules.filter((m) => m.comingSoon).map((mod) => (
+                        <span
+                          key={mod.key}
+                          className={cn(
+                            "inline-block rounded px-1 py-0.5 text-[8px] uppercase tracking-wider",
+                            tokens.chipBg, tokens.chipText, "select-none cursor-default"
+                          )}
+                          title={`${mod.label} · coming soon`}
+                        >
+                          {mod.label.split(" ")[0]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          )}
+        </div>
+
+        {/* A-9.6: bottom cluster suppressed — variant cycler + bell moved to top
+            (consistency with V5/V6). Footer is just breathing space. */}
+      </aside>
+
+      {/* Detail panel — appears when active module has sub-items */}
+      {showPanel && activeMod && (
+        <aside
+          className={cn(
+            "relative flex w-[240px] flex-col border-r overflow-hidden",
+            tokens.bg,
+            tokens.border
+          )}
+        >
+          <ClickUpDetailPanel
+            mod={activeMod}
+            pathname={pathname}
+            tokens={tokens}
+            onNavigate={onNavigate}
+          />
+        </aside>
+      )}
+    </div>
+  );
+}
+
+function ClickUpDetailPanel({
+  mod,
+  pathname,
+  tokens,
+  onNavigate,
+}: {
+  mod: ModuleDef;
+  pathname: string;
+  tokens: NavTokens;
+  onNavigate: (path: string) => void;
+}) {
+  const Icon = mod.icon;
+  const siblingPaths = allSubPaths(mod);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header — module name */}
+      <div className="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+        <Icon className={cn("h-4 w-4 shrink-0", tokens.text)} />
+        <span className={cn("text-sm font-semibold tracking-tight", tokens.text)}>
+          {mod.label}
+        </span>
       </div>
 
-      {/* Bottom: notification bell + profile/variant cycler */}
-      <div className={cn("relative z-10 shrink-0 flex flex-col items-center gap-1.5 py-3 border-t", tokens.borderFooter)}>
-        <NotificationBell compact />
-        <ClickUpProfileBottom tokens={tokens} />
+      {/* Sub-items — full-width rows */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2">
+        <div className="flex flex-col gap-0.5">
+          {mod.subItems?.map((item) => {
+            const active = isSubItemActive(item.path, pathname, siblingPaths);
+            return (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => onNavigate(item.path)}
+                className={cn(
+                  "w-full text-left pl-3 pr-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2",
+                  active
+                    ? cn(tokens.activeBg, tokens.activeText, "font-medium")
+                    : cn(tokens.textSecondary, tokens.hoverBg, tokens.hoverText)
+                )}
+              >
+                <span className="flex-1 truncate">{item.label}</span>
+                {item.badge && (
+                  <span className={cn("text-[9px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0", tokens.chipBg, tokens.chipText)}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -1378,23 +1457,26 @@ export function AppSidebar() {
       )}
 
       {/* Glass overlay layers (Glass variants). Stacked above blur plate.
-          Order: top-edge highlight → lime/brand gradient → right-edge specular.
-          All pointer-events disabled. */}
+          Order: top-edge highlight → [lime brand gradient — V5/V6 only] → right-edge specular.
+          All pointer-events disabled.
+          A-9.6 fix: V3 ("glass") is Apple-pure now — no lime brand gradient.
+          V5 GlassDark + V6 GlassLight keep the lime brand gradient since they're
+          deliberately on-brand. */}
       {tokens.glassOverlay && (
         <>
-          {/* Bright top-edge highlight — simulates light catching the glass.
-              Strongest at the top 80px, fades out by 30%. */}
+          {/* Bright top-edge highlight — simulates light catching the glass. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[linear-gradient(180deg,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0.08)_40%,transparent_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_40%,transparent_100%)]"
           />
-          {/* Lime brand gradient — subtle, full-height. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(195,235,66,0.10)_0%,rgba(195,235,66,0.04)_45%,transparent_100%)]"
-          />
-          {/* Right-edge specular line — barely visible bright streak that
-              suggests a glass edge meeting content. */}
+          {/* Lime brand gradient — V5/V6 only (Maalik wants V3 Apple-pure with no color tint). */}
+          {(variant === "glassDark" || variant === "glassLight") && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(195,235,66,0.10)_0%,rgba(195,235,66,0.04)_45%,transparent_100%)]"
+            />
+          )}
+          {/* Right-edge specular line — barely visible bright streak. */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-[linear-gradient(180deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0.15)_30%,transparent_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.04)_30%,transparent_100%)]"
