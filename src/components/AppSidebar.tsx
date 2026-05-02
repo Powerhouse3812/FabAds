@@ -18,6 +18,7 @@ import {
   type SubItem,
   hasSubItems,
   allSubPaths,
+  firstSubPath,
   deriveActiveModule,
   isSubItemActive,
   MODULE_EXTENSION_KEYS,
@@ -187,8 +188,8 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       activeText: "text-white font-semibold",
       activeIconBg: "bg-white/10",
       activeBar: "bg-transparent",
-      searchBg: "bg-white/[0.04]",
-      searchBgHover: "hover:bg-white/[0.07]",
+      searchBg: "bg-white/[0.08]",
+      searchBgHover: "hover:bg-white/[0.12]",
       chipBg: "bg-white/[0.06]",
       chipText: "text-white/45",
       // Chrome flags: stripped
@@ -217,8 +218,8 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
         activeText: "text-g6-primary-active",
         activeIconBg: "bg-g6-primary/20",
         activeBar: "bg-g6-primary-active",
-        searchBg: "bg-white/[0.06]",
-        searchBgHover: "hover:bg-white/[0.10]",
+        searchBg: "bg-white/[0.12]",
+        searchBgHover: "hover:bg-white/[0.18]",
         chipBg: "bg-white/[0.08]",
         chipText: "text-g6-text-tertiary",
         shape: "floating" as const,
@@ -241,8 +242,8 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       activeText: "text-g6-primary-active",
       activeIconBg: "bg-g6-primary/20",
       activeBar: "bg-g6-primary-active",
-      searchBg: "bg-white/40 dark:bg-white/[0.06]",
-      searchBgHover: "hover:bg-white/60 dark:hover:bg-white/[0.10]",
+      searchBg: "bg-white/55 dark:bg-white/[0.10]",
+      searchBgHover: "hover:bg-white/75 dark:hover:bg-white/[0.16]",
       chipBg: "bg-white/40 dark:bg-white/[0.08]",
       chipText: "text-muted-foreground",
       shape: "floating" as const,
@@ -299,12 +300,13 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
     } as const;
   }
 
-  // V5 Glass Dark — deep navy gradient + profile + brands strip + CTA card.
-  // Dramatic / cinematic. Always-dark regardless of theme.
+  // V5 Glass Dark — deep neutral-dark gradient + lime-led orbs.
+  // A-9.4 fix: was navy/indigo+magenta; switched to dark neutral + lime/coral/mint
+  // orbs so the variant feels on-brand instead of generic-purple.
   if (variant === "glassDark") {
     return {
       ...FLAG_DEFAULTS,
-      bg: "bg-[linear-gradient(180deg,#0e1024_0%,#1a1d3a_50%,#080919_100%)]",
+      bg: "bg-[linear-gradient(180deg,#181a17_0%,#1f221c_50%,#101210_100%)]",
       cardBg: "bg-white/[0.04]",
       border: "border-white/[0.08]",
       borderFooter: "border-white/[0.06]",
@@ -317,20 +319,21 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       activeText: "text-white font-medium",
       activeIconBg: "bg-white/[0.14]",
       activeBar: "bg-white/80",
-      searchBg: "bg-white/[0.06]",
-      searchBgHover: "hover:bg-white/[0.10]",
+      searchBg: "bg-white/[0.12]",
+      searchBgHover: "hover:bg-white/[0.18]",
       chipBg: "bg-white/[0.08]",
       chipText: "text-white/55",
       shape: "floating" as const,
       glassOverlay: true,
       internalOrbs: true,
       profileBlock: true,
-      brandsStrip: true,
+      // brandsStrip removed in A-9.4 — Maalik flagged it as cluttering the bottom
+      brandsStrip: false,
       ctaCard: true,
     } as const;
   }
 
-  // V6 Glass Light — soft warm cream/pink frosty glass + profile + brands + CTA.
+  // V6 Glass Light — soft warm cream/pink frosty glass + profile + CTA.
   // Always-light regardless of theme.
   if (variant === "glassLight") {
     return {
@@ -356,8 +359,45 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
       glassOverlay: true,
       internalOrbs: true,
       profileBlock: true,
-      brandsStrip: true,
+      // brandsStrip removed in A-9.4 (V6 also)
+      brandsStrip: false,
       ctaCard: true,
+    } as const;
+  }
+
+  // V7 ClickUp — narrow icon-rail with stacked labels under each icon.
+  // Dark gradient using OUR tokens (g6 surfaces, lime accent — NO purple).
+  // Active item: lime tile with dark icon. Notification badges where needed.
+  // Profile is at top via ProfileBlock (consistent with V5/V6 position).
+  if (variant === "clickup") {
+    return {
+      ...FLAG_DEFAULTS,
+      // Subtle vertical gradient using our deep neutrals (NOT plum/purple).
+      bg: "bg-[linear-gradient(180deg,#1a1c19_0%,#16181a_50%,#0e1010_100%)]",
+      cardBg: "bg-white/[0.03]",
+      border: "border-white/[0.06]",
+      borderFooter: "border-white/[0.05]",
+      text: "text-white/85",
+      textMuted: "text-white/40",
+      textSecondary: "text-white/60",
+      hoverBg: "hover:bg-white/[0.06]",
+      hoverText: "hover:text-white",
+      // Active = white tile with dark icon (ClickUp pattern, but with our colors)
+      activeBg: "bg-white",
+      activeText: "text-zinc-900 font-semibold",
+      activeIconBg: "bg-white",
+      activeBar: "bg-g6-primary",
+      searchBg: "bg-white/[0.10]",
+      searchBgHover: "hover:bg-white/[0.16]",
+      chipBg: "bg-white/[0.08]",
+      chipText: "text-white/55",
+      shape: "flush" as const,
+      profileBlock: true,
+      // Stripped chrome — labels under icons carry the meaning, no chevrons or dots
+      showChevrons: false,
+      showSubItemDots: false,
+      showActiveBar: false,
+      showModuleIcons: true,
     } as const;
   }
 
@@ -482,14 +522,10 @@ function SubItemRow({
           : cn(tokens.textSecondary, tokens.hoverBg, tokens.hoverText)
       )}
     >
-      {tokens.showSubItemDots && (
-        <span
-          className={cn(
-            "absolute left-5 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full transition-colors",
-            active ? tokens.activeBar : "bg-current opacity-25"
-          )}
-        />
-      )}
+      {/* A-9.4: per-sub-item dots removed. A single vertical accent bar in the
+          accordion content (rendered by ModuleRowExpanded when isOpen) replaces
+          them. `tokens.showSubItemDots` retained for the chrome flag plumbing
+          but no longer paints anything. */}
       <span className="flex-1 truncate">{item.label}</span>
       {item.badge && (
         <span className={cn("text-[9px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0", tokens.chipBg, tokens.chipText)}>
@@ -527,18 +563,26 @@ function ModuleRowExpanded({
   const isGenie = mod.key === "genie";
 
   const handleClick = () => {
-    if (!hasChildren) onNavigate(mod.path!);
-    else onToggle();
+    if (!hasChildren) {
+      onNavigate(mod.path!);
+    } else if (isOpen) {
+      // Already open → just collapse (don't navigate away)
+      onToggle();
+    } else {
+      // Closed → open this (auto-collapses others) + navigate to first sub-item.
+      // A-9.4 single-open accordion behaviour.
+      onToggle();
+      onNavigate(firstSubPath(mod));
+    }
   };
 
   const siblingPaths = allSubPaths(mod);
 
   return (
     <div className="relative group/row">
-      {/* Active left-edge bar (suppressed by chrome flag for Mono) */}
-      {isActive && tokens.showActiveBar && (
-        <span className={cn("absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r", tokens.activeBar)} />
-      )}
+      {/* A-9.4: removed the left-0 module-row active bar. The single vertical
+          rail in the accordion content (rendered below when isOpen) replaces
+          both this bar AND the per-sub-item dots. */}
       <button
         type="button"
         onClick={handleClick}
@@ -585,10 +629,21 @@ function ModuleRowExpanded({
       </button>
 
       {hasChildren && isOpen && (
-        <div className="mt-0.5 mb-1 flex flex-col gap-0.5 overflow-visible">
+        <div className="relative mt-0.5 mb-1 flex flex-col gap-0.5 overflow-visible">
+          {/* A-9.4: single vertical accent bar at the sub-item indent column.
+              Replaces the old left-0 module-row bar AND the per-sub-item dots.
+              Cleaner — one continuous mark for the active sub-tree. */}
+          {tokens.showActiveBar && (
+            <span
+              aria-hidden
+              className={cn(
+                "absolute left-[22px] top-1.5 bottom-1.5 w-[2px] rounded-full",
+                isActive ? tokens.activeBar : "bg-current opacity-15"
+              )}
+            />
+          )}
           {/* iter-6 A-9: dropped the lime [+ New Generation] CTA from Genie sub-nav.
-              The new "Studio" sub-item (path /iq/genie6/generate) handles new-gen entry.
-              Genie variant icon-toggle stays next to the "Genie" label (above). */}
+              The new "Studio" sub-item (path /iq/genie6/generate) handles new-gen entry. */}
           {mod.subItems?.map((item) => (
             <SubItemRow
               key={item.path}
@@ -788,43 +843,75 @@ function LogoCycler({
 }
 
 /* ─────────────────────────────────────────────────────────
- *  ProfileBlock — V5/V6 only. Avatar + name + email at top of nav,
- *  in place of the plain LogoCycler header. Logo cycler still works
- *  via a small chevron to the right of the profile (Shift+Click for
- *  picker preserved via the same NavVariantPicker wrapper).
+ *  ProfileBlock — V5/V6/V7. Avatar + name + email at top of nav.
+ *  This is also the VARIANT CYCLER for these variants (the LogoCycler is
+ *  not rendered when profileBlock is true — to keep position consistency,
+ *  the cycle action lives on the avatar tile here):
+ *    - Click on avatar tile  → cycle variant
+ *    - Shift+Click           → open picker popover
+ *    - The variant index badge sits as a notification dot on the avatar
+ *  Footer UserMenu is suppressed when profileBlock is true (avoids the
+ *  duplicate-profile bug Maalik flagged in A-9.4).
  * ───────────────────────────────────────────────────────── */
 function ProfileBlock({
-  isDark,
   tokens,
   collapseToggle,
 }: {
-  isDark: boolean;
   tokens: NavTokens;
   collapseToggle: React.ReactNode;
 }) {
   const auth = useAuth();
   const user = auth?.user;
-  // Stub for the Maalik-comparison demo. Real auth context is checked first.
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Rahul Saini";
   const displayEmail = user?.email || "rahul@fabads.com";
-  // Initials fallback for avatar
   const initials = displayName.split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
+
+  // Variant cycle — same controls as LogoCycler, just placed on the avatar.
+  const { variant, cycle } = useFabAdsNavVariant();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const meta = VARIANT_META[variant];
+  const totalVariants = Object.keys(VARIANT_META).length;
+  const tooltipText = `Click: cycle variant · Shift+Click: pick · ${meta.label} (${meta.index}/${totalVariants})`;
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      e.preventDefault();
+      setPickerOpen(true);
+    } else {
+      cycle();
+    }
+  };
+
+  const avatarTrigger = (
+    <button
+      type="button"
+      onClick={handleAvatarClick}
+      aria-label={tooltipText}
+      title={tooltipText}
+      className={cn(
+        "relative shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-[12px] font-semibold transition-transform hover:scale-105 active:scale-95",
+        tokens.activeIconBg, tokens.text
+      )}
+    >
+      {initials}
+      {/* Variant index badge — same notification-style dot as LogoCycler */}
+      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none bg-g6-primary text-g6-text-on-accent">
+        {meta.index}
+      </span>
+    </button>
+  );
 
   return (
     <div className={cn("relative z-10 px-3 py-3 shrink-0 flex items-center gap-2.5", tokens.text)}>
-      {/* Avatar — initials chip with subtle gradient ring */}
-      <div className={cn(
-        "shrink-0 h-9 w-9 rounded-full flex items-center justify-center text-[12px] font-semibold",
-        tokens.activeIconBg, tokens.text
-      )}>
-        {initials}
-      </div>
+      <NavVariantPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        trigger={avatarTrigger}
+      />
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-semibold tracking-tight truncate">{displayName}</p>
         <p className={cn("text-[11px] truncate", tokens.textMuted)}>{displayEmail}</p>
       </div>
-      {/* Logo cycler chevron — keeps the variant cycle functionality compact.
-          Sits at the right edge; Shift+Click on this opens the picker. */}
       <div className="shrink-0">
         {collapseToggle}
       </div>
@@ -879,13 +966,12 @@ function BottomCTACard({
   tokens: NavTokens;
   onNavigate: (path: string) => void;
 }) {
+  // A-9.4: was lime primary. Toned down to monochromatic/ghost button —
+  // primary CTA noise was too high across the app, and this is a tour
+  // nudge, not a critical action.
   return (
     <div className="relative z-10 px-2 pb-2 shrink-0">
-      <div className={cn(
-        "rounded-lg border p-3 text-center",
-        tokens.cardBg,
-        tokens.border
-      )}>
+      <div className={cn("rounded-lg border p-3 text-center", tokens.cardBg, tokens.border)}>
         <p className={cn("text-[12px] font-semibold", tokens.text)}>Take the tour</p>
         <p className={cn("text-[11px] mt-0.5 mb-2", tokens.textMuted)}>
           12-stop walkthrough of Genie
@@ -893,12 +979,234 @@ function BottomCTACard({
         <button
           type="button"
           onClick={() => onNavigate("/iq/genie6/wizard")}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-g6-primary px-3 py-1.5 text-[12px] font-semibold text-g6-text-on-accent hover:bg-g6-primary-hover transition-colors"
+          className={cn(
+            "w-full inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors border",
+            tokens.text,
+            tokens.border,
+            tokens.hoverBg,
+          )}
         >
-          Start <ArrowRight className="h-3 w-3" />
+          Start <ArrowRight className="h-3 w-3 opacity-70" />
         </button>
       </div>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  ComingSoonChipsRow — horizontal non-clickable chips for modules
+ *  flagged `comingSoon`. Replaces full-row treatment for BG Remover +
+ *  Object Remover in TOOLS group (Maalik A-9.4 ask).
+ * ───────────────────────────────────────────────────────── */
+function ComingSoonChipsRow({
+  tokens,
+  modules,
+}: {
+  tokens: NavTokens;
+  modules: ModuleDef[];
+}) {
+  if (modules.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5">
+      {modules.map((mod) => {
+        const Icon = mod.icon;
+        return (
+          <div
+            key={mod.key}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]",
+              tokens.chipBg,
+              tokens.chipText,
+              "select-none cursor-default opacity-80"
+            )}
+            title={`${mod.label} · coming soon`}
+          >
+            <Icon className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{mod.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  ClickUpRail — V7 layout (narrow icon-rail with stacked labels)
+ *
+ *  Distinct from V1–V6: 96px rail, icon + 1-2-line label stacked vertically per
+ *  module, active = white tile with dark icon, group separators between RUN /
+ *  CREATE / TOOLS. Profile + variant cycler at top. Notification + collapse at
+ *  bottom. No accordion — clicking a module-with-sub-items navigates to the
+ *  first sub-item directly (matches single-open behavior elsewhere).
+ *
+ *  Uses OUR colors (dark neutral gradient + lime accent), NOT ClickUp's
+ *  plum/pink palette per Maalik's "use our colors" rule.
+ * ───────────────────────────────────────────────────────── */
+function ClickUpRail({
+  groups,
+  activeKey,
+  pathname,
+  tokens,
+  onNavigate,
+}: {
+  groups: ReturnType<typeof groupedModules>;
+  activeKey: string | null;
+  pathname: string;
+  tokens: NavTokens;
+  onNavigate: (path: string) => void;
+}) {
+  return (
+    <aside
+      data-fabads-nav-variant="clickup"
+      className={cn(
+        "relative hidden md:flex h-screen w-[96px] flex-shrink-0 flex-col border-r overflow-hidden",
+        tokens.bg,
+        tokens.border
+      )}
+    >
+      {/* Profile (compact — avatar tile only, narrow rail) */}
+      <ClickUpProfileTop tokens={tokens} />
+
+      {/* Body — icon + stacked label per module, group separators */}
+      <div className="flex-1 min-h-0 overflow-y-auto py-2">
+        {groups.map(({ group, modules }, gi) =>
+          modules.length === 0 ? null : (
+            <div key={group}>
+              {gi > 0 && (
+                <div className={cn("mx-4 my-2 border-t", tokens.borderFooter)} />
+              )}
+              <div className="flex flex-col gap-1.5 px-1.5">
+                {/* Clickable modules */}
+                {modules.filter((m) => !m.comingSoon).map((mod) => (
+                  <ClickUpRailItem
+                    key={mod.key}
+                    mod={mod}
+                    isActive={activeKey === mod.key}
+                    pathname={pathname}
+                    tokens={tokens}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+                {/* Coming-soon: tiny non-clickable horizontal chips */}
+                {modules.some((m) => m.comingSoon) && (
+                  <div className="flex flex-wrap items-center justify-center gap-1 px-1 pt-1">
+                    {modules.filter((m) => m.comingSoon).map((mod) => (
+                      <span
+                        key={mod.key}
+                        className={cn(
+                          "inline-block rounded px-1 py-0.5 text-[8px] uppercase tracking-wider",
+                          tokens.chipBg,
+                          tokens.chipText,
+                          "select-none cursor-default"
+                        )}
+                        title={`${mod.label} · coming soon`}
+                      >
+                        {mod.label.split(" ")[0]}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Footer — bell + collapse */}
+      <div className={cn("relative z-10 border-t shrink-0 flex flex-col items-center gap-1 py-2", tokens.borderFooter)}>
+        <NotificationBell compact />
+      </div>
+    </aside>
+  );
+}
+
+function ClickUpProfileTop({ tokens }: { tokens: NavTokens }) {
+  const auth = useAuth();
+  const user = auth?.user;
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Rahul Saini";
+  const initials = displayName.split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
+
+  const { variant, cycle } = useFabAdsNavVariant();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const meta = VARIANT_META[variant];
+  const totalVariants = Object.keys(VARIANT_META).length;
+  const tooltipText = `Click: cycle · Shift+Click: pick · ${meta.label} (${meta.index}/${totalVariants})`;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      e.preventDefault();
+      setPickerOpen(true);
+    } else {
+      cycle();
+    }
+  };
+
+  const trigger = (
+    <button
+      type="button"
+      onClick={handleClick}
+      title={tooltipText}
+      aria-label={tooltipText}
+      className={cn(
+        "relative h-10 w-10 rounded-lg flex items-center justify-center text-[12px] font-semibold transition-transform hover:scale-105 active:scale-95",
+        tokens.activeIconBg, "text-zinc-900"
+      )}
+    >
+      {initials}
+      <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none bg-g6-primary text-g6-text-on-accent">
+        {meta.index}
+      </span>
+    </button>
+  );
+
+  return (
+    <div className="flex items-center justify-center px-3 py-3 shrink-0">
+      <NavVariantPicker open={pickerOpen} onOpenChange={setPickerOpen} trigger={trigger} />
+    </div>
+  );
+}
+
+function ClickUpRailItem({
+  mod,
+  isActive,
+  pathname,
+  tokens,
+  onNavigate,
+}: {
+  mod: ModuleDef;
+  isActive: boolean;
+  pathname: string;
+  tokens: NavTokens;
+  onNavigate: (path: string) => void;
+}) {
+  const Icon = mod.icon;
+  const target = hasSubItems(mod) ? firstSubPath(mod) : mod.path!;
+  // void the unused param warning for pathname (kept in signature for parity)
+  void pathname;
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(target)}
+      className={cn(
+        "group/clickup flex flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors",
+        isActive
+          ? cn(tokens.activeBg, tokens.activeText)
+          : cn(tokens.text, "opacity-80", tokens.hoverBg, tokens.hoverText, "hover:opacity-100")
+      )}
+      title={mod.label}
+    >
+      <span
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+          isActive ? "bg-transparent" : ""
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className={cn("text-[10px] font-medium leading-tight text-center line-clamp-2 px-0.5", isActive ? "" : "")}>
+        {mod.label}
+      </span>
+    </button>
   );
 }
 
@@ -922,22 +1230,22 @@ export function AppSidebar() {
     return activeKey ? new Set([activeKey]) : new Set();
   });
 
+  // Single-open accordion (A-9.4): only one parent expanded at a time. When the
+  // active route changes, auto-collapse all others and open just the active one.
   useEffect(() => {
     if (!activeKey) return;
     setOpenKeys((prev) => {
-      if (prev.has(activeKey)) return prev;
-      const next = new Set(prev);
-      next.add(activeKey);
-      return next;
+      if (prev.size === 1 && prev.has(activeKey)) return prev;
+      return new Set([activeKey]);
     });
   }, [activeKey]);
 
   const toggleOpen = useCallback((key: string) => {
     setOpenKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+      // If this key is already the only open one → close it.
+      if (prev.has(key)) return new Set();
+      // Otherwise replace ALL open with just this key.
+      return new Set([key]);
     });
   }, []);
 
@@ -957,6 +1265,23 @@ export function AppSidebar() {
   //  - cards:    flush container BUT body renders cards-per-group (handled in body)
   const isFloating = tokens.shape === "floating";
   const isCards = tokens.shape === "cards";
+  const isClickUp = variant === "clickup";
+
+  // V7 ClickUp — totally distinct layout (icon + stacked-label rail). Branch
+  // early to keep the V1-V6 logic clean. Same data flows (variant cycler on
+  // avatar, single-open accordion logic doesn't apply since clicks navigate
+  // directly to first sub-item without a sub-panel here).
+  if (isClickUp) {
+    return (
+      <ClickUpRail
+        groups={groups}
+        activeKey={activeKey}
+        pathname={pathname}
+        tokens={tokens}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
 
   // Width per variant. New glass variants get extra width to fit the profile
   // block + brands strip + CTA card without cramping.
@@ -975,10 +1300,12 @@ export function AppSidebar() {
       className={cn(
         "relative hidden md:flex flex-shrink-0 flex-col transition-[width] duration-200 ease-out overflow-hidden",
         tokens.bg,
-        // Floating: detach with margin + rounded + shadow, NO border-r
+        // Floating: detach with margin + rounded + soft directional shadow.
+        // A-9.4: shadow-2xl was bleeding into the right content panel; replaced
+        // with shadow-lg + larger right margin so the shadow has breathing room.
         isFloating
           ? cn(
-              "my-2 ml-2 mr-1 rounded-2xl shadow-2xl border",
+              "my-2 ml-2 mr-3 rounded-2xl shadow-lg border",
               tokens.border,
               "h-[calc(100vh-1rem)]"
             )
@@ -998,7 +1325,10 @@ export function AppSidebar() {
             "pointer-events-none absolute inset-0 z-0",
             // Per-variant orb palette
             variant === "glassDark"
-              ? "bg-[radial-gradient(ellipse_220px_380px_at_25%_18%,rgba(99,102,241,0.30),transparent_60%),radial-gradient(ellipse_200px_340px_at_75%_55%,rgba(217,70,239,0.22),transparent_60%),radial-gradient(ellipse_180px_280px_at_30%_92%,rgba(195,235,66,0.18),transparent_60%)]"
+              ? // Lime-led palette + soft amber + cool sage — all on-brand neutrals.
+                // A-9.4 round-2: warm coral was too aggressive; amber + sage compliment lime
+                // without competing with our primary.
+                "bg-[radial-gradient(ellipse_240px_400px_at_25%_15%,rgba(195,235,66,0.30),transparent_65%),radial-gradient(ellipse_220px_360px_at_75%_55%,rgba(244,208,63,0.16),transparent_65%),radial-gradient(ellipse_200px_300px_at_30%_92%,rgba(168,200,150,0.14),transparent_65%)]"
               : variant === "glassLight"
                 ? "bg-[radial-gradient(ellipse_220px_380px_at_30%_18%,rgba(255,178,148,0.55),transparent_65%),radial-gradient(ellipse_200px_320px_at_72%_50%,rgba(244,114,182,0.40),transparent_65%),radial-gradient(ellipse_180px_280px_at_25%_92%,rgba(251,191,36,0.30),transparent_65%)]"
                 : // V3 glass — auto-theme subtle lime + warm
@@ -1045,7 +1375,6 @@ export function AppSidebar() {
       {/* Header — V5/V6 use ProfileBlock; others use the LogoCycler+collapse-toggle row. */}
       {tokens.profileBlock && !collapsed ? (
         <ProfileBlock
-          isDark={isDark}
           tokens={tokens}
           collapseToggle={
             <Tooltip delayDuration={400}>
@@ -1138,7 +1467,7 @@ export function AppSidebar() {
                     {group}
                   </span>
                   <div className="flex flex-col gap-0.5">
-                    {modules.map((mod) => (
+                    {modules.filter((m) => !m.comingSoon).map((mod) => (
                       <ModuleRowExpanded
                         key={mod.key}
                         mod={mod}
@@ -1151,6 +1480,10 @@ export function AppSidebar() {
                         isExtension={variant === "darkAlways" && MODULE_EXTENSION_KEYS.has(mod.key)}
                       />
                     ))}
+                    {/* Coming-soon chips — render horizontally, non-clickable.
+                        A-9.4: per Maalik, BG Remover + Object Remover should not look
+                        like clickable nav rows. Just minimal "Soon" tags side-by-side. */}
+                    <ComingSoonChipsRow tokens={tokens} modules={modules.filter((m) => m.comingSoon)} />
                   </div>
                 </div>
               )
@@ -1165,7 +1498,7 @@ export function AppSidebar() {
                   <span className={cn("px-3 pt-2 pb-1 font-mono text-[10px] uppercase tracking-[0.14em]", tokens.textMuted)}>
                     {group}
                   </span>
-                  {modules.map((mod) => (
+                  {modules.filter((m) => !m.comingSoon).map((mod) => (
                     <ModuleRowExpanded
                       key={mod.key}
                       mod={mod}
@@ -1178,6 +1511,8 @@ export function AppSidebar() {
                       isExtension={variant === "darkAlways" && MODULE_EXTENSION_KEYS.has(mod.key)}
                     />
                   ))}
+                  {/* Coming-soon chips — horizontal, non-clickable */}
+                  <ComingSoonChipsRow tokens={tokens} modules={modules.filter((m) => m.comingSoon)} />
                 </div>
               )
             )}
@@ -1215,14 +1550,23 @@ export function AppSidebar() {
               </TooltipContent>
             </Tooltip>
             <NotificationBell compact />
-            <UserMenu compact />
+            {/* UserMenu suppressed when ProfileBlock owns the avatar at top
+                (A-9.4 fix — was rendering twice). */}
+            {!tokens.profileBlock && <UserMenu compact />}
           </div>
         ) : (
           <div className="px-1.5 py-1.5 flex items-center gap-1">
-            <div className="flex-1">
-              <UserMenu />
-            </div>
-            <NotificationBell />
+            {tokens.profileBlock ? (
+              // Profile already at top — footer becomes a single bell row
+              <NotificationBell />
+            ) : (
+              <>
+                <div className="flex-1">
+                  <UserMenu />
+                </div>
+                <NotificationBell />
+              </>
+            )}
           </div>
         )}
       </div>

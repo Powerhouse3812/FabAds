@@ -97,11 +97,11 @@ export const MODULES: ModuleDef[] = [
   {
     key: "launch", label: "Launch", icon: Rocket,
     subItems: [
-      { label: "Launches", path: "/launch", icon: History },
+      // A-9.4: "Launches" renamed to "History"; Clones merged inside History
+      // (history page filters between launches and clones). Sub-item Clones removed.
+      { label: "History", path: "/launch", icon: History },
       { label: "Targeting Template", path: "/launch/templates", icon: Target },
       { label: "AutoPilot", path: "/launch/autopilot", icon: Zap },
-      { label: "Clones", path: "/launch/clones", icon: Copy },
-      // Launch-level settings (nomenclature, default settings, etc.) — added iter-6 A-9
       { label: "Launch Settings", path: "/launch/settings", icon: Settings },
       { label: "RRM", path: "/rrm", icon: Shield },
     ],

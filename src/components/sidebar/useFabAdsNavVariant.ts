@@ -44,7 +44,8 @@ export type FabAdsNavVariant =
   | "glass"
   | "workbench"
   | "glassDark"
-  | "glassLight";
+  | "glassLight"
+  | "clickup";
 
 const VARIANT_KEY = "fabads-nav-variant";
 const DEFAULT_VARIANT: FabAdsNavVariant = "sections";
@@ -57,6 +58,7 @@ export const VARIANT_CYCLE: FabAdsNavVariant[] = [
   "workbench",
   "glassDark",
   "glassLight",
+  "clickup",
 ];
 
 /** Display metadata — shown in picker popover and tooltips. */
@@ -65,8 +67,9 @@ export const VARIANT_META: Record<FabAdsNavVariant, { label: string; index: numb
   darkAlways: { label: "Dark Always", index: 2, hint: "Always-dark · monochromatic · stripped chrome" },
   glass:      { label: "Glass",       index: 3, hint: "Floating panel · Apple liquid-glass · subtle" },
   workbench:  { label: "Workbench",   index: 4, hint: "Discrete cards per group · Notion-blocks" },
-  glassDark:  { label: "Glass Dark",  index: 5, hint: "Deep navy glass · profile + brands + CTA card" },
-  glassLight: { label: "Glass Light", index: 6, hint: "Warm frosty glass · profile + brands + CTA card" },
+  glassDark:  { label: "Glass Dark",  index: 5, hint: "Dark glass · lime/amber orbs · profile-at-top" },
+  glassLight: { label: "Glass Light", index: 6, hint: "Warm frosty glass · profile + CTA card" },
+  clickup:    { label: "ClickUp",     index: 7, hint: "Narrow icon-rail with stacked labels (ClickUp-style)" },
 };
 
 const VALID_VARIANTS: ReadonlySet<string> = new Set(VARIANT_CYCLE);
