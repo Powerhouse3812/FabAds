@@ -26,6 +26,8 @@ import {
 import { brands as sharedBrands } from "@/genie6/mocks/brands";
 import { BrandLogo } from "@/genie6/components/BrandLogo";
 import { useAuth } from "@/contexts/AuthContext";
+import { ParentNavigationRail } from "@/components/shell/ParentNavigationRail";
+import { SecondaryNavigationPanel } from "@/components/shell/SecondaryNavigationPanel";
 import {
   useFabAdsNavVariant,
   VARIANT_META,
@@ -1375,20 +1377,18 @@ export function AppSidebar() {
   const isCards = tokens.shape === "cards";
   const isClickUp = variant === "clickup";
 
-  // V7 ClickUp — totally distinct layout (icon + stacked-label rail). Branch
-  // early to keep the V1-V6 logic clean. Same data flows (variant cycler on
-  // avatar, single-open accordion logic doesn't apply since clicks navigate
-  // directly to first sub-item without a sub-panel here).
+  // V7 ClickUp Strict — A-10.2: composed from reusable shell primitives that
+  // strictly match Maalik's ClickUp spec (always-dark 60px parent rail +
+  // always-light 264px secondary panel + sticky panel header + nested-item
+  // guide lines). Lives under @/components/shell/. Existing nav data
+  // (MODULES + active-state derivation) flows in via the leaf components —
+  // no hardcoded nav arrays.
   if (isClickUp) {
     return (
-      <ClickUpRail
-        groups={groups}
-        activeKey={activeKey}
-        pathname={pathname}
-        tokens={tokens}
-        onNavigate={handleNavigate}
-        isDark={isDark}
-      />
+      <>
+        <ParentNavigationRail />
+        <SecondaryNavigationPanel />
+      </>
     );
   }
 
