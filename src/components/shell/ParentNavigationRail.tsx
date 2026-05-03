@@ -14,28 +14,29 @@ import { UserMenu } from "@/components/UserMenu";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
- * ParentNavigationRail — V7 ClickUp Strict (iter-6 A-10.5).
+ * ParentNavigationRail — V7 ClickUp Strict (iter-6 A-10.6).
  *
- * Layout per Maalik:
- *   [Logo] → divider → [Primary 8 modules] → divider → [Tools 4 modules] → footer
+ * Now flush inside AppShell (the outer wrapper owns m-2/rounded/shadow).
+ * This component is just the dark rail content — no self-floating.
  *
- * Tools render INLINE (no "More" overflow popover) with a divider above them
- * matching the logo→menu divider style. Tiny-stacked layout (Pattern 4).
+ * Layout: Logo → divider → Primary modules (8) → divider → Tools (visible-only)
+ * → footer (Copilot + Bell + UserMenu, all centered consistently).
  *
- * BG: true primary-color gradient — lime-tinted dark glass with backdrop-blur
- * + saturate (Apple Liquid Glass cues). Multiple gradient layers for depth.
- *
- * Footer: NotificationBell + UserMenu wrapped in `.dark` so their CSS-var
- * colors resolve to dark-theme values (light icons on dark rail) regardless
- * of app theme.
+ * Maalik fixes in A-10.6:
+ *   • Coming-soon tools (BG/Object Remover) hidden from rail entirely
+ *   • Footer icons all 36×36 centered (UserMenu/NotificationBell forced to
+ *     consistent box via [&_button] arbitrary selectors)
+ *   • Icon size unified at 16px (h-4 w-4) to match the secondary panel
  */
 export function ParentNavigationRail() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const activeKey = deriveActiveModule(pathname);
 
-  const primary = MODULES.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
-  const tools = MODULES.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
+  // Drop coming-soon items from the rail entirely (per Maalik A-10.6).
+  const visibleModules = MODULES.filter((m) => !m.comingSoon);
+  const primary = visibleModules.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
+  const tools = visibleModules.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
 
   const handleClick = (mod: ModuleDef) => {
     const target = hasSubItems(mod) ? firstSubPath(mod) : mod.path!;
@@ -47,36 +48,30 @@ export function ParentNavigationRail() {
       data-fabads-nav-rail="parent"
       className={cn(
         "relative hidden md:flex w-[64px] shrink-0 flex-col overflow-hidden",
-        "my-2 ml-2 mr-1 rounded-2xl shadow-2xl",
+        // Floating: m-2 + rounded-2xl + shadow + ring (Maalik A-10.6 revert
+        // — keep both floating, not fused).
+        "my-2 ml-2 mr-1 rounded-2xl shadow-2xl ring-1 ring-white/[0.08]",
         "h-[calc(100vh-1rem)]",
-        // True primary-color (lime hue) gradient at low lightness — brand-rich
-        // dark glass. Apple Liquid Glass cues via backdrop-blur + saturate.
+        // True primary-color (lime hue) gradient at low lightness.
         "bg-[linear-gradient(180deg,hsl(80_30%_12%)_0%,hsl(80_15%_8%)_50%,hsl(80_25%_10%)_100%)]",
         "backdrop-blur-2xl backdrop-saturate-150",
-        "ring-1 ring-white/[0.08]",
         "text-zinc-100"
       )}
     >
-      {/* Layered overlays for depth + glass-edge cues — all pointer-events disabled. */}
-      {/* Top-edge bright specular (Apple-glass key cue) */}
+      {/* Top-edge bright specular */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_50%,transparent_100%)]"
       />
-      {/* Lime brand glow at top-center (more visible than before) */}
+      {/* Lime glow at top-center */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_140px_80px_at_50%_-10%,rgba(195,235,66,0.18),transparent_70%)]"
       />
-      {/* Lime accent glow at bottom-center (bracketing brand presence) */}
+      {/* Lime glow at bottom-center */}
       <span
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-[radial-gradient(ellipse_120px_60px_at_50%_110%,rgba(195,235,66,0.10),transparent_70%)]"
-      />
-      {/* Right-edge thin specular line (glass-edge cue) */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.05)_30%,transparent_60%,rgba(255,255,255,0.05)_85%,rgba(255,255,255,0.12)_100%)]"
       />
 
       {/* HEADER — logo */}
@@ -88,7 +83,7 @@ export function ParentNavigationRail() {
 
       <RailDivider />
 
-      {/* BODY — primary modules + Tools section */}
+      {/* BODY — primary modules + Tools section (each tool gets a divider above) */}
       <div className="relative z-10 flex-1 min-h-0 overflow-y-auto py-1.5 px-1.5">
         <div className="flex flex-col gap-0.5">
           {primary.map((mod) => (
@@ -101,7 +96,6 @@ export function ParentNavigationRail() {
           ))}
         </div>
 
-        {/* Tools section — divider above (matches logo→menu divider style) */}
         {tools.length > 0 && (
           <>
             <div className="my-2">
@@ -121,10 +115,18 @@ export function ParentNavigationRail() {
         )}
       </div>
 
-      {/* FOOTER — wrapped in `.dark` so NotificationBell + UserMenu CSS-var
-          colors (text-sidebar-foreground/60 etc.) resolve to dark-theme
-          values → light icons on dark rail, regardless of app theme. */}
-      <div className="relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0 border-t border-white/[0.08]">
+      {/* FOOTER — wrapped in `.dark` so CSS-vars resolve to dark-theme values
+          (light icons on dark rail). Arbitrary [&_button] selectors force all
+          inner buttons to a consistent 36×36 centered box, fixing the
+          UserMenu/NotificationBell alignment mismatch Maalik flagged. */}
+      <div
+        className={cn(
+          "relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0",
+          "border-t border-white/[0.08]",
+          // Force every inner button to 36×36, centered, no extra padding.
+          "[&_button]:!w-9 [&_button]:!h-9 [&_button]:!p-0 [&_button]:!justify-center [&_button]:!flex [&_button]:!items-center"
+        )}
+      >
         <NotificationBell compact />
         <UserMenu compact />
       </div>
@@ -133,9 +135,7 @@ export function ParentNavigationRail() {
 }
 
 /* ─────────────────────────────────────────────────────────
- *  RailDivider — thin elegant divider used between logo+menu
- *  AND between primary+tools sections (Maalik's "ek elegant
- *  sa subtle divider rakh skte hai" pattern).
+ *  RailDivider — thin elegant gradient line.
  * ───────────────────────────────────────────────────────── */
 function RailDivider() {
   return (
@@ -146,7 +146,7 @@ function RailDivider() {
 }
 
 /* ─────────────────────────────────────────────────────────
- *  RailItem — Pattern 4: tiny-stacked icon + label.
+ *  RailItem — tiny-stacked icon + label.
  * ───────────────────────────────────────────────────────── */
 function RailItem({
   mod,
@@ -176,10 +176,7 @@ function RailItem({
               isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : ""
             )}
           >
-            <Icon className={cn("h-[14px] w-[14px]", isActive ? "text-white" : "text-zinc-300")} />
-            {mod.comingSoon && (
-              <span className="absolute -top-0.5 -right-0.5 h-1 w-1 rounded-full bg-zinc-500" />
-            )}
+            <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
           </span>
           <span
             className={cn(

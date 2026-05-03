@@ -2,31 +2,24 @@ import { ParentNavigationRail } from "./ParentNavigationRail";
 import { SecondaryNavigationPanel } from "./SecondaryNavigationPanel";
 
 /**
- * AppShell — V7 (ClickUp Strict) wrapper.
+ * AppShell — V7 ClickUp Strict.
  *
- * Composes:
- *   1. ParentNavigationRail (dark, 60px, far left)
- *   2. SecondaryNavigationPanel (light, 264px, immediately right) — only renders
- *      when active module has sub-items
- *   3. MainContentArea (children) — existing routed content
- *   4. RightUtilityPanel — handled by parent layout (CopilotPanel exists in AppLayout
- *      conditionally; we don't redefine it here per spec "only style if app already has one")
+ * A-10.6 (revised): rail + panel are SEPARATE floating cards (like before),
+ * not fused into one frame. Each owns its own m-2/rounded/shadow. The
+ * natural gap between them (rail's mr-1 + panel's ml-1 + ring) is the
+ * visible separation.
  *
- * Per spec:
- *   - All four columns are independent siblings; no column "owns" another
- *   - Each scrolls independently
- *   - 100vh, overflow-hidden at the parent
- *   - Existing nav data and active-state logic untouched (consumed via the
- *     leaf components)
+ * Per Maalik: "parent nav ko bi floating style me rakhna hai, and right
+ * side ko bhi floating eme hi rakhna hai, like before."
+ *
+ * Sub-panel is conditional — when active module has no sub-items, it
+ * returns null and main content widens to fill.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell() {
   return (
     <>
       <ParentNavigationRail />
       <SecondaryNavigationPanel />
-      <main className="flex-1 min-w-0 overflow-hidden flex flex-col">
-        {children}
-      </main>
     </>
   );
 }

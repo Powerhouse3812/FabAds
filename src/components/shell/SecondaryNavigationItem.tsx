@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SubItem } from "@/components/sidebar/modules";
 import { isSubItemActive } from "@/components/sidebar/modules";
@@ -6,16 +8,17 @@ import { isSubItemActive } from "@/components/sidebar/modules";
  * SecondaryNavigationItem — a row in the light secondary panel.
  *
  * Spec:
- *   - Row height 28-32px (we use h-8 = 32px / py-1 = ~30px)
+ *   - Row height 28-32px (h-8 = 32px / py-1 = ~30px)
  *   - Text 13-14px
- *   - Icons 15-16px
+ *   - Icons 16px (h-4 w-4) — matches parent rail icon size for visual consistency
  *   - Active = soft bg highlight
  *   - Hover = subtle bg
  *   - Indentation 14-16px per nesting level
- *   - Subtle vertical guide line for nested items (handled by parent container)
+ *   - Vertical guide line for nested levels
  *
- * Recursively renders children if `item.subItems` exists. Existing data
- * structure is preserved — no flattening, no reordering.
+ * A-10.6: items with `subItems` get a CHEVRON toggle. Click toggles open/close
+ * (local React state, no global persistence). Default open if any descendant
+ * is active (so the active sub-item is visible on first render).
  */
 export function SecondaryNavigationItem({
   item,
@@ -32,19 +35,36 @@ export function SecondaryNavigationItem({
 }) {
   const ItemIcon = item.icon;
   const active = isSubItemActive(item.path, pathname, siblingPaths);
-  const hasChildren = item.subItems && item.subItems.length > 0;
+  const hasChildren = !!(item.subItems && item.subItems.length > 0);
 
-  // Indentation: 14px per depth level. depth=0 starts at the panel's px-3 baseline.
+  // Default open if THIS or any descendant is active.
+  const descendantActive =
+    hasChildren &&
+    item.subItems!.some((c) =>
+      isSubItemActive(c.path, pathname, siblingPaths) ||
+      (c.subItems?.some((cc) => isSubItemActive(cc.path, pathname, siblingPaths)) ?? false)
+    );
+  const [open, setOpen] = useState(active || descendantActive);
+
   const paddingLeftPx = 12 + depth * 14;
+
+  const handleClick = () => {
+    if (hasChildren) {
+      // Click on parent: toggle expansion AND navigate (matches ClickUp + Notion).
+      setOpen((p) => !p);
+    }
+    onNavigate(item.path);
+  };
 
   return (
     <>
       <button
         type="button"
-        onClick={() => onNavigate(item.path)}
+        onClick={handleClick}
         aria-current={active ? "page" : undefined}
+        aria-expanded={hasChildren ? open : undefined}
         className={cn(
-          "w-full text-left pr-2.5 rounded-md transition-colors flex items-center gap-2 h-8",
+          "w-full text-left pr-2 rounded-md transition-colors flex items-center gap-2 h-8",
           active
             ? "bg-zinc-900/[0.06] text-zinc-900 font-medium"
             : "text-zinc-700 hover:bg-zinc-900/[0.04] hover:text-zinc-900"
@@ -60,18 +80,25 @@ export function SecondaryNavigationItem({
           />
         )}
         <span className="flex-1 truncate text-[13px] leading-[16px]">{item.label}</span>
-        {/* Badge — preserved exactly as data provides */}
         {item.badge && (
           <span className="text-[10px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0 bg-zinc-900/[0.06] text-zinc-600">
             {item.badge}
           </span>
         )}
+        {hasChildren && (
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform duration-200",
+              open && "rotate-90"
+            )}
+          />
+        )}
       </button>
 
-      {/* Nested children — render with depth+1 + vertical guide line on the left */}
-      {hasChildren && (
+      {/* Nested children */}
+      {hasChildren && open && (
         <div className="relative">
-          {/* Vertical guide line — subtle, only when nesting exists per spec */}
+          {/* Vertical guide line */}
           <span
             aria-hidden
             className="absolute top-0 bottom-0 w-px bg-zinc-900/[0.08]"

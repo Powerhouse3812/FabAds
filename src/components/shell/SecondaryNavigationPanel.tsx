@@ -45,12 +45,11 @@ export function SecondaryNavigationPanel() {
     <aside
       data-fabads-nav-panel="secondary"
       className={cn(
-        "hidden md:flex w-[264px] shrink-0 flex-col overflow-hidden",
-        // Floating shape: margin + rounded + shadow → independent surface,
-        // gap from parent rail visible via app bg.
-        "my-2 ml-1 mr-2 rounded-2xl shadow-lg",
+        "hidden md:flex w-[244px] shrink-0 flex-col overflow-hidden",
+        // Floating: m-2 + rounded-2xl + shadow + ring (A-10.6 revert).
+        "my-2 ml-1 mr-2 rounded-2xl shadow-lg ring-1 ring-zinc-200/70",
         "h-[calc(100vh-1rem)]",
-        "bg-zinc-50 ring-1 ring-zinc-200/70 text-zinc-900"
+        "bg-zinc-50 text-zinc-900"
       )}
     >
       {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon. */}

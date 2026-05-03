@@ -26,8 +26,7 @@ import {
 import { brands as sharedBrands } from "@/genie6/mocks/brands";
 import { BrandLogo } from "@/genie6/components/BrandLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { ParentNavigationRail } from "@/components/shell/ParentNavigationRail";
-import { SecondaryNavigationPanel } from "@/components/shell/SecondaryNavigationPanel";
+import { AppShell } from "@/components/shell/AppShell";
 import {
   useFabAdsNavVariant,
   VARIANT_META,
@@ -1384,12 +1383,7 @@ export function AppSidebar() {
   // (MODULES + active-state derivation) flows in via the leaf components —
   // no hardcoded nav arrays.
   if (isClickUp) {
-    return (
-      <>
-        <ParentNavigationRail />
-        <SecondaryNavigationPanel />
-      </>
-    );
+    return <AppShell />;
   }
 
   // Width per variant. New glass variants get extra width to fit the profile
