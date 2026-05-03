@@ -124,10 +124,12 @@ export const MODULES: ModuleDef[] = [
       //     (one of 4 internal Genie variants: Studio/Canvas/Command/Modular).
       //     Context disambiguates: this Studio = sidebar sub-item = new-gen form;
       //     pill Studio = a Genie internal layout variant.
+      // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
+      // matches the new /studio Product-first flow's primacy.
       { label: "Overview",    path: "/iq/genie6",            icon: Home },
+      { label: "Studio",      path: "/iq/genie6/generate",   icon: Wand2 },
       { label: "Generations", path: "/iq/genie6/library",    icon: LibraryIcon },
       { label: "Assets",      path: "/iq/genie6/workspace",  icon: FolderTree },
-      { label: "Studio",      path: "/iq/genie6/generate",   icon: Wand2 },
       { label: "Settings",    path: "/iq/genie6/settings",   icon: Settings },
     ],
   },
