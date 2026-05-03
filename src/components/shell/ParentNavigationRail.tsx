@@ -1,8 +1,5 @@
-import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { MoreHorizontal } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   MODULES,
@@ -17,28 +14,28 @@ import { UserMenu } from "@/components/UserMenu";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
- * ParentNavigationRail — V7 ClickUp Strict (iter-6 A-10.4 update).
+ * ParentNavigationRail — V7 ClickUp Strict (iter-6 A-10.5).
  *
- * Pattern 3+4 combined per Maalik:
- *   - Tiny-stacked layout: 24px icon + 8px label, ~36px cell height
- *   - Tools group → "More" overflow popover at the bottom of the body
- *   - Result: 8 primary modules + 1 "More" icon ≈ 320px body, fits without scroll
+ * Layout per Maalik:
+ *   [Logo] → divider → [Primary 8 modules] → divider → [Tools 4 modules] → footer
  *
- * Floating shape (m-2 + rounded-2xl + shadow-2xl), brand-gradient glass
- * (deep dark + subtle lime accent at top), Apple-glass top-edge specular,
- * thin elegant logo divider — all preserved from A-10.3.
+ * Tools render INLINE (no "More" overflow popover) with a divider above them
+ * matching the logo→menu divider style. Tiny-stacked layout (Pattern 4).
  *
- * Always-dark — does NOT respect app theme.
+ * BG: true primary-color gradient — lime-tinted dark glass with backdrop-blur
+ * + saturate (Apple Liquid Glass cues). Multiple gradient layers for depth.
+ *
+ * Footer: NotificationBell + UserMenu wrapped in `.dark` so their CSS-var
+ * colors resolve to dark-theme values (light icons on dark rail) regardless
+ * of app theme.
  */
 export function ParentNavigationRail() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const activeKey = deriveActiveModule(pathname);
 
-  // Split MODULES: primary (RUN + CREATE) shown in rail, TOOLS overflow into popover.
   const primary = MODULES.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
-  const overflow = MODULES.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
-  const overflowActive = overflow.some((m) => m.key === activeKey);
+  const tools = MODULES.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
 
   const handleClick = (mod: ModuleDef) => {
     const target = hasSubItems(mod) ? firstSubPath(mod) : mod.path!;
@@ -52,21 +49,34 @@ export function ParentNavigationRail() {
         "relative hidden md:flex w-[64px] shrink-0 flex-col overflow-hidden",
         "my-2 ml-2 mr-1 rounded-2xl shadow-2xl",
         "h-[calc(100vh-1rem)]",
-        // Brand-gradient glass — deep dark + subtle lime sheen.
-        "bg-[linear-gradient(180deg,#0f1422_0%,#0a0f1c_45%,#0c1018_100%)]",
-        "ring-1 ring-white/[0.06]",
+        // True primary-color (lime hue) gradient at low lightness — brand-rich
+        // dark glass. Apple Liquid Glass cues via backdrop-blur + saturate.
+        "bg-[linear-gradient(180deg,hsl(80_30%_12%)_0%,hsl(80_15%_8%)_50%,hsl(80_25%_10%)_100%)]",
+        "backdrop-blur-2xl backdrop-saturate-150",
+        "ring-1 ring-white/[0.08]",
         "text-zinc-100"
       )}
     >
-      {/* Top-edge highlight — Apple-glass specular cue */}
+      {/* Layered overlays for depth + glass-edge cues — all pointer-events disabled. */}
+      {/* Top-edge bright specular (Apple-glass key cue) */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_50%,transparent_100%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_50%,transparent_100%)]"
       />
-      {/* Subtle lime accent overlay (brand cue) */}
+      {/* Lime brand glow at top-center (more visible than before) */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(ellipse_120px_60px_at_50%_0%,rgba(195,235,66,0.08),transparent_70%)]"
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_140px_80px_at_50%_-10%,rgba(195,235,66,0.18),transparent_70%)]"
+      />
+      {/* Lime accent glow at bottom-center (bracketing brand presence) */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-[radial-gradient(ellipse_120px_60px_at_50%_110%,rgba(195,235,66,0.10),transparent_70%)]"
+      />
+      {/* Right-edge thin specular line (glass-edge cue) */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-[linear-gradient(180deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.05)_30%,transparent_60%,rgba(255,255,255,0.05)_85%,rgba(255,255,255,0.12)_100%)]"
       />
 
       {/* HEADER — logo */}
@@ -76,13 +86,10 @@ export function ParentNavigationRail() {
         </Link>
       </div>
 
-      {/* Logo → rail subtle divider */}
-      <div className="relative z-10 mx-3 shrink-0">
-        <div className="h-px bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.10)_50%,transparent_100%)]" />
-      </div>
+      <RailDivider />
 
-      {/* BODY — primary modules (tiny-stacked) + Tools overflow */}
-      <div className="relative z-10 flex-1 min-h-0 py-2 px-1.5 flex flex-col">
+      {/* BODY — primary modules + Tools section */}
+      <div className="relative z-10 flex-1 min-h-0 overflow-y-auto py-1.5 px-1.5">
         <div className="flex flex-col gap-0.5">
           {primary.map((mod) => (
             <RailItem
@@ -94,22 +101,30 @@ export function ParentNavigationRail() {
           ))}
         </div>
 
-        {/* Spacer pushes "More" toward the bottom of the body */}
-        <div className="flex-1" />
-
-        {/* Tools → "More" overflow popover */}
-        {overflow.length > 0 && (
-          <MoreOverflow
-            items={overflow}
-            isActive={overflowActive}
-            activeKey={activeKey}
-            onPick={handleClick}
-          />
+        {/* Tools section — divider above (matches logo→menu divider style) */}
+        {tools.length > 0 && (
+          <>
+            <div className="my-2">
+              <RailDivider />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {tools.map((mod) => (
+                <RailItem
+                  key={mod.key}
+                  mod={mod}
+                  isActive={activeKey === mod.key}
+                  onClick={() => handleClick(mod)}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      {/* FOOTER — utility items pinned bottom */}
-      <div className="relative z-10 flex flex-col items-center gap-1 py-2 shrink-0 border-t border-white/[0.06]">
+      {/* FOOTER — wrapped in `.dark` so NotificationBell + UserMenu CSS-var
+          colors (text-sidebar-foreground/60 etc.) resolve to dark-theme
+          values → light icons on dark rail, regardless of app theme. */}
+      <div className="relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0 border-t border-white/[0.08]">
         <NotificationBell compact />
         <UserMenu compact />
       </div>
@@ -118,8 +133,20 @@ export function ParentNavigationRail() {
 }
 
 /* ─────────────────────────────────────────────────────────
+ *  RailDivider — thin elegant divider used between logo+menu
+ *  AND between primary+tools sections (Maalik's "ek elegant
+ *  sa subtle divider rakh skte hai" pattern).
+ * ───────────────────────────────────────────────────────── */
+function RailDivider() {
+  return (
+    <div className="relative z-10 mx-3 shrink-0">
+      <div className="h-px bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.12)_50%,transparent_100%)]" />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
  *  RailItem — Pattern 4: tiny-stacked icon + label.
- *  ~36px tall cell. Active state: soft icon-tile bg + label color shift.
  * ───────────────────────────────────────────────────────── */
 function RailItem({
   mod,
@@ -140,13 +167,13 @@ function RailItem({
           aria-current={isActive ? "page" : undefined}
           className={cn(
             "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
-            isActive ? "" : "hover:bg-white/[0.04]"
+            isActive ? "" : "hover:bg-white/[0.05]"
           )}
         >
           <span
             className={cn(
               "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
-              isActive ? "bg-white/[0.10] ring-1 ring-white/[0.14]" : ""
+              isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : ""
             )}
           >
             <Icon className={cn("h-[14px] w-[14px]", isActive ? "text-white" : "text-zinc-300")} />
@@ -168,97 +195,5 @@ function RailItem({
         {mod.label}
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
- *  MoreOverflow — Pattern 3: TOOLS group collapsed into a popover
- *  triggered by a "More" icon. Active when any Tools module is current.
- * ───────────────────────────────────────────────────────── */
-function MoreOverflow({
-  items,
-  isActive,
-  activeKey,
-  onPick,
-}: {
-  items: ModuleDef[];
-  isActive: boolean;
-  activeKey: string | null;
-  onPick: (mod: ModuleDef) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-current={isActive ? "page" : undefined}
-          className={cn(
-            "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors mt-1",
-            "hover:bg-white/[0.04]"
-          )}
-        >
-          <span
-            className={cn(
-              "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
-              isActive ? "bg-white/[0.10] ring-1 ring-white/[0.14]" : ""
-            )}
-          >
-            <MoreHorizontal className={cn("h-[14px] w-[14px]", isActive ? "text-white" : "text-zinc-300")} />
-          </span>
-          <span
-            className={cn(
-              "text-[8.5px] leading-[10px] font-medium tracking-tight text-center line-clamp-1 max-w-full px-0.5 mt-0.5",
-              isActive ? "text-white" : "text-zinc-400"
-            )}
-          >
-            More
-          </span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="right"
-        align="end"
-        sideOffset={8}
-        className="w-52 p-1 bg-zinc-50 border-zinc-200/80"
-      >
-        <div className="px-2 py-1.5 mb-1 border-b border-zinc-200/70">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-            Tools
-          </p>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          {items.map((mod) => {
-            const Icon = mod.icon;
-            const active = activeKey === mod.key;
-            return (
-              <button
-                key={mod.key}
-                type="button"
-                onClick={() => {
-                  onPick(mod);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-left transition-colors",
-                  active
-                    ? "bg-zinc-900/[0.06] text-zinc-900 font-medium"
-                    : "text-zinc-700 hover:bg-zinc-900/[0.04] hover:text-zinc-900"
-                )}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-                <span className="flex-1 truncate">{mod.label}</span>
-                {mod.comingSoon && (
-                  <span className="text-[9px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 bg-zinc-900/[0.06] text-zinc-500">
-                    Soon
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
