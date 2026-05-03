@@ -367,33 +367,37 @@ function getTokens(variant: FabAdsNavVariant, isGenieRoute: boolean) {
   }
 
   // V7 ClickUp — narrow icon-rail with stacked labels under each icon.
-  // Dark gradient using OUR tokens (g6 surfaces, lime accent — NO purple).
-  // Active item: lime tile with dark icon. Notification badges where needed.
-  // Profile is at top via ProfileBlock (consistent with V5/V6 position).
+  // V7 ClickUp — A-9.8: full auto-theme (matches V1).
+  // Light mode = light bg + dark icons; dark mode = dark bg + light icons.
+  // Active = subtle foreground-tinted tile + ring + shadow (NOT pure white;
+  // that broke contrast on light theme). Layout: logo top, profile bottom
+  // (matches V1/V2/V3 — was wrong before per Maalik's "consistency" callout).
   if (variant === "clickup") {
     return {
       ...FLAG_DEFAULTS,
-      // Subtle vertical gradient using our deep neutrals (NOT plum/purple).
-      bg: "bg-[linear-gradient(180deg,#1a1c19_0%,#16181a_50%,#0e1010_100%)]",
-      cardBg: "bg-white/[0.03]",
-      border: "border-white/[0.06]",
-      borderFooter: "border-white/[0.05]",
-      text: "text-white/85",
-      textMuted: "text-white/40",
-      textSecondary: "text-white/60",
-      hoverBg: "hover:bg-white/[0.06]",
-      hoverText: "hover:text-white",
-      // Active = white tile with dark icon (ClickUp pattern, but with our colors)
-      activeBg: "bg-white",
-      activeText: "text-zinc-900 font-semibold",
-      activeIconBg: "bg-white",
-      activeBar: "bg-g6-primary",
-      searchBg: "bg-white/[0.10]",
-      searchBgHover: "hover:bg-white/[0.16]",
-      chipBg: "bg-white/[0.08]",
-      chipText: "text-white/55",
+      bg: "bg-background",                                  // theme-aware
+      cardBg: "bg-muted/40",
+      border: "border-border",
+      borderFooter: "border-border/50",
+      text: "text-foreground",
+      textMuted: "text-muted-foreground",
+      textSecondary: "text-foreground/75",
+      hoverBg: "hover:bg-accent/40",
+      hoverText: "hover:text-foreground",
+      // Active tile: subtle bg-fill (10-15% foreground) + ring on tile itself.
+      // Label weight does the heavy lifting for differentiation.
+      activeBg: "bg-zinc-900/8 dark:bg-white/10",
+      activeText: "text-foreground",
+      activeIconBg: "bg-zinc-900/8 dark:bg-white/10",
+      activeBar: "bg-g6-primary-active",
+      searchBg: "bg-accent/30",
+      searchBgHover: "hover:bg-accent/60",
+      chipBg: "bg-muted-foreground/15",
+      chipText: "text-muted-foreground",
       shape: "flush" as const,
-      profileBlock: true,
+      // Layout: NO profile-at-top (was wrong). Logo top + profile-cluster bottom
+      // is handled directly in ClickUpRail render — profileBlock flag stays false.
+      profileBlock: false,
       // Stripped chrome — labels under icons carry the meaning, no chevrons or dots
       showChevrons: false,
       showSubItemDots: false,
@@ -1069,12 +1073,14 @@ function ClickUpRail({
   pathname,
   tokens,
   onNavigate,
+  isDark,
 }: {
   groups: ReturnType<typeof groupedModules>;
   activeKey: string | null;
   pathname: string;
   tokens: NavTokens;
   onNavigate: (path: string) => void;
+  isDark: boolean;
 }) {
   // A-9.6: matches the EXPANDED ClickUp reference.
   // - Always-narrow 80px rail (icon + label stacked)
@@ -1089,7 +1095,13 @@ function ClickUpRail({
 
   return (
     <div className="hidden md:flex h-screen flex-shrink-0">
-      {/* Rail (always 80px) */}
+      {/* Rail (always 80px). A-9.8 layout matches V1/V2/V3:
+          • Top: logo + thin separator (sticky via shrink-0)
+          • Body: flat module list with subtle group spacing (no dividers).
+            overflow-y-auto kicks in only on small viewports.
+          • Bottom: bell + profile/variant-cycler cluster (sticky via shrink-0).
+          Coming-soon Tools (BG/Object Remover) hidden entirely from V7
+          per Maalik A-9.8 ("remove coming soon wale tools only"). */}
       <aside
         data-fabads-nav-variant="clickup"
         className={cn(
@@ -1098,25 +1110,23 @@ function ClickUpRail({
           tokens.border
         )}
       >
-        {/* Top action cluster — variant cycler + bell (matches V5/V6 position
-            consistency per Maalik A-9.6: "click-up wale version ka variant
-            switch toggle bhi uppr hi shift kro"). */}
-        <div className="flex flex-col items-center gap-1.5 pt-3 pb-2 shrink-0">
-          <ClickUpProfileBottom tokens={tokens} />
-          <NotificationBell compact />
+        {/* HEADER — logo (sticky via shrink-0) */}
+        <div className="flex items-center justify-center pt-3 pb-2 shrink-0">
+          <Link to="/dashboard" className="flex items-center justify-center">
+            <img src={isDark ? faviconDark : faviconLight} alt="FabAds" className="h-6 w-6" />
+          </Link>
         </div>
-        <div className={cn("mx-4 mb-2 border-t shrink-0", tokens.borderFooter)} />
+        <div className={cn("mx-4 mb-1.5 border-t shrink-0", tokens.borderFooter)} />
 
-        {/* Body — flat icon+label list with thin separators between groups */}
-        <div className="flex-1 min-h-0 overflow-y-auto pb-2">
-          {groups.map(({ group, modules }, gi) =>
-            modules.length === 0 ? null : (
-              <div key={group}>
-                {gi > 0 && (
-                  <div className={cn("mx-4 my-2 border-t", tokens.borderFooter)} />
-                )}
+        {/* BODY — flat list, scrolls if viewport is too small */}
+        <div className="flex-1 min-h-0 overflow-y-auto py-1">
+          {groups.map(({ group, modules }, gi) => {
+            const visibleMods = modules.filter((m) => !m.comingSoon);
+            if (visibleMods.length === 0) return null;
+            return (
+              <div key={group} className={gi > 0 ? "mt-2" : ""}>
                 <div className="flex flex-col gap-0.5 px-1">
-                  {modules.filter((m) => !m.comingSoon).map((mod) => (
+                  {visibleMods.map((mod) => (
                     <ClickUpRailItem
                       key={mod.key}
                       mod={mod}
@@ -1125,30 +1135,18 @@ function ClickUpRail({
                       onNavigate={onNavigate}
                     />
                   ))}
-                  {modules.some((m) => m.comingSoon) && (
-                    <div className="flex flex-wrap items-center justify-center gap-1 px-1 pt-1.5">
-                      {modules.filter((m) => m.comingSoon).map((mod) => (
-                        <span
-                          key={mod.key}
-                          className={cn(
-                            "inline-block rounded px-1 py-0.5 text-[8px] uppercase tracking-wider",
-                            tokens.chipBg, tokens.chipText, "select-none cursor-default"
-                          )}
-                          title={`${mod.label} · coming soon`}
-                        >
-                          {mod.label.split(" ")[0]}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
-            )
-          )}
+            );
+          })}
         </div>
 
-        {/* A-9.6: bottom cluster suppressed — variant cycler + bell moved to top
-            (consistency with V5/V6). Footer is just breathing space. */}
+        {/* FOOTER — bell + profile/variant-cycler (sticky via shrink-0).
+            Matches V1/V2/V3 footer-dock structure. */}
+        <div className={cn("flex flex-col items-center gap-1.5 py-3 border-t shrink-0", tokens.borderFooter)}>
+          <NotificationBell compact />
+          <ClickUpProfileBottom tokens={tokens} />
+        </div>
       </aside>
 
       {/* Detail panel — appears when active module has sub-items */}
@@ -1288,26 +1286,30 @@ function ClickUpRailItem({
       type="button"
       onClick={() => onNavigate(target)}
       className={cn(
-        "group/clickup flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors w-full",
-        isActive ? "" : cn("opacity-75", tokens.hoverBg, "hover:opacity-100")
+        "group/clickup flex flex-col items-center gap-0.5 rounded-md px-1 py-1 transition-colors w-full",
+        isActive ? "" : cn(tokens.hoverBg, "hover:opacity-100")
       )}
       title={mod.label}
     >
-      {/* Icon tile — only THIS gets the white-fill when active (matches ClickUp ref) */}
+      {/* Icon tile — A-9.8 polish: bg-fill + ring + subtle shadow when active.
+          Differentiates from inactive without overpowering the rail. */}
       <span
         className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+          "flex h-7 w-7 items-center justify-center rounded-md transition-all",
           isActive
-            ? cn(tokens.activeBg, tokens.activeText)
-            : cn(tokens.text)
+            ? cn(tokens.activeBg, "ring-1 ring-foreground/15 shadow-sm")
+            : ""
         )}
       >
-        <Icon className="h-4 w-4" />
+        <Icon className={cn("h-3.5 w-3.5", isActive ? tokens.text : tokens.textSecondary)} />
       </span>
+      {/* Label — semibold + foreground when active; medium + muted when inactive */}
       <span
         className={cn(
-          "text-[9px] font-medium leading-tight text-center line-clamp-1 max-w-full px-0.5",
-          isActive ? cn(tokens.text, "font-semibold") : tokens.textMuted
+          "text-[10px] leading-[12px] text-center line-clamp-1 max-w-full px-0.5 transition-colors",
+          isActive
+            ? cn(tokens.text, "font-semibold")
+            : cn(tokens.textMuted, "font-medium")
         )}
       >
         {mod.label}
@@ -1385,6 +1387,7 @@ export function AppSidebar() {
         pathname={pathname}
         tokens={tokens}
         onNavigate={handleNavigate}
+        isDark={isDark}
       />
     );
   }
