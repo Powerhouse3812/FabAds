@@ -52,17 +52,18 @@ export function SecondaryNavigationPanel() {
         "bg-zinc-50 text-zinc-900"
       )}
     >
-      {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon. */}
-      <header className="sticky top-0 z-10 shrink-0 bg-zinc-50 border-b border-zinc-200/70">
+      {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon.
+          Pre-body divider uses the same elegant gradient style as the rail's
+          logo→menu divider, just dark-tinted for the light surface (Maalik A-10.7). */}
+      <header className="sticky top-0 z-10 shrink-0 bg-zinc-50">
         <div className="flex items-center gap-2 px-3 py-2.5">
-          <ModuleIcon className="h-[15px] w-[15px] shrink-0 text-zinc-700" />
+          <ModuleIcon className="h-4 w-4 shrink-0 text-zinc-700" />
           <h2 className="flex-1 truncate text-[13px] font-semibold tracking-tight text-zinc-900">
             {activeMod.label}
           </h2>
-          {/* Genie variant cycler — single icon button (no segmented pill).
-              Cross-fades between Studio/Canvas/Command/Modular icons; click cycles. */}
           {isGenie && <GenieVariantCycler />}
         </div>
+        <PanelDivider />
       </header>
 
       {/* BODY — independently scrollable */}
@@ -99,6 +100,19 @@ export function SecondaryNavigationPanel() {
         )}
       </div>
     </aside>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  PanelDivider — elegant gradient line for the light surface.
+ *  Mirrors RailDivider's pattern but in zinc/dark-tinted alpha
+ *  (Maalik A-10.7: matching divider style across rail + panel).
+ * ───────────────────────────────────────────────────────── */
+function PanelDivider() {
+  return (
+    <div className="mx-3 shrink-0">
+      <div className="h-px bg-[linear-gradient(90deg,transparent_0%,rgba(0,0,0,0.10)_50%,transparent_100%)]" />
+    </div>
   );
 }
 

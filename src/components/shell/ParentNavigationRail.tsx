@@ -115,15 +115,17 @@ export function ParentNavigationRail() {
         )}
       </div>
 
+      {/* Pre-footer divider — same elegant gradient style as logo→menu divider
+          (Maalik A-10.7: "jaisa divider logo and menu ke beech me hai, waisa hi
+          profile wale section se phle"). */}
+      <RailDivider />
+
       {/* FOOTER — wrapped in `.dark` so CSS-vars resolve to dark-theme values
           (light icons on dark rail). Arbitrary [&_button] selectors force all
-          inner buttons to a consistent 36×36 centered box, fixing the
-          UserMenu/NotificationBell alignment mismatch Maalik flagged. */}
+          inner buttons to a consistent 36×36 centered box. */}
       <div
         className={cn(
           "relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0",
-          "border-t border-white/[0.08]",
-          // Force every inner button to 36×36, centered, no extra padding.
           "[&_button]:!w-9 [&_button]:!h-9 [&_button]:!p-0 [&_button]:!justify-center [&_button]:!flex [&_button]:!items-center"
         )}
       >
