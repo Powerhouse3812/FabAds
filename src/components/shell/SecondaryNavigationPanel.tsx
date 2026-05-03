@@ -53,22 +53,17 @@ export function SecondaryNavigationPanel() {
         "bg-zinc-50 ring-1 ring-zinc-200/70 text-zinc-900"
       )}
     >
-      {/* HEADER — sticky, compact. Title + (when Genie active) variant chips. */}
+      {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon. */}
       <header className="sticky top-0 z-10 shrink-0 bg-zinc-50 border-b border-zinc-200/70">
         <div className="flex items-center gap-2 px-3 py-2.5">
           <ModuleIcon className="h-[15px] w-[15px] shrink-0 text-zinc-700" />
           <h2 className="flex-1 truncate text-[13px] font-semibold tracking-tight text-zinc-900">
             {activeMod.label}
           </h2>
+          {/* Genie variant cycler — single icon button (no segmented pill).
+              Cross-fades between Studio/Canvas/Command/Modular icons; click cycles. */}
+          {isGenie && <GenieVariantCycler />}
         </div>
-        {/* Genie variant chips — only render when Genie is the active module.
-            Click cycles the variant; preserves existing variant state via
-            useGenie6Theme. */}
-        {isGenie && (
-          <div className="px-3 pb-2.5">
-            <GenieVariantChips />
-          </div>
-        )}
       </header>
 
       {/* BODY — independently scrollable */}
@@ -109,8 +104,9 @@ export function SecondaryNavigationPanel() {
 }
 
 /* ─────────────────────────────────────────────────────────
- *  GenieVariantChips — 4-segment pill, click cycles variant.
- *  Lives in the panel header when Genie is active.
+ *  GenieVariantCycler — single icon button. Click cycles through 4
+ *  Genie variants. Icon cross-fades to show the CURRENT variant.
+ *  Tooltip names current → next destination.
  * ───────────────────────────────────────────────────────── */
 const GENIE_VARIANTS: { key: GenieVariant; label: string; Icon: React.ElementType }[] = [
   { key: "studio",  label: "Studio",  Icon: Sparkles },
@@ -119,32 +115,38 @@ const GENIE_VARIANTS: { key: GenieVariant; label: string; Icon: React.ElementTyp
   { key: "modular", label: "Modular", Icon: Grid3x3 },
 ];
 
-function GenieVariantChips() {
+function GenieVariantCycler() {
   const { variant, setVariant } = useGenie6Theme();
+  const idx = GENIE_VARIANTS.findIndex((v) => v.key === variant);
+  const current = GENIE_VARIANTS[idx >= 0 ? idx : 0];
+  const next = GENIE_VARIANTS[(idx + 1) % GENIE_VARIANTS.length];
+  const tooltip = `Genie variant: ${current.label} → ${next.label}`;
+
   return (
-    <div className="flex w-full rounded-lg border border-zinc-200 bg-white p-0.5">
-      {GENIE_VARIANTS.map((o) => {
-        const active = variant === o.key;
-        const Icon = o.Icon;
+    <button
+      type="button"
+      onClick={() => setVariant(next.key)}
+      title={tooltip}
+      aria-label={tooltip}
+      className="relative flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-900/[0.06] transition-colors shrink-0"
+    >
+      {/* Cross-fade between 4 variant icons. Same animation grammar as
+          DarkModeToggleIcon (rotate + scale + fade). Only the active
+          variant's icon is visible at any moment. */}
+      {GENIE_VARIANTS.map((v) => {
+        const active = v.key === variant;
+        const Icon = v.Icon;
         return (
-          <button
-            key={o.key}
-            type="button"
-            onClick={() => setVariant(o.key)}
-            title={`Genie · ${o.label}`}
+          <Icon
+            key={v.key}
             className={cn(
-              "flex-1 inline-flex items-center justify-center gap-1 rounded-md py-1 text-[10px] font-semibold transition-colors",
-              active
-                ? "bg-zinc-900 text-white shadow-sm"
-                : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+              "h-4 w-4 absolute transition-all duration-300 ease-in-out",
+              active ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-45 scale-75"
             )}
-          >
-            <Icon className="h-3 w-3" />
-            <span>{o.label}</span>
-          </button>
+          />
         );
       })}
-    </div>
+    </button>
   );
 }
 
