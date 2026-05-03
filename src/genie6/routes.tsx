@@ -1,4 +1,5 @@
-import { Route } from "react-router-dom";
+import { Route, Navigate } from "react-router-dom";
+import { ProductPicker } from "./generate/ProductPicker";
 import { Genie6Bridge } from "./shell/Genie6Bridge";
 import { Home } from "./home/Home";
 import { OutputCardShowcase } from "./dev/OutputCardShowcase";
@@ -66,13 +67,19 @@ export const genie6Routes = (
     {/* Dev */}
     <Route path="_dev/output-card" element={<OutputCardShowcase />} />
 
-    {/* Generate */}
+    {/* Generate (A-10.1: single-picker flow — Product first, then Form).
+        Old ModePicker route kept under /generate/legacy for deep-link
+        backward-compat. */}
     <Route path="generate" element={<GenerateOutlet />}>
-      <Route index element={<ModePicker />} />
-      <Route path=":mode" element={<GenerateScaffold />} />
-      <Route path=":mode/form" element={<FormScaffold />} />
-      <Route path=":mode/progress/:batchId" element={<ProgressScreen />} />
-      <Route path=":mode/results/:batchId" element={<ResultsScreen />} />
+      <Route index element={<ProductPicker />} />
+      <Route path="product/:productId" element={<FormScaffold />} />
+      <Route path="product/:productId/progress/:batchId" element={<ProgressScreen />} />
+      <Route path="product/:productId/results/:batchId" element={<ResultsScreen />} />
+      {/* Legacy: old form route (/generate/:mode/form) → bounce to picker */}
+      <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate" replace />} />
+      {/* Legacy: ModePicker / GenerateScaffold kept under /legacy for any tests */}
+      <Route path="legacy" element={<ModePicker />} />
+      <Route path="legacy/:mode" element={<GenerateScaffold />} />
     </Route>
 
     {/* Guided tour — slide deck + walkthrough overlay */}

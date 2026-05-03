@@ -18,8 +18,10 @@ import type { ModeId } from "../../types/output";
  * footer. Sidebar right = mini-KPI strip showing batch impact (estimated ROAS,
  * cost, time to first variant).
  */
-export function CommandGenerateForm() {
-  const { mode } = useParams<{ mode: string }>();
+export function CommandGenerateForm({ mode: modeProp }: { mode?: string } = {}) {
+  // A-10.1: mode comes via prop from FormScaffold; useParams fallback for legacy deep-links.
+  const params = useParams<{ mode: string }>();
+  const mode = modeProp ?? params.mode;
   const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
   const [formMode] = useFormMode();

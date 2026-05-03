@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
-  Layers, FileText, Globe, Settings as SettingsIcon, Wand2,
+  Layers, FileText, Globe, Settings as SettingsIcon, Wand2, Sparkles,
 } from "lucide-react";
 import { brands, categories, products } from "@/mocks/shared";
 import type { Brand, Category, Product } from "@/genie6/types/entities";
@@ -456,14 +456,24 @@ function ProductSectionView({ productId, section }: { productId: string; section
     return (
       <div className="p-6 space-y-5 max-w-3xl">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-foreground">{prod.name}</h2>
             <p className="text-xs text-muted-foreground">
               {brand && (<Link to={`/catalogue/brands/${brand.id}`} className="hover:text-primary">{brand.name}</Link>)}
               {cat && (<> · <Link to={`/catalogue/categories/${cat.id}`} className="hover:text-primary">{cat.name}</Link></>)}
             </p>
           </div>
-          <p className="text-xl font-bold text-foreground font-mono">{prod.price}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            <p className="text-xl font-bold text-foreground font-mono">{prod.price}</p>
+            {/* A-10.1: catalogue → generate shortcut. Skips ProductPicker entirely. */}
+            <Link
+              to={`/iq/genie6/generate/product/${prod.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:scale-[1.02] active:scale-[0.99] transition-transform"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Generate ad
+            </Link>
+          </div>
         </div>
         {prod.promo && <Section title="Promo"><span className="inline-block rounded bg-primary/15 text-primary px-2 py-1 text-xs">{prod.promo}</span></Section>}
         <Section title="Benefits">

@@ -31,8 +31,10 @@ const MODULE_GROUPS: Array<{
   { id: "advanced_module", title: "Advanced", fieldTypes: ["references-panel", "prompt-override"] },
 ];
 
-export function ModularGenerateForm() {
-  const { mode } = useParams<{ mode: string }>();
+export function ModularGenerateForm({ mode: modeProp }: { mode?: string } = {}) {
+  // A-10.1: mode comes via prop from FormScaffold; useParams fallback for legacy deep-links.
+  const params = useParams<{ mode: string }>();
+  const mode = modeProp ?? params.mode;
   const { dispatch } = useDraft();
   const [formMode] = useFormMode();
 

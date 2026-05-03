@@ -23,8 +23,10 @@ import type { ModeId } from "../../types/output";
  * Floating panel:     current mode's params (slides in from left)
  * Bottom strip:       summary + Generate
  */
-export function CanvasGenerateForm() {
-  const { mode } = useParams<{ mode: string }>();
+export function CanvasGenerateForm({ mode: modeProp }: { mode?: string } = {}) {
+  // A-10.1: mode comes via prop from FormScaffold; useParams fallback for legacy deep-links.
+  const params = useParams<{ mode: string }>();
+  const mode = modeProp ?? params.mode;
   const navigate = useNavigate();
   const { draft, dispatch } = useDraft();
   const [panelOpen, setPanelOpen] = useState(true);

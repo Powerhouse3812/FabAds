@@ -32,8 +32,11 @@ const DIRECTION_FIELDS: Array<string> = ["audience-picker", "angle-picker", "ton
 const SETTINGS_FIELDS: Array<string> = ["output-type-picker", "format-picker", "count-picker"];
 const ADVANCED_FIELDS: Array<string> = ["references-panel", "prompt-override"];
 
-export function StudioGenerateForm() {
-  const { mode } = useParams<{ mode: string }>();
+export function StudioGenerateForm({ mode: modeProp }: { mode?: string } = {}) {
+  // A-10.1: mode now comes via prop (FormScaffold computes smart-default + handles
+  // ?mode= search param). useParams fallback retained only for legacy deep-links.
+  const params = useParams<{ mode: string }>();
+  const mode = modeProp ?? params.mode;
   const { draft, dispatch } = useDraft();
   const [formMode] = useFormMode();
 
