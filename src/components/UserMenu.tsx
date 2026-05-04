@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
-  Settings, Plug, Users, UserPlus,
+  Settings, Plug, Users, UserPlus, Check,
 } from "lucide-react";
 
 /**
@@ -27,7 +27,19 @@ import {
  *   A-10.12 — added V1-V7 nav variant picker (per "keep it inside the pop-over").
  *   A-10.13 — picker REMOVED. V1-V6 variants dropped from the codebase entirely;
  *             V7 (ClickUp Strict) is now the only shell, so a picker is meaningless.
+ *   A-10.14 — Active-client selector now ALWAYS visible just below the profile
+ *             section (per Maalik: "user kisi client ke andar hoga"). Was gated
+ *             on clients.length > 1; ungated. Dummy fallback added so an empty
+ *             Supabase response still shows one client by default.
  */
+
+/**
+ * Dummy fallback used when ClientContext returns an empty list (e.g. demo mode
+ * with no Supabase data). The active-client selector should never look empty —
+ * the user always operates inside SOME client context.
+ */
+const DUMMY_CLIENT = { id: "demo-client", name: "Idea Clan" } as const;
+
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const { user, role, signOut } = useAuth();
@@ -38,6 +50,13 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
 
   const initials = user.email?.slice(0, 2).toUpperCase() ?? "U";
   const isDark = resolvedTheme === "dark";
+
+  // Always render at least one client in the selector. If the real list is
+  // empty (demo mode / no Supabase clients), fall through to the dummy. The
+  // "active" determination falls through the same way.
+  const displayClients = clients.length > 0 ? clients : [DUMMY_CLIENT];
+  const displayActiveId = activeClient?.id ?? displayClients[0].id;
+  const displayActive = displayClients.find((c) => c.id === displayActiveId) ?? displayClients[0];
 
   return (
     <DropdownMenu>
@@ -51,9 +70,7 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           <>
             <div className="min-w-0 flex-1 text-left">
               <p className="text-xs font-medium truncate">{user.email?.split("@")[0]}</p>
-              {activeClient && (
-                <p className="text-[10px] text-muted-foreground truncate">{activeClient.name}</p>
-              )}
+              <p className="text-[10px] text-muted-foreground truncate">{displayActive.name}</p>
             </div>
             <ChevronsUpDown className="h-3 w-3 text-muted-foreground shrink-0" />
           </>
@@ -69,22 +86,32 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           </div>
         </DropdownMenuLabel>
 
-        {/* Client switcher (only if multiple clients) */}
-        {clients.length > 1 && (
-          <>
-            <DropdownMenuSeparator />
-            {clients.map((c) => (
-              <DropdownMenuItem
-                key={c.id}
-                onClick={() => setActiveClient(c.id)}
-                className={activeClient?.id === c.id ? "font-medium" : ""}
-              >
-                <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                <span className="truncate">{c.name}</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        )}
+        {/* Active-client selector — always visible (A-10.14).
+            User always operates inside a client context. If multiple clients
+            exist they all list here with a Check on the active one. If only
+            one (or zero — falls through to dummy) the row still shows so the
+            "active client" surface is never absent. */}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground py-1">
+          <span className="flex items-center gap-1.5">
+            <Building2 className="h-3 w-3" />
+            Active client
+          </span>
+        </DropdownMenuLabel>
+        {displayClients.map((c) => {
+          const isActive = displayActiveId === c.id;
+          return (
+            <DropdownMenuItem
+              key={c.id}
+              onClick={() => setActiveClient(c.id)}
+              className={isActive ? "font-medium" : ""}
+            >
+              <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <span className="flex-1 truncate text-xs">{c.name}</span>
+              {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+            </DropdownMenuItem>
+          );
+        })}
 
         {/* Account & system settings */}
         <DropdownMenuSeparator />
