@@ -139,11 +139,24 @@ function HomeZeroData() {
                 onClick + tabIndex={-1}. Hover description via title (P2-G4). */}
             {modeConfigs.map((cfg) => {
               const disabled = cfg.comingSoon === true;
+              // A-11.9: map legacy mode IDs to New Studio routes. Unknown modes
+              // fall back to the GenerateLanding picker.
+              const target = (() => {
+                switch (cfg.id) {
+                  case "brand-ad": return "/iq/genie6/generate/brand-ad";
+                  case "product-ad": return "/iq/genie6/generate/product-ad";
+                  case "affiliate-ad": return "/iq/genie6/generate/affiliate-ad";
+                  case "forge": return "/iq/genie6/generate/variation";
+                  case "ugc-video": return "/iq/genie6/generate/product-ad?output=video&preset=ugc-video";
+                  case "image-to-video": return "/iq/genie6/generate/product-ad?output=video";
+                  default: return "/iq/genie6/generate";
+                }
+              })();
               return (
                 <button
                   key={cfg.id}
                   type="button"
-                  onClick={disabled ? undefined : () => navigate(`/iq/genie6/generate/${cfg.id}`)}
+                  onClick={disabled ? undefined : () => navigate(target)}
                   disabled={disabled}
                   title={cfg.description}
                   aria-disabled={disabled}

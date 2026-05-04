@@ -116,23 +116,18 @@ export const genie6Routes = (
 );
 
 /* ─────────────────────────────────────────────────────────
- *  Placeholder for Type forms not yet built (B3-B6 fills them in).
- *  Renders a friendly "Coming in Phase {n}" message + back-link.
+ *  Phase B (A-11.1 → A-11.9) complete:
+ *    - All 4 Type CTAs (Brand / Product / Affiliate / Variation) wired with
+ *      Studio-prefixed forms.
+ *    - 2 Preset CTAs (Product Shoot / UGC Video) resolve via GateModal to a
+ *      Type form with locked pre-fills.
+ *    - Old Studio preserved fully under /generate-legacy/*.
+ *    - Catalogue's "Generate ad" CTA migrated to /generate/product-ad.
+ *  Out of scope (deferred to iter-8+):
+ *    - Home dashboard rebuild (Section 11.2)
+ *    - Workspace Finder rework (Section 11.3)
+ *    - Library 15-day rolling room
+ *    - Backend wiring (Quality Confidence, C2PA, real generation pipeline)
+ *    - Canvas/Command/Modular variants of the New Studio forms
+ *    - More-modes popover (Image-led / Brief-led / Content)
  * ───────────────────────────────────────────────────────── */
-function TypeFormPlaceholder({ type, phase }: { type: string; phase: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <h1 className="text-xl font-semibold text-foreground">{type}</h1>
-      <p className="text-sm text-muted-foreground max-w-md">
-        {type} form lands in <span className="font-mono">{phase}</span>. The route is reserved
-        — Gate modal already lands you here. Form scaffolding fills in next commit.
-      </p>
-      <a
-        href="/iq/genie6/generate"
-        className="text-xs text-primary underline-offset-2 hover:underline"
-      >
-        ← Back to picker
-      </a>
-    </div>
-  );
-}
