@@ -1,5 +1,4 @@
 import { Route, Navigate } from "react-router-dom";
-import { ProductPicker } from "./generate/ProductPicker";
 import { Genie6Bridge } from "./shell/Genie6Bridge";
 import { Home } from "./home/Home";
 import { OutputCardShowcase } from "./dev/OutputCardShowcase";
@@ -67,15 +66,18 @@ export const genie6Routes = (
     {/* Dev */}
     <Route path="_dev/output-card" element={<OutputCardShowcase />} />
 
-    {/* Generate (A-10.1: single-picker flow — Product first, then Form).
-        Old ModePicker route kept under /generate/legacy for deep-link
-        backward-compat. */}
+    {/* Generate (A-10.23: ProductPicker screen removed — /generate lands
+        DIRECTLY on the FormScaffold. Product / brand selection happens
+        inline via the form's existing brand-picker + product-picker fields.
+        Catalogue's "Generate" CTA still deep-links via /generate/product/:id
+        — FormScaffold handles both cases. Old ModePicker / GenerateScaffold
+        kept under /generate/legacy for any deep-link tests. */}
     <Route path="generate" element={<GenerateOutlet />}>
-      <Route index element={<ProductPicker />} />
+      <Route index element={<FormScaffold />} />
       <Route path="product/:productId" element={<FormScaffold />} />
       <Route path="product/:productId/progress/:batchId" element={<ProgressScreen />} />
       <Route path="product/:productId/results/:batchId" element={<ResultsScreen />} />
-      {/* Legacy: old form route (/generate/:mode/form) → bounce to picker */}
+      {/* Legacy: old form route (/generate/:mode/form) → bounce to /generate */}
       <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate" replace />} />
       {/* Legacy: ModePicker / GenerateScaffold kept under /legacy for any tests */}
       <Route path="legacy" element={<ModePicker />} />
