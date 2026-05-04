@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
   Layers, FileText, Globe, Settings as SettingsIcon, Wand2, Sparkles,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { brands, categories, products } from "@/mocks/shared";
 import type { Brand, Category, Product } from "@/genie6/types/entities";
 
@@ -42,6 +43,8 @@ const TYPE_CONFIG: Record<
 export function CatalogueFinder({ type }: { type: CatalogueType }) {
   const cfg = TYPE_CONFIG[type];
   const Icon = cfg.icon;
+  const [searchParams] = useSearchParams();
+  const isLoading = searchParams.get("loading") === "1";
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     if (type === "brands") return brands[0]?.id ?? null;
@@ -112,7 +115,9 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto py-1">
-            {items.length === 0 ? (
+            {isLoading ? (
+              <Pane1Skeleton />
+            ) : items.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground text-center">
                 No {cfg.label.toLowerCase()} match "{query}"
               </p>
@@ -128,34 +133,109 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         </aside>
 
         {/* PANE 2 — sections */}
-        {selectedId && (
+        {(isLoading || selectedId) && (
           <aside className="w-[280px] flex-shrink-0 border-r border-border flex flex-col">
-            <Pane2Sections
-              type={type}
-              selectedId={selectedId}
-              activeSection={section}
-              activeChildId={childId}
-              onSelectSection={handleSelectSection}
-              onSelectChild={(s, id) => {
-                setSection(s);
-                setChildId(id);
-              }}
-            />
+            {isLoading ? (
+              <Pane2Skeleton />
+            ) : (
+              <Pane2Sections
+                type={type}
+                selectedId={selectedId!}
+                activeSection={section}
+                activeChildId={childId}
+                onSelectSection={handleSelectSection}
+                onSelectChild={(s, id) => {
+                  setSection(s);
+                  setChildId(id);
+                }}
+              />
+            )}
           </aside>
         )}
 
         {/* PANE 3 — detail */}
         <main className="flex-1 overflow-y-auto bg-muted/10">
-          {selectedId && (
-            <Pane3Detail
-              type={type}
-              selectedId={selectedId}
-              section={section}
-              childId={childId}
-            />
+          {isLoading ? (
+            <Pane3Skeleton />
+          ) : (
+            selectedId && (
+              <Pane3Detail
+                type={type}
+                selectedId={selectedId}
+                section={section}
+                childId={childId}
+              />
+            )
           )}
         </main>
       </div>
+    </div>
+  );
+}
+
+/* ─── Pane skeletons (Phase C P2-C2) ─────────────────────────
+   `?loading=1` URL flag forces these — useful for stakeholder demos
+   and when CatalogueFinder is wired to async backend later (right
+   now `brands/categories/products` are sync mock imports).
+   Skeleton dimensions match the actual pane content so there's no
+   layout shift when data arrives.
+   ─────────────────────────────────────────────────────────── */
+function Pane1Skeleton() {
+  return (
+    <div className="flex flex-col">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="px-3 py-2 flex items-center gap-2.5">
+          <Skeleton className="h-6 w-6 rounded-md shrink-0" />
+          <div className="flex-1 min-w-0 space-y-1">
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-2.5 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Pane2Skeleton() {
+  return (
+    <div className="flex flex-col">
+      {/* Header strip */}
+      <div className="px-3 py-2 border-b border-border space-y-2">
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+      {/* Section rows */}
+      <div className="flex-1 overflow-y-auto py-1">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="px-3 py-2 flex items-center gap-2">
+            <Skeleton className="h-3.5 w-3.5 shrink-0 rounded" />
+            <Skeleton className="h-3 flex-1 max-w-[140px]" />
+            <Skeleton className="h-3 w-6" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Pane3Skeleton() {
+  return (
+    <div className="p-6 space-y-6 max-w-2xl">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-12 w-12 rounded-lg shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
+      </div>
+      {/* Body sections */}
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-16 w-full rounded-md" />
+        </div>
+      ))}
     </div>
   );
 }
