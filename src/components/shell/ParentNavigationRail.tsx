@@ -1,6 +1,4 @@
-import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
@@ -14,8 +12,6 @@ import {
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserMenu } from "@/components/UserMenu";
 import { useV7Shape } from "@/components/sidebar/useV7Shape";
-import { NavVariantPicker } from "@/components/sidebar/NavVariantPicker";
-import { useFabAdsNavVariant, VARIANT_META } from "@/components/sidebar/useFabAdsNavVariant";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
@@ -90,8 +86,10 @@ export function ParentNavigationRail() {
 
       <RailDivider />
 
-      {/* FOOTER — NotificationBell + UserMenu + main variant cycler chevron.
-          Wrapped in `.dark` so CSS-vars resolve to dark-theme values. */}
+      {/* FOOTER — NotificationBell + UserMenu (which now hosts the V1-V7
+          variant picker inside its dropdown per Maalik A-10.12: "keep it
+          inside the profile pop-over"). Wrapped in `.dark` so CSS-vars
+          resolve to dark-theme values for icons. */}
       <div
         className={cn(
           "relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0",
@@ -100,7 +98,6 @@ export function ParentNavigationRail() {
       >
         <NotificationBell compact />
         <UserMenu compact />
-        <MainVariantCyclerChevron />
       </div>
     </aside>
   );
@@ -133,38 +130,8 @@ function ShapeToggleLogo({ onCycle, shape }: { onCycle: () => void; shape: "floa
   );
 }
 
-/* ─────────────────────────────────────────────────────────
- *  MainVariantCyclerChevron — small chevron next to UserMenu in footer.
- *  Click opens NavVariantPicker (V1–V7 picker). Replaces the old
- *  logo-cycler behavior since the logo is now a shape toggle.
- * ───────────────────────────────────────────────────────── */
-function MainVariantCyclerChevron() {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const { variant } = useFabAdsNavVariant();
-  const meta = VARIANT_META[variant];
-  const tooltip = `Nav variant · ${meta.label} (${meta.index}/${Object.keys(VARIANT_META).length}) · Click to switch`;
-
-  return (
-    <NavVariantPicker
-      open={pickerOpen}
-      onOpenChange={setPickerOpen}
-      trigger={
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          aria-label={tooltip}
-          title={tooltip}
-          className="relative text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
-        >
-          <ChevronUp className="h-4 w-4" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full text-[7px] font-bold bg-g6-primary text-g6-text-on-accent leading-none">
-            {meta.index}
-          </span>
-        </button>
-      }
-    />
-  );
-}
+/* MainVariantCyclerChevron removed in A-10.12 — moved into UserMenu dropdown
+   per Maalik's "keep it inside the profile pop-over" call. */
 
 function RailDivider() {
   return (
