@@ -21,6 +21,7 @@ import { TourPresentation } from "./tour/TourPresentation";
 import { ProgressScreen } from "./generate-legacy/ProgressScreen";
 import { ResultsScreen } from "./generate-legacy/ResultsScreen";
 import { GenerateLanding } from "./generate-new/GenerateLanding";
+import { StudioBrandAdForm } from "./generate-new/forms/StudioBrandAdForm";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -95,7 +96,7 @@ export const genie6Routes = (
     <Route path="generate" element={<GenerateOutlet />}>
       <Route index element={<GenerateLanding />} />
       {/* Type-form placeholders — fill in during B3-B6 */}
-      <Route path="brand-ad" element={<TypeFormPlaceholder type="Brand Ad" phase="B3" />} />
+      <Route path="brand-ad" element={<StudioBrandAdForm />} />
       <Route path="product-ad" element={<TypeFormPlaceholder type="Product Ad" phase="B4" />} />
       <Route path="affiliate-ad" element={<TypeFormPlaceholder type="Affiliate Ad" phase="B5" />} />
       <Route path="variation" element={<TypeFormPlaceholder type="Variations" phase="B6" />} />
