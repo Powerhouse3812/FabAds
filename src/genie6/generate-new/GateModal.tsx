@@ -57,7 +57,9 @@ export function GateModal({ cta, open, onOpenChange }: GateModalProps) {
       navigate("/iq/genie6/generate/product-ad?output=product-shoot&preset=shoot");
     } else if (cta.id === "ugc-video") {
       // Form Specs §6: UGC Video preset → user-picked Type with Output=Video.
-      navigate(`/iq/genie6/generate/${ugcType}?output=video`);
+      // The `preset=ugc-video` marker lets the target form render a context
+      // badge so the user remembers which preset they entered through.
+      navigate(`/iq/genie6/generate/${ugcType}?output=video&preset=ugc-video`);
     } else {
       // Type CTA — direct route, gate just confirms.
       navigate(`/iq/genie6/generate/${cta.id}`);

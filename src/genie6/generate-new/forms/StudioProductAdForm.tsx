@@ -13,6 +13,7 @@ import { BrandPill } from "../fields/BrandPill";
 import { ProductMultiPicker } from "../fields/ProductMultiPicker";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
+import { PresetBadge, type PresetMarker } from "../fields/PresetBadge";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
 import {
@@ -95,7 +96,10 @@ export function StudioProductAdForm() {
     : undefined;
   const initialBrandId = initialProduct?.brandId ?? searchParams.get("brand");
   const initialOutput = (searchParams.get("output") as OutputType) || "whole-adcopy";
-  const isShootPreset = searchParams.get("preset") === "shoot";
+  const presetParam = searchParams.get("preset");
+  const isShootPreset = presetParam === "shoot";
+  const isUgcPreset = presetParam === "ugc-video";
+  const presetMarker: PresetMarker | null = isShootPreset ? "shoot" : isUgcPreset ? "ugc-video" : null;
 
   // ───────────── Top sticky state ─────────────
   const [brandId, setBrandId] = useState<string | null>(initialBrandId ?? null);
@@ -255,11 +259,7 @@ export function StudioProductAdForm() {
                 />
               </>
             )}
-            {isShootPreset && (
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-foreground">
-                Preset · Studio shoot
-              </span>
-            )}
+            {presetMarker && <PresetBadge preset={presetMarker} className="ml-auto" />}
           </div>
         </div>
       }

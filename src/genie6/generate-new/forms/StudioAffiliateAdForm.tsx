@@ -14,6 +14,7 @@ import { BrandPill } from "../fields/BrandPill";
 import { ProductMultiPicker } from "../fields/ProductMultiPicker";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
+import { PresetBadge } from "../fields/PresetBadge";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
 import {
@@ -83,6 +84,7 @@ export function StudioAffiliateAdForm() {
   // ───────────── Pre-fill from URL ─────────────
   const initialCategory = searchParams.get("category");
   const initialOutput = (searchParams.get("output") as OutputType) || "whole-adcopy";
+  const presetMarker = searchParams.get("preset"); // "ugc-video" when from UGC preset
 
   // ───────────── Top sticky state ─────────────
   const [categoryId, setCategoryId] = useState<string | null>(initialCategory);
@@ -218,6 +220,7 @@ export function StudioAffiliateAdForm() {
               <span className="text-base leading-none">⚙</span>
               Also generate as Product Ad
             </button>
+            {presetMarker === "ugc-video" && <PresetBadge preset="ugc-video" />}
           </div>
           {alsoProductAd && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2">

@@ -10,6 +10,7 @@ import { IndustryInsightsAnchor } from "../IndustryInsightsAnchor";
 import { BrandPill } from "../fields/BrandPill";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
+import { PresetBadge } from "../fields/PresetBadge";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
 import {
@@ -79,6 +80,7 @@ export function StudioBrandAdForm() {
   const initialOutput = (searchParams.get("output") as OutputType) || "whole-adcopy";
   const [output, setOutput] = useState<OutputType>(initialOutput);
   const [imageFormat, setImageFormat] = useState<ImageFormat>("static");
+  const presetMarker = searchParams.get("preset"); // "ugc-video" when from UGC preset
 
   // ───────────── Body state ─────────────
   const [references, setReferences] = useState<PromptBarReference[]>([]);
@@ -166,6 +168,9 @@ export function StudioBrandAdForm() {
                 options={IMAGE_FORMAT_OPTIONS}
               />
             </>
+          )}
+          {presetMarker === "ugc-video" && (
+            <PresetBadge preset="ugc-video" className="ml-auto" />
           )}
         </div>
       }
