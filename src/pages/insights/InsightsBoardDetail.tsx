@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { EditBoardModal } from "@/components/insights/EditBoardModal";
 import { MoveToInsightBoardModal } from "@/components/insights/MoveToInsightBoardModal";
-import { ArrowLeft, Trash2, ListPlus, Pencil, FolderInput, CheckSquare, XSquare, StickyNote } from "lucide-react";
+import { InsightAdGridSkeleton } from "@/components/insights/InsightAdGridSkeleton";
+import { ArrowLeft, Trash2, ListPlus, Pencil, FolderInput, CheckSquare, XSquare, StickyNote, Bookmark, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,23 +82,72 @@ export default function InsightsBoardDetail() {
         </div>
       </div>
 
-      {/* Bulk toolbar */}
+      {/* Bulk toolbar — Phase C P1-I5: each mutation now disables its
+          button while pending and renders an inline spinner so the user
+          knows the click registered. Was: clicks during pending looked
+          unresponsive, users would re-click and accidentally queue twice. */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <Button variant="outline" size="sm" onClick={selectAll}><CheckSquare className="h-3.5 w-3.5 mr-1" /> All</Button>
           <Button variant="outline" size="sm" onClick={deselectAll}><XSquare className="h-3.5 w-3.5 mr-1" /> None</Button>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={handleBulkQueue}><ListPlus className="h-3.5 w-3.5 mr-1" /> Queue</Button>
-          <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)}><FolderInput className="h-3.5 w-3.5 mr-1" /> Move</Button>
-          <Button variant="destructive" size="sm" onClick={handleBulkRemove}><Trash2 className="h-3.5 w-3.5 mr-1" /> Remove</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkQueue}
+            disabled={bulkAddToQueue.isPending}
+          >
+            {bulkAddToQueue.isPending
+              ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              : <ListPlus className="h-3.5 w-3.5 mr-1" />}
+            Queue
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setMoveOpen(true)}
+            disabled={bulkRemove.isPending || bulkAddToQueue.isPending}
+          >
+            <FolderInput className="h-3.5 w-3.5 mr-1" />
+            Move
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkRemove}
+            disabled={bulkRemove.isPending}
+          >
+            {bulkRemove.isPending
+              ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+            Remove
+          </Button>
         </div>
       )}
 
       {isLoading ? (
-        <p className="text-muted-foreground">Loading...</p>
+        /* Phase C P1-I1 (carried into BoardDetail): real skeleton instead
+           of the bare "Loading..." text. Matches the actual grid layout. */
+        <InsightAdGridSkeleton count={8} />
       ) : items.length === 0 ? (
-        <p className="text-center py-16 text-muted-foreground">No items in this board yet.</p>
+        /* Phase C P1-I2: zero-data state was just a centered text line.
+           Now: icon + supportive copy + actionable CTA back to Discover so
+           the user has a clear next step. */
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Bookmark className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-1 max-w-sm">
+            <p className="font-medium">No items in this board yet</p>
+            <p className="text-sm text-muted-foreground">
+              Save ads from Discover or your Feed and they'll show up here.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => navigate("/insights/discover")}>
+            Browse Discover
+          </Button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
           {items.map((item: any) => (

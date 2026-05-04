@@ -116,11 +116,34 @@ export function SavedAdsTab() {
 
       {/* Grid */}
       {filtered.length === 0 ? (
+        /* Phase C P1-I3: dual empty-state preserves filter context. Was a
+           single message that lost the "filters too narrow" affordance after
+           the user had filtered down from a populated set to zero. */
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Bookmark className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-muted-foreground">
-            {savedAds.length === 0 ? "No saved ads yet. Save ads from your feed to see them here." : "No ads match your filters."}
-          </p>
+          {savedAds.length === 0 ? (
+            <>
+              <p className="text-muted-foreground text-center max-w-sm">
+                No saved ads yet. Save ads from Discover or Feed and they'll appear here.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-muted-foreground text-center max-w-sm">
+                No saved ads match your filters. Clear filters to see all {savedAds.length} saved ads.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearch("");
+                  setPlatformFilter("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">

@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 import { InsightAdCard } from "@/components/insights/InsightAdCard";
+import { InsightAdGridSkeleton } from "@/components/insights/InsightAdGridSkeleton";
 import { InsightsFilterBar, DEFAULT_FILTERS, type InsightsFilters } from "@/components/insights/InsightsFilterBar";
 import { InsightsPagination } from "@/components/insights/InsightsPagination";
 import { InsightAdDetailDrawer } from "@/components/insights/InsightAdDetailDrawer";
@@ -14,12 +16,25 @@ import { Search } from "lucide-react";
 import { toast } from "sonner";
 import type { InsightAd } from "@/lib/insights-dummy-data";
 
+/**
+ * InsightsFeed — personalized ads stream filtered by user preferences
+ * (industries + followed brands).
+ *
+ * Phase C P1-I1: real loading skeleton wired in. Two trigger sources:
+ *   - useInsightPreferences().isLoading — natural loading signal during
+ *     the actual preferences fetch (was previously rendering an "empty"
+ *     state during the fetch window).
+ *   - `?loading=1` URL flag — manual trigger for stakeholder demos.
+ */
+
 interface InsightsFeedProps {
   prefsOpen?: boolean;
   onPrefsClose?: () => void;
 }
 
 export default function InsightsFeed({ prefsOpen, onPrefsClose }: InsightsFeedProps) {
+  const [searchParams] = useSearchParams();
+  const forceLoading = searchParams.get("loading") === "1";
   const { preferences, isLoading, followedBrands, toggleFollowBrand } = useInsightPreferences();
   const { data: savedAdIds } = useSavedAdIds();
   const { addBrandToCompetitors, addPageToCompetitors } = useInsightCompetitors();
@@ -67,7 +82,9 @@ export default function InsightsFeed({ prefsOpen, onPrefsClose }: InsightsFeedPr
     <div className="space-y-3 h-full flex flex-col overflow-x-hidden w-full max-w-full">
       <InsightsFilterBar filters={filters} onChange={setFilters} showTrending />
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {paginated.length === 0 ? (
+        {forceLoading || isLoading ? (
+          <InsightAdGridSkeleton count={perPage} />
+        ) : paginated.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Search className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-muted-foreground">{showOnboarding ? "Set up your preferences to see personalized ads." : "No ads match your filters."}</p>

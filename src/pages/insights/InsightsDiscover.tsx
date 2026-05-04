@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 import { InsightAdCard } from "@/components/insights/InsightAdCard";
+import { InsightAdGridSkeleton } from "@/components/insights/InsightAdGridSkeleton";
 import { InsightsFilterBar, DEFAULT_FILTERS, type InsightsFilters } from "@/components/insights/InsightsFilterBar";
 import { InsightsPagination } from "@/components/insights/InsightsPagination";
 import { InsightAdDetailDrawer } from "@/components/insights/InsightAdDetailDrawer";
@@ -12,7 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import type { InsightAd } from "@/lib/insights-dummy-data";
 
+/**
+ * InsightsDiscover — paginated grid of all ads, filterable + searchable.
+ *
+ * Phase C P1-I1: `?loading=1` URL flag forces the InsightAdGridSkeleton so
+ * stakeholder demos can preview the loading state. When DUMMY_ADS is replaced
+ * by an async fetch, this same skeleton becomes the natural loading state.
+ */
 export default function InsightsDiscover() {
+  const [searchParams] = useSearchParams();
+  const isLoading = searchParams.get("loading") === "1";
   const { data: savedAdIds } = useSavedAdIds();
   const { addBrandToCompetitors, addPageToCompetitors } = useInsightCompetitors();
   const [filters, setFilters] = useState<InsightsFilters>(DEFAULT_FILTERS);
@@ -54,7 +65,9 @@ export default function InsightsDiscover() {
       </Tabs>
       <InsightsFilterBar filters={filters} onChange={setFilters} showTrending={tab === "all"} />
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {paginated.length === 0 ? (
+        {isLoading ? (
+          <InsightAdGridSkeleton count={perPage} />
+        ) : paginated.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Search className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-muted-foreground">No ads match your filters.</p>
