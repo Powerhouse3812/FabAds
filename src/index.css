@@ -191,3 +191,29 @@ All colors MUST be HSL.
    — the orb backdrop now renders INSIDE the aside (clipped by aside's
    overflow-hidden), eliminating the gradient-bleed-as-shadow artifact
    outside the nav. See AppSidebar.tsx → tokens.internalOrbs. */
+
+/* ──────────────────────────────────────────────────────────────────────
+   iter-6 A-10.10: V7 ClickUp Strict — strip Genie variant page-level
+   card chrome inside the V7 merged shell.
+
+   Genie variant pages (StudioHome / CanvasHome / CommandHome / ModularHome
+   / StudioWorkspace / etc.) render with their own outer
+   `rounded-g6-card border border-g6-border-secondary bg-g6-bg-container`
+   wrappers. When those sit inside V7's already-floating white merged
+   shell, they look like an "extra container with gradient tint" — Maalik
+   flagged this as the visible inner outline.
+
+   This rule scopes the override to V7 only (variant=clickup) and only
+   the FIRST-LEVEL main/aside cards inside Genie pages — preserves inner
+   nested cards (KPI tiles, output cards, etc.) which still need their
+   own chrome.
+   ────────────────────────────────────────────────────────────────────── */
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div > main.rounded-g6-card,
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div > aside.rounded-g6-card,
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div.grid > main,
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div.grid > aside {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}

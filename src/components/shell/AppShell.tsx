@@ -70,11 +70,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Main content zone — children = routed <Outlet />.
-            Force bg-white so any page-level background override doesn't
-            bleed differently from the shell's bg (Maalik A-10.9 fix:
-            visible color seam between sub-nav zone and main was caused by
-            page-level wrappers setting their own bg). */}
-        <main className="flex-1 min-w-0 overflow-auto bg-white">
+            data-attr enables scoped CSS overrides to strip Genie variant
+            page-level card chrome (A-10.10 fix: the "extra container with
+            gradient tint" Maalik flagged was Studio/Canvas/Command/Modular
+            home pages' own outer rounded-g6-card wrappers). */}
+        <main
+          data-fabads-shell-main="v7"
+          className="flex-1 min-w-0 overflow-auto bg-white"
+        >
           {children}
         </main>
       </div>
