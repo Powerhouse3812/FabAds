@@ -26,7 +26,7 @@ import {
 import { brands as sharedBrands } from "@/genie6/mocks/brands";
 import { BrandLogo } from "@/genie6/components/BrandLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppShell } from "@/components/shell/AppShell";
+// AppShell is now mounted by AppLayout directly for V7 (A-10.8) — see AppLayout.tsx
 import {
   useFabAdsNavVariant,
   VARIANT_META,
@@ -1382,8 +1382,11 @@ export function AppSidebar() {
   // guide lines). Lives under @/components/shell/. Existing nav data
   // (MODULES + active-state derivation) flows in via the leaf components —
   // no hardcoded nav arrays.
+  // V7 ClickUp Strict — A-10.8: layout for V7 is owned by AppLayout (which
+  // renders <AppShell>{Outlet}</AppShell> directly, since main content lives
+  // INSIDE the merged shell). AppSidebar is not called for V7.
   if (isClickUp) {
-    return <AppShell />;
+    return null;
   }
 
   // Width per variant. New glass variants get extra width to fit the profile

@@ -45,17 +45,16 @@ export function SecondaryNavigationPanel() {
     <aside
       data-fabads-nav-panel="secondary"
       className={cn(
-        "hidden md:flex w-[244px] shrink-0 flex-col overflow-hidden",
-        // Floating: m-2 + rounded-2xl + shadow + ring (A-10.6 revert).
-        "my-2 ml-1 mr-2 rounded-2xl shadow-lg ring-1 ring-zinc-200/70",
-        "h-[calc(100vh-1rem)]",
-        "bg-zinc-50 text-zinc-900"
+        // A-10.8: flush inside the merged shell (no self-floating chrome).
+        // Same cream bg as the shell — single visual surface, divider does
+        // the separation.
+        "flex w-[240px] shrink-0 flex-col overflow-hidden bg-[#faf8f3] text-zinc-900"
       )}
     >
       {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon.
           Pre-body divider uses the same elegant gradient style as the rail's
           logo→menu divider, just dark-tinted for the light surface (Maalik A-10.7). */}
-      <header className="sticky top-0 z-10 shrink-0 bg-zinc-50">
+      <header className="sticky top-0 z-10 shrink-0 bg-[#faf8f3]">
         <div className="flex items-center gap-2 px-3 py-2.5">
           <ModuleIcon className="h-4 w-4 shrink-0 text-zinc-700" />
           <h2 className="flex-1 truncate text-[13px] font-semibold tracking-tight text-zinc-900">
