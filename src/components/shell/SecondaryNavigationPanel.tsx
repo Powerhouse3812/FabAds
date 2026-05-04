@@ -48,13 +48,13 @@ export function SecondaryNavigationPanel() {
         // A-10.8: flush inside the merged shell (no self-floating chrome).
         // Same cream bg as the shell — single visual surface, divider does
         // the separation.
-        "flex w-[240px] shrink-0 flex-col overflow-hidden bg-[#faf8f3] text-zinc-900"
+        "flex w-[240px] shrink-0 flex-col overflow-hidden bg-white text-zinc-900"
       )}
     >
       {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon.
           Pre-body divider uses the same elegant gradient style as the rail's
           logo→menu divider, just dark-tinted for the light surface (Maalik A-10.7). */}
-      <header className="sticky top-0 z-10 shrink-0 bg-[#faf8f3]">
+      <header className="sticky top-0 z-10 shrink-0 bg-white">
         <div className="flex items-center gap-2 px-3 py-2.5">
           <ModuleIcon className="h-4 w-4 shrink-0 text-zinc-700" />
           <h2 className="flex-1 truncate text-[13px] font-semibold tracking-tight text-zinc-900">

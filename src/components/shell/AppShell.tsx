@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           "relative hidden md:flex flex-1 min-w-0 overflow-hidden",
           "my-2 ml-1 mr-2 rounded-2xl shadow-lg ring-1 ring-zinc-200/70",
           "h-[calc(100vh-1rem)]",
-          "bg-[#faf8f3]"
+          "bg-white"
         )}
       >
         {/* Sub-nav zone — flush, no self-floating chrome */}
@@ -69,8 +69,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        {/* Main content zone — children = routed <Outlet /> */}
-        <main className="flex-1 min-w-0 overflow-auto">
+        {/* Main content zone — children = routed <Outlet />.
+            Force bg-white so any page-level background override doesn't
+            bleed differently from the shell's bg (Maalik A-10.9 fix:
+            visible color seam between sub-nav zone and main was caused by
+            page-level wrappers setting their own bg). */}
+        <main className="flex-1 min-w-0 overflow-auto bg-white">
           {children}
         </main>
       </div>
