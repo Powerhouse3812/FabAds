@@ -86,14 +86,20 @@ export function ParentNavigationRail() {
 
       <RailDivider />
 
-      {/* FOOTER — NotificationBell + UserMenu (which now hosts the V1-V7
-          variant picker inside its dropdown per Maalik A-10.12: "keep it
-          inside the profile pop-over"). Wrapped in `.dark` so CSS-vars
-          resolve to dark-theme values for icons. */}
+      {/* FOOTER — NotificationBell + UserMenu trigger.
+          A-10.12 history: variant picker moved into UserMenu dropdown.
+          A-10.13 history: V1-V6 dropped, picker removed; UserMenu is just profile now.
+          A-10.15 (this commit): explicit lime focus-ring on every button inside
+          the rail footer — the default `--ring` token resolves to a low-contrast
+          zinc-grey when the .dark class is applied, leaving keyboard focus
+          invisible against the lime-tinted dark rail background (WCAG 1.4.11).
+          The descendant-selector approach catches NotificationBell + UserMenu
+          triggers without needing to edit those components. */}
       <div
         className={cn(
           "relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0",
-          "[&_button]:!w-9 [&_button]:!h-9 [&_button]:!p-0 [&_button]:!justify-center [&_button]:!flex [&_button]:!items-center"
+          "[&_button]:!w-9 [&_button]:!h-9 [&_button]:!p-0 [&_button]:!justify-center [&_button]:!flex [&_button]:!items-center",
+          "[&_button]:focus-visible:!ring-2 [&_button]:focus-visible:!ring-[#c3eb42] [&_button]:focus-visible:!ring-offset-2 [&_button]:focus-visible:!ring-offset-[hsl(80_15%_8%)]"
         )}
       >
         <NotificationBell compact />
@@ -118,7 +124,7 @@ function ShapeToggleLogo({ onCycle, shape }: { onCycle: () => void; shape: "floa
           onClick={onCycle}
           aria-label={tooltip}
           title={tooltip}
-          className="relative z-10 flex items-center justify-center h-12 shrink-0 hover:bg-white/[0.04] transition-colors"
+          className="relative z-10 flex items-center justify-center h-12 shrink-0 hover:bg-white/[0.04] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)] focus-visible:rounded-md"
         >
           <img src={faviconDark} alt="FabAds" className="h-6 w-6" />
         </button>
@@ -152,6 +158,7 @@ function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolea
           aria-current={isActive ? "page" : undefined}
           className={cn(
             "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
+            "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
             isActive ? "" : "hover:bg-white/[0.05]"
           )}
         >

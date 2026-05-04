@@ -101,6 +101,20 @@ export function FormScaffold() {
 /* ─────────────────────────────────────────────────────────
  *  ModeSwitcherChips — inline mode picker at top of form.
  *  Compact, scrollable on narrow viewports.
+ *
+ *  A-10.16:
+ *    - Active state used to be color-only (bg-g6-primary fill). Audit P0-3
+ *      flagged WCAG 1.4.1 (Use of Color) — colorblind / glare-condition users
+ *      couldn't tell which mode was selected, would generate the wrong
+ *      pipeline + waste a credit.
+ *    - Now: two-tone pill ("bullseye"). Lime fill + 1.5px lime ring with a
+ *      2px white gap = distinct SHAPE, not just color. Active label also
+ *      bolds (font-medium) — second non-color cue.
+ *    - Focus-visible ring is foreground/40 with 1px offset so keyboard focus
+ *      is visible on inactive chips without competing with the active ring.
+ *    - Tokens rolling-unified: g6-primary → primary, g6-text-on-accent →
+ *      primary-foreground, g6-bg-spotlight/text-text-secondary → accent /
+ *      muted-foreground, rounded-g6-pill → rounded-full, text-g6-xs → text-xs.
  * ───────────────────────────────────────────────────────── */
 function ModeSwitcherChips({
   mode,
@@ -119,11 +133,13 @@ function ModeSwitcherChips({
             type="button"
             onClick={() => onChange(cfg.id)}
             title={cfg.description ?? cfg.label}
+            aria-pressed={active}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-g6-pill px-2 py-1 text-g6-xs whitespace-nowrap transition-colors",
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs whitespace-nowrap transition-all",
+              "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               active
-                ? "bg-g6-primary text-g6-text-on-accent shadow-sm"
-                : "text-g6-text-secondary hover:bg-g6-bg-spotlight/50 hover:text-g6-text"
+                ? "bg-primary text-primary-foreground ring-[1.5px] ring-primary ring-offset-2 ring-offset-background shadow-sm font-medium"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
             <MicroMotif mode={cfg.id} size={12} />
