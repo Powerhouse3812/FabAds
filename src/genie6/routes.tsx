@@ -24,6 +24,7 @@ import { GenerateLanding } from "./generate-new/GenerateLanding";
 import { StudioBrandAdForm } from "./generate-new/forms/StudioBrandAdForm";
 import { StudioProductAdForm } from "./generate-new/forms/StudioProductAdForm";
 import { StudioAffiliateAdForm } from "./generate-new/forms/StudioAffiliateAdForm";
+import { StudioVariationForm } from "./generate-new/forms/StudioVariationForm";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -101,7 +102,7 @@ export const genie6Routes = (
       <Route path="brand-ad" element={<StudioBrandAdForm />} />
       <Route path="product-ad" element={<StudioProductAdForm />} />
       <Route path="affiliate-ad" element={<StudioAffiliateAdForm />} />
-      <Route path="variation" element={<TypeFormPlaceholder type="Variations" phase="B6" />} />
+      <Route path="variation" element={<StudioVariationForm />} />
       {/* Backward-compat for Old Studio deep-links (until B4 cleanup) */}
       <Route path="product/:productId" element={<Navigate to="/iq/genie6/generate-legacy" replace />} />
       <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate" replace />} />
