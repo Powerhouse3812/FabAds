@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate, Navigate } from "react-router-dom";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
 import { StudioGenerateForm } from "../variants/studio/StudioGenerateForm";
@@ -11,7 +11,7 @@ import { modeConfigs } from "./modeConfigs";
 import type { ModeId } from "../types/output";
 import { MicroMotif } from "../components/MicroMotif";
 import { cn } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 
 /**
  * FormScaffold — A-10.1 single-picker entry.
@@ -47,6 +47,28 @@ export function FormScaffold() {
     [brand, product]
   );
   const mode: ModeId = modeParam ?? defaultedMode;
+  const isSmartDefault = !modeParam; // user hasn't overridden yet
+  // Phase E: Esc-to-back keyboard shortcut. Standard "back to context"
+  // pattern (Linear, Notion, Figma) — Esc on a leaf returns to its parent.
+  useEffect(() => {
+    if (!product) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        // Don't hijack Esc when an input/textarea/contenteditable has focus.
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target?.isContentEditable
+        ) return;
+        navigate(`/iq/genie6/generate?brand=${product.brandId}`);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [product, navigate]);
 
   // Bad URL: no product or product not found → bounce back to picker
   if (!productId || !product) {
@@ -63,24 +85,71 @@ export function FormScaffold() {
     navigate(`/iq/genie6/generate?brand=${product.brandId}`);
   };
 
+  const onClickBrandChip = () => {
+    // Brand chip → picker pre-filtered to this brand (drops the search if any).
+    navigate(`/iq/genie6/generate?brand=${product.brandId}`);
+  };
+
+  const onClickProductChip = () => {
+    // Product chip → picker (no filter pre-applied so the user can pick a
+    // different product easily). Uses the brand filter so context is preserved.
+    navigate(`/iq/genie6/generate?brand=${product.brandId}`);
+  };
+
+  const activeModeLabel = modeConfigs.find((c) => c.id === mode)?.label ?? mode;
+
   return (
     <div className="flex h-full flex-col">
-      {/* Top strip: back link + brand/product chips + mode switcher */}
+      {/* Top strip: back link + brand/product chips + mode switcher.
+          Phase E (A-10.22) polish:
+          - Brand + product chips are now clickable buttons that route back
+            to the picker with brand context preserved.
+          - Smart-default mode shows a Sparkles badge so the user understands
+            why a specific mode is highlighted (and that they can change it).
+          - Esc keyboard shortcut → back to picker (skipped when an input is
+            focused so it doesn't hijack form typing).
+          - aria-labels on every interactive element. */}
       <header className="shrink-0 flex items-center gap-3 border-b border-g6-border-secondary bg-g6-bg-base px-4 py-2">
         <button
           type="button"
           onClick={onBackToPicker}
-          className="inline-flex items-center gap-1 text-g6-xs text-g6-text-tertiary hover:text-g6-text transition-colors"
-          title="Back to product picker"
+          aria-label="Back to product picker (Esc)"
+          title="Back to product picker · Esc"
+          className="inline-flex items-center gap-1 text-g6-xs text-g6-text-tertiary hover:text-g6-text transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:rounded"
         >
           <ArrowLeft className="h-3 w-3" /> Back
         </button>
-        <div className="flex items-center gap-1.5 text-g6-xs">
-          {brand?.logo && <img src={brand.logo} alt="" className="h-4 w-4 rounded-sm" />}
-          <span className="text-g6-text-secondary">{brand?.name}</span>
-          <span className="text-g6-text-tertiary">·</span>
-          <span className="text-g6-text font-medium truncate max-w-[260px]">{product.name}</span>
+        <div className="flex items-center gap-1 text-g6-xs">
+          <button
+            type="button"
+            onClick={onClickBrandChip}
+            aria-label={`Switch brand from ${brand?.name ?? "this"}`}
+            title={`Switch brand from ${brand?.name ?? "this"}`}
+            className="inline-flex items-center gap-1.5 rounded-g6-base px-1.5 py-0.5 hover:bg-g6-bg-spotlight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+          >
+            {brand?.logo && <img src={brand.logo} alt="" className="h-4 w-4 rounded-sm" />}
+            <span className="text-g6-text-secondary">{brand?.name}</span>
+          </button>
+          <span className="text-g6-text-tertiary">/</span>
+          <button
+            type="button"
+            onClick={onClickProductChip}
+            aria-label={`Change product from ${product.name}`}
+            title={`Change product · current: ${product.name}`}
+            className="inline-flex items-center rounded-g6-base px-1.5 py-0.5 hover:bg-g6-bg-spotlight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+          >
+            <span className="text-g6-text font-medium truncate max-w-[260px]">{product.name}</span>
+          </button>
         </div>
+        {isSmartDefault && (
+          <span
+            title={`Smart default — picked based on this product. Click another mode to override.`}
+            className="inline-flex items-center gap-1 rounded-full border border-g6-border-secondary bg-g6-bg-container px-2 py-0.5 text-[10px] font-medium text-g6-text-secondary"
+          >
+            <Sparkles className="h-2.5 w-2.5" />
+            <span className="font-g6-mono uppercase tracking-wider">Smart: {activeModeLabel}</span>
+          </span>
+        )}
         <div className="flex-1" />
         <ModeSwitcherChips mode={mode} onChange={onChangeMode} />
       </header>
