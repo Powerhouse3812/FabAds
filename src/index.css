@@ -217,3 +217,17 @@ html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div.grid
   border-radius: 0 !important;
   box-shadow: none !important;
 }
+
+/* iter-6 A-10.11: also strip the Genie page outer grid wrapper's padding +
+   gap so the inner content sits flush with the V7 shell's edges (no
+   residual visible "extra container" feel even after card chrome is gone). */
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div.grid {
+  padding: 0 !important;
+  gap: 0 !important;
+  height: 100% !important;
+}
+/* Reduce inner card padding too — Genie main/aside use p-6 / p-3 inside */
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div.grid > main,
+html[data-fabads-nav-variant="clickup"] [data-fabads-shell-main="v7"] > div.grid > aside {
+  padding: 1.25rem !important;
+}

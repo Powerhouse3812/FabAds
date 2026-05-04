@@ -1,4 +1,6 @@
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ChevronUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
@@ -11,29 +13,27 @@ import {
 } from "@/components/sidebar/modules";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserMenu } from "@/components/UserMenu";
+import { useV7Shape } from "@/components/sidebar/useV7Shape";
+import { NavVariantPicker } from "@/components/sidebar/NavVariantPicker";
+import { useFabAdsNavVariant, VARIANT_META } from "@/components/sidebar/useFabAdsNavVariant";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
- * ParentNavigationRail — V7 ClickUp Strict (iter-6 A-10.6).
+ * ParentNavigationRail — V7 ClickUp Strict (iter-6 A-10.11).
  *
- * Now flush inside AppShell (the outer wrapper owns m-2/rounded/shadow).
- * This component is just the dark rail content — no self-floating.
+ * Logo click in V7 = cycles V7 shape sub-variants (floating ↔ edge-to-edge).
+ * Main V1–V7 cycler moved to a small ChevronUp button next to UserMenu in the
+ * rail footer. Click chevron → opens picker (cycle/pick V1-V7).
  *
- * Layout: Logo → divider → Primary modules (8) → divider → Tools (visible-only)
- * → footer (Copilot + Bell + UserMenu, all centered consistently).
- *
- * Maalik fixes in A-10.6:
- *   • Coming-soon tools (BG/Object Remover) hidden from rail entirely
- *   • Footer icons all 36×36 centered (UserMenu/NotificationBell forced to
- *     consistent box via [&_button] arbitrary selectors)
- *   • Icon size unified at 16px (h-4 w-4) to match the secondary panel
+ * Edge-to-edge sub-variant: rail loses its m-2/rounded/shadow/ring chrome.
  */
 export function ParentNavigationRail() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const activeKey = deriveActiveModule(pathname);
+  const { shape, cycle: cycleShape } = useV7Shape();
+  const isFloating = shape === "floating";
 
-  // Drop coming-soon items from the rail entirely (per Maalik A-10.6).
   const visibleModules = MODULES.filter((m) => !m.comingSoon);
   const primary = visibleModules.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
   const tools = visibleModules.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
@@ -46,83 +46,52 @@ export function ParentNavigationRail() {
   return (
     <aside
       data-fabads-nav-rail="parent"
+      data-fabads-v7-shape={shape}
       className={cn(
         "relative hidden md:flex w-[64px] shrink-0 flex-col overflow-hidden",
-        // Floating: m-2 + rounded-2xl + shadow + ring (Maalik A-10.6 revert
-        // — keep both floating, not fused).
-        "my-2 ml-2 mr-1 rounded-2xl shadow-2xl ring-1 ring-white/[0.08]",
-        "h-[calc(100vh-1rem)]",
-        // True primary-color (lime hue) gradient at low lightness.
+        // Shape-aware: floating = card chrome, edge = full bleed
+        isFloating
+          ? "my-2 ml-2 mr-1 rounded-2xl shadow-2xl ring-1 ring-white/[0.08] h-[calc(100vh-1rem)]"
+          : "h-screen",
+        // Brand-color glass gradient (same in both shapes)
         "bg-[linear-gradient(180deg,hsl(80_30%_12%)_0%,hsl(80_15%_8%)_50%,hsl(80_25%_10%)_100%)]",
         "backdrop-blur-2xl backdrop-saturate-150",
         "text-zinc-100"
       )}
     >
-      {/* Top-edge bright specular */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_50%,transparent_100%)]"
-      />
-      {/* Lime glow at top-center */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_140px_80px_at_50%_-10%,rgba(195,235,66,0.18),transparent_70%)]"
-      />
-      {/* Lime glow at bottom-center */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-[radial-gradient(ellipse_120px_60px_at_50%_110%,rgba(195,235,66,0.10),transparent_70%)]"
-      />
+      {/* Glass cues (Apple-glass top highlight + lime brand glows) */}
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_50%,transparent_100%)]" />
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_140px_80px_at_50%_-10%,rgba(195,235,66,0.18),transparent_70%)]" />
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-[radial-gradient(ellipse_120px_60px_at_50%_110%,rgba(195,235,66,0.10),transparent_70%)]" />
 
-      {/* HEADER — logo */}
-      <div className="relative z-10 flex items-center justify-center h-12 shrink-0">
-        <Link to="/dashboard" className="flex items-center justify-center">
-          <img src={faviconDark} alt="FabAds" className="h-6 w-6" />
-        </Link>
-      </div>
+      {/* HEADER — logo. Click cycles V7 shape sub-variant (floating ↔ edge). */}
+      <ShapeToggleLogo onCycle={cycleShape} shape={shape} />
 
       <RailDivider />
 
-      {/* BODY — primary modules + Tools section (each tool gets a divider above) */}
+      {/* BODY — primary modules + Tools section */}
       <div className="relative z-10 flex-1 min-h-0 overflow-y-auto py-1.5 px-1.5">
         <div className="flex flex-col gap-0.5">
           {primary.map((mod) => (
-            <RailItem
-              key={mod.key}
-              mod={mod}
-              isActive={activeKey === mod.key}
-              onClick={() => handleClick(mod)}
-            />
+            <RailItem key={mod.key} mod={mod} isActive={activeKey === mod.key} onClick={() => handleClick(mod)} />
           ))}
         </div>
-
         {tools.length > 0 && (
           <>
-            <div className="my-2">
-              <RailDivider />
-            </div>
+            <div className="my-2"><RailDivider /></div>
             <div className="flex flex-col gap-0.5">
               {tools.map((mod) => (
-                <RailItem
-                  key={mod.key}
-                  mod={mod}
-                  isActive={activeKey === mod.key}
-                  onClick={() => handleClick(mod)}
-                />
+                <RailItem key={mod.key} mod={mod} isActive={activeKey === mod.key} onClick={() => handleClick(mod)} />
               ))}
             </div>
           </>
         )}
       </div>
 
-      {/* Pre-footer divider — same elegant gradient style as logo→menu divider
-          (Maalik A-10.7: "jaisa divider logo and menu ke beech me hai, waisa hi
-          profile wale section se phle"). */}
       <RailDivider />
 
-      {/* FOOTER — wrapped in `.dark` so CSS-vars resolve to dark-theme values
-          (light icons on dark rail). Arbitrary [&_button] selectors force all
-          inner buttons to a consistent 36×36 centered box. */}
+      {/* FOOTER — NotificationBell + UserMenu + main variant cycler chevron.
+          Wrapped in `.dark` so CSS-vars resolve to dark-theme values. */}
       <div
         className={cn(
           "relative z-10 dark flex flex-col items-center gap-1 py-2 shrink-0",
@@ -131,14 +100,72 @@ export function ParentNavigationRail() {
       >
         <NotificationBell compact />
         <UserMenu compact />
+        <MainVariantCyclerChevron />
       </div>
     </aside>
   );
 }
 
 /* ─────────────────────────────────────────────────────────
- *  RailDivider — thin elegant gradient line.
+ *  ShapeToggleLogo — V7 logo click cycles shape sub-variant.
+ *  Tooltip explains: "Floating · Click for Edge-to-edge" (or vice-versa).
  * ───────────────────────────────────────────────────────── */
+function ShapeToggleLogo({ onCycle, shape }: { onCycle: () => void; shape: "floating" | "edge" }) {
+  const next = shape === "floating" ? "edge-to-edge" : "floating";
+  const tooltip = `Shape: ${shape} · Click for ${next}`;
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onCycle}
+          aria-label={tooltip}
+          title={tooltip}
+          className="relative z-10 flex items-center justify-center h-12 shrink-0 hover:bg-white/[0.04] transition-colors"
+        >
+          <img src={faviconDark} alt="FabAds" className="h-6 w-6" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  MainVariantCyclerChevron — small chevron next to UserMenu in footer.
+ *  Click opens NavVariantPicker (V1–V7 picker). Replaces the old
+ *  logo-cycler behavior since the logo is now a shape toggle.
+ * ───────────────────────────────────────────────────────── */
+function MainVariantCyclerChevron() {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const { variant } = useFabAdsNavVariant();
+  const meta = VARIANT_META[variant];
+  const tooltip = `Nav variant · ${meta.label} (${meta.index}/${Object.keys(VARIANT_META).length}) · Click to switch`;
+
+  return (
+    <NavVariantPicker
+      open={pickerOpen}
+      onOpenChange={setPickerOpen}
+      trigger={
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          aria-label={tooltip}
+          title={tooltip}
+          className="relative text-zinc-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
+        >
+          <ChevronUp className="h-4 w-4" />
+          <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full text-[7px] font-bold bg-g6-primary text-g6-text-on-accent leading-none">
+            {meta.index}
+          </span>
+        </button>
+      }
+    />
+  );
+}
+
 function RailDivider() {
   return (
     <div className="relative z-10 mx-3 shrink-0">
@@ -147,18 +174,7 @@ function RailDivider() {
   );
 }
 
-/* ─────────────────────────────────────────────────────────
- *  RailItem — tiny-stacked icon + label.
- * ───────────────────────────────────────────────────────── */
-function RailItem({
-  mod,
-  isActive,
-  onClick,
-}: {
-  mod: ModuleDef;
-  isActive: boolean;
-  onClick: () => void;
-}) {
+function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolean; onClick: () => void }) {
   const Icon = mod.icon;
   return (
     <Tooltip delayDuration={300}>

@@ -6,6 +6,7 @@ import {
   MODULES,
   SYSTEM_MODULES,
 } from "@/components/sidebar/modules";
+import { useV7Shape } from "@/components/sidebar/useV7Shape";
 import { ParentNavigationRail } from "./ParentNavigationRail";
 import { SecondaryNavigationPanel } from "./SecondaryNavigationPanel";
 
@@ -41,19 +42,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? [...MODULES, ...SYSTEM_MODULES].find((m) => m.key === activeKey)
     : undefined;
   const showSubNav = !!activeMod && hasSubItems(activeMod);
+  const { shape } = useV7Shape();
+  const isFloating = shape === "floating";
 
   return (
     <>
-      {/* Parent rail — separate dark floating card (untouched) */}
+      {/* Parent rail — separate dark floating card (honors shape itself) */}
       <ParentNavigationRail />
 
-      {/* Merged shell — ONE floating cream card containing sub-nav + main */}
+      {/* Merged shell — floating OR edge-to-edge based on V7 shape sub-variant */}
       <div
         data-fabads-merged-shell="v7"
+        data-fabads-v7-shape={shape}
         className={cn(
           "relative hidden md:flex flex-1 min-w-0 overflow-hidden",
-          "my-2 ml-1 mr-2 rounded-2xl shadow-lg ring-1 ring-zinc-200/70",
-          "h-[calc(100vh-1rem)]",
+          isFloating
+            ? "my-2 ml-1 mr-2 rounded-2xl shadow-lg ring-1 ring-zinc-200/70 h-[calc(100vh-1rem)]"
+            : "h-screen",
           "bg-white"
         )}
       >
