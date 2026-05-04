@@ -20,6 +20,7 @@ import { FormScaffold } from "./generate-legacy/FormScaffold";
 import { TourPresentation } from "./tour/TourPresentation";
 import { ProgressScreen } from "./generate-legacy/ProgressScreen";
 import { ResultsScreen } from "./generate-legacy/ResultsScreen";
+import { GenerateLanding } from "./generate-new/GenerateLanding";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -84,14 +85,22 @@ export const genie6Routes = (
       <Route path="legacy/:mode" element={<GenerateScaffold />} />
     </Route>
 
-    {/* Phase A backward-compat dual-mount — same Old Studio components, also
-        served under the original /generate/* paths so nothing breaks during
-        the transition. Phase B will swap these for New Studio components. */}
+    {/* New Studio (Phase B, A-11.3+) — Form Specs locked.
+        - /generate         → GenerateLanding (6-tile picker; Variations
+                              direct-routes, others open the Gate modal)
+        - /generate/{type}  → Type-specific form (mounts in B3-B6)
+        Old Studio paths (/generate/product/:productId) get backward-compat
+        redirects so Catalogue's "Generate ad" CTA + bookmarks keep working
+        until B4 migrates them to /generate/product-ad?product=:id. */}
     <Route path="generate" element={<GenerateOutlet />}>
-      <Route index element={<FormScaffold />} />
-      <Route path="product/:productId" element={<FormScaffold />} />
-      <Route path="product/:productId/progress/:batchId" element={<ProgressScreen />} />
-      <Route path="product/:productId/results/:batchId" element={<ResultsScreen />} />
+      <Route index element={<GenerateLanding />} />
+      {/* Type-form placeholders — fill in during B3-B6 */}
+      <Route path="brand-ad" element={<TypeFormPlaceholder type="Brand Ad" phase="B3" />} />
+      <Route path="product-ad" element={<TypeFormPlaceholder type="Product Ad" phase="B4" />} />
+      <Route path="affiliate-ad" element={<TypeFormPlaceholder type="Affiliate Ad" phase="B5" />} />
+      <Route path="variation" element={<TypeFormPlaceholder type="Variations" phase="B6" />} />
+      {/* Backward-compat for Old Studio deep-links (until B4 cleanup) */}
+      <Route path="product/:productId" element={<Navigate to="/iq/genie6/generate-legacy" replace />} />
       <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate" replace />} />
       <Route path="legacy" element={<ModePicker />} />
       <Route path="legacy/:mode" element={<GenerateScaffold />} />
@@ -101,3 +110,25 @@ export const genie6Routes = (
     <Route path="wizard" element={<TourPresentation />} />
   </Route>
 );
+
+/* ─────────────────────────────────────────────────────────
+ *  Placeholder for Type forms not yet built (B3-B6 fills them in).
+ *  Renders a friendly "Coming in Phase {n}" message + back-link.
+ * ───────────────────────────────────────────────────────── */
+function TypeFormPlaceholder({ type, phase }: { type: string; phase: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+      <h1 className="text-xl font-semibold text-foreground">{type}</h1>
+      <p className="text-sm text-muted-foreground max-w-md">
+        {type} form lands in <span className="font-mono">{phase}</span>. The route is reserved
+        — Gate modal already lands you here. Form scaffolding fills in next commit.
+      </p>
+      <a
+        href="/iq/genie6/generate"
+        className="text-xs text-primary underline-offset-2 hover:underline"
+      >
+        ← Back to picker
+      </a>
+    </div>
+  );
+}
