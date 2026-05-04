@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, ChevronDown, Check, ArrowUpRight } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Search, ChevronDown, Check, ArrowUpRight, PackagePlus, FilterX } from "lucide-react";
 import { brands, products } from "@/mocks/shared";
 import type { Product } from "@/genie6/types/entities";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SkeletonProductGrid } from "@/genie6/components/Skeletons";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,11 +19,22 @@ import { cn } from "@/lib/utils";
  *
  * Pre-fill brand filter from URL: /iq/genie6/generate?brand=:brandId
  * (used when user came from a brand context, e.g. catalogue).
+ *
+ * Phase C state coverage (A-10.17):
+ *   - `?loading=1` URL flag forces SkeletonProductGrid (matches the actual
+ *     grid layout — no jarring shift when data lands). Mirrors the Library
+ *     loading-flag pattern. Useful for stakeholder demos + previews while
+ *     the real backend is wired.
+ *   - Zero-data state now offers explicit recovery paths: Clear-search +
+ *     Reset-filter + Browse-catalogue. Dead-end gone. Empty-state copy
+ *     also distinguishes "no results for query" vs "no products at all"
+ *     (the latter shouldn't happen in real data but ships safely).
  */
 export function ProductPicker() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialBrand = searchParams.get("brand") ?? "all";
+  const isLoading = searchParams.get("loading") === "1";
 
   const [query, setQuery] = useState("");
   const [brandFilter, setBrandFilter] = useState<string>(initialBrand);
@@ -46,8 +58,16 @@ export function ProductPicker() {
     });
   }, [query, brandFilter]);
 
+  const hasActiveFilter = brandFilter !== "all" || query.trim().length > 0;
+  const selectedBrand = brandFilter === "all" ? null : brands.find((b) => b.id === brandFilter);
+
   const onPick = (product: Product) => {
     navigate(`/iq/genie6/generate/product/${product.id}`);
+  };
+
+  const resetAll = () => {
+    setQuery("");
+    setBrandFilter("all");
   };
 
   return (
@@ -83,24 +103,47 @@ export function ProductPicker() {
         </span>
       </div>
 
-      {/* Grid */}
-      {filteredProducts.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-g6-card border border-dashed border-g6-border-secondary bg-g6-bg-base/50 py-16 text-center">
+      {/* Loading skeleton — `?loading=1` flag, mirrors Library's pattern */}
+      {isLoading ? (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <SkeletonProductGrid count={8} />
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        /* Zero-data — recovery paths instead of dead-end (Phase C P1-G1).
+           Distinguishes filter-narrowed vs no-products-anywhere. */
+        <div className="flex flex-1 flex-col items-center justify-center rounded-g6-card border border-dashed border-g6-border-secondary bg-g6-bg-base/50 py-16 px-6 text-center">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-g6-bg-spotlight">
+            <Search className="h-4 w-4 text-g6-text-tertiary" />
+          </div>
           <p className="text-g6-base font-semibold text-g6-text">
-            No products match {query ? `"${query}"` : "this filter"}
+            {hasActiveFilter
+              ? `No products match ${query ? `"${query}"` : `${selectedBrand?.name ?? "this filter"}`}`
+              : "No products yet"}
           </p>
-          <p className="text-g6-sm text-g6-text-tertiary mt-1">
-            Try a different brand or search term.
+          <p className="text-g6-sm text-g6-text-tertiary mt-1 max-w-sm">
+            {hasActiveFilter
+              ? "Try a different search term, switch brand, or clear filters."
+              : "Add a product to your catalogue to start generating ads for it."}
           </p>
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              className="mt-3 text-g6-sm text-g6-text-secondary hover:text-g6-text underline"
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={resetAll}
+                className="inline-flex items-center gap-1.5 rounded-g6-base border border-g6-border-secondary bg-g6-bg-container px-3 py-1.5 text-g6-sm text-g6-text hover:border-g6-border transition-colors"
+              >
+                <FilterX className="h-3.5 w-3.5" />
+                Clear filters
+              </button>
+            )}
+            <Link
+              to="/catalogue/products"
+              className="inline-flex items-center gap-1.5 rounded-g6-base bg-g6-primary px-3 py-1.5 text-g6-sm font-medium text-g6-text-on-accent hover:bg-g6-primary-hover transition-colors"
             >
-              Clear search
-            </button>
-          )}
+              <PackagePlus className="h-3.5 w-3.5" />
+              Browse catalogue
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
