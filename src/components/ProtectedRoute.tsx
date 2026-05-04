@@ -1,16 +1,34 @@
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * AUTH BYPASS — demo mode (Track 5+).
+ * ProtectedRoute — gates the authenticated app shell.
  *
- * Per Maalik: "every user can directly enter FabAds without signing in or up,
- * with the same dummy data we currently has on Rahulsaini@ideaclan.com".
- *
- * This component used to gate access via Supabase session + role checks. For demo
- * mode it always allows through. The mocked user identity is provided by
- * AuthContext (see contexts/AuthContext.tsx) which now returns a hardcoded Rahul
- * session at mount. To restore real auth: revert this file + AuthContext.
+ * History:
+ *   Pre-iter-6 — gated via real Supabase session check.
+ *   Iter-6 Track 5+ — replaced with a no-op pass-through (`<Outlet />`) so anyone
+ *                     could enter the app without signing in. Worked alongside
+ *                     AuthContext's MOCK_USER. The combo broke 26 mutations
+ *                     because supabase.auth.getUser() returned null in real
+ *                     Supabase calls.
+ *   A-10.15 — gate restored. Real session check + redirect to /auth when
+ *             unauthenticated. Loading spinner during initial session bootstrap
+ *             so we never flash unauthenticated content.
  */
 export function ProtectedRoute() {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/auth" replace />;
+  }
+
   return <Outlet />;
 }

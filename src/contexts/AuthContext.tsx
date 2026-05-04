@@ -1,19 +1,28 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 import { ClientProvider } from "@/contexts/ClientContext";
 
 /**
- * AUTH BYPASS — demo mode (Track 5+).
+ * AuthContext — real Supabase auth (A-10.15).
  *
- * Per Maalik: every user enters FabAds without signing in. App runs as the
- * Rahulsaini@ideaclan.com test account (existing seeded data).
+ * History:
+ *   Pre-iter-6 — real auth via getSession + onAuthStateChange + role fetch.
+ *   Iter-6 Track 5+ — replaced with a hardcoded MOCK_USER ("rahul-saini-demo-user")
+ *                     so anyone could enter the app without signing in. The MOCK
+ *                     id was a placeholder that didn't resolve in Supabase.
+ *                     Side effect: 26 mutations across the app silently failed
+ *                     in demo mode because they called supabase.auth.getUser()
+ *                     which returned null without a real session. Boards couldn't
+ *                     be created, queue items couldn't be added, etc.
+ *   A-10.15 — restored real auth. Sign-in via GitHub OAuth (preferred per
+ *             Maalik) plus email/password fallback. supabase.auth.getUser() now
+ *             returns the actual signed-in user across all 26 mutation sites,
+ *             RLS policies resolve, seeded data visible.
  *
- * This file used to wire Supabase auth (getSession + onAuthStateChange + role
- * fetch from workspace_users). It now returns a hardcoded "Rahul" identity so
- * downstream code that reads useAuth().user.id keeps working against the
- * existing seeded data.
- *
- * To restore real auth: revert this file + ProtectedRoute.tsx.
+ * Subscribes to onAuthStateChange so sign-in / sign-out / token-refresh
+ * propagate to the whole app via React state. Workspace role is fetched from
+ * workspace_users when the session changes.
  */
 
 type AppRole = "owner" | "admin" | "member";
@@ -26,55 +35,78 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-/**
- * Mock user matching Rahul's seeded test account.
- * The id is a placeholder — replace with the real workspace_users.user_id for
- * Rahulsaini@ideaclan.com if Supabase queries need to resolve.
- */
-const MOCK_USER: User = {
-  id: "rahul-saini-demo-user",
-  app_metadata: {},
-  user_metadata: {
-    full_name: "Rahul Saini",
-    email: "Rahulsaini@ideaclan.com",
-  },
-  aud: "authenticated",
-  created_at: new Date(0).toISOString(),
-  email: "Rahulsaini@ideaclan.com",
-  // Casting because we're skipping the real Supabase User shape for demo
-} as unknown as User;
-
-const MOCK_SESSION: Session = {
-  access_token: "demo-mode-no-auth",
-  token_type: "bearer",
-  expires_in: 3600 * 24 * 365,
-  expires_at: Math.floor(Date.now() / 1000) + 3600 * 24 * 365,
-  refresh_token: "demo-mode-no-auth",
-  user: MOCK_USER,
-} as Session;
-
-const MOCK_ROLE: AppRole = "owner";
-
 const AuthContext = createContext<AuthContextType>({
-  session: MOCK_SESSION,
-  user: MOCK_USER,
-  role: MOCK_ROLE,
-  loading: false,
+  session: null,
+  user: null,
+  role: null,
+  loading: true,
   signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Demo mode — instant ready, no async auth flow
+  const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Bootstrap session + subscribe to auth changes.
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        if (!mounted) return;
+        setSession(nextSession);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Fetch role from workspace_users when the user changes.
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) {
+      setRole(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("workspace_users")
+      .select("role")
+      .eq("user_id", userId)
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRole((data?.role as AppRole | undefined) ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <AuthContext.Provider
       value={{
-        session: MOCK_SESSION,
-        user: MOCK_USER,
-        role: MOCK_ROLE,
-        loading: false,
-        signOut: async () => {
-          // No-op in demo mode — there's no session to clear
-        },
+        session,
+        user: session?.user ?? null,
+        role,
+        loading,
+        signOut,
       }}
     >
       <ClientProvider>{children}</ClientProvider>
