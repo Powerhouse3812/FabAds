@@ -121,25 +121,29 @@ export function CanvasHome() {
           </div>
         </div>
 
-        {/* Bottom action bar — floating */}
+        {/* Bottom action bar — floating.
+            Phase D P1-G4: button tap targets bumped to ≥44×44px (WCAG 2.5.5).
+            Was px-4 py-1.5 (~32px tall), now min-h-11 with proportionate
+            padding. Container padding eased to give the bigger buttons
+            breathing room. */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-          <div className="flex items-center gap-3 rounded-g6-pill bg-g6-bg-container/95 px-4 py-2 shadow-g6-lg backdrop-blur-md border border-g6-border-secondary">
-            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">
+          <div className="flex items-center gap-2.5 rounded-g6-pill bg-g6-bg-container/95 pl-4 pr-2 py-2 shadow-g6-lg backdrop-blur-md border border-g6-border-secondary">
+            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary whitespace-nowrap">
               {analytics.creditsUsed.used.toLocaleString("en-IN")} / {analytics.creditsUsed.limit.toLocaleString("en-IN")} credits
             </span>
             <button
               type="button"
               onClick={() => navigate("/iq/genie6/generate")}
-              className="rounded-g6-pill bg-g6-primary px-4 py-1.5 text-g6-sm font-bold text-g6-text-on-accent shadow-g6-glow"
+              className="inline-flex items-center min-h-11 rounded-g6-pill bg-g6-primary px-4 py-2.5 text-g6-sm font-bold text-g6-text-on-accent shadow-g6-glow"
             >
               ✦ New generation
             </button>
             <button
               type="button"
               onClick={() => navigate(`/iq/genie6/library/outputs/${analytics.topPerformer.outputId}`)}
-              className="inline-flex items-center gap-1.5 rounded-g6-pill border border-g6-border bg-g6-bg-base px-3 py-1.5 text-g6-xs font-medium text-g6-text-secondary hover:text-g6-text"
+              className="inline-flex items-center gap-1.5 min-h-11 rounded-g6-pill border border-g6-border bg-g6-bg-base px-3.5 py-2.5 text-g6-xs font-medium text-g6-text-secondary hover:text-g6-text transition-colors"
             >
-              <Play className="h-3 w-3" /> Open winner
+              <Play className="h-3.5 w-3.5" /> Open winner
             </button>
           </div>
         </div>
@@ -158,7 +162,11 @@ export function CanvasHome() {
             type="button"
             onClick={() => navigate(to)}
             title={label}
-            className="flex h-10 w-10 items-center justify-center rounded-g6-base text-g6-text-tertiary hover:bg-g6-bg-spotlight hover:text-g6-text transition-colors"
+            aria-label={label}
+            /* Phase D P1-G4: tool-rail buttons bumped 40px → 44px (WCAG 2.5.5
+               touch target min). aria-label added so screen readers announce
+               the icon-only button. */
+            className="flex h-11 w-11 items-center justify-center rounded-g6-base text-g6-text-tertiary hover:bg-g6-bg-spotlight hover:text-g6-text transition-colors"
           >
             <Icon className="h-4 w-4" />
           </button>

@@ -63,6 +63,13 @@ export interface ModeConfig {
   defaultSubMethod?: string;
   formFields: FieldType[];
   wizardSteps: WizardStep[];
+  /**
+   * Phase D P1-G5: optional flag to render the mode as a "Coming soon"
+   * disabled chip on Home / Studio mode-pickers. Click is suppressed; the
+   * chip styles itself with reduced opacity + cursor-not-allowed and shows
+   * a small "Soon" pill suffix.
+   */
+  comingSoon?: boolean;
 }
 
 export const ANGLES = [

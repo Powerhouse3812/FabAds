@@ -125,6 +125,22 @@ const KNOWN_SUB_NAV_PATHS = new Set([
   "/reports/creative/ad-groups",
 ]);
 
+/**
+ * Phase D P1-10: breadcrumbs used to capitalize ANY raw URL segment that
+ * wasn't in LABEL_MAP — so UUIDs, numeric IDs, slugs etc. rendered as
+ * gibberish ("Iq", "Abc-123-def" → "Abc 123 Def", or worse for raw UUIDs).
+ *
+ * Now: only segments we explicitly know how to label render. Any segment
+ * that looks like an ID (UUID, numeric, or just unrecognized) is skipped
+ * for breadcrumb purposes — the breadcrumb stops at the last KNOWN segment.
+ * If nothing is known, breadcrumbs hide entirely.
+ */
+const ID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NUMERIC = /^\d+$/;
+function isIdLike(seg: string): boolean {
+  return ID_LIKE.test(seg) || NUMERIC.test(seg);
+}
+
 function HeaderBreadcrumbs() {
   const { pathname } = useLocation();
 
@@ -133,21 +149,33 @@ function HeaderBreadcrumbs() {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return null;
 
+  // Build a list of segments we can confidently label. Stop at the first
+  // ID-like segment (or hide breadcrumbs entirely if no segment is in
+  // LABEL_MAP). Avoids "Iq" → "Iq" and UUID gibberish.
+  const labelable: { label: string; path: string }[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (isIdLike(seg)) break;
+    const known = LABEL_MAP[seg];
+    if (!known) break;
+    labelable.push({ label: known, path: "/" + segments.slice(0, i + 1).join("/") });
+  }
+
+  if (labelable.length === 0) return null;
+
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        {segments.map((seg, i) => {
-          const label = LABEL_MAP[seg] || seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-          const path = "/" + segments.slice(0, i + 1).join("/");
-          const isLast = i === segments.length - 1;
+        {labelable.map((item, i) => {
+          const isLast = i === labelable.length - 1;
           return (
-            <BreadcrumbItem key={path}>
+            <BreadcrumbItem key={item.path}>
               {i > 0 && <BreadcrumbSeparator />}
               {isLast ? (
-                <BreadcrumbPage>{label}</BreadcrumbPage>
+                <BreadcrumbPage>{item.label}</BreadcrumbPage>
               ) : (
                 <BreadcrumbLink asChild>
-                  <Link to={path}>{label}</Link>
+                  <Link to={item.path}>{item.label}</Link>
                 </BreadcrumbLink>
               )}
             </BreadcrumbItem>
@@ -192,10 +220,15 @@ function AppLayoutInner() {
         </SheetContent>
       </Sheet>
       {isMobile && !mobileOpen && (
+        /* Phase D P1-7: aria-expanded so screen readers announce open/close
+           state. min-h-11/min-w-11 for WCAG 2.5.5 touch target (was p-1.5 on
+           h-5 icon = ~32px tap area). */
         <button
           onClick={() => setMobileOpen(true)}
-          className="fixed top-3 left-3 z-50 p-1.5 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
-          aria-label="Open navigation"
+          className="fixed top-3 left-3 z-50 inline-flex items-center justify-center min-h-11 min-w-11 p-2 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
+          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav-sheet"
         >
           <Menu className="h-5 w-5" />
         </button>

@@ -284,6 +284,12 @@ function ProductCard({
     <button
       type="button"
       onClick={onClick}
+      title={product.name}
+      aria-label={`Generate ad for ${product.name}${brand ? ` by ${brand.name}` : ""}`}
+      /* Phase D P1-G7: long product names (e.g. "Ultra-Nourishing Rose Water
+         Face Mist With Hyaluronic Acid & Vitamin E") `line-clamp-2` cuts mid-word.
+         `title` attribute now exposes the full name on hover; aria-label gives
+         screen-reader users the full name + brand. */
       className="group flex flex-col rounded-g6-card border border-g6-border-secondary bg-g6-bg-container text-left transition-all hover:border-g6-primary-border hover:shadow-md overflow-hidden"
     >
       {product.thumbnail ? (

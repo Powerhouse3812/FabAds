@@ -133,17 +133,37 @@ function HomeZeroData() {
             Or pick a mode
           </p>
           <div className="flex flex-wrap gap-2">
-            {modeConfigs.map((cfg) => (
-              <button
-                key={cfg.id}
-                type="button"
-                onClick={() => navigate(`/iq/genie6/generate/${cfg.id}`)}
-                className="flex items-center gap-2 rounded-g6-pill border border-g6-border-secondary bg-g6-bg-container px-3 py-1.5 text-g6-sm font-medium text-g6-text-secondary transition-all hover:border-g6-primary-border hover:bg-g6-primary-bg hover:text-g6-text"
-              >
-                <MicroMotif mode={cfg.id} size={14} />
-                {cfg.label}
-              </button>
-            ))}
+            {/* Phase D P1-G5: disabled state for `comingSoon` modes — was missing,
+                so a future-flagged mode would silently navigate to a broken form.
+                Disabled chips: opacity-50, cursor-not-allowed, "Soon" pill, no
+                onClick + tabIndex={-1}. Hover description via title (P2-G4). */}
+            {modeConfigs.map((cfg) => {
+              const disabled = cfg.comingSoon === true;
+              return (
+                <button
+                  key={cfg.id}
+                  type="button"
+                  onClick={disabled ? undefined : () => navigate(`/iq/genie6/generate/${cfg.id}`)}
+                  disabled={disabled}
+                  title={cfg.description}
+                  aria-disabled={disabled}
+                  className={cn(
+                    "flex items-center gap-2 rounded-g6-pill border px-3 py-1.5 text-g6-sm font-medium transition-all",
+                    disabled
+                      ? "border-g6-border-secondary bg-g6-bg-base text-g6-text-tertiary opacity-60 cursor-not-allowed"
+                      : "border-g6-border-secondary bg-g6-bg-container text-g6-text-secondary hover:border-g6-primary-border hover:bg-g6-primary-bg hover:text-g6-text"
+                  )}
+                >
+                  <MicroMotif mode={cfg.id} size={14} />
+                  {cfg.label}
+                  {disabled && (
+                    <span className="ml-1 rounded bg-g6-bg-spotlight px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-g6-text-tertiary">
+                      Soon
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

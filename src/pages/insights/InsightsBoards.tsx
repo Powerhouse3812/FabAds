@@ -131,7 +131,17 @@ export default function InsightsBoards() {
                       <h3 className="text-sm font-semibold truncate flex-1">{board.name}</h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Phase D P1-I4: kebab was opacity-0 unless hovered —
+                              touch users + keyboard users couldn't discover the
+                              menu. Now opacity-60 by default, raises to 100 on
+                              hover/focus/group-hover. aria-label so screen
+                              readers announce the icon-only button. */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Board actions"
+                            className="h-7 w-7 shrink-0 opacity-60 group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                          >
                             <MoreVertical className="h-3.5 w-3.5" />
                           </Button>
                         </DropdownMenuTrigger>

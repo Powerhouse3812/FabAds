@@ -88,45 +88,90 @@ export function CommandHome() {
               Open workspace →
             </button>
           </div>
-          <div className="rounded-g6-base border border-g6-border-secondary overflow-hidden">
-            <table className="w-full text-g6-sm">
-              <thead className="bg-g6-bg-base">
-                <tr className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-                  <th className="px-3 py-2 text-left font-normal">Brand</th>
-                  <th className="px-3 py-2 text-right font-normal">Gens</th>
-                  <th className="px-3 py-2 text-right font-normal">Avg CTR</th>
-                  <th className="px-3 py-2 text-right font-normal">Avg ROAS</th>
-                  <th className="px-3 py-2 text-right font-normal">Last gen</th>
-                  <th className="w-10 px-2 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-g6-border-secondary">
-                {brands.slice(0, 6).map((b, i) => {
-                  const gens = [184, 142, 96, 68, 52, 41][i] ?? 30;
-                  const ctr = [4.73, 3.92, 3.41, 2.88, 2.64, 2.31][i] ?? 2.0;
-                  const roas = [3.2, 2.8, 2.4, 2.1, 1.9, 1.7][i] ?? 1.5;
-                  const ago = ["2h", "5h", "1d", "1d", "2d", "3d"][i] ?? "1w";
-                  return (
-                    <tr
+          {/* Phase D P1-G3: 6-col table doesn't survive < md (768px) — columns
+              truncate or overflow on iPad portrait. Below md the same data
+              renders as a stacked card per brand with a 3-cell metric grid. */}
+          {(() => {
+            const rows = brands.slice(0, 6).map((b, i) => ({
+              b,
+              gens: [184, 142, 96, 68, 52, 41][i] ?? 30,
+              ctr: [4.73, 3.92, 3.41, 2.88, 2.64, 2.31][i] ?? 2.0,
+              roas: [3.2, 2.8, 2.4, 2.1, 1.9, 1.7][i] ?? 1.5,
+              ago: ["2h", "5h", "1d", "1d", "2d", "3d"][i] ?? "1w",
+            }));
+            return (
+              <>
+                {/* Desktop / tablet-landscape table */}
+                <div className="hidden md:block rounded-g6-base border border-g6-border-secondary overflow-hidden">
+                  <table className="w-full text-g6-sm">
+                    <thead className="bg-g6-bg-base">
+                      <tr className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
+                        <th className="px-3 py-2 text-left font-normal">Brand</th>
+                        <th className="px-3 py-2 text-right font-normal">Gens</th>
+                        <th className="px-3 py-2 text-right font-normal">Avg CTR</th>
+                        <th className="px-3 py-2 text-right font-normal">Avg ROAS</th>
+                        <th className="px-3 py-2 text-right font-normal">Last gen</th>
+                        <th className="w-10 px-2 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-g6-border-secondary">
+                      {rows.map(({ b, gens, ctr, roas, ago }) => (
+                        <tr
+                          key={b.id}
+                          className="hover:bg-g6-bg-spotlight cursor-pointer transition-colors"
+                          onClick={() => navigate(`/iq/genie6/workspace/brands/${b.id}`)}
+                        >
+                          <td className="px-3 py-2.5 flex items-center gap-2">
+                            <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-5 w-5" rounded="rounded-sm" />
+                            <span className="font-medium text-g6-text">{b.name}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{gens}</td>
+                          <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{ctr}%</td>
+                          <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{roas}×</td>
+                          <td className="px-3 py-2.5 text-right font-g6-mono text-g6-xs text-g6-text-tertiary">{ago} ago</td>
+                          <td className="px-2 py-2.5"><ArrowUpRight className="h-3.5 w-3.5 text-g6-text-tertiary" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile / tablet-portrait card stack */}
+                <div className="md:hidden flex flex-col gap-2">
+                  {rows.map(({ b, gens, ctr, roas, ago }) => (
+                    <button
                       key={b.id}
-                      className="hover:bg-g6-bg-spotlight cursor-pointer transition-colors"
+                      type="button"
                       onClick={() => navigate(`/iq/genie6/workspace/brands/${b.id}`)}
+                      className="rounded-g6-base border border-g6-border-secondary bg-g6-bg-base p-3 text-left hover:border-g6-border transition-colors"
                     >
-                      <td className="px-3 py-2.5 flex items-center gap-2">
-                        <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-5 w-5" rounded="rounded-sm" />
-                        <span className="font-medium text-g6-text">{b.name}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{gens}</td>
-                      <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{ctr}%</td>
-                      <td className="px-3 py-2.5 text-right font-g6-mono tabular-nums text-g6-text">{roas}×</td>
-                      <td className="px-3 py-2.5 text-right font-g6-mono text-g6-xs text-g6-text-tertiary">{ago} ago</td>
-                      <td className="px-2 py-2.5"><ArrowUpRight className="h-3.5 w-3.5 text-g6-text-tertiary" /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <BrandLogo name={b.name} src={b.logo} tint={b.colors?.[0]} size="h-6 w-6" rounded="rounded-sm" />
+                          <span className="font-medium text-g6-sm text-g6-text truncate">{b.name}</span>
+                        </div>
+                        <span className="font-g6-mono text-g6-xs text-g6-text-tertiary shrink-0">{ago} ago</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <div className="font-g6-mono text-[9px] uppercase tracking-wider text-g6-text-tertiary">Gens</div>
+                          <div className="font-g6-mono text-g6-base font-semibold tabular-nums text-g6-text">{gens}</div>
+                        </div>
+                        <div>
+                          <div className="font-g6-mono text-[9px] uppercase tracking-wider text-g6-text-tertiary">Avg CTR</div>
+                          <div className="font-g6-mono text-g6-base font-semibold tabular-nums text-g6-text">{ctr}%</div>
+                        </div>
+                        <div>
+                          <div className="font-g6-mono text-[9px] uppercase tracking-wider text-g6-text-tertiary">Avg ROAS</div>
+                          <div className="font-g6-mono text-g6-base font-semibold tabular-nums text-g6-text">{roas}×</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </section>
 
         {/* Generate section — embedded prompt input + mode tiles. Iter-3 IA
