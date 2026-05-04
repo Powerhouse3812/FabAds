@@ -547,7 +547,7 @@ function ProductSectionView({ productId, section }: { productId: string; section
             <p className="text-xl font-bold text-foreground font-mono">{prod.price}</p>
             {/* A-10.1: catalogue → generate shortcut. Skips ProductPicker entirely. */}
             <Link
-              to={`/iq/genie6/generate/product/${prod.id}`}
+              to={`/iq/genie6/generate/product-ad?product=${prod.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:scale-[1.02] active:scale-[0.99] transition-transform"
             >
               <Sparkles className="h-3.5 w-3.5" />

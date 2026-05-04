@@ -22,6 +22,7 @@ import { ProgressScreen } from "./generate-legacy/ProgressScreen";
 import { ResultsScreen } from "./generate-legacy/ResultsScreen";
 import { GenerateLanding } from "./generate-new/GenerateLanding";
 import { StudioBrandAdForm } from "./generate-new/forms/StudioBrandAdForm";
+import { StudioProductAdForm } from "./generate-new/forms/StudioProductAdForm";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -97,7 +98,7 @@ export const genie6Routes = (
       <Route index element={<GenerateLanding />} />
       {/* Type-form placeholders — fill in during B3-B6 */}
       <Route path="brand-ad" element={<StudioBrandAdForm />} />
-      <Route path="product-ad" element={<TypeFormPlaceholder type="Product Ad" phase="B4" />} />
+      <Route path="product-ad" element={<StudioProductAdForm />} />
       <Route path="affiliate-ad" element={<TypeFormPlaceholder type="Affiliate Ad" phase="B5" />} />
       <Route path="variation" element={<TypeFormPlaceholder type="Variations" phase="B6" />} />
       {/* Backward-compat for Old Studio deep-links (until B4 cleanup) */}
