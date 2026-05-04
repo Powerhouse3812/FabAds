@@ -1,22 +1,28 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * ProtectedRoute — gates the authenticated app shell.
+ * ProtectedRoute — A-10.20: spinner during AuthContext bootstrap, NO
+ * redirect to /auth.
+ *
+ * AuthContext auto-signs-in with the seeded Rahul demo credentials on
+ * mount, so by the time the spinner clears the user has a real Supabase
+ * session and walks straight into the app — no login screen shown.
  *
  * History:
- *   Pre-iter-6 — gated via real Supabase session check.
- *   Iter-6 Track 5+ — replaced with a no-op pass-through (`<Outlet />`) so anyone
- *                     could enter the app without signing in. Worked alongside
- *                     AuthContext's MOCK_USER. The combo broke 26 mutations
- *                     because supabase.auth.getUser() returned null in real
- *                     Supabase calls.
- *   A-10.15 — gate restored. Real session check + redirect to /auth when
- *             unauthenticated. Loading spinner during initial session bootstrap
- *             so we never flash unauthenticated content.
+ *   Pre-iter-6 — real session gate, redirect to /auth on no-session.
+ *   Iter-6 demo mode — pure pass-through (no spinner, no auth, no
+ *                       Supabase session → 26 mutations broken).
+ *   A-10.15 — full real-auth gate restored, redirect to /auth.
+ *   A-10.20 — spinner-only. Auth happens silently in AuthContext.
+ *
+ * The /auth route still exists (Auth.tsx with email/password + GitHub
+ * OAuth) but is unreachable in normal flow because AuthContext always
+ * auto-signs-in before this component decides to redirect anywhere.
+ * Useful as an explicit-login fallback for dev or for manual-login tests.
  */
 export function ProtectedRoute() {
-  const { session, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -24,10 +30,6 @@ export function ProtectedRoute() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
-  }
-
-  if (!session) {
-    return <Navigate to="/auth" replace />;
   }
 
   return <Outlet />;

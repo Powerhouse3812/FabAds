@@ -4,28 +4,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { ClientProvider } from "@/contexts/ClientContext";
 
 /**
- * AuthContext — real Supabase auth (A-10.15).
+ * AuthContext — auto-login demo mode (A-10.20).
  *
  * History:
  *   Pre-iter-6 — real auth via getSession + onAuthStateChange + role fetch.
- *   Iter-6 Track 5+ — replaced with a hardcoded MOCK_USER ("rahul-saini-demo-user")
- *                     so anyone could enter the app without signing in. The MOCK
- *                     id was a placeholder that didn't resolve in Supabase.
- *                     Side effect: 26 mutations across the app silently failed
- *                     in demo mode because they called supabase.auth.getUser()
- *                     which returned null without a real session. Boards couldn't
- *                     be created, queue items couldn't be added, etc.
- *   A-10.15 — restored real auth. Sign-in via GitHub OAuth (preferred per
- *             Maalik) plus email/password fallback. supabase.auth.getUser() now
- *             returns the actual signed-in user across all 26 mutation sites,
- *             RLS policies resolve, seeded data visible.
+ *   Iter-6 Track 5+ — replaced with hardcoded MOCK_USER. No real Supabase
+ *                     session → 26 mutations silently failed.
+ *   A-10.15 — restored real auth + GitHub OAuth + auth gate. This forced
+ *             users to see a login screen, which contradicted Maalik's
+ *             "direct usage" demo intent.
+ *   A-10.20 — combine: NO login screen shown to users (per Maalik), AND
+ *             a real Supabase session exists so the 26 mutations work.
+ *             AuthContext silently auto-signs-in with the seeded Rahul
+ *             credentials on mount. ProtectedRoute shows a brief spinner
+ *             during this bootstrap, never redirects to /auth.
  *
- * Subscribes to onAuthStateChange so sign-in / sign-out / token-refresh
- * propagate to the whole app via React state. Workspace role is fetched from
- * workspace_users when the session changes.
+ *             Trade-off: demo credentials live in this file. Acceptable
+ *             for the current private-dev phase (per Maalik). Before
+ *             public ship: move to env vars + restore the gate.
  */
 
 type AppRole = "owner" | "admin" | "member";
+
+/** Demo credentials for auto-login. Replace with env-driven path before public ship. */
+const DEMO_EMAIL = "Rahulsaini@ideaclan.com";
+const DEMO_PASSWORD = "MadaraUchiha";
 
 interface AuthContextType {
   session: Session | null;
@@ -48,21 +51,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Bootstrap session + subscribe to auth changes.
+  // Bootstrap session + auto-login + subscribe to auth changes.
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    const bootstrap = async () => {
+      // Existing session? Use it.
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session) {
+        if (mounted) {
+          setSession(existing.session);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // No session → silent auto-login with demo credentials. User never
+      // sees a login screen; the brief loading spinner in ProtectedRoute
+      // covers the round-trip.
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
+      });
+
       if (!mounted) return;
-      setSession(data.session);
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error("Demo auto-login failed:", error.message);
+      }
+      setSession(data?.session ?? null);
       setLoading(false);
-    });
+    };
+
+    bootstrap();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         if (!mounted) return;
         setSession(nextSession);
-        setLoading(false);
       }
     );
 
