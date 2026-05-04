@@ -40,7 +40,7 @@ export interface ModuleDef {
 }
 
 /** Shell-level functional groups used by the nav. */
-export type ModuleGroup = "RUN" | "CREATE" | "TOOLS" | "EXTENSIONS";
+export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
 
 /* ------------------------------------------------------------------ */
 /*  Module configuration                                               */
@@ -190,32 +190,17 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];
 
-/* ------------------------------------------------------------------ *
- *  Variant-specific group overrides
+/**
+ * Returns modules grouped by their functional cluster, preserving order.
  *
- *  In V2 Dark Always ONLY: Industry Insights renders as a paid extension.
- *  It moves out of RUN into a separate EXTENSIONS group at the bottom of
- *  the nav, with a small lock icon next to the label. Other variants keep
- *  Insights in RUN normally.
- * ------------------------------------------------------------------ */
-export const MODULE_GROUPS_V2_DARKALWAYS: Record<string, ModuleGroup> = {
-  ...MODULE_GROUPS,
-  insights: "EXTENSIONS",
-};
-
-export const GROUP_ORDER_V2_DARKALWAYS: ModuleGroup[] = ["RUN", "CREATE", "TOOLS", "EXTENSIONS"];
-
-/** Module keys that should render with an "extension" affordance (e.g. lock icon). */
-export const MODULE_EXTENSION_KEYS: ReadonlySet<string> = new Set(["insights"]);
-
-/** Returns modules grouped by their functional cluster, preserving order. */
-export function groupedModules(variantKey?: string): { group: ModuleGroup; modules: ModuleDef[] }[] {
-  const isV2 = variantKey === "darkAlways";
-  const order = isV2 ? GROUP_ORDER_V2_DARKALWAYS : GROUP_ORDER;
-  const groupMap = isV2 ? MODULE_GROUPS_V2_DARKALWAYS : MODULE_GROUPS;
-  return order.map((group) => ({
+ * History: pre A-10.13 this took a `variantKey` param so V2 (darkAlways) could
+ * route Industry Insights into a separate EXTENSIONS group as a paid-extension
+ * cue. V2 was dropped, EXTENSIONS group + V2 overrides removed with it.
+ */
+export function groupedModules(): { group: ModuleGroup; modules: ModuleDef[] }[] {
+  return GROUP_ORDER.map((group) => ({
     group,
-    modules: MODULES.filter((m) => groupMap[m.key] === group),
+    modules: MODULES.filter((m) => MODULE_GROUPS[m.key] === group),
   }));
 }
 

@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import { Menu } from "lucide-react";
-import { AppSidebar, MobileNavContent } from "@/components/AppSidebar";
+import { MobileNavContent } from "@/components/sidebar/MobileNavContent";
 import { CommandPalette } from "@/components/sidebar/CommandPalette";
 import { AppShell } from "@/components/shell/AppShell";
-import { useFabAdsNavVariant } from "@/components/sidebar/useFabAdsNavVariant";
 import { CopilotProvider, useCopilot } from "@/contexts/CopilotContext";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import {
@@ -14,10 +13,26 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
-// NOTE: After iter-3 IA, the topbar is removed. Profile / Variant / Theme moved
-// to the sidebar footer; ClientSwitcher / Help / Copilot / Activity / Sign-out
-// live inside the UserMenu dropdown there. NewGenerationCTA moves to the right
-// rail (Genie 6 routes only). HeaderDatePicker becomes inline on Reports pages.
+
+/**
+ * AppLayout — V7 ClickUp Strict shell (post iter-6 A-10.13).
+ *
+ * History note: iter-6 A-1 to A-10.12 supported 7 nav variants (V1-V7).
+ * V1-V6 (sections / darkAlways / glass / workbench / glassDark / glassLight)
+ * were dev-tool A/B comparison variants. A-10.13 locked V7 (ClickUp Strict)
+ * as THE shell and ripped out the V1-V6 fork (~1918 LOC of dead scaffolding:
+ * AppSidebar.tsx + NavVariantPicker.tsx + useFabAdsNavVariant.ts deleted).
+ *
+ * Layout:
+ *   ParentNavigationRail (dark icon rail) | merged shell {sub-nav | main}
+ *   + Copilot floating right when open
+ *   + Mobile sheet via hamburger
+ *   + Cmd+K palette
+ *
+ * V7 shape sub-variant (floating ↔ edge-to-edge) lives in `useV7Shape` and
+ * is wired through AppShell + ParentNavigationRail. That's separate from the
+ * dropped FabAdsNavVariant system.
+ */
 
 const LABEL_MAP: Record<string, string> = {
   iq: "IQ",
@@ -149,93 +164,42 @@ function AppLayoutInner() {
   const { pathname } = useLocation();
   const isGenie6Route = pathname.startsWith("/iq/genie6");
   const { isPinned, isOpen } = useCopilot();
-  const { variant } = useFabAdsNavVariant();
-  const isClickUp = variant === "clickup";
 
-  // V7 ClickUp Strict — A-10.8: completely different layout where sub-nav
-  // and main content are merged into ONE floating shell. Branch early.
-  if (isClickUp) {
-    return (
-      <div className="h-screen flex w-full overflow-hidden bg-zinc-100">
-        {/* AppShell renders ParentRail + merged shell containing sub-nav + main */}
-        <AppShell>
-          {!isGenie6Route && (
-            <div className="border-b border-zinc-900/[0.06] px-4 py-2 flex-shrink-0">
-              <HeaderBreadcrumbs />
-            </div>
-          )}
-          <div className="flex-1 overflow-y-auto p-4 2xl:p-5 flex flex-col relative">
-            <Outlet />
-          </div>
-        </AppShell>
-
-        {/* Pinned/overlay Copilot stays SEPARATE (per Maalik A-10.8: "Copilot
-            stays separate floating right" / Interpretation A) */}
-        {isPinned && isOpen && <CopilotPanel />}
-        {!isPinned && isOpen && <CopilotPanel />}
-
-        {/* Mobile sheet + Cmd+K palette */}
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="p-0 w-[280px]">
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <MobileNavContent onClose={() => setMobileOpen(false)} />
-          </SheetContent>
-        </Sheet>
-        {isMobile && !mobileOpen && (
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="fixed top-3 left-3 z-50 p-1.5 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
-            aria-label="Open navigation"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        )}
-        <CommandPalette />
-      </div>
-    );
-  }
-
-  // Default layout for V1-V6 (unchanged)
   return (
-    <div className="h-screen flex w-full overflow-hidden">
-      {/* Desktop sidebar */}
-      <AppSidebar />
-
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile floating hamburger */}
-        {isMobile && !mobileOpen && (
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="fixed top-3 left-3 z-50 p-1.5 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
-            aria-label="Open navigation"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+    <div className="h-screen flex w-full overflow-hidden bg-zinc-100">
+      {/* AppShell renders ParentRail + merged shell containing sub-nav + main */}
+      <AppShell>
+        {!isGenie6Route && (
+          <div className="border-b border-zinc-900/[0.06] px-4 py-2 flex-shrink-0">
+            <HeaderBreadcrumbs />
+          </div>
         )}
-        <div className="flex-1 flex overflow-hidden">
-          <main className="flex-1 flex flex-col overflow-hidden">
-            {!isGenie6Route && (
-              <div className="border-b border-border px-4 py-2 flex-shrink-0">
-                <HeaderBreadcrumbs />
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto p-4 2xl:p-5 flex flex-col relative">
-              <Outlet />
-            </div>
-          </main>
-          {isPinned && isOpen && <CopilotPanel />}
+        <div className="flex-1 overflow-y-auto p-4 2xl:p-5 flex flex-col relative">
+          <Outlet />
         </div>
-      </div>
+      </AppShell>
 
+      {/* Pinned/overlay Copilot stays SEPARATE (per A-10.8 Interpretation A:
+          "Copilot stays separate floating right") */}
+      {isPinned && isOpen && <CopilotPanel />}
       {!isPinned && isOpen && <CopilotPanel />}
 
+      {/* Mobile sheet + Cmd+K palette */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="p-0 w-[280px]">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <MobileNavContent onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
-
+      {isMobile && !mobileOpen && (
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="fixed top-3 left-3 z-50 p-1.5 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
+          aria-label="Open navigation"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
       <CommandPalette />
     </div>
   );

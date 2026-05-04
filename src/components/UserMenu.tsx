@@ -13,21 +13,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
-  Settings, Plug, Users, UserPlus, LayoutGrid, Check,
+  Settings, Plug, Users, UserPlus,
 } from "lucide-react";
-import {
-  useFabAdsNavVariant,
-  VARIANT_CYCLE,
-  VARIANT_META,
-  type FabAdsNavVariant,
-} from "@/components/sidebar/useFabAdsNavVariant";
 
 /**
- * UserMenu — profile dropdown (nav iter-4, 2026-05-01).
+ * UserMenu — profile dropdown.
  *
  * Flat structure — NO sub-menus. Group separators only.
  * Absorbs: Settings, Integration, Team, Clients, Help, Theme, Sign out.
- * Removed: Copilot toggle (→ Tools module), Activity Log (→ NotificationBell).
+ *
+ * History:
+ *   iter-4 (2026-05-01) — created with flat structure.
+ *   A-10.12 — added V1-V7 nav variant picker (per "keep it inside the pop-over").
+ *   A-10.13 — picker REMOVED. V1-V6 variants dropped from the codebase entirely;
+ *             V7 (ClickUp Strict) is now the only shell, so a picker is meaningless.
  */
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
@@ -39,9 +38,6 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
 
   const initials = user.email?.slice(0, 2).toUpperCase() ?? "U";
   const isDark = resolvedTheme === "dark";
-
-  // Nav variant picker (moved into profile pop-over per Maalik A-10.12).
-  const { variant: currentVariant, setVariant } = useFabAdsNavVariant();
 
   return (
     <DropdownMenu>
@@ -125,33 +121,6 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           {isDark ? "Light mode" : "Dark mode"}
           <span className="ml-auto text-[10px] text-muted-foreground">⌘⇧D</span>
         </DropdownMenuItem>
-
-        {/* Nav variant picker (A-10.12: moved from rail chevron into the
-            profile pop-over per Maalik — "keep it inside the pop-over"). */}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground py-1">
-          <span className="flex items-center gap-1.5">
-            <LayoutGrid className="h-3 w-3" />
-            Nav variant
-          </span>
-        </DropdownMenuLabel>
-        {VARIANT_CYCLE.map((key) => {
-          const meta = VARIANT_META[key];
-          const isActive = currentVariant === key;
-          return (
-            <DropdownMenuItem
-              key={key}
-              onClick={() => setVariant(key as FabAdsNavVariant)}
-              className={isActive ? "font-medium" : ""}
-            >
-              <span className="mr-2 inline-flex h-3.5 w-3.5 items-center justify-center text-[9px] font-mono text-muted-foreground">
-                {meta.index}
-              </span>
-              <span className="flex-1 truncate text-xs">{meta.label}</span>
-              {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
-            </DropdownMenuItem>
-          );
-        })}
 
         {/* Danger */}
         <DropdownMenuSeparator />

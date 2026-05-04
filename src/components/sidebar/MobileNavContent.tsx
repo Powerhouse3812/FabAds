@@ -14,19 +14,17 @@ import {
   deriveActiveModule,
   isSubItemActive,
 } from "@/components/sidebar/modules";
-import { useFabAdsNavVariant } from "@/components/sidebar/useFabAdsNavVariant";
-
 /**
  * Mobile sheet content — single-pane, sectioned by RUN/CREATE/AUTOMATE/TOOLS
- * group labels just like the desktop nav. Variant-agnostic since the sheet
- * pattern works the same regardless of desktop nav variant.
+ * group labels just like the desktop nav.
+ *
+ * Post A-10.13: V1-V6 variants dropped, so `groupedModules()` no longer takes
+ * a variant param. Single canonical grouping.
  */
 export function MobileNavContent({ onClose }: { onClose: () => void }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { variant } = useFabAdsNavVariant();
-  // Mobile mirrors the desktop variant's grouping (V2 → EXTENSIONS at bottom).
-  const groups = groupedModules(variant);
+  const groups = groupedModules();
 
   const go = (path: string) => {
     navigate(path);
