@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, Play, Plus, ArrowUpRight, Settings, FolderOpen, History, Layers, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
-import { modeConfigs } from "../../generate/modeConfigs";
+import { modeConfigs } from "../../generate-legacy/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { greeting } from "../../utils/greeting";

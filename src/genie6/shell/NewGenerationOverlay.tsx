@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils";
 import { HeroPromptInput } from "../components/HeroPromptInput";
 import { MicroMotif } from "../components/MicroMotif";
-import { modeConfigs } from "../generate/modeConfigs";
+import { modeConfigs } from "../generate-legacy/modeConfigs";
 import { categorizeUrl, looksLikeUrl } from "../lib/urlCategorize";
 import {
   type PrefillContext,

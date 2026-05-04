@@ -13,13 +13,13 @@ import { VoiceLibrarySettings } from "./settings/VoiceLibrarySettings";
 import { TemplateLibrarySettings } from "./settings/TemplateLibrarySettings";
 import { DisclosureSettings } from "./settings/DisclosureSettings";
 import { WorkspaceView, WorkspaceIndex } from "./workspace/WorkspaceView";
-import { GenerateOutlet } from "./generate/GenerateOutlet";
-import { GenerateScaffold } from "./generate/GenerateScaffold";
-import { ModePicker } from "./generate/ModePicker";
-import { FormScaffold } from "./generate/FormScaffold";
+import { GenerateOutlet } from "./generate-legacy/GenerateOutlet";
+import { GenerateScaffold } from "./generate-legacy/GenerateScaffold";
+import { ModePicker } from "./generate-legacy/ModePicker";
+import { FormScaffold } from "./generate-legacy/FormScaffold";
 import { TourPresentation } from "./tour/TourPresentation";
-import { ProgressScreen } from "./generate/ProgressScreen";
-import { ResultsScreen } from "./generate/ResultsScreen";
+import { ProgressScreen } from "./generate-legacy/ProgressScreen";
+import { ResultsScreen } from "./generate-legacy/ResultsScreen";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -66,20 +66,33 @@ export const genie6Routes = (
     {/* Dev */}
     <Route path="_dev/output-card" element={<OutputCardShowcase />} />
 
-    {/* Generate (A-10.23: ProductPicker screen removed — /generate lands
-        DIRECTLY on the FormScaffold. Product / brand selection happens
-        inline via the form's existing brand-picker + product-picker fields.
-        Catalogue's "Generate" CTA still deep-links via /generate/product/:id
-        — FormScaffold handles both cases. Old ModePicker / GenerateScaffold
-        kept under /generate/legacy for any deep-link tests. */}
+    {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
+        flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted
+        at the original /generate/* paths so existing deep-links (Catalogue's
+        "Generate ad" CTA, in-app navigations, bookmarks) keep working
+        without changes. In Phase B the /generate/* mounts get replaced by
+        New Studio components; /generate-legacy/* stays as the Old Studio
+        access route, surfaced via the "Old Studio" sub-nav item.
+        Genie6Bridge wraps both to share theme + overlay providers. */}
+    <Route path="generate-legacy" element={<GenerateOutlet />}>
+      <Route index element={<FormScaffold />} />
+      <Route path="product/:productId" element={<FormScaffold />} />
+      <Route path="product/:productId/progress/:batchId" element={<ProgressScreen />} />
+      <Route path="product/:productId/results/:batchId" element={<ResultsScreen />} />
+      <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate-legacy" replace />} />
+      <Route path="legacy" element={<ModePicker />} />
+      <Route path="legacy/:mode" element={<GenerateScaffold />} />
+    </Route>
+
+    {/* Phase A backward-compat dual-mount — same Old Studio components, also
+        served under the original /generate/* paths so nothing breaks during
+        the transition. Phase B will swap these for New Studio components. */}
     <Route path="generate" element={<GenerateOutlet />}>
       <Route index element={<FormScaffold />} />
       <Route path="product/:productId" element={<FormScaffold />} />
       <Route path="product/:productId/progress/:batchId" element={<ProgressScreen />} />
       <Route path="product/:productId/results/:batchId" element={<ResultsScreen />} />
-      {/* Legacy: old form route (/generate/:mode/form) → bounce to /generate */}
       <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate" replace />} />
-      {/* Legacy: ModePicker / GenerateScaffold kept under /legacy for any tests */}
       <Route path="legacy" element={<ModePicker />} />
       <Route path="legacy/:mode" element={<GenerateScaffold />} />
     </Route>

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { DotGridPattern } from "../components/DotGridPattern";
 import { HeroPromptInput } from "../components/HeroPromptInput";
 import { MicroMotif } from "../components/MicroMotif";
-import { modeConfigs } from "../generate/modeConfigs";
+import { modeConfigs } from "../generate-legacy/modeConfigs";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
 import { StudioHome } from "../variants/studio/StudioHome";
 import { CanvasHome } from "../variants/canvas/CanvasHome";

@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useDraft } from "../../stores/draftStore";
-import { getModeConfig } from "../../generate/modeConfigs";
+import { getModeConfig } from "../../generate-legacy/modeConfigs";
 import { brands } from "../../mocks/brands";
 import { useUserBrands } from "../../stores/userBrandsStore";
 import { tryChipsFor, REFINE_CHIPS } from "./suggestionChips";

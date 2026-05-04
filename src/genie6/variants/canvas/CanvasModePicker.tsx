@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, Plus, History, FolderOpen, Layers, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { modeConfigs } from "../../generate/modeConfigs";
+import { modeConfigs } from "../../generate-legacy/modeConfigs";
 import { MicroMotif } from "../../components/MicroMotif";
 import { HeroPromptInput } from "../../components/HeroPromptInput";
 import type { ModeId } from "../../types/output";

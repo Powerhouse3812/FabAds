@@ -4,7 +4,7 @@ import { GripVertical, Plus, Sparkles, TrendingUp, ArrowUpRight, ChevronRight } 
 import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
 import { HeroPromptInput } from "../../components/HeroPromptInput";
-import { modeConfigs } from "../../generate/modeConfigs";
+import { modeConfigs } from "../../generate-legacy/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
 import { BrandLogo } from "../../components/BrandLogo";

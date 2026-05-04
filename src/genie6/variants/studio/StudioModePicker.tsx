@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { modeConfigs } from "../../generate/modeConfigs";
+import { modeConfigs } from "../../generate-legacy/modeConfigs";
 import { MicroMotif } from "../../components/MicroMotif";
 import { DotGridPattern } from "../../components/DotGridPattern";
 import { HeroPromptInput } from "../../components/HeroPromptInput";

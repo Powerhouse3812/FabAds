@@ -126,11 +126,16 @@ export const MODULES: ModuleDef[] = [
       //     pill Studio = a Genie internal layout variant.
       // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
       // matches the new /studio Product-first flow's primacy.
-      { label: "Overview",    path: "/iq/genie6",            icon: Home },
-      { label: "Studio",      path: "/iq/genie6/generate",   icon: Wand2 },
-      { label: "Generations", path: "/iq/genie6/library",    icon: LibraryIcon },
-      { label: "Assets",      path: "/iq/genie6/workspace",  icon: FolderTree },
-      { label: "Settings",    path: "/iq/genie6/settings",   icon: Settings },
+      { label: "Overview",    path: "/iq/genie6",                  icon: Home },
+      { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2 },
+      // Iter-7 A-11.1: "Old Studio" surfaces the preserved pre-revamp
+      // Generate flow at /generate-legacy/*. Sits next to "Studio" so Maalik
+      // can A/B compare during the New Studio build. Will hide / remove once
+      // New Studio fully ships and is signed off.
+      { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2 },
+      { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
+      { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },
+      { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
     ],
   },
   {

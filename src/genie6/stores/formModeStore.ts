@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { FormMode } from "../generate/modeConfigs";
+import type { FormMode } from "../generate-legacy/modeConfigs";
 
 /**
  * formModeStore — Quick vs Advanced form-mode toggle (P-5).

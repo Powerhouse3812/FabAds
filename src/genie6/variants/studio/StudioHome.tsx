@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { MicroMotif } from "../../components/MicroMotif";
 import { OutputCard } from "../../components/OutputCard";
 import { HeroPromptInput } from "../../components/HeroPromptInput";
-import { modeConfigs } from "../../generate/modeConfigs";
+import { modeConfigs } from "../../generate-legacy/modeConfigs";
 import { analyticsAgency } from "../../mocks/analytics";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { greeting } from "../../utils/greeting";
