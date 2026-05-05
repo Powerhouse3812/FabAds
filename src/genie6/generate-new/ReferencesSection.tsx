@@ -28,6 +28,14 @@ export interface ReferencesSectionProps {
   onRemoveReference: (index: number) => void;
   /** Optional override label */
   label?: string;
+  /**
+   * A-11.20: optional slot rendered above the references list (after the
+   * section header). Studio v3's Product Shoot form passes a "Include
+   * product imagery" toggle here so the toggle lives inside the References
+   * section instead of being its own standalone block. ReferencesSection
+   * stays generic — it doesn't know what's in `extras`.
+   */
+  extras?: import("react").ReactNode;
 }
 
 export function ReferencesSection({
@@ -35,6 +43,7 @@ export function ReferencesSection({
   onAddReference,
   onRemoveReference,
   label = "References",
+  extras,
 }: ReferencesSectionProps) {
   const [open, setOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -62,6 +71,8 @@ export function ReferencesSection({
           </span>
         )}
       </div>
+
+      {extras}
 
       {empty ? (
         <EmptyDropZone

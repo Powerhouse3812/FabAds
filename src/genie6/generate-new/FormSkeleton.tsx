@@ -4,33 +4,31 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * FormSkeleton — chassis for every New Studio Type form.
+ * FormSkeleton — chassis for every form (A-11.20 fix).
  *
- * A-11.12 redesign per Maalik's UI feedback:
- *   - Slim header — back button + title only. The sticky "top zone" with
- *     pickers is GONE; pickers move into the form body as the first section.
- *     Each form composes its own picker UI as the first body block.
- *   - PromptBar wrapper now uses GLASS chrome — backdrop-blur + translucent
- *     bg + subtle ring/shadow. Apple-style liquid glass aesthetic.
- *   - Single-column scroll body — eye flow becomes vertical (header → picker
- *     → templates → references → suggestions → advanced → generate).
+ * A-11.20 change: prompt bar moved from `absolute bottom-X` (which
+ * overlapped body content and caused the "References hidden behind
+ * prompt bar" bug Maalik flagged twice) to a flex FOOTER SLOT. Body now
+ * shrinks to fit between header and footer — prompt bar can NEVER overlap
+ * any body section. Glass card chrome on the bar is preserved (rounded,
+ * blurred, ringed, lifted shadow) so it still looks elevated.
  *
- * The previous `top` and `status` slots are dropped. Caller composes
- * everything in the body slot.
+ * Body padding-bottom dropped — no longer needed since the bar is in a
+ * flex slot, not an absolute layer above.
  */
 
 export interface FormSkeletonProps {
-  /** Optional eyebrow over the title (e.g. "Studio · Brand Ad"). */
+  /** Optional eyebrow over the title (e.g. "Studio v3 · Brand Ad"). */
   eyebrow?: string;
-  /** Optional H1 title (e.g. "Generate a brand ad"). */
+  /** Optional H1 title. */
   title?: string;
   /** Optional one-line sub under the title. */
   sub?: string;
-  /** Scrollable form body — strips, sections, drawers. */
+  /** Scrollable form body. */
   body: ReactNode;
-  /** Floating bottom prompt bar — typically <PromptBar />. */
+  /** Sticky bottom prompt bar — typically <PromptBar />. */
   promptBar: ReactNode;
-  /** Optional className for outer container customization. */
+  /** Outer container classes override. */
   className?: string;
   /** Where the back button routes. Defaults to GenerateLanding. */
   backTo?: string;
@@ -49,7 +47,7 @@ export function FormSkeleton({
   backLabel = "Picker",
 }: FormSkeletonProps) {
   return (
-    <div className={cn("flex h-full flex-col bg-background relative", className)}>
+    <div className={cn("flex h-full flex-col bg-background", className)}>
       {/* Slim header — back + title only */}
       <header className="shrink-0 flex items-start gap-3 border-b border-border/60 bg-background px-4 py-3 sm:px-6">
         <Link
@@ -83,37 +81,31 @@ export function FormSkeleton({
         )}
       </header>
 
-      {/* Form body — scrolls between header + floating prompt bar.
-          A-11.13: bumped bottom padding pb-32 → pb-48 (128 → 192px). The
-          floating PromptBar renders at ~80px tall (chips row + main row +
-          py-2.5) plus a 12-16px bottom inset = ~96px viewport coverage.
-          pb-32 cleared the math but not visually — Fine-tune section was
-          getting hidden behind the glass when expanded. pb-48 gives ~96px
-          guaranteed clearance below the last content. */}
+      {/* Form body — scrolls between header + footer (no padding tricks
+          needed; footer is a real flex slot, not an absolute overlay). */}
       <main className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 pb-48 space-y-6">
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-7 space-y-6">
           {body}
         </div>
       </main>
 
-      {/* Floating PromptBar — glass chrome, sits absolute over the body's
-          bottom. backdrop-blur + translucent + ring + shadow = Apple liquid
-          glass aesthetic. */}
-      <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-6 sm:right-6 z-10">
+      {/* Sticky bottom prompt bar — flex footer slot. CANNOT overlap body. */}
+      <footer className="shrink-0 border-t border-border/40 bg-background/85 backdrop-blur-md backdrop-saturate-150 px-3 py-2.5 sm:px-6">
         <div
           className={cn(
             "mx-auto max-w-3xl rounded-2xl",
             "bg-background/70 supports-[backdrop-filter]:bg-background/55",
             "backdrop-blur-xl backdrop-saturate-150",
             "border border-border/60",
-            "shadow-[0_10px_40px_-10px_rgba(0,0,0,0.20),0_4px_12px_-4px_rgba(0,0,0,0.10)]",
+            // Upward shadow keeps the "lifted glass" feel without absolute pos
+            "shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.05)]",
             "ring-1 ring-foreground/[0.04]",
             "overflow-hidden",
           )}
         >
           {promptBar}
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
