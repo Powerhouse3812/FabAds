@@ -146,11 +146,13 @@ export function PromptBar({
   references = [],
   onAddReference,
   onRemoveReference,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   contextChips = [],
   onGenerate,
   disabled = false,
   generateLabel = "Generate",
-  showTestButton = true,
+  showTestButton = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   density = "default",
 }: PromptBarProps) {
   // Auto-grow textarea
@@ -188,153 +190,119 @@ export function PromptBar({
     .filter((m) => m.id !== activeModel?.id && (m.costPerUnit ?? 1) < (activeModel?.costPerUnit ?? 1))
     .sort((a, b) => (a.costPerUnit ?? 1) - (b.costPerUnit ?? 1))[0];
 
-  const gap = density === "tight" ? "gap-1.5" : "gap-2";
-  const py = density === "tight" ? "py-2" : "py-2.5";
+  // A-11.12: slim 2-row glass design.
+  //   Row 1 (only renders if chips exist) — chips strip
+  //   Row 2 — main bar: refs + textarea + model + count + credit + Generate
+  // Removed: contextChips, showTestButton (default false), Test button row.
 
   return (
-    <div className={cn("space-y-2 px-3", py)}>
-      {/* Row 1 — refs + chips */}
-      <div className={cn("flex min-w-0 items-center", gap)}>
+    <div className="px-3 py-2.5">
+      {/* Row 1 — chips (optional) */}
+      {chips.length > 0 && (
+        <div className="scrollbar-none mb-1.5 flex min-w-0 items-center gap-1.5 overflow-x-auto">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 shrink-0">
+            {chipPrefix}
+          </span>
+          {chips.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handleChipClick(c)}
+              className="shrink-0 rounded-full border border-border/60 bg-background/40 px-2.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground backdrop-blur-sm"
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Row 2 — main bar */}
+      <div className="flex items-end gap-2">
         <RefsPopover
           references={references}
           onAddReference={onAddReference}
           onRemoveReference={onRemoveReference}
         />
-        {chips.length > 0 && (
-          <div className="scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">
-              {chipPrefix}
-            </span>
-            {chips.map((c, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleChipClick(c)}
-                className="shrink-0 rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
-              >
-                {c.label}
-              </button>
+        <textarea
+          ref={taRef}
+          value={prompt}
+          onChange={(e) => onPromptChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Describe what you want to generate…  (⌘+Enter)"
+          rows={1}
+          aria-label="Prompt"
+          className="flex-1 min-w-0 resize-none rounded-md bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+          style={{ minHeight: 32, maxHeight: 120 }}
+        />
+        {/* AI model picker */}
+        {models.length > 0 && onModelChange && (
+          <select
+            value={selectedModelId ?? activeModel?.id ?? ""}
+            onChange={(e) => onModelChange(e.target.value)}
+            aria-label="AI model"
+            title={activeModel?.tag ? `${activeModel.label} · ${activeModel.tag}` : activeModel?.label}
+            className="h-8 max-w-[120px] truncate rounded-full border border-border/60 bg-background/40 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur-sm hover:text-foreground focus:border-primary/40 focus:outline-none"
+          >
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
             ))}
-          </div>
+          </select>
         )}
-      </div>
-
-      {/* Row 2 — textarea */}
-      <textarea
-        ref={taRef}
-        value={prompt}
-        onChange={(e) => onPromptChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder="Describe what you want to generate…  (Cmd+Enter to send)"
-        rows={1}
-        aria-label="Prompt"
-        className="w-full resize-none rounded-md bg-transparent px-1 py-1 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-        style={{ minHeight: 32, maxHeight: 120 }}
-      />
-
-      {/* Row 3 — controls */}
-      <div className={cn("flex flex-wrap items-center justify-between", gap)}>
-        <div className={cn("flex min-w-0 flex-wrap items-center", gap)}>
-          {/* Context chips — caller-supplied (mode pill, brand pill, etc.) */}
-          {contextChips.map((c, i) => (
-            <span
-              key={i}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                c.tone === "active"
-                  ? "border-primary/30 bg-primary/10 text-foreground"
-                  : "border-border bg-card text-muted-foreground"
-              )}
-            >
-              {c.logo && <img src={c.logo} alt="" className="h-3.5 w-3.5 rounded-full" />}
-              {c.label}
-              {c.onClear && (
-                <button
-                  type="button"
-                  onClick={c.onClear}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label={`Clear ${c.label}`}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </span>
-          ))}
-
-          {/* AI model picker */}
-          {models.length > 0 && onModelChange && (
-            <select
-              value={selectedModelId ?? activeModel?.id ?? ""}
-              onChange={(e) => onModelChange(e.target.value)}
-              aria-label="AI model"
-              title={activeModel?.tag ? `${activeModel.label} · ${activeModel.tag}` : activeModel?.label}
-              className="h-7 max-w-[140px] truncate rounded-full border border-border bg-card px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground focus:border-primary/40 focus:outline-none"
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Count stepper */}
-          <CountStepper
-            value={count}
-            onChange={onCountChange}
-            min={minCount}
-            max={maxCount}
-          />
-        </div>
-
-        <div className={cn("flex items-center", gap)}>
-          {/* Credit estimate */}
-          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
-            <Coins className="h-3 w-3" />~{creditsEstimate} cr
-          </span>
-
-          {/* Cheaper alternative — only renders when one exists */}
-          {cheaper && onModelChange && (
-            <button
-              type="button"
-              onClick={() => onModelChange(cheaper.id)}
-              className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-              title={`Switch to ${cheaper.label} (${cheaper.costPerUnit ?? 1} cr/unit)`}
-            >
-              cheaper?
-            </button>
-          )}
-
-          {showTestButton && (
-            <button
-              type="button"
-              onClick={() => onGenerate(true)}
-              disabled={disabled}
-              className="h-8 rounded-full border border-border bg-card px-3 text-[11px] font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Test 4
-            </button>
-          )}
-
+        <CountStepper
+          value={count}
+          onChange={onCountChange}
+          min={minCount}
+          max={maxCount}
+        />
+        <span className="inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
+          <Coins className="h-3 w-3" />
+          {creditsEstimate}
+        </span>
+        {cheaper && onModelChange && (
           <button
             type="button"
-            onClick={() => onGenerate(false)}
-            disabled={disabled}
-            className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground shadow-sm transition-all",
-              "hover:-translate-y-0.5 active:translate-y-0",
-              "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0",
-              "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            )}
+            onClick={() => onModelChange(cheaper.id)}
+            className="hidden md:inline text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            title={`Switch to ${cheaper.label} (${cheaper.costPerUnit ?? 1} cr/unit)`}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            {generateLabel}
+            cheaper?
           </button>
-        </div>
+        )}
+        {showTestButton && (
+          <button
+            type="button"
+            onClick={() => onGenerate(true)}
+            disabled={disabled}
+            className="h-8 rounded-full border border-border/60 bg-background/40 px-3 text-[11px] font-medium text-muted-foreground backdrop-blur-sm hover:border-foreground/30 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Test 4
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onGenerate(false)}
+          disabled={disabled}
+          className={cn(
+            "inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground shadow-md transition-all shrink-0",
+            "hover:-translate-y-0.5 active:translate-y-0",
+            "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0",
+            "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          )}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          {generateLabel}
+        </button>
       </div>
     </div>
   );
 }
+
+/* contextChips intentionally not rendered — A-11.12: brand / mode info
+   already lives in the form's body picker section, no need to duplicate in
+   the prompt bar. The `contextChips` prop is kept on the type for
+   backward-compat but unused. Linter may flag the destructure as unused. */
 
 /* ─────────────────────────────────────────────────────── */
 

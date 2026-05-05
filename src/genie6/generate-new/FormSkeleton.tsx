@@ -6,21 +6,17 @@ import { cn } from "@/lib/utils";
 /**
  * FormSkeleton — chassis for every New Studio Type form.
  *
- * A-11.11 redesign per Maalik's UI feedback:
- *   - Back button slot (top-left of header) routes to /iq/genie6/generate
- *     so users can return to the GenerateLanding picker without browser-back.
- *   - Floating prompt bar — was a flush bg-card border-t footer; now wrapped
- *     with mx-3 mb-3 rounded-2xl shadow-lg ring (Fabfunnel-grade detached
- *     chrome). Form Specs §0.3 explicitly says "Floating prompt bar".
- *   - Outer chrome stays minimal so V7 merged shell's white surface shows
- *     through — only the floating bar has its own visible card chrome.
- *   - Optional eyebrow + title slots for tier-1 form heading (passed by
- *     each Type form via the new `eyebrow` + `title` props).
+ * A-11.12 redesign per Maalik's UI feedback:
+ *   - Slim header — back button + title only. The sticky "top zone" with
+ *     pickers is GONE; pickers move into the form body as the first section.
+ *     Each form composes its own picker UI as the first body block.
+ *   - PromptBar wrapper now uses GLASS chrome — backdrop-blur + translucent
+ *     bg + subtle ring/shadow. Apple-style liquid glass aesthetic.
+ *   - Single-column scroll body — eye flow becomes vertical (header → picker
+ *     → templates → references → suggestions → advanced → generate).
  *
- * Per Form Specs §0.3 — universal layout:
- *   ┌─ Header (sticky): back · eyebrow + title · top-zone slot ──┐
- *   ┌─ Form body (scrollable, max-w-4xl) ─ slot for sections ──┐
- *   ┌─ Floating PromptBar (sticky bottom, detached chrome) ────┐
+ * The previous `top` and `status` slots are dropped. Caller composes
+ * everything in the body slot.
  */
 
 export interface FormSkeletonProps {
@@ -30,11 +26,6 @@ export interface FormSkeletonProps {
   title?: string;
   /** Optional one-line sub under the title. */
   sub?: string;
-  /** Top sticky zone — required pickers, output chip, format toggle, etc. */
-  top: ReactNode;
-  /** Optional small status read-out slot — typically a row of tiny pills
-   *  showing "Brand ✓ · Output ✗ · 4 variants ready". */
-  status?: ReactNode;
   /** Scrollable form body — strips, sections, drawers. */
   body: ReactNode;
   /** Floating bottom prompt bar — typically <PromptBar />. */
@@ -51,8 +42,6 @@ export function FormSkeleton({
   eyebrow,
   title,
   sub,
-  top,
-  status,
   body,
   promptBar,
   className,
@@ -60,58 +49,64 @@ export function FormSkeleton({
   backLabel = "Picker",
 }: FormSkeletonProps) {
   return (
-    <div className={cn("flex h-full flex-col bg-background", className)}>
-      {/* Header — sticky, contains back + title + top zone */}
-      <header className="shrink-0 border-b border-border bg-card">
-        <div className="flex items-start gap-3 px-4 pt-3 sm:px-5">
-          <Link
-            to={backTo}
-            aria-label={`Back to ${backLabel.toLowerCase()}`}
-            className={cn(
-              "shrink-0 inline-flex items-center gap-1 h-8 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground transition-colors",
-              "hover:border-foreground/30 hover:text-foreground",
-              "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
-            )}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            {backLabel}
-          </Link>
-          {(eyebrow || title) && (
-            <div className="min-w-0 flex-1">
-              {eyebrow && (
-                <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
-                  {eyebrow}
-                </p>
-              )}
-              {title && (
-                <h1 className="text-base font-semibold tracking-tight text-foreground leading-tight">
-                  {title}
-                </h1>
-              )}
-              {sub && (
-                <p className="text-xs text-muted-foreground leading-snug">{sub}</p>
-              )}
-            </div>
+    <div className={cn("flex h-full flex-col bg-background relative", className)}>
+      {/* Slim header — back + title only */}
+      <header className="shrink-0 flex items-start gap-3 border-b border-border/60 bg-background px-4 py-3 sm:px-6">
+        <Link
+          to={backTo}
+          aria-label={`Back to ${backLabel.toLowerCase()}`}
+          className={cn(
+            "shrink-0 inline-flex items-center gap-1 h-8 rounded-md border border-border bg-card px-2 text-xs text-muted-foreground transition-colors",
+            "hover:border-foreground/30 hover:text-foreground",
+            "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
           )}
-        </div>
-        <div className="px-4 pb-3 pt-2 sm:px-5">{top}</div>
-        {status && (
-          <div className="border-t border-border/60 px-4 py-1.5 sm:px-5">
-            {status}
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          {backLabel}
+        </Link>
+        {(eyebrow || title) && (
+          <div className="min-w-0 flex-1">
+            {eyebrow && (
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+                {eyebrow}
+              </p>
+            )}
+            {title && (
+              <h1 className="text-base font-semibold tracking-tight text-foreground leading-tight">
+                {title}
+              </h1>
+            )}
+            {sub && (
+              <p className="text-xs text-muted-foreground leading-snug">{sub}</p>
+            )}
           </div>
         )}
       </header>
 
-      {/* Form body — scrolls between header + floating bar */}
+      {/* Form body — scrolls between header + floating prompt bar.
+          Generous bottom padding so the floating PromptBar doesn't cover
+          the last body section. */}
       <main className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto max-w-4xl px-4 py-4 sm:px-5 sm:py-5 space-y-5">
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 pb-32 space-y-6">
           {body}
         </div>
       </main>
 
-      {/* Floating PromptBar — detached card chrome */}
-      <div className="shrink-0 px-3 pb-3 pt-1">
-        <div className="rounded-2xl border border-border bg-card shadow-lg ring-1 ring-border/40 overflow-hidden">
+      {/* Floating PromptBar — glass chrome, sits absolute over the body's
+          bottom. backdrop-blur + translucent + ring + shadow = Apple liquid
+          glass aesthetic. */}
+      <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-6 sm:right-6 z-10">
+        <div
+          className={cn(
+            "mx-auto max-w-3xl rounded-2xl",
+            "bg-background/70 supports-[backdrop-filter]:bg-background/55",
+            "backdrop-blur-xl backdrop-saturate-150",
+            "border border-border/60",
+            "shadow-[0_10px_40px_-10px_rgba(0,0,0,0.20),0_4px_12px_-4px_rgba(0,0,0,0.10)]",
+            "ring-1 ring-foreground/[0.04]",
+            "overflow-hidden",
+          )}
+        >
           {promptBar}
         </div>
       </div>

@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Globe, Tag } from "lucide-react";
 import { categories as allCategories, brands as allBrands } from "@/mocks/shared";
-import { PromptBar, type PromptBarReference, type PromptBarChip, type PromptBarModel, type PromptBarContextChip } from "@/components/PromptBar";
+import { PromptBar, type PromptBarReference, type PromptBarChip, type PromptBarModel } from "@/components/PromptBar";
 import { cn } from "@/lib/utils";
 import { FormSkeleton } from "../FormSkeleton";
-import { AdvancedDrawer } from "../AdvancedDrawer";
-import { AISuggestionsDrawer } from "../AISuggestionsDrawer";
 import { ReferencesSection } from "../ReferencesSection";
 import { IndustryInsightsAnchor } from "../IndustryInsightsAnchor";
 import { CategoryPill } from "../fields/CategoryPill";
@@ -15,9 +13,11 @@ import { ProductMultiPicker } from "../fields/ProductMultiPicker";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
 import { PresetBadge } from "../fields/PresetBadge";
-import { StatusReadout, type StatusItem } from "../fields/StatusReadout";
+import { PickerCard, PickerRow } from "../sections/PickerCard";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
+import { AISuggestionsBanner } from "../sections/AISuggestionsBanner";
+import { AdvancedSection, AdvancedFacet } from "../sections/AdvancedSection";
 import {
   CommonAdvancedFields,
   DEFAULT_COMMON_ADVANCED,
@@ -31,26 +31,8 @@ import {
 import type { OutputType, ImageFormat } from "../types";
 
 /**
- * StudioAffiliateAdForm — third New Studio Type form (A-11.6).
- *
- * Spec source: Genie_6.0_Form_Specs.md §3.
- *
- * Distinct from Brand / Product Ad in:
- *   - Top sticky leads with REQUIRED Category picker (not Brand) — KB anchor
- *     for Affiliate, parallel to Brand for Brand Ad.
- *   - Optional Landing URL input + Saved offers picker.
- *   - Optional "Also generate as Product Ad" toggle that reveals Brand pill +
- *     Product picker inline.
- *   - Format toggle adds LP-derived (auto-extracts hero from landing page).
- *   - Form body adds "Category KB references" strip (Category-specific
- *     winners/refs, parallel to Product visuals from Brand profile).
- *   - Advanced drawer adds Affiliate-specific: Funnel emphasis / Compliance
- *     presets / LP-emphasis / Geo-target.
- *
- * Pre-fill matrix (Form Specs §3):
- *   - Default → Type=Affiliate Ad, Output=Whole Adcopy. Category + URL
- *     selected inside the form (NOT on the gate).
- *   - From Workspace > Category detail → Category pre-filled.
+ * StudioAffiliateAdForm — Affiliate Ad form (A-11.12 redesign).
+ * Spec: Genie_6.0_Form_Specs.md §3.
  */
 
 const IMAGE_FORMAT_OPTIONS: FormatOption[] = [
@@ -82,13 +64,10 @@ const TRY_CHIPS: PromptBarChip[] = [
 export function StudioAffiliateAdForm() {
   const [searchParams] = useSearchParams();
 
-  // ───────────── Pre-fill from URL ─────────────
   const initialCategory = searchParams.get("category");
-  // A-11.10: Output unset until user picks. Pre-fill comes only from outside-Studio entry (UGC gate sets it).
   const outputParam = searchParams.get("output") as OutputType | null;
-  const presetMarker = searchParams.get("preset"); // "ugc-video" when from UGC preset
+  const presetMarker = searchParams.get("preset");
 
-  // ───────────── Top sticky state ─────────────
   const [categoryId, setCategoryId] = useState<string | null>(initialCategory);
   const [landingUrl, setLandingUrl] = useState<string>("");
   const [output, setOutput] = useState<OutputType | null>(outputParam);
@@ -97,27 +76,21 @@ export function StudioAffiliateAdForm() {
   const [productAdBrandId, setProductAdBrandId] = useState<string | null>(null);
   const [productAdProductIds, setProductAdProductIds] = useState<string[]>([]);
 
-  // ───────────── Body state ─────────────
   const [references, setReferences] = useState<PromptBarReference[]>([]);
   const [advanced, setAdvanced] = useState<CommonAdvancedState>(DEFAULT_COMMON_ADVANCED);
   const [affiliateAdvanced, setAffiliateAdvanced] = useState<AffiliateAdAdvancedState>(
     DEFAULT_AFFILIATE_AD_ADVANCED,
   );
 
-  // ───────────── PromptBar state ─────────────
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(4);
 
   const models = useMemo(() => {
     switch (output) {
-      case "image":
-        return MOCK_MODELS_IMAGE;
-      case "video":
-        return MOCK_MODELS_VIDEO;
-      case "whole-adcopy":
-        return MOCK_MODELS_TEXT;
-      default:
-        return [] as PromptBarModel[];
+      case "image": return MOCK_MODELS_IMAGE;
+      case "video": return MOCK_MODELS_VIDEO;
+      case "whole-adcopy": return MOCK_MODELS_TEXT;
+      default: return [] as PromptBarModel[];
     }
   }, [output]);
 
@@ -128,37 +101,19 @@ export function StudioAffiliateAdForm() {
     }
   }, [models, modelId]);
 
-  // ───────────── Derived ─────────────
   const category = categoryId ? allCategories.find((c) => c.id === categoryId) : undefined;
   const productAdBrand = productAdBrandId ? allBrands.find((b) => b.id === productAdBrandId) : undefined;
   const showVideoSection = output === "video";
 
-  const contextChips: PromptBarContextChip[] = [
-    { label: "Affiliate Ad", tone: "active" as const },
-    ...(category
-      ? [{ label: category.name, onClear: () => setCategoryId(null) }]
-      : []),
-    ...(alsoProductAd && productAdBrand
-      ? [{ label: `+ ${productAdBrand.name}`, logo: productAdBrand.logo }]
-      : []),
-  ];
-
   const onGenerate = (testFirst: boolean) => {
     const summary = {
-      type: "affiliate-ad",
-      category: category?.name ?? "(none)",
-      landingUrl,
-      output,
+      type: "affiliate-ad", category: category?.name, landingUrl, output,
       imageFormat: output === "image" ? imageFormat : undefined,
       alsoProductAd,
       productAdBrand: alsoProductAd ? productAdBrand?.name : undefined,
       productAdProducts: alsoProductAd ? productAdProductIds : undefined,
       count: testFirst ? Math.min(4, count) : count,
-      model: modelId,
-      prompt,
-      advanced,
-      affiliateAdvanced,
-      refs: references.length,
+      model: modelId, prompt, advanced, affiliateAdvanced, refs: references.length,
     };
     // eslint-disable-next-line no-console
     console.log("[Affiliate Ad — mock generate]", summary);
@@ -167,135 +122,154 @@ export function StudioAffiliateAdForm() {
 
   const canGenerate = !!categoryId && !!output;
 
-  const statusItems: StatusItem[] = [
-    { label: category ? `Category · ${category.name}` : "Category · pick", state: category ? "ok" : "missing" },
-    { label: output ? `Output · ${output}` : "Output · pick", state: output ? "ok" : "missing" },
-    ...(output === "image" ? [{ label: `Format · ${imageFormat}`, state: "info" as const }] : []),
-    { label: `${count} variant${count === 1 ? "" : "s"}`, state: "info" },
-    ...(alsoProductAd ? [{ label: "+ Product Ad pair", state: "info" as const }] : []),
-  ];
+  const setAdvField = <K extends keyof CommonAdvancedState>(k: K, v: CommonAdvancedState[K]) =>
+    setAdvanced({ ...advanced, [k]: v });
 
   return (
     <FormSkeleton
       eyebrow="Studio · Affiliate Ad"
       title="Performance ads anchored to a category"
       sub="Pick category + landing URL, choose output, generate. Toggle 'Also Product Ad' to pair with a Product Ad batch."
-      top={
-        <div className="space-y-2">
-          {/* Tier 1 — Category (REQUIRED) + Landing URL + Saved offers */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Category ·
-            </span>
-            <CategoryPill value={categoryId} onChange={setCategoryId} required />
-            <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 min-w-[200px]">
-              <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <input
-                type="url"
-                value={landingUrl}
-                onChange={(e) => setLandingUrl(e.target.value)}
-                placeholder="Landing URL (optional)"
-                aria-label="Landing URL"
-                className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none w-full"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => alert("Saved offers picker — coming with the offers backend (TODO).")}
-              className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border bg-card px-2 py-1 text-[11px] text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+      body={
+        <>
+          <PickerCard title="Setup">
+            <PickerRow
+              label="Category"
+              required
+              accessory={presetMarker === "ugc-video" ? <PresetBadge preset="ugc-video" /> : null}
             >
-              <Tag className="h-3 w-3" />
-              Saved offers
-            </button>
-            {presetMarker === "ugc-video" && <PresetBadge preset="ugc-video" className="ml-auto" />}
-          </div>
-          {/* Tier 2 — Output + Format + Also Product Ad */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Output ·
-            </span>
-            <OutputChip
-              value={output}
-              onChange={setOutput}
-              options={["image", "video", "whole-adcopy"]}
-              placeholder="Pick output"
-            />
+              <CategoryPill value={categoryId} onChange={setCategoryId} required />
+            </PickerRow>
+            <PickerRow label="Landing URL" sub="optional · drives LP-derived format">
+              <div className="inline-flex h-9 w-full max-w-md items-center gap-1.5 rounded-md border border-border bg-card px-2.5">
+                <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <input
+                  type="url"
+                  value={landingUrl}
+                  onChange={(e) => setLandingUrl(e.target.value)}
+                  placeholder="https://example.com/lp/…"
+                  aria-label="Landing URL"
+                  className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none w-full"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => alert("Saved offers picker — coming with the offers backend (TODO).")}
+                className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border bg-card px-2 py-1 text-[11px] text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+              >
+                <Tag className="h-3 w-3" />
+                Saved offers
+              </button>
+            </PickerRow>
+            <PickerRow label="Output" required>
+              <OutputChip
+                value={output}
+                onChange={setOutput}
+                options={["image", "video", "whole-adcopy"]}
+                placeholder="Pick output"
+              />
+            </PickerRow>
             {output === "image" && (
-              <>
-                <span className="text-muted-foreground/40 mx-0.5">·</span>
+              <PickerRow label="Format" sub="LP-derived auto-extracts hero">
                 <FormatToggle
                   value={imageFormat}
                   onChange={setImageFormat}
                   options={IMAGE_FORMAT_OPTIONS}
                 />
-              </>
+              </PickerRow>
             )}
-            <button
-              type="button"
-              onClick={() => setAlsoProductAd((v) => !v)}
-              aria-pressed={alsoProductAd}
-              className={cn(
-                "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
-                "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
-                alsoProductAd
-                  ? "border-primary/40 bg-primary/10 text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-              )}
-            >
-              <span className="text-base leading-none">⚙</span>
-              Also generate as Product Ad
-            </button>
-          </div>
-          {alsoProductAd && (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Product Ad pair
-              </p>
-              <BrandPill
-                value={productAdBrandId}
-                onChange={(b) => {
-                  setProductAdBrandId(b);
-                  if (b !== productAdBrandId) setProductAdProductIds([]);
-                }}
-                required={false}
-              />
-              <ProductMultiPicker
-                value={productAdProductIds}
-                onChange={setProductAdProductIds}
-                brandIdFilter={productAdBrandId}
-              />
-            </div>
-          )}
-        </div>
-      }
-      status={<StatusReadout items={statusItems} />}
-      body={
-        <>
+            <PickerRow label="Also Product Ad" sub="generate paired Product Ad in the same batch">
+              <button
+                type="button"
+                onClick={() => setAlsoProductAd((v) => !v)}
+                aria-pressed={alsoProductAd}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
+                  alsoProductAd
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+              >
+                {alsoProductAd ? "Enabled" : "Off"}
+              </button>
+            </PickerRow>
+            {alsoProductAd && (
+              <PickerRow label="Product pair" sub="brand + products for the paired generation">
+                <BrandPill
+                  value={productAdBrandId}
+                  onChange={(b) => {
+                    setProductAdBrandId(b);
+                    if (b !== productAdBrandId) setProductAdProductIds([]);
+                  }}
+                  required={false}
+                />
+                <ProductMultiPicker
+                  value={productAdProductIds}
+                  onChange={setProductAdProductIds}
+                  brandIdFilter={productAdBrandId}
+                />
+              </PickerRow>
+            )}
+          </PickerCard>
+
+          <AISuggestionsBanner
+            contextLabel={category ? `from ${category.name} category` : "from Industry Insights"}
+          />
+
           <SavedTemplatesStrip />
-          <CategoryKBStrip categoryId={categoryId} />
+
           {showVideoSection && <VideoProductionSection />}
+
           <ReferencesSection
             references={references}
             onAddReference={(r) => setReferences([...references, r])}
             onRemoveReference={(i) => setReferences(references.filter((_, idx) => idx !== i))}
           />
-          <AdvancedDrawer label="Advanced settings">
-            <IndustryInsightsAnchor
-              filter={category ? { kind: "category", categoryId: category.id } : undefined}
-            />
-            <CommonAdvancedFields state={advanced} onChange={setAdvanced} />
-            <div className="mt-2 border-t border-border pt-3">
-              <p className="mb-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Affiliate Ad-specific
-              </p>
-              <AffiliateAdAdvancedFields
-                state={affiliateAdvanced}
-                onChange={setAffiliateAdvanced}
-              />
-            </div>
-          </AdvancedDrawer>
-          <AISuggestionsDrawer
-            contextLabel={category ? `from Industry Insights · ${category.name}` : "from Industry Insights"}
+
+          <AdvancedSection
+            essentials={
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <CompactField label="Audience">
+                  <input
+                    type="text"
+                    value={advanced.audience ?? ""}
+                    onChange={(e) => setAdvField("audience", e.target.value)}
+                    placeholder="e.g. weight-loss seekers"
+                    className="block h-9 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none"
+                  />
+                </CompactField>
+                <CompactField label="Compliance preset">
+                  <CompliancePresetRow
+                    value={affiliateAdvanced.compliancePreset}
+                    onChange={(v) => setAffiliateAdvanced({ ...affiliateAdvanced, compliancePreset: v })}
+                  />
+                </CompactField>
+                <CompactField label="Geo target" sub="comma-separated">
+                  <input
+                    type="text"
+                    value={affiliateAdvanced.geoTarget}
+                    onChange={(e) => setAffiliateAdvanced({ ...affiliateAdvanced, geoTarget: e.target.value })}
+                    placeholder="India, UAE, EU-7"
+                    className="block h-9 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none"
+                  />
+                </CompactField>
+              </div>
+            }
+            more={
+              <>
+                <AdvancedFacet label="Industry context">
+                  <IndustryInsightsAnchor
+                    filter={category ? { kind: "category", categoryId: category.id } : undefined}
+                  />
+                </AdvancedFacet>
+                <AdvancedFacet label="Tone & voice">
+                  <CommonAdvancedFields state={advanced} onChange={setAdvanced} />
+                </AdvancedFacet>
+                <AdvancedFacet label="Affiliate specifics">
+                  <AffiliateAdAdvancedFields state={affiliateAdvanced} onChange={setAffiliateAdvanced} />
+                </AdvancedFacet>
+              </>
+            }
           />
         </>
       }
@@ -306,7 +280,7 @@ export function StudioAffiliateAdForm() {
           count={count}
           onCountChange={setCount}
           chips={TRY_CHIPS}
-          chipPrefix="Try:"
+          chipPrefix="Try"
           chipInsertMode="append"
           models={models}
           selectedModelId={modelId}
@@ -314,7 +288,6 @@ export function StudioAffiliateAdForm() {
           references={references}
           onAddReference={(r) => setReferences([...references, r])}
           onRemoveReference={(i) => setReferences(references.filter((_, idx) => idx !== i))}
-          contextChips={contextChips}
           onGenerate={onGenerate}
           disabled={!canGenerate}
           generateLabel="Generate"
@@ -326,41 +299,48 @@ export function StudioAffiliateAdForm() {
 
 /* ─────────────────────────────────────────────────────── */
 
-/**
- * CategoryKBStrip — Affiliate-specific strip per Form Specs §3.
- * "winners/refs from Category profile, parallel to Product visuals from
- * Brand profile on Product Ad."
- *
- * Phase B build: stub showing 3 mocked KB references. Real Category KB
- * editor + storage land in iter-8+ Settings layer.
- */
-function CategoryKBStrip({ categoryId }: { categoryId: string | null }) {
-  if (!categoryId) return null;
+function CompactField({
+  label, sub, children,
+}: {
+  label: string; sub?: string; children: React.ReactNode;
+}) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        Category KB references
-      </h2>
-      <p className="text-[10px] text-muted-foreground/80">
-        Top winners + KB notes from this category's profile. Wired from Settings &gt; Categories &gt; KB editor (iter-8+).
+    <div className="space-y-1">
+      <p className="flex items-baseline gap-1 text-[11px] font-medium text-foreground">
+        {label}
+        {sub && <span className="text-[10px] font-normal text-muted-foreground">· {sub}</span>}
       </p>
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="shrink-0 w-32 rounded-md border border-border bg-card p-2"
-          >
-            <div className="aspect-square w-full rounded-sm bg-muted/40 flex items-center justify-center">
-              <span className="text-[9px] font-mono uppercase text-muted-foreground/60">
-                KB ref #{i}
-              </span>
-            </div>
-            <p className="mt-1 truncate text-[10px] text-muted-foreground">
-              Mock category winner {i}
-            </p>
-          </div>
-        ))}
-      </div>
-    </section>
+      {children}
+    </div>
+  );
+}
+
+function CompliancePresetRow({
+  value, onChange,
+}: {
+  value: AffiliateAdAdvancedState["compliancePreset"];
+  onChange: (v: AffiliateAdAdvancedState["compliancePreset"]) => void;
+}) {
+  const opts: AffiliateAdAdvancedState["compliancePreset"][] = ["none", "nutra", "sweepstakes", "finance"];
+  const labels = { none: "None", nutra: "Nutra", sweepstakes: "Sweeps", finance: "Finance" } as const;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {opts.map((o) => (
+        <button
+          key={o}
+          type="button"
+          onClick={() => onChange(o)}
+          aria-pressed={value === o}
+          className={cn(
+            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] transition-colors",
+            value === o
+              ? "bg-primary text-primary-foreground font-medium"
+              : "border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
+          )}
+        >
+          {labels[o]}
+        </button>
+      ))}
+    </div>
   );
 }

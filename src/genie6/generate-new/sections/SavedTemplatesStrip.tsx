@@ -60,30 +60,37 @@ const TAG_META: Record<TemplateTag, { label: string; icon: typeof ImageIcon; gra
   },
 };
 
+// Real creative imagery — Unsplash source URLs return curated stock images
+// matching the term. Used in scope=A as stand-in for actual saved-template
+// thumbnails until the Concepts persistence + creative-export pipeline lands.
 const DEFAULT_TEMPLATES: SavedTemplate[] = [
   {
     id: "fomo-launch",
     label: "FOMO launch",
     sub: "Founder + 3-pack benefits + price",
     tag: "static",
+    thumbnail: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=320&h=240&q=70",
   },
   {
     id: "lifestyle-aspirational",
     label: "Lifestyle aspirational",
     sub: "Mood + soft music + social proof",
     tag: "video",
+    thumbnail: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=320&h=240&q=70",
   },
   {
     id: "founder-story",
     label: "Founder story",
     sub: "Talking-head intro + product reveal at 12s",
     tag: "ugc",
+    thumbnail: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=320&h=240&q=70",
   },
   {
     id: "carousel-bundle",
     label: "Carousel bundle",
     sub: "5 SKUs · price overlay · CTA tile",
     tag: "carousel",
+    thumbnail: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=320&h=240&q=70",
   },
 ];
 

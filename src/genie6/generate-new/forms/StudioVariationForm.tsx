@@ -6,7 +6,9 @@ import { FormSkeleton } from "../FormSkeleton";
 import { AdvancedDrawer } from "../AdvancedDrawer";
 import { AISuggestionsDrawer } from "../AISuggestionsDrawer";
 import { SourceWinnerPicker, type SourceWinner } from "../fields/SourceWinnerPicker";
-import { StatusReadout, type StatusItem } from "../fields/StatusReadout";
+import { PickerCard, PickerRow } from "../sections/PickerCard";
+import { AISuggestionsBanner } from "../sections/AISuggestionsBanner";
+import { AdvancedSection } from "../sections/AdvancedSection";
 import type { VariationSubMethod, StrictnessLevel } from "../types";
 
 /**
@@ -132,57 +134,46 @@ export function StudioVariationForm() {
     alert(`Mock generation queued.\n\n${JSON.stringify(summary, null, 2)}`);
   };
 
-  const statusItems: StatusItem[] = [
-    { label: source ? `Source · ${source.kind}` : "Source · pick", state: source ? "ok" : "missing" },
-    { label: `Sub-method · ${subMethod}`, state: "info" },
-    { label: `Output · ${source?.mediaType ?? "auto"}`, state: source ? "info" : "missing" },
-    { label: `${count} variant${count === 1 ? "" : "s"}`, state: "info" },
-  ];
-
   return (
     <FormSkeleton
       eyebrow="Studio · Variations"
       title="Generate variants from a winning ad"
-      sub="Pick a source winner, choose your sub-method, generate. Type and Output are auto-derived from the source — no gate, no Output picker."
-      top={
-        <div className="space-y-2">
-          {/* Tier 1 — Source winner (REQUIRED) */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Source ·
-            </span>
-            <SourceWinnerPicker value={source} onChange={setSource} />
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
-              <Lock className="h-2.5 w-2.5" />
-              Output: {derivedOutputLabel}
-            </span>
-          </div>
-          {/* Tier 2 — Sub-method */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Sub-method ·
-            </span>
-            <SubMethodChipRow value={subMethod} onChange={setSubMethod} />
-            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
-              <GitBranch className="h-2.5 w-2.5" />
-              Variants: {count}
-            </span>
-          </div>
-        </div>
-      }
-      status={<StatusReadout items={statusItems} />}
+      sub="Pick a source winner, choose your sub-method, generate. Type and Output auto-derive from the source."
       body={
         <>
+          {/* 1. Picker — first body section */}
+          <PickerCard title="Setup">
+            <PickerRow
+              label="Source"
+              required
+              accessory={
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+                  <Lock className="h-2.5 w-2.5" />
+                  Output · {derivedOutputLabel}
+                </span>
+              }
+            >
+              <SourceWinnerPicker value={source} onChange={setSource} />
+            </PickerRow>
+            <PickerRow label="Sub-method" sub="how variants relate to the source">
+              <SubMethodChipRow value={subMethod} onChange={setSubMethod} />
+            </PickerRow>
+          </PickerCard>
+
+          <AISuggestionsBanner contextLabel="related winners" />
+
           <LineageTreeStrip source={source} />
-          <AdvancedDrawer label="Variation settings">
-            <VariationAdvancedFields
-              state={advanced}
-              onChange={setAdvanced}
-              subMethod={subMethod}
-            />
-          </AdvancedDrawer>
-          <AISuggestionsDrawer
-            contextLabel="from Industry Insights · related winners"
+
+          <AdvancedSection
+            label="Variation settings"
+            summary="Brand-Constitution and tone inherit from the source — only Variation-specific fields here."
+            essentials={
+              <VariationAdvancedFields
+                state={advanced}
+                onChange={setAdvanced}
+                subMethod={subMethod}
+              />
+            }
           />
         </>
       }
@@ -193,7 +184,7 @@ export function StudioVariationForm() {
           count={count}
           onCountChange={setCount}
           chips={TRY_CHIPS}
-          chipPrefix="Refine:"
+          chipPrefix="Refine"
           chipInsertMode="append"
           models={MOCK_MODELS}
           selectedModelId={modelId}
@@ -201,7 +192,6 @@ export function StudioVariationForm() {
           references={references}
           onAddReference={(r) => setReferences([...references, r])}
           onRemoveReference={(i) => setReferences(references.filter((_, idx) => idx !== i))}
-          contextChips={contextChips}
           onGenerate={onGenerate}
           disabled={!source}
           generateLabel="Generate variants"
