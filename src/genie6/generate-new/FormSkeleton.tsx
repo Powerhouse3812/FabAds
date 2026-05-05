@@ -84,10 +84,14 @@ export function FormSkeleton({
       </header>
 
       {/* Form body — scrolls between header + floating prompt bar.
-          Generous bottom padding so the floating PromptBar doesn't cover
-          the last body section. */}
+          A-11.13: bumped bottom padding pb-32 → pb-48 (128 → 192px). The
+          floating PromptBar renders at ~80px tall (chips row + main row +
+          py-2.5) plus a 12-16px bottom inset = ~96px viewport coverage.
+          pb-32 cleared the math but not visually — Fine-tune section was
+          getting hidden behind the glass when expanded. pb-48 gives ~96px
+          guaranteed clearance below the last content. */}
       <main className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 pb-32 space-y-6">
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 pb-48 space-y-6">
           {body}
         </div>
       </main>
