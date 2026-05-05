@@ -15,6 +15,7 @@ import { ProductMultiPicker } from "../fields/ProductMultiPicker";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
 import { PresetBadge } from "../fields/PresetBadge";
+import { StatusReadout, type StatusItem } from "../fields/StatusReadout";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
 import {
@@ -166,13 +167,27 @@ export function StudioAffiliateAdForm() {
 
   const canGenerate = !!categoryId && !!output;
 
+  const statusItems: StatusItem[] = [
+    { label: category ? `Category · ${category.name}` : "Category · pick", state: category ? "ok" : "missing" },
+    { label: output ? `Output · ${output}` : "Output · pick", state: output ? "ok" : "missing" },
+    ...(output === "image" ? [{ label: `Format · ${imageFormat}`, state: "info" as const }] : []),
+    { label: `${count} variant${count === 1 ? "" : "s"}`, state: "info" },
+    ...(alsoProductAd ? [{ label: "+ Product Ad pair", state: "info" as const }] : []),
+  ];
+
   return (
     <FormSkeleton
+      eyebrow="Studio · Affiliate Ad"
+      title="Performance ads anchored to a category"
+      sub="Pick category + landing URL, choose output, generate. Toggle 'Also Product Ad' to pair with a Product Ad batch."
       top={
         <div className="space-y-2">
+          {/* Tier 1 — Category (REQUIRED) + Landing URL + Saved offers */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Category ·
+            </span>
             <CategoryPill value={categoryId} onChange={setCategoryId} required />
-            <span className="text-muted-foreground/40">·</span>
             <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 min-w-[200px]">
               <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
@@ -192,8 +207,13 @@ export function StudioAffiliateAdForm() {
               <Tag className="h-3 w-3" />
               Saved offers
             </button>
+            {presetMarker === "ugc-video" && <PresetBadge preset="ugc-video" className="ml-auto" />}
           </div>
+          {/* Tier 2 — Output + Format + Also Product Ad */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Output ·
+            </span>
             <OutputChip
               value={output}
               onChange={setOutput}
@@ -202,7 +222,7 @@ export function StudioAffiliateAdForm() {
             />
             {output === "image" && (
               <>
-                <span className="text-muted-foreground/40">·</span>
+                <span className="text-muted-foreground/40 mx-0.5">·</span>
                 <FormatToggle
                   value={imageFormat}
                   onChange={setImageFormat}
@@ -225,7 +245,6 @@ export function StudioAffiliateAdForm() {
               <span className="text-base leading-none">⚙</span>
               Also generate as Product Ad
             </button>
-            {presetMarker === "ugc-video" && <PresetBadge preset="ugc-video" />}
           </div>
           {alsoProductAd && (
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2">
@@ -249,6 +268,7 @@ export function StudioAffiliateAdForm() {
           )}
         </div>
       }
+      status={<StatusReadout items={statusItems} />}
       body={
         <>
           <SavedTemplatesStrip />

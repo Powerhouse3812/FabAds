@@ -14,6 +14,7 @@ import { ProductMultiPicker } from "../fields/ProductMultiPicker";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
 import { PresetBadge, type PresetMarker } from "../fields/PresetBadge";
+import { StatusReadout, type StatusItem } from "../fields/StatusReadout";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
 import {
@@ -213,17 +214,38 @@ export function StudioProductAdForm() {
   const canGenerate = !!brandId && productIds.length > 0 && !!output;
 
   // ───────────── Render ─────────────
+  const statusItems: StatusItem[] = [
+    { label: brand ? `Brand · ${brand.name}` : "Brand · pick", state: brand ? "ok" : "missing" },
+    {
+      label: productIds.length > 0
+        ? `${productIds.length} product${productIds.length === 1 ? "" : "s"}`
+        : "Products · pick",
+      state: productIds.length > 0 ? "ok" : "missing",
+    },
+    { label: output ? `Output · ${output}` : "Output · pick", state: output ? "ok" : "missing" },
+    ...(output === "image" ? [{ label: `Format · ${imageFormat}`, state: "info" as const }] : []),
+    { label: `${count} variant${count === 1 ? "" : "s"}`, state: "info" },
+  ];
+
   return (
     <FormSkeleton
+      eyebrow="Studio · Product Ad"
+      title="Sell a specific product with brand context"
+      sub="Pick brand + products, choose output, generate. Catalogue/Collection unlock when 2+ products are selected."
       top={
         <div className="space-y-2">
+          {/* Tier 1 — Brand + Product (REQUIRED) */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Brand ·
+            </span>
             <BrandPill value={brandId} onChange={(b) => {
               setBrandId(b);
-              // Clear products when brand changes (products are brand-scoped)
               if (b !== brandId) setProductIds([]);
             }} required />
-            <span className="text-muted-foreground/40">·</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Products ·
+            </span>
             <ProductMultiPicker
               value={productIds}
               onChange={setProductIds}
@@ -235,7 +257,7 @@ export function StudioProductAdForm() {
               aria-pressed={hideBrandIdentity}
               title="For affiliate-style anonymous Product Ads"
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
+                "ml-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors",
                 "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
                 hideBrandIdentity
                   ? "border-primary/40 bg-primary/10 text-foreground"
@@ -245,8 +267,13 @@ export function StudioProductAdForm() {
               {hideBrandIdentity ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
               Hide brand identity
             </button>
+            {presetMarker && <PresetBadge preset={presetMarker} />}
           </div>
+          {/* Tier 2 — Output + Format */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Output ·
+            </span>
             <OutputChip
               value={output}
               onChange={setOutput}
@@ -255,7 +282,7 @@ export function StudioProductAdForm() {
             />
             {output === "image" && (
               <>
-                <span className="text-muted-foreground/40">·</span>
+                <span className="text-muted-foreground/40 mx-0.5">·</span>
                 <FormatToggle
                   value={imageFormat}
                   onChange={setImageFormat}
@@ -263,10 +290,10 @@ export function StudioProductAdForm() {
                 />
               </>
             )}
-            {presetMarker && <PresetBadge preset={presetMarker} className="ml-auto" />}
           </div>
         </div>
       }
+      status={<StatusReadout items={statusItems} />}
       body={
         <>
           <SavedTemplatesStrip />

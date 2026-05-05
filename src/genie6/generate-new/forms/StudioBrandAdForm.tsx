@@ -11,6 +11,7 @@ import { BrandPill } from "../fields/BrandPill";
 import { OutputChip } from "../fields/OutputChip";
 import { FormatToggle, type FormatOption } from "../fields/FormatToggle";
 import { PresetBadge } from "../fields/PresetBadge";
+import { StatusReadout, type StatusItem } from "../fields/StatusReadout";
 import { SavedTemplatesStrip } from "../sections/SavedTemplatesStrip";
 import { VideoProductionSection } from "../sections/VideoProductionSection";
 import {
@@ -154,33 +155,56 @@ export function StudioBrandAdForm() {
   const canGenerate = !!brandId && !!output;
 
   // ───────────── Render ─────────────
+  // Status read-out for the strip below the top zone.
+  const statusItems: StatusItem[] = [
+    { label: brand ? `Brand · ${brand.name}` : "Brand · pick", state: brand ? "ok" : "missing" },
+    { label: output ? `Output · ${output}` : "Output · pick", state: output ? "ok" : "missing" },
+    ...(output === "image" ? [{ label: `Format · ${imageFormat}`, state: "info" as const }] : []),
+    { label: `${count} variant${count === 1 ? "" : "s"}`, state: "info" },
+  ];
+
   return (
     <FormSkeleton
+      eyebrow="Studio · Brand Ad"
+      title="Hero ads anchored to a brand profile"
+      sub="Pick a brand, choose your output, generate. Override the smart defaults in the Advanced drawer."
       top={
-        <div className="flex flex-wrap items-center gap-2">
-          <BrandPill value={brandId} onChange={setBrandId} required />
-          <span className="text-muted-foreground/40">·</span>
-          <OutputChip
-            value={output}
-            onChange={setOutput}
-            options={["image", "video", "whole-adcopy"]}
-            placeholder="Pick output"
-          />
-          {output === "image" && (
-            <>
-              <span className="text-muted-foreground/40">·</span>
-              <FormatToggle
-                value={imageFormat}
-                onChange={setImageFormat}
-                options={IMAGE_FORMAT_OPTIONS}
-              />
-            </>
-          )}
-          {presetMarker === "ugc-video" && (
-            <PresetBadge preset="ugc-video" className="ml-auto" />
-          )}
+        <div className="space-y-2">
+          {/* Tier 1 — REQUIRED brand */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Brand ·
+            </span>
+            <BrandPill value={brandId} onChange={setBrandId} required />
+            {presetMarker === "ugc-video" && (
+              <PresetBadge preset="ugc-video" className="ml-auto" />
+            )}
+          </div>
+          {/* Tier 2 — Output + Format */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Output ·
+            </span>
+            <OutputChip
+              value={output}
+              onChange={setOutput}
+              options={["image", "video", "whole-adcopy"]}
+              placeholder="Pick output"
+            />
+            {output === "image" && (
+              <>
+                <span className="text-muted-foreground/40 mx-0.5">·</span>
+                <FormatToggle
+                  value={imageFormat}
+                  onChange={setImageFormat}
+                  options={IMAGE_FORMAT_OPTIONS}
+                />
+              </>
+            )}
+          </div>
         </div>
       }
+      status={<StatusReadout items={statusItems} />}
       body={
         <>
           <SavedTemplatesStrip />

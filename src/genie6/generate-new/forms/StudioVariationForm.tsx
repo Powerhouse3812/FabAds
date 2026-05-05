@@ -6,6 +6,7 @@ import { FormSkeleton } from "../FormSkeleton";
 import { AdvancedDrawer } from "../AdvancedDrawer";
 import { AISuggestionsDrawer } from "../AISuggestionsDrawer";
 import { SourceWinnerPicker, type SourceWinner } from "../fields/SourceWinnerPicker";
+import { StatusReadout, type StatusItem } from "../fields/StatusReadout";
 import type { VariationSubMethod, StrictnessLevel } from "../types";
 
 /**
@@ -131,20 +132,37 @@ export function StudioVariationForm() {
     alert(`Mock generation queued.\n\n${JSON.stringify(summary, null, 2)}`);
   };
 
+  const statusItems: StatusItem[] = [
+    { label: source ? `Source · ${source.kind}` : "Source · pick", state: source ? "ok" : "missing" },
+    { label: `Sub-method · ${subMethod}`, state: "info" },
+    { label: `Output · ${source?.mediaType ?? "auto"}`, state: source ? "info" : "missing" },
+    { label: `${count} variant${count === 1 ? "" : "s"}`, state: "info" },
+  ];
+
   return (
     <FormSkeleton
+      eyebrow="Studio · Variations"
+      title="Generate variants from a winning ad"
+      sub="Pick a source winner, choose your sub-method, generate. Type and Output are auto-derived from the source — no gate, no Output picker."
       top={
         <div className="space-y-2">
+          {/* Tier 1 — Source winner (REQUIRED) */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Source ·
+            </span>
             <SourceWinnerPicker value={source} onChange={setSource} />
-            <span className="text-muted-foreground/40">·</span>
-            <SubMethodChipRow value={subMethod} onChange={setSubMethod} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
               <Lock className="h-2.5 w-2.5" />
               Output: {derivedOutputLabel}
             </span>
+          </div>
+          {/* Tier 2 — Sub-method */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Sub-method ·
+            </span>
+            <SubMethodChipRow value={subMethod} onChange={setSubMethod} />
             <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
               <GitBranch className="h-2.5 w-2.5" />
               Variants: {count}
@@ -152,6 +170,7 @@ export function StudioVariationForm() {
           </div>
         </div>
       }
+      status={<StatusReadout items={statusItems} />}
       body={
         <>
           <LineageTreeStrip source={source} />
