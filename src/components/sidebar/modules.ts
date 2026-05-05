@@ -128,10 +128,15 @@ export const MODULES: ModuleDef[] = [
       // matches the new /studio Product-first flow's primacy.
       { label: "Overview",    path: "/iq/genie6",                  icon: Home },
       { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2 },
+      // Iter-7 A-11.14: "Studio v3" surfaces the new 3-category picker
+      // (Brand / Ad / Social + Quick modes). Runs in parallel with the
+      // existing 4-Type Studio while sub-mode forms get built one-by-one.
+      // Once Studio v3 fully ships and Maalik signs off, "Studio" + "Old
+      // Studio" can be retired in a separate cleanup commit.
+      { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2 },
       // Iter-7 A-11.1: "Old Studio" surfaces the preserved pre-revamp
       // Generate flow at /generate-legacy/*. Sits next to "Studio" so Maalik
-      // can A/B compare during the New Studio build. Will hide / remove once
-      // New Studio fully ships and is signed off.
+      // can A/B compare during the New Studio build.
       { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2 },
       { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },

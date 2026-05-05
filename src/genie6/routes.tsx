@@ -25,6 +25,8 @@ import { StudioBrandAdForm } from "./generate-new/forms/StudioBrandAdForm";
 import { StudioProductAdForm } from "./generate-new/forms/StudioProductAdForm";
 import { StudioAffiliateAdForm } from "./generate-new/forms/StudioAffiliateAdForm";
 import { StudioVariationForm } from "./generate-new/forms/StudioVariationForm";
+import { StudioV3Landing } from "./generate-v3/StudioV3Landing";
+import { SubModePlaceholder } from "./generate-v3/SubModePlaceholder";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -108,6 +110,17 @@ export const genie6Routes = (
       <Route path=":mode/form" element={<Navigate to="/iq/genie6/generate" replace />} />
       <Route path="legacy" element={<ModePicker />} />
       <Route path="legacy/:mode" element={<GenerateScaffold />} />
+    </Route>
+
+    {/* Studio v3 — 3-category picker (iter-7+, A-11.14).
+        New IA per Maalik: Brand / Ad / Social parent categories with
+        sub-modes inline. Quick modes (UGC Video / Variations / Image-to-Ad)
+        in a separate row. Picker only this commit; sub-mode forms ship
+        one-by-one starting with Product Shoot. */}
+    <Route path="generate-v3">
+      <Route index element={<StudioV3Landing />} />
+      <Route path=":categoryId/:subModeId" element={<SubModePlaceholder />} />
+      <Route path="quick/:quickModeId" element={<SubModePlaceholder />} />
     </Route>
 
     {/* Guided tour — slide deck + walkthrough overlay */}
