@@ -1,28 +1,27 @@
 import { useNavigate } from "react-router-dom";
-import { Sparkles, ArrowUpRight, Image as ImageIcon } from "lucide-react";
+import { Sparkles, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STUDIO_V3_ICONS } from "./icons";
+import { SubModePreview } from "./SubModePreview";
 import type { CategoryId, SubModeDescriptor } from "../types";
 
 /**
- * SubModeCard — large card with preview imagery, used in Variant 2 (the
- * stacked horizontal-rows layout on Studio v3 Landing).
+ * SubModeCard — large card used in V2 (horizontal stacked-rows layout).
  *
- * A-11.15: per Maalik, every sub-mode in V2 shows a preview of what the
- * generated output will look like — so the user knows "kya bn ne wala hai"
- * before clicking. Real Unsplash creative imagery for now (`previewUrl` on
- * SubModeDescriptor); real generated samples land later.
- *
- * Visual: card with preview image on top (4:3 aspect), icon-disc + label +
- * description below. Hover lifts. Used for Brand / Ad / Quick mode cards
- * in V2.
+ * A-11.17 redesign per Maalik feedback ("real images ki wjh se ab bohot
+ * bekar sa lg rha hai, Templates jaisa dikh rha hai"):
+ *   - Dropped Unsplash photos.
+ *   - Now uses SubModePreview — distinct mockup-style preview per
+ *     sub-mode (gradient + bold typography + frame element + lime
+ *     accents). AI-tool aesthetic, not stock-photo aesthetic.
+ *   - Each card has its own visual identity now (type-led / phone-frame /
+ *     stat / grid / tool variants).
  */
 
 export interface SubModeCardProps {
   /**
    * Where this sub-mode lives. For top-level sub-modes (Brand-focused etc),
-   * pass categoryId. For Quick modes, pass "quick" — the tile routes to
-   * `/generate-v3/quick/{id}`.
+   * pass categoryId. For Quick modes, pass "quick".
    */
   categoryId: CategoryId | "quick";
   subMode: SubModeDescriptor;
@@ -50,8 +49,8 @@ export function SubModeCard({ categoryId, subMode }: SubModeCardProps) {
       aria-label={`${subMode.label} — ${subMode.description}`}
       title={subMode.description}
       className={cn(
-        "group relative flex shrink-0 flex-col items-stretch overflow-hidden rounded-xl border border-border bg-card text-left transition-all",
-        "w-[220px]",
+        "group relative flex shrink-0 flex-col items-stretch overflow-hidden rounded-xl border border-border bg-card text-left transition-all duration-300",
+        "w-[230px]",
         !disabled && [
           "hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
           "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
@@ -59,22 +58,11 @@ export function SubModeCard({ categoryId, subMode }: SubModeCardProps) {
         disabled && "opacity-50 cursor-not-allowed",
       )}
     >
-      {/* Preview thumbnail */}
-      <div className="relative aspect-[4/3] w-full bg-muted overflow-hidden">
-        {subMode.previewUrl ? (
-          <img
-            src={subMode.previewUrl}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground/60">
-            <ImageIcon className="h-6 w-6" />
-          </div>
-        )}
-        {/* Bottom-left icon disc — small visual identity per sub-mode */}
-        <div className="absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-md bg-card/95 ring-1 ring-border/40 shadow-sm backdrop-blur-sm">
+      {/* Distinctive mockup preview — per-sub-mode visual identity */}
+      <div className="relative">
+        <SubModePreview subModeId={subMode.id} />
+        {/* Bottom-left icon disc — small visual anchor matching the descriptor */}
+        <div className="absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-md bg-card/95 ring-1 ring-border/40 shadow-sm backdrop-blur-sm transition-transform group-hover:scale-110">
           <Icon className="h-3.5 w-3.5 text-foreground" />
         </div>
       </div>
@@ -82,7 +70,7 @@ export function SubModeCard({ categoryId, subMode }: SubModeCardProps) {
       {/* Body */}
       <div className="flex items-start justify-between gap-2 px-3 py-2.5">
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="truncate text-sm font-medium text-foreground">
+          <p className="truncate text-sm font-semibold text-foreground">
             {subMode.label}
           </p>
           <p className="line-clamp-2 text-[11px] text-muted-foreground leading-snug">

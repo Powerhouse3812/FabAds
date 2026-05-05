@@ -1,40 +1,36 @@
-import { Clock, Zap } from "lucide-react";
+import { Zap, Clock } from "lucide-react";
 import { SubModeCard } from "./components/SubModeCard";
 import { CATEGORIES, QUICK_MODES } from "./types";
 
 /**
- * StudioV3LandingHorizontal — Variant 2 layout for the picker (A-11.15).
+ * StudioV3LandingHorizontal — Variant 2 layout (A-11.17).
  *
- * Per Maalik: stacked rows. Each mode = one horizontal row. Mode name on
- * top, sub-mode cards spread horizontally below. All modes visible at once
- * (no tabs / no expand). Each sub-mode card has a preview thumbnail of the
- * generated output ("user ko pta ho ki kya bn ne wala hai").
+ * Stacked rows, one per active mode. Sub-modes spread horizontally as
+ * cards with distinctive mockup previews (no stock photos).
  *
- * Layout:
- *   BRAND
- *   [card][card][card]
- *
- *   AD
- *   [card][card][card]
- *
- *   SOCIAL
- *   (coming soon)
- *
- *   QUICK MODES
- *   [card][card][card]
- *
- * Used inside StudioV3Landing's controller — toggled via title click.
+ * A-11.17 changes per Maalik feedback:
+ *   - Dropped Social row entirely — coming-soon shouldn't waste a full
+ *     horizontal row. Now lives as a small inline pill at the bottom
+ *     ("More categories soon · Social").
+ *   - SubModeCard previews are mockup-style (per-sub-mode), not Unsplash
+ *     photos. Distinctive AI-tool aesthetic.
  */
 
 export function StudioV3LandingHorizontal() {
+  // Filter: only "ready" categories appear as full rows.
+  // Coming-soon ones get reduced to a small inline pill below.
+  const readyCategories = CATEGORIES.filter((c) => c.status === "ready");
+  const comingSoonCategories = CATEGORIES.filter(
+    (c) => c.status === "coming-soon",
+  );
+
   return (
     <div className="space-y-7">
-      {CATEGORIES.map((cat) => (
+      {readyCategories.map((cat) => (
         <ModeRow
           key={cat.id}
           label={cat.label}
           description={cat.description}
-          comingSoon={cat.status === "coming-soon"}
         >
           {cat.subModes.map((m) => (
             <SubModeCard key={m.id} categoryId={cat.id} subMode={m} />
@@ -42,16 +38,21 @@ export function StudioV3LandingHorizontal() {
         </ModeRow>
       ))}
 
-      {/* Quick modes — same row treatment as the 3 main modes for consistency */}
+      {/* Quick modes — same row treatment, smaller eyebrow */}
       <ModeRow
         label="Quick modes"
-        description="Small, focused ad jobs — UGC, variants, image-to-ad."
+        description="Small, focused jobs — UGC, variants, image-to-ad, edit utilities."
         accent="muted"
       >
         {QUICK_MODES.map((m) => (
           <SubModeCard key={m.id} categoryId="quick" subMode={m} />
         ))}
       </ModeRow>
+
+      {/* Coming-soon categories — inline pill, doesn't waste a full row */}
+      {comingSoonCategories.length > 0 && (
+        <ComingSoonPill labels={comingSoonCategories.map((c) => c.label)} />
+      )}
     </div>
   );
 }
@@ -61,13 +62,11 @@ export function StudioV3LandingHorizontal() {
 function ModeRow({
   label,
   description,
-  comingSoon = false,
   accent = "default",
   children,
 }: {
   label: string;
   description: string;
-  comingSoon?: boolean;
   accent?: "default" | "muted";
   children?: React.ReactNode;
 }) {
@@ -86,29 +85,26 @@ function ModeRow({
         </h2>
         <p className="text-[11px] text-muted-foreground">{description}</p>
       </header>
-      {comingSoon ? (
-        <ComingSoonRow />
-      ) : (
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-          {children}
-        </div>
-      )}
+      <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+        {children}
+      </div>
     </section>
   );
 }
 
-function ComingSoonRow() {
+/* ─────────────────────────────────────────────────────── */
+
+function ComingSoonPill({ labels }: { labels: string[] }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-card/40 px-4 py-5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Clock className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-xs font-medium text-foreground">Coming soon</p>
-        <p className="text-[11px] text-muted-foreground">
-          Social-native creatives (Reels, Stories, native posts) on the roadmap.
-        </p>
-      </div>
+    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1.5 text-[11px] backdrop-blur-sm">
+      <Clock className="h-3 w-3 text-muted-foreground" />
+      <span className="text-muted-foreground">
+        Coming soon ·{" "}
+        <span className="font-medium text-foreground">
+          {labels.join(", ")}
+        </span>{" "}
+        — social-native creatives (Reels, Stories, native posts)
+      </span>
     </div>
   );
 }
