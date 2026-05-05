@@ -145,6 +145,27 @@ export const QUICK_MODES: SubModeDescriptor[] = [
     icon: "Image",
     previewUrl: "https://images.unsplash.com/photo-1561070791-2526d30994b8?auto=format&fit=crop&w=480&h=320&q=70",
   },
+  {
+    id: "bg-remover",
+    label: "Background Remover",
+    description: "Cut your subject out — clean PNG with transparent bg",
+    icon: "Eraser",
+    previewUrl: "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?auto=format&fit=crop&w=480&h=320&q=70",
+  },
+  {
+    id: "bg-swap",
+    label: "Background Swap",
+    description: "Replace product photo background — studio / lifestyle / festive",
+    icon: "Layers",
+    previewUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=480&h=320&q=70",
+  },
+  {
+    id: "refresh-winner",
+    label: "Refresh Winner",
+    description: "Take a winning ad — get fresh variants with creative-fatigue logic",
+    icon: "TrendingUp",
+    previewUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=480&h=320&q=70",
+  },
 ];
 
 /* ─────────────────────────────────────────────────────────

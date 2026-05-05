@@ -6,6 +6,9 @@ import {
   Video,
   RefreshCw,
   Image,
+  Eraser,
+  Layers,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,4 +27,7 @@ export const STUDIO_V3_ICONS: Record<string, LucideIcon> = {
   Video,
   RefreshCw,
   Image,
+  Eraser,
+  Layers,
+  TrendingUp,
 };
