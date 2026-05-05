@@ -1,4 +1,4 @@
-import { Clock } from "lucide-react";
+import { Clock, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubModeTile } from "./SubModeTile";
 import type { CategoryDescriptor } from "../types";
@@ -45,47 +45,72 @@ export function CategoryCard({ category }: { category: CategoryDescriptor }) {
   return (
     <article
       className={cn(
-        "group relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden transition-all duration-300",
+        "group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-300",
         !isComingSoon && [
+          "border border-border bg-card",
           "hover:-translate-y-0.5 hover:border-primary/30",
           hoverRing,
         ],
+        // A-11.18: V1 Social card now looks visibly deprecated — dashed
+        // border, desaturated bg, reduced opacity. Reads as "not yet"
+        // instead of "another normal card".
+        isComingSoon && [
+          "border-2 border-dashed border-border bg-muted/30",
+          "opacity-75 hover:opacity-90",
+        ],
       )}
     >
-      {/* Gradient header band — color identity per category */}
-      <div
-        aria-hidden
-        className={cn(
-          "absolute inset-x-0 top-0 h-28 bg-gradient-to-br pointer-events-none transition-all duration-500",
-          gradient,
-          !isComingSoon && "group-hover:h-32",
-        )}
-      />
-      {/* Subtle dot pattern overlay on the gradient band — AI-tool depth */}
-      <div
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-28 pointer-events-none opacity-[0.10]"
-        style={{
-          backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
-          backgroundSize: "12px 12px",
-          color: "hsl(var(--foreground))",
-        }}
-      />
+      {/* Gradient header band — only for ready categories. Coming-soon gets
+          a flat muted bg so it doesn't compete visually. */}
+      {!isComingSoon && (
+        <>
+          <div
+            aria-hidden
+            className={cn(
+              "absolute inset-x-0 top-0 h-28 bg-gradient-to-br pointer-events-none transition-all duration-500",
+              gradient,
+              "group-hover:h-32",
+            )}
+          />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-28 pointer-events-none opacity-[0.10]"
+            style={{
+              backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
+              backgroundSize: "12px 12px",
+              color: "hsl(var(--foreground))",
+            }}
+          />
+        </>
+      )}
+
+      {/* Coming-soon "lock" overlay in top-right */}
+      {isComingSoon && (
+        <div className="absolute top-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-muted ring-2 ring-background">
+          <Lock className="h-3 w-3 text-muted-foreground" />
+        </div>
+      )}
 
       {/* Header content */}
       <header className="relative z-10 px-5 pt-4 pb-3 space-y-1">
         <p
           className={cn(
             "text-[10px] font-mono uppercase tracking-[0.2em] font-semibold",
-            accent,
+            isComingSoon ? "text-muted-foreground" : accent,
           )}
         >
           {isComingSoon ? "Coming soon" : "Category"}
         </p>
-        <h2 className="text-xl font-bold tracking-tight text-foreground leading-tight">
+        <h2 className={cn(
+          "text-xl font-bold tracking-tight leading-tight",
+          isComingSoon ? "text-muted-foreground" : "text-foreground",
+        )}>
           {category.label}
         </h2>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
+        <p className={cn(
+          "text-[11px] leading-relaxed",
+          isComingSoon ? "text-muted-foreground/80 italic" : "text-muted-foreground",
+        )}>
           {category.description}
         </p>
       </header>
@@ -112,14 +137,29 @@ export function CategoryCard({ category }: { category: CategoryDescriptor }) {
 
 function ComingSoonState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-card/50 backdrop-blur-sm py-7 text-center">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Clock className="h-3.5 w-3.5" />
+    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted/80 text-muted-foreground">
+        <Clock className="h-4 w-4" />
       </div>
-      <p className="text-[11px] font-medium text-foreground">Coming soon</p>
-      <p className="text-[10px] text-muted-foreground max-w-[180px]">
-        Social-native creative modes are on the roadmap.
-      </p>
+      <div className="space-y-0.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Not yet
+        </p>
+        <p className="text-[10px] text-muted-foreground/80 max-w-[200px] italic">
+          Social-native creative modes (Reels, Stories, native posts) are on the roadmap.
+        </p>
+      </div>
+      {/* "Notify me" stub for future wait-list */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          alert("Notify-me wait-list lands later.");
+        }}
+        className="mt-1 inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+      >
+        Notify me
+      </button>
     </div>
   );
 }
