@@ -51,43 +51,57 @@ export function CategoryCard({ category }: { category: CategoryDescriptor }) {
           "hover:-translate-y-0.5 hover:border-primary/30",
           hoverRing,
         ],
-        // A-11.18: V1 Social card now looks visibly deprecated — dashed
-        // border, desaturated bg, reduced opacity. Reads as "not yet"
-        // instead of "another normal card".
+        // A-11.18→A-11.19: V1 Social keeps its color identity (per Maalik:
+        // "keep the colors") but signals "not clickable / coming soon" via
+        // dashed border + reduced saturation + lock icon + muted text.
         isComingSoon && [
-          "border-2 border-dashed border-border bg-muted/30",
-          "opacity-75 hover:opacity-90",
+          "border-2 border-dashed border-sky-300/50 bg-card",
+          "saturate-[0.85] opacity-90 hover:opacity-100",
         ],
       )}
     >
-      {/* Gradient header band — only for ready categories. Coming-soon gets
-          a flat muted bg so it doesn't compete visually. */}
-      {!isComingSoon && (
-        <>
-          <div
-            aria-hidden
-            className={cn(
-              "absolute inset-x-0 top-0 h-28 bg-gradient-to-br pointer-events-none transition-all duration-500",
-              gradient,
-              "group-hover:h-32",
-            )}
-          />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-28 pointer-events-none opacity-[0.10]"
-            style={{
-              backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
-              backgroundSize: "12px 12px",
-              color: "hsl(var(--foreground))",
-            }}
-          />
-        </>
+      {/* Gradient header band — render for ALL categories (Social keeps
+          its sky tint per Maalik). For coming-soon, layer a muting wash
+          + diagonal-stripe pattern so the colors stay but the surface
+          reads "not active". */}
+      <div
+        aria-hidden
+        className={cn(
+          "absolute inset-x-0 top-0 h-28 bg-gradient-to-br pointer-events-none transition-all duration-500",
+          gradient,
+          !isComingSoon && "group-hover:h-32",
+        )}
+      />
+      {/* Subtle dot pattern overlay on the gradient band — AI-tool depth */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-28 pointer-events-none opacity-[0.10]"
+        style={{
+          backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
+          backgroundSize: "12px 12px",
+          color: "hsl(var(--foreground))",
+        }}
+      />
+      {/* Coming-soon: faint diagonal-stripe overlay on the band so the
+          color is preserved but the surface looks "fenced off". */}
+      {isComingSoon && (
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none opacity-[0.07]"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(45deg, hsl(var(--foreground)) 0px, hsl(var(--foreground)) 1px, transparent 1px, transparent 8px)",
+          }}
+        />
       )}
 
-      {/* Coming-soon "lock" overlay in top-right */}
+      {/* Coming-soon "lock" badge in top-right */}
       {isComingSoon && (
-        <div className="absolute top-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-muted ring-2 ring-background">
+        <div className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-card/95 px-2 py-0.5 ring-1 ring-border shadow-sm backdrop-blur-sm">
           <Lock className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">
+            Soon
+          </span>
         </div>
       )}
 
