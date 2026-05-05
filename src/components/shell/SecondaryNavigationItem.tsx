@@ -67,7 +67,11 @@ export function SecondaryNavigationItem({
           "w-full text-left pr-2 rounded-md transition-colors flex items-center gap-2 h-8",
           active
             ? "bg-zinc-900/[0.06] text-zinc-900 font-medium"
-            : "text-zinc-700 hover:bg-zinc-900/[0.04] hover:text-zinc-900"
+            : "text-zinc-700 hover:bg-zinc-900/[0.04] hover:text-zinc-900",
+          // A-11.15: deprioritized = legacy/archive entry. Reduced opacity
+          // + lighter weight so users don't focus on it. Active-state still
+          // resolves cleanly when clicked.
+          item.deprioritized && !active && "opacity-50 hover:opacity-80",
         )}
         style={{ paddingLeft: `${paddingLeftPx}px` }}
       >
@@ -79,7 +83,10 @@ export function SecondaryNavigationItem({
             )}
           />
         )}
-        <span className="flex-1 truncate text-[13px] leading-[16px]">{item.label}</span>
+        <span className={cn(
+          "flex-1 truncate text-[13px] leading-[16px]",
+          item.deprioritized && !active && "italic",
+        )}>{item.label}</span>
         {item.badge && (
           <span className="text-[10px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0 bg-zinc-900/[0.06] text-zinc-600">
             {item.badge}

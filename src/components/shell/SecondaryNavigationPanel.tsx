@@ -67,18 +67,32 @@ export function SecondaryNavigationPanel() {
 
       {/* BODY — independently scrollable */}
       <div className="flex-1 min-h-0 overflow-y-auto px-1.5 py-2">
-        {/* Flat sub-items */}
+        {/* Flat sub-items.
+            A-11.15: insert a divider before the FIRST deprioritized item so
+            legacy entries are visually separated from primary nav. */}
         {activeMod.subItems && (
           <div className="flex flex-col gap-0.5">
-            {activeMod.subItems.map((item) => (
-              <SecondaryNavigationItem
-                key={item.path}
-                item={item}
-                pathname={pathname}
-                siblingPaths={siblingPaths}
-                onNavigate={onNavigate}
-              />
-            ))}
+            {activeMod.subItems.map((item, i) => {
+              const prev = activeMod.subItems![i - 1];
+              const showDivider =
+                item.deprioritized && (!prev || !prev.deprioritized);
+              return (
+                <div key={item.path} className="contents">
+                  {showDivider && (
+                    <div
+                      aria-hidden
+                      className="my-1.5 mx-2 h-px bg-zinc-900/[0.08]"
+                    />
+                  )}
+                  <SecondaryNavigationItem
+                    item={item}
+                    pathname={pathname}
+                    siblingPaths={siblingPaths}
+                    onNavigate={onNavigate}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
 

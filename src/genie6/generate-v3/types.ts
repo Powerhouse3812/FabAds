@@ -28,6 +28,14 @@ export interface SubModeDescriptor {
   /** lucide-react icon name */
   icon: string;
   status?: SubModeStatus;
+  /**
+   * A-11.15: real Unsplash creative imagery used as a preview thumbnail
+   * on the Variant 2 (horizontal stacked-rows) layout. Picked to evoke
+   * what each sub-mode would generate — product shoot looks like product
+   * photography, UGC video looks like a portrait/talking-head, etc.
+   * Stop-gap until real generated samples land in iter-8+.
+   */
+  previewUrl?: string;
 }
 
 export interface CategoryDescriptor {
@@ -54,18 +62,21 @@ export const CATEGORIES: CategoryDescriptor[] = [
         label: "Brand-focused",
         description: "Brand identity-led ad",
         icon: "Sparkles",
+        previewUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=480&h=320&q=70",
       },
       {
         id: "product-focused",
         label: "Product-focused",
         description: "Product-led, brand-anchored ad",
         icon: "ShoppingBag",
+        previewUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=480&h=320&q=70",
       },
       {
         id: "product-shoot",
         label: "Product Shoot",
         description: "Studio-quality product photography (asset)",
         icon: "Camera",
+        previewUrl: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=480&h=320&q=70",
       },
     ],
   },
@@ -80,18 +91,21 @@ export const CATEGORIES: CategoryDescriptor[] = [
         label: "Product Ad",
         description: "Sell a product with brand context",
         icon: "ShoppingBag",
+        previewUrl: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=480&h=320&q=70",
       },
       {
         id: "performance-ad",
         label: "Performance Ad",
         description: "Performance ads anchored to a category + landing page",
         icon: "Target",
+        previewUrl: "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=480&h=320&q=70",
       },
       {
         id: "brand-ad",
         label: "Brand Ad",
         description: "Hero ads anchored to a brand profile",
         icon: "Sparkles",
+        previewUrl: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=480&h=320&q=70",
       },
     ],
   },
@@ -115,18 +129,21 @@ export const QUICK_MODES: SubModeDescriptor[] = [
     label: "UGC Video",
     description: "Avatar / script / talking-head video",
     icon: "Video",
+    previewUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=480&h=320&q=70",
   },
   {
     id: "variations",
     label: "Variations",
     description: "Generate variants of a winning ad",
     icon: "RefreshCw",
+    previewUrl: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=480&h=320&q=70",
   },
   {
     id: "image-to-ad",
     label: "Image-to-Ad",
     description: "Convert an image into a finished ad",
     icon: "Image",
+    previewUrl: "https://images.unsplash.com/photo-1561070791-2526d30994b8?auto=format&fit=crop&w=480&h=320&q=70",
   },
 ];
 

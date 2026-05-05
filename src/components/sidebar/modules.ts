@@ -19,6 +19,13 @@ export interface SubItem {
   badge?: string;
   /** Optional 2nd-level nested sub-items (used by IQ → Genie 5.0 group) */
   subItems?: SubItem[];
+  /**
+   * A-11.15: visually de-emphasize this item — render with reduced opacity
+   * + smaller weight so users don't focus on it. Used for legacy / archive
+   * entries. The renderer also inserts a divider before the first
+   * deprioritized item in a flat sub-items list.
+   */
+  deprioritized?: boolean;
 }
 
 export interface SectionGroup {
@@ -127,20 +134,17 @@ export const MODULES: ModuleDef[] = [
       // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
       // matches the new /studio Product-first flow's primacy.
       { label: "Overview",    path: "/iq/genie6",                  icon: Home },
-      { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2 },
-      // Iter-7 A-11.14: "Studio v3" surfaces the new 3-category picker
-      // (Brand / Ad / Social + Quick modes). Runs in parallel with the
-      // existing 4-Type Studio while sub-mode forms get built one-by-one.
-      // Once Studio v3 fully ships and Maalik signs off, "Studio" + "Old
-      // Studio" can be retired in a separate cleanup commit.
+      // A-11.15: Studio v3 is the primary entry. All Genie work going
+      // forward lands here per Maalik's lock. The previous 4-Type Studio
+      // ("Studio") and pre-revamp flow ("Old Studio") are deprioritized —
+      // moved below Settings + rendered with muted styling so they don't
+      // pull user focus.
       { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2 },
-      // Iter-7 A-11.1: "Old Studio" surfaces the preserved pre-revamp
-      // Generate flow at /generate-legacy/*. Sits next to "Studio" so Maalik
-      // can A/B compare during the New Studio build.
-      { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2 },
       { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
+      { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2, deprioritized: true },
+      { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2, deprioritized: true },
     ],
   },
   {
