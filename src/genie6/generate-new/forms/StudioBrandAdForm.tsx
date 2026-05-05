@@ -77,8 +77,11 @@ export function StudioBrandAdForm() {
   const initialBrand = searchParams.get("brand");
   const [brandId, setBrandId] = useState<string | null>(initialBrand);
 
-  const initialOutput = (searchParams.get("output") as OutputType) || "whole-adcopy";
-  const [output, setOutput] = useState<OutputType>(initialOutput);
+  // A-11.10: Output stays UNSET on in-Studio entry. The user picks on the form.
+  // Pre-fills only come from outside-Studio entry points (Catalogue / Workspace /
+  // Dashboard CTAs) via the ?output= URL param.
+  const outputParam = searchParams.get("output") as OutputType | null;
+  const [output, setOutput] = useState<OutputType | null>(outputParam);
   const [imageFormat, setImageFormat] = useState<ImageFormat>("static");
   const presetMarker = searchParams.get("preset"); // "ugc-video" when from UGC preset
 
@@ -90,7 +93,8 @@ export function StudioBrandAdForm() {
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(4);
 
-  // Models depend on Output
+  // Models depend on Output. When Output is unset (in-Studio entry without
+  // pre-fill), no models render — user picks Output first.
   const models = useMemo(() => {
     switch (output) {
       case "image":
@@ -98,17 +102,17 @@ export function StudioBrandAdForm() {
       case "video":
         return MOCK_MODELS_VIDEO;
       case "whole-adcopy":
-      default:
         return MOCK_MODELS_TEXT;
+      default:
+        return [] as PromptBarModel[];
     }
   }, [output]);
 
-  const [modelId, setModelId] = useState<string>(models[0].id);
+  const [modelId, setModelId] = useState<string | undefined>(undefined);
 
-  // Auto-flip the model when Output changes (otherwise we'd be on a stale model id)
-  const modelInList = models.find((m) => m.id === modelId);
-  if (!modelInList) {
-    // Use a microtask to set state — avoids re-render warning
+  // Auto-pin the model when Output changes (or first set) so the picker has
+  // a sensible default once Output exists.
+  if (models.length > 0 && (!modelId || !models.find((m) => m.id === modelId))) {
     Promise.resolve().then(() => setModelId(models[0].id));
   }
 
@@ -147,6 +151,8 @@ export function StudioBrandAdForm() {
     );
   };
 
+  const canGenerate = !!brandId && !!output;
+
   // ───────────── Render ─────────────
   return (
     <FormSkeleton
@@ -158,6 +164,7 @@ export function StudioBrandAdForm() {
             value={output}
             onChange={setOutput}
             options={["image", "video", "whole-adcopy"]}
+            placeholder="Pick output"
           />
           {output === "image" && (
             <>
@@ -211,7 +218,7 @@ export function StudioBrandAdForm() {
           onRemoveReference={(i) => setReferences(references.filter((_, idx) => idx !== i))}
           contextChips={contextChips}
           onGenerate={onGenerate}
-          disabled={!brandId}
+          disabled={!canGenerate}
           generateLabel="Generate"
         />
       }

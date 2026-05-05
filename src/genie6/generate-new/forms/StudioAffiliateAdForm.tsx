@@ -83,13 +83,14 @@ export function StudioAffiliateAdForm() {
 
   // ───────────── Pre-fill from URL ─────────────
   const initialCategory = searchParams.get("category");
-  const initialOutput = (searchParams.get("output") as OutputType) || "whole-adcopy";
+  // A-11.10: Output unset until user picks. Pre-fill comes only from outside-Studio entry (UGC gate sets it).
+  const outputParam = searchParams.get("output") as OutputType | null;
   const presetMarker = searchParams.get("preset"); // "ugc-video" when from UGC preset
 
   // ───────────── Top sticky state ─────────────
   const [categoryId, setCategoryId] = useState<string | null>(initialCategory);
   const [landingUrl, setLandingUrl] = useState<string>("");
-  const [output, setOutput] = useState<OutputType>(initialOutput);
+  const [output, setOutput] = useState<OutputType | null>(outputParam);
   const [imageFormat, setImageFormat] = useState<ImageFormat>("static");
   const [alsoProductAd, setAlsoProductAd] = useState(false);
   const [productAdBrandId, setProductAdBrandId] = useState<string | null>(null);
@@ -113,14 +114,17 @@ export function StudioAffiliateAdForm() {
       case "video":
         return MOCK_MODELS_VIDEO;
       case "whole-adcopy":
-      default:
         return MOCK_MODELS_TEXT;
+      default:
+        return [] as PromptBarModel[];
     }
   }, [output]);
 
-  const [modelId, setModelId] = useState<string>(models[0].id);
+  const [modelId, setModelId] = useState<string | undefined>(undefined);
   useEffect(() => {
-    if (!models.find((m) => m.id === modelId)) setModelId(models[0].id);
+    if (models.length > 0 && (!modelId || !models.find((m) => m.id === modelId))) {
+      setModelId(models[0].id);
+    }
   }, [models, modelId]);
 
   // ───────────── Derived ─────────────
@@ -160,7 +164,7 @@ export function StudioAffiliateAdForm() {
     alert(`Mock generation queued.\n\n${JSON.stringify(summary, null, 2)}`);
   };
 
-  const canGenerate = !!categoryId;
+  const canGenerate = !!categoryId && !!output;
 
   return (
     <FormSkeleton
@@ -194,6 +198,7 @@ export function StudioAffiliateAdForm() {
               value={output}
               onChange={setOutput}
               options={["image", "video", "whole-adcopy"]}
+              placeholder="Pick output"
             />
             {output === "image" && (
               <>

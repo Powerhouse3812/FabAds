@@ -95,7 +95,9 @@ export function StudioProductAdForm() {
     ? allProducts.find((p) => p.id === initialProductId)
     : undefined;
   const initialBrandId = initialProduct?.brandId ?? searchParams.get("brand");
-  const initialOutput = (searchParams.get("output") as OutputType) || "whole-adcopy";
+  // A-11.10: Output unset by default — only pre-filled when an outside-Studio
+  // entry point (Catalogue / Workspace / Dashboard / Gate preset) supplied it.
+  const outputParam = searchParams.get("output") as OutputType | null;
   const presetParam = searchParams.get("preset");
   const isShootPreset = presetParam === "shoot";
   const isUgcPreset = presetParam === "ugc-video";
@@ -106,7 +108,7 @@ export function StudioProductAdForm() {
   const [productIds, setProductIds] = useState<string[]>(
     initialProduct ? [initialProduct.id] : [],
   );
-  const [output, setOutput] = useState<OutputType>(initialOutput);
+  const [output, setOutput] = useState<OutputType | null>(outputParam);
   const [imageFormat, setImageFormat] = useState<ImageFormat>("static");
   const [hideBrandIdentity, setHideBrandIdentity] = useState(false);
 
@@ -136,15 +138,16 @@ export function StudioProductAdForm() {
       case "video":
         return MOCK_MODELS_VIDEO;
       case "whole-adcopy":
-      default:
         return MOCK_MODELS_TEXT;
+      default:
+        return [] as PromptBarModel[];
     }
   }, [output]);
 
-  const [modelId, setModelId] = useState<string>(models[0].id);
-  // Re-pin model when Output changes
+  const [modelId, setModelId] = useState<string | undefined>(undefined);
+  // Pin a default model when Output is set / changes.
   useEffect(() => {
-    if (!models.find((m) => m.id === modelId)) {
+    if (models.length > 0 && (!modelId || !models.find((m) => m.id === modelId))) {
       setModelId(models[0].id);
     }
   }, [models, modelId]);
@@ -207,7 +210,7 @@ export function StudioProductAdForm() {
     );
   };
 
-  const canGenerate = !!brandId && productIds.length > 0;
+  const canGenerate = !!brandId && productIds.length > 0 && !!output;
 
   // ───────────── Render ─────────────
   return (
@@ -248,6 +251,7 @@ export function StudioProductAdForm() {
               value={output}
               onChange={setOutput}
               options={["image", "video", "whole-adcopy", "product-shoot"]}
+              placeholder="Pick output"
             />
             {output === "image" && (
               <>

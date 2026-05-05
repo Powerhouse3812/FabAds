@@ -92,38 +92,42 @@ export function GateModal({ cta, open, onOpenChange }: GateModalProps) {
             </div>
           )}
 
-          {/* Pre-fill summary */}
-          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5">
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Pre-filled
-            </p>
-            <div className="space-y-1 text-xs">
-              {isProductShoot && (
-                <>
-                  <PrefillRow label="Type" value="Product Ad" />
-                  <PrefillRow label="Output" value="Image" />
-                  <PrefillRow label="Preset" value="Studio shoot · clean staging · no text overlay" />
-                </>
-              )}
-              {isUgcVideo && (
-                <>
-                  <PrefillRow label="Type" value={typeLabelFor(ugcType)} />
-                  <PrefillRow label="Output" value="Video" />
-                  <PrefillRow label="Section" value="Video Production auto-expanded" />
-                </>
-              )}
-              {!isProductShoot && !isUgcVideo && (
-                <>
-                  <PrefillRow label="Type" value={cta.label} />
-                  <PrefillRow label="Output" value="Whole Adcopy (default)" />
-                  <PrefillRow label="Advanced" value="Blank — fill on the form" />
-                </>
-              )}
+          {/* Pre-fill summary.
+              A-11.10 (per Maalik): for Type CTAs (Brand / Product / Affiliate)
+              the gate ONLY confirms Type — Output + Advanced are user picks
+              on the form, NOT pre-filled. Pre-fills come from outside-Studio
+              entry points (Catalogue / Workspace / Dashboard CTAs) via URL
+              params, not from this gate. Preset CTAs (Product Shoot, UGC
+              Video) keep their locked pre-fill summary since the preset IS
+              the value the gate is confirming. */}
+          {(isProductShoot || isUgcVideo) && (
+            <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Pre-filled
+              </p>
+              <div className="space-y-1 text-xs">
+                {isProductShoot && (
+                  <>
+                    <PrefillRow label="Type" value="Product Ad" />
+                    <PrefillRow label="Output" value="Image" />
+                    <PrefillRow label="Preset" value="Studio shoot · clean staging · no text overlay" />
+                  </>
+                )}
+                {isUgcVideo && (
+                  <>
+                    <PrefillRow label="Type" value={typeLabelFor(ugcType)} />
+                    <PrefillRow label="Output" value="Video" />
+                    <PrefillRow label="Section" value="Video Production auto-expanded" />
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <p className="text-[11px] text-muted-foreground">
-            Override anything on the form. This gate is just a 1-click confirmation.
+            {isProductShoot || isUgcVideo
+              ? "Override anything on the form. This gate is just a 1-click confirmation."
+              : "Output, format, and Advanced settings — pick on the form. This gate just confirms the Type."}
           </p>
         </div>
 

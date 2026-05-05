@@ -27,15 +27,23 @@ const LABEL_MAP: Record<OutputType, string> = {
 };
 
 export interface OutputChipProps {
-  value: OutputType;
+  /** A-11.10: Output may be null (in-Studio entry, user hasn't picked yet). */
+  value: OutputType | null;
   onChange: (next: OutputType) => void;
   /** The set of allowed Output choices for the current Type. */
   options: OutputType[];
+  /** Optional placeholder hint shown before user picks (only when value is null). */
+  placeholder?: string;
 }
 
-export function OutputChip({ value, onChange, options }: OutputChipProps) {
+export function OutputChip({ value, onChange, options, placeholder }: OutputChipProps) {
   return (
     <div role="radiogroup" aria-label="Output type" className="flex items-center gap-1.5 overflow-x-auto">
+      {placeholder && value === null && (
+        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">
+          {placeholder} ·
+        </span>
+      )}
       {options.map((opt) => {
         const Icon = ICON_MAP[opt];
         const active = value === opt;
