@@ -105,8 +105,11 @@ export function PickerColumn({
       </header>
 
       {/* Independent scroll — Finder-style. The column scrolls separately
-          from the form column on the left. */}
-      <div className="flex-1 overflow-y-auto p-4">{children}</div>
+          from the form column on the left. `min-h-0` is critical: without
+          it, a flex item's min-height defaults to `auto` (intrinsic content
+          size), so tall children push the footer below the viewport instead
+          of triggering overflow-scroll. */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">{children}</div>
 
       {!hideFooter && (
         <footer className="shrink-0 border-t border-border px-4 py-2">

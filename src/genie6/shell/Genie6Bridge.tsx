@@ -38,7 +38,7 @@ export function Genie6Bridge() {
   }, []);
 
   return (
-    <div className="g6-root flex flex-1 flex-col" data-g6-build="2026-04-30-iter5">
+    <div className="g6-root flex flex-1 min-h-0 flex-col" data-g6-build="2026-04-30-iter5">
       <Outlet />
     </div>
   );

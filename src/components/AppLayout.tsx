@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
 
@@ -221,7 +222,20 @@ function AppLayoutInner() {
             <HeaderBreadcrumbs />
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-4 2xl:p-5 flex flex-col relative">
+        <div
+          className={cn(
+            "flex flex-col relative",
+            // Genie6 owns its own scroll regions + padding (FormSkeleton has
+            // a sticky bottom prompt bar that must NOT scroll with the body).
+            // For genie6 routes we hand it a fixed-height, non-scrolling
+            // shell so FormSkeleton's `h-full flex-col` chain resolves
+            // against a real viewport height. For non-genie6 routes we
+            // keep the historical padding + page-level overflow-y-auto.
+            isGenie6Route
+              ? "h-full min-h-0 overflow-hidden"
+              : "flex-1 overflow-y-auto p-4 2xl:p-5",
+          )}
+        >
           <Outlet />
         </div>
       </AppShell>
