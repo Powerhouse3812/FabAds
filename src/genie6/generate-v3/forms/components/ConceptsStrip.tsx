@@ -93,7 +93,8 @@ export function ConceptsStrip({
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Vertical stack inside the column (A-11.25). */}
+      <div className="space-y-2">
         {regenerating && source === "new" ? (
           <ConceptSkeletonRow />
         ) : (
@@ -165,7 +166,7 @@ function ConceptCard({
       aria-pressed={selected}
       aria-label={`${selected ? "Deselect" : "Select"} concept: ${concept.name}`}
       className={cn(
-        "shrink-0 w-[200px] rounded-xl border bg-card p-2.5 text-left transition-all space-y-1.5",
+        "w-full rounded-xl border bg-card p-2.5 text-left transition-all space-y-1.5",
         "hover:-translate-y-0.5 hover:shadow-md",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         selected
@@ -227,7 +228,7 @@ function ConceptSkeletonRow() {
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          className="shrink-0 w-[200px] rounded-xl border border-border bg-card p-2.5 space-y-1.5 animate-pulse"
+          className="w-full rounded-xl border border-border bg-card p-2.5 space-y-1.5 animate-pulse"
         >
           <div className="h-3 w-3/4 rounded bg-muted/70" />
           <div className="h-2 w-full rounded bg-muted/50" />

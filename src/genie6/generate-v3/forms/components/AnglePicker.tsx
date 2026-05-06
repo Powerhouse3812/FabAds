@@ -86,7 +86,9 @@ export function AnglePicker({
           {selectedIds.length} selected · multi-select for parallel render
         </p>
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      {/* 2-col vertical-flow grid — fits the column width without cards
+          getting too narrow (A-11.25). */}
+      <div className="grid grid-cols-2 gap-2">
         {angles.map((a) => {
           const selected = selectedIds.includes(a.id);
           return (

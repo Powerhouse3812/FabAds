@@ -36,13 +36,14 @@ export function AudiencePicker({
   onCreate,
 }: AudiencePickerProps) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {selectedIds.length > 0 && (
         <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
           {selectedIds.length} selected · click again to deselect
         </p>
       )}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Vertical stack — column has space, full-width cards (A-11.25). */}
+      <div className="space-y-2">
         {audiences.map((a) => (
           <AudienceCard
             key={a.id}
@@ -75,7 +76,7 @@ function AudienceCard({
       aria-pressed={selected}
       aria-label={`${selected ? "Deselect" : "Select"} audience: ${audience.name}`}
       className={cn(
-        "shrink-0 w-[200px] rounded-xl border bg-card text-left transition-all",
+        "w-full rounded-xl border bg-card text-left transition-all",
         "hover:-translate-y-0.5 hover:shadow-md",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
         selected
@@ -191,19 +192,15 @@ function CreateAudienceTile({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       aria-label="Create custom audience"
       className={cn(
-        "shrink-0 w-[140px] rounded-xl border-2 border-dashed border-border bg-card/40 text-muted-foreground",
-        "flex flex-col items-center justify-center gap-1 transition-colors",
+        "w-full rounded-xl border-2 border-dashed border-border bg-card/40 text-muted-foreground py-3",
+        "flex items-center justify-center gap-2 transition-colors",
         "hover:border-primary/40 hover:text-foreground hover:bg-card",
         "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
       )}
     >
-      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
-        <Plus className="h-3.5 w-3.5" />
-      </div>
-      <p className="text-[10px] font-medium">Create audience</p>
-      <p className="text-[9px] text-muted-foreground/80 flex items-center gap-1">
-        <Users className="h-2.5 w-2.5" /> custom
-      </p>
+      <Plus className="h-3.5 w-3.5" />
+      <p className="text-[11px] font-medium">Create custom audience</p>
+      <Users className="h-3 w-3 opacity-60" />
     </button>
   );
 }
