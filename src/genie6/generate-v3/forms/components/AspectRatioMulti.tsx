@@ -29,7 +29,7 @@ export function AspectRatioMulti({ value, onChange }: AspectRatioMultiProps) {
     onChange(value.includes(a) ? value.filter((x) => x !== a) : [...value, a]);
   };
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex gap-1.5">
       {OPTIONS.map((o) => {
         const active = value.includes(o.id);
         return (
@@ -40,7 +40,7 @@ export function AspectRatioMulti({ value, onChange }: AspectRatioMultiProps) {
             aria-pressed={active}
             title={o.hint}
             className={cn(
-              "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-mono tabular-nums transition-colors",
+              "shrink-0 inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-mono tabular-nums transition-colors",
               "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
               active
                 ? "border-primary/40 bg-primary/10 text-foreground font-bold"

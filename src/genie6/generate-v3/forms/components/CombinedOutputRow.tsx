@@ -31,7 +31,7 @@ export function CombinedOutputRow({
   onUseAiModelChange,
 }: CombinedOutputRowProps) {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+    <div className="flex items-center gap-x-5 gap-y-2 overflow-x-auto -mx-1 px-1">
       {/* Output cluster */}
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-medium text-foreground">Output</span>
