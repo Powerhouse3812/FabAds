@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Plus, Sparkles, X, Link as LinkIcon } from "lucide-react";
+import { ChevronDown, Plus, Sparkles, X, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -52,6 +52,16 @@ const SOURCE_ICON: Record<AttachSource, string> = {
   url: "🔗",
 };
 
+const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
+  { id: "genie-1.0", emoji: "✨", name: "Genie 1.0", hint: "Fast" },
+  { id: "genie-2.0-pro", emoji: "🚀", name: "Genie 2.0 Pro", hint: "Higher quality" },
+  { id: "genie-flash", emoji: "⚡", name: "Genie Flash", hint: "Ultra-fast" },
+  { id: "genie-video", emoji: "🎬", name: "Genie Video" },
+  { id: "genie-labs", emoji: "🧪", name: "Genie Labs", hint: "Experimental" },
+];
+
+const COUNTS = [1, 2, 4, 8] as const;
+
 const MOCK_PINS: { id: string; thumbnail: string; label: string }[] = [
   {
     id: "pin-1",
@@ -98,6 +108,7 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
   const [activeDrawer, setActiveDrawer] = useState<AttachSource | null>(null);
   const [urlPopoverOpen, setUrlPopoverOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [modelOpen, setModelOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Pinterest placeholder local select state
@@ -206,16 +217,18 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
     Math.round(totalOutputs / Math.max(variations, 1)),
   );
 
+  // Active model for the dropdown trigger
+  const activeModel = MODELS.find((m) => m.id === state.modelId) ?? MODELS[0];
+
   return (
     <>
       <div
         className={cn(
-          "sticky bottom-0 z-30",
-          "border-t border-border bg-background/95 backdrop-blur",
-          "px-6 py-3",
+          "rounded-2xl border border-border bg-card shadow-sm",
+          "px-4 py-3",
         )}
       >
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2">
+        <div className="flex w-full flex-col gap-2">
           {/* Row 1 — attached refs chips */}
           {state.attachedReferences.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -242,8 +255,8 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
             </div>
           )}
 
-          {/* Row 2 — main bar */}
-          <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm">
+          {/* Row 2 — clip + textarea + char counter */}
+          <div className="relative flex items-end gap-2">
             {/* + icon — wraps the AttachPopover */}
             <AttachPopover
               open={attachOpen}
@@ -262,16 +275,15 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
               </button>
             </AttachPopover>
 
-            {/* URL inline popover — separate trigger so it doesn't conflict
-                with the AttachPopover anchored on the same + icon. Hidden
-                button anchored next to the + button. */}
+            {/* URL inline popover — hidden anchor near the + button so it
+                doesn't conflict with the AttachPopover on the same trigger. */}
             <Popover open={urlPopoverOpen} onOpenChange={setUrlPopoverOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
                   aria-hidden="true"
                   tabIndex={-1}
-                  className="pointer-events-none absolute left-2 top-2 h-9 w-9 opacity-0"
+                  className="pointer-events-none absolute left-0 top-0 h-9 w-9 opacity-0"
                 />
               </PopoverTrigger>
               <PopoverContent align="start" side="top" className="w-80 p-3">
@@ -327,38 +339,124 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
               className="block w-full flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
             />
 
-            {/* Right meta — char counter + (optional) inline Send */}
-            <div className="flex shrink-0 flex-col items-end gap-1">
+            {/* Char counter only */}
+            <span className="shrink-0 self-end pb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {state.prompt.length} chars
+            </span>
+          </div>
+
+          {/* Row 3 — meta toolbar: Model · Variations · Credits · (Variant A: inline Send) · CtaLayoutToggle */}
+          <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-2">
+            {/* Model dropdown */}
+            <div className="flex items-center gap-2">
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {state.prompt.length} chars
+                Model
               </span>
-              {showInlineSend && (
-                <button
-                  type="button"
-                  onClick={() => wizard.goTo(5)}
-                  disabled={!state.prompt.trim()}
-                  className={cn(
-                    "inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-bold text-primary-foreground transition-transform",
-                    "hover:scale-[1.02]",
-                    "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100",
-                  )}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Generate
-                  <span className="font-mono text-[10px] opacity-80">
-                    {conceptCount === 1
-                      ? `· ${variations}× · ${totalOutputs} cr`
-                      : `· ${conceptCount}×${variations} = ${totalOutputs} · ${totalOutputs} cr`}
-                  </span>
-                </button>
-              )}
+              <Popover open={modelOpen} onOpenChange={setModelOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-[11px] font-medium text-foreground hover:border-primary/40"
+                  >
+                    <span>{activeModel.emoji}</span>
+                    <span>{activeModel.name}</span>
+                    {activeModel.hint && (
+                      <span className="text-[10px] text-muted-foreground">
+                        · {activeModel.hint}
+                      </span>
+                    )}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" side="top" className="w-72 p-1">
+                  {MODELS.map((m) => {
+                    const active = state.modelId === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          wizard.set("modelId", m.id);
+                          setModelOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
+                          active ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                        )}
+                      >
+                        <span className="text-base">{m.emoji}</span>
+                        <span className="font-semibold">{m.name}</span>
+                        {m.hint && (
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            {m.hint}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Dev toggle — always rendered far right */}
+            {/* Variations pills */}
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Variations
+              </span>
+              <div className="inline-flex rounded-full border border-border bg-background p-0.5">
+                {COUNTS.map((n) => {
+                  const active = state.count === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => wizard.set("count", n)}
+                      className={cn(
+                        "inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-mono text-[11px] font-semibold transition-colors",
+                        active
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Credits chip */}
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground">
+              ⚡ <span className="font-mono">{state.credits}</span> credits
+            </span>
+
+            {/* Variant A — inline Send */}
+            {showInlineSend && (
+              <button
+                type="button"
+                onClick={() => wizard.goTo(5)}
+                disabled={!state.prompt.trim()}
+                className={cn(
+                  "ml-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-bold text-primary-foreground transition-transform",
+                  "hover:scale-[1.02]",
+                  "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100",
+                )}
+              >
+                <Sparkles className="h-4 w-4" />
+                Generate
+                <span className="font-mono text-[10px] opacity-80">
+                  {conceptCount === 1
+                    ? `· ${variations}× · ${totalOutputs} cr`
+                    : `· ${conceptCount}×${variations} = ${totalOutputs} · ${totalOutputs} cr`}
+                </span>
+              </button>
+            )}
+
+            {/* Dev toggle */}
             <CtaLayoutToggle
               value={state.ctaLayout}
               onChange={(v) => wizard.set("ctaLayout", v)}
-              className="self-center"
+              className={showInlineSend ? "" : "ml-auto"}
             />
           </div>
         </div>
