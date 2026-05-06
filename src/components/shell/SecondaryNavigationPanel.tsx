@@ -51,18 +51,18 @@ export function SecondaryNavigationPanel() {
         "flex w-[240px] shrink-0 flex-col overflow-hidden bg-white text-zinc-900"
       )}
     >
-      {/* HEADER — sticky, compact. Title + (when Genie active) variant cycler icon.
-          Pre-body divider uses the same elegant gradient style as the rail's
-          logo→menu divider, just dark-tinted for the light surface (Maalik A-10.7). */}
+      {/* HEADER — sticky, compact. A-11.25 polish per Maalik: blend with
+          the body, no hard divider, lighter title weight. The header used
+          to read as a separate floating block; now it sits as a quiet
+          eyebrow above the items. */}
       <header className="sticky top-0 z-10 shrink-0 bg-white">
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <ModuleIcon className="h-4 w-4 shrink-0 text-zinc-700" />
-          <h2 className="flex-1 truncate text-[13px] font-semibold tracking-tight text-zinc-900">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <ModuleIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+          <h2 className="flex-1 truncate text-[11px] font-medium tracking-tight text-zinc-600">
             {activeMod.label}
           </h2>
           {isGenie && <GenieVariantCycler />}
         </div>
-        <PanelDivider />
       </header>
 
       {/* BODY — independently scrollable */}

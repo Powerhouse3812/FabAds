@@ -14,6 +14,12 @@ import { cn } from "@/lib/utils";
  *
  * Plus a "New template" tile at the end so the user can stub a save action.
  *
+ * A-11.21 polish per Maalik:
+ *   - Compact: card width 180→140, body padding tightened, smaller body text
+ *     so the strip occupies ~30% less vertical space without losing visual ID.
+ *   - Selectable: optional `selectedId` + `onSelect(id)` props. Selected card
+ *     gets lime ring + lime tint. Click toggles selection (re-click deselects).
+ *
  * Real persistence (per Master Doc §11.10) wires in iter-8+ along with the
  * Concept localStorage store. For Phase B build: 4 mocked default templates.
  */
@@ -100,17 +106,24 @@ export interface SavedTemplatesStripProps {
   label?: string;
   /** Show the "+ New template" stub at end */
   showCreate?: boolean;
+  /** Currently selected template id (controlled). */
+  selectedId?: string | null;
+  /** Selection handler. If provided, cards become selectable; otherwise they
+   *  fall back to template.onApply (legacy). Click on selected = deselect. */
+  onSelect?: (id: string | null) => void;
 }
 
 export function SavedTemplatesStrip({
   templates = DEFAULT_TEMPLATES,
   label = "Saved templates",
   showCreate = true,
+  selectedId = null,
+  onSelect,
 }: SavedTemplatesStripProps) {
   if (templates.length === 0 && !showCreate) return null;
 
   return (
-    <section className="space-y-2">
+    <section className="space-y-1.5">
       <div className="flex items-center gap-2">
         <LayoutTemplate className="h-3.5 w-3.5 text-muted-foreground" />
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -122,9 +135,14 @@ export function SavedTemplatesStrip({
           </span>
         )}
       </div>
-      <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {templates.map((t) => (
-          <TemplateCard key={t.id} template={t} />
+          <TemplateCard
+            key={t.id}
+            template={t}
+            selected={selectedId === t.id}
+            onSelect={onSelect}
+          />
         ))}
         {showCreate && <CreateTemplateTile />}
       </div>
@@ -134,50 +152,82 @@ export function SavedTemplatesStrip({
 
 /* ─────────────────────────────────────────────────────── */
 
-function TemplateCard({ template }: { template: SavedTemplate }) {
+function TemplateCard({
+  template,
+  selected,
+  onSelect,
+}: {
+  template: SavedTemplate;
+  selected?: boolean;
+  onSelect?: (id: string | null) => void;
+}) {
   const meta = template.tag ? TAG_META[template.tag] : TAG_META.static;
   const Icon = meta.icon;
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(selected ? null : template.id);
+    } else {
+      template.onApply?.();
+    }
+  };
 
   return (
     <button
       type="button"
-      onClick={template.onApply}
-      aria-label={`Apply template: ${template.label}`}
+      onClick={handleClick}
+      aria-label={
+        onSelect
+          ? `${selected ? "Deselect" : "Select"} template: ${template.label}`
+          : `Apply template: ${template.label}`
+      }
+      aria-pressed={onSelect ? selected : undefined}
       className={cn(
-        "group shrink-0 flex flex-col items-stretch gap-0 rounded-xl border border-border bg-card text-left overflow-hidden",
-        "w-[180px] transition-all",
-        "hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
+        "group shrink-0 flex flex-col items-stretch gap-0 rounded-xl border text-left overflow-hidden",
+        "w-[140px] transition-all",
+        "hover:shadow-md hover:-translate-y-0.5",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        selected
+          ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+          : "border-border bg-card hover:border-primary/40",
       )}
     >
-      {/* Gradient thumbnail */}
-      <div className={cn("relative aspect-[4/3] w-full bg-gradient-to-br", meta.gradient)}>
+      {/* Gradient thumbnail — compact aspect for tighter strip */}
+      <div className={cn("relative aspect-[5/3] w-full bg-gradient-to-br", meta.gradient)}>
         {template.thumbnail ? (
           <img src={template.thumbnail} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card/80 backdrop-blur-sm shadow-sm">
-              <Icon className="h-5 w-5 text-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-card/80 backdrop-blur-sm shadow-sm">
+              <Icon className="h-4 w-4 text-foreground" />
             </div>
           </div>
         )}
         {/* Tag chip in corner */}
-        <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-sm">
+        <span className="absolute top-1 right-1 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-sm">
           {meta.label}
         </span>
-        {/* Hover overlay */}
-        <div className="absolute inset-0 flex items-end justify-end p-2 opacity-0 transition-opacity group-hover:opacity-100 bg-gradient-to-t from-foreground/30 via-transparent to-transparent">
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
-            Apply
+        {/* Selected state badge */}
+        {selected && (
+          <span className="absolute top-1 left-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+            <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 6.5l2.5 2.5L10 3" />
+            </svg>
           </span>
-        </div>
-      </div>
-      {/* Body */}
-      <div className="space-y-0.5 p-2.5">
-        <p className="truncate text-xs font-medium text-foreground">{template.label}</p>
-        {template.sub && (
-          <p className="line-clamp-1 text-[10px] text-muted-foreground">{template.sub}</p>
         )}
+        {/* Hover overlay (legacy "Apply" affordance — only when no onSelect) */}
+        {!onSelect && (
+          <div className="absolute inset-0 flex items-end justify-end p-1.5 opacity-0 transition-opacity group-hover:opacity-100 bg-gradient-to-t from-foreground/30 via-transparent to-transparent">
+            <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground">
+              Apply
+            </span>
+          </div>
+        )}
+      </div>
+      {/* Body — tighter padding + smaller text */}
+      <div className="px-1.5 py-1">
+        <p className="truncate text-[11px] font-medium text-foreground leading-tight">
+          {template.label}
+        </p>
       </div>
     </button>
   );
@@ -194,17 +244,16 @@ function CreateTemplateTile() {
       }
       aria-label="New template"
       className={cn(
-        "shrink-0 flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-card/40 text-muted-foreground transition-colors",
-        "w-[180px] aspect-[4/3.4]",
+        "shrink-0 flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card/40 text-muted-foreground transition-colors",
+        "w-[140px] aspect-[5/3.5]",
         "hover:border-primary/40 hover:text-foreground hover:bg-card",
         "outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-1",
       )}
     >
-      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-        <Plus className="h-4 w-4" />
+      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+        <Plus className="h-3.5 w-3.5" />
       </div>
-      <p className="text-[11px] font-medium">New template</p>
-      <p className="text-[10px] text-muted-foreground/70">Save winning settings</p>
+      <p className="text-[10px] font-medium">New template</p>
     </button>
   );
 }

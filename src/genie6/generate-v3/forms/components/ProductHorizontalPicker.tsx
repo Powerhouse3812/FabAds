@@ -1,5 +1,14 @@
-import { useState, useMemo } from "react";
-import { Search, Globe, Building2, ChevronDown, Check, Loader2, Sparkles } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  Search,
+  Building2,
+  ChevronDown,
+  Check,
+  Loader2,
+  Sparkles,
+  X,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -10,20 +19,24 @@ import { brands as allBrands, products as allProducts } from "@/mocks/shared";
 import type { Product } from "@/genie6/types/entities";
 
 /**
- * ProductHorizontalPicker — Product Shoot top-zone product picker (A-11.19).
+ * ProductHorizontalPicker — Studio v3 product picker.
  *
- * Spec from Maalik:
- *   - Single-product select.
- *   - Layout: search input + brand filter + always-visible URL fetch field +
- *     horizontal-scroll strip of product thumbnails.
- *   - URL fetch: paste URL → spinner → on success a small toast appears
- *     ("Fetched: {product}") with an "Edit & save" button that opens the
- *     edit modal (handled by parent — fetch result bubbles up via callback).
- *   - Minimal so the user's flow doesn't break.
+ * A-11.22 wireframe revision per Maalik (calmer, more conventional):
+ *   [ 🔍 Search products… (~280px) ]  [ 🏢 Brand ▾ (140px) ]
+ *   [ + Fetch URL ]                                  ··· {n} / {total}
+ *
+ * - Search is always expanded (no collapse), with a clear (X) button
+ *   when there's text and an active border state.
+ * - Brand filter pill widens to 140px (was a tight max).
+ * - URL fetch is now a labeled secondary button that opens a popover
+ *   containing the URL input + Fetch CTA + Cancel.
+ * - Below: horizontal-scroll strip of horizontal product cards
+ *   (60×60 image on left, name + brand stacked on right, ~200px wide).
+ *
+ * Real backend wires in iter-8+; URL fetch is a 1.5s mock for now.
  */
 
 export interface FetchedSnapshot {
-  /** Mock placeholder for now. Real backend returns a richer snapshot. */
   brand: { id: string; name: string; logo?: string | null };
   product: { id: string; name: string; price?: string; thumbnail?: string };
   guidelines?: string[];
@@ -34,8 +47,6 @@ export interface FetchedSnapshot {
 export interface ProductHorizontalPickerProps {
   value: string | null;
   onChange: (productId: string | null) => void;
-  /** Fired when URL fetch succeeds. Parent decides whether to open the
-   *  Edit & save modal. */
   onFetched?: (snap: FetchedSnapshot) => void;
 }
 
@@ -48,6 +59,7 @@ export function ProductHorizontalPicker({
   const [brandFilter, setBrandFilter] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
   const [fetching, setFetching] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
 
   const filteredProducts = useMemo(() => {
     let list = allProducts;
@@ -61,22 +73,15 @@ export function ProductHorizontalPicker({
     const v = urlInput.trim();
     if (!v) return;
     setFetching(true);
-    // Mock fetch — 1.5s delay, returns a fake snapshot. Real backend wires
-    // in iter-8+ with the brand-fetch service.
     await new Promise((r) => setTimeout(r, 1500));
     setFetching(false);
 
-    // Pull a random product as the mocked fetch result
     const sampleProduct = allProducts[Math.floor(Math.random() * Math.min(20, allProducts.length))];
     const sampleBrand = allBrands.find((b) => b.id === sampleProduct.brandId);
     if (!sampleBrand) return;
 
     const snap: FetchedSnapshot = {
-      brand: {
-        id: sampleBrand.id,
-        name: sampleBrand.name,
-        logo: sampleBrand.logo,
-      },
+      brand: { id: sampleBrand.id, name: sampleBrand.name, logo: sampleBrand.logo },
       product: {
         id: sampleProduct.id,
         name: sampleProduct.name,
@@ -96,61 +101,37 @@ export function ProductHorizontalPicker({
     };
 
     setUrlInput("");
+    setUrlOpen(false);
     onChange(sampleProduct.id);
     onFetched?.(snap);
   };
 
+  const totalAvailable = brandFilter
+    ? allProducts.filter((p) => p.brandId === brandFilter).length
+    : allProducts.length;
+
   return (
     <div className="space-y-2.5">
-      {/* Filter row — search + brand filter + URL fetch */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="inline-flex h-9 min-w-[200px] flex-1 items-center gap-1.5 rounded-md border border-border bg-card px-2.5">
-          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products…"
-            aria-label="Search products"
-            className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none w-full"
-          />
-        </div>
-        {/* Brand filter */}
+      {/* Single calm control row — search · brand · fetch · counter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <SearchInput query={query} onQuery={setQuery} />
         <BrandFilterPill value={brandFilter} onChange={setBrandFilter} />
-        {/* URL fetch — always visible per spec */}
-        <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 min-w-[200px]">
-          <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <input
-            type="url"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleFetch();
-              }
-            }}
-            placeholder="Paste product URL…"
-            aria-label="Product URL to fetch"
-            disabled={fetching}
-            className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none w-full disabled:opacity-50"
-          />
-          <button
-            type="button"
-            onClick={handleFetch}
-            disabled={!urlInput.trim() || fetching}
-            aria-label="Fetch from URL"
-            className={cn(
-              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold transition-colors",
-              !urlInput.trim() || fetching
-                ? "bg-muted text-muted-foreground"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
-            )}
-          >
-            {fetching ? <Loader2 className="h-3 w-3 animate-spin" /> : "Fetch"}
-          </button>
-        </div>
+        <UrlFetchButton
+          open={urlOpen}
+          onOpenChange={(next) => {
+            setUrlOpen(next);
+            if (!next && !fetching) setUrlInput("");
+          }}
+          urlInput={urlInput}
+          onUrlInput={setUrlInput}
+          fetching={fetching}
+          onFetch={handleFetch}
+        />
+        {/* Result counter */}
+        <p className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {filteredProducts.length}
+          <span className="text-muted-foreground/60"> / {totalAvailable}</span>
+        </p>
       </div>
 
       {/* Horizontal product strip */}
@@ -176,6 +157,153 @@ export function ProductHorizontalPicker({
   );
 }
 
+/* ─────────────────────────────────────────────────────── *
+ *  SearchInput — always-expanded (~280px), clear button when filled
+ * ───────────────────────────────────────────────────────── */
+function SearchInput({
+  query,
+  onQuery,
+}: {
+  query: string;
+  onQuery: (next: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isActive = query.length > 0;
+
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center h-9 w-[280px] rounded-md border bg-card overflow-hidden transition-colors",
+        isActive ? "border-primary/40 bg-primary/5" : "border-border",
+      )}
+    >
+      <div className="shrink-0 flex h-9 w-9 items-center justify-center text-muted-foreground">
+        <Search className="h-3.5 w-3.5" />
+      </div>
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onChange={(e) => onQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && query) {
+            onQuery("");
+          }
+        }}
+        placeholder="Search products…"
+        aria-label="Search products"
+        className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none w-full pr-2"
+      />
+      {isActive && (
+        <button
+          type="button"
+          onClick={() => {
+            onQuery("");
+            inputRef.current?.focus();
+          }}
+          aria-label="Clear search"
+          className="shrink-0 flex h-9 w-7 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── *
+ *  UrlFetchButton — labeled secondary button opens popover with input + CTA
+ * ───────────────────────────────────────────────────────── */
+function UrlFetchButton({
+  open,
+  onOpenChange,
+  urlInput,
+  onUrlInput,
+  fetching,
+  onFetch,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  urlInput: string;
+  onUrlInput: (next: string) => void;
+  fetching: boolean;
+  onFetch: () => void;
+}) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Fetch product from URL"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-card/80"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>Fetch URL</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-[340px] p-3">
+        <div className="space-y-2">
+          <label
+            htmlFor="product-url-fetch-input"
+            className="block text-[10px] font-mono uppercase tracking-wider text-muted-foreground"
+          >
+            Product URL
+          </label>
+          <input
+            id="product-url-fetch-input"
+            type="url"
+            value={urlInput}
+            onChange={(e) => onUrlInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onFetch();
+              }
+            }}
+            placeholder="https://example.com/product/…"
+            disabled={fetching}
+            autoFocus
+            className="h-9 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground/70 outline-none focus:border-primary/40 disabled:opacity-50"
+          />
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                onUrlInput("");
+                onOpenChange(false);
+              }}
+              disabled={fetching}
+              className="inline-flex h-8 items-center rounded-md px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onFetch}
+              disabled={!urlInput.trim() || fetching}
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors",
+                !urlInput.trim() || fetching
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90",
+              )}
+            >
+              {fetching ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Fetching…</span>
+                </>
+              ) : (
+                "Fetch"
+              )}
+            </button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /* ─────────────────────────────────────────────────────── */
 
 function ProductThumb({
@@ -195,14 +323,14 @@ function ProductThumb({
       aria-pressed={active}
       title={`${product.name} · ${brand?.name ?? ""}`}
       className={cn(
-        "shrink-0 group relative flex flex-col items-stretch overflow-hidden rounded-lg border bg-card transition-all w-[110px]",
+        "shrink-0 group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card p-1.5 transition-all w-[200px]",
         active
           ? "border-primary shadow-md ring-2 ring-primary/30"
           : "border-border hover:border-primary/40 hover:-translate-y-0.5",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
       )}
     >
-      <div className="relative aspect-square w-full bg-muted overflow-hidden">
+      <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-md bg-muted">
         {product.thumbnail ? (
           <img
             src={product.thumbnail}
@@ -216,16 +344,16 @@ function ProductThumb({
           </div>
         )}
         {active && (
-          <div className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-            <Check className="h-3 w-3" />
+          <div className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+            <Check className="h-2.5 w-2.5" />
           </div>
         )}
       </div>
-      <div className="space-y-0.5 px-1.5 py-1">
-        <p className="truncate text-[11px] font-medium text-foreground">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 pr-1">
+        <p className="w-full truncate text-left text-[11px] font-medium text-foreground">
           {product.name}
         </p>
-        <p className="truncate text-[9px] text-muted-foreground">
+        <p className="w-full truncate text-left text-[10px] text-muted-foreground">
           {brand?.name}
         </p>
       </div>
@@ -258,17 +386,17 @@ function BrandFilterPill({
           type="button"
           aria-label={selected ? `Brand filter: ${selected.name}` : "Filter by brand"}
           className={cn(
-            "inline-flex h-9 items-center gap-1.5 rounded-md border bg-card px-2.5 text-xs transition-colors",
+            "inline-flex h-9 min-w-[140px] items-center gap-1.5 rounded-md border bg-card px-2.5 text-xs transition-colors",
             selected
               ? "border-primary/40 bg-primary/5 text-foreground"
               : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
           )}
         >
-          <Building2 className="h-3.5 w-3.5" />
-          <span className="font-medium max-w-[100px] truncate">
+          <Building2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="font-medium max-w-[140px] truncate flex-1 text-left">
             {selected?.name ?? "All brands"}
           </span>
-          <ChevronDown className="h-3 w-3" />
+          <ChevronDown className="h-3 w-3 shrink-0" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">

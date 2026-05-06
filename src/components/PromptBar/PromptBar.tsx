@@ -1,20 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   Sparkles,
-  Paperclip,
   Coins,
   Minus,
   Plus,
-  X,
-  ImagePlus,
-  Link as LinkIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 /**
  * PromptBar — shared floating bottom-bar for Generate flows (A-11.2).
@@ -74,6 +65,17 @@ export interface PromptBarReference {
   label: string;
   /** Original input — URL or local file reference */
   value: string;
+  /**
+   * Source category — drives the chip icon + tint so the various reference
+   * sources are scannable at a glance.
+   *   - "upload"    — user uploaded a local file
+   *   - "pinterest" — selected from auto-fetched Pinterest grid
+   *   - "product"   — auto-attached existing product imagery
+   *   - "url"       — legacy URL paste (kept for backwards-compat;
+   *                    Studio v3 forms drop this in A-11.23)
+   * Defaults to "url" when omitted.
+   */
+  kind?: "url" | "upload" | "pinterest" | "product";
 }
 
 export interface PromptBarContextChip {
@@ -143,9 +145,15 @@ export function PromptBar({
   models = [],
   selectedModelId,
   onModelChange,
-  references = [],
-  onAddReference,
-  onRemoveReference,
+  // References props are kept for backwards-compat with legacy 4-Type Studio
+  // callers, but no longer rendered — references are managed inline in the
+  // form section above the prompt bar.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  references: _references = [],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onAddReference: _onAddReference,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onRemoveReference: _onRemoveReference,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   contextChips = [],
   onGenerate,
@@ -218,11 +226,6 @@ export function PromptBar({
 
       {/* Row 2 — main bar */}
       <div className="flex items-end gap-2">
-        <RefsPopover
-          references={references}
-          onAddReference={onAddReference}
-          onRemoveReference={onRemoveReference}
-        />
         <textarea
           ref={taRef}
           value={prompt}
@@ -351,114 +354,3 @@ function CountStepper({ value, onChange, min, max }: CountStepperProps) {
   );
 }
 
-/* ─────────────────────────────────────────────────────── */
-
-interface RefsPopoverProps {
-  references: PromptBarReference[];
-  onAddReference?: (ref: PromptBarReference) => void;
-  onRemoveReference?: (index: number) => void;
-}
-
-function RefsPopover({ references, onAddReference, onRemoveReference }: RefsPopoverProps) {
-  const [open, setOpen] = useState(false);
-  const [urlInput, setUrlInput] = useState("");
-
-  const addUrl = () => {
-    const v = urlInput.trim();
-    if (!v || !onAddReference) return;
-    onAddReference({ label: v, value: v });
-    setUrlInput("");
-  };
-
-  const triggerActive = references.length > 0;
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={triggerActive ? `Manage ${references.length} reference${references.length === 1 ? "" : "s"}` : "Add references"}
-          className={cn(
-            "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed transition-colors",
-            triggerActive
-              ? "border-primary/40 bg-primary/5 text-foreground"
-              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",
-          )}
-        >
-          <Paperclip className="h-3.5 w-3.5" />
-          {triggerActive && (
-            <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-bold text-primary-foreground">
-              {references.length}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="start"
-        className="w-72 border-border bg-popover p-3 text-popover-foreground"
-      >
-        <p className="mb-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          Reference media
-        </p>
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() =>
-              alert(
-                "Upload-from-device wiring lands with the assets-storage backend (TODO)."
-              )
-            }
-            className="flex w-full items-center gap-2 rounded-md border border-dashed border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-          >
-            <ImagePlus className="h-3.5 w-3.5" />
-            Upload from device
-          </button>
-          <div className="flex items-center gap-1.5">
-            <LinkIcon className="h-3 w-3 text-muted-foreground" />
-            <input
-              type="url"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addUrl()}
-              placeholder="Paste a reference URL"
-              aria-label="Reference URL"
-              className="h-7 flex-1 rounded-md border border-border bg-card px-2 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={addUrl}
-              disabled={!urlInput.trim()}
-              className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
-
-          {references.length > 0 && (
-            <ul className="space-y-1">
-              {references.map((r, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-1.5 rounded-md bg-card px-2 py-1 font-mono text-[10px] text-muted-foreground"
-                >
-                  <span className="flex-1 truncate">{r.label}</span>
-                  {onRemoveReference && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveReference(i)}
-                      className="text-muted-foreground hover:text-destructive"
-                      aria-label="Remove reference"
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}

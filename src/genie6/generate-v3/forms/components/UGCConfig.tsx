@@ -39,6 +39,13 @@ export interface UGCConfigProps {
   onToneChange: (next: Tone) => void;
   /** Optional source label shown next to tone — "from {brand} KB" / "default". */
   toneSource?: string;
+  /**
+   * A-11.21: when `false`, the tone chip-row inside the UGC config panel is
+   * hidden so the host form can render `<UGCTone />` separately (e.g. inside
+   * a Video Advanced section). Default `true` preserves the existing
+   * Product-Shoot behaviour. Tone state still lives in the host form.
+   */
+  withTone?: boolean;
 }
 
 export function UGCConfig({
@@ -49,6 +56,7 @@ export function UGCConfig({
   tone,
   onToneChange,
   toneSource,
+  withTone = true,
 }: UGCConfigProps) {
   return (
     <div className="space-y-3">
@@ -69,7 +77,12 @@ export function UGCConfig({
       </button>
 
       {enabled && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+        <div
+          className={cn(
+            "grid gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3",
+            withTone ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1",
+          )}
+        >
           {/* Avatar — optional */}
           <label className="block space-y-1">
             <span className="flex items-center gap-1 text-[11px] font-medium text-foreground">
@@ -91,41 +104,66 @@ export function UGCConfig({
             </select>
           </label>
 
-          {/* Tone — pre-filled from KB */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-1">
-              <Mic className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[11px] font-medium text-foreground">Tone</span>
-              {toneSource && (
-                <span className="text-[10px] font-mono text-muted-foreground italic">
-                  · {toneSource}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {TONE_OPTIONS.map((t) => {
-                const active = tone === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => onToneChange(t)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                    )}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          {/* Tone — pre-filled from KB. Hidden when withTone=false so a host
+              form can render <UGCTone /> elsewhere (e.g. Advanced). */}
+          {withTone && (
+            <UGCTone
+              tone={tone}
+              onToneChange={onToneChange}
+              toneSource={toneSource}
+            />
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────── *
+ *  UGCTone — extracted tone chip-row for reuse in
+ *  Video Advanced sections (Product-focused Brand Ad, etc.)
+ *  Same look as the bundled tone row inside <UGCConfig />.
+ * ───────────────────────────────────────────────────────── */
+
+export interface UGCToneProps {
+  tone: Tone;
+  onToneChange: (next: Tone) => void;
+  toneSource?: string;
+}
+
+export function UGCTone({ tone, onToneChange, toneSource }: UGCToneProps) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1">
+        <Mic className="h-3 w-3 text-muted-foreground" />
+        <span className="text-[11px] font-medium text-foreground">Tone</span>
+        {toneSource && (
+          <span className="text-[10px] font-mono text-muted-foreground italic">
+            · {toneSource}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {TONE_OPTIONS.map((t) => {
+          const active = tone === t;
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onToneChange(t)}
+              aria-pressed={active}
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground font-medium"
+                  : "border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
+              )}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

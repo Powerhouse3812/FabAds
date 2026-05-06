@@ -133,11 +133,38 @@ export default {
   				to: {
   					height: '0'
   				}
+  			},
+  			// Studio v3 — glass/gradient/animation system (A-11.22 lab)
+  			'v3-shimmer': {
+  				'0%': { backgroundPosition: '-200% 0' },
+  				'100%': { backgroundPosition: '200% 0' }
+  			},
+  			'v3-sheen': {
+  				'0%': { transform: 'translateX(-120%) skewX(-20deg)' },
+  				'60%, 100%': { transform: 'translateX(220%) skewX(-20deg)' }
+  			},
+  			'v3-float': {
+  				'0%, 100%': { transform: 'translateY(0)' },
+  				'50%': { transform: 'translateY(-2px)' }
+  			},
+  			'v3-pop-in': {
+  				'0%': { opacity: '0', transform: 'translateY(4px) scale(0.98)' },
+  				'100%': { opacity: '1', transform: 'translateY(0) scale(1)' }
+  			},
+  			'v3-pulse-ring': {
+  				'0%': { boxShadow: '0 0 0 0 rgba(195,235,66,0.55)' },
+  				'70%': { boxShadow: '0 0 0 8px rgba(195,235,66,0)' },
+  				'100%': { boxShadow: '0 0 0 0 rgba(195,235,66,0)' }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'v3-shimmer': 'v3-shimmer 2.4s linear infinite',
+  			'v3-sheen': 'v3-sheen 1.4s ease-in-out',
+  			'v3-float': 'v3-float 3s ease-in-out infinite',
+  			'v3-pop-in': 'v3-pop-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+  			'v3-pulse-ring': 'v3-pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite'
   		},
   		fontFamily: {
   			sans: [

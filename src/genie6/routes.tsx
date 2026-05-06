@@ -28,6 +28,9 @@ import { StudioVariationForm } from "./generate-new/forms/StudioVariationForm";
 import { StudioV3Landing } from "./generate-v3/StudioV3Landing";
 import { SubModePlaceholder } from "./generate-v3/SubModePlaceholder";
 import { ProductShootForm } from "./generate-v3/forms/ProductShootForm";
+import { ProductFocusedAdForm } from "./generate-v3/forms/ProductFocusedAdForm";
+import { StudioV3Lab } from "./generate-v3/_dev/StudioV3Lab";
+import { StudioV3Finder } from "./generate-v3/_dev/StudioV3Finder";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -73,6 +76,12 @@ export const genie6Routes = (
 
     {/* Dev */}
     <Route path="_dev/output-card" element={<OutputCardShowcase />} />
+    {/* Studio v3 design lab — header variants + glass / gradient / animation
+        system showcase (A-11.22). Dev-only; not surfaced in sub-nav. */}
+    <Route path="_dev/studio-v3-lab" element={<StudioV3Lab />} />
+    {/* Studio v3 Finder layout wireframe — column-view drawer pattern for
+        Audience / Angle / Concepts / References (A-11.24). Wireframe only. */}
+    <Route path="_dev/studio-v3-finder" element={<StudioV3Finder />} />
 
     {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
         flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted
@@ -122,6 +131,10 @@ export const genie6Routes = (
       <Route index element={<StudioV3Landing />} />
       {/* Product Shoot — first real Studio v3 form (A-11.19) */}
       <Route path="brand/product-shoot" element={<ProductShootForm />} />
+      {/* Product-focused Brand Ad — second real Studio v3 form (A-11.21).
+          Product-led angle of a Brand Ad. Sibling to Brand-focused +
+          Product Shoot. */}
+      <Route path="brand/product-focused" element={<ProductFocusedAdForm />} />
       {/* Other sub-modes — placeholder until their forms ship */}
       <Route path=":categoryId/:subModeId" element={<SubModePlaceholder />} />
       <Route path="quick/:quickModeId" element={<SubModePlaceholder />} />

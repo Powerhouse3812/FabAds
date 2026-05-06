@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Paperclip, X, ImagePlus, Link as LinkIcon, UploadCloud } from "lucide-react";
+import {
+  Paperclip,
+  X,
+  ImagePlus,
+  Link as LinkIcon,
+  UploadCloud,
+  Upload,
+  Box,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -9,7 +17,7 @@ import {
 import type { PromptBarReference } from "@/components/PromptBar";
 
 /**
- * ReferencesSection — block-level references view.
+ * ReferencesSection — block-level references view (legacy 4-Type Studio).
  *
  * A-11.12 redesign per Maalik's UI feedback ("Reference input is invisible
  * or ignorable"):
@@ -20,6 +28,11 @@ import type { PromptBarReference } from "@/components/PromptBar";
  *     persistent "+ Add" button.
  *   - Same `PromptBarReference[]` array still drives both this surface and
  *     the PromptBar's quick-attach popover.
+ *
+ * A-11.23: Studio v3 forms switched to `ReferencesSectionV3` (tabbed
+ * Uploads / Pinterest pattern). This file stays as the LEGACY surface for
+ * the /generate (4-Type) Studio forms. Don't touch unless you also refactor
+ * Studio v3 back to the chip-based pattern.
  */
 
 export interface ReferencesSectionProps {
@@ -28,13 +41,7 @@ export interface ReferencesSectionProps {
   onRemoveReference: (index: number) => void;
   /** Optional override label */
   label?: string;
-  /**
-   * A-11.20: optional slot rendered above the references list (after the
-   * section header). Studio v3's Product Shoot form passes a "Include
-   * product imagery" toggle here so the toggle lives inside the References
-   * section instead of being its own standalone block. ReferencesSection
-   * stays generic — it doesn't know what's in `extras`.
-   */
+  /** Optional slot rendered above the references list. */
   extras?: import("react").ReactNode;
 }
 
@@ -85,23 +92,44 @@ export function ReferencesSection({
       ) : (
         <div className="rounded-xl border border-border bg-card p-3 space-y-2">
           <ul className="flex flex-wrap gap-1.5">
-            {references.map((r, i) => (
-              <li
-                key={i}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-1 text-xs text-foreground"
-              >
-                <LinkIcon className="h-3 w-3 text-muted-foreground" />
-                <span className="max-w-[200px] truncate">{r.label}</span>
-                <button
-                  type="button"
-                  onClick={() => onRemoveReference(i)}
-                  aria-label={`Remove reference ${r.label}`}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
+            {references.map((r, i) => {
+              const kind = r.kind ?? "url";
+              const KindIcon =
+                kind === "product" ? Box : kind === "upload" ? Upload : LinkIcon;
+              const isProduct = kind === "product";
+              return (
+                <li
+                  key={i}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs",
+                    isProduct
+                      ? "border-primary/40 bg-primary/10 text-foreground"
+                      : "border-border bg-muted/40 text-foreground",
+                  )}
                 >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </li>
-            ))}
+                  <KindIcon
+                    className={cn(
+                      "h-3 w-3 shrink-0",
+                      isProduct ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <span className="max-w-[200px] truncate">{r.label}</span>
+                  {isProduct && (
+                    <span className="rounded-sm bg-primary/20 px-1 font-mono text-[8px] font-bold uppercase tracking-wider text-primary">
+                      product
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRemoveReference(i)}
+                    aria-label={`Remove reference ${r.label}`}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </li>
+              );
+            })}
             <AddReferencePopover
               open={open}
               setOpen={setOpen}

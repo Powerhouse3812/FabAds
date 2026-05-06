@@ -72,33 +72,43 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 0 0% 7%;
-    --foreground: 248 0.3% 98.4%;
+    /* A-11.22 dark-mode rebuild — Maalik flagged "dark mode is very bad in
+       terms of UI". Two real issues fixed:
+         1. --primary was set to a light grey (256 1.3% 92.9%) instead of
+            the FabFunnel lime. Every accent / ring / button / selected
+            state was reading grey-on-grey.
+         2. --muted was set to a dark purple (260 4.1% 27.9%). Muted
+            surfaces had a tint that fought the lime + made cards look dirty.
+       Tokens here align with the fabfunnel-design-system §1 dark spec:
+       bg-base #121212, container #181818, elevated #262626. */
 
-    --card: 0 0% 15%;
-    --card-foreground: 248 0.3% 98.4%;
+    --background: 0 0% 7%;             /* #121212 base */
+    --foreground: 0 0% 98%;             /* near-white text */
 
-    --popover: 0 0% 15%;
-    --popover-foreground: 248 0.3% 98.4%;
+    --card: 0 0% 11%;                   /* #1c1c1c — slightly lifted from base */
+    --card-foreground: 0 0% 98%;
 
-    --primary: 256 1.3% 92.9%;
-    --primary-foreground: 266 4% 20.8%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 98%;
 
-    --secondary: 260 4.1% 27.9%;
-    --secondary-foreground: 248 0.3% 98.4%;
+    --primary: 74 81% 59%;              /* lime stays lime in dark mode */
+    --primary-foreground: 0 0% 7%;      /* dark text on lime fill */
 
-    --muted: 260 4.1% 27.9%;
-    --muted-foreground: 257 4% 70.4%;
+    --secondary: 0 0% 16%;              /* neutral grey, no purple tint */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 14%;                  /* neutral muted — was dark purple */
+    --muted-foreground: 0 0% 65%;
 
     --accent: 74 81% 59%;
     --accent-foreground: 0 0% 7%;
 
-    --destructive: 22 19.1% 70.4%;
-    --destructive-foreground: 248 0.3% 98.4%;
+    --destructive: 0 84% 65%;           /* readable red on dark */
+    --destructive-foreground: 0 0% 98%;
 
     --border: 0 0% 100% / 10%;
     --input: 0 0% 100% / 15%;
-    --ring: 264 2.7% 55.1%;
+    --ring: 74 81% 59%;                 /* lime focus ring */
 
     --sidebar-background: 0 0% 10%;
     --sidebar-foreground: 248 0.3% 98.4%;
@@ -185,6 +195,107 @@ All colors MUST be HSL.
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Studio v3 — glass + surface utilities (A-11.22).
+
+   Glass had to be tuned for BOTH light + dark modes — the previous
+   `bg-background/55 backdrop-blur-xl` pattern was effectively invisible in
+   light mode (white on white) and muddy in dark mode (no contrast).
+
+   Three reusable utilities:
+   - `.v3-glass`        — strong frosted surface for headers, popovers,
+                          floating prompt bar
+   - `.v3-glass-card`   — softer frosted card for picker cards / strips
+   - `.v3-surface`      — opaque surface that still reads "lifted" via ring
+                          + shadow. Use when blur isn't appropriate (long
+                          scrollable bodies, perf).
+   - `.v3-page-mesh`    — page-wide gradient mesh + dot grid backdrop. Use
+                          on the Studio v3 form pages so the lime / amber /
+                          sky orbs read behind the glass surfaces.
+   ────────────────────────────────────────────────────────────────────── */
+
+.v3-glass {
+  /* Light mode: white frost on top of mesh — needs visible alpha + saturate */
+  background-color: hsl(0 0% 100% / 0.65);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid hsl(220 6% 88% / 0.6);
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.6) inset,
+    0 8px 24px -12px hsl(0 0% 0% / 0.12);
+}
+.dark .v3-glass {
+  /* Dark mode: black frost — needs a hint of white to read as glass */
+  background-color: hsl(0 0% 8% / 0.65);
+  border: 1px solid hsl(0 0% 100% / 0.08);
+  box-shadow:
+    0 1px 0 hsl(0 0% 100% / 0.04) inset,
+    0 8px 24px -12px hsl(0 0% 0% / 0.45);
+}
+
+.v3-glass-card {
+  background-color: hsl(0 0% 100% / 0.55);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid hsl(220 6% 90% / 0.6);
+}
+.dark .v3-glass-card {
+  background-color: hsl(0 0% 12% / 0.55);
+  border: 1px solid hsl(0 0% 100% / 0.06);
+}
+
+/* Opaque "surface" — used in dark mode where blur stacking gets muddy.
+   Acts as a card with a subtle ring + shadow so it reads as "lifted"
+   without leaning on backdrop-filter. */
+.v3-surface {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.04);
+}
+.dark .v3-surface {
+  background-color: hsl(0 0% 11%);
+  border: 1px solid hsl(0 0% 100% / 0.06);
+  box-shadow: 0 1px 0 hsl(0 0% 100% / 0.03) inset, 0 4px 12px -6px hsl(0 0% 0% / 0.4);
+}
+
+/* Page-wide gradient mesh + dot grid (sits BEHIND v3-glass so the lime /
+   amber / sky orbs read through). Used as a wrapper class on Studio v3
+   pages. */
+.v3-page-mesh {
+  position: relative;
+  isolation: isolate;
+}
+.v3-page-mesh::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 8% 12%, hsl(74 81% 70% / 0.20), transparent 45%),
+    radial-gradient(circle at 92% 88%, hsl(38 92% 70% / 0.14), transparent 45%),
+    radial-gradient(circle at 60% 35%, hsl(200 80% 70% / 0.10), transparent 50%);
+}
+.dark .v3-page-mesh::before {
+  background:
+    radial-gradient(circle at 8% 12%, hsl(74 81% 50% / 0.16), transparent 45%),
+    radial-gradient(circle at 92% 88%, hsl(38 92% 55% / 0.10), transparent 45%),
+    radial-gradient(circle at 60% 35%, hsl(200 80% 55% / 0.08), transparent 50%);
+}
+.v3-page-mesh::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.05;
+  background-image: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0);
+  background-size: 22px 22px;
+}
+.dark .v3-page-mesh::after {
+  opacity: 0.08;
 }
 
 /* ──────────────────────────────────────────────────────────────────────

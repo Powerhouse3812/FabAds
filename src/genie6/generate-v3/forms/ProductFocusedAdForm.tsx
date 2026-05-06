@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import {
   Image as ImageIcon,
-  Building2,
   Settings as SettingsIcon,
-  Sparkles,
+  Users,
+  Wand2,
+  FileText,
+  Lightbulb,
   Paperclip,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { brands as allBrands, products as allProducts } from "@/mocks/shared";
@@ -16,42 +19,64 @@ import {
 } from "@/components/PromptBar";
 import { FormSkeleton } from "@/genie6/generate-new/FormSkeleton";
 
-import { ProductHorizontalPicker, type FetchedSnapshot } from "./components/ProductHorizontalPicker";
+import {
+  ProductHorizontalPicker,
+  type FetchedSnapshot,
+} from "./components/ProductHorizontalPicker";
 import { URLFetchEditModal } from "./components/URLFetchEditModal";
-import { BrandIntensityChips, type BrandIntensity } from "./components/BrandIntensityChips";
 import { type AspectRatio } from "./components/AspectRatioMulti";
+import { type OutputFormat } from "./components/OutputFormatToggle";
 import { type Tone } from "./components/UGCConfig";
 import { CombinedOutputRow } from "./components/CombinedOutputRow";
 import { AiModelCard } from "./components/AiModelCard";
+import { SummaryTriggerRow } from "./components/SummaryTriggerRow";
+import { AudienceCreateModal } from "./components/AudienceCreateModal";
+import { AudienceDrawer } from "./components/AudienceDrawer";
+import { AngleDrawer } from "./components/AngleDrawer";
+import { ConceptsDrawer } from "./components/ConceptsDrawer";
 import {
   ReferencesSectionV3,
   type ReferenceTab,
 } from "./components/ReferencesSectionV3";
 import { PinterestColumnDrawer } from "./components/PinterestColumnDrawer";
+import { ANGLES } from "./components/AnglePicker";
+import { type ConceptSource } from "./components/ConceptsStrip";
+import { WinnerAdsToggle } from "./components/WinnerAdsToggle";
+import { ScriptInput, type ScriptMode } from "./components/ScriptInput";
+import { VideoAdvancedSection } from "./components/VideoAdvancedSection";
+import type { VideoAdvancedValues } from "./components/VideoAdvancedFields";
 import {
   ProductImageryRow,
   deriveProductImagery,
 } from "./components/ProductImageryRow";
 import type { LocalUpload } from "./components/UploadsPanel";
 import type { PinterestPin } from "@/genie6/generate-v3/mocks/pinterest";
+import {
+  audiences as systemAudiences,
+  type Audience,
+} from "@/genie6/generate-v3/mocks/audiences";
+import {
+  savedConcepts,
+  newConcepts,
+} from "@/genie6/generate-v3/mocks/concepts";
 
 /**
- * ProductShootForm — Studio v3 Brand → Product Shoot.
- *
- * Routed at /iq/genie6/generate-v3/brand/product-shoot.
+ * ProductFocusedAdForm — Studio v3 Brand → Product-focused.
  *
  * A-11.25 wireframe revision per Maalik:
  *   - Subtitles dropped from setup rows.
- *   - Brand identity + Auto-attach product imagery on ONE row.
- *   - Output row uses CombinedOutputRow (Output / Aspect / AI Model
- *     Photoshoot — only when video).
- *   - References INLINE (form section), not a drawer or column.
+ *   - References INLINE (form section), no longer in the column.
+ *   - Audience / Angle / Concepts still use the right-side flat column
+ *     (PickerColumn) — they're complex pickers that benefit from the
+ *     wider workspace.
+ *   - Header stripped to back + breadcrumb + title only (no sub, no
+ *     switch sub-mode dropdown).
  *   - PromptBar's references popover is gone.
- *   - Header is minimal — back + breadcrumb + title only.
  */
 
+type DrawerKind = "audience" | "angle" | "concepts" | "pinterest" | null;
+
 const MOCK_MODELS_IMAGE: PromptBarModel[] = [
-  { id: "shoot-staging", label: "Studio Pipeline", tag: "preset", costPerUnit: 2 },
   { id: "ideogram-2", label: "Ideogram 2", tag: "balanced", costPerUnit: 1 },
   { id: "flux-pro", label: "Flux Pro", tag: "high quality", costPerUnit: 2 },
 ];
@@ -62,27 +87,55 @@ const MOCK_MODELS_VIDEO: PromptBarModel[] = [
 ];
 
 const TRY_CHIPS: PromptBarChip[] = [
-  { label: "Studio white", insert: "clean studio white background, soft diffused light" },
-  { label: "Lifestyle", insert: "in a lifestyle setting with warm natural light" },
-  { label: "Festive bg", insert: "festive Diwali backdrop with subtle bokeh" },
-  { label: "Minimal", insert: "minimal pastel background, single subject" },
+  { label: "Punchy hook", insert: "lead with a 3-word hook tied to the audience pain" },
+  { label: "Founder voice", insert: "in the founder's voice, conversational and warm" },
+  { label: "Festive bias", insert: "festive Diwali backdrop with subtle bokeh and warm tones" },
+  { label: "Performance bias", insert: "hard-CTA at end, clear price, urgency hook" },
 ];
 
-export function ProductShootForm() {
-  // Picker
+const DEFAULT_ADVANCED: VideoAdvancedValues = {
+  visualDirection: null,
+  bgScene: null,
+  pov: null,
+  cameraAngle: null,
+  motion: null,
+  speed: null,
+  subtitles: true,
+};
+
+export function ProductFocusedAdForm() {
+  // Setup
   const [productId, setProductId] = useState<string | null>(null);
   const [fetchedSnap, setFetchedSnap] = useState<FetchedSnapshot | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
-
-  // Picker settings
-  const [intensity, setIntensity] = useState<BrandIntensity>("moderate");
-  const [output, setOutput] = useState<"image" | "video">("image");
+  const [output, setOutput] = useState<OutputFormat>("image");
   const [aspectRatios, setAspectRatios] = useState<AspectRatio[]>(["1:1"]);
 
   // Use AI model
   const [useAiModel, setUseAiModel] = useState(false);
   const [aiModelId, setAiModelId] = useState<string | null>(null);
   const [tone, setTone] = useState<Tone>("Warm");
+
+  // Script
+  const [scriptMode, setScriptMode] = useState<ScriptMode>("ai");
+  const [scriptText, setScriptText] = useState("");
+  const [scriptFileName, setScriptFileName] = useState<string | null>(null);
+  const [savedScriptId, setSavedScriptId] = useState<string | null>(null);
+
+  // Audience
+  const [customAudiences, setCustomAudiences] = useState<Audience[]>([]);
+  const [selectedAudienceIds, setSelectedAudienceIds] = useState<string[]>([]);
+  const [audienceModalOpen, setAudienceModalOpen] = useState(false);
+
+  // Angle
+  const [selectedAngleIds, setSelectedAngleIds] = useState<string[]>([]);
+
+  // Concepts
+  const [conceptSource, setConceptSource] = useState<ConceptSource>("saved");
+  const [selectedConceptIds, setSelectedConceptIds] = useState<string[]>([]);
+
+  // Winner ads
+  const [includeWinners, setIncludeWinners] = useState(false);
 
   // Product imagery
   const [productImageryEnabled, setProductImageryEnabled] = useState(true);
@@ -92,7 +145,14 @@ export function ProductShootForm() {
   const [refTab, setRefTab] = useState<ReferenceTab>("uploads");
   const [uploads, setUploads] = useState<LocalUpload[]>([]);
   const [pinterestSelected, setPinterestSelected] = useState<PinterestPin[]>([]);
-  const [pinterestColumnOpen, setPinterestColumnOpen] = useState(false);
+
+  // Advanced (video only)
+  const [advanced, setAdvanced] = useState<VideoAdvancedValues>(DEFAULT_ADVANCED);
+
+  // Right-side column drawer (audience / angle / concepts only — references
+  // is INLINE in the form now per Maalik's A-11.25 feedback).
+  const [drawer, setDrawer] = useState<DrawerKind>(null);
+  const closeDrawer = () => setDrawer(null);
 
   // Prompt bar
   const [prompt, setPrompt] = useState("");
@@ -111,8 +171,23 @@ export function ProductShootForm() {
     ? `from ${brand?.name ?? "brand"} guidelines`
     : "default";
 
-  // Merged references for the generation payload (still used at submit time
-  // even though PromptBar no longer surfaces them).
+  const allAudiences = [...systemAudiences, ...customAudiences];
+
+  const audiencePills = selectedAudienceIds.map((id) => {
+    const a = allAudiences.find((x) => x.id === id);
+    return a?.name ?? id;
+  });
+  const anglePills = selectedAngleIds.map((id) => {
+    const a = ANGLES.find((x) => x.id === id);
+    return a?.label ?? id;
+  });
+  const conceptPills = selectedConceptIds.map((id) => {
+    const all = [...savedConcepts, ...newConcepts];
+    const c = all.find((x) => x.id === id);
+    return c?.name ?? id;
+  });
+
+  // Merged references for the generation payload
   const allReferences = useMemo<PromptBarReference[]>(() => {
     const refs: PromptBarReference[] = [];
     if (productImageryEnabled && productId) {
@@ -156,13 +231,29 @@ export function ProductShootForm() {
 
   const onSaveFetched = (edited: FetchedSnapshot) => {
     // eslint-disable-next-line no-console
-    console.log("[Product Shoot — fetched data saved]", edited);
+    console.log("[Product-focused — fetched data saved]", edited);
     toast.success(`Saved ${edited.product.name} to your catalogue`, { duration: 4000 });
   };
 
-  const onUploadsAdd = (next: LocalUpload[]) => setUploads((prev) => [...prev, ...next]);
+  const onAudienceCreated = (a: Audience) => {
+    setCustomAudiences((prev) => [...prev, a]);
+    setSelectedAudienceIds((prev) => [...prev, a.id]);
+    toast.success(`Audience saved: ${a.name}`, { duration: 3000 });
+  };
+
+  const toggleArrayItem = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    id: string,
+  ) => {
+    setter((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const onUploadsAdd = (next: LocalUpload[]) =>
+    setUploads((prev) => [...prev, ...next]);
   const onUploadsToggleSelect = (id: string) =>
-    setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, selected: !u.selected } : u)));
+    setUploads((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, selected: !u.selected } : u)),
+    );
   const onUploadsRemove = (id: string) =>
     setUploads((prev) => prev.filter((u) => u.id !== id));
   const onPinterestToggleSelect = (pin: PinterestPin) =>
@@ -178,29 +269,42 @@ export function ProductShootForm() {
 
   const onGenerate = (testFirst: boolean) => {
     const summary = {
-      type: "product-shoot",
-      product: product?.name,
+      type: "product-focused-brand-ad",
       brand: brand?.name,
-      intensity,
+      product: product?.name,
       output,
       aspectRatios,
+      audiences: selectedAudienceIds,
+      angles: selectedAngleIds,
       useAiModel: output === "video" ? useAiModel : undefined,
       aiModelId: output === "video" && useAiModel ? aiModelId : undefined,
       tone: output === "video" && useAiModel ? tone : undefined,
+      script:
+        output === "video"
+          ? {
+              mode: scriptMode,
+              text: scriptMode === "manual" ? scriptText : undefined,
+              fileName: scriptMode === "upload" ? scriptFileName : undefined,
+              savedId: scriptMode === "saved" ? savedScriptId : undefined,
+            }
+          : undefined,
+      concepts: { source: conceptSource, ids: selectedConceptIds },
+      includeWinners,
       productImageryEnabled,
       productImageryDetached,
       uploads: uploads.length,
       uploadsAttached: uploads.filter((u) => u.selected).length,
       pinterest: pinterestSelected.length,
       refsTotal: allReferences.length,
+      advanced: output === "video" ? advanced : undefined,
       count: testFirst ? Math.min(4, count) : count,
       model: modelId,
       prompt,
     };
     // eslint-disable-next-line no-console
-    console.log("[Product Shoot — mock generate]", summary);
+    console.log("[Product-focused — mock generate]", summary);
     toast.success(
-      `Mock generation queued · ${summary.count} ${output === "video" ? "videos" : "shots"}`,
+      `Mock generation queued · ${summary.count} ${output === "video" ? "videos" : "ads"}`,
       {
         description: `${product?.name ?? "(no product)"} · ${aspectRatios.join(", ")}`,
         duration: 4000,
@@ -209,6 +313,7 @@ export function ProductShootForm() {
   };
 
   const canGenerate = !!productId && aspectRatios.length > 0;
+  const hasFilter = selectedConceptIds.length > 0 || selectedAngleIds.length > 0;
   const isVideo = output === "video";
 
   return (
@@ -216,33 +321,28 @@ export function ProductShootForm() {
       <FormSkeleton
         v3={{
           categoryId: "brand",
-          subModeId: "product-shoot",
-          title: "Product Shoot",
+          subModeId: "product-focused",
+          title: "Product-focused brand ad",
         }}
         backTo="/iq/genie6/generate-v3"
         backLabel="Picker"
         body={
           <>
-            {/* Product — picker + horizontal product strip */}
+            {/* Product — picker + auto-attach toggle (now under product strip,
+                inline-styled rather than card). */}
             <SetupRow icon={ImageIcon} label="Product" required>
-              <ProductHorizontalPicker
-                value={productId}
-                onChange={setProductId}
-                onFetched={onFetched}
-              />
-            </SetupRow>
-
-            {/* Brand identity + Auto-attach product imagery — ONE row. */}
-            <SetupRow icon={Building2} label="Brand identity">
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <BrandIntensityChips value={intensity} onChange={setIntensity} />
+              <div className="space-y-2">
+                <ProductHorizontalPicker
+                  value={productId}
+                  onChange={setProductId}
+                  onFetched={onFetched}
+                />
                 <ProductImageryRow
                   productId={productId}
                   enabled={productImageryEnabled}
                   onToggle={setProductImageryEnabled}
                   detachedIds={productImageryDetached}
                   onToggleDetach={onProductImageryDetach}
-                  variant="inline"
                 />
               </div>
             </SetupRow>
@@ -259,7 +359,7 @@ export function ProductShootForm() {
               />
             </SetupRow>
 
-            {/* AI model integrated card — only when video + toggle on */}
+            {/* AI model integrated card */}
             {isVideo && useAiModel && (
               <SetupRow icon={Sparkles} label="AI model">
                 <AiModelCard
@@ -272,24 +372,85 @@ export function ProductShootForm() {
               </SetupRow>
             )}
 
+            {/* Script (video only) */}
+            {isVideo && (
+              <SetupRow icon={FileText} label="Script">
+                <ScriptInput
+                  mode={scriptMode}
+                  onModeChange={setScriptMode}
+                  text={scriptText}
+                  onTextChange={setScriptText}
+                  fileName={scriptFileName}
+                  onFileNameChange={setScriptFileName}
+                  savedScriptId={savedScriptId}
+                  onSavedScriptChange={setSavedScriptId}
+                />
+              </SetupRow>
+            )}
+
+            {/* Audience — summary trigger → drawer column. */}
+            <SetupRow icon={Users} label="Audience">
+              <SummaryTriggerRow
+                pills={audiencePills}
+                onClick={() => setDrawer("audience")}
+                active={drawer === "audience"}
+                emptyHint="Pick audiences →"
+              />
+            </SetupRow>
+
+            {/* Angle — summary trigger → drawer column. */}
+            <SetupRow icon={Wand2} label="Angle">
+              <SummaryTriggerRow
+                pills={anglePills}
+                onClick={() => setDrawer("angle")}
+                active={drawer === "angle"}
+                emptyHint="Pick angles →"
+              />
+            </SetupRow>
+
+            {/* Concepts — summary trigger → drawer column. */}
+            <SetupRow icon={Lightbulb} label="Concepts">
+              <SummaryTriggerRow
+                pills={conceptPills}
+                onClick={() => setDrawer("concepts")}
+                active={drawer === "concepts"}
+                emptyHint="Browse concepts →"
+              />
+            </SetupRow>
+
+            {/* Winner ads */}
+            <WinnerAdsToggle
+              enabled={includeWinners}
+              onToggle={setIncludeWinners}
+              hasFilter={hasFilter}
+            />
+
             {/* References — INLINE form section. Pinterest tab opens
-                the side column rather than rendering inline. */}
+                a side column with search + filters + grid. */}
             <SetupRow icon={Paperclip} label="References">
               <ReferencesSectionV3
                 tab={refTab}
                 onTabChange={(next) => {
                   setRefTab(next);
-                  if (next === "pinterest") setPinterestColumnOpen(true);
+                  if (next === "pinterest") setDrawer("pinterest");
                 }}
                 uploads={uploads}
                 onUploadsAdd={onUploadsAdd}
                 onUploadsToggleSelect={onUploadsToggleSelect}
                 onUploadsRemove={onUploadsRemove}
                 pinterestSelectedCount={pinterestSelected.length}
-                onPinterestOpen={() => setPinterestColumnOpen(true)}
+                onPinterestOpen={() => setDrawer("pinterest")}
                 label=""
               />
             </SetupRow>
+
+            {/* Advanced (video only) */}
+            {isVideo && (
+              <VideoAdvancedSection
+                values={advanced}
+                onChange={(next) => setAdvanced({ ...advanced, ...next })}
+              />
+            )}
           </>
         }
         promptBar={
@@ -310,22 +471,47 @@ export function ProductShootForm() {
           />
         }
         drawer={
-          pinterestColumnOpen ? (
+          drawer === "audience" ? (
+            <AudienceDrawer
+              open
+              onClose={closeDrawer}
+              audiences={allAudiences}
+              selectedIds={selectedAudienceIds}
+              onToggle={(id) => toggleArrayItem(setSelectedAudienceIds, id)}
+              onCreate={() => setAudienceModalOpen(true)}
+            />
+          ) : drawer === "angle" ? (
+            <AngleDrawer
+              open
+              onClose={closeDrawer}
+              selectedIds={selectedAngleIds}
+              onToggle={(id) => toggleArrayItem(setSelectedAngleIds, id)}
+            />
+          ) : drawer === "concepts" ? (
+            <ConceptsDrawer
+              open
+              onClose={closeDrawer}
+              source={conceptSource}
+              onSourceChange={setConceptSource}
+              selectedIds={selectedConceptIds}
+              onToggle={(id) => toggleArrayItem(setSelectedConceptIds, id)}
+            />
+          ) : drawer === "pinterest" ? (
             <PinterestColumnDrawer
               open
-              onClose={() => setPinterestColumnOpen(false)}
+              onClose={closeDrawer}
               query={{
                 output,
                 productId,
                 brandId: product?.brandId ?? null,
-                angleIds: [],
-                conceptIds: [],
+                angleIds: selectedAngleIds,
+                conceptIds: selectedConceptIds,
               }}
               selected={pinterestSelected}
               onToggleSelect={onPinterestToggleSelect}
               onReplaceSelection={setPinterestSelected}
               brandName={brand?.name ?? null}
-              conceptCount={0}
+              conceptCount={selectedConceptIds.length}
             />
           ) : null
         }
@@ -335,6 +521,11 @@ export function ProductShootForm() {
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         onSave={onSaveFetched}
+      />
+      <AudienceCreateModal
+        open={audienceModalOpen}
+        onOpenChange={setAudienceModalOpen}
+        onSave={onAudienceCreated}
       />
     </>
   );
