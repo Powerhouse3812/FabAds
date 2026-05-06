@@ -47,6 +47,7 @@ export interface WizardState {
   uploadedFiles: UploadedFile[];
   selectedTemplateIds: string[];
   selectedLibraryIds: string[];
+  selectedConceptIds: string[];
   attachedReferences: AttachedRef[];
   ctaLayout: "inline" | "footer";
   credits: number;
@@ -66,6 +67,7 @@ const INITIAL_STATE: WizardState = {
   uploadedFiles: [],
   selectedTemplateIds: [],
   selectedLibraryIds: [],
+  selectedConceptIds: [],
   attachedReferences: [],
   ctaLayout: "inline",
   credits: 4,
@@ -88,9 +90,11 @@ export function useWizard(): UseWizardReturn {
   const set = useCallback<UseWizardReturn["set"]>((key, value) => {
     setState((prev) => {
       const updated: WizardState = { ...prev, [key]: value };
-      if (key === "count") {
-        const c = value as number;
-        updated.credits = c * 1;
+      // Recompute credits whenever count or selectedConceptIds change
+      if (key === "count" || key === "selectedConceptIds") {
+        const conceptCount = updated.selectedConceptIds.length;
+        const variations = updated.count;
+        updated.credits = Math.max(conceptCount, 1) * variations;
       }
       return updated;
     });
@@ -99,8 +103,10 @@ export function useWizard(): UseWizardReturn {
   const patch = useCallback((p: Partial<WizardState>) => {
     setState((prev) => {
       const merged: WizardState = { ...prev, ...p };
-      if (typeof p.count === "number") {
-        merged.credits = p.count * 1;
+      if ("count" in p || "selectedConceptIds" in p) {
+        const conceptCount = merged.selectedConceptIds.length;
+        const variations = merged.count;
+        merged.credits = Math.max(conceptCount, 1) * variations;
       }
       return merged;
     });

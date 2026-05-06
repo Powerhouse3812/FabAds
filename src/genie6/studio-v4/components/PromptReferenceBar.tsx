@@ -198,6 +198,14 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
 
   const showInlineSend = state.ctaLayout === "inline";
 
+  // Generate-CTA math: derive concept count from credits / count (mirrors WizardNav).
+  const totalOutputs = state.credits;
+  const variations = state.count;
+  const conceptCount = Math.max(
+    1,
+    Math.round(totalOutputs / Math.max(variations, 1)),
+  );
+
   return (
     <>
       <div
@@ -338,7 +346,9 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
                   <Sparkles className="h-4 w-4" />
                   Generate
                   <span className="font-mono text-[10px] opacity-80">
-                    · {state.count}× · {state.credits} cr
+                    {conceptCount === 1
+                      ? `· ${variations}× · ${totalOutputs} cr`
+                      : `· ${conceptCount}×${variations} = ${totalOutputs} · ${totalOutputs} cr`}
                   </span>
                 </button>
               )}

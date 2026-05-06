@@ -1,21 +1,72 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getConceptById } from "../data/concepts";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step5Props {
   wizard: UseWizardReturn;
 }
 
-const MOCK_RESULTS = [
-  { id: "r-1", emoji: "🌅" },
-  { id: "r-2", emoji: "🎯" },
-  { id: "r-3", emoji: "🔥" },
-  { id: "r-4", emoji: "📱" },
+interface Variant {
+  id: string;
+  emoji: string;
+}
+
+interface Row {
+  conceptId: string;
+  emoji: string;
+  name: string;
+  variants: Variant[];
+}
+
+const VARIANT_EMOJI_POOL = [
+  "🌅",
+  "🎯",
+  "🔥",
+  "📱",
+  "✨",
+  "🎨",
+  "💎",
+  "🚀",
+  "🎬",
+  "🎁",
+  "📦",
+  "🛍️",
 ];
+
+function buildRows(selectedConceptIds: string[], count: number): Row[] {
+  if (selectedConceptIds.length === 0) {
+    return [
+      {
+        conceptId: "ai-pick",
+        emoji: "✨",
+        name: "AI Pick",
+        variants: Array.from({ length: count }, (_, i) => ({
+          id: `ai-pick-v${i}`,
+          emoji: VARIANT_EMOJI_POOL[i % VARIANT_EMOJI_POOL.length],
+        })),
+      },
+    ];
+  }
+
+  return selectedConceptIds.map((id, rowIdx) => {
+    const concept = getConceptById(id);
+    return {
+      conceptId: id,
+      emoji: concept?.emoji ?? "✨",
+      name: concept?.name ?? "Concept",
+      variants: Array.from({ length: count }, (_, i) => ({
+        id: `${id}-v${i}`,
+        emoji: VARIANT_EMOJI_POOL[(rowIdx * 3 + i) % VARIANT_EMOJI_POOL.length],
+      })),
+    };
+  });
+}
 
 export function Step5Results({ wizard }: Step5Props) {
   const count = wizard.state.count;
+  const selectedConceptIds = wizard.state.selectedConceptIds;
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -24,7 +75,12 @@ export function Step5Results({ wizard }: Step5Props) {
     return () => clearTimeout(t);
   }, [wizard.state.step]);
 
-  const items = MOCK_RESULTS.slice(0, count);
+  const rows = useMemo(
+    () => buildRows(selectedConceptIds, count),
+    [selectedConceptIds, count],
+  );
+
+  const totalOutputs = rows.length * count;
 
   const restart = () => {
     wizard.reset();
@@ -35,15 +91,15 @@ export function Step5Results({ wizard }: Step5Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
       <header className="text-center">
-        <h1 className="text-3xl font-bold">
+        <h1 className="text-3xl font-bold text-foreground">
           {done ? "Done!" : "Generating with Genie…"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {done
-            ? `Here are your ${count} variants.`
-            : `Crafting ${count} variants based on your inputs…`}
+            ? `Here are your ${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"}${rows.length > 1 ? ` across ${rows.length} concepts` : ""}.`
+            : `Crafting ${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"} based on your inputs…`}
         </p>
       </header>
 
@@ -51,32 +107,15 @@ export function Step5Results({ wizard }: Step5Props) {
         <div className="flex justify-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
             <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-            Working…
+            Working… {rows.length} concept{rows.length === 1 ? "" : "s"} ×{" "}
+            {count} variation{count === 1 ? "" : "s"}
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        {items.map((r) => (
-          <div
-            key={r.id}
-            className={cn(
-              "relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border shadow-sm",
-              done ? "bg-card" : "bg-muted",
-            )}
-          >
-            {done ? (
-              <span className="text-7xl">{r.emoji}</span>
-            ) : (
-              <>
-                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-muted-foreground/10" />
-                <div className="relative inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 text-xs font-medium text-foreground backdrop-blur">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Generating…
-                </div>
-              </>
-            )}
-          </div>
+      <div className="flex flex-col gap-6">
+        {rows.map((row) => (
+          <ConceptRow key={row.conceptId} row={row} done={done} />
         ))}
       </div>
 
@@ -112,5 +151,53 @@ export function Step5Results({ wizard }: Step5Props) {
         </button>
       </div>
     </div>
+  );
+}
+
+function ConceptRow({ row, done }: { row: Row; done: boolean }) {
+  return (
+    <section className="rounded-2xl border border-border bg-card/40 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-xl leading-none">{row.emoji}</span>
+        <h2 className="truncate text-sm font-bold text-foreground">
+          {row.name}
+        </h2>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {row.variants.length}{" "}
+          {row.variants.length === 1 ? "variant" : "variants"}
+        </span>
+      </div>
+
+      <div
+        className={cn(
+          "grid gap-3",
+          row.variants.length <= 2 && "grid-cols-2",
+          row.variants.length === 3 && "grid-cols-2 sm:grid-cols-3",
+          row.variants.length >= 4 && "grid-cols-2 sm:grid-cols-3 md:grid-cols-4",
+        )}
+      >
+        {row.variants.map((v) => (
+          <div
+            key={v.id}
+            className={cn(
+              "relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-border shadow-sm",
+              done ? "bg-card" : "bg-muted",
+            )}
+          >
+            {done ? (
+              <span className="text-5xl">{v.emoji}</span>
+            ) : (
+              <>
+                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-muted-foreground/10" />
+                <div className="relative inline-flex items-center gap-1.5 rounded-full bg-background/80 px-2.5 py-1 text-[11px] font-medium text-foreground backdrop-blur">
+                  <Sparkles className="h-3 w-3" />
+                  Generating…
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

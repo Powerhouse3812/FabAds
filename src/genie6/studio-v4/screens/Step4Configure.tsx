@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus, Sparkles, X } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -8,6 +8,9 @@ import {
 import { cn } from "@/lib/utils";
 import { Step4TopBar } from "../components/Step4TopBar";
 import { PromptReferenceBar } from "../components/PromptReferenceBar";
+import { RightRail } from "../components/RightRail";
+import { ConceptColumnDrawer } from "../components/ConceptColumnDrawer";
+import { getConceptById } from "../data/concepts";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step4Props {
@@ -48,6 +51,7 @@ const COUNTS = [1, 2, 4, 8] as const;
 export function Step4Configure({ wizard }: Step4Props) {
   const [modelOpen, setModelOpen] = useState(false);
   const [angleOpen, setAngleOpen] = useState(false);
+  const [conceptRailOpen, setConceptRailOpen] = useState(false);
 
   const activeModel =
     MODELS.find((m) => m.id === wizard.state.modelId) ?? MODELS[0];
@@ -135,10 +139,10 @@ export function Step4Configure({ wizard }: Step4Props) {
             </Popover>
           </div>
 
-          {/* Outputs */}
+          {/* Variations */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Outputs
+              Variations
             </span>
             <div className="inline-flex rounded-full border border-border bg-background p-0.5">
               {COUNTS.map((n) => {
@@ -226,12 +230,101 @@ export function Step4Configure({ wizard }: Step4Props) {
           </div>
         </div>
 
-        {/* Body — breathing space, future canvas */}
-        <div className="flex-1 min-h-[160px]" />
+        {/* Concepts section — multi-select. Selection happens in right-rail drawer */}
+        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Concepts
+            </h2>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              multi-select
+            </span>
+            <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {wizard.state.selectedConceptIds.length} chosen
+            </span>
+          </div>
+
+          {wizard.state.selectedConceptIds.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-background/40 px-4 py-6 text-sm">
+              <p className="text-muted-foreground">
+                Pick one or more concepts. Each concept generates{" "}
+                {wizard.state.count} variation
+                {wizard.state.count === 1 ? "" : "s"} on Step 5.
+                <br />
+                <span className="text-[11px]">Skip to let AI choose.</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setConceptRailOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Pick concepts
+              </button>
+            </div>
+          ) : (
+            /* Selected concepts chip row + Edit button */
+            <div className="flex flex-wrap items-center gap-1.5">
+              {wizard.state.selectedConceptIds.map((id) => {
+                const concept = getConceptById(id);
+                if (!concept) return null;
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-foreground"
+                  >
+                    <span>{concept.emoji}</span>
+                    <span>{concept.name}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        wizard.set(
+                          "selectedConceptIds",
+                          wizard.state.selectedConceptIds.filter(
+                            (x) => x !== id,
+                          ),
+                        )
+                      }
+                      aria-label={`Remove ${concept.name}`}
+                      className="rounded-full p-0.5 hover:bg-foreground/10"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setConceptRailOpen(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              >
+                <Plus className="h-3 w-3" />
+                Edit
+              </button>
+            </div>
+          )}
+        </section>
       </div>
 
       {/* Sticky prompt + reference bar (Track C handles its own positioning) */}
       <PromptReferenceBar wizard={wizard} />
+
+      {/* Concept picker rail */}
+      <RightRail
+        open={conceptRailOpen}
+        onClose={() => setConceptRailOpen(false)}
+      >
+        <ConceptColumnDrawer
+          initialSelected={wizard.state.selectedConceptIds}
+          onSave={(ids) => {
+            wizard.set("selectedConceptIds", ids);
+            setConceptRailOpen(false);
+          }}
+          onCancel={() => setConceptRailOpen(false)}
+        />
+      </RightRail>
     </>
   );
 }

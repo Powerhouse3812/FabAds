@@ -26,6 +26,15 @@ export function WizardNav({
   const isGenerate = step === 4;
   const showBack = step > 1;
 
+  // Total outputs = credits (since credits = max(concepts, 1) * count, 1 credit = 1 output)
+  // concepts = credits / count (with safety guard)
+  const totalOutputs = credits;
+  const variations = count;
+  const conceptCount = Math.max(
+    1,
+    Math.round(totalOutputs / Math.max(variations, 1)),
+  );
+
   return (
     <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-border bg-background/90 px-6 py-4 backdrop-blur">
       <div>
@@ -58,7 +67,9 @@ export function WizardNav({
             <Sparkles className="h-4 w-4" />
             <span>Generate</span>
             <span className="font-mono text-[11px] opacity-80">
-              · {count}× · {credits} cr
+              {conceptCount === 1
+                ? `· ${variations}× · ${totalOutputs} cr`
+                : `· ${conceptCount}×${variations} = ${totalOutputs} · ${totalOutputs} cr`}
             </span>
           </>
         ) : (
