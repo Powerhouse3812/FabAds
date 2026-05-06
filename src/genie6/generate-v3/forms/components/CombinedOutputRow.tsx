@@ -32,27 +32,25 @@ export function CombinedOutputRow({
 }: CombinedOutputRowProps) {
   return (
     <div className="flex items-center gap-x-5 gap-y-2 overflow-x-auto -mx-1 px-1">
-      {/* Output cluster */}
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-medium text-foreground">Output</span>
-        <div
-          role="radiogroup"
-          aria-label="Output format"
-          className="inline-flex rounded-md border border-border bg-card p-0.5"
-        >
-          <FormatBtn
-            active={output === "image"}
-            onClick={() => onOutputChange("image")}
-            icon={ImageIcon}
-            label="Image"
-          />
-          <FormatBtn
-            active={output === "video"}
-            onClick={() => onOutputChange("video")}
-            icon={Video}
-            label="Video"
-          />
-        </div>
+      {/* Output cluster — no inline label; the SetupRow's "Output" label
+          on the left already identifies this row. */}
+      <div
+        role="radiogroup"
+        aria-label="Output format"
+        className="inline-flex rounded-md border border-border bg-card p-0.5"
+      >
+        <FormatBtn
+          active={output === "image"}
+          onClick={() => onOutputChange("image")}
+          icon={ImageIcon}
+          label="Image"
+        />
+        <FormatBtn
+          active={output === "video"}
+          onClick={() => onOutputChange("video")}
+          icon={Video}
+          label="Video"
+        />
       </div>
 
       {/* Aspect cluster */}
