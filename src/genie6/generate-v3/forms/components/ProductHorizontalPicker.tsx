@@ -325,14 +325,14 @@ function ProductThumb({
       aria-pressed={active}
       title={`${product.name} · ${brand?.name ?? ""}`}
       className={cn(
-        "shrink-0 group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card p-1.5 transition-all w-[200px]",
+        "shrink-0 group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card p-1.5 transition-all w-[160px]",
         active
           ? "border-primary shadow-md ring-2 ring-primary/30"
           : "border-border hover:border-primary/40 hover:-translate-y-0.5",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
       )}
     >
-      <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-md bg-muted">
+      <div className="relative h-[50px] w-[50px] shrink-0 overflow-hidden rounded-md bg-muted">
         {product.thumbnail ? (
           <img
             src={product.thumbnail}
