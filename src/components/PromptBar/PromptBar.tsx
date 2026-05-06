@@ -198,14 +198,22 @@ export function PromptBar({
     .filter((m) => m.id !== activeModel?.id && (m.costPerUnit ?? 1) < (activeModel?.costPerUnit ?? 1))
     .sort((a, b) => (a.costPerUnit ?? 1) - (b.costPerUnit ?? 1))[0];
 
-  // A-11.12: slim 2-row glass design.
-  //   Row 1 (only renders if chips exist) — chips strip
-  //   Row 2 — main bar: refs + textarea + model + count + credit + Generate
-  // Removed: contextChips, showTestButton (default false), Test button row.
+  // A-11.12 → Maalik restack: stacked-row glass design.
+  //   Row 0 (only renders if chips exist) — chips strip
+  //   Row 1 — full-width textarea
+  //   Row 2 — controls: model + count + spacer + (test) + Generate (credits inline)
+  // Standalone credit chip removed; credit cost now lives inside the Generate CTA.
+
+  const cheaperSavings = cheaper
+    ? count * (activeModel?.costPerUnit ?? 1) - count * (cheaper.costPerUnit ?? 1)
+    : 0;
+  const cheaperTooltip = cheaper
+    ? `Switch to ${cheaper.label} (${cheaper.costPerUnit ?? 1} cr/unit) — save ${cheaperSavings}`
+    : "";
 
   return (
     <div className="px-3 py-2.5">
-      {/* Row 1 — chips (optional) */}
+      {/* Row 0 — chips (optional) */}
       {chips.length > 0 && (
         <div className="scrollbar-none mb-1.5 flex min-w-0 items-center gap-1.5 overflow-x-auto">
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80 shrink-0">
@@ -224,19 +232,21 @@ export function PromptBar({
         </div>
       )}
 
-      {/* Row 2 — main bar */}
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={taRef}
-          value={prompt}
-          onChange={(e) => onPromptChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Describe what you want to generate…  (⌘+Enter)"
-          rows={1}
-          aria-label="Prompt"
-          className="flex-1 min-w-0 resize-none rounded-md bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-          style={{ minHeight: 32, maxHeight: 120 }}
-        />
+      {/* Row 1 — full-width textarea */}
+      <textarea
+        ref={taRef}
+        value={prompt}
+        onChange={(e) => onPromptChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder="Describe what you want to generate…  (⌘+Enter)"
+        rows={1}
+        aria-label="Prompt"
+        className="block w-full resize-none rounded-md bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+        style={{ minHeight: 32, maxHeight: 120 }}
+      />
+
+      {/* Row 2 — controls row */}
+      <div className="mt-1.5 flex items-center gap-2">
         {/* AI model picker */}
         {models.length > 0 && onModelChange && (
           <select
@@ -259,36 +269,31 @@ export function PromptBar({
           min={minCount}
           max={maxCount}
         />
-        <span
-          className="inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-primary/10 px-2.5 font-mono text-[11px] font-medium text-foreground backdrop-blur-sm"
-          title={`${count} × ${activeModel?.costPerUnit ?? 1} = ${creditsEstimate}`}
-        >
-          <Coins className="h-3 w-3" />
-          {creditsEstimate} credits
-        </span>
-        {cheaper && (() => {
-          const savings =
-            count * (activeModel?.costPerUnit ?? 1) -
-            count * (cheaper.costPerUnit ?? 1);
-          const tooltip = `Switch to ${cheaper.label} (${cheaper.costPerUnit ?? 1} cr/unit) — save ${savings}`;
-          return onModelChange ? (
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Cheaper-alternative ghost link, sits beside the CTA */}
+        {cheaper && (
+          onModelChange ? (
             <button
               type="button"
               onClick={() => onModelChange(cheaper.id)}
               className="hidden md:inline text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-              title={tooltip}
+              title={cheaperTooltip}
             >
-              Save {savings}
+              Save {cheaperSavings}
             </button>
           ) : (
             <span
               className="hidden md:inline text-[10px] text-muted-foreground"
-              title={tooltip}
+              title={cheaperTooltip}
             >
-              Save {savings}
+              Save {cheaperSavings}
             </span>
-          );
-        })()}
+          )
+        )}
+
         {showTestButton && (
           <button
             type="button"
@@ -299,10 +304,13 @@ export function PromptBar({
             Test 4
           </button>
         )}
+
+        {/* Merged Generate CTA — label + inline credits pill */}
         <button
           type="button"
           onClick={() => onGenerate(false)}
           disabled={disabled}
+          title={`${count} × ${activeModel?.costPerUnit ?? 1} = ${creditsEstimate} credits`}
           className={cn(
             "inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground shadow-md transition-all shrink-0",
             "hover:-translate-y-0.5 active:translate-y-0",
@@ -312,6 +320,10 @@ export function PromptBar({
         >
           <Sparkles className="h-3.5 w-3.5" />
           {generateLabel}
+          <span className="ml-1 inline-flex items-center gap-0.5 rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[10px] font-mono">
+            <Coins className="h-2.5 w-2.5" />
+            {creditsEstimate}
+          </span>
         </button>
       </div>
     </div>
