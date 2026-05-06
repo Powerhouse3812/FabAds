@@ -69,10 +69,10 @@ export function PickerColumn({
       role="region"
       aria-label={title}
       className={cn(
-        // Flat panel — no glass, no shadow, no rounded corners. Bg is
-        // transparent so the page-level mesh flows through both columns
-        // as a single shared background. Only a thin border-l divider.
-        "flex flex-col min-w-0 min-h-0 overflow-hidden bg-transparent",
+        // A-11.25: flat column that fills its grid cell exactly. Body
+        // scrolls; header + footer stay sticky-fixed inside the column
+        // (footer always visible like the page-level prompt bar).
+        "flex flex-col h-full min-w-0 min-h-0 overflow-hidden bg-transparent",
         "border-l border-border",
       )}
     >

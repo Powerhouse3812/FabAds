@@ -131,8 +131,9 @@ export function FormSkeleton({
       )}
 
       {/* Layout grid — Finder-style 55/45 split when right column is active.
-          Below `lg`, single column (the right column fills via its own
-          `fixed inset-0` style if the caller wires it that way). */}
+          A-11.25-v2: prompt bar moved OUT of the form column into a
+          page-level footer that spans BOTH columns (full screen width,
+          like a pagination/header). Form body scrolls under it. */}
       <div
         className={cn(
           "flex-1 min-h-0 grid",
@@ -141,21 +142,18 @@ export function FormSkeleton({
             : "grid-cols-1",
         )}
       >
-        {/* FORM COLUMN — body + sticky prompt bar. Independent scroll. */}
+        {/* FORM COLUMN — body only now. Independent scroll. */}
         <div
           className={cn(
             "min-w-0 flex flex-col overflow-hidden",
-            // Hide the form column on small viewports when the column is
-            // active so the right column gets the full screen.
             drawerActive && "hidden lg:flex",
           )}
         >
           <main className="flex-1 min-h-0 overflow-y-auto">
             <div
               className={cn(
-                // A-11.25: extra bottom padding so the last form item has
-                // breathing room above the sticky prompt bar (Maalik flagged
-                // "form items hide na ho jaye uske niche").
+                // Bottom padding so the last form item clears the
+                // page-level prompt bar.
                 "mx-auto px-4 pt-6 pb-10 sm:px-6 sm:pt-7 sm:pb-12 space-y-6 transition-[max-width] duration-200",
                 drawerActive ? "max-w-2xl" : "max-w-3xl",
               )}
@@ -163,41 +161,38 @@ export function FormSkeleton({
               {body}
             </div>
           </main>
-
-          {/* Sticky bottom prompt bar — flex footer slot. CANNOT overlap body. */}
-          <footer
-            className={cn(
-              "shrink-0 px-3 py-2.5 sm:px-6",
-              isV3
-                ? "border-t border-foreground/8 bg-transparent"
-                : "border-t border-border/40 bg-background/85 backdrop-blur-md backdrop-saturate-150",
-            )}
-          >
-            <div
-              className={cn(
-                "mx-auto rounded-2xl overflow-hidden transition-[max-width] duration-200",
-                drawerActive ? "max-w-2xl" : "max-w-3xl",
-                isV3
-                  ? "v3-glass shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.18)]"
-                  : cn(
-                      "bg-background/70 supports-[backdrop-filter]:bg-background/55",
-                      "backdrop-blur-xl backdrop-saturate-150",
-                      "border border-border/60",
-                      "shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.05)]",
-                      "ring-1 ring-foreground/[0.04]",
-                    ),
-              )}
-            >
-              {promptBar}
-            </div>
-          </footer>
         </div>
 
-        {/* CONTENT COLUMN — only mounted when caller provides one.
-            Flat panel, no glass/shadow — the column itself is responsible
-            for its own border-l divider (handled inside <PickerColumn>). */}
+        {/* CONTENT COLUMN */}
         {drawerActive && drawer}
       </div>
+
+      {/* PROMPT BAR — page-level sticky footer, full screen width. */}
+      <footer
+        className={cn(
+          "shrink-0 px-3 py-2.5 sm:px-6",
+          isV3
+            ? "border-t border-foreground/8 bg-transparent"
+            : "border-t border-border/40 bg-background/85 backdrop-blur-md backdrop-saturate-150",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto rounded-2xl overflow-hidden max-w-3xl",
+            isV3
+              ? "v3-glass shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.18)]"
+              : cn(
+                  "bg-background/70 supports-[backdrop-filter]:bg-background/55",
+                  "backdrop-blur-xl backdrop-saturate-150",
+                  "border border-border/60",
+                  "shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.10),0_2px_4px_-2px_rgba(0,0,0,0.05)]",
+                  "ring-1 ring-foreground/[0.04]",
+                ),
+          )}
+        >
+          {promptBar}
+        </div>
+      </footer>
     </div>
   );
 }
