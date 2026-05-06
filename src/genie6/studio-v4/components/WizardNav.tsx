@@ -2,16 +2,28 @@ import { ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WizardNavProps {
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
+  ctaLayout: "inline" | "footer";
+  count: number;
+  credits: number;
   canContinue: boolean;
   onBack: () => void;
   onContinue: () => void;
 }
 
-export function WizardNav({ step, canContinue, onBack, onContinue }: WizardNavProps) {
-  if (step === 4) return null;
+export function WizardNav({
+  step,
+  ctaLayout,
+  count,
+  credits,
+  canContinue,
+  onBack,
+  onContinue,
+}: WizardNavProps) {
+  if (step === 5) return null;
+  if (step === 4 && ctaLayout === "inline") return null;
 
-  const isGenerate = step === 3;
+  const isGenerate = step === 4;
   const showBack = step > 1;
 
   return (
@@ -44,7 +56,10 @@ export function WizardNav({ step, canContinue, onBack, onContinue }: WizardNavPr
         {isGenerate ? (
           <>
             <Sparkles className="h-4 w-4" />
-            Generate
+            <span>Generate</span>
+            <span className="font-mono text-[11px] opacity-80">
+              · {count}× · {credits} cr
+            </span>
           </>
         ) : (
           <>

@@ -1,18 +1,23 @@
 import { cn } from "@/lib/utils";
 
 interface ProgressIndicatorProps {
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
+  ctaLayout: "inline" | "footer";
 }
 
 const STEPS: { num: number; label: string }[] = [
   { num: 1, label: "Setup" },
   { num: 2, label: "Product" },
-  { num: 3, label: "Create" },
+  { num: 3, label: "Approach" },
+  { num: 4, label: "Configure" },
 ];
 
-export function ProgressIndicator({ step }: ProgressIndicatorProps) {
+export function ProgressIndicator({ step, ctaLayout }: ProgressIndicatorProps) {
+  if (step === 5) return null;
+  if (step === 4 && ctaLayout === "inline") return null;
+
   return (
-    <div className="flex items-center justify-center gap-3 border-b border-border bg-background/60 px-6 py-3 text-sm backdrop-blur">
+    <div className="sticky top-0 z-10 flex items-center justify-center gap-3 border-b border-border bg-background/60 px-6 py-3 text-sm backdrop-blur">
       {STEPS.map((s, i) => {
         const isDone = step > s.num;
         const isCurrent = step === s.num;

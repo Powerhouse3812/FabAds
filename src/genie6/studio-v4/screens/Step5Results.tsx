@@ -3,7 +3,7 @@ import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseWizardReturn } from "../state/useWizard";
 
-interface Step4Props {
+interface Step5Props {
   wizard: UseWizardReturn;
 }
 
@@ -14,7 +14,7 @@ const MOCK_RESULTS = [
   { id: "r-4", emoji: "📱" },
 ];
 
-export function Step4Results({ wizard }: Step4Props) {
+export function Step5Results({ wizard }: Step5Props) {
   const count = wizard.state.count;
   const [done, setDone] = useState(false);
 

@@ -2,14 +2,30 @@ import { useCallback, useState } from "react";
 
 export type Category = "asset" | "ad" | "social";
 export type Format = "image" | "video";
-export type Method = "scratch" | "iterate";
-export type QuickMode =
+
+export type Mode =
+  | "scratch"
+  | "create-variations"
   | "ugc-video"
   | "image-to-video"
   | "broll"
-  | "variations"
   | "bg-remover"
   | "resize";
+
+export type AttachSource =
+  | "upload"
+  | "library"
+  | "pinterest"
+  | "brand-winner-ads"
+  | "product-winner-ads"
+  | "url";
+
+export interface AttachedRef {
+  id: string;
+  source: AttachSource;
+  label: string;
+  thumbnail?: string;
+}
 
 export interface UploadedFile {
   id: string;
@@ -17,21 +33,22 @@ export interface UploadedFile {
 }
 
 export interface WizardState {
-  step: 1 | 2 | 3 | 4;
+  step: 1 | 2 | 3 | 4 | 5;
   category: Category | null;
   format: Format | null;
   /** Step 2 selection — XOR with categoryId. User picks EITHER a product
    *  OR a category, never both. Picking one clears the other. */
   productId: string | null;
   categoryId: string | null;
-  method: Method | null;
+  mode: Mode;
   modelId: string;
   angleId: string | null;
-  quickMode: QuickMode | null;
   prompt: string;
   uploadedFiles: UploadedFile[];
   selectedTemplateIds: string[];
   selectedLibraryIds: string[];
+  attachedReferences: AttachedRef[];
+  ctaLayout: "inline" | "footer";
   credits: number;
   count: number;
 }
@@ -42,14 +59,15 @@ const INITIAL_STATE: WizardState = {
   format: null,
   productId: null,
   categoryId: null,
-  method: null,
+  mode: "scratch",
   modelId: "genie-1.0",
   angleId: null,
-  quickMode: null,
   prompt: "",
   uploadedFiles: [],
   selectedTemplateIds: [],
   selectedLibraryIds: [],
+  attachedReferences: [],
+  ctaLayout: "inline",
   credits: 4,
   count: 4,
 };
@@ -91,7 +109,7 @@ export function useWizard(): UseWizardReturn {
   const next = useCallback(() => {
     setState((prev) => ({
       ...prev,
-      step: Math.min(4, prev.step + 1) as WizardState["step"],
+      step: Math.min(5, prev.step + 1) as WizardState["step"],
     }));
   }, []);
 
