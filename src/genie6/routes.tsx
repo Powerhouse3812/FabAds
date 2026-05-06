@@ -31,6 +31,7 @@ import { ProductShootForm } from "./generate-v3/forms/ProductShootForm";
 import { ProductFocusedAdForm } from "./generate-v3/forms/ProductFocusedAdForm";
 import { StudioV3Lab } from "./generate-v3/_dev/StudioV3Lab";
 import { StudioV3Finder } from "./generate-v3/_dev/StudioV3Finder";
+import { RailPopoverVariants } from "./generate-v3/_dev/RailPopoverVariants";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -82,6 +83,8 @@ export const genie6Routes = (
     {/* Studio v3 Finder layout wireframe — column-view drawer pattern for
         Audience / Angle / Concepts / References (A-11.24). Wireframe only. */}
     <Route path="_dev/studio-v3-finder" element={<StudioV3Finder />} />
+    {/* Rail hover popover variants — pick one (A-11.26). */}
+    <Route path="_dev/rail-popover" element={<RailPopoverVariants />} />
 
     {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
         flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted
