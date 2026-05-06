@@ -140,6 +140,10 @@ export const MODULES: ModuleDef[] = [
       // moved below Settings + rendered with muted styling so they don't
       // pull user focus.
       { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2 },
+      // A-12.0: Studio v4 — two parallel simpler-Studio variants.
+      // Maalik tests both; winner gets promoted to default later.
+      { label: "Studio · Wizard", path: "/iq/genie6/studio-wizard", icon: Wand2, badge: "Beta" },
+      { label: "Studio · Flow",   path: "/iq/genie6/studio-flow",   icon: Wand2, badge: "Beta" },
       { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
