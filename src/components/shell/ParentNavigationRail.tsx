@@ -161,6 +161,8 @@ function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolea
     ...(mod.subItems ?? []),
     ...(mod.sections?.flatMap((s) => s.items) ?? []),
   ];
+  const hasSubs = flatSubs.length > 0;
+
   const trigger = (
     <button
       type="button"
@@ -191,19 +193,8 @@ function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolea
     </button>
   );
 
-  // No subItems → simple Tooltip with full label only.
-  if (flatSubs.length === 0) {
-    return (
-      <Tooltip delayDuration={300}>
-        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-        <TooltipContent side="right" className="text-xs">
-          {mod.label}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  // With subItems → richer HoverCard popover showing sub-nav items.
+  // Unified peek popover for ALL modules — shows clickable label header
+  // + (when present) clickable sub-items list. Each row navigates on click.
   return (
     <HoverCard openDelay={200} closeDelay={120}>
       <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
@@ -213,37 +204,55 @@ function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolea
         sideOffset={8}
         className="w-56 p-1 z-[60]"
       >
-        <p className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
-          {mod.label}
-        </p>
-        <div className="h-px bg-border/60 mx-1 mb-1" />
-        <div className="flex flex-col gap-0.5">
-          {flatSubs.map((sub) => {
-            const SubIcon = sub.icon;
-            return (
-              <button
-                key={sub.path}
-                type="button"
-                onClick={() => navigate(sub.path)}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                  "text-foreground hover:bg-muted/60",
-                  sub.deprioritized && "opacity-60 italic",
-                )}
-              >
-                {SubIcon && (
-                  <SubIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                )}
-                <span className="flex-1 truncate font-medium">{sub.label}</span>
-                {sub.badge && (
-                  <span className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {sub.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* Module label — clickable, navigates to module's main route. */}
+        <button
+          type="button"
+          onClick={onClick}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
+            "text-foreground hover:bg-primary/10",
+          )}
+        >
+          <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="flex-1 truncate text-[13px] font-semibold">
+            {mod.label}
+          </span>
+        </button>
+
+        {hasSubs && (
+          <>
+            <div className="h-px bg-border/60 mx-1 my-1" />
+            <div className="flex flex-col gap-0.5">
+              {flatSubs.map((sub) => {
+                const SubIcon = sub.icon;
+                return (
+                  <button
+                    key={sub.path}
+                    type="button"
+                    onClick={() => navigate(sub.path)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                      "text-foreground hover:bg-muted/60",
+                      sub.deprioritized && "opacity-60 italic",
+                    )}
+                  >
+                    {SubIcon && (
+                      <SubIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="flex-1 truncate font-medium">
+                      {sub.label}
+                    </span>
+                    {sub.badge && (
+                      <span className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {sub.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </HoverCardContent>
     </HoverCard>
   );
