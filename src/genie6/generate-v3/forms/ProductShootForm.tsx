@@ -222,7 +222,7 @@ export function ProductShootForm() {
         backTo="/iq/genie6/generate-v3"
         backLabel="Picker"
         body={
-          <>
+          <div className="space-y-4 -my-1">
             {/* Product — picker + horizontal product strip */}
             <SetupRow icon={ImageIcon} label="Product">
               <ProductHorizontalPicker
@@ -234,7 +234,7 @@ export function ProductShootForm() {
 
             {/* Brand identity + Auto-attach product imagery — ONE row. */}
             <SetupRow icon={Building2} label="Brand identity">
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 <BrandIntensityChips value={intensity} onChange={setIntensity} />
                 <ProductImageryRow
                   productId={productId}
@@ -290,7 +290,7 @@ export function ProductShootForm() {
                 label=""
               />
             </SetupRow>
-          </>
+          </div>
         }
         promptBar={
           <PromptBar
@@ -355,7 +355,7 @@ function SetupRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] sm:items-start gap-2 sm:gap-5">
+    <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] sm:items-start gap-1.5 sm:gap-4">
       <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
           <Icon className="h-3.5 w-3.5" />

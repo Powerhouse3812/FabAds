@@ -536,7 +536,7 @@ function SetupRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] sm:items-start gap-2 sm:gap-5">
+    <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] sm:items-start gap-1.5 sm:gap-4">
       <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
           <Icon className="h-3.5 w-3.5" />
