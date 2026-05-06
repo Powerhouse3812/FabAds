@@ -153,7 +153,10 @@ export function FormSkeleton({
           <main className="flex-1 min-h-0 overflow-y-auto">
             <div
               className={cn(
-                "mx-auto px-4 py-6 sm:px-6 sm:py-7 space-y-6 transition-[max-width] duration-200",
+                // A-11.25: extra bottom padding so the last form item has
+                // breathing room above the sticky prompt bar (Maalik flagged
+                // "form items hide na ho jaye uske niche").
+                "mx-auto px-4 pt-6 pb-10 sm:px-6 sm:pt-7 sm:pb-12 space-y-6 transition-[max-width] duration-200",
                 drawerActive ? "max-w-2xl" : "max-w-3xl",
               )}
             >
