@@ -1,10 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import {
   MODULES,
   MODULE_GROUPS,
   type ModuleDef,
+  type SubItem,
   hasSubItems,
   firstSubPath,
   deriveActiveModule,
@@ -149,40 +151,130 @@ function RailDivider() {
 
 function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolean; onClick: () => void }) {
   const Icon = mod.icon;
+  const navigate = useNavigate();
+
+  const button = (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
+        "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
+        isActive ? "" : "hover:bg-white/[0.05]"
+      )}
+    >
+      <span
+        className={cn(
+          "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
+          isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : ""
+        )}
+      >
+        <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
+      </span>
+      <span
+        className={cn(
+          "text-[8.5px] leading-[10px] font-medium tracking-tight text-center line-clamp-1 max-w-full px-0.5 mt-0.5",
+          isActive ? "text-white" : "text-zinc-400"
+        )}
+      >
+        {mod.label}
+      </span>
+    </button>
+  );
+
+  // 1) Active module → suppress popover, render bare button (no tooltip noise either —
+  //    user is already in this module).
+  if (isActive) {
+    return button;
+  }
+
+  const flatSubs: SubItem[] = [
+    ...(mod.subItems ?? []),
+    ...(mod.sections?.flatMap((s) => s.items) ?? []),
+  ];
+
+  // 3) No sub-items → keep the legacy tooltip-only path.
+  if (flatSubs.length === 0) {
+    return (
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="right" className="text-xs">
+          {mod.label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // 2) Has sub-items → V4 (Studio v3 glass) hover popover.
   return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
+    <HoverCard openDelay={200} closeDelay={120}>
+      <HoverCardTrigger asChild>{button}</HoverCardTrigger>
+      <HoverCardContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className={cn(
+          "v3-glass relative overflow-hidden",
+          "z-[60] w-60 rounded-2xl p-1.5",
+          "shadow-[0_8px_30px_-12px_rgba(0,0,0,0.18)]"
+        )}
+      >
+        {/* Lime mesh tint overlay */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 30% 30%, hsl(74 81% 70% / 0.15), transparent 70%)",
+          }}
+        />
+
+        {/* Module-label header row → routes to firstSubPath via the rail's onClick */}
         <button
           type="button"
           onClick={onClick}
-          aria-current={isActive ? "page" : undefined}
-          className={cn(
-            "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
-            "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
-            isActive ? "" : "hover:bg-white/[0.05]"
-          )}
+          className="relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-primary/15 transition-colors"
         >
-          <span
-            className={cn(
-              "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
-              isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : ""
-            )}
-          >
-            <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
-          </span>
-          <span
-            className={cn(
-              "text-[8.5px] leading-[10px] font-medium tracking-tight text-center line-clamp-1 max-w-full px-0.5 mt-0.5",
-              isActive ? "text-white" : "text-zinc-400"
-            )}
-          >
+          <div className="h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center ring-1 ring-primary/40">
+            <Icon className="h-4 w-4 text-primary" />
+          </div>
+          <span className="flex-1 text-sm font-semibold text-foreground truncate">
             {mod.label}
           </span>
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="text-xs">
-        {mod.label}
-      </TooltipContent>
-    </Tooltip>
+
+        {/* Divider */}
+        <div className="relative h-px bg-foreground/10 my-1.5 mx-1" />
+
+        {/* Sub-item rows */}
+        <div className="relative flex flex-col gap-0.5">
+          {flatSubs.map((sub) => {
+            const SubIcon = sub.icon;
+            return (
+              <button
+                key={sub.path}
+                type="button"
+                onClick={() => navigate(sub.path)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-medium hover:bg-foreground/5 transition-colors",
+                  sub.deprioritized && "opacity-60 italic"
+                )}
+              >
+                {SubIcon ? (
+                  <SubIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                ) : null}
+                <span className="flex-1 text-foreground truncate">{sub.label}</span>
+                {sub.badge ? (
+                  <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {sub.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
