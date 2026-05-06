@@ -53,21 +53,21 @@ export interface CategoryDescriptor {
 export const CATEGORIES: CategoryDescriptor[] = [
   {
     id: "brand",
-    label: "Brand",
-    description: "Brand assets and brand-anchored ads.",
+    label: "Asset",
+    description: "Brand-anchored assets — reusable building blocks.",
     status: "ready",
     subModes: [
       {
         id: "brand-focused",
         label: "Brand-focused",
-        description: "Brand identity-led ad",
+        description: "Brand identity-led asset",
         icon: "Sparkles",
         previewUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=480&h=320&q=70",
       },
       {
         id: "product-focused",
         label: "Product-focused",
-        description: "Product-led, brand-anchored ad",
+        description: "Product-led, brand-anchored asset",
         icon: "ShoppingBag",
         previewUrl: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=480&h=320&q=70",
       },

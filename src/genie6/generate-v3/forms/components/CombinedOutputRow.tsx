@@ -97,7 +97,7 @@ function FormatBtn({
       aria-checked={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors",
+        "inline-flex items-center gap-1 rounded px-2.5 py-1 text-[11px] font-medium transition-colors",
         active
           ? "bg-primary text-primary-foreground"
           : "text-muted-foreground hover:text-foreground",
@@ -124,7 +124,7 @@ function UseAiModelToggle({
       aria-label="AI Model Photoshoot"
       onClick={() => onToggle(!enabled)}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
         "outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1",
         enabled
           ? "border-primary/40 bg-primary/10 text-foreground"

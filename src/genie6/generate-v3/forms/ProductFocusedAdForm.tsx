@@ -322,7 +322,7 @@ export function ProductFocusedAdForm() {
         v3={{
           categoryId: "brand",
           subModeId: "product-focused",
-          title: "Product-focused brand ad",
+          title: "Product-focused asset",
         }}
         backTo="/iq/genie6/generate-v3"
         backLabel="Picker"
@@ -330,7 +330,7 @@ export function ProductFocusedAdForm() {
           <>
             {/* Product — picker + auto-attach toggle (now under product strip,
                 inline-styled rather than card). */}
-            <SetupRow icon={ImageIcon} label="Product" required>
+            <SetupRow icon={ImageIcon} label="Product">
               <div className="space-y-2">
                 <ProductHorizontalPicker
                   value={productId}
@@ -348,7 +348,7 @@ export function ProductFocusedAdForm() {
             </SetupRow>
 
             {/* Output / Aspect / AI Model Photoshoot — combined row. */}
-            <SetupRow icon={SettingsIcon} label="Output" required>
+            <SetupRow icon={SettingsIcon} label="Output">
               <CombinedOutputRow
                 output={output}
                 onOutputChange={setOutput}
@@ -361,7 +361,7 @@ export function ProductFocusedAdForm() {
 
             {/* AI model integrated card */}
             {isVideo && useAiModel && (
-              <SetupRow icon={Sparkles} label="AI model">
+              <SetupRow icon={Sparkles} label="AI model" optional>
                 <AiModelCard
                   modelId={aiModelId}
                   onModelChange={setAiModelId}
@@ -374,7 +374,7 @@ export function ProductFocusedAdForm() {
 
             {/* Script (video only) */}
             {isVideo && (
-              <SetupRow icon={FileText} label="Script">
+              <SetupRow icon={FileText} label="Script" optional>
                 <ScriptInput
                   mode={scriptMode}
                   onModeChange={setScriptMode}
@@ -389,7 +389,7 @@ export function ProductFocusedAdForm() {
             )}
 
             {/* Audience — summary trigger → drawer column. */}
-            <SetupRow icon={Users} label="Audience">
+            <SetupRow icon={Users} label="Audience" optional>
               <SummaryTriggerRow
                 pills={audiencePills}
                 onClick={() => setDrawer("audience")}
@@ -399,7 +399,7 @@ export function ProductFocusedAdForm() {
             </SetupRow>
 
             {/* Angle — summary trigger → drawer column. */}
-            <SetupRow icon={Wand2} label="Angle">
+            <SetupRow icon={Wand2} label="Angle" optional>
               <SummaryTriggerRow
                 pills={anglePills}
                 onClick={() => setDrawer("angle")}
@@ -409,7 +409,7 @@ export function ProductFocusedAdForm() {
             </SetupRow>
 
             {/* Concepts — summary trigger → drawer column. */}
-            <SetupRow icon={Lightbulb} label="Concepts">
+            <SetupRow icon={Lightbulb} label="Concepts" optional>
               <SummaryTriggerRow
                 pills={conceptPills}
                 onClick={() => setDrawer("concepts")}
@@ -427,7 +427,7 @@ export function ProductFocusedAdForm() {
 
             {/* References — INLINE form section. Pinterest tab opens
                 a side column with search + filters + grid. */}
-            <SetupRow icon={Paperclip} label="References">
+            <SetupRow icon={Paperclip} label="References" optional>
               <ReferencesSectionV3
                 tab={refTab}
                 onTabChange={(next) => {
@@ -536,12 +536,13 @@ export function ProductFocusedAdForm() {
 function SetupRow({
   icon: Icon,
   label,
-  required,
+  optional,
   children,
 }: {
   icon: typeof ImageIcon;
   label: string;
-  required?: boolean;
+  /** Mark a row as optional. Required is the implicit default — no marker. */
+  optional?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -552,9 +553,12 @@ function SetupRow({
         </div>
         <p className="flex items-center gap-1 text-xs font-medium text-foreground">
           {label}
-          {required && (
-            <span className="text-destructive" aria-label="required">
-              ·
+          {optional && (
+            <span
+              aria-label="Optional field"
+              className="text-[10px] font-normal text-muted-foreground"
+            >
+              (optional)
             </span>
           )}
         </p>

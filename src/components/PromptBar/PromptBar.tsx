@@ -259,20 +259,36 @@ export function PromptBar({
           min={minCount}
           max={maxCount}
         />
-        <span className="inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-background/40 px-2 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
+        <span
+          className="inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-primary/10 px-2.5 font-mono text-[11px] font-medium text-foreground backdrop-blur-sm"
+          title={`${count} × ${activeModel?.costPerUnit ?? 1} = ${creditsEstimate}`}
+        >
           <Coins className="h-3 w-3" />
-          {creditsEstimate}
+          {creditsEstimate} credits
         </span>
-        {cheaper && onModelChange && (
-          <button
-            type="button"
-            onClick={() => onModelChange(cheaper.id)}
-            className="hidden md:inline text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-            title={`Switch to ${cheaper.label} (${cheaper.costPerUnit ?? 1} cr/unit)`}
-          >
-            cheaper?
-          </button>
-        )}
+        {cheaper && (() => {
+          const savings =
+            count * (activeModel?.costPerUnit ?? 1) -
+            count * (cheaper.costPerUnit ?? 1);
+          const tooltip = `Switch to ${cheaper.label} (${cheaper.costPerUnit ?? 1} cr/unit) — save ${savings}`;
+          return onModelChange ? (
+            <button
+              type="button"
+              onClick={() => onModelChange(cheaper.id)}
+              className="hidden md:inline text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              title={tooltip}
+            >
+              Save {savings}
+            </button>
+          ) : (
+            <span
+              className="hidden md:inline text-[10px] text-muted-foreground"
+              title={tooltip}
+            >
+              Save {savings}
+            </span>
+          );
+        })()}
         {showTestButton && (
           <button
             type="button"

@@ -224,7 +224,7 @@ export function ProductShootForm() {
         body={
           <>
             {/* Product — picker + horizontal product strip */}
-            <SetupRow icon={ImageIcon} label="Product" required>
+            <SetupRow icon={ImageIcon} label="Product">
               <ProductHorizontalPicker
                 value={productId}
                 onChange={setProductId}
@@ -248,7 +248,7 @@ export function ProductShootForm() {
             </SetupRow>
 
             {/* Output / Aspect / AI Model Photoshoot — combined row. */}
-            <SetupRow icon={SettingsIcon} label="Output" required>
+            <SetupRow icon={SettingsIcon} label="Output">
               <CombinedOutputRow
                 output={output}
                 onOutputChange={setOutput}
@@ -261,7 +261,7 @@ export function ProductShootForm() {
 
             {/* AI model integrated card — only when video + toggle on */}
             {isVideo && useAiModel && (
-              <SetupRow icon={Sparkles} label="AI model">
+              <SetupRow icon={Sparkles} label="AI model" optional>
                 <AiModelCard
                   modelId={aiModelId}
                   onModelChange={setAiModelId}
@@ -274,7 +274,7 @@ export function ProductShootForm() {
 
             {/* References — INLINE form section. Pinterest tab opens
                 the side column rather than rendering inline. */}
-            <SetupRow icon={Paperclip} label="References">
+            <SetupRow icon={Paperclip} label="References" optional>
               <ReferencesSectionV3
                 tab={refTab}
                 onTabChange={(next) => {
@@ -345,12 +345,13 @@ export function ProductShootForm() {
 function SetupRow({
   icon: Icon,
   label,
-  required,
+  optional,
   children,
 }: {
   icon: typeof ImageIcon;
   label: string;
-  required?: boolean;
+  /** Mark a row as optional. Required is the implicit default — no marker. */
+  optional?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -361,9 +362,12 @@ function SetupRow({
         </div>
         <p className="flex items-center gap-1 text-xs font-medium text-foreground">
           {label}
-          {required && (
-            <span className="text-destructive" aria-label="required">
-              ·
+          {optional && (
+            <span
+              aria-label="Optional field"
+              className="text-[10px] font-normal text-muted-foreground"
+            >
+              (optional)
             </span>
           )}
         </p>

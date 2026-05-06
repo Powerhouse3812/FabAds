@@ -56,7 +56,7 @@ export function SummaryTriggerRow({
             {visible.map((p) => (
               <span
                 key={p}
-                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-foreground"
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-foreground"
               >
                 <span className="h-1 w-1 rounded-full bg-primary" />
                 <span className="max-w-[120px] truncate">{p}</span>
@@ -72,7 +72,7 @@ export function SummaryTriggerRow({
       </div>
       <span
         className={cn(
-          "shrink-0 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+          "shrink-0 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-colors",
           active
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground",

@@ -90,7 +90,7 @@ function AudienceCard({
         </p>
 
         {/* Line 1: traits */}
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <TraitChip>{formatAge(audience)}</TraitChip>
           <TraitChip mono>{audience.geo}</TraitChip>
           <GenderGlyph gender={audience.gender} />
@@ -102,7 +102,7 @@ function AudienceCard({
           {audience.tags.slice(0, 3).map((t) => (
             <span
               key={t}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] text-foreground"
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-foreground"
             >
               <span className="h-1 w-1 rounded-full bg-primary" />
               {t}
@@ -126,7 +126,7 @@ function TraitChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded bg-muted/70 px-1 py-0.5 text-[9px] text-foreground",
+        "inline-flex items-center rounded bg-muted/70 px-1 py-0.5 text-[10px] text-foreground",
         mono && "font-mono uppercase tracking-wider",
       )}
     >

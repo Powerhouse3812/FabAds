@@ -110,7 +110,7 @@ export function AiModelCard({
                 onClick={() => onToneChange(t)}
                 aria-pressed={active}
                 className={cn(
-                  "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] transition-colors",
+                  "inline-flex items-center rounded-full px-2 py-1 text-[11px] transition-colors",
                   active
                     ? "bg-primary text-primary-foreground font-medium"
                     : "border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",

@@ -78,7 +78,7 @@ export function ReferencesSectionV3({
             </>
           )}
           {attachedCount > 0 && (
-            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-primary">
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
               {attachedCount} attached
             </span>
           )}
@@ -125,7 +125,7 @@ function PinterestTabHint({
         <p className="text-xs text-foreground truncate">
           Pinterest browser
           {attached > 0 ? (
-            <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-primary">
+            <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
               {attached} attached
             </span>
           ) : (
