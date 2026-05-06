@@ -45,17 +45,21 @@ export function SecondaryNavigationPanel() {
     <aside
       data-fabads-nav-panel="secondary"
       className={cn(
-        // A-10.8: flush inside the merged shell (no self-floating chrome).
-        // Same cream bg as the shell — single visual surface, divider does
-        // the separation.
-        "flex w-[240px] shrink-0 flex-col overflow-hidden bg-white text-zinc-900"
+        "flex w-[240px] shrink-0 flex-col overflow-hidden text-zinc-900",
+        // A-11.25: when Genie is active, the panel matches the form area
+        // visually — same gradient mesh + dot grid through transparent bg.
+        // Other modules keep the flat white panel.
+        isGenie ? "v3-page-mesh bg-transparent" : "bg-white",
       )}
     >
-      {/* HEADER — sticky, compact. A-11.25 polish per Maalik: blend with
-          the body, no hard divider, lighter title weight. The header used
-          to read as a separate floating block; now it sits as a quiet
-          eyebrow above the items. */}
-      <header className="sticky top-0 z-10 shrink-0 bg-white">
+      {/* HEADER — sticky, compact. Transparent in Genie so the page mesh
+          flows through; bg-white in other modules. */}
+      <header
+        className={cn(
+          "sticky top-0 z-10 shrink-0",
+          isGenie ? "bg-transparent" : "bg-white",
+        )}
+      >
         <div className="flex items-center gap-2 px-3 py-2">
           <ModuleIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
           <h2 className="flex-1 truncate text-[11px] font-medium tracking-tight text-zinc-600">
