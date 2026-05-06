@@ -41,7 +41,6 @@ import {
 import { PinterestColumnDrawer } from "./components/PinterestColumnDrawer";
 import { ANGLES } from "./components/AnglePicker";
 import { type ConceptSource } from "./components/ConceptsStrip";
-import { WinnerAdsToggle } from "./components/WinnerAdsToggle";
 import { ScriptInput, type ScriptMode } from "./components/ScriptInput";
 import { VideoAdvancedSection } from "./components/VideoAdvancedSection";
 import type { VideoAdvancedValues } from "./components/VideoAdvancedFields";
@@ -133,9 +132,6 @@ export function ProductFocusedAdForm() {
   // Concepts
   const [conceptSource, setConceptSource] = useState<ConceptSource>("saved");
   const [selectedConceptIds, setSelectedConceptIds] = useState<string[]>([]);
-
-  // Winner ads
-  const [includeWinners, setIncludeWinners] = useState(false);
 
   // Product imagery
   const [productImageryEnabled, setProductImageryEnabled] = useState(true);
@@ -289,7 +285,6 @@ export function ProductFocusedAdForm() {
             }
           : undefined,
       concepts: { source: conceptSource, ids: selectedConceptIds },
-      includeWinners,
       productImageryEnabled,
       productImageryDetached,
       uploads: uploads.length,
@@ -313,7 +308,6 @@ export function ProductFocusedAdForm() {
   };
 
   const canGenerate = !!productId && aspectRatios.length > 0;
-  const hasFilter = selectedConceptIds.length > 0 || selectedAngleIds.length > 0;
   const isVideo = output === "video";
 
   return (
@@ -418,15 +412,11 @@ export function ProductFocusedAdForm() {
               />
             </SetupRow>
 
-            {/* Winner ads */}
-            <WinnerAdsToggle
-              enabled={includeWinners}
-              onToggle={setIncludeWinners}
-              hasFilter={hasFilter}
-            />
-
             {/* References — INLINE form section. Pinterest tab opens
-                a side column with search + filters + grid. */}
+                a side column with search + filters + grid.
+                Winner Ads toggle removed for Asset (Brand) sub-modes —
+                concept doesn't apply to non-ad assets per Maalik. Lives
+                in Ad sub-modes only when those forms ship. */}
             <SetupRow icon={Paperclip} label="References" optional>
               <ReferencesSectionV3
                 tab={refTab}
