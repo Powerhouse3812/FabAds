@@ -32,8 +32,7 @@ import { ProductFocusedAdForm } from "./generate-v3/forms/ProductFocusedAdForm";
 import { StudioV3Lab } from "./generate-v3/_dev/StudioV3Lab";
 import { StudioV3Finder } from "./generate-v3/_dev/StudioV3Finder";
 import { RailPopoverVariants } from "./generate-v3/_dev/RailPopoverVariants";
-import { StudioWizard } from "./studio-wizard/StudioWizard";
-import { StudioFlow } from "./studio-flow/StudioFlow";
+import { StudioV4 } from "./studio-v4/StudioV4";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -88,12 +87,10 @@ export const genie6Routes = (
     {/* Rail hover popover variants — pick one (A-11.26). */}
     <Route path="_dev/rail-popover" element={<RailPopoverVariants />} />
 
-    {/* Studio v4 — simpler Studio, two parallel variants (A-12.0).
-        Wizard = step-by-step prototype-faithful with Scratch/Iterate path.
-        Flow = progressive single-page with persistent right column.
-        Each is a top-level Genie sub-nav entry; no /v4 hub. */}
-    <Route path="studio-wizard" element={<StudioWizard />} />
-    <Route path="studio-flow" element={<StudioFlow />} />
+    {/* Studio v4 — prototype-faithful 4-step wizard + results screen
+        (A-12.0). Single new Studio replaces v3 routes' role going forward.
+        Existing /generate-v3/* untouched. */}
+    <Route path="studio" element={<StudioV4 />} />
 
     {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
         flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted
