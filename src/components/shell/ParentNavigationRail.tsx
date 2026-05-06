@@ -1,10 +1,16 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import {
   MODULES,
   MODULE_GROUPS,
   type ModuleDef,
+  type SubItem,
   hasSubItems,
   firstSubPath,
   deriveActiveModule,
@@ -149,40 +155,96 @@ function RailDivider() {
 
 function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolean; onClick: () => void }) {
   const Icon = mod.icon;
-  return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          aria-current={isActive ? "page" : undefined}
-          className={cn(
-            "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
-            "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
-            isActive ? "" : "hover:bg-white/[0.05]"
-          )}
-        >
-          <span
-            className={cn(
-              "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
-              isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : ""
-            )}
-          >
-            <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
-          </span>
-          <span
-            className={cn(
-              "text-[8.5px] leading-[10px] font-medium tracking-tight text-center line-clamp-1 max-w-full px-0.5 mt-0.5",
-              isActive ? "text-white" : "text-zinc-400"
-            )}
-          >
-            {mod.label}
-          </span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="text-xs">
+  const navigate = useNavigate();
+  // Flatten subItems + sectioned subItems for the peek popover.
+  const flatSubs: SubItem[] = [
+    ...(mod.subItems ?? []),
+    ...(mod.sections?.flatMap((s) => s.items) ?? []),
+  ];
+  const trigger = (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
+        "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
+        isActive ? "" : "hover:bg-white/[0.05]",
+      )}
+    >
+      <span
+        className={cn(
+          "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
+          isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : "",
+        )}
+      >
+        <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
+      </span>
+      <span
+        className={cn(
+          "text-[8.5px] leading-[10px] font-medium tracking-tight text-center line-clamp-1 max-w-full px-0.5 mt-0.5",
+          isActive ? "text-white" : "text-zinc-400",
+        )}
+      >
         {mod.label}
-      </TooltipContent>
-    </Tooltip>
+      </span>
+    </button>
+  );
+
+  // No subItems → simple Tooltip with full label only.
+  if (flatSubs.length === 0) {
+    return (
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+        <TooltipContent side="right" className="text-xs">
+          {mod.label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // With subItems → richer HoverCard popover showing sub-nav items.
+  return (
+    <HoverCard openDelay={200} closeDelay={120}>
+      <HoverCardTrigger asChild>{trigger}</HoverCardTrigger>
+      <HoverCardContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="w-56 p-1 z-[60]"
+      >
+        <p className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+          {mod.label}
+        </p>
+        <div className="h-px bg-border/60 mx-1 mb-1" />
+        <div className="flex flex-col gap-0.5">
+          {flatSubs.map((sub) => {
+            const SubIcon = sub.icon;
+            return (
+              <button
+                key={sub.path}
+                type="button"
+                onClick={() => navigate(sub.path)}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                  "text-foreground hover:bg-muted/60",
+                  sub.deprioritized && "opacity-60 italic",
+                )}
+              >
+                {SubIcon && (
+                  <SubIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                )}
+                <span className="flex-1 truncate font-medium">{sub.label}</span>
+                {sub.badge && (
+                  <span className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {sub.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
