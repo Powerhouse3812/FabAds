@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Sparkles, Upload } from "lucide-react";
+import { ChevronDown, Sparkles, Upload, Wand2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { WizardCard } from "../components/WizardCard";
@@ -157,6 +157,113 @@ export function Step3Create({ wizard, onGenerate }: Step3Props) {
         </p>
       </header>
 
+      {/* A0. Prompt + Model + Count — the generation form core */}
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-2 flex items-center gap-2">
+          <Wand2 className="h-3.5 w-3.5 text-primary" />
+          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Prompt
+          </h2>
+          <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {wizard.state.prompt.length} chars
+          </span>
+        </div>
+        <textarea
+          value={wizard.state.prompt}
+          onChange={(e) => wizard.set("prompt", e.target.value)}
+          placeholder="Describe what you want to generate. e.g. Hero shot of Mamaearth Vitamin C serum on a marble surface, soft morning light, fresh flowers in background…"
+          rows={4}
+          className="block w-full resize-none rounded-lg border border-border bg-background p-3 text-sm leading-relaxed outline-none transition-colors focus:border-primary"
+        />
+
+        {/* Inline toolbar — AI Model + Output count */}
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border/60 pt-3">
+          {/* AI Model */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Model
+            </span>
+            <Popover open={modelOpen} onOpenChange={setModelOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs font-medium hover:border-primary/40"
+                >
+                  <span>{activeModel.emoji}</span>
+                  <span>{activeModel.name}</span>
+                  {activeModel.hint && (
+                    <span className="text-[10px] text-muted-foreground">
+                      · {activeModel.hint}
+                    </span>
+                  )}
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-72 p-1">
+                {MODELS.map((m) => {
+                  const active = wizard.state.modelId === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        wizard.set("modelId", m.id);
+                        setModelOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
+                        active ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                      )}
+                    >
+                      <span className="text-base">{m.emoji}</span>
+                      <span className="font-medium">{m.name}</span>
+                      {m.hint && (
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {m.hint}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Output count */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Outputs
+            </span>
+            <div className="inline-flex rounded-full border border-border bg-background p-0.5">
+              {[1, 2, 4, 8].map((n) => {
+                const active = wizard.state.count === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => wizard.set("count", n)}
+                    className={cn(
+                      "inline-flex h-7 min-w-[28px] items-center justify-center rounded-full px-2 font-mono text-xs font-semibold transition-colors",
+                      active
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground">
+            <span>⚡</span>
+            <span className="font-mono">{wizard.state.credits}</span>
+            <span className="text-muted-foreground">credits</span>
+          </span>
+        </div>
+      </section>
+
       {/* A. Method cards */}
       <section>
         <div className="grid grid-cols-2 gap-4">
@@ -220,57 +327,6 @@ export function Step3Create({ wizard, onGenerate }: Step3Props) {
             );
           })}
         </div>
-      </section>
-
-      {/* C. AI Model dropdown */}
-      <section>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-          AI Model
-        </h2>
-        <Popover open={modelOpen} onOpenChange={setModelOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:border-primary/40"
-            >
-              <span>{activeModel.emoji}</span>
-              <span>{activeModel.name}</span>
-              {activeModel.hint && (
-                <span className="text-xs text-muted-foreground">
-                  · {activeModel.hint}
-                </span>
-              )}
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-1">
-            {MODELS.map((m) => {
-              const active = wizard.state.modelId === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    wizard.set("modelId", m.id);
-                    setModelOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                    active ? "bg-primary/10 text-primary" : "hover:bg-muted",
-                  )}
-                >
-                  <span className="text-base">{m.emoji}</span>
-                  <span className="font-medium">{m.name}</span>
-                  {m.hint && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {m.hint}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </PopoverContent>
-        </Popover>
       </section>
 
       {/* D. Angle pills */}
@@ -492,10 +548,6 @@ export function Step3Create({ wizard, onGenerate }: Step3Props) {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground">
-            <span>⚡</span>
-            <span>{wizard.state.credits} credits</span>
-          </span>
           <button
             type="button"
             onClick={onGenerate}
@@ -503,6 +555,9 @@ export function Step3Create({ wizard, onGenerate }: Step3Props) {
           >
             <Sparkles className="h-4 w-4" />
             Generate
+            <span className="font-mono text-[11px] opacity-80">
+              · {wizard.state.count}× · {wizard.state.credits} cr
+            </span>
           </button>
         </div>
       </section>

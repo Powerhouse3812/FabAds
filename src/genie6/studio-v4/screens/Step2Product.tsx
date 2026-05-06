@@ -7,6 +7,8 @@ import {
   Sparkles,
   Plus,
   Loader2,
+  Package,
+  FolderOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -22,12 +24,15 @@ interface Step2Props {
   wizard: UseWizardReturn;
 }
 
-const CATEGORIES_PANEL: { id: string; emoji: string; name: string }[] = [
-  { id: "c-life", emoji: "🛡", name: "Life Insurance" },
-  { id: "c-home", emoji: "🏠", name: "Home Insurance" },
-  { id: "c-credit", emoji: "💳", name: "Credit Cards" },
-  { id: "c-mutual", emoji: "📊", name: "Mutual Funds" },
-  { id: "c-auto", emoji: "🚗", name: "Auto Insurance" },
+type Tab = "product" | "category";
+
+const CATEGORIES_PANEL: { id: string; emoji: string; name: string; desc: string }[] = [
+  { id: "c-life",    emoji: "🛡",  name: "Life Insurance",   desc: "Family · term · ULIP" },
+  { id: "c-home",    emoji: "🏠",  name: "Home Insurance",   desc: "Property · contents" },
+  { id: "c-credit",  emoji: "💳",  name: "Credit Cards",     desc: "Rewards · travel · fuel" },
+  { id: "c-mutual",  emoji: "📊",  name: "Mutual Funds",     desc: "SIP · ELSS · debt" },
+  { id: "c-auto",    emoji: "🚗",  name: "Auto Insurance",   desc: "Car · two-wheeler" },
+  { id: "c-health",  emoji: "🩺",  name: "Health Insurance", desc: "Family · senior · OPD" },
 ];
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -42,6 +47,9 @@ const FORMAT_LABEL: Record<string, string> = {
 };
 
 export function Step2Product({ wizard }: Step2Props) {
+  const [tab, setTab] = useState<Tab>(
+    wizard.state.categoryId ? "category" : "product",
+  );
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState<string | null>(null);
   const [brandSearch, setBrandSearch] = useState("");
@@ -56,7 +64,6 @@ export function Step2Product({ wizard }: Step2Props) {
     setFetching(true);
     await new Promise((r) => setTimeout(r, 1200));
     setFetching(false);
-    // Mock — pick a random product as the fetched result
     const sample = ALL_PRODUCTS[Math.floor(Math.random() * Math.min(20, ALL_PRODUCTS.length))];
     if (!sample) return;
     wizard.patch({ productId: sample.id, categoryId: null });
@@ -78,8 +85,18 @@ export function Step2Product({ wizard }: Step2Props) {
         );
       });
     }
-    return list.slice(0, 50);
+    return list.slice(0, 60);
   }, [brandFilter, search]);
+
+  const filteredCategories = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return CATEGORIES_PANEL;
+    return CATEGORIES_PANEL.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.desc.toLowerCase().includes(q),
+    );
+  }, [search]);
 
   const filteredBrandList = useMemo(() => {
     const term = brandSearch.trim().toLowerCase();
@@ -100,43 +117,76 @@ export function Step2Product({ wizard }: Step2Props) {
     ? FORMAT_LABEL[wizard.state.format]
     : "—";
 
+  // Switch tab — clear opposite side's selection to enforce XOR
+  const switchTab = (t: Tab) => {
+    if (t === tab) return;
+    setTab(t);
+    setSearch("");
+    if (t === "product" && wizard.state.categoryId) {
+      wizard.set("categoryId", null);
+    }
+    if (t === "category" && wizard.state.productId) {
+      wizard.set("productId", null);
+    }
+  };
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
+      {/* Header */}
       <header className="text-center">
-        <h1 className="text-3xl font-bold">What are you creating for?</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          What are you creating for?
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{categoryLabel}</span>
-          {" · "}
-          <span className="font-semibold text-foreground">{formatLabel}</span>
+          Pick a product, or stay broad with a category.{" "}
+          <span className="font-mono text-[11px] text-muted-foreground/80">
+            {categoryLabel} · {formatLabel}
+          </span>
         </p>
       </header>
 
-      <div className="grid grid-cols-12 gap-6">
-        {/* Products panel */}
-        <section className="col-span-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground flex-1">
-              Products
-            </h2>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {filteredProducts.length}
-              <span className="text-muted-foreground/60"> / {ALL_PRODUCTS.length}</span>
-            </span>
-          </div>
+      {/* Tab toggle — Product vs Category */}
+      <div className="flex justify-center">
+        <div
+          role="tablist"
+          className="inline-flex rounded-xl border border-border bg-muted/40 p-1 shadow-sm"
+        >
+          <TabBtn
+            active={tab === "product"}
+            onClick={() => switchTab("product")}
+            icon={Package}
+            label="Product"
+            count={ALL_PRODUCTS.length}
+          />
+          <TabBtn
+            active={tab === "category"}
+            onClick={() => switchTab("category")}
+            icon={FolderOpen}
+            label="Category"
+            count={CATEGORIES_PANEL.length}
+          />
+        </div>
+      </div>
 
-          {/* Search + brand filter row */}
-          <div className="mb-4 flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products or brands…"
-                className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
-              />
-            </div>
-            {/* + Fetch URL */}
+      {/* Toolbar — search + (Product-only) brand filter + fetch URL */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[260px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={
+              tab === "product"
+                ? "Search products or brands…"
+                : "Search categories…"
+            }
+            className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
+          />
+        </div>
+
+        {tab === "product" && (
+          <>
             <Popover open={urlOpen} onOpenChange={setUrlOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -195,6 +245,7 @@ export function Step2Product({ wizard }: Step2Props) {
                 </div>
               </PopoverContent>
             </Popover>
+
             <Popover open={brandOpen} onOpenChange={setBrandOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -282,131 +333,256 @@ export function Step2Product({ wizard }: Step2Props) {
                 </div>
               </PopoverContent>
             </Popover>
-          </div>
+          </>
+        )}
 
-          <ul className="grid max-h-[480px] grid-cols-2 gap-2 overflow-y-auto pr-1">
-            {filteredProducts.map((p) => {
-              const isSelected = wizard.state.productId === p.id;
-              const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
-              return (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      wizard.patch({
-                        productId: p.id,
-                        categoryId: null, // XOR — clear category
-                      })
-                    }
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg border p-2 text-left text-sm transition-all",
-                      isSelected
-                        ? "border-primary bg-primary/5 ring-2 ring-primary/30"
-                        : "border-border hover:border-primary/40 hover:bg-muted/40",
-                    )}
-                  >
-                    {/* Real product image */}
-                    <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
-                      {p.thumbnail ? (
-                        <img
-                          src={p.thumbnail}
-                          alt=""
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Sparkles className="h-4 w-4 text-muted-foreground/50" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium text-foreground">
-                        {p.name}
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-1.5">
-                        {brand && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
-                            {brand.logo && (
-                              <img
-                                src={brand.logo}
-                                alt=""
-                                className="h-2.5 w-2.5 rounded-sm"
-                              />
-                            )}
-                            {brand.name}
-                          </span>
-                        )}
-                        {p.price && (
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            {p.price}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-            {filteredProducts.length === 0 && (
-              <li className="col-span-2 px-3 py-8 text-center text-xs text-muted-foreground">
-                No products match{" "}
-                {search ? `"${search}"` : "this filter"}. Try a different search
-                or pick another brand.
-              </li>
-            )}
-          </ul>
-
-          <button
-            type="button"
-            className="mt-3 text-xs font-semibold text-primary hover:underline"
-          >
-            + Add new product
-          </button>
-        </section>
-
-        {/* Categories panel */}
-        <section className="col-span-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-            Categories
-          </h2>
-
-          <ul className="flex flex-col gap-1">
-            {CATEGORIES_PANEL.map((c) => {
-              const isSelected = wizard.state.categoryId === c.id;
-              return (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      wizard.patch({
-                        categoryId: c.id,
-                        productId: null, // XOR — clear product
-                      })
-                    }
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-all",
-                      isSelected
-                        ? "border-primary bg-primary/5 ring-2 ring-primary/30"
-                        : "border-transparent hover:border-border hover:bg-muted/50",
-                    )}
-                  >
-                    <span className="text-xl">{c.emoji}</span>
-                    <span className="font-medium text-foreground">{c.name}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          <button
-            type="button"
-            className="mt-3 text-xs font-semibold text-primary hover:underline"
-          >
-            + Add new category
-          </button>
-        </section>
+        <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {tab === "product" ? (
+            <>
+              {filteredProducts.length}
+              <span className="text-muted-foreground/60">
+                {" / "}
+                {ALL_PRODUCTS.length}
+              </span>
+            </>
+          ) : (
+            <>
+              {filteredCategories.length}
+              <span className="text-muted-foreground/60">
+                {" / "}
+                {CATEGORIES_PANEL.length}
+              </span>
+            </>
+          )}
+        </span>
       </div>
+
+      {/* Single grid — switches by tab */}
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        {tab === "product" ? (
+          <ProductGrid
+            products={filteredProducts}
+            selectedId={wizard.state.productId}
+            onPick={(id) =>
+              wizard.patch({ productId: id, categoryId: null })
+            }
+            search={search}
+          />
+        ) : (
+          <CategoryGrid
+            categories={filteredCategories}
+            selectedId={wizard.state.categoryId}
+            onPick={(id) =>
+              wizard.patch({ categoryId: id, productId: null })
+            }
+            search={search}
+          />
+        )}
+
+        <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
+          <span className="text-[11px] text-muted-foreground">
+            {tab === "product"
+              ? "Don't see your product? Paste a URL or add it manually."
+              : "Need a different category? Add a custom one."}
+          </span>
+          <button
+            type="button"
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            + Add new {tab === "product" ? "product" : "category"}
+          </button>
+        </div>
+      </section>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  Tab button
+ * ─────────────────────────────────────────────────────────── */
+function TabBtn({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium transition-all",
+        active
+          ? "bg-foreground text-background shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+      <span
+        className={cn(
+          "rounded-full px-1.5 font-mono text-[10px]",
+          active
+            ? "bg-background/20 text-background"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  Product grid — image + brand chip + check on select
+ * ─────────────────────────────────────────────────────────── */
+interface ProductGridProps {
+  products: typeof ALL_PRODUCTS;
+  selectedId: string | null;
+  onPick: (id: string) => void;
+  search: string;
+}
+
+function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps) {
+  if (products.length === 0) {
+    return (
+      <div className="px-3 py-12 text-center text-xs text-muted-foreground">
+        No products match {search ? `"${search}"` : "this filter"}. Try a
+        different search or pick another brand.
+      </div>
+    );
+  }
+  return (
+    <ul className="grid max-h-[460px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+      {products.map((p) => {
+        const isSelected = selectedId === p.id;
+        const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
+        return (
+          <li key={p.id}>
+            <button
+              type="button"
+              onClick={() => onPick(p.id)}
+              className={cn(
+                "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
+                isSelected
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+              )}
+            >
+              {/* Image */}
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                {p.thumbnail ? (
+                  <img
+                    src={p.thumbnail}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Sparkles className="h-5 w-5 text-muted-foreground/50" />
+                  </div>
+                )}
+                {/* Brand chip top-left */}
+                {brand && (
+                  <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
+                    {brand.logo && (
+                      <img
+                        src={brand.logo}
+                        alt=""
+                        className="h-2.5 w-2.5 rounded-sm"
+                      />
+                    )}
+                    <span className="max-w-[80px] truncate">{brand.name}</span>
+                  </span>
+                )}
+                {/* Check badge top-right when selected */}
+                {isSelected && (
+                  <span className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+              </div>
+              {/* Meta */}
+              <div className="flex flex-1 flex-col gap-0.5 px-2.5 py-2">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {p.name}
+                </p>
+                {p.price && (
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    {p.price}
+                  </p>
+                )}
+              </div>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  Category grid — large emoji, name, description
+ * ─────────────────────────────────────────────────────────── */
+interface CategoryGridProps {
+  categories: typeof CATEGORIES_PANEL;
+  selectedId: string | null;
+  onPick: (id: string) => void;
+  search: string;
+}
+
+function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridProps) {
+  if (categories.length === 0) {
+    return (
+      <div className="px-3 py-12 text-center text-xs text-muted-foreground">
+        No categories match {search ? `"${search}"` : "this filter"}.
+      </div>
+    );
+  }
+  return (
+    <ul className="grid max-h-[460px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+      {categories.map((c) => {
+        const isSelected = selectedId === c.id;
+        return (
+          <li key={c.id}>
+            <button
+              type="button"
+              onClick={() => onPick(c.id)}
+              className={cn(
+                "relative flex h-full w-full flex-col items-start gap-2 rounded-xl border bg-background p-4 text-left transition-all",
+                isSelected
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+              )}
+            >
+              {isSelected && (
+                <span className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </span>
+              )}
+              <span className="text-3xl leading-none">{c.emoji}</span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {c.name}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  {c.desc}
+                </p>
+              </div>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
