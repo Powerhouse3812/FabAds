@@ -112,8 +112,9 @@ export function ProductHorizontalPicker({
 
   return (
     <div className="space-y-2.5">
-      {/* Single calm control row — search · brand · fetch · counter */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Single calm control row — search grows to fill, brand / fetch /
+          counter are shrink-0. No wrap — A-11.25 per Maalik. */}
+      <div className="flex items-center gap-2">
         <SearchInput query={query} onQuery={setQuery} />
         <BrandFilterPill value={brandFilter} onChange={setBrandFilter} />
         <UrlFetchButton
@@ -127,8 +128,7 @@ export function ProductHorizontalPicker({
           fetching={fetching}
           onFetch={handleFetch}
         />
-        {/* Result counter */}
-        <p className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <p className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           {filteredProducts.length}
           <span className="text-muted-foreground/60"> / {totalAvailable}</span>
         </p>
@@ -173,7 +173,9 @@ function SearchInput({
   return (
     <div
       className={cn(
-        "inline-flex items-center h-9 w-[280px] rounded-md border bg-card overflow-hidden transition-colors",
+        // A-11.25: flex-1 so the search bar fills available row width
+        // (Brand pill + Fetch URL + counter are shrink-0).
+        "flex items-center h-9 flex-1 min-w-[160px] rounded-md border bg-card overflow-hidden transition-colors",
         isActive ? "border-primary/40 bg-primary/5" : "border-border",
       )}
     >
@@ -235,7 +237,7 @@ function UrlFetchButton({
         <button
           type="button"
           aria-label="Fetch product from URL"
-          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-card/80"
+          className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-card/80"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Fetch URL</span>
@@ -386,7 +388,7 @@ function BrandFilterPill({
           type="button"
           aria-label={selected ? `Brand filter: ${selected.name}` : "Filter by brand"}
           className={cn(
-            "inline-flex h-9 min-w-[140px] items-center gap-1.5 rounded-md border bg-card px-2.5 text-xs transition-colors",
+            "shrink-0 inline-flex h-9 min-w-[120px] items-center gap-1.5 rounded-md border bg-card px-2.5 text-xs transition-colors",
             selected
               ? "border-primary/40 bg-primary/5 text-foreground"
               : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
