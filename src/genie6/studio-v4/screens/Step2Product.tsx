@@ -661,49 +661,27 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
     );
   }
   return (
-    <ul className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="flex flex-wrap gap-2">
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
-        const thumb = resolveCategoryThumb(c.id);
         return (
-          <li key={c.id}>
-            <button
-              type="button"
-              onClick={() => onPick(c.id)}
-              className={cn(
-                "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
-                isSelected
-                  ? "border-primary ring-2 ring-primary/30"
-                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
-              )}
-            >
-              {/* Category image */}
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                <img
-                  src={thumb}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                />
-                {/* Gradient overlay so text is readable */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-                {isSelected && (
-                  <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  </span>
-                )}
-              </div>
-              {/* Name + hint */}
-              <div className="min-w-0 px-2.5 py-2">
-                <p className="truncate text-[13px] font-semibold text-foreground">
-                  {c.name}
-                </p>
-              </div>
-            </button>
-          </li>
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onPick(c.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all",
+              isSelected
+                ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30"
+                : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/50",
+            )}
+          >
+            {isSelected && <Check className="h-3 w-3 shrink-0" strokeWidth={3} />}
+            {c.name}
+          </button>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
