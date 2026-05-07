@@ -1,52 +1,35 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 /**
- * RightRail — Studio v4 slide-in column for heavy attach sources (Track C).
+ * RightRail — Studio v4 persistent right-side column on Step 4 (A-12.4 refactor).
  *
- * Photoshop-toolbar pattern: appears as a fixed full-height column on the
- * right edge with a 1px left border + outside-click backdrop + Esc-to-close.
- * shadow-2xl is the ONE place we allow elevation in this build — slide-in
- * panels need to read as a layer above the form.
+ * History:
+ *   - A-12.1 → A-12.3: viewport overlay drawer (`fixed right-0 z-50 shadow-2xl`)
+ *     with backdrop click + Esc close. Mounted by PromptReferenceBar for heavy
+ *     attach sources (Library / Pinterest / Brand-WA / Product-WA).
+ *   - A-12.4: refactored to a permanent sibling column inside Step 4's layout.
+ *     Always visible (≥lg breakpoints). Content swaps via the `railMode` state
+ *     held by Step4Configure. Pure slot host — no open/onClose props.
  *
- * Native fallback by design: v3's PickerColumn is a structural sibling
- * (in-flow, no overlay), which doesn't match the Step-4 pattern where the
- * rail must float above the wizard form regardless of layout.
+ * Phot.ai pattern: rail is part of the form chrome, not a popped-out drawer.
+ * Reads as one continuous surface with the form column.
  */
 
 interface RightRailProps {
-  open: boolean;
-  onClose: () => void;
   children: ReactNode;
+  className?: string;
 }
 
-export function RightRail({ open, onClose, children }: RightRailProps) {
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
+export function RightRail({ children, className }: RightRailProps) {
   return (
-    <>
-      {/* Outside-click backdrop */}
-      <div
-        className="fixed inset-0 z-40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      {/* Rail panel */}
-      <aside
-        role="dialog"
-        aria-modal="true"
-        className="fixed right-0 top-0 z-50 flex h-full w-[400px] flex-col border-l border-border bg-background shadow-2xl"
-      >
-        {children}
-      </aside>
-    </>
+    <aside
+      className={cn(
+        "hidden shrink-0 w-[400px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:flex",
+        className,
+      )}
+    >
+      {children}
+    </aside>
   );
 }

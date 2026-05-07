@@ -36,7 +36,11 @@ export function StudioV4() {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
-      <ProgressIndicator step={state.step} ctaLayout={state.ctaLayout} />
+      <ProgressIndicator
+        step={state.step}
+        ctaLayout={state.ctaLayout}
+        onJumpTo={wizard.goTo}
+      />
 
       <main className="min-h-0 flex-1 overflow-y-auto">
         {state.step === 1 && <Step1Setup wizard={wizard} />}

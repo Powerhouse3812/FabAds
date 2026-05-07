@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getConceptById } from "../data/concepts";
+import { HeroHeader } from "../components/HeroHeader";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step5Props {
@@ -91,17 +92,16 @@ export function Step5Results({ wizard }: Step5Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
-      <header className="text-center">
-        <h1 className="text-3xl font-bold text-foreground">
-          {done ? "Done!" : "Generating with Genie…"}
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {done
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pt-4 pb-6">
+      <HeroHeader
+        eyebrow="Output"
+        title={done ? "Done!" : "Generating with Genie…"}
+        subtitle={
+          done
             ? `Here are your ${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"}${rows.length > 1 ? ` across ${rows.length} concepts` : ""}.`
-            : `Crafting ${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"} based on your inputs…`}
-        </p>
-      </header>
+            : `Crafting ${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"} based on your inputs…`
+        }
+      />
 
       {!done && (
         <div className="flex justify-center">
@@ -156,7 +156,7 @@ export function Step5Results({ wizard }: Step5Props) {
 
 function ConceptRow({ row, done }: { row: Row; done: boolean }) {
   return (
-    <section className="rounded-2xl border border-border bg-card/40 p-4">
+    <section className="border-t border-border pt-3 first:border-t-0 first:pt-0">
       <div className="mb-3 flex items-center gap-2">
         <span className="text-xl leading-none">{row.emoji}</span>
         <h2 className="truncate text-sm font-bold text-foreground">

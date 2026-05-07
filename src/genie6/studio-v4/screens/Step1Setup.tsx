@@ -1,6 +1,7 @@
-import { Sparkles, TrendingUp, Clock, Zap } from "lucide-react";
+import { TrendingUp, Clock, Zap, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WizardCard } from "../components/WizardCard";
+import { HeroHeader } from "../components/HeroHeader";
 import type { Category, Format, UseWizardReturn } from "../state/useWizard";
 
 interface Step1Props {
@@ -89,23 +90,18 @@ const TIPS = [
 
 export function Step1Setup({ wizard }: Step1Props) {
   return (
-    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pt-8 pb-12">
+    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
       {/* Ambient backdrop — gradient mesh + dot grid (subtle, behind everything) */}
       <BackdropMesh />
 
-      {/* Hero header */}
-      <header className="relative space-y-3 text-center pt-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-primary font-bold">
-          <Sparkles className="h-3 w-3" />
-          Studio
-        </span>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">
-          What are you generating today?
-        </h1>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          Pick a type and an output format. The Studio fills in the rest.
-        </p>
-      </header>
+      {/* Hero header — compact, consistent across all steps */}
+      <div className="relative">
+        <HeroHeader
+          eyebrow="Studio"
+          title="What are you generating today?"
+          subtitle="Pick a type and an output format. The Studio fills in the rest."
+        />
+      </div>
 
       {/* Type selector */}
       <section className="relative flex flex-col gap-3">

@@ -8,10 +8,6 @@ import {
 } from "@/components/ui/popover";
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
-import { RightRail } from "./RightRail";
-import { LibraryColumnDrawer } from "./LibraryColumnDrawer";
-import { BrandWinnerAdsDrawer } from "./BrandWinnerAdsDrawer";
-import { ProductWinnerAdsDrawer } from "./ProductWinnerAdsDrawer";
 import type {
   UseWizardReturn,
   AttachSource,
@@ -41,6 +37,15 @@ import type {
 
 interface PromptReferenceBarProps {
   wizard: UseWizardReturn;
+  /**
+   * Called when the attach popover routes the user to a heavy attach source
+   * (library / pinterest / brand-winner-ads / product-winner-ads). The parent
+   * (Step4Configure) handles opening the right-rail picker for that source.
+   *
+   * Upload + URL still fire inline (file dialog / URL popover) and don't use
+   * this callback.
+   */
+  onAttachPickerOpen?: (source: AttachSource) => void;
 }
 
 const SOURCE_ICON: Record<AttachSource, string> = {
@@ -62,57 +67,17 @@ const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
 
 const COUNTS = [1, 2, 4, 8] as const;
 
-const MOCK_PINS: { id: string; thumbnail: string; label: string }[] = [
-  {
-    id: "pin-1",
-    thumbnail:
-      "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=240&q=70",
-    label: "Pastel flat-lay",
-  },
-  {
-    id: "pin-2",
-    thumbnail:
-      "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=240&q=70",
-    label: "Bold typography",
-  },
-  {
-    id: "pin-3",
-    thumbnail:
-      "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=240&q=70",
-    label: "Editorial fashion",
-  },
-  {
-    id: "pin-4",
-    thumbnail:
-      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=240&q=70",
-    label: "Minimal product",
-  },
-  {
-    id: "pin-5",
-    thumbnail:
-      "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=240&q=70",
-    label: "Color block",
-  },
-  {
-    id: "pin-6",
-    thumbnail:
-      "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=240&q=70",
-    label: "Festive set",
-  },
-];
-
-export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
+export function PromptReferenceBar({
+  wizard,
+  onAttachPickerOpen,
+}: PromptReferenceBarProps) {
   const { state } = wizard;
 
   const [attachOpen, setAttachOpen] = useState(false);
-  const [activeDrawer, setActiveDrawer] = useState<AttachSource | null>(null);
   const [urlPopoverOpen, setUrlPopoverOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [modelOpen, setModelOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Pinterest placeholder local select state
-  const [pinSelected, setPinSelected] = useState<Set<string>>(new Set());
 
   const handleAttachPick = (source: AttachSource) => {
     setAttachOpen(false);
@@ -124,17 +89,10 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
       setUrlPopoverOpen(true);
       return;
     }
-    setActiveDrawer(source);
+    // library / pinterest / brand-winner-ads / product-winner-ads
+    // — delegate to Step 4's right-rail (it owns the rail mode state)
+    onAttachPickerOpen?.(source);
   };
-
-  const handleSave =
-    (source: AttachSource) => (refs: AttachedRef[]) => {
-      wizard.set("attachedReferences", [
-        ...state.attachedReferences,
-        ...refs.map((r) => ({ ...r, source })),
-      ]);
-      setActiveDrawer(null);
-    };
 
   const removeRef = (id: string) => {
     wizard.set(
@@ -177,35 +135,6 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
     setUrlInput("");
     setUrlPopoverOpen(false);
   };
-
-  const togglePin = (id: string) =>
-    setPinSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const closePinterest = () => {
-    setActiveDrawer(null);
-    setPinSelected(new Set());
-  };
-
-  const savePinterest = () => {
-    const refs: AttachedRef[] = MOCK_PINS.filter((p) => pinSelected.has(p.id)).map(
-      (p) => ({
-        id: p.id,
-        source: "pinterest",
-        label: p.label,
-        thumbnail: p.thumbnail,
-      }),
-    );
-    wizard.set("attachedReferences", [...state.attachedReferences, ...refs]);
-    closePinterest();
-  };
-
-  const railOpen =
-    activeDrawer !== null && activeDrawer !== "upload" && activeDrawer !== "url";
 
   const showInlineSend = state.ctaLayout === "inline";
 
@@ -346,83 +275,73 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
           </div>
 
           {/* Row 3 — meta toolbar: Model · Variations · Credits · (Variant A: inline Send) · CtaLayoutToggle */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-2">
-            {/* Model dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Model
-              </span>
-              <Popover open={modelOpen} onOpenChange={setModelOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-[11px] font-medium text-foreground hover:border-primary/40"
-                  >
-                    <span>{activeModel.emoji}</span>
-                    <span>{activeModel.name}</span>
-                    {activeModel.hint && (
-                      <span className="text-[10px] text-muted-foreground">
-                        · {activeModel.hint}
-                      </span>
-                    )}
-                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" side="top" className="w-72 p-1">
-                  {MODELS.map((m) => {
-                    const active = state.modelId === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          wizard.set("modelId", m.id);
-                          setModelOpen(false);
-                        }}
-                        className={cn(
-                          "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                          active ? "bg-primary/10 text-primary" : "hover:bg-muted",
-                        )}
-                      >
-                        <span className="text-base">{m.emoji}</span>
-                        <span className="font-semibold">{m.name}</span>
-                        {m.hint && (
-                          <span className="ml-auto text-xs text-muted-foreground">
-                            {m.hint}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Variations pills */}
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Variations
-              </span>
-              <div className="inline-flex rounded-full border border-border bg-background p-0.5">
-                {COUNTS.map((n) => {
-                  const active = state.count === n;
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
+            {/* Model dropdown — no eyebrow label, dropdown is self-explanatory */}
+            <Popover open={modelOpen} onOpenChange={setModelOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-[11px] font-medium text-foreground hover:border-primary/40"
+                >
+                  <span>{activeModel.emoji}</span>
+                  <span>{activeModel.name}</span>
+                  {activeModel.hint && (
+                    <span className="text-[10px] text-muted-foreground">
+                      · {activeModel.hint}
+                    </span>
+                  )}
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" side="top" className="w-72 p-1">
+                {MODELS.map((m) => {
+                  const active = state.modelId === m.id;
                   return (
                     <button
-                      key={n}
+                      key={m.id}
                       type="button"
-                      onClick={() => wizard.set("count", n)}
+                      onClick={() => {
+                        wizard.set("modelId", m.id);
+                        setModelOpen(false);
+                      }}
                       className={cn(
-                        "inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-mono text-[11px] font-semibold transition-colors",
-                        active
-                          ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:text-foreground",
+                        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
+                        active ? "bg-primary/10 text-primary" : "hover:bg-muted",
                       )}
                     >
-                      {n}
+                      <span className="text-base">{m.emoji}</span>
+                      <span className="font-semibold">{m.name}</span>
+                      {m.hint && (
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {m.hint}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
-              </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Variations pills — no eyebrow label, the pills self-explain */}
+            <div className="inline-flex rounded-full border border-border bg-background p-0.5">
+              {COUNTS.map((n) => {
+                const active = state.count === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => wizard.set("count", n)}
+                    className={cn(
+                      "inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-mono text-[11px] font-semibold transition-colors",
+                      active
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Credits chip */}
@@ -471,110 +390,9 @@ export function PromptReferenceBar({ wizard }: PromptReferenceBarProps) {
         />
       </div>
 
-      {/* Right-rail drawer — heavy sources */}
-      <RightRail open={railOpen} onClose={() => setActiveDrawer(null)}>
-        {activeDrawer === "library" && (
-          <LibraryColumnDrawer
-            onSave={handleSave("library")}
-            onCancel={() => setActiveDrawer(null)}
-          />
-        )}
-        {activeDrawer === "brand-winner-ads" && (
-          <BrandWinnerAdsDrawer
-            onSave={handleSave("brand-winner-ads")}
-            onCancel={() => setActiveDrawer(null)}
-          />
-        )}
-        {activeDrawer === "product-winner-ads" && (
-          <ProductWinnerAdsDrawer
-            onSave={handleSave("product-winner-ads")}
-            onCancel={() => setActiveDrawer(null)}
-          />
-        )}
-        {activeDrawer === "pinterest" && (
-          <div className="flex h-full flex-col">
-            <header className="shrink-0 flex items-center justify-between border-b border-border px-4 py-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground leading-tight">
-                  Pinterest
-                </h3>
-                <p className="text-[10px] text-muted-foreground leading-snug">
-                  Auto-fetched mood-board pins · click to attach
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closePinterest}
-                aria-label="Close pinterest"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </header>
-            <div className="flex-1 min-h-0 overflow-y-auto p-3">
-              <ul className="grid grid-cols-2 gap-3">
-                {MOCK_PINS.map((p) => {
-                  const isSelected = pinSelected.has(p.id);
-                  return (
-                    <li key={p.id}>
-                      <button
-                        type="button"
-                        onClick={() => togglePin(p.id)}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          "group relative flex w-full flex-col overflow-hidden rounded-md border bg-card text-left transition-colors",
-                          isSelected
-                            ? "border-primary ring-2 ring-primary/30"
-                            : "border-border hover:border-foreground/30",
-                        )}
-                      >
-                        <div className="relative aspect-square w-full overflow-hidden bg-muted">
-                          <img
-                            src={p.thumbnail}
-                            alt={p.label}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
-                        <div className="px-2 py-1.5">
-                          <div className="truncate text-xs font-medium text-foreground">
-                            {p.label}
-                          </div>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <footer className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-4 py-3">
-              <button
-                type="button"
-                onClick={closePinterest}
-                className="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={savePinterest}
-                disabled={pinSelected.size === 0}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity",
-                  "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
-                )}
-              >
-                Save
-                {pinSelected.size > 0 && (
-                  <span className="font-mono opacity-90">
-                    · {pinSelected.size}
-                  </span>
-                )}
-              </button>
-            </footer>
-          </div>
-        )}
-      </RightRail>
+      {/* Heavy attach sources (library / pinterest / brand-WA / product-WA)
+          are now hosted by Step4Configure's persistent right-rail column —
+          PromptReferenceBar delegates the open via `onAttachPickerOpen`. */}
     </>
   );
 }

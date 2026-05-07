@@ -1,5 +1,5 @@
-import { Sparkles } from "lucide-react";
 import { ModeCard } from "../components/ModeCard";
+import { HeroHeader } from "../components/HeroHeader";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step3Props {
@@ -45,24 +45,18 @@ const PRESET_MODES: {
 
 export function Step3Approach({ wizard }: Step3Props) {
   return (
-    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pt-8 pb-12">
+    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
       {/* Ambient backdrop */}
       <BackdropMesh />
 
-      {/* Hero header */}
-      <header className="relative space-y-3 text-center pt-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-primary font-bold">
-          <Sparkles className="h-3 w-3" />
-          Approach
-        </span>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">
-          What's your approach?
-        </h1>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          Pick how you want to build. Scratch is the full advanced flow. Other
-          modes are preset slices — coming soon.
-        </p>
-      </header>
+      {/* Hero header — compact, consistent across all steps */}
+      <div className="relative">
+        <HeroHeader
+          eyebrow="Approach"
+          title="What's your approach?"
+          subtitle="Pick how you want to build. Scratch is the full advanced flow."
+        />
+      </div>
 
       {/* Hero Scratch ModeCard */}
       <section className="relative">

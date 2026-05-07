@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { brands as ALL_BRANDS, products as ALL_PRODUCTS } from "@/mocks/shared";
+import { HeroHeader } from "../components/HeroHeader";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step2Props {
@@ -131,19 +132,13 @@ export function Step2Product({ wizard }: Step2Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-10">
-      {/* Header */}
-      <header className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">
-          What are you creating for?
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Pick a product, or stay broad with a category.{" "}
-          <span className="font-mono text-[11px] text-muted-foreground/80">
-            {categoryLabel} · {formatLabel}
-          </span>
-        </p>
-      </header>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
+      <HeroHeader
+        eyebrow="Setup"
+        title="What are you creating for?"
+        subtitle="Pick a product, or stay broad with a category."
+        breadcrumb={`${categoryLabel} · ${formatLabel}`}
+      />
 
       {/* Tab toggle — Product vs Category */}
       <div className="flex justify-center">
