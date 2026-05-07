@@ -45,7 +45,7 @@ export function AlphaProgressIndicator({
                 <span
                   className={cn(
                     "mx-1 mt-3 h-px flex-1",
-                    lineFilled ? "bg-primary/40" : "bg-border",
+                    lineFilled ? "bg-foreground/25" : "bg-border",
                   )}
                 />
               )}
@@ -64,7 +64,7 @@ export function AlphaProgressIndicator({
                     <Check className="h-3 w-3" strokeWidth={3} />
                   </span>
                 ) : isCurrent ? (
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-primary/30">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-foreground/90 text-background ring-2 ring-foreground/15">
                     <span className="font-mono text-[11px] font-bold">{s.num}</span>
                   </span>
                 ) : (

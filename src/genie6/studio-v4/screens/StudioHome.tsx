@@ -134,7 +134,7 @@ export function StudioHome({
   const canStart = mode !== null && format !== null;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-12 px-6 pt-10 pb-12">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 pt-14 pb-12">
       {/* ─── HERO ─── mode picker + format + Start CTA, elevated card */}
       <section className="relative">
         {/* Eyebrow + title — sits ABOVE the hero card, centered for the
@@ -153,9 +153,9 @@ export function StudioHome({
         </div>
 
         {/* Hero card — elevated chassis containing mode + format + start */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
+        <div className="rounded-2xl border border-border bg-card p-8 shadow-md">
           {/* Mode picker — 4-card grid */}
-          <div className="mb-5">
+          <div className="mb-6">
             <h2 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Mode
             </h2>
@@ -233,7 +233,10 @@ export function StudioHome({
         </div>
       </section>
 
-      {/* ─── DE-EMPHASIZED ─── Recent generations strip */}
+      {/* ─── SECONDARY ─── Recent + Drafts grouped together, visually subordinate */}
+      <div className="flex flex-col gap-6">
+
+      {/* Recent generations strip */}
       <section className="space-y-2">
         <div className="flex items-center gap-1.5">
           <Clock className="h-3 w-3 text-muted-foreground" />
@@ -284,7 +287,7 @@ export function StudioHome({
         </ul>
       </section>
 
-      {/* ─── DE-EMPHASIZED ─── Drafts strip — filled-form cards, no thumbs */}
+      {/* Drafts strip */}
       <section className="space-y-2">
         <div className="flex items-center gap-1.5">
           <FileText className="h-3 w-3 text-muted-foreground" />
@@ -340,6 +343,8 @@ export function StudioHome({
           ))}
         </ul>
       </section>
+
+      </div>{/* end secondary group */}
     </div>
   );
 }

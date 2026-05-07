@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { brands as ALL_BRANDS, products as ALL_PRODUCTS } from "@/mocks/shared";
+import { brands as ALL_BRANDS, products as ALL_PRODUCTS, categories as ALL_CATEGORIES } from "@/mocks/shared";
 import { HeroHeader } from "../components/HeroHeader";
 import type { UseWizardReturn } from "../state/useWizard";
 
@@ -27,57 +27,122 @@ interface Step2Props {
 type Tab = "product" | "category";
 
 /* ────────────────────────────────────────────────────────── *
- *  Real-image fallback for product thumbnails. The shared
- *  mocks/shared/products.ts has a `thumbnail?` field but none
- *  of the 60+ entries pass one — so all product cards used to
- *  show the Sparkles fallback. To make Studio look like a real
- *  working app, we map categoryId keywords to representative
- *  Unsplash photos (same source as sample-outputs.ts).
+ *  Image helpers — curated Unsplash photos for products and
+ *  categories. Specific to the actual Indian DTC verticals;
+ *  never generic stock.
  * ────────────────────────────────────────────────────────── */
-const u = (id: string) =>
-  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=400&q=70`;
+const u = (id: string, w = 400) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=75`;
 
-const CATEGORY_THUMB_BY_KEYWORD: { match: RegExp; url: string }[] = [
-  { match: /hair/i,                url: u("1631730486572-226d1f595b68") },
-  { match: /skin|face|serum/i,     url: u("1620916566398-39f1143ab7be") },
-  { match: /makeup|lip/i,          url: u("1586495777744-4413f21062fa") },
-  { match: /watch/i,               url: u("1617043786394-f977fa12eddf") },
-  { match: /audio|earbud|headphone|speaker/i, url: u("1606220588913-b3aacb4d2f46") },
-  { match: /mattress|bed|sleep/i,  url: u("1631049552057-403cdb8f0658") },
-  { match: /furniture|sofa/i,      url: u("1555041469-a586c61ea9bc") },
-  { match: /apparel|fashion|innerwear/i, url: u("1521572163474-6864f9cf17ab") },
-  { match: /sneaker|shoe|footwear/i, url: u("1542291026-7eec264c27ff") },
-  { match: /eyewear|glasses/i,     url: u("1574258495973-f010dfbb5371") },
-  { match: /jewell|diamond/i,      url: u("1599643478518-a784e5dc4c8f") },
-  { match: /beard|grooming/i,      url: u("1622286342621-4bd786c2447c") },
-  { match: /protein|nutrition|wellness/i, url: u("1610450949065-1f2841536c88") },
-  { match: /pet/i,                 url: u("1543466835-00a7907e9de1") },
-  { match: /food|snack|coffee|tea/i, url: u("1560472354-b33ff0c44a43") },
-  { match: /vitamin|supplement/i,  url: u("1556228720-195a672e8a03") },
-  { match: /travel|luggage/i,      url: u("1565620731358-7b6c1b95dadd") },
-  { match: /facewash/i,            url: u("1571781926291-c477ebfd024b") },
-  { match: /body/i,                url: u("1556228453-efd6c1ff04f6") },
+/** Category-id → curated Unsplash photo (editorial, category-specific) */
+const CATEGORY_IMAGES: Record<string, string> = {
+  "hair-care":          u("1631730486572-226d1f595b68"),
+  "hair-oil":           u("1631730486572-226d1f595b68"),
+  "hair-color":         u("1522337360826-84a329978e71"),
+  "anti-dandruff":      u("1631730486572-226d1f595b68"),
+  "skin-care":          u("1620916566398-39f1143ab7be"),
+  "anti-aging":         u("1556228720-195a672e8a03"),
+  "acne":               u("1571781926291-c477ebfd024b"),
+  "pigmentation":       u("1620916566398-39f1143ab7be"),
+  "sunscreen":          u("1556228453-efd6c1ff04f6"),
+  "body-care":          u("1556228453-efd6c1ff04f6"),
+  "foot-care":          u("1556228453-efd6c1ff04f6"),
+  "lip-care":           u("1586495777744-4413f21062fa"),
+  "baby-care":          u("1555252333-9f8e92e65df9"),
+  "mens-grooming":      u("1622286342621-4bd786c2447c"),
+  "beard-care":         u("1622286342621-4bd786c2447c"),
+  "oral-care":          u("1571781926291-c477ebfd024b"),
+  "personal-hygiene":   u("1556228720-195a672e8a03"),
+  "fragrance":          u("1563170352-4d82b0b55f4b"),
+  "makeup":             u("1586495777744-4413f21062fa"),
+  "makeup-lip":         u("1586495777744-4413f21062fa"),
+  "makeup-eye":         u("1531085258133-ffa7eb5cb5e9"),
+  "makeup-face":        u("1586495777744-4413f21062fa"),
+  "smartwatches":       u("1523275335684-37898b6baf30"),
+  "wireless-earbuds":   u("1590658268037-41d3fd70a5cb"),
+  "bluetooth-speakers": u("1589003077984-894e133dabab"),
+  "fitness-trackers":   u("1523275335684-37898b6baf30"),
+  "gaming-headsets":    u("1606220588913-b3aacb4d2f46"),
+  "smart-rings":        u("1523275335684-37898b6baf30"),
+  "mattresses":         u("1631049552057-403cdb8f0658"),
+  "pillows":            u("1631049552057-403cdb8f0658"),
+  "bedding":            u("1631049552057-403cdb8f0658"),
+  "wellness":           u("1610450949065-1f2841536c88"),
+  "vitamins":           u("1610450949065-1f2841536c88"),
+  "probiotics":         u("1610450949065-1f2841536c88"),
+  "apparel-casual":     u("1521572163474-6864f9cf17ab"),
+  "apparel-formal":     u("1594938298603-f98e1dfb7c9e"),
+  "apparel-ethnic":     u("1583391265465-7b0b43c6f68c"),
+  "streetwear":         u("1576566588028-4147f3842f27"),
+  "activewear":         u("1571019613454-1cb2f99b2d8b"),
+  "yoga":               u("1545389336-cf090694435a"),
+  "innerwear":          u("1521572163474-6864f9cf17ab"),
+  "sleepwear":          u("1521572163474-6864f9cf17ab"),
+  "sneakers":           u("1542291026-7eec264c27ff"),
+  "footwear-formal":    u("1542291026-7eec264c27ff"),
+  "sandals":            u("1542291026-7eec264c27ff"),
+  "eyewear-sunglasses": u("1574258495973-f010dfbb5371"),
+  "eyewear-optical":    u("1574258495973-f010dfbb5371"),
+  "jewellery-gold":     u("1599643478518-a784e5dc4c8f"),
+  "jewellery-silver":   u("1599643478518-a784e5dc4c8f"),
+  "diamond":            u("1599643478518-a784e5dc4c8f"),
+  "lab-diamond":        u("1599643478518-a784e5dc4c8f"),
+  "furniture-sofa":     u("1555041469-a586c61ea9bc"),
+  "furniture-bed":      u("1631049552057-403cdb8f0658"),
+  "kitchen-appliances": u("1556909114-f6e7ad7d3136"),
+  "cookware":           u("1556909114-f6e7ad7d3136"),
+  "pet-care":           u("1543466835-00a7907e9de1"),
+  "pet-food":           u("1543466835-00a7907e9de1"),
+  "travel-bags":        u("1565620731358-7b6c1b95dadd"),
+};
+
+function resolveCategoryThumb(categoryId: string): string {
+  return CATEGORY_IMAGES[categoryId] ?? u("1556228720-195a672e8a03");
+}
+
+/** Product keyword → curated photo. Prioritise thumbnail, then categoryId, then name. */
+const PRODUCT_THUMB_BY_KEYWORD: { match: RegExp; url: string }[] = [
+  { match: /hair/i,                   url: u("1631730486572-226d1f595b68") },
+  { match: /serum|glow|vit.?c/i,      url: u("1620916566398-39f1143ab7be") },
+  { match: /facewash|face.wash/i,      url: u("1571781926291-c477ebfd024b") },
+  { match: /lip/i,                     url: u("1586495777744-4413f21062fa") },
+  { match: /watch/i,                   url: u("1523275335684-37898b6baf30") },
+  { match: /earbud|airpod|tws/i,       url: u("1590658268037-41d3fd70a5cb") },
+  { match: /headphone|speaker/i,       url: u("1606220588913-b3aacb4d2f46") },
+  { match: /mattress|bed/i,            url: u("1631049552057-403cdb8f0658") },
+  { match: /sofa|furniture/i,          url: u("1555041469-a586c61ea9bc") },
+  { match: /t.?shirt|jeans|shirt/i,    url: u("1521572163474-6864f9cf17ab") },
+  { match: /sneaker|shoe/i,            url: u("1542291026-7eec264c27ff") },
+  { match: /eyewear|sunglass|glass/i,  url: u("1574258495973-f010dfbb5371") },
+  { match: /jewel|gold|diamond/i,      url: u("1599643478518-a784e5dc4c8f") },
+  { match: /beard|groom/i,             url: u("1622286342621-4bd786c2447c") },
+  { match: /vitamin|protein|supplement/i, url: u("1610450949065-1f2841536c88") },
+  { match: /pet/i,                     url: u("1543466835-00a7907e9de1") },
+  { match: /coffee|tea|snack|food/i,   url: u("1560472354-b33ff0c44a43") },
+  { match: /travel|luggage/i,          url: u("1565620731358-7b6c1b95dadd") },
+  { match: /skin|moistur|cream|body/i, url: u("1556228453-efd6c1ff04f6") },
 ];
 
 function resolveProductThumb(p: { thumbnail?: string; categoryId?: string; name: string }): string {
   if (p.thumbnail) return p.thumbnail;
-  const cat = p.categoryId ?? "";
+  // Try product name first (more specific), then categoryId
   const name = p.name.toLowerCase();
-  for (const { match, url } of CATEGORY_THUMB_BY_KEYWORD) {
-    if (match.test(cat) || match.test(name)) return url;
+  const cat = p.categoryId ?? "";
+  for (const { match, url } of PRODUCT_THUMB_BY_KEYWORD) {
+    if (match.test(name) || match.test(cat)) return url;
   }
-  // Generic fallback — a clean studio shot
+  // Category image as fallback (better than generic)
+  if (cat && CATEGORY_IMAGES[cat]) return CATEGORY_IMAGES[cat];
   return u("1556228720-195a672e8a03");
 }
 
-const CATEGORIES_PANEL: { id: string; emoji: string; name: string; desc: string }[] = [
-  { id: "c-life",    emoji: "🛡",  name: "Life Insurance",   desc: "Family · term · ULIP" },
-  { id: "c-home",    emoji: "🏠",  name: "Home Insurance",   desc: "Property · contents" },
-  { id: "c-credit",  emoji: "💳",  name: "Credit Cards",     desc: "Rewards · travel · fuel" },
-  { id: "c-mutual",  emoji: "📊",  name: "Mutual Funds",     desc: "SIP · ELSS · debt" },
-  { id: "c-auto",    emoji: "🚗",  name: "Auto Insurance",   desc: "Car · two-wheeler" },
-  { id: "c-health",  emoji: "🩺",  name: "Health Insurance", desc: "Family · senior · OPD" },
-];
+/**
+ * Top categories from canonical data — sorted by winner count (most
+ * generated for = most relevant). Show up to 30 in the default grid.
+ */
+const TOP_CATEGORIES = [...ALL_CATEGORIES]
+  .sort((a, b) => b.winnerCount - a.winnerCount)
+  .slice(0, 30);
 
 export function Step2Product({ wizard }: Step2Props) {
   const [tab, setTab] = useState<Tab>(
@@ -123,13 +188,21 @@ export function Step2Product({ wizard }: Step2Props) {
 
   const filteredCategories = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return CATEGORIES_PANEL;
-    return CATEGORIES_PANEL.filter(
+    if (!q) return TOP_CATEGORIES;
+    return ALL_CATEGORIES.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.desc.toLowerCase().includes(q),
-    );
+        c.instruction.toLowerCase().includes(q),
+    ).slice(0, 30);
   }, [search]);
+
+  /** Products inside the currently selected category (for drill-down) */
+  const categoryProducts = useMemo(() => {
+    if (!wizard.state.categoryId) return [];
+    return ALL_PRODUCTS.filter(
+      (p) => p.categoryId === wizard.state.categoryId,
+    ).slice(0, 20);
+  }, [wizard.state.categoryId]);
 
   const filteredBrandList = useMemo(() => {
     const term = brandSearch.trim().toLowerCase();
@@ -178,7 +251,7 @@ export function Step2Product({ wizard }: Step2Props) {
             onClick={() => switchTab("category")}
             icon={FolderOpen}
             label="Category"
-            count={CATEGORIES_PANEL.length}
+            count={ALL_CATEGORIES.length}
           />
         </div>
       </div>
@@ -365,15 +438,14 @@ export function Step2Product({ wizard }: Step2Props) {
               {filteredCategories.length}
               <span className="text-muted-foreground/60">
                 {" / "}
-                {CATEGORIES_PANEL.length}
+                {ALL_CATEGORIES.length}
               </span>
             </>
           )}
         </span>
       </div>
 
-      {/* Grid — no outer card frame (cards are inside the grid items
-          themselves; double-card pattern was visual noise). */}
+      {/* Grid — product tab or category tab with optional drill-down */}
       {tab === "product" ? (
         <ProductGrid
           products={filteredProducts}
@@ -384,14 +456,34 @@ export function Step2Product({ wizard }: Step2Props) {
           search={search}
         />
       ) : (
-        <CategoryGrid
-          categories={filteredCategories}
-          selectedId={wizard.state.categoryId}
-          onPick={(id) =>
-            wizard.patch({ categoryId: id, productId: null })
-          }
-          search={search}
-        />
+        <>
+          <CategoryGrid
+            categories={filteredCategories}
+            selectedId={wizard.state.categoryId}
+            onPick={(id) =>
+              wizard.patch({ categoryId: id, productId: null })
+            }
+            search={search}
+          />
+
+          {/* Drill-down: products in the selected category (optional pick) */}
+          {wizard.state.categoryId && categoryProducts.length > 0 && (
+            <CategoryProductsSection
+              categoryName={
+                ALL_CATEGORIES.find((c) => c.id === wizard.state.categoryId)
+                  ?.name ?? "Category"
+              }
+              products={categoryProducts}
+              selectedProductId={wizard.state.productId}
+              onPick={(id) =>
+                wizard.patch({
+                  productId: wizard.state.productId === id ? null : id,
+                  categoryId: wizard.state.categoryId,
+                })
+              }
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -539,8 +631,10 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
 /* ─────────────────────────────────────────────────────────── *
  *  Category grid — large emoji, name, description
  * ─────────────────────────────────────────────────────────── */
+type CategoryItem = { id: string; name: string; instruction: string };
+
 interface CategoryGridProps {
-  categories: typeof CATEGORIES_PANEL;
+  categories: CategoryItem[];
   selectedId: string | null;
   onPick: (id: string) => void;
   search: string;
@@ -559,8 +653,8 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
           </p>
           <p className="text-[11px] text-muted-foreground">
             {search
-              ? `Nothing matches "${search}". Try a different search.`
-              : "Add a custom category to continue."}
+              ? `Nothing matches "${search}". Try another keyword.`
+              : "No categories available."}
           </p>
         </div>
       </div>
@@ -570,30 +664,39 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
+        const thumb = resolveCategoryThumb(c.id);
         return (
           <li key={c.id}>
             <button
               type="button"
               onClick={() => onPick(c.id)}
               className={cn(
-                "relative flex h-full w-full flex-col items-start gap-2 rounded-xl border bg-background p-4 text-left transition-all",
+                "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
                 isSelected
                   ? "border-primary ring-2 ring-primary/30"
                   : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
               )}
             >
-              {isSelected && (
-                <span className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                  <Check className="h-3 w-3" strokeWidth={3} />
-                </span>
-              )}
-              <span className="text-3xl leading-none">{c.emoji}</span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">
+              {/* Category image */}
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                <img
+                  src={thumb}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                />
+                {/* Gradient overlay so text is readable */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                {isSelected && (
+                  <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+              </div>
+              {/* Name + hint */}
+              <div className="min-w-0 px-2.5 py-2">
+                <p className="truncate text-[13px] font-semibold text-foreground">
                   {c.name}
-                </p>
-                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                  {c.desc}
                 </p>
               </div>
             </button>
@@ -601,5 +704,96 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
         );
       })}
     </ul>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  CategoryProductsSection — shows products linked to the
+ *  selected category. Appears below the category grid when a
+ *  category is active. User can optionally pick a specific
+ *  product (sets both categoryId + productId) or skip.
+ * ─────────────────────────────────────────────────────────── */
+interface CategoryProductsSectionProps {
+  categoryName: string;
+  products: typeof ALL_PRODUCTS;
+  selectedProductId: string | null;
+  onPick: (id: string) => void;
+}
+
+function CategoryProductsSection({
+  categoryName,
+  products,
+  selectedProductId,
+  onPick,
+}: CategoryProductsSectionProps) {
+  return (
+    <div className="space-y-3">
+      {/* Section header */}
+      <div className="flex items-center gap-2">
+        <span className="h-px flex-1 bg-border" />
+        <div className="flex items-center gap-1.5">
+          <Package className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Products in {categoryName}
+          </span>
+          <span className="font-mono text-[9px] text-muted-foreground/60">
+            — optional
+          </span>
+        </div>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {products.map((p) => {
+          const isSelected = selectedProductId === p.id;
+          const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => onPick(p.id)}
+                className={cn(
+                  "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
+                  isSelected
+                    ? "border-primary ring-2 ring-primary/30"
+                    : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+                )}
+              >
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  <img
+                    src={resolveProductThumb(p)}
+                    alt={p.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                  />
+                  {brand?.logo && (
+                    <img
+                      src={brand.logo}
+                      alt={brand.name}
+                      className="absolute bottom-1.5 left-1.5 h-5 w-5 rounded bg-white/90 object-contain p-0.5 shadow-sm"
+                    />
+                  )}
+                  {isSelected && (
+                    <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                    </span>
+                  )}
+                </div>
+                <div className="px-2 pb-2 pt-1.5">
+                  <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                    {p.name}
+                  </p>
+                  {p.price && (
+                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                      {p.price}
+                    </p>
+                  )}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
