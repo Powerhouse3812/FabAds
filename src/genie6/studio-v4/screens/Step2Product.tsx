@@ -4,7 +4,6 @@ import {
   Building2,
   ChevronDown,
   Check,
-  Sparkles,
   Plus,
   Loader2,
   Package,
@@ -26,6 +25,50 @@ interface Step2Props {
 }
 
 type Tab = "product" | "category";
+
+/* ────────────────────────────────────────────────────────── *
+ *  Real-image fallback for product thumbnails. The shared
+ *  mocks/shared/products.ts has a `thumbnail?` field but none
+ *  of the 60+ entries pass one — so all product cards used to
+ *  show the Sparkles fallback. To make Studio look like a real
+ *  working app, we map categoryId keywords to representative
+ *  Unsplash photos (same source as sample-outputs.ts).
+ * ────────────────────────────────────────────────────────── */
+const u = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=400&q=70`;
+
+const CATEGORY_THUMB_BY_KEYWORD: { match: RegExp; url: string }[] = [
+  { match: /hair/i,                url: u("1631730486572-226d1f595b68") },
+  { match: /skin|face|serum/i,     url: u("1620916566398-39f1143ab7be") },
+  { match: /makeup|lip/i,          url: u("1586495777744-4413f21062fa") },
+  { match: /watch/i,               url: u("1617043786394-f977fa12eddf") },
+  { match: /audio|earbud|headphone|speaker/i, url: u("1606220588913-b3aacb4d2f46") },
+  { match: /mattress|bed|sleep/i,  url: u("1631049552057-403cdb8f0658") },
+  { match: /furniture|sofa/i,      url: u("1555041469-a586c61ea9bc") },
+  { match: /apparel|fashion|innerwear/i, url: u("1521572163474-6864f9cf17ab") },
+  { match: /sneaker|shoe|footwear/i, url: u("1542291026-7eec264c27ff") },
+  { match: /eyewear|glasses/i,     url: u("1574258495973-f010dfbb5371") },
+  { match: /jewell|diamond/i,      url: u("1599643478518-a784e5dc4c8f") },
+  { match: /beard|grooming/i,      url: u("1622286342621-4bd786c2447c") },
+  { match: /protein|nutrition|wellness/i, url: u("1610450949065-1f2841536c88") },
+  { match: /pet/i,                 url: u("1543466835-00a7907e9de1") },
+  { match: /food|snack|coffee|tea/i, url: u("1560472354-b33ff0c44a43") },
+  { match: /vitamin|supplement/i,  url: u("1556228720-195a672e8a03") },
+  { match: /travel|luggage/i,      url: u("1565620731358-7b6c1b95dadd") },
+  { match: /facewash/i,            url: u("1571781926291-c477ebfd024b") },
+  { match: /body/i,                url: u("1556228453-efd6c1ff04f6") },
+];
+
+function resolveProductThumb(p: { thumbnail?: string; categoryId?: string; name: string }): string {
+  if (p.thumbnail) return p.thumbnail;
+  const cat = p.categoryId ?? "";
+  const name = p.name.toLowerCase();
+  for (const { match, url } of CATEGORY_THUMB_BY_KEYWORD) {
+    if (match.test(cat) || match.test(name)) return url;
+  }
+  // Generic fallback — a clean studio shot
+  return u("1556228720-195a672e8a03");
+}
 
 const CATEGORIES_PANEL: { id: string; emoji: string; name: string; desc: string }[] = [
   { id: "c-life",    emoji: "🛡",  name: "Life Insurance",   desc: "Family · term · ULIP" },
@@ -329,30 +372,27 @@ export function Step2Product({ wizard }: Step2Props) {
         </span>
       </div>
 
-      {/* Single grid — switches by tab. The 'Don't see your product?'
-          footer block has been dropped — Fetch URL handles new products
-          and the category-add affordance is the toolbar's job. */}
-      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-        {tab === "product" ? (
-          <ProductGrid
-            products={filteredProducts}
-            selectedId={wizard.state.productId}
-            onPick={(id) =>
-              wizard.patch({ productId: id, categoryId: null })
-            }
-            search={search}
-          />
-        ) : (
-          <CategoryGrid
-            categories={filteredCategories}
-            selectedId={wizard.state.categoryId}
-            onPick={(id) =>
-              wizard.patch({ categoryId: id, productId: null })
-            }
-            search={search}
-          />
-        )}
-      </section>
+      {/* Grid — no outer card frame (cards are inside the grid items
+          themselves; double-card pattern was visual noise). */}
+      {tab === "product" ? (
+        <ProductGrid
+          products={filteredProducts}
+          selectedId={wizard.state.productId}
+          onPick={(id) =>
+            wizard.patch({ productId: id, categoryId: null })
+          }
+          search={search}
+        />
+      ) : (
+        <CategoryGrid
+          categories={filteredCategories}
+          selectedId={wizard.state.categoryId}
+          onPick={(id) =>
+            wizard.patch({ categoryId: id, productId: null })
+          }
+          search={search}
+        />
+      )}
     </div>
   );
 }
@@ -449,20 +489,14 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
                   : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
               )}
             >
-              {/* Image */}
+              {/* Image — real Unsplash fallback by category keyword */}
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                {p.thumbnail ? (
-                  <img
-                    src={p.thumbnail}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-muted-foreground/50" />
-                  </div>
-                )}
+                <img
+                  src={resolveProductThumb(p)}
+                  alt={p.name}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                />
                 {/* Brand chip top-left */}
                 {brand && (
                   <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
