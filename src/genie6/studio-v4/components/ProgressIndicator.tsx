@@ -22,20 +22,21 @@ const STEPS: { num: 1 | 2 | 3 | 4 | 5; label: string }[] = [
 ];
 
 /**
- * ProgressIndicator (A-12.4 redesign) — Stripe-faithful numbered-circle
- * stepper with connecting lines. 5 nodes total. Done steps are clickable
- * (back-nav guardrail), future steps are not.
+ * ProgressIndicator (A-12.5 consistency) — Stripe-faithful numbered-circle
+ * stepper with connecting lines. 5 nodes total. Visible on every step
+ * (including Step 5 "Output") so the indicator stays in the same place
+ * across the whole wizard. Done steps are clickable (back-nav guardrail);
+ * future steps are not.
  *
- * Hide rules unchanged:
- *   - step === 5
- *   - step === 4 && ctaLayout === "inline" (Step4TopBar replaces it in Variant A)
+ * Hide rules:
+ *   - step === 4 && ctaLayout === "inline" (Step4TopBar replaces it in
+ *     Variant A — that variant has its own top bar with progress pills)
  */
 export function ProgressIndicator({
   step,
   ctaLayout,
   onJumpTo,
 }: ProgressIndicatorProps) {
-  if (step === 5) return null;
   if (step === 4 && ctaLayout === "inline") return null;
 
   return (

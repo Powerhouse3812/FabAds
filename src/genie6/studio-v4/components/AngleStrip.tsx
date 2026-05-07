@@ -1,16 +1,24 @@
 import { Check, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ANGLE_IMAGES } from "../data/angle-images";
+import {
+  AngleMockup,
+  type AngleVariant,
+} from "../../generate-v3/forms/components/AngleMockup";
 
-const ANGLES: { id: string; label: string; desc: string }[] = [
-  { id: "hero",         label: "Hero Shot",     desc: "Clean, centered product on minimal background." },
-  { id: "lifestyle",    label: "Lifestyle",     desc: "Product in a real-world context with mood." },
-  { id: "social-proof", label: "Social Proof",  desc: "Testimonials & reviews framed as visuals." },
-  { id: "urgency",      label: "Urgency/Sale",  desc: "Limited-time, deal-driven framing." },
-  { id: "comparison",   label: "Comparison",    desc: "Side-by-side comparison vs alternatives." },
-  { id: "ugc-style",    label: "UGC Style",     desc: "Authentic, phone-shot creator look." },
-  { id: "unboxing",     label: "Unboxing",      desc: "First-impression reveal & detail shots." },
-  { id: "infographic",  label: "Infographic",   desc: "Data-driven, label-heavy explainer." },
+const ANGLES: {
+  id: string;
+  label: string;
+  desc: string;
+  mockup: AngleVariant;
+}[] = [
+  { id: "hero",         label: "Hero Shot",     desc: "Clean, centered product on minimal background.",    mockup: "founder-quote" },
+  { id: "lifestyle",    label: "Lifestyle",     desc: "Product in a real-world context with mood.",         mockup: "lifestyle" },
+  { id: "social-proof", label: "Social Proof",  desc: "Testimonials & reviews framed as visuals.",          mockup: "social-proof" },
+  { id: "urgency",      label: "Urgency/Sale",  desc: "Limited-time, deal-driven framing.",                 mockup: "fomo" },
+  { id: "comparison",   label: "Comparison",    desc: "Side-by-side comparison vs alternatives.",           mockup: "problem-solution" },
+  { id: "ugc-style",    label: "UGC Style",     desc: "Authentic, phone-shot creator look.",                mockup: "before-after" },
+  { id: "unboxing",     label: "Unboxing",      desc: "First-impression reveal & detail shots.",            mockup: "unboxing" },
+  { id: "infographic",  label: "Infographic",   desc: "Data-driven, label-heavy explainer.",                mockup: "bold-claim" },
 ];
 
 interface AngleStripProps {
@@ -48,7 +56,8 @@ export function AngleStrip({ selectedId, onPick }: AngleStripProps) {
         )}
       </div>
 
-      {/* Horizontal scroll-snap strip */}
+      {/* Horizontal scroll-snap strip — AngleMockup SVG per card (semantic
+          visualization, no random Unsplash photos) */}
       <div className="-mx-1 flex items-stretch gap-3 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
         {ANGLES.map((a) => {
           const active = selectedId === a.id;
@@ -64,13 +73,8 @@ export function AngleStrip({ selectedId, onPick }: AngleStripProps) {
                   : "border-border hover:border-primary/40 hover:-translate-y-0.5",
               )}
             >
-              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                <img
-                  src={ANGLE_IMAGES[a.id]}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
+              <div className="relative w-full">
+                <AngleMockup variant={a.mockup} selected={active} />
                 {active && (
                   <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                     <Check className="h-3 w-3" strokeWidth={3} />

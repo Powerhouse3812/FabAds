@@ -1,6 +1,6 @@
 import { Check, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CONCEPTS } from "../data/concepts";
+import { CONCEPTS, getConceptVisuals } from "../data/concepts";
 
 interface ConceptStripProps {
   selectedIds: string[];
@@ -42,10 +42,12 @@ export function ConceptStrip({
         )}
       </div>
 
-      {/* Horizontal scroll-snap strip */}
+      {/* Horizontal scroll-snap strip — thumbnails come from sample-outputs.ts
+          (real ad creatives, brand-tagged) instead of random Unsplash. */}
       <div className="-mx-1 flex items-stretch gap-3 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
         {CONCEPTS.map((concept) => {
           const active = selectedIds.includes(concept.id);
+          const visuals = getConceptVisuals(concept);
           return (
             <button
               key={concept.id}
@@ -59,12 +61,25 @@ export function ConceptStrip({
               )}
             >
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                <img
-                  src={concept.thumbnail}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
+                {visuals?.thumbnail ? (
+                  <img
+                    src={visuals.thumbnail}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-3xl">
+                    {concept.emoji}
+                  </div>
+                )}
+                {/* Brand chip overlay — bottom-left, communicates real-app
+                    Catalogue/Genie sync */}
+                {visuals?.brand && (
+                  <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+                    {visuals.brand}
+                  </span>
+                )}
                 {active && (
                   <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                     <Check className="h-3 w-3" strokeWidth={3} />

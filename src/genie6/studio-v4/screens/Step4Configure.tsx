@@ -12,14 +12,13 @@ import { AngleStrip } from "../components/AngleStrip";
 import { ConceptStrip } from "../components/ConceptStrip";
 import { PromptReferenceBar } from "../components/PromptReferenceBar";
 import { RightRail } from "../components/RightRail";
-import { RailDefault } from "../components/RailDefault";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
 
 export type RailMode =
-  | "default"
+  | null
   | "generate-concepts"
   | "library"
   | "pinterest"
@@ -41,7 +40,9 @@ const FORMAT_LABEL: Record<string, string> = {
 };
 
 export function Step4Configure({ wizard }: Step4Props) {
-  const [railMode, setRailMode] = useState<RailMode>("default");
+  // null = rail hidden (default). Set to a mode value when user triggers
+  // a heavy attach source or "Generate new concept".
+  const [railMode, setRailMode] = useState<RailMode>(null);
 
   const categoryLabel = wizard.state.category
     ? CATEGORY_LABEL[wizard.state.category]
@@ -53,18 +54,20 @@ export function Step4Configure({ wizard }: Step4Props) {
     wizard.state.productId ?? wizard.state.categoryId ?? "—";
   const breadcrumb = `${categoryLabel} · ${formatLabel} · ${productOrCategoryLabel}`;
 
-  // Rail picker save handler — routes by attach source
+  // Rail picker save handler — routes by attach source. Closing returns
+  // form to full width.
   const handleAttachSave =
     (source: AttachSource) => (refs: AttachedRef[]) => {
       wizard.set("attachedReferences", [
         ...wizard.state.attachedReferences,
         ...refs.map((r) => ({ ...r, source })),
       ]);
-      setRailMode("default");
+      setRailMode(null);
     };
-  const handleAttachCancel = () => setRailMode("default");
+  const handleAttachCancel = () => setRailMode(null);
 
-  // PromptReferenceBar's attach popover delegates here for heavy sources
+  // PromptReferenceBar's attach popover delegates here for heavy sources.
+  // Triggers the rail to slide in.
   const handleAttachPickerOpen = (source: AttachSource) => {
     if (
       source === "library" ||
@@ -81,9 +84,13 @@ export function Step4Configure({ wizard }: Step4Props) {
     <>
       {wizard.state.ctaLayout === "inline" && <Step4TopBar wizard={wizard} />}
 
-      {/* 2-column wrapper — form on left, persistent rail on right */}
-      <div className="mx-auto flex w-full max-w-7xl gap-4 px-6 pt-4 pb-6">
-        {/* Left: form column */}
+      {/* 2-column wrapper — form on left, on-demand rail on right.
+          When railMode === null the rail is unmounted entirely; the form
+          column gets the full width. min-h-full so the form fills the
+          scroll viewport (lets `mt-auto` push the prompt bar to the
+          bottom even when content is short). */}
+      <div className="mx-auto flex min-h-full w-full max-w-6xl gap-4 px-6 pt-4 pb-6">
+        {/* Left: form column — flex-col with mt-auto on prompt bar */}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <HeroHeader
             eyebrow="Configure"
@@ -103,47 +110,53 @@ export function Step4Configure({ wizard }: Step4Props) {
             onGenerateNew={() => setRailMode("generate-concepts")}
           />
 
-          <PromptReferenceBar
-            wizard={wizard}
-            onAttachPickerOpen={handleAttachPickerOpen}
-          />
+          {/* mt-auto pushes the prompt bar to the bottom of the form column
+              regardless of how much content sits above it. Empty space
+              fills naturally. */}
+          <div className="mt-auto">
+            <PromptReferenceBar
+              wizard={wizard}
+              onAttachPickerOpen={handleAttachPickerOpen}
+            />
+          </div>
         </div>
 
-        {/* Right: persistent rail */}
-        <RightRail>
-          {railMode === "default" && <RailDefault wizard={wizard} />}
-          {railMode === "generate-concepts" && (
-            <RailGenerateConcepts
-              selectedIds={wizard.state.selectedConceptIds}
-              onChange={(ids) => wizard.set("selectedConceptIds", ids)}
-              onClose={handleAttachCancel}
-            />
-          )}
-          {railMode === "library" && (
-            <LibraryColumnDrawer
-              onSave={handleAttachSave("library")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-          {railMode === "pinterest" && (
-            <PinterestRailPanel
-              onSave={handleAttachSave("pinterest")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-          {railMode === "brand-winner-ads" && (
-            <BrandWinnerAdsDrawer
-              onSave={handleAttachSave("brand-winner-ads")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-          {railMode === "product-winner-ads" && (
-            <ProductWinnerAdsDrawer
-              onSave={handleAttachSave("product-winner-ads")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-        </RightRail>
+        {/* Right: on-demand rail — only renders when a mode is active */}
+        {railMode !== null && (
+          <RightRail>
+            {railMode === "generate-concepts" && (
+              <RailGenerateConcepts
+                selectedIds={wizard.state.selectedConceptIds}
+                onChange={(ids) => wizard.set("selectedConceptIds", ids)}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "library" && (
+              <LibraryColumnDrawer
+                onSave={handleAttachSave("library")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "pinterest" && (
+              <PinterestRailPanel
+                onSave={handleAttachSave("pinterest")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "brand-winner-ads" && (
+              <BrandWinnerAdsDrawer
+                onSave={handleAttachSave("brand-winner-ads")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "product-winner-ads" && (
+              <ProductWinnerAdsDrawer
+                onSave={handleAttachSave("product-winner-ads")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+          </RightRail>
+        )}
       </div>
     </>
   );
