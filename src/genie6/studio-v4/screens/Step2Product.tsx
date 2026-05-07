@@ -101,6 +101,68 @@ function resolveCategoryThumb(categoryId: string): string {
   return CATEGORY_IMAGES[categoryId] ?? u("1556228720-195a672e8a03");
 }
 
+/** Category-id → emoji illustration (top 30+ Indian DTC verticals) */
+const CATEGORY_EMOJI: Record<string, string> = {
+  "hair-care":          "💇",
+  "hair-oil":           "🫒",
+  "hair-color":         "🎨",
+  "anti-dandruff":      "💆",
+  "skin-care":          "🧴",
+  "anti-aging":         "✨",
+  "acne":               "🧪",
+  "pigmentation":       "🌗",
+  "sunscreen":          "☀️",
+  "body-care":          "🧼",
+  "foot-care":          "🦶",
+  "lip-care":           "💋",
+  "baby-care":          "👶",
+  "mens-grooming":      "🪒",
+  "beard-care":         "🧔",
+  "oral-care":          "🪥",
+  "personal-hygiene":   "🧻",
+  "fragrance":          "🌸",
+  "makeup":             "💄",
+  "makeup-lip":         "💋",
+  "makeup-eye":         "👁️",
+  "makeup-face":        "💄",
+  "smartwatches":       "⌚",
+  "wireless-earbuds":   "🎧",
+  "bluetooth-speakers": "🔊",
+  "fitness-trackers":   "⌚",
+  "gaming-headsets":    "🎮",
+  "smart-rings":        "💍",
+  "mattresses":         "🛏️",
+  "pillows":            "🛌",
+  "bedding":            "🛏️",
+  "wellness":           "🌿",
+  "vitamins":           "💊",
+  "probiotics":         "🦠",
+  "apparel-casual":     "👕",
+  "apparel-formal":     "👔",
+  "apparel-ethnic":     "🥻",
+  "streetwear":         "🧢",
+  "activewear":         "🏃",
+  "yoga":               "🧘",
+  "innerwear":          "🩲",
+  "sleepwear":          "🌙",
+  "sneakers":           "👟",
+  "footwear-formal":    "👞",
+  "sandals":            "🩴",
+  "eyewear-sunglasses": "🕶️",
+  "eyewear-optical":    "👓",
+  "jewellery-gold":     "💍",
+  "jewellery-silver":   "💎",
+  "diamond":            "💎",
+  "lab-diamond":        "💎",
+  "furniture-sofa":     "🛋️",
+  "furniture-bed":      "🛏️",
+  "kitchen-appliances": "🍳",
+  "cookware":           "🍲",
+  "pet-care":           "🐾",
+  "pet-food":           "🦴",
+  "travel-bags":        "🧳",
+};
+
 /** Product keyword → curated photo. Prioritise thumbnail, then categoryId, then name. */
 const PRODUCT_THUMB_BY_KEYWORD: { match: RegExp; url: string }[] = [
   { match: /hair/i,                   url: u("1631730486572-226d1f595b68") },
@@ -233,7 +295,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title="What are you creating for?" />
 
       {/* Tab toggle — Product vs Category */}
@@ -459,19 +521,20 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
           }}
           search={search}
         />
-      ) : (
-        <>
-          <CategoryGrid
-            categories={filteredCategories}
-            selectedId={wizard.state.categoryId}
-            onPick={(id) =>
-              wizard.patch({ categoryId: id, productId: null })
-            }
-            search={search}
-          />
-
-          {/* Drill-down: products in the selected category (optional pick) */}
-          {wizard.state.categoryId && (
+      ) : wizard.state.categoryId ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div>
+            <CategoryGrid
+              categories={filteredCategories}
+              selectedId={wizard.state.categoryId}
+              onPick={(id) =>
+                wizard.patch({ categoryId: id, productId: null })
+              }
+              search={search}
+              compact
+            />
+          </div>
+          <div>
             <CategoryProductsSection
               categoryName={
                 ALL_CATEGORIES.find((c) => c.id === wizard.state.categoryId)
@@ -491,8 +554,17 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
                 onAdvance();
               }}
             />
-          )}
-        </>
+          </div>
+        </div>
+      ) : (
+        <CategoryGrid
+          categories={filteredCategories}
+          selectedId={wizard.state.categoryId}
+          onPick={(id) =>
+            wizard.patch({ categoryId: id, productId: null })
+          }
+          search={search}
+        />
       )}
 
       {showFetchModal && fetchedProduct && (
@@ -640,17 +712,52 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
                 <p className="truncate text-xs font-semibold text-foreground">
                   {p.name}
                 </p>
-                {p.price && (
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    {p.price}
-                  </p>
-                )}
+                <ProductDetailLine
+                  benefits={p.benefits}
+                  promo={p.promo}
+                  generatedCount={p.generatedCount}
+                />
               </div>
             </button>
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  Shared product card detail line — primary benefit (or promo
+ *  fallback) plus a small mono pill showing run count. Used in
+ *  both ProductGrid and CategoryProductsSection.
+ * ─────────────────────────────────────────────────────────── */
+function ProductDetailLine({
+  benefits,
+  promo,
+  generatedCount,
+}: {
+  benefits?: string[];
+  promo?: string;
+  generatedCount?: number;
+}) {
+  const primary = (benefits && benefits[0]) || promo || null;
+  const truncated =
+    primary && primary.length > 50 ? `${primary.slice(0, 49).trimEnd()}…` : primary;
+  const showCount = typeof generatedCount === "number" && generatedCount > 0;
+  if (!truncated && !showCount) return null;
+  return (
+    <>
+      {truncated && (
+        <p className="line-clamp-2 text-[10px] text-muted-foreground leading-tight">
+          {truncated}
+        </p>
+      )}
+      {showCount && (
+        <span className="mt-0.5 inline-flex w-fit items-center font-mono text-[10px] text-muted-foreground/80">
+          · {generatedCount} runs
+        </span>
+      )}
+    </>
   );
 }
 
@@ -664,9 +771,17 @@ interface CategoryGridProps {
   selectedId: string | null;
   onPick: (id: string) => void;
   search: string;
+  /** When true, render in narrower split-layout column (1 col → 2 col) */
+  compact?: boolean;
 }
 
-function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridProps) {
+function CategoryGrid({
+  categories,
+  selectedId,
+  onPick,
+  search,
+  compact = false,
+}: CategoryGridProps) {
   if (categories.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 px-3 py-12 text-center">
@@ -687,7 +802,14 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
     );
   }
   return (
-    <div className="flex flex-wrap gap-2">
+    <div
+      className={cn(
+        "grid gap-2",
+        compact
+          ? "grid-cols-1 sm:grid-cols-2"
+          : "grid-cols-2 sm:grid-cols-3",
+      )}
+    >
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
         return (
@@ -696,14 +818,29 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
             type="button"
             onClick={() => onPick(c.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all",
+              "flex min-h-[72px] items-center gap-2 rounded-xl border p-3 text-left backdrop-blur-sm transition-all",
               isSelected
-                ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30"
-                : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/50",
+                ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                : "border-border/40 bg-card/60 hover:border-foreground/20 hover:bg-card/80",
             )}
           >
-            {isSelected && <Check className="h-3 w-3 shrink-0" strokeWidth={3} />}
-            {c.name}
+            <span className="shrink-0 text-xl" aria-hidden>
+              {CATEGORY_EMOJI[c.id] ?? "📦"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-semibold text-foreground">
+                {c.name}
+              </p>
+              <p className="line-clamp-1 text-[10px] text-muted-foreground">
+                {c.instruction}
+              </p>
+            </div>
+            {isSelected && (
+              <Check
+                className="h-3 w-3 shrink-0 text-primary"
+                strokeWidth={3}
+              />
+            )}
           </button>
         );
       })}
@@ -735,25 +872,21 @@ function CategoryProductsSection({
   return (
     <div className="space-y-3">
       {/* Section header */}
-      <div className="flex items-center gap-2">
-        <span className="h-px flex-1 bg-border" />
-        <div className="flex items-center gap-1.5">
-          <Package className="h-3 w-3 text-muted-foreground" />
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Products in {categoryName}
-          </span>
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Skip — continue without a product →
-          </button>
-          <span className="font-mono text-[9px] text-muted-foreground/60">
-            — optional
-          </span>
-        </div>
-        <span className="h-px flex-1 bg-border" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Package className="h-3 w-3 text-muted-foreground" />
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Products in {categoryName}
+        </span>
+        <span className="font-mono text-[9px] text-muted-foreground/60">
+          — optional
+        </span>
+        <button
+          type="button"
+          onClick={onSkip}
+          className="ml-auto text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Skip — continue without a product →
+        </button>
       </div>
 
       {products.length === 0 ? (
@@ -761,7 +894,7 @@ function CategoryProductsSection({
           No products in this category
         </p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-3 pr-1 sm:grid-cols-2">
           {products.map((p) => {
             const isSelected = selectedProductId === p.id;
             const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
@@ -801,11 +934,11 @@ function CategoryProductsSection({
                     <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
                       {p.name}
                     </p>
-                    {p.price && (
-                      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                        {p.price}
-                      </p>
-                    )}
+                    <ProductDetailLine
+                      benefits={p.benefits}
+                      promo={p.promo}
+                      generatedCount={p.generatedCount}
+                    />
                   </div>
                 </button>
               </li>

@@ -10,47 +10,78 @@ import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step5Props {
   wizard: UseWizardReturn;
-  /** Done flag — owned by StudioV4 so WizardNav footer can disable
-   *  Generate again / Save batch until generation completes. */
   done: boolean;
-  /** Bumped by StudioV4 when user clicks "Generate again" — used as a
-   *  reset key to clear local selection / preview state. */
   regenKey: number;
   onGenerateAgain: () => void;
   onSaveBatch: () => void;
   onStartOver: () => void;
 }
 
+/** Default concept labels when the user hasn't picked specific concepts. */
+const DEFAULT_CONCEPT_LABELS = [
+  "Hero Shot",
+  "Lifestyle",
+  "Social Proof",
+  "Urgency",
+  "Comparison",
+  "Feature Highlight",
+  "Before / After",
+  "Unboxing",
+];
+
+const ANGLE_LABEL: Record<string, string> = {
+  hero: "Hero Shot",
+  lifestyle: "Lifestyle",
+  "social-proof": "Social Proof",
+  urgency: "Urgency",
+  comparison: "Comparison",
+  "ugc-style": "UGC Style",
+  unboxing: "Unboxing",
+  infographic: "Infographic",
+};
+
 /**
- * Step5Results — Genie 5 adcopy / Meta-ad style results screen.
+ * Step5Results — A-12.18 concept-wise rows redesign.
  *
- * Pulls realistic ad data from `mocks/sample-outputs.ts` (sorted by
- * qualityScore desc, sliced to the user's variants count). Renders
- * Meta-ad cards via OutputCardHybrid. Multi-select with BulkToolbar
- * (slides in when 2+ selected). Click a card → PreviewPane slides in
- * 320px on the right with full details + actions.
- *
- * Action footer (Generate again / Save batch / Start over) lives in
- * WizardNav for consistency — same footer chassis as the other steps.
+ * Outputs are grouped by CONCEPT — each concept gets its own horizontal row
+ * containing all its variations side-by-side. Multiple concepts stack
+ * vertically. Reference: per Maalik's screenshot — Genie 5 ad-card style.
  */
 export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBatch, onStartOver }: Step5Props) {
   const totalOutputs = wizard.state.credits;
+  const variations = wizard.state.count;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
 
-  // Reset local selection / preview when generation restarts.
   useEffect(() => {
     setSelectedIds(new Set());
     setPreviewId(null);
   }, [regenKey]);
 
-  // Pick `totalOutputs` realistic outputs from sample-outputs.ts.
-  // Sorted by qualityScore desc for top-N feel.
   const outputs = useMemo(() => {
     const all = sampleOutputs.slice();
     all.sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0));
     return all.slice(0, totalOutputs);
   }, [totalOutputs]);
+
+  /** Group outputs into concept rows. Each concept = 1 chunk of `variations` outputs. */
+  const conceptRows = useMemo(() => {
+    const conceptCount = Math.max(1, Math.round(totalOutputs / Math.max(variations, 1)));
+    const angleLabel = wizard.state.angleId ? ANGLE_LABEL[wizard.state.angleId] : null;
+
+    const rows: { id: string; label: string; outputs: typeof outputs }[] = [];
+    for (let i = 0; i < conceptCount; i++) {
+      const start = i * variations;
+      const chunk = outputs.slice(start, start + variations);
+      if (chunk.length === 0) break;
+      const label =
+        i === 0 && angleLabel
+          ? angleLabel
+          : DEFAULT_CONCEPT_LABELS[i] ?? `Concept ${i + 1}`;
+      rows.push({ id: `concept-${i}`, label, outputs: chunk });
+    }
+    return rows;
+  }, [outputs, totalOutputs, variations, wizard.state.angleId]);
 
   const selectedOutputs = useMemo(
     () => outputs.filter((o) => selectedIds.has(o.id)),
@@ -73,12 +104,11 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
   const clearSelection = () => setSelectedIds(new Set());
 
   const handleAction = (output: OutputData, action: EllipsisAction) => {
-    // Stub — log to console; real wiring is a follow-up
     console.log(`[Step5] ${action}`, output.id);
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pt-8 pb-10">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />
 
       {/* Loader chip — shown only while !done */}
@@ -104,27 +134,46 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
         />
       )}
 
-      {/* Grid of Meta-ad-styled output cards */}
-      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {outputs.map((output) => (
-          <li key={output.id}>
-            {done ? (
-              <OutputCardHybrid
-                output={output}
-                selected={selectedIds.has(output.id)}
-                onToggleSelect={() => toggleSelect(output.id)}
-                onClick={() => setPreviewId(output.id)}
-                onSave={() => handleAction(output, "saveAsConcept")}
-                onLaunch={() => console.log("[Step5] launch", output.id)}
-                onDownload={() => handleAction(output, "downloadMediaOnly")}
-                onAction={(a) => handleAction(output, a)}
-              />
-            ) : (
-              <SkeletonCard />
-            )}
-          </li>
+      {/* Concept-wise rows — each concept = 1 horizontal row of variations */}
+      <div className="space-y-8">
+        {conceptRows.map((row, rowIdx) => (
+          <section key={row.id} className="space-y-3">
+            {/* Concept row header */}
+            <div className="flex items-baseline gap-2 px-1">
+              <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
+                {row.label}
+              </h3>
+              <span className="font-mono text-[10px] text-muted-foreground/60">
+                · {row.outputs.length} variation{row.outputs.length === 1 ? "" : "s"}
+              </span>
+              <span className="ml-auto font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">
+                Concept {rowIdx + 1}
+              </span>
+            </div>
+            {/* Variations grid — adapts to count, max 4 per row */}
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {row.outputs.map((output) => (
+                <li key={output.id}>
+                  {done ? (
+                    <OutputCardHybrid
+                      output={output}
+                      selected={selectedIds.has(output.id)}
+                      onToggleSelect={() => toggleSelect(output.id)}
+                      onClick={() => setPreviewId(output.id)}
+                      onSave={() => handleAction(output, "saveAsConcept")}
+                      onLaunch={() => console.log("[Step5] launch", output.id)}
+                      onDownload={() => handleAction(output, "downloadMediaOnly")}
+                      onAction={(a) => handleAction(output, a)}
+                    />
+                  ) : (
+                    <SkeletonCard />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
 
       {/* PreviewPane — overlay (not a flex column) */}
       {previewOutput && (
@@ -140,7 +189,7 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
 
       {/* Batch actions row */}
       {done && (
-        <div className="flex items-center justify-between border-t border-border pt-4">
+        <div className="flex items-center justify-between border-t border-border/40 pt-4">
           <button
             type="button"
             onClick={onStartOver}
@@ -153,7 +202,7 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
               type="button"
               onClick={onGenerateAgain}
               disabled={!done}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30 hover:bg-background/70 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Regenerate
             </button>
@@ -161,7 +210,7 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
               type="button"
               onClick={onSaveBatch}
               disabled={!done}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-md shadow-primary/20 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save batch
             </button>

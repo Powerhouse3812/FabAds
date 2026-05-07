@@ -1,7 +1,6 @@
-import { useMemo } from "react";
-import { Sparkles, Clock, FileText } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Sparkles, Clock, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { sampleOutputs } from "../../mocks/sample-outputs";
 
 export type AlphaMode =
   | "product-shoot"
@@ -63,52 +62,81 @@ const MODES: ModeOption[] = [
   },
 ];
 
-interface DraftItem {
+type HistoryStatus = "draft" | "completed";
+
+interface HistoryItem {
   id: string;
+  status: HistoryStatus;
   title: string;
   brand: string;
   mode: string;
   format: "Image" | "Video";
-  editedAgo: string;
-  /** Cumulative completion of the draft fields (for the progress chip) */
-  completion: number;
+  ago: string;
+  /** Drafts only — % of fields filled */
+  completion?: number;
+  /** Completeds only — number of variants generated */
+  outputCount?: number;
 }
 
-const DRAFTS: DraftItem[] = [
+const HISTORY: HistoryItem[] = [
   {
-    id: "d-1",
+    id: "h-c1",
+    status: "completed",
     title: "Mamaearth · Vit C Serum",
     brand: "Mamaearth",
     mode: "Product Ad",
     format: "Image",
-    editedAgo: "1h ago",
-    completion: 80,
+    ago: "2h ago",
+    outputCount: 12,
   },
   {
-    id: "d-2",
+    id: "h-d1",
+    status: "draft",
     title: "Noise · ColorFit Pro 5",
     brand: "Noise",
     mode: "Product Ad",
     format: "Video",
-    editedAgo: "Yesterday",
+    ago: "1h ago",
     completion: 60,
   },
   {
-    id: "d-3",
-    title: "Boat · Airdopes 161",
+    id: "h-c2",
+    status: "completed",
+    title: "Boat · Airdopes 161 Pro",
     brand: "Boat",
-    mode: "Brand Ad",
-    format: "Image",
-    editedAgo: "2 days ago",
-    completion: 40,
+    mode: "Product Ad",
+    format: "Video",
+    ago: "Yesterday",
+    outputCount: 8,
   },
   {
-    id: "d-4",
+    id: "h-d2",
+    status: "draft",
     title: "Sleepyhead · Original Mattress",
     brand: "Sleepyhead",
     mode: "Performance Ad",
     format: "Image",
-    editedAgo: "3 days ago",
+    ago: "Yesterday",
+    completion: 40,
+  },
+  {
+    id: "h-c3",
+    status: "completed",
+    title: "Plum · Niacinamide Serum",
+    brand: "Plum",
+    mode: "Brand Ad",
+    format: "Image",
+    ago: "2 days ago",
+    outputCount: 16,
+  },
+  {
+    id: "h-d3",
+    status: "draft",
+    title: "WOW · Apple Cider Shampoo",
+    brand: "WOW",
+    mode: "Product Ad",
+    format: "Image",
+    ago: "3 days ago",
     completion: 20,
   },
 ];
@@ -125,30 +153,15 @@ const DRAFTS: DraftItem[] = [
  * yet) — they're rendered as filled-form-data cards showing brand,
  * mode, format, completion progress, and edit timestamp.
  */
-export function StudioHome({ onStart }: StudioHomeProps) {
-  const historyItems = useMemo(() => {
-    type GenerationItem = {
-      type: "generation";
-      id: string;
-      headline: string;
-      thumbnail?: string;
-      time: string;
-    };
-    type DraftHistoryItem = DraftItem & { type: "draft" };
+type FilterValue = "all" | "draft" | "completed";
 
-    const gens: GenerationItem[] = sampleOutputs.slice(0, 3).map((o) => ({
-      type: "generation" as const,
-      id: o.id,
-      headline: o.headline ?? "Untitled",
-      thumbnail: o.thumbnail,
-      time: "2h ago",
-    }));
-    const drafts: DraftHistoryItem[] = DRAFTS.map((d) => ({
-      type: "draft" as const,
-      ...d,
-    }));
-    return [...gens, ...drafts];
-  }, []);
+export function StudioHome({ onStart }: StudioHomeProps) {
+  const [filter, setFilter] = useState<FilterValue>("all");
+
+  const filteredHistory = useMemo(
+    () => (filter === "all" ? HISTORY : HISTORY.filter((h) => h.status === filter)),
+    [filter],
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 pt-14 pb-12">
@@ -211,13 +224,35 @@ export function StudioHome({ onStart }: StudioHomeProps) {
         </div>
       </section>
 
-      {/* ─── HISTORY ─── Combined recent generations + drafts */}
-      <section className="space-y-2">
-        <div className="flex items-center gap-1.5">
+      {/* ─── HISTORY ─── Config-only cards with status tags + filter pills */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
           <Clock className="h-3 w-3 text-muted-foreground" />
           <h2 className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             History
           </h2>
+          {/* Filter pills */}
+          <div className="ml-2 inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
+            {(["all", "draft", "completed"] as const).map((f) => {
+              const active = filter === f;
+              const label = f === "all" ? "Both" : f === "draft" ? "Draft" : "Completed";
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
+                    active
+                      ? "bg-foreground/[0.08] text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
             className="ml-auto text-[10px] font-medium text-muted-foreground hover:text-foreground"
@@ -225,94 +260,96 @@ export function StudioHome({ onStart }: StudioHomeProps) {
             View all →
           </button>
         </div>
-        <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
-          {historyItems.map((item) =>
-            item.type === "generation" ? (
-              <GenerationCard key={item.id} item={item} />
-            ) : (
-              <DraftCard key={item.id} item={item} />
-            ),
-          )}
-        </ul>
+        {filteredHistory.length === 0 ? (
+          <p className="py-6 text-center text-[12px] text-muted-foreground">
+            No {filter === "all" ? "" : filter} history yet
+          </p>
+        ) : (
+          <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+            {filteredHistory.map((item) => (
+              <HistoryCard key={item.id} item={item} />
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );
 }
 
-function GenerationCard({
-  item,
-}: {
-  item: { id: string; headline: string; thumbnail?: string; time: string };
-}) {
+/* ────────────────────────────────────────────────────────── *
+ *  HistoryCard — unified config-only snapshot.
+ *  No thumbnail. Status tag (Draft/Completed) differentiates.
+ *  Drafts: completion bar. Completeds: output count.
+ * ────────────────────────────────────────────────────────── */
+function HistoryCard({ item }: { item: HistoryItem }) {
+  const isCompleted = item.status === "completed";
   return (
-    <li className="snap-start shrink-0 w-[110px]">
+    <li className="snap-start shrink-0 w-[200px]">
       <button
         type="button"
-        className="group flex w-full flex-col gap-1 overflow-hidden rounded-lg border border-border/60 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+        className={cn(
+          "group flex h-full w-full flex-col gap-2 rounded-xl p-3 text-left transition-all backdrop-blur-sm",
+          isCompleted
+            ? "border border-border/60 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+            : "border border-dashed border-border/60 bg-card/30 hover:border-foreground/20 hover:bg-card/60",
+        )}
       >
-        <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-          {item.thumbnail ? (
-            <img
-              src={item.thumbnail}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Sparkles className="h-4 w-4 text-muted-foreground/50" />
-            </div>
-          )}
-        </div>
-        <div className="px-1.5 pb-1 pt-0.5">
-          <p className="truncate text-[10px] font-semibold text-foreground">
-            {item.headline}
-          </p>
-          <p className="font-mono text-[9px] text-muted-foreground">{item.time}</p>
-        </div>
-      </button>
-    </li>
-  );
-}
-
-function DraftCard({ item }: { item: DraftItem & { type: "draft" } }) {
-  return (
-    <li className="snap-start shrink-0 w-[180px]">
-      <button
-        type="button"
-        className="group flex h-full w-full flex-col gap-1.5 rounded-lg border border-dashed border-border bg-card/40 p-3 text-left transition-all hover:border-primary/40 hover:bg-card"
-      >
+        {/* Status tag + time */}
         <div className="flex items-center gap-1.5">
-          <FileText className="h-3 w-3 text-muted-foreground" />
-          <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-            Draft · {item.editedAgo}
+          {isCompleted ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
+              <CheckCircle2 className="h-2.5 w-2.5" />
+              Completed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              Draft
+            </span>
+          )}
+          <span className="ml-auto font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
+            {item.ago}
           </span>
         </div>
+
+        {/* Title */}
         <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
           {item.title}
         </p>
+
+        {/* Config chips */}
         <div className="flex flex-wrap items-center gap-1">
-          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
+          <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
             {item.brand}
           </span>
-          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
+          <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
             {item.mode}
           </span>
-          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
+          <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
             {item.format}
           </span>
         </div>
+
+        {/* Stats footer — drafts: completion %, completeds: output count */}
         <div className="mt-auto space-y-0.5">
-          <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-            <span>Filled</span>
-            <span>{item.completion}%</span>
-          </div>
-          <div className="h-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary"
-              style={{ width: `${item.completion}%` }}
-            />
-          </div>
+          {isCompleted ? (
+            <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              <span>Outputs</span>
+              <span className="font-bold text-foreground">{item.outputCount}</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                <span>Filled</span>
+                <span>{item.completion}%</span>
+              </div>
+              <div className="h-1 overflow-hidden rounded-full bg-muted/60">
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${item.completion}%` }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </button>
     </li>

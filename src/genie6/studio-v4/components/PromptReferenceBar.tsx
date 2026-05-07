@@ -57,7 +57,6 @@ const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
   { id: "genie-labs", emoji: "🧪", name: "Genie Labs", hint: "Experimental" },
 ];
 
-const COUNTS = [1, 2, 4, 8] as const;
 const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 
 const ANGLE_CHIP_LABEL: Record<string, string> = {
@@ -202,13 +201,13 @@ export function PromptReferenceBar({
               <span aria-hidden className="mx-1 h-3.5 w-px bg-border/50" />
               <ToggleChip
                 icon={<BookOpen className="h-3 w-3" />}
-                label="Brand"
+                label="Brand Guidelines"
                 active={state.useBrandGuidelines}
                 onClick={() => wizard.set("useBrandGuidelines", !state.useBrandGuidelines)}
               />
               <ToggleChip
                 icon={<Database className="h-3 w-3" />}
-                label="KB"
+                label="Knowledge Base"
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
@@ -360,27 +359,22 @@ export function PromptReferenceBar({
               </PopoverContent>
             </Popover>
 
-            {/* Variations — segmented */}
-            <Segmented
-              options={COUNTS as unknown as readonly (string | number)[]}
+            {/* Variations — number stepper input */}
+            <NumberStepper
+              label="Variations"
               value={state.count}
-              onChange={(n) => wizard.set("count", Number(n))}
-              renderLabel={(n) => `${n}×`}
+              onChange={(n) => wizard.set("count", n)}
+              min={1}
+              max={20}
             />
 
-            {/* Aspect ratio — segmented (same DNA as variations) */}
-            <Segmented
-              options={RATIOS}
+            {/* Aspect ratio — popover (minimal, not segmented) */}
+            <AspectRatioPopover
               value={state.aspectRatio}
-              onChange={(r) => wizard.set("aspectRatio", r as typeof RATIOS[number])}
+              onChange={(r) => wizard.set("aspectRatio", r)}
             />
 
-            {/* Credits — minimal text only, no chip bg */}
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {state.credits} cr
-            </span>
-
-            {/* Generate — only colored element */}
+            {/* Generate — credits inline in label */}
             {showInlineSend && (
               <button
                 type="button"
@@ -395,6 +389,9 @@ export function PromptReferenceBar({
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Generate
+                <span className="font-mono text-[10px] font-medium opacity-80">
+                  ({state.credits} {state.credits === 1 ? "credit" : "credits"})
+                </span>
               </button>
             )}
 
@@ -449,8 +446,11 @@ function RefChip({
 }
 
 /* ────────────────────────────────────────────────────────── *
- *  ToggleChip — Brand Guidelines / KB toggle pill.
- *  Active = subtle muted-tinted bg. Off = line-through, no scream.
+ *  ToggleChip — Brand Guidelines / Knowledge Base on-off pill.
+ *  Visible state indicators so it reads clearly AS a toggle:
+ *    - Tiny status dot (lime-on / muted-off)
+ *    - Title attribute reads "{label} · ON" / "{label} · OFF"
+ *    - Active = subtle tint; Off = line-through + dimmed
  * ────────────────────────────────────────────────────────── */
 function ToggleChip({
   icon,
@@ -467,55 +467,149 @@ function ToggleChip({
     <button
       type="button"
       onClick={onClick}
+      role="switch"
+      aria-checked={active}
+      title={`${label} · ${active ? "ON" : "OFF"} — click to toggle`}
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-all",
+        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-all",
         active
           ? "border-foreground/20 bg-foreground/[0.06] text-foreground"
-          : "border-border/40 bg-background/30 text-muted-foreground/60 line-through hover:text-muted-foreground",
+          : "border-border/40 bg-background/30 text-muted-foreground/60 hover:text-muted-foreground",
       )}
     >
+      {/* Status dot — clear visual signal for ON/OFF */}
+      <span
+        aria-hidden
+        className={cn(
+          "inline-block h-1.5 w-1.5 rounded-full transition-colors",
+          active ? "bg-primary shadow-[0_0_6px_hsl(74_81%_59%/0.6)]" : "bg-muted-foreground/30",
+        )}
+      />
       {icon}
-      {label}
+      <span className={cn(!active && "line-through decoration-muted-foreground/40")}>
+        {label}
+      </span>
     </button>
   );
 }
 
 /* ────────────────────────────────────────────────────────── *
- *  Segmented — generic segmented pill control.
- *  Used for Variations and Aspect Ratio. Same DNA = visual unity.
+ *  NumberStepper — minimal number input with − / + steppers.
+ *  Used for variation count. No fixed presets, type any number.
  * ────────────────────────────────────────────────────────── */
-function Segmented<T extends string | number>({
-  options,
+function NumberStepper({
+  label,
   value,
   onChange,
-  renderLabel,
+  min = 1,
+  max = 20,
 }: {
-  options: readonly T[];
-  value: T;
-  onChange: (v: T) => void;
-  renderLabel?: (v: T) => string;
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
 }) {
+  const clamp = (n: number) => Math.max(min, Math.min(max, n));
   return (
-    <div className="inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
-      {options.map((opt) => {
-        const active = value === opt;
-        const label = renderLabel ? renderLabel(opt) : String(opt);
-        return (
-          <button
-            key={String(opt)}
-            type="button"
-            onClick={() => onChange(opt)}
-            className={cn(
-              "inline-flex h-6 min-w-[28px] items-center justify-center rounded-full px-2 font-mono text-[10px] font-semibold transition-colors",
-              active
-                ? "bg-foreground/[0.08] text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        );
-      })}
+    <div
+      className="inline-flex h-7 items-center gap-0.5 rounded-full border border-border/60 bg-background/50 px-1"
+      title={label}
+    >
+      <button
+        type="button"
+        onClick={() => onChange(clamp(value - 1))}
+        disabled={value <= min}
+        aria-label="Decrease"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <span className="text-[14px] leading-none">−</span>
+      </button>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          if (!Number.isNaN(n)) onChange(clamp(n));
+        }}
+        min={min}
+        max={max}
+        className="w-7 bg-transparent text-center font-mono text-[11px] font-semibold text-foreground outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+      />
+      <button
+        type="button"
+        onClick={() => onChange(clamp(value + 1))}
+        disabled={value >= max}
+        aria-label="Increase"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <span className="text-[12px] leading-none">+</span>
+      </button>
     </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  AspectRatioPopover — pill trigger + popover with visual previews.
+ *  Minimal: shows current ratio in the trigger, dropdown for selection.
+ * ────────────────────────────────────────────────────────── */
+const RATIO_PREVIEW: Record<typeof RATIOS[number], { w: number; h: number; hint: string }> = {
+  "1:1": { w: 18, h: 18, hint: "Square" },
+  "4:5": { w: 16, h: 20, hint: "Portrait" },
+  "9:16": { w: 12, h: 20, hint: "Story / Reel" },
+  "16:9": { w: 22, h: 12, hint: "Landscape" },
+};
+
+function AspectRatioPopover({
+  value,
+  onChange,
+}: {
+  value: typeof RATIOS[number];
+  onChange: (r: typeof RATIOS[number]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-3 text-[11px] font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
+          title="Aspect ratio"
+        >
+          <span className="font-mono">{value}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" side="top" className="w-44 p-1">
+        {RATIOS.map((r) => {
+          const active = value === r;
+          const { w, h, hint } = RATIO_PREVIEW[r];
+          return (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                onChange(r);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                active ? "bg-foreground/[0.06]" : "hover:bg-muted",
+              )}
+            >
+              <span
+                aria-hidden
+                className="inline-block shrink-0 rounded-sm border border-foreground/40"
+                style={{ width: `${w}px`, height: `${h}px` }}
+              />
+              <span className="font-mono text-[11px] font-semibold">{r}</span>
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {hint}
+              </span>
+            </button>
+          );
+        })}
+      </PopoverContent>
+    </Popover>
   );
 }

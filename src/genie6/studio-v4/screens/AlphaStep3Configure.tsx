@@ -317,7 +317,7 @@ function PromptSuggestions({
       <span className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         Try
       </span>
-      <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+      <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         {suggestions.map((s) => (
           <li key={s} className="shrink-0">
             <button
