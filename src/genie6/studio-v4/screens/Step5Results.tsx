@@ -75,7 +75,7 @@ export function Step5Results({ wizard, done, regenKey }: Step5Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl gap-4 px-6 pt-4 pb-6">
+    <div className="mx-auto flex w-full max-w-3xl gap-6 px-6 pt-8 pb-10">
       {/* Main column — header + bulk toolbar + grid */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />

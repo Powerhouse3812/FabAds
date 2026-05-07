@@ -157,7 +157,7 @@ export function Step2Product({ wizard }: Step2Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title="What are you creating for?" />
 
       {/* Tab toggle — Product vs Category */}
@@ -473,7 +473,7 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
     );
   }
   return (
-    <ul className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((p) => {
         const isSelected = selectedId === p.id;
         const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
@@ -567,7 +567,7 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
     );
   }
   return (
-    <ul className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
         return (

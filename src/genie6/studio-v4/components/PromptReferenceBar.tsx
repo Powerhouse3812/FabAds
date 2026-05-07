@@ -8,12 +8,10 @@ import {
 } from "@/components/ui/popover";
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
-import { getConceptById } from "../data/concepts";
 import type {
   UseWizardReturn,
   AttachSource,
   AttachedRef,
-  WizardState,
 } from "../state/useWizard";
 
 /**
@@ -56,6 +54,11 @@ interface PromptReferenceBarProps {
    * picker (each is a tabbed / single picker with edit semantics).
    */
   onChipOpen?: (chip: ChipKind) => void;
+  /**
+   * When true: forces inline Send (Layout A) and hides the CtaLayoutToggle
+   * dev pill. Used by Studio Alpha's Configure step.
+   */
+  hideLayoutToggle?: boolean;
 }
 
 const SOURCE_ICON: Record<AttachSource, string> = {
@@ -99,60 +102,11 @@ const ANGLE_HINT: Record<string, string> = {
   infographic: "Infographic style",
 };
 
-/**
- * Build a stub AI-suggested prompt from the user's picks so far.
- * Real wiring is a follow-up — this template-based heuristic is enough
- * to demonstrate the affordance.
- *
- * Returns null when there's not enough context yet OR when the user has
- * already typed something (we don't override their input).
- */
-function buildSuggestedPrompt(state: WizardState): string | null {
-  if (state.prompt.trim().length > 0) return null;
-
-  const hasContext =
-    state.productId ||
-    state.categoryId ||
-    state.angleId ||
-    state.selectedConceptIds.length > 0;
-  if (!hasContext) return null;
-
-  const parts: string[] = [];
-  const subject =
-    state.productId ??
-    state.categoryId ??
-    "your product";
-
-  // Lead with angle if present, else default to "Ad-ready shot"
-  if (state.angleId && ANGLE_HINT[state.angleId]) {
-    parts.push(`${ANGLE_HINT[state.angleId]} of ${subject}`);
-  } else {
-    parts.push(`Ad-ready shot of ${subject}`);
-  }
-
-  // Add concept hints (max 3 to keep readable)
-  if (state.selectedConceptIds.length > 0) {
-    const conceptNames = state.selectedConceptIds
-      .slice(0, 3)
-      .map((id) => getConceptById(id)?.name)
-      .filter((n): n is string => Boolean(n));
-    if (conceptNames.length > 0) {
-      parts.push(`emphasizing ${conceptNames.join(", ").toLowerCase()}`);
-    }
-  }
-
-  // Format hint
-  if (state.format === "video") {
-    parts.push("6-second video");
-  }
-
-  return parts.join(" · ");
-}
-
 export function PromptReferenceBar({
   wizard,
   onAttachPickerOpen,
   onChipOpen,
+  hideLayoutToggle = false,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -219,7 +173,11 @@ export function PromptReferenceBar({
     setUrlPopoverOpen(false);
   };
 
-  const showInlineSend = state.ctaLayout === "inline";
+  // Layout A = inline Send. Forced always in Alpha (hideLayoutToggle=true).
+  const showInlineSend = hideLayoutToggle || state.ctaLayout === "inline";
+
+  // UGC mode — show Avatar/Voice chip, hide Style/Brand chip.
+  const isUgcMode = state.mode === "ugc-video" || state.angleId === "ugc-style";
 
   // Generate-CTA math: derive concept count from credits / count (mirrors WizardNav).
   const totalOutputs = state.credits;
@@ -232,10 +190,6 @@ export function PromptReferenceBar({
   // Active model for the dropdown trigger
   const activeModel = MODELS.find((m) => m.id === state.modelId) ?? MODELS[0];
 
-  // AI-suggested prompt — built from picks so far. Only renders when
-  // user has some context AND prompt textarea is empty.
-  const suggestedPrompt = buildSuggestedPrompt(state);
-
   return (
     <>
       <div
@@ -245,7 +199,8 @@ export function PromptReferenceBar({
         )}
       >
         <div className="flex w-full flex-col gap-2">
-          {/* Row 0 — chip row (Concept·Angle / Avatar·Voice / Style·Brand) */}
+          {/* Row 0 — chip row (Concept·Angle / Avatar·Voice / Style·Brand)
+              UGC mode: show Avatar·Voice, hide Style·Brand. */}
           {onChipOpen && (
             <div className="flex flex-wrap items-center gap-1.5">
               <ChipBtn
@@ -267,7 +222,7 @@ export function PromptReferenceBar({
                 }
                 onClick={() => onChipOpen("concept-angle")}
               />
-              {state.mode === "ugc-video" && (
+              {isUgcMode ? (
                 <ChipBtn
                   icon="🎬"
                   label="Avatar · Voice"
@@ -281,13 +236,14 @@ export function PromptReferenceBar({
                   }
                   onClick={() => onChipOpen("avatar-voice")}
                 />
+              ) : (
+                <ChipBtn
+                  icon="✨"
+                  label="Style · Brand"
+                  value="Auto"
+                  onClick={() => onChipOpen("style-brand")}
+                />
               )}
-              <ChipBtn
-                icon="✨"
-                label="Style · Brand"
-                value="Auto"
-                onClick={() => onChipOpen("style-brand")}
-              />
             </div>
           )}
 
@@ -315,27 +271,6 @@ export function PromptReferenceBar({
                 </span>
               ))}
             </div>
-          )}
-
-          {/* AI suggested prompt — built from angle / concepts / product
-              picks so far. Click "Use" to populate the textarea. */}
-          {suggestedPrompt && (
-            <button
-              type="button"
-              onClick={() => wizard.set("prompt", suggestedPrompt)}
-              className="group flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-left transition-colors hover:bg-primary/10"
-            >
-              <Sparkles className="h-3 w-3 shrink-0 text-primary" />
-              <span className="font-mono text-[9px] uppercase tracking-wider text-primary">
-                AI
-              </span>
-              <span className="line-clamp-1 flex-1 text-[11px] text-foreground">
-                {suggestedPrompt}
-              </span>
-              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary opacity-80 transition-opacity group-hover:opacity-100">
-                Use →
-              </span>
-            </button>
           )}
 
           {/* Row 2 — clip + textarea + char counter */}
@@ -525,12 +460,14 @@ export function PromptReferenceBar({
               </button>
             )}
 
-            {/* Dev toggle */}
-            <CtaLayoutToggle
-              value={state.ctaLayout}
-              onChange={(v) => wizard.set("ctaLayout", v)}
-              className={showInlineSend ? "" : "ml-auto"}
-            />
+            {/* Dev toggle — hidden in Alpha (hideLayoutToggle=true) */}
+            {!hideLayoutToggle && (
+              <CtaLayoutToggle
+                value={state.ctaLayout}
+                onChange={(v) => wizard.set("ctaLayout", v)}
+                className={showInlineSend ? "" : "ml-auto"}
+              />
+            )}
           </div>
         </div>
 

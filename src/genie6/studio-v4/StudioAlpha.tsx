@@ -39,9 +39,9 @@ export function StudioAlpha() {
   const { state } = wizard;
   const [phase, setPhase] = useState<AlphaPhase>("home");
 
-  // Home picks
-  const [homeMode, setHomeMode] = useState<AlphaMode | null>(null);
-  const [homeFormat, setHomeFormat] = useState<Format | null>(null);
+  // Home picks — default to "product-ad" + "image" so Start is immediately usable.
+  const [homeMode, setHomeMode] = useState<AlphaMode | null>("product-ad");
+  const [homeFormat, setHomeFormat] = useState<Format | null>("image");
 
   // Step 5 (alpha step 4) — done flag + regen counter shared between
   // Step5Results and WizardNav footer.
@@ -66,8 +66,9 @@ export function StudioAlpha() {
 
   const exitToHome = () => {
     wizard.reset();
-    setHomeMode(null);
-    setHomeFormat(null);
+    // Restore defaults so Start button is immediately usable on return.
+    setHomeMode("product-ad");
+    setHomeFormat("image");
     setPhase("home");
   };
 

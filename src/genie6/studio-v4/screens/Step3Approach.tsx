@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ModeCard } from "../components/ModeCard";
 import { HeroHeader } from "../components/HeroHeader";
 import type { Mode, UseWizardReturn } from "../state/useWizard";
@@ -54,6 +55,14 @@ const DISABLED_MODES: { emoji: string; title: string; desc: string }[] = [
 ];
 
 export function Step3Approach({ wizard }: Step3Props) {
+  // Auto-select "scratch" on mount if nothing is selected yet.
+  useEffect(() => {
+    if (!wizard.state.mode) {
+      wizard.set("mode", "scratch");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Mode picker handler — also auto-sets angleId where the mode profile
   // calls for it (UGC Video → ugc-style angle).
   const pickMode = (mode: Mode, autoAngleId?: string | null) => {
@@ -65,55 +74,44 @@ export function Step3Approach({ wizard }: Step3Props) {
   };
 
   return (
-    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
-      {/* Ambient backdrop */}
-      <BackdropMesh />
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+      <HeroHeader title="What's your approach?" />
 
-      {/* Hero header — minimal title only */}
-      <div className="relative">
-        <HeroHeader title="What's your approach?" />
-      </div>
-
-      {/* Hero Scratch ModeCard */}
-      <section className="relative">
+      {/* Active modes — Custom first (equal-priority grid, no hero variant) */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Custom / Scratch — first, auto-selected */}
         <ModeCard
-          variant="hero"
+          variant="grid"
           emoji="✨"
-          title="Scratch · Custom"
-          description="Full advanced flow — prompt, references, angle, model, output count, all knobs available."
-          recommended
+          title="Custom"
+          description="Full flow — prompt, references, angle, model, output count."
           selected={wizard.state.mode === "scratch"}
           onClick={() => pickMode("scratch", null)}
         />
+        {ACTIVE_MODES.map((m) => (
+          <ModeCard
+            key={m.id}
+            variant="grid"
+            emoji={m.emoji}
+            title={m.title}
+            description={m.desc}
+            selected={wizard.state.mode === m.id}
+            onClick={() => pickMode(m.id, m.autoAngleId)}
+          />
+        ))}
       </section>
 
-      {/* Active preset modes */}
-      {ACTIVE_MODES.length > 0 && (
-        <section className="relative grid grid-cols-3 gap-4">
-          {ACTIVE_MODES.map((m) => (
-            <ModeCard
-              key={m.id}
-              variant="grid"
-              emoji={m.emoji}
-              title={m.title}
-              description={m.desc}
-              selected={wizard.state.mode === m.id}
-              onClick={() => pickMode(m.id, m.autoAngleId)}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* Section divider */}
-      <div className="relative flex items-center gap-3">
-        <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
-          Coming soon — preset modes
+      {/* Coming soon divider */}
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-border" />
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+          Coming soon
         </span>
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      {/* Grid of disabled modes */}
-      <section className="relative grid grid-cols-3 gap-4">
+      {/* Disabled preset modes */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {DISABLED_MODES.map((m) => (
           <ModeCard
             key={m.title}
@@ -129,31 +127,3 @@ export function Step3Approach({ wizard }: Step3Props) {
   );
 }
 
-/* ────────────────────────────────────────────────────────── *
- *  Ambient gradient mesh + dot grid — copied from Step1Setup
- *  to keep the same backdrop language across wizard steps.
- * ────────────────────────────────────────────────────────── */
-function BackdropMesh() {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-    >
-      {/* Lime orb top-left */}
-      <div className="absolute -top-32 -left-32 h-[420px] w-[420px] rounded-full bg-primary/15 blur-[120px]" />
-      {/* Amber bottom-right */}
-      <div className="absolute -bottom-32 -right-32 h-[380px] w-[380px] rounded-full bg-amber-300/15 blur-[120px]" />
-      {/* Sky middle */}
-      <div className="absolute top-1/3 left-1/2 h-[280px] w-[280px] -translate-x-1/2 rounded-full bg-sky-300/10 blur-[100px]" />
-      {/* Dot grid overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.05]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
-          backgroundSize: "22px 22px",
-        }}
-      />
-    </div>
-  );
-}

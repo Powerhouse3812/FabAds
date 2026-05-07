@@ -92,18 +92,30 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
     wizard.state.selectedConceptIds.includes(`trend:${id}`);
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-5xl gap-4 px-6 pt-4 pb-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+    <div className={cn(
+      "mx-auto flex min-h-full w-full px-6 pt-8 pb-10",
+      railMode !== null ? "max-w-5xl gap-4" : "max-w-2xl gap-8",
+    )}>
+      <div className="flex min-w-0 flex-1 flex-col gap-8">
         <HeroHeader title="Configure" />
 
-        {/* Prompt bar at TOP (not bottom). Force ctaLayout = "inline"
-            so the Send button is inside the bar (footer is hidden via
-            StudioAlpha shell). */}
+        {/* Prompt bar at TOP. hideLayoutToggle = always Layout A (inline Send).
+            Footer hidden in StudioAlpha shell for this step. */}
         <PromptReferenceBar
           wizard={wizard}
           onAttachPickerOpen={handleAttachPickerOpen}
           onChipOpen={handleChipOpen}
+          hideLayoutToggle
         />
+
+        {/* AI prompt suggestions — sleek horizontal cards below the prompt
+            bar. Click any to pre-fill the textarea. */}
+        {wizard.state.prompt.trim().length === 0 && (
+          <PromptSuggestions
+            angleId={wizard.state.angleId}
+            onPick={(p) => wizard.set("prompt", p)}
+          />
+        )}
 
         {/* Trending concepts strip — below the prompt bar */}
         <section className="space-y-2">
@@ -213,6 +225,97 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
           )}
         </RightRail>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * PromptSuggestions — sleek horizontal cards with curated prompt starters.
+ * Angle-aware: shows generic starters by default, angle-specific when set.
+ * Click any card to prefill the prompt textarea.
+ * ───────────────────────────────────────────────────────────────────────── */
+const GENERIC_PROMPTS = [
+  "Studio-quality hero shot — clean white bg, premium lighting",
+  "Bold social-proof ad — real customer testimonial + product CTA",
+  "Lifestyle scene — aspirational, warm tones, product in natural use",
+  "Flash sale urgency — countdown, offer callout, high-contrast design",
+  "Minimal aesthetic — product only, strong typography, no clutter",
+];
+
+const ANGLE_PROMPTS: Record<string, string[]> = {
+  hero: [
+    "Centered product on clean white — sharp shadows, premium lighting",
+    "Hero packshot — 45° angle, soft gradient bg, brand colors",
+    "Macro detail shot — surface texture, high contrast, no copy",
+  ],
+  lifestyle: [
+    "Warm lifestyle scene — product in natural use, real-feeling moment",
+    "Golden hour outdoor shot — hand-held product, bokeh background",
+    "Cozy home setting — product styled on shelf, soft ambient light",
+  ],
+  "social-proof": [
+    "5-star review quote overlay — product image + customer callout",
+    "Before/after split — transformation result, honest framing",
+    '"10,000+ customers" credibility badge — product + social proof copy',
+  ],
+  urgency: [
+    "Flash sale banner — 48hr countdown, bold offer, red accent",
+    "Limited edition callout — scarcity framing, high contrast CTA",
+    "End of season deal — price-strike, new price, urgency copy",
+  ],
+  comparison: [
+    "Side-by-side product comparison — ours vs competitor, clear win",
+    "Then vs now — before clutter, after solution, simple layout",
+    "Feature checklist ad — our product ticks all boxes, theirs don't",
+  ],
+  "ugc-style": [
+    "Casual creator unboxing — phone-camera feel, genuine reaction",
+    "Day-in-my-life product integration — natural, not scripted",
+    "Quick TikTok-style demo — 3 benefits in 6 seconds, hook first",
+  ],
+  unboxing: [
+    "Unboxing reveal — hands, tissue paper, product emerge moment",
+    "First impression — reaction shot + product in hand, authentic",
+    "Premium unbox — dark packaging, gold foil, slow reveal",
+  ],
+  infographic: [
+    "Clean infographic — 3 key benefits, icon row, product at center",
+    "Ingredient callout — product + ingredient icons + benefit labels",
+    "How it works — 3-step flow, minimal icons, clean white bg",
+  ],
+};
+
+function PromptSuggestions({
+  angleId,
+  onPick,
+}: {
+  angleId: string | null;
+  onPick: (prompt: string) => void;
+}) {
+  const suggestions =
+    (angleId && ANGLE_PROMPTS[angleId]) ?? GENERIC_PROMPTS;
+
+  return (
+    <div className="space-y-2">
+      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+        Prompt ideas
+      </p>
+      <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 snap-x">
+        {suggestions.map((s) => (
+          <li key={s} className="snap-start shrink-0 max-w-[240px]">
+            <button
+              type="button"
+              onClick={() => onPick(s)}
+              className="group flex items-start gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+            >
+              <Sparkles className="mt-px h-3 w-3 shrink-0 text-primary/60 group-hover:text-primary" />
+              <span className="line-clamp-2 text-[11px] leading-snug text-foreground">
+                {s}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

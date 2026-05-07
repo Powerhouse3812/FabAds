@@ -134,7 +134,7 @@ export function StudioHome({
   const canStart = mode !== null && format !== null;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-12 px-6 pt-10 pb-12">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-12 px-6 pt-10 pb-12">
       {/* ─── HERO ─── mode picker + format + Start CTA, elevated card */}
       <section className="relative">
         {/* Eyebrow + title — sits ABOVE the hero card, centered for the
