@@ -8,11 +8,11 @@ import type {
 } from "../state/useWizard";
 import { Step4TopBar } from "../components/Step4TopBar";
 import { HeroHeader } from "../components/HeroHeader";
-import { AngleStrip } from "../components/AngleStrip";
-import { ConceptStrip } from "../components/ConceptStrip";
-import { PromptReferenceBar } from "../components/PromptReferenceBar";
+import { PromptReferenceBar, type ChipKind } from "../components/PromptReferenceBar";
 import { RightRail } from "../components/RightRail";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
+import { ConceptAngleRail } from "../components/ConceptAngleRail";
+import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
@@ -23,7 +23,10 @@ export type RailMode =
   | "library"
   | "pinterest"
   | "brand-winner-ads"
-  | "product-winner-ads";
+  | "product-winner-ads"
+  | "concept-angle"
+  | "avatar-voice"
+  | "style-brand";
 
 interface Step4Props {
   wizard: UseWizardReturn;
@@ -61,6 +64,9 @@ export function Step4Configure({ wizard }: Step4Props) {
     // upload + url are handled inline by PromptReferenceBar
   };
 
+  // Top-row chip click → opens corresponding rail picker
+  const handleChipOpen = (chip: ChipKind) => setRailMode(chip);
+
   return (
     <>
       {wizard.state.ctaLayout === "inline" && <Step4TopBar wizard={wizard} />}
@@ -71,29 +77,18 @@ export function Step4Configure({ wizard }: Step4Props) {
           scroll viewport (lets `mt-auto` push the prompt bar to the
           bottom even when content is short). */}
       <div className="mx-auto flex min-h-full w-full max-w-5xl gap-4 px-6 pt-4 pb-6">
-        {/* Left: form column — flex-col with mt-auto on prompt bar */}
+        {/* Left: form column — Angle/Concept moved to chips inside the
+            prompt bar. Form is now just header + (optional future content)
+            + prompt bar at bottom. mt-auto on the prompt bar wrapper
+            pushes it to the bottom of the form column. */}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <HeroHeader title="Configure & generate" />
 
-          <AngleStrip
-            selectedId={wizard.state.angleId}
-            onPick={(id) => wizard.set("angleId", id ? id : null)}
-          />
-
-          <ConceptStrip
-            selectedIds={wizard.state.selectedConceptIds}
-            onChange={(ids) => wizard.set("selectedConceptIds", ids)}
-            variations={wizard.state.count}
-            onGenerateNew={() => setRailMode("generate-concepts")}
-          />
-
-          {/* mt-auto pushes the prompt bar to the bottom of the form column
-              regardless of how much content sits above it. Empty space
-              fills naturally. */}
           <div className="mt-auto">
             <PromptReferenceBar
               wizard={wizard}
               onAttachPickerOpen={handleAttachPickerOpen}
+              onChipOpen={handleChipOpen}
             />
           </div>
         </div>
@@ -107,6 +102,29 @@ export function Step4Configure({ wizard }: Step4Props) {
                 onChange={(ids) => wizard.set("selectedConceptIds", ids)}
                 onClose={handleAttachCancel}
               />
+            )}
+            {railMode === "concept-angle" && (
+              <ConceptAngleRail
+                selectedAngleId={wizard.state.angleId}
+                selectedConceptIds={wizard.state.selectedConceptIds}
+                onAngleChange={(id) => wizard.set("angleId", id)}
+                onConceptsChange={(ids) =>
+                  wizard.set("selectedConceptIds", ids)
+                }
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "avatar-voice" && (
+              <AvatarVoiceRail
+                selectedAvatarId={wizard.state.avatarId}
+                selectedVoiceId={wizard.state.voiceId}
+                onAvatarChange={(id) => wizard.set("avatarId", id)}
+                onVoiceChange={(id) => wizard.set("voiceId", id)}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "style-brand" && (
+              <StyleBrandRailStub onClose={handleAttachCancel} />
             )}
             {railMode === "library" && (
               <LibraryColumnDrawer
@@ -183,6 +201,44 @@ const MOCK_PINS = [
     label: "Festive set",
   },
 ];
+
+function StyleBrandRailStub({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex h-full flex-col">
+      <header className="shrink-0 flex items-center justify-between border-b border-border px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Brand profile
+          </p>
+          <h3 className="text-sm font-semibold text-foreground">Style · Brand</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <p className="text-[11px] text-muted-foreground">
+          Brand style is auto-pulled from the product's brand profile.
+          Custom style preset picker coming soon.
+        </p>
+      </div>
+      <footer className="shrink-0 flex items-center justify-end border-t border-border px-3 py-2.5">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90"
+        >
+          Done
+        </button>
+      </footer>
+    </div>
+  );
+}
 
 function PinterestRailPanel({
   onSave,

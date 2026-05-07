@@ -25,7 +25,7 @@ export function RightRail({ children, className }: RightRailProps) {
   return (
     <aside
       className={cn(
-        "hidden shrink-0 w-[400px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:flex",
+        "hidden shrink-0 w-[280px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:flex",
         className,
       )}
     >

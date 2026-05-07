@@ -37,6 +37,8 @@ import type {
  * the v3 component (or a v4-native rewrite) is a follow-up.
  */
 
+export type ChipKind = "concept-angle" | "avatar-voice" | "style-brand";
+
 interface PromptReferenceBarProps {
   wizard: UseWizardReturn;
   /**
@@ -48,6 +50,12 @@ interface PromptReferenceBarProps {
    * this callback.
    */
   onAttachPickerOpen?: (source: AttachSource) => void;
+  /**
+   * Called when one of the top-row chips (Concept·Angle / Avatar·Voice /
+   * Style·Brand) is clicked. The parent opens the corresponding rail
+   * picker (each is a tabbed / single picker with edit semantics).
+   */
+  onChipOpen?: (chip: ChipKind) => void;
 }
 
 const SOURCE_ICON: Record<AttachSource, string> = {
@@ -68,6 +76,17 @@ const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
 ];
 
 const COUNTS = [1, 2, 4, 8] as const;
+
+const ANGLE_CHIP_LABEL: Record<string, string> = {
+  hero: "Hero",
+  lifestyle: "Lifestyle",
+  "social-proof": "Social Proof",
+  urgency: "Urgency",
+  comparison: "Comparison",
+  "ugc-style": "UGC",
+  unboxing: "Unboxing",
+  infographic: "Infographic",
+};
 
 const ANGLE_HINT: Record<string, string> = {
   hero: "Hero shot",
@@ -133,6 +152,7 @@ function buildSuggestedPrompt(state: WizardState): string | null {
 export function PromptReferenceBar({
   wizard,
   onAttachPickerOpen,
+  onChipOpen,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -225,6 +245,52 @@ export function PromptReferenceBar({
         )}
       >
         <div className="flex w-full flex-col gap-2">
+          {/* Row 0 — chip row (Concept·Angle / Avatar·Voice / Style·Brand) */}
+          {onChipOpen && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ChipBtn
+                icon="🎯"
+                label="Concept · Angle"
+                value={
+                  state.angleId || state.selectedConceptIds.length > 0
+                    ? [
+                        state.angleId
+                          ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
+                          : null,
+                        state.selectedConceptIds.length > 0
+                          ? `${state.selectedConceptIds.length} concept${state.selectedConceptIds.length === 1 ? "" : "s"}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : "Auto"
+                }
+                onClick={() => onChipOpen("concept-angle")}
+              />
+              {state.mode === "ugc-video" && (
+                <ChipBtn
+                  icon="🎬"
+                  label="Avatar · Voice"
+                  value={
+                    state.avatarId || state.voiceId
+                      ? [
+                          state.avatarId ? "Avatar set" : "Auto",
+                          state.voiceId ? "Voice set" : "Auto",
+                        ].join(" · ")
+                      : "Auto · Auto"
+                  }
+                  onClick={() => onChipOpen("avatar-voice")}
+                />
+              )}
+              <ChipBtn
+                icon="✨"
+                label="Style · Brand"
+                value="Auto"
+                onClick={() => onChipOpen("style-brand")}
+              />
+            </div>
+          )}
+
           {/* Row 1 — attached refs chips */}
           {state.attachedReferences.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -482,5 +548,49 @@ export function PromptReferenceBar({
           are now hosted by Step4Configure's persistent right-rail column —
           PromptReferenceBar delegates the open via `onAttachPickerOpen`. */}
     </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  ChipBtn — top-row picker chip (Concept·Angle / Avatar·Voice
+ *  / Style·Brand). Click → onChipOpen → rail opens for editing.
+ *  Pattern matches the reference image: small icon circle +
+ *  value (top, semibold) + label (bottom, muted, smaller).
+ * ────────────────────────────────────────────────────────── */
+function ChipBtn({
+  icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1 text-left transition-colors",
+        "hover:border-primary/40 hover:bg-muted/40",
+      )}
+    >
+      <span
+        aria-hidden
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[12px]"
+      >
+        {icon}
+      </span>
+      <span className="leading-tight">
+        <span className="block text-[11px] font-semibold text-foreground">
+          {value}
+        </span>
+        <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+      </span>
+    </button>
   );
 }

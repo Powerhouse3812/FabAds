@@ -1,25 +1,35 @@
 import { ModeCard } from "../components/ModeCard";
 import { HeroHeader } from "../components/HeroHeader";
-import type { UseWizardReturn } from "../state/useWizard";
+import type { Mode, UseWizardReturn } from "../state/useWizard";
 
 interface Step3Props {
   wizard: UseWizardReturn;
 }
 
-const PRESET_MODES: {
+interface ActiveMode {
+  id: Mode;
   emoji: string;
   title: string;
   desc: string;
-}[] = [
+  /** When user picks this mode, auto-set angleId to this. null = clear. */
+  autoAngleId?: string | null;
+}
+
+const ACTIVE_MODES: ActiveMode[] = [
+  {
+    id: "ugc-video",
+    emoji: "🎬",
+    title: "UGC Video",
+    desc: "Avatar-led, script-first, talking-head. Angle pre-selected as UGC Style.",
+    autoAngleId: "ugc-style",
+  },
+];
+
+const DISABLED_MODES: { emoji: string; title: string; desc: string }[] = [
   {
     emoji: "🔄",
     title: "Create Variations",
     desc: "Iterate on existing creatives — keep layout, colors, or copy.",
-  },
-  {
-    emoji: "🎬",
-    title: "UGC Video",
-    desc: "Avatar-led, script-first, talking-head.",
   },
   {
     emoji: "🖼️",
@@ -44,6 +54,16 @@ const PRESET_MODES: {
 ];
 
 export function Step3Approach({ wizard }: Step3Props) {
+  // Mode picker handler — also auto-sets angleId where the mode profile
+  // calls for it (UGC Video → ugc-style angle).
+  const pickMode = (mode: Mode, autoAngleId?: string | null) => {
+    if (autoAngleId !== undefined) {
+      wizard.patch({ mode, angleId: autoAngleId });
+    } else {
+      wizard.set("mode", mode);
+    }
+  };
+
   return (
     <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
       {/* Ambient backdrop */}
@@ -63,9 +83,26 @@ export function Step3Approach({ wizard }: Step3Props) {
           description="Full advanced flow — prompt, references, angle, model, output count, all knobs available."
           recommended
           selected={wizard.state.mode === "scratch"}
-          onClick={() => wizard.set("mode", "scratch")}
+          onClick={() => pickMode("scratch", null)}
         />
       </section>
+
+      {/* Active preset modes */}
+      {ACTIVE_MODES.length > 0 && (
+        <section className="relative grid grid-cols-3 gap-4">
+          {ACTIVE_MODES.map((m) => (
+            <ModeCard
+              key={m.id}
+              variant="grid"
+              emoji={m.emoji}
+              title={m.title}
+              description={m.desc}
+              selected={wizard.state.mode === m.id}
+              onClick={() => pickMode(m.id, m.autoAngleId)}
+            />
+          ))}
+        </section>
+      )}
 
       {/* Section divider */}
       <div className="relative flex items-center gap-3">
@@ -75,9 +112,9 @@ export function Step3Approach({ wizard }: Step3Props) {
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      {/* Grid of 6 disabled modes */}
+      {/* Grid of disabled modes */}
       <section className="relative grid grid-cols-3 gap-4">
-        {PRESET_MODES.map((m) => (
+        {DISABLED_MODES.map((m) => (
           <ModeCard
             key={m.title}
             variant="grid"

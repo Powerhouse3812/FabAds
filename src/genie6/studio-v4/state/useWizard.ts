@@ -43,6 +43,9 @@ export interface WizardState {
   mode: Mode;
   modelId: string;
   angleId: string | null;
+  /** UGC Video mode — avatar + voice picks. null = AI auto-decides. */
+  avatarId: string | null;
+  voiceId: string | null;
   prompt: string;
   uploadedFiles: UploadedFile[];
   selectedTemplateIds: string[];
@@ -63,6 +66,8 @@ const INITIAL_STATE: WizardState = {
   mode: "scratch",
   modelId: "genie-1.0",
   angleId: null,
+  avatarId: null,
+  voiceId: null,
   prompt: "",
   uploadedFiles: [],
   selectedTemplateIds: [],

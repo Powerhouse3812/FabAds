@@ -33,7 +33,7 @@ export function StudioV4() {
       case 2:
         return state.productId !== null || state.categoryId !== null;
       case 3:
-        return state.mode === "scratch";
+        return state.mode === "scratch" || state.mode === "ugc-video";
       case 4:
         return state.prompt.trim().length > 0;
       default:
