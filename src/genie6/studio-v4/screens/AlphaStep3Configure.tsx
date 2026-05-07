@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {

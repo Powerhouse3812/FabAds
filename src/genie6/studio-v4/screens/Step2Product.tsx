@@ -565,7 +565,7 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid max-h-[380px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((p) => {
         const isSelected = selectedId === p.id;
         const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
@@ -661,7 +661,7 @@ function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridPr
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
         const thumb = resolveCategoryThumb(c.id);
@@ -743,7 +743,7 @@ function CategoryProductsSection({
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <ul className="grid max-h-[320px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
         {products.map((p) => {
           const isSelected = selectedProductId === p.id;
           const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
