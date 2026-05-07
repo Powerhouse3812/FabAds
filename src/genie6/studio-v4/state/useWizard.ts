@@ -55,6 +55,9 @@ export interface WizardState {
   ctaLayout: "inline" | "footer";
   credits: number;
   count: number;
+  aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  useKnowledgeBase: boolean;
+  useBrandGuidelines: boolean;
 }
 
 const INITIAL_STATE: WizardState = {
@@ -77,6 +80,9 @@ const INITIAL_STATE: WizardState = {
   ctaLayout: "inline",
   credits: 4,
   count: 4,
+  aspectRatio: "1:1",
+  useKnowledgeBase: true,
+  useBrandGuidelines: true,
 };
 
 export interface UseWizardReturn {

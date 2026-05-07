@@ -15,6 +15,8 @@ import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
+import { ContextRail } from "../components/ContextRail";
+import type { AlphaMode } from "./StudioHome";
 
 export type RailMode =
   | null
@@ -29,6 +31,7 @@ export type RailMode =
 
 interface AlphaStep3Props {
   wizard: UseWizardReturn;
+  studioMode?: AlphaMode;
 }
 
 /**
@@ -43,7 +46,7 @@ interface AlphaStep3Props {
  *     the prompt bar's inline Send button (Variant A behavior, forced)
  *   - HeyGen-minimal — nothing else on the page
  */
-export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
+export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
   const [railMode, setRailMode] = useState<RailMode>(null);
 
   // Trending concepts — top 8 sample outputs by qualityScore desc
@@ -92,79 +95,86 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
 
   return (
     <>
-      {/* ── Main form — always single-column, max-w-2xl ── */}
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 pt-8 pb-10">
-        <HeroHeader title="Configure" />
+      {/* ── Main layout — 2-column on xl: form + ContextRail ── */}
+      <div className="flex min-h-0 w-full gap-6 px-6 pt-8 pb-10">
+        {/* Left: form content */}
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
+          <HeroHeader title="Configure" />
 
-        {/* Prompt bar — Layout A (inline Send) always. */}
-        <PromptReferenceBar
-          wizard={wizard}
-          onAttachPickerOpen={handleAttachPickerOpen}
-          onChipOpen={handleChipOpen}
-          hideLayoutToggle
-        />
-
-        {/* AI prompt suggestions — shown when textarea is empty */}
-        {wizard.state.prompt.trim().length === 0 && (
-          <PromptSuggestions
-            angleId={wizard.state.angleId}
-            onPick={(p) => wizard.set("prompt", p)}
+          {/* Prompt bar — Layout A (inline Send) always. */}
+          <PromptReferenceBar
+            wizard={wizard}
+            onAttachPickerOpen={handleAttachPickerOpen}
+            onChipOpen={handleChipOpen}
+            hideLayoutToggle
           />
-        )}
 
-        {/* Trending concepts strip */}
-        <section className="space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Trending concepts
-          </h2>
-          <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
-            {trending.map((t) => {
-              const active = isTrendingSelected(t.id);
-              return (
-                <li key={t.id} className="snap-start shrink-0 w-[140px]">
-                  <button
-                    type="button"
-                    onClick={() => toggleTrending(t.id)}
-                    className={cn(
-                      "group relative flex w-full flex-col gap-1 overflow-hidden rounded-lg border bg-card text-left transition-all",
-                      active
-                        ? "border-primary ring-2 ring-primary/30"
-                        : "border-border hover:-translate-y-0.5 hover:border-primary/40",
-                    )}
-                  >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                      {t.thumbnail ? (
-                        <img
-                          src={t.thumbnail}
-                          alt=""
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/50">
-                          ✨
-                        </div>
+          {/* AI prompt suggestions — shown when textarea is empty */}
+          {wizard.state.prompt.trim().length === 0 && (
+            <PromptSuggestions
+              angleId={wizard.state.angleId}
+              onPick={(p) => wizard.set("prompt", p)}
+            />
+          )}
+
+          {/* Trending concepts strip */}
+          <section className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Trending concepts
+            </h2>
+            <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
+              {trending.map((t) => {
+                const active = isTrendingSelected(t.id);
+                return (
+                  <li key={t.id} className="snap-start shrink-0 w-[140px]">
+                    <button
+                      type="button"
+                      onClick={() => toggleTrending(t.id)}
+                      className={cn(
+                        "group relative flex w-full flex-col gap-1 overflow-hidden rounded-lg border bg-card text-left transition-all",
+                        active
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-border hover:-translate-y-0.5 hover:border-primary/40",
                       )}
-                      {t.brand?.name && (
-                        <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-                          {t.brand.name}
-                        </span>
-                      )}
-                      {active && (
-                        <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                          <Check className="h-3 w-3" strokeWidth={3} />
-                        </span>
-                      )}
-                    </div>
-                    <p className="truncate px-2 pb-1.5 pt-0.5 text-[11px] font-semibold leading-tight text-foreground">
-                      {t.headline ?? "Concept"}
-                    </p>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+                    >
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                        {t.thumbnail ? (
+                          <img
+                            src={t.thumbnail}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/50">
+                            ✨
+                          </div>
+                        )}
+                        {t.brand?.name && (
+                          <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+                            {t.brand.name}
+                          </span>
+                        )}
+                        {active && (
+                          <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate px-2 pb-1.5 pt-0.5 text-[11px] font-semibold leading-tight text-foreground">
+                        {t.headline ?? "Concept"}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        </div>
+        {/* Right: ContextRail */}
+        <div className="hidden w-[280px] shrink-0 xl:block">
+          <ContextRail wizard={wizard} studioMode={studioMode} />
+        </div>
       </div>
 
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
@@ -176,7 +186,7 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
             onClick={handleAttachCancel}
           />
           {/* Dialog box */}
-          <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl max-h-[80vh]">
+          <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl max-h-[70vh]">
             {railMode === "generate-concepts" && (
               <RailGenerateConcepts
                 selectedIds={wizard.state.selectedConceptIds}

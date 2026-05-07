@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ChevronDown, Plus, Sparkles, X, Link as LinkIcon } from "lucide-react";
+import { BookOpen, ChevronDown, Database, Plus, Sparkles, X, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -244,6 +244,18 @@ export function PromptReferenceBar({
                   onClick={() => onChipOpen("style-brand")}
                 />
               )}
+              <ToggleChip
+                icon={<BookOpen className="h-3.5 w-3.5" />}
+                label="Brand Guidelines"
+                active={state.useBrandGuidelines}
+                onClick={() => wizard.set("useBrandGuidelines", !state.useBrandGuidelines)}
+              />
+              <ToggleChip
+                icon={<Database className="h-3.5 w-3.5" />}
+                label="Knowledge Base"
+                active={state.useKnowledgeBase}
+                onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
+              />
             </div>
           )}
 
@@ -438,6 +450,26 @@ export function PromptReferenceBar({
               ⚡ <span className="font-mono">{state.credits}</span> credits
             </span>
 
+            {/* Aspect ratio pills */}
+            {(["1:1", "4:5", "9:16", "16:9"] as const).map((ratio) => {
+              const active = state.aspectRatio === ratio;
+              return (
+                <button
+                  key={ratio}
+                  type="button"
+                  onClick={() => wizard.set("aspectRatio", ratio)}
+                  className={cn(
+                    "rounded-md px-2 py-0.5 font-mono text-[11px] font-semibold transition-colors",
+                    active
+                      ? "bg-foreground/90 text-background"
+                      : "border border-border text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {ratio}
+                </button>
+              );
+            })}
+
             {/* Variant A — inline Send */}
             {showInlineSend && (
               <button
@@ -528,6 +560,34 @@ function ChipBtn({
           {label}
         </span>
       </span>
+    </button>
+  );
+}
+
+function ToggleChip({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all",
+        active
+          ? "border-foreground/20 bg-foreground/90 text-background"
+          : "border-border text-muted-foreground/60 line-through hover:text-muted-foreground",
+      )}
+    >
+      {icon}
+      {label}
     </button>
   );
 }

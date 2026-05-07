@@ -134,23 +134,17 @@ export const MODULES: ModuleDef[] = [
       // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
       // matches the new /studio Product-first flow's primacy.
       { label: "Overview",    path: "/iq/genie6",                  icon: Home },
-      // A-11.15: Studio v3 is the primary entry. All Genie work going
-      // forward lands here per Maalik's lock. The previous 4-Type Studio
-      // ("Studio") and pre-revamp flow ("Old Studio") are deprioritized —
-      // moved below Settings + rendered with muted styling so they don't
-      // pull user focus.
-      { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2 },
-      // A-12.0: Studio v4 — prototype-faithful single Studio. Beta until validated.
-      { label: "Studio", path: "/iq/genie6/studio", icon: Wand2, badge: "Beta" },
-      // A-12.8: Studio Alpha — evolved variant. Home-first, HeyGen-minimal,
-      // Mode (Product Shoot / Brand Ad / Product Ad / Performance Ad) +
-      // Format picked on Home before entering the 4-step wizard.
+      // A-12.17: Studio Alpha is primary. Studio v3 + Beta deprioritized below Old Studio.
       { label: "Studio Alpha", path: "/iq/genie6/studio-alpha", icon: Wand2, badge: "New" },
       { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
+      // Deprioritized — legacy studios below divider
       { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2, deprioritized: true },
       { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2, deprioritized: true },
+      { label: "Studio",      path: "/iq/genie6/studio",           icon: Wand2, badge: "Beta", deprioritized: true },
+      { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2, deprioritized: true },
+      { label: "Genie 5",     path: "/iq/genie5",                  icon: Wand2, deprioritized: true },
     ],
   },
   {

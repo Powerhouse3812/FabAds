@@ -9,7 +9,6 @@ import {
   Package,
   FolderOpen,
 } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -18,10 +17,12 @@ import {
 } from "@/components/ui/popover";
 import { brands as ALL_BRANDS, products as ALL_PRODUCTS, categories as ALL_CATEGORIES } from "@/mocks/shared";
 import { HeroHeader } from "../components/HeroHeader";
+import { UrlFetchModal } from "../components/UrlFetchModal";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step2Props {
   wizard: UseWizardReturn;
+  onAdvance: () => void;
 }
 
 type Tab = "product" | "category";
@@ -144,7 +145,7 @@ const TOP_CATEGORIES = [...ALL_CATEGORIES]
   .sort((a, b) => b.winnerCount - a.winnerCount)
   .slice(0, 30);
 
-export function Step2Product({ wizard }: Step2Props) {
+export function Step2Product({ wizard, onAdvance }: Step2Props) {
   const [tab, setTab] = useState<Tab>(
     wizard.state.categoryId ? "category" : "product",
   );
@@ -155,6 +156,8 @@ export function Step2Product({ wizard }: Step2Props) {
   const [urlOpen, setUrlOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [fetching, setFetching] = useState(false);
+  const [showFetchModal, setShowFetchModal] = useState(false);
+  const [fetchedProduct, setFetchedProduct] = useState<typeof ALL_PRODUCTS[0] | null>(null);
 
   const handleFetchUrl = async () => {
     const v = urlInput.trim();
@@ -164,10 +167,10 @@ export function Step2Product({ wizard }: Step2Props) {
     setFetching(false);
     const sample = ALL_PRODUCTS[Math.floor(Math.random() * Math.min(20, ALL_PRODUCTS.length))];
     if (!sample) return;
-    wizard.patch({ productId: sample.id, categoryId: null });
+    setFetchedProduct(sample);
+    setShowFetchModal(true);
     setUrlInput("");
     setUrlOpen(false);
-    toast.success(`Fetched: ${sample.name}`, { duration: 3000 });
   };
 
   const filteredProducts = useMemo(() => {
@@ -450,9 +453,10 @@ export function Step2Product({ wizard }: Step2Props) {
         <ProductGrid
           products={filteredProducts}
           selectedId={wizard.state.productId}
-          onPick={(id) =>
-            wizard.patch({ productId: id, categoryId: null })
-          }
+          onPick={(id) => {
+            wizard.patch({ productId: id, categoryId: null });
+            onAdvance();
+          }}
           search={search}
         />
       ) : (
@@ -467,7 +471,7 @@ export function Step2Product({ wizard }: Step2Props) {
           />
 
           {/* Drill-down: products in the selected category (optional pick) */}
-          {wizard.state.categoryId && categoryProducts.length > 0 && (
+          {wizard.state.categoryId && (
             <CategoryProductsSection
               categoryName={
                 ALL_CATEGORIES.find((c) => c.id === wizard.state.categoryId)
@@ -475,15 +479,37 @@ export function Step2Product({ wizard }: Step2Props) {
               }
               products={categoryProducts}
               selectedProductId={wizard.state.productId}
-              onPick={(id) =>
+              onPick={(id) => {
                 wizard.patch({
                   productId: wizard.state.productId === id ? null : id,
                   categoryId: wizard.state.categoryId,
-                })
-              }
+                });
+                if (wizard.state.productId !== id) onAdvance();
+              }}
+              onSkip={() => {
+                // Already has a category selected; advance without a specific product
+                onAdvance();
+              }}
             />
           )}
         </>
+      )}
+
+      {showFetchModal && fetchedProduct && (
+        <UrlFetchModal
+          product={fetchedProduct}
+          brand={ALL_BRANDS.find((b) => b.id === fetchedProduct.brandId)}
+          onSave={(productId) => {
+            wizard.patch({ productId, categoryId: null });
+            setShowFetchModal(false);
+            setFetchedProduct(null);
+            onAdvance();
+          }}
+          onCancel={() => {
+            setShowFetchModal(false);
+            setFetchedProduct(null);
+          }}
+        />
       )}
     </div>
   );
@@ -565,7 +591,7 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
     );
   }
   return (
-    <ul className="grid max-h-[380px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((p) => {
         const isSelected = selectedId === p.id;
         const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
@@ -696,6 +722,7 @@ interface CategoryProductsSectionProps {
   products: typeof ALL_PRODUCTS;
   selectedProductId: string | null;
   onPick: (id: string) => void;
+  onSkip: () => void;
 }
 
 function CategoryProductsSection({
@@ -703,6 +730,7 @@ function CategoryProductsSection({
   products,
   selectedProductId,
   onPick,
+  onSkip,
 }: CategoryProductsSectionProps) {
   return (
     <div className="space-y-3">
@@ -714,6 +742,13 @@ function CategoryProductsSection({
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             Products in {categoryName}
           </span>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip — continue without a product →
+          </button>
           <span className="font-mono text-[9px] text-muted-foreground/60">
             — optional
           </span>
@@ -721,57 +756,63 @@ function CategoryProductsSection({
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <ul className="grid max-h-[320px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
-        {products.map((p) => {
-          const isSelected = selectedProductId === p.id;
-          const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
-          return (
-            <li key={p.id}>
-              <button
-                type="button"
-                onClick={() => onPick(p.id)}
-                className={cn(
-                  "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
-                  isSelected
-                    ? "border-primary ring-2 ring-primary/30"
-                    : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
-                )}
-              >
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                  <img
-                    src={resolveProductThumb(p)}
-                    alt={p.name}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                  />
-                  {brand?.logo && (
+      {products.length === 0 ? (
+        <p className="py-4 text-center text-[12px] text-muted-foreground">
+          No products in this category
+        </p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3 lg:grid-cols-4">
+          {products.map((p) => {
+            const isSelected = selectedProductId === p.id;
+            const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(p.id)}
+                  className={cn(
+                    "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
+                    isSelected
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+                  )}
+                >
+                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
                     <img
-                      src={brand.logo}
-                      alt={brand.name}
-                      className="absolute bottom-1.5 left-1.5 h-5 w-5 rounded bg-white/90 object-contain p-0.5 shadow-sm"
+                      src={resolveProductThumb(p)}
+                      alt={p.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
                     />
-                  )}
-                  {isSelected && (
-                    <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                      <Check className="h-3 w-3" strokeWidth={3} />
-                    </span>
-                  )}
-                </div>
-                <div className="px-2 pb-2 pt-1.5">
-                  <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
-                    {p.name}
-                  </p>
-                  {p.price && (
-                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                      {p.price}
+                    {brand?.logo && (
+                      <img
+                        src={brand.logo}
+                        alt={brand.name}
+                        className="absolute bottom-1.5 left-1.5 h-5 w-5 rounded bg-white/90 object-contain p-0.5 shadow-sm"
+                      />
+                    )}
+                    {isSelected && (
+                      <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="px-2 pb-2 pt-1.5">
+                    <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                      {p.name}
                     </p>
-                  )}
-                </div>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                    {p.price && (
+                      <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                        {p.price}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

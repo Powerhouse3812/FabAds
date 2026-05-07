@@ -70,7 +70,7 @@ export function StudioV4() {
 
       <main className="min-h-0 flex-1 overflow-y-auto">
         {state.step === 1 && <Step1Setup wizard={wizard} />}
-        {state.step === 2 && <Step2Product wizard={wizard} />}
+        {state.step === 2 && <Step2Product wizard={wizard} onAdvance={wizard.next} />}
         {state.step === 3 && <Step3Approach wizard={wizard} />}
         {state.step === 4 && <Step4Configure wizard={wizard} />}
         {state.step === 5 && (
@@ -78,6 +78,9 @@ export function StudioV4() {
             wizard={wizard}
             done={step5Done}
             regenKey={step5Key}
+            onGenerateAgain={handleGenerateAgain}
+            onSaveBatch={handleSaveBatch}
+            onStartOver={handleStartOver}
           />
         )}
       </main>

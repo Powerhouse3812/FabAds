@@ -11,10 +11,10 @@ interface AlphaProgressIndicatorProps {
 }
 
 const STEPS: { num: AlphaStep; label: string }[] = [
-  { num: 1, label: "Product" },
-  { num: 2, label: "Approach" },
-  { num: 3, label: "Configure" },
-  { num: 4, label: "Output" },
+  { num: 1, label: "Format" },
+  { num: 2, label: "Product" },
+  { num: 3, label: "Approach" },
+  { num: 4, label: "Configure" },
 ];
 
 /**

@@ -5,6 +5,7 @@ import type { Mode, UseWizardReturn } from "../state/useWizard";
 
 interface Step3Props {
   wizard: UseWizardReturn;
+  onAdvance: () => void;
 }
 
 interface ActiveMode {
@@ -54,7 +55,7 @@ const DISABLED_MODES: { emoji: string; title: string; desc: string }[] = [
   },
 ];
 
-export function Step3Approach({ wizard }: Step3Props) {
+export function Step3Approach({ wizard, onAdvance }: Step3Props) {
   // Auto-select "scratch" on mount if nothing is selected yet.
   useEffect(() => {
     if (!wizard.state.mode) {
@@ -71,6 +72,7 @@ export function Step3Approach({ wizard }: Step3Props) {
     } else {
       wizard.set("mode", mode);
     }
+    onAdvance();
   };
 
   return (

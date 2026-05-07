@@ -16,6 +16,9 @@ interface Step5Props {
   /** Bumped by StudioV4 when user clicks "Generate again" — used as a
    *  reset key to clear local selection / preview state. */
   regenKey: number;
+  onGenerateAgain: () => void;
+  onSaveBatch: () => void;
+  onStartOver: () => void;
 }
 
 /**
@@ -30,7 +33,7 @@ interface Step5Props {
  * Action footer (Generate again / Save batch / Start over) lives in
  * WizardNav for consistency — same footer chassis as the other steps.
  */
-export function Step5Results({ wizard, done, regenKey }: Step5Props) {
+export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBatch, onStartOver }: Step5Props) {
   const totalOutputs = wizard.state.credits;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -75,58 +78,55 @@ export function Step5Results({ wizard, done, regenKey }: Step5Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl gap-6 px-6 pt-8 pb-10">
-      {/* Main column — header + bulk toolbar + grid */}
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-6 pt-8 pb-10">
+      <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />
 
-        {/* Loader chip — shown only while !done */}
-        {!done && (
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-              Working… {totalOutputs} variant{totalOutputs === 1 ? "" : "s"}
-            </div>
+      {/* Loader chip — shown only while !done */}
+      {!done && (
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+            Working… {totalOutputs} variant{totalOutputs === 1 ? "" : "s"}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* BulkToolbar — slides in when 2+ selected */}
-        {done && selectedOutputs.length >= 2 && (
-          <BulkToolbar
-            selectedOutputs={selectedOutputs}
-            onClear={clearSelection}
-            onEditBatch={() => console.log("[Step5] edit batch", selectedIds)}
-            onBulkDownload={() => console.log("[Step5] bulk download", selectedIds)}
-            onBulkLaunch={() => console.log("[Step5] bulk launch", selectedIds)}
-            onAddToFolder={() => console.log("[Step5] add to folder", selectedIds)}
-            onBulkRegenerate={() => console.log("[Step5] bulk regenerate", selectedIds)}
-          />
-        )}
+      {/* BulkToolbar — slides in when 2+ selected */}
+      {done && selectedOutputs.length >= 2 && (
+        <BulkToolbar
+          selectedOutputs={selectedOutputs}
+          onClear={clearSelection}
+          onEditBatch={() => console.log("[Step5] edit batch", selectedIds)}
+          onBulkDownload={() => console.log("[Step5] bulk download", selectedIds)}
+          onBulkLaunch={() => console.log("[Step5] bulk launch", selectedIds)}
+          onAddToFolder={() => console.log("[Step5] add to folder", selectedIds)}
+          onBulkRegenerate={() => console.log("[Step5] bulk regenerate", selectedIds)}
+        />
+      )}
 
-        {/* Grid of Meta-ad-styled output cards */}
-        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          {outputs.map((output) => (
-            <li key={output.id}>
-              {done ? (
-                <OutputCardHybrid
-                  output={output}
-                  selected={selectedIds.has(output.id)}
-                  onToggleSelect={() => toggleSelect(output.id)}
-                  onClick={() => setPreviewId(output.id)}
-                  onSave={() => handleAction(output, "saveAsConcept")}
-                  onLaunch={() => console.log("[Step5] launch", output.id)}
-                  onDownload={() => handleAction(output, "downloadMediaOnly")}
-                  onAction={(a) => handleAction(output, a)}
-                />
-              ) : (
-                <SkeletonCard />
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* Grid of Meta-ad-styled output cards */}
+      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        {outputs.map((output) => (
+          <li key={output.id}>
+            {done ? (
+              <OutputCardHybrid
+                output={output}
+                selected={selectedIds.has(output.id)}
+                onToggleSelect={() => toggleSelect(output.id)}
+                onClick={() => setPreviewId(output.id)}
+                onSave={() => handleAction(output, "saveAsConcept")}
+                onLaunch={() => console.log("[Step5] launch", output.id)}
+                onDownload={() => handleAction(output, "downloadMediaOnly")}
+                onAction={(a) => handleAction(output, a)}
+              />
+            ) : (
+              <SkeletonCard />
+            )}
+          </li>
+        ))}
+      </ul>
 
-      {/* Right-rail PreviewPane — slides in on card click */}
+      {/* PreviewPane — overlay (not a flex column) */}
       {previewOutput && (
         <PreviewPane
           output={previewOutput}
@@ -136,6 +136,37 @@ export function Step5Results({ wizard, done, regenKey }: Step5Props) {
           onDownload={() => handleAction(previewOutput, "downloadMediaOnly")}
           onEllipsisAction={(a) => handleAction(previewOutput, a)}
         />
+      )}
+
+      {/* Batch actions row */}
+      {done && (
+        <div className="flex items-center justify-between border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={onStartOver}
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            ← Start over
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onGenerateAgain}
+              disabled={!done}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Regenerate
+            </button>
+            <button
+              type="button"
+              onClick={onSaveBatch}
+              disabled={!done}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save batch
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

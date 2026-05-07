@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { Sparkles, ImageIcon, Video, Clock, FileText } from "lucide-react";
+import { Sparkles, Clock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
-import type { Format } from "../state/useWizard";
 
 export type AlphaMode =
   | "product-shoot"
@@ -12,11 +11,7 @@ export type AlphaMode =
   | "performance-ad";
 
 interface StudioHomeProps {
-  mode: AlphaMode | null;
-  format: Format | null;
-  onPickMode: (mode: AlphaMode) => void;
-  onPickFormat: (format: Format) => void;
-  onStart: () => void;
+  onStart: (mode: AlphaMode) => void;
 }
 
 interface ModeOption {
@@ -130,19 +125,30 @@ const DRAFTS: DraftItem[] = [
  * yet) — they're rendered as filled-form-data cards showing brand,
  * mode, format, completion progress, and edit timestamp.
  */
-export function StudioHome({
-  mode,
-  format,
-  onPickMode,
-  onPickFormat,
-  onStart,
-}: StudioHomeProps) {
-  const recents = useMemo(
-    () => sampleOutputs.slice(0, 6),
-    [],
-  );
+export function StudioHome({ onStart }: StudioHomeProps) {
+  const historyItems = useMemo(() => {
+    type GenerationItem = {
+      type: "generation";
+      id: string;
+      headline: string;
+      thumbnail?: string;
+      time: string;
+    };
+    type DraftHistoryItem = DraftItem & { type: "draft" };
 
-  const canStart = mode !== null && format !== null;
+    const gens: GenerationItem[] = sampleOutputs.slice(0, 3).map((o) => ({
+      type: "generation" as const,
+      id: o.id,
+      headline: o.headline ?? "Untitled",
+      thumbnail: o.thumbnail,
+      time: "2h ago",
+    }));
+    const drafts: DraftHistoryItem[] = DRAFTS.map((d) => ({
+      type: "draft" as const,
+      ...d,
+    }));
+    return [...gens, ...drafts];
+  }, []);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 pt-14 pb-12">
@@ -171,88 +177,46 @@ export function StudioHome({
               Mode
             </h2>
             <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-              {MODES.map((m) => {
-                const active = mode === m.id;
-                return (
-                  <li key={m.id}>
-                    <button
-                      type="button"
-                      disabled={!m.available}
-                      onClick={() => m.available && onPickMode(m.id)}
-                      className={cn(
-                        "relative flex h-full w-full flex-col items-start gap-1 rounded-xl border bg-background p-3 text-left transition-all",
-                        active
-                          ? "border-primary ring-2 ring-primary/30 bg-primary/5"
-                          : m.available
-                            ? "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
-                            : "border-border cursor-not-allowed opacity-60",
-                      )}
-                    >
-                      {m.tag && (
-                        <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-primary">
-                          {m.tag}
-                        </span>
-                      )}
-                      <span className="text-2xl leading-none">{m.emoji}</span>
-                      <p className="text-[13px] font-bold leading-tight text-foreground">
-                        {m.title}
-                      </p>
-                      <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                        {m.desc}
-                      </p>
-                    </button>
-                  </li>
-                );
-              })}
+              {MODES.map((m) => (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    disabled={!m.available}
+                    onClick={() => m.available && onStart(m.id)}
+                    className={cn(
+                      "relative flex h-full w-full flex-col items-start gap-1 rounded-xl border bg-background p-3 text-left transition-all",
+                      m.available
+                        ? "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+                        : "border-border cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    {m.tag && (
+                      <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-primary">
+                        {m.tag}
+                      </span>
+                    )}
+                    <span className="text-2xl leading-none">{m.emoji}</span>
+                    <p className="text-[13px] font-bold leading-tight text-foreground">
+                      {m.title}
+                    </p>
+                    <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                      {m.desc}
+                    </p>
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Format toggle + Start CTA — same row */}
-          <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-4">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Format
-            </span>
-            <div className="inline-flex rounded-full border border-border bg-background p-0.5">
-              <FormatBtn
-                active={format === "image"}
-                onClick={() => onPickFormat("image")}
-                icon={ImageIcon}
-                label="Image"
-              />
-              <FormatBtn
-                active={format === "video"}
-                onClick={() => onPickFormat("video")}
-                icon={Video}
-                label="Video"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={onStart}
-              disabled={!canStart}
-              className={cn(
-                "ml-auto inline-flex items-center gap-1.5 rounded-full px-6 py-2.5 text-sm font-bold transition-all",
-                canStart
-                  ? "bg-primary text-primary-foreground shadow-md hover:scale-[1.03] hover:shadow-lg ring-4 ring-primary/20"
-                  : "cursor-not-allowed bg-muted text-muted-foreground",
-              )}
-            >
-              Start
-              <span aria-hidden>→</span>
-            </button>
-          </div>
         </div>
       </section>
 
-      {/* ─── SECONDARY ─── Recent + Drafts grouped together, visually subordinate */}
-      <div className="flex flex-col gap-6">
-
-      {/* Recent generations strip */}
+      {/* ─── HISTORY ─── Combined recent generations + drafts */}
       <section className="space-y-2">
         <div className="flex items-center gap-1.5">
           <Clock className="h-3 w-3 text-muted-foreground" />
           <h2 className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Recent generations
+            History
           </h2>
           <button
             type="button"
@@ -262,128 +226,95 @@ export function StudioHome({
           </button>
         </div>
         <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
-          {recents.map((r) => (
-            <li key={r.id} className="snap-start shrink-0 w-[120px]">
-              <button
-                type="button"
-                className="group flex w-full flex-col gap-1 overflow-hidden rounded-lg border border-border/60 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
-              >
-                <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-                  {r.thumbnail ? (
-                    <img
-                      src={r.thumbnail}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <Sparkles className="h-4 w-4 text-muted-foreground/50" />
-                    </div>
-                  )}
-                  {r.brand?.name && (
-                    <span className="absolute bottom-1 left-1 rounded bg-background/90 px-1 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-                      {r.brand.name}
-                    </span>
-                  )}
-                </div>
-                <div className="px-1.5 pb-1 pt-0.5">
-                  <p className="truncate text-[10px] font-semibold text-foreground">
-                    {r.headline ?? "Untitled"}
-                  </p>
-                </div>
-              </button>
-            </li>
-          ))}
+          {historyItems.map((item) =>
+            item.type === "generation" ? (
+              <GenerationCard key={item.id} item={item} />
+            ) : (
+              <DraftCard key={item.id} item={item} />
+            ),
+          )}
         </ul>
       </section>
-
-      {/* Drafts strip */}
-      <section className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          <FileText className="h-3 w-3 text-muted-foreground" />
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Drafts
-          </h2>
-          <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
-            · saved before generation
-          </span>
-        </div>
-        <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
-          {DRAFTS.map((d) => (
-            <li key={d.id} className="snap-start shrink-0 w-[200px]">
-              <button
-                type="button"
-                className="group flex h-full w-full flex-col gap-1.5 rounded-lg border border-dashed border-border bg-card/40 p-3 text-left transition-all hover:border-primary/40 hover:bg-card"
-              >
-                <div className="flex items-center gap-1.5">
-                  <FileText className="h-3 w-3 text-muted-foreground" />
-                  <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                    Draft · {d.editedAgo}
-                  </span>
-                </div>
-                <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
-                  {d.title}
-                </p>
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
-                    {d.brand}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
-                    {d.mode}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
-                    {d.format}
-                  </span>
-                </div>
-                {/* Completion progress bar */}
-                <div className="mt-auto space-y-0.5">
-                  <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                    <span>Filled</span>
-                    <span>{d.completion}%</span>
-                  </div>
-                  <div className="h-1 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-primary"
-                      style={{ width: `${d.completion}%` }}
-                    />
-                  </div>
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      </div>{/* end secondary group */}
     </div>
   );
 }
 
-function FormatBtn({
-  active,
-  onClick,
-  icon: Icon,
-  label,
+function GenerationCard({
+  item,
 }: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ElementType;
-  label: string;
+  item: { id: string; headline: string; thumbnail?: string; time: string };
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold transition-colors",
-        active
-          ? "bg-foreground text-background"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="h-3 w-3" />
-      {label}
-    </button>
+    <li className="snap-start shrink-0 w-[110px]">
+      <button
+        type="button"
+        className="group flex w-full flex-col gap-1 overflow-hidden rounded-lg border border-border/60 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+      >
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+          {item.thumbnail ? (
+            <img
+              src={item.thumbnail}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Sparkles className="h-4 w-4 text-muted-foreground/50" />
+            </div>
+          )}
+        </div>
+        <div className="px-1.5 pb-1 pt-0.5">
+          <p className="truncate text-[10px] font-semibold text-foreground">
+            {item.headline}
+          </p>
+          <p className="font-mono text-[9px] text-muted-foreground">{item.time}</p>
+        </div>
+      </button>
+    </li>
+  );
+}
+
+function DraftCard({ item }: { item: DraftItem & { type: "draft" } }) {
+  return (
+    <li className="snap-start shrink-0 w-[180px]">
+      <button
+        type="button"
+        className="group flex h-full w-full flex-col gap-1.5 rounded-lg border border-dashed border-border bg-card/40 p-3 text-left transition-all hover:border-primary/40 hover:bg-card"
+      >
+        <div className="flex items-center gap-1.5">
+          <FileText className="h-3 w-3 text-muted-foreground" />
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+            Draft · {item.editedAgo}
+          </span>
+        </div>
+        <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
+          {item.title}
+        </p>
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
+            {item.brand}
+          </span>
+          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
+            {item.mode}
+          </span>
+          <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
+            {item.format}
+          </span>
+        </div>
+        <div className="mt-auto space-y-0.5">
+          <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+            <span>Filled</span>
+            <span>{item.completion}%</span>
+          </div>
+          <div className="h-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-primary"
+              style={{ width: `${item.completion}%` }}
+            />
+          </div>
+        </div>
+      </button>
+    </li>
   );
 }
