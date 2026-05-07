@@ -8,6 +8,7 @@ export type AlphaMode =
   | "product-shoot"
   | "brand-ad"
   | "product-ad"
+  | "social"
   | "performance-ad";
 
 interface StudioHomeProps {
@@ -24,6 +25,8 @@ interface ModeOption {
   title: string;
   desc: string;
   available: boolean;
+  /** Optional badge label shown top-right of the card (e.g. "Affiliate"). */
+  tag?: string;
 }
 
 const MODES: ModeOption[] = [
@@ -49,11 +52,19 @@ const MODES: ModeOption[] = [
     available: true,
   },
   {
+    id: "social",
+    emoji: "📱",
+    title: "Social",
+    desc: "Organic content for feed, Stories, Reels, and carousels.",
+    available: false,
+  },
+  {
     id: "performance-ad",
     emoji: "📈",
     title: "Performance Ad",
     desc: "ROAS-driven format. Tested angles, urgency, social proof.",
     available: false,
+    tag: "Affiliate",
   },
 ];
 
@@ -154,12 +165,12 @@ export function StudioHome({
 
         {/* Hero card — elevated chassis containing mode + format + start */}
         <div className="rounded-2xl border border-border bg-card p-8 shadow-md">
-          {/* Mode picker — 4-card grid */}
+          {/* Mode picker — 5-card grid (3+2 on desktop) */}
           <div className="mb-6">
             <h2 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Mode
             </h2>
-            <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               {MODES.map((m) => {
                 const active = mode === m.id;
                 return (
@@ -177,9 +188,9 @@ export function StudioHome({
                             : "border-border cursor-not-allowed opacity-60",
                       )}
                     >
-                      {!m.available && (
-                        <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                          Soon
+                      {m.tag && (
+                        <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-primary">
+                          {m.tag}
                         </span>
                       )}
                       <span className="text-2xl leading-none">{m.emoji}</span>
