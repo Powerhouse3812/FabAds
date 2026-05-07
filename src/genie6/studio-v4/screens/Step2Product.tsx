@@ -36,17 +36,6 @@ const CATEGORIES_PANEL: { id: string; emoji: string; name: string; desc: string 
   { id: "c-health",  emoji: "🩺",  name: "Health Insurance", desc: "Family · senior · OPD" },
 ];
 
-const CATEGORY_LABEL: Record<string, string> = {
-  asset: "Asset",
-  ad: "Ad",
-  social: "Social",
-};
-
-const FORMAT_LABEL: Record<string, string> = {
-  image: "Image",
-  video: "Video",
-};
-
 export function Step2Product({ wizard }: Step2Props) {
   const [tab, setTab] = useState<Tab>(
     wizard.state.categoryId ? "category" : "product",
@@ -111,13 +100,6 @@ export function Step2Product({ wizard }: Step2Props) {
     ? ALL_BRANDS.find((b) => b.id === brandFilter)
     : null;
 
-  const categoryLabel = wizard.state.category
-    ? CATEGORY_LABEL[wizard.state.category]
-    : "—";
-  const formatLabel = wizard.state.format
-    ? FORMAT_LABEL[wizard.state.format]
-    : "—";
-
   // Switch tab — clear opposite side's selection to enforce XOR
   const switchTab = (t: Tab) => {
     if (t === tab) return;
@@ -133,12 +115,7 @@ export function Step2Product({ wizard }: Step2Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-6 pt-4 pb-6">
-      <HeroHeader
-        eyebrow="Setup"
-        title="What are you creating for?"
-        subtitle="Pick a product, or stay broad with a category."
-        breadcrumb={`${categoryLabel} · ${formatLabel}`}
-      />
+      <HeroHeader title="What are you creating for?" />
 
       {/* Tab toggle — Product vs Category */}
       <div className="flex justify-center">
@@ -352,7 +329,9 @@ export function Step2Product({ wizard }: Step2Props) {
         </span>
       </div>
 
-      {/* Single grid — switches by tab */}
+      {/* Single grid — switches by tab. The 'Don't see your product?'
+          footer block has been dropped — Fetch URL handles new products
+          and the category-add affordance is the toolbar's job. */}
       <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         {tab === "product" ? (
           <ProductGrid
@@ -373,20 +352,6 @@ export function Step2Product({ wizard }: Step2Props) {
             search={search}
           />
         )}
-
-        <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
-          <span className="text-[11px] text-muted-foreground">
-            {tab === "product"
-              ? "Don't see your product? Paste a URL or add it manually."
-              : "Need a different category? Add a custom one."}
-          </span>
-          <button
-            type="button"
-            className="text-xs font-semibold text-primary hover:underline"
-          >
-            + Add new {tab === "product" ? "product" : "category"}
-          </button>
-        </div>
       </section>
     </div>
   );
@@ -450,14 +415,25 @@ interface ProductGridProps {
 function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps) {
   if (products.length === 0) {
     return (
-      <div className="px-3 py-12 text-center text-xs text-muted-foreground">
-        No products match {search ? `"${search}"` : "this filter"}. Try a
-        different search or pick another brand.
+      <div className="flex flex-col items-center justify-center gap-3 px-3 py-12 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <Search className="h-5 w-5 text-muted-foreground/70" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            No products found
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {search
+              ? `Nothing matches "${search}". Try a different search or pick another brand.`
+              : "Adjust the brand filter or use Fetch URL to add a new product."}
+          </p>
+        </div>
       </div>
     );
   }
   return (
-    <ul className="grid max-h-[460px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
       {products.map((p) => {
         const isSelected = selectedId === p.id;
         const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
@@ -539,13 +515,25 @@ interface CategoryGridProps {
 function CategoryGrid({ categories, selectedId, onPick, search }: CategoryGridProps) {
   if (categories.length === 0) {
     return (
-      <div className="px-3 py-12 text-center text-xs text-muted-foreground">
-        No categories match {search ? `"${search}"` : "this filter"}.
+      <div className="flex flex-col items-center justify-center gap-3 px-3 py-12 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <FolderOpen className="h-5 w-5 text-muted-foreground/70" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            No categories found
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {search
+              ? `Nothing matches "${search}". Try a different search.`
+              : "Add a custom category to continue."}
+          </p>
+        </div>
       </div>
     );
   }
   return (
-    <ul className="grid max-h-[460px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
         return (

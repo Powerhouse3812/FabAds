@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { BulkToolbar } from "../../components/BulkToolbar";
 import { PreviewPane } from "../../components/PreviewPane";
@@ -11,36 +10,41 @@ import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step5Props {
   wizard: UseWizardReturn;
+  /** Done flag — owned by StudioV4 so WizardNav footer can disable
+   *  Generate again / Save batch until generation completes. */
+  done: boolean;
+  /** Bumped by StudioV4 when user clicks "Generate again" — used as a
+   *  reset key to clear local selection / preview state. */
+  regenKey: number;
 }
 
 /**
- * Step5Results — Genie 5 adcopy / Meta-ad style results screen (A-12.5).
+ * Step5Results — Genie 5 adcopy / Meta-ad style results screen.
  *
- * Pulls realistic ad data from `mocks/sample-outputs.ts` (filtered by
- * brand if available, otherwise top-quality outputs). Renders Meta-ad
- * cards via OutputCardHybrid. Multi-select with BulkToolbar (slides in
- * when 2+ selected). Click a card → PreviewPane slides in 320px on the
- * right with full details + actions.
+ * Pulls realistic ad data from `mocks/sample-outputs.ts` (sorted by
+ * qualityScore desc, sliced to the user's variants count). Renders
+ * Meta-ad cards via OutputCardHybrid. Multi-select with BulkToolbar
+ * (slides in when 2+ selected). Click a card → PreviewPane slides in
+ * 320px on the right with full details + actions.
+ *
+ * Action footer (Generate again / Save batch / Start over) lives in
+ * WizardNav for consistency — same footer chassis as the other steps.
  */
-export function Step5Results({ wizard }: Step5Props) {
+export function Step5Results({ wizard, done, regenKey }: Step5Props) {
   const totalOutputs = wizard.state.credits;
-  const [done, setDone] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
 
+  // Reset local selection / preview when generation restarts.
   useEffect(() => {
-    setDone(false);
     setSelectedIds(new Set());
     setPreviewId(null);
-    const t = setTimeout(() => setDone(true), 2500);
-    return () => clearTimeout(t);
-  }, [wizard.state.step]);
+  }, [regenKey]);
 
   // Pick `totalOutputs` realistic outputs from sample-outputs.ts.
-  // If the user picked a productId / brand context, prefer matching outputs.
+  // Sorted by qualityScore desc for top-N feel.
   const outputs = useMemo(() => {
     const all = sampleOutputs.slice();
-    // Sort by qualityScore desc for top-N feel; fall back to insertion order
     all.sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0));
     return all.slice(0, totalOutputs);
   }, [totalOutputs]);
@@ -70,26 +74,11 @@ export function Step5Results({ wizard }: Step5Props) {
     console.log(`[Step5] ${action}`, output.id);
   };
 
-  const generateAgain = () => {
-    setDone(false);
-    setSelectedIds(new Set());
-    setPreviewId(null);
-    setTimeout(() => setDone(true), 2500);
-  };
-
   return (
-    <div className="mx-auto flex w-full max-w-6xl gap-4 px-6 pt-4 pb-6">
+    <div className="mx-auto flex w-full max-w-5xl gap-4 px-6 pt-4 pb-6">
       {/* Main column — header + bulk toolbar + grid */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <HeroHeader
-          eyebrow="Output"
-          title={done ? "Done!" : "Generating with Genie…"}
-          subtitle={
-            done
-              ? `${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"} ready · click to preview, multi-select for bulk actions`
-              : `Crafting ${totalOutputs} ${totalOutputs === 1 ? "variant" : "variants"} based on your inputs…`
-          }
-        />
+        <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />
 
         {/* Loader chip — shown only while !done */}
         {!done && (
@@ -135,39 +124,6 @@ export function Step5Results({ wizard }: Step5Props) {
             </li>
           ))}
         </ul>
-
-        {/* Action footer */}
-        <div className="flex items-center justify-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={generateAgain}
-            disabled={!done}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-5 py-2 text-sm font-medium transition-colors",
-              done ? "hover:border-primary/40" : "cursor-not-allowed opacity-50",
-            )}
-          >
-            <Sparkles className="h-4 w-4" />
-            Generate again
-          </button>
-          <button
-            type="button"
-            disabled={!done}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition-transform",
-              done ? "hover:scale-[1.02]" : "cursor-not-allowed opacity-50",
-            )}
-          >
-            Save batch
-          </button>
-          <button
-            type="button"
-            onClick={() => wizard.reset()}
-            className="inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Start over
-          </button>
-        </div>
       </div>
 
       {/* Right-rail PreviewPane — slides in on card click */}

@@ -29,30 +29,11 @@ interface Step4Props {
   wizard: UseWizardReturn;
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  asset: "Asset",
-  ad: "Ad",
-  social: "Social",
-};
-const FORMAT_LABEL: Record<string, string> = {
-  image: "Image",
-  video: "Video",
-};
 
 export function Step4Configure({ wizard }: Step4Props) {
   // null = rail hidden (default). Set to a mode value when user triggers
   // a heavy attach source or "Generate new concept".
   const [railMode, setRailMode] = useState<RailMode>(null);
-
-  const categoryLabel = wizard.state.category
-    ? CATEGORY_LABEL[wizard.state.category]
-    : "—";
-  const formatLabel = wizard.state.format
-    ? FORMAT_LABEL[wizard.state.format]
-    : "—";
-  const productOrCategoryLabel =
-    wizard.state.productId ?? wizard.state.categoryId ?? "—";
-  const breadcrumb = `${categoryLabel} · ${formatLabel} · ${productOrCategoryLabel}`;
 
   // Rail picker save handler — routes by attach source. Closing returns
   // form to full width.
@@ -89,14 +70,10 @@ export function Step4Configure({ wizard }: Step4Props) {
           column gets the full width. min-h-full so the form fills the
           scroll viewport (lets `mt-auto` push the prompt bar to the
           bottom even when content is short). */}
-      <div className="mx-auto flex min-h-full w-full max-w-6xl gap-4 px-6 pt-4 pb-6">
+      <div className="mx-auto flex min-h-full w-full max-w-5xl gap-4 px-6 pt-4 pb-6">
         {/* Left: form column — flex-col with mt-auto on prompt bar */}
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <HeroHeader
-            eyebrow="Configure"
-            title="Configure & generate"
-            breadcrumb={breadcrumb}
-          />
+          <HeroHeader title="Configure & generate" />
 
           <AngleStrip
             selectedId={wizard.state.angleId}

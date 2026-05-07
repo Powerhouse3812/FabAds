@@ -86,7 +86,7 @@ export function ConceptStrip({
                   </span>
                 )}
               </div>
-              <p className="truncate px-2 pb-2 pt-0.5 text-[12px] font-bold leading-tight text-foreground">
+              <p className="truncate px-2 pb-1.5 pt-0.5 text-[11px] font-semibold leading-tight text-foreground">
                 {concept.name}
               </p>
             </button>

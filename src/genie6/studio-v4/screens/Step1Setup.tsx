@@ -94,13 +94,9 @@ export function Step1Setup({ wizard }: Step1Props) {
       {/* Ambient backdrop — gradient mesh + dot grid (subtle, behind everything) */}
       <BackdropMesh />
 
-      {/* Hero header — compact, consistent across all steps */}
+      {/* Hero header — minimal title only (no eyebrow / subtitle) */}
       <div className="relative">
-        <HeroHeader
-          eyebrow="Studio"
-          title="What are you generating today?"
-          subtitle="Pick a type and an output format. The Studio fills in the rest."
-        />
+        <HeroHeader title="What are you generating today?" />
       </div>
 
       {/* Type selector */}

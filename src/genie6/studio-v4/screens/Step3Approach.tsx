@@ -49,13 +49,9 @@ export function Step3Approach({ wizard }: Step3Props) {
       {/* Ambient backdrop */}
       <BackdropMesh />
 
-      {/* Hero header — compact, consistent across all steps */}
+      {/* Hero header — minimal title only */}
       <div className="relative">
-        <HeroHeader
-          eyebrow="Approach"
-          title="What's your approach?"
-          subtitle="Pick how you want to build. Scratch is the full advanced flow."
-        />
+        <HeroHeader title="What's your approach?" />
       </div>
 
       {/* Hero Scratch ModeCard */}

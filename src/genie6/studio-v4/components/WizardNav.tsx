@@ -1,4 +1,4 @@
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronLeft, RotateCw, Save, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WizardNavProps {
@@ -9,6 +9,13 @@ interface WizardNavProps {
   canContinue: boolean;
   onBack: () => void;
   onContinue: () => void;
+  /** Step 5 actions — wired by Step5Results so the footer can drive
+   *  the same actions that used to live in the body. */
+  onGenerateAgain?: () => void;
+  onSaveBatch?: () => void;
+  onStartOver?: () => void;
+  /** Step 5 only — disables the action buttons until generation is done. */
+  resultsReady?: boolean;
 }
 
 export function WizardNav({
@@ -19,12 +26,19 @@ export function WizardNav({
   canContinue,
   onBack,
   onContinue,
+  onGenerateAgain,
+  onSaveBatch,
+  onStartOver,
+  resultsReady,
 }: WizardNavProps) {
-  if (step === 5) return null;
+  // Variant A's Step 4 hides the WizardNav (Step4TopBar replaces it +
+  // PromptReferenceBar's inline Send fires Generate). Step 5 keeps the
+  // footer for action consistency.
   if (step === 4 && ctaLayout === "inline") return null;
 
   const isGenerate = step === 4;
-  const showBack = step > 1;
+  const isResults = step === 5;
+  const showBack = step > 1 && !isResults;
 
   // Total outputs = credits (since credits = max(concepts, 1) * count, 1 credit = 1 output)
   // concepts = credits / count (with safety guard)
@@ -34,6 +48,49 @@ export function WizardNav({
     1,
     Math.round(totalOutputs / Math.max(variations, 1)),
   );
+
+  // Step 5 — Results footer with batch actions
+  if (isResults) {
+    const ready = resultsReady ?? false;
+    return (
+      <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-border bg-background/90 px-6 py-4 backdrop-blur">
+        <button
+          type="button"
+          onClick={onStartOver}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Start over
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onGenerateAgain}
+            disabled={!ready}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-5 py-2 text-sm font-medium transition-colors",
+              ready ? "hover:border-primary/40" : "cursor-not-allowed opacity-50",
+            )}
+          >
+            <RotateCw className="h-4 w-4" />
+            Generate again
+          </button>
+          <button
+            type="button"
+            onClick={onSaveBatch}
+            disabled={!ready}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-sm font-bold text-primary-foreground transition-transform",
+              ready ? "hover:scale-[1.02]" : "cursor-not-allowed opacity-50",
+            )}
+          >
+            <Save className="h-4 w-4" />
+            Save batch
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-border bg-background/90 px-6 py-4 backdrop-blur">
