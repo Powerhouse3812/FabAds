@@ -9,7 +9,6 @@ import type {
 } from "../state/useWizard";
 import { HeroHeader } from "../components/HeroHeader";
 import { PromptReferenceBar, type ChipKind } from "../components/PromptReferenceBar";
-import { RightRail } from "../components/RightRail";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
@@ -92,15 +91,12 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
     wizard.state.selectedConceptIds.includes(`trend:${id}`);
 
   return (
-    <div className={cn(
-      "mx-auto flex min-h-full w-full px-6 pt-8 pb-10",
-      railMode !== null ? "max-w-5xl gap-4" : "max-w-2xl gap-8",
-    )}>
-      <div className="flex min-w-0 flex-1 flex-col gap-8">
+    <>
+      {/* ── Main form — always single-column, max-w-2xl ── */}
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 pt-8 pb-10">
         <HeroHeader title="Configure" />
 
-        {/* Prompt bar at TOP. hideLayoutToggle = always Layout A (inline Send).
-            Footer hidden in StudioAlpha shell for this step. */}
+        {/* Prompt bar — Layout A (inline Send) always. */}
         <PromptReferenceBar
           wizard={wizard}
           onAttachPickerOpen={handleAttachPickerOpen}
@@ -108,8 +104,7 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
           hideLayoutToggle
         />
 
-        {/* AI prompt suggestions — sleek horizontal cards below the prompt
-            bar. Click any to pre-fill the textarea. */}
+        {/* AI prompt suggestions — shown when textarea is empty */}
         {wizard.state.prompt.trim().length === 0 && (
           <PromptSuggestions
             angleId={wizard.state.angleId}
@@ -117,7 +112,7 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
           />
         )}
 
-        {/* Trending concepts strip — below the prompt bar */}
+        {/* Trending concepts strip */}
         <section className="space-y-2">
           <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Trending concepts
@@ -172,60 +167,68 @@ export function AlphaStep3Configure({ wizard }: AlphaStep3Props) {
         </section>
       </div>
 
-      {/* Right rail — on-demand */}
+      {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
       {railMode !== null && (
-        <RightRail>
-          {railMode === "generate-concepts" && (
-            <RailGenerateConcepts
-              selectedIds={wizard.state.selectedConceptIds}
-              onChange={(ids) => wizard.set("selectedConceptIds", ids)}
-              onClose={handleAttachCancel}
-            />
-          )}
-          {railMode === "concept-angle" && (
-            <ConceptAngleRail
-              selectedAngleId={wizard.state.angleId}
-              selectedConceptIds={wizard.state.selectedConceptIds}
-              onAngleChange={(id) => wizard.set("angleId", id)}
-              onConceptsChange={(ids) =>
-                wizard.set("selectedConceptIds", ids)
-              }
-              onClose={handleAttachCancel}
-            />
-          )}
-          {railMode === "avatar-voice" && (
-            <AvatarVoiceRail
-              selectedAvatarId={wizard.state.avatarId}
-              selectedVoiceId={wizard.state.voiceId}
-              onAvatarChange={(id) => wizard.set("avatarId", id)}
-              onVoiceChange={(id) => wizard.set("voiceId", id)}
-              onClose={handleAttachCancel}
-            />
-          )}
-          {railMode === "style-brand" && (
-            <StyleBrandStub onClose={handleAttachCancel} />
-          )}
-          {railMode === "library" && (
-            <LibraryColumnDrawer
-              onSave={handleAttachSave("library")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-          {railMode === "brand-winner-ads" && (
-            <BrandWinnerAdsDrawer
-              onSave={handleAttachSave("brand-winner-ads")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-          {railMode === "product-winner-ads" && (
-            <ProductWinnerAdsDrawer
-              onSave={handleAttachSave("product-winner-ads")}
-              onCancel={handleAttachCancel}
-            />
-          )}
-        </RightRail>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          {/* Backdrop — click to dismiss */}
+          <div
+            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            onClick={handleAttachCancel}
+          />
+          {/* Dialog box */}
+          <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl max-h-[80vh]">
+            {railMode === "generate-concepts" && (
+              <RailGenerateConcepts
+                selectedIds={wizard.state.selectedConceptIds}
+                onChange={(ids) => wizard.set("selectedConceptIds", ids)}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "concept-angle" && (
+              <ConceptAngleRail
+                selectedAngleId={wizard.state.angleId}
+                selectedConceptIds={wizard.state.selectedConceptIds}
+                onAngleChange={(id) => wizard.set("angleId", id)}
+                onConceptsChange={(ids) =>
+                  wizard.set("selectedConceptIds", ids)
+                }
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "avatar-voice" && (
+              <AvatarVoiceRail
+                selectedAvatarId={wizard.state.avatarId}
+                selectedVoiceId={wizard.state.voiceId}
+                onAvatarChange={(id) => wizard.set("avatarId", id)}
+                onVoiceChange={(id) => wizard.set("voiceId", id)}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "style-brand" && (
+              <StyleBrandStub onClose={handleAttachCancel} />
+            )}
+            {railMode === "library" && (
+              <LibraryColumnDrawer
+                onSave={handleAttachSave("library")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "brand-winner-ads" && (
+              <BrandWinnerAdsDrawer
+                onSave={handleAttachSave("brand-winner-ads")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "product-winner-ads" && (
+              <ProductWinnerAdsDrawer
+                onSave={handleAttachSave("product-winner-ads")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
