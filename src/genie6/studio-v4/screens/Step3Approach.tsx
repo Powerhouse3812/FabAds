@@ -74,7 +74,7 @@ export function Step3Approach({ wizard }: Step3Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title="What's your approach?" />
 
       {/* Active modes — Custom first (equal-priority grid, no hero variant) */}
