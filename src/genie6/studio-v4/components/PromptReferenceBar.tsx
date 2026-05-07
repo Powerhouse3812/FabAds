@@ -15,49 +15,28 @@ import type {
 } from "../state/useWizard";
 
 /**
- * PromptReferenceBar — Step 4 merged prompt + reference dock (Track C).
+ * PromptReferenceBar — Step 4 prompt + reference dock.
  *
- * Single textarea + clip/+ icon to attach references. Heavy sources
- * (library / pinterest / *-winner-ads) open a right-rail column drawer.
- * Lighter sources (upload / url) fire inline (file picker / URL popover).
+ * A-12.18 redesign (Maalik feedback):
+ *   - Glass-effect container (backdrop-blur-xl, translucent bg, soft shadow).
+ *   - Unified pill visual language across ALL controls — single shape, single
+ *     muted-tinted active state. Lime is reserved exclusively for Generate CTA.
+ *   - Aspect ratio + variations are both segmented controls (same DNA).
+ *   - Brand Guidelines + Knowledge Base are subtle toggles (no solid black fills).
+ *   - Char counter, big credits chip, two-line ChipBtn → all stripped down.
  *
- * Handles BOTH CTA-layout variants:
- *   - "inline":  inline Send button on the right of the bar (Variant A)
- *   - "footer":  no Send here — WizardNav owns the Generate button (Variant B)
+ * Prompt ideas live ABOVE the bar (rendered by AlphaStep3Configure), not inside.
  *
- * The CtaLayoutToggle dev pill always renders far-right so Maalik can flip
- * layouts at runtime.
- *
- * Pinterest note: v3's `PinterestColumnDrawer` requires a deep query/selection
- * contract (PinterestPin[], onReplaceSelection, brand/concept ctx) that
- * doesn't fit Track C's clean { onSave, onCancel } pattern. For first ship
- * we render a minimal mock-pin grid inside our RightRail. Integration with
- * the v3 component (or a v4-native rewrite) is a follow-up.
+ * Pinterest note (preserved): v3's column drawer is a follow-up integration.
  */
 
 export type ChipKind = "concept-angle" | "avatar-voice" | "style-brand";
 
 interface PromptReferenceBarProps {
   wizard: UseWizardReturn;
-  /**
-   * Called when the attach popover routes the user to a heavy attach source
-   * (library / pinterest / brand-winner-ads / product-winner-ads). The parent
-   * (Step4Configure) handles opening the right-rail picker for that source.
-   *
-   * Upload + URL still fire inline (file dialog / URL popover) and don't use
-   * this callback.
-   */
   onAttachPickerOpen?: (source: AttachSource) => void;
-  /**
-   * Called when one of the top-row chips (Concept·Angle / Avatar·Voice /
-   * Style·Brand) is clicked. The parent opens the corresponding rail
-   * picker (each is a tabbed / single picker with edit semantics).
-   */
   onChipOpen?: (chip: ChipKind) => void;
-  /**
-   * When true: forces inline Send (Layout A) and hides the CtaLayoutToggle
-   * dev pill. Used by Studio Alpha's Configure step.
-   */
+  /** Forces inline Send + hides the dev CtaLayoutToggle. Used by Studio Alpha. */
   hideLayoutToggle?: boolean;
 }
 
@@ -79,6 +58,7 @@ const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
 ];
 
 const COUNTS = [1, 2, 4, 8] as const;
+const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 
 const ANGLE_CHIP_LABEL: Record<string, string> = {
   hero: "Hero",
@@ -89,17 +69,6 @@ const ANGLE_CHIP_LABEL: Record<string, string> = {
   "ugc-style": "UGC",
   unboxing: "Unboxing",
   infographic: "Infographic",
-};
-
-const ANGLE_HINT: Record<string, string> = {
-  hero: "Hero shot",
-  lifestyle: "Lifestyle scene",
-  "social-proof": "Social-proof framing",
-  urgency: "Urgency / sale framing",
-  comparison: "Comparison setup",
-  "ugc-style": "UGC creator look",
-  unboxing: "Unboxing reveal",
-  infographic: "Infographic style",
 };
 
 export function PromptReferenceBar({
@@ -126,8 +95,6 @@ export function PromptReferenceBar({
       setUrlPopoverOpen(true);
       return;
     }
-    // library / pinterest / brand-winner-ads / product-winner-ads
-    // — delegate to Step 4's right-rail (it owns the rail mode state)
     onAttachPickerOpen?.(source);
   };
 
@@ -161,7 +128,7 @@ export function PromptReferenceBar({
         trimmed.startsWith("http") ? trimmed : `https://${trimmed}`,
       ).hostname;
     } catch {
-      // fall back to raw input
+      // fall back to raw
     }
     const ref: AttachedRef = {
       id: `url-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -173,121 +140,106 @@ export function PromptReferenceBar({
     setUrlPopoverOpen(false);
   };
 
-  // Layout A = inline Send. Forced always in Alpha (hideLayoutToggle=true).
   const showInlineSend = hideLayoutToggle || state.ctaLayout === "inline";
-
-  // UGC mode — show Avatar/Voice chip, hide Style/Brand chip.
   const isUgcMode = state.mode === "ugc-video" || state.angleId === "ugc-style";
 
-  // Generate-CTA math: derive concept count from credits / count (mirrors WizardNav).
-  const totalOutputs = state.credits;
-  const variations = state.count;
-  const conceptCount = Math.max(
-    1,
-    Math.round(totalOutputs / Math.max(variations, 1)),
-  );
+  // Concept · Angle compound value
+  const conceptAngleValue =
+    state.angleId || state.selectedConceptIds.length > 0
+      ? [
+          state.angleId
+            ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
+            : null,
+          state.selectedConceptIds.length > 0
+            ? `${state.selectedConceptIds.length} concept${state.selectedConceptIds.length === 1 ? "" : "s"}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "Auto";
 
-  // Active model for the dropdown trigger
+  const avatarVoiceValue =
+    state.avatarId || state.voiceId
+      ? [state.avatarId ? "Set" : "Auto", state.voiceId ? "Set" : "Auto"].join(" · ")
+      : "Auto";
+
   const activeModel = MODELS.find((m) => m.id === state.modelId) ?? MODELS[0];
 
   return (
     <>
+      {/* GLASS container — backdrop-blur, translucent, subtle border + soft shadow */}
       <div
         className={cn(
-          "rounded-2xl border border-border bg-card shadow-sm",
-          "px-4 py-3",
+          "relative overflow-hidden rounded-3xl",
+          "border border-border/40",
+          "bg-card/60 backdrop-blur-xl",
+          "shadow-[0_8px_32px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
+          "px-5 py-4",
         )}
       >
-        <div className="flex w-full flex-col gap-2">
-          {/* Row 0 — chip row (Concept·Angle / Avatar·Voice / Style·Brand)
-              UGC mode: show Avatar·Voice, hide Style·Brand. */}
+        <div className="flex w-full flex-col gap-3">
+          {/* Row 0 — Reference chips (UNIFIED pill style) */}
           {onChipOpen && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <ChipBtn
-                icon="🎯"
-                label="Concept · Angle"
-                value={
-                  state.angleId || state.selectedConceptIds.length > 0
-                    ? [
-                        state.angleId
-                          ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-                          : null,
-                        state.selectedConceptIds.length > 0
-                          ? `${state.selectedConceptIds.length} concept${state.selectedConceptIds.length === 1 ? "" : "s"}`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")
-                    : "Auto"
-                }
+              <RefChip
+                label="Concept"
+                value={conceptAngleValue}
                 onClick={() => onChipOpen("concept-angle")}
               />
               {isUgcMode ? (
-                <ChipBtn
-                  icon="🎬"
-                  label="Avatar · Voice"
-                  value={
-                    state.avatarId || state.voiceId
-                      ? [
-                          state.avatarId ? "Avatar set" : "Auto",
-                          state.voiceId ? "Voice set" : "Auto",
-                        ].join(" · ")
-                      : "Auto · Auto"
-                  }
+                <RefChip
+                  label="Avatar"
+                  value={avatarVoiceValue}
                   onClick={() => onChipOpen("avatar-voice")}
                 />
               ) : (
-                <ChipBtn
-                  icon="✨"
-                  label="Style · Brand"
+                <RefChip
+                  label="Style"
                   value="Auto"
                   onClick={() => onChipOpen("style-brand")}
                 />
               )}
+              <span aria-hidden className="mx-1 h-3.5 w-px bg-border/50" />
               <ToggleChip
-                icon={<BookOpen className="h-3.5 w-3.5" />}
-                label="Brand Guidelines"
+                icon={<BookOpen className="h-3 w-3" />}
+                label="Brand"
                 active={state.useBrandGuidelines}
                 onClick={() => wizard.set("useBrandGuidelines", !state.useBrandGuidelines)}
               />
               <ToggleChip
-                icon={<Database className="h-3.5 w-3.5" />}
-                label="Knowledge Base"
+                icon={<Database className="h-3 w-3" />}
+                label="KB"
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
             </div>
           )}
 
-          {/* Row 1 — attached refs chips */}
+          {/* Row 1 — attached refs (compact) */}
           {state.attachedReferences.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                Attached
-              </span>
               {state.attachedReferences.map((ref) => (
                 <span
                   key={ref.id}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[11px] font-medium text-foreground"
                 >
                   <span aria-hidden>{SOURCE_ICON[ref.source]}</span>
-                  <span className="max-w-[160px] truncate">{ref.label}</span>
+                  <span className="max-w-[140px] truncate">{ref.label}</span>
                   <button
                     type="button"
                     onClick={() => removeRef(ref.id)}
                     aria-label={`Remove ${ref.label}`}
-                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-2.5 w-2.5" />
                   </button>
                 </span>
               ))}
             </div>
           )}
 
-          {/* Row 2 — clip + textarea + char counter */}
-          <div className="relative flex items-end gap-2">
-            {/* + icon — wraps the AttachPopover */}
+          {/* Row 2 — paperclip + textarea (NO char counter) */}
+          <div className="relative flex items-start gap-2">
             <AttachPopover
               open={attachOpen}
               onOpenChange={setAttachOpen}
@@ -296,24 +248,20 @@ export function PromptReferenceBar({
               <button
                 type="button"
                 aria-label="Attach reference"
-                className={cn(
-                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background transition-colors",
-                  "hover:border-primary/40",
-                )}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/40 text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </AttachPopover>
 
-            {/* URL inline popover — hidden anchor near the + button so it
-                doesn't conflict with the AttachPopover on the same trigger. */}
+            {/* URL inline popover anchor */}
             <Popover open={urlPopoverOpen} onOpenChange={setUrlPopoverOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
                   aria-hidden="true"
                   tabIndex={-1}
-                  className="pointer-events-none absolute left-0 top-0 h-9 w-9 opacity-0"
+                  className="pointer-events-none absolute left-0 top-0 h-8 w-8 opacity-0"
                 />
               </PopoverTrigger>
               <PopoverContent align="start" side="top" className="w-80 p-3">
@@ -360,37 +308,26 @@ export function PromptReferenceBar({
               </PopoverContent>
             </Popover>
 
-            {/* Textarea */}
             <textarea
               value={state.prompt}
               onChange={(e) => wizard.set("prompt", e.target.value)}
               rows={2}
-              placeholder="Describe what you want to generate…"
-              className="block w-full flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
+              placeholder="Describe what you want to generate… (Cmd+Enter to generate)"
+              className="block w-full flex-1 resize-none bg-transparent px-1 pt-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
             />
-
-            {/* Char counter only */}
-            <span className="shrink-0 self-end pb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              {state.prompt.length} chars
-            </span>
           </div>
 
-          {/* Row 3 — meta toolbar: Model · Variations · Credits · (Variant A: inline Send) · CtaLayoutToggle */}
-          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
-            {/* Model dropdown — no eyebrow label, dropdown is self-explanatory */}
+          {/* Row 3 — controls (UNIFIED segmented + pill DNA) */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-3">
+            {/* Model dropdown — same pill style */}
             <Popover open={modelOpen} onOpenChange={setModelOpen}>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-[11px] font-medium text-foreground hover:border-primary/40"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-3 text-[11px] font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
                 >
-                  <span>{activeModel.emoji}</span>
+                  <span className="text-[12px] leading-none">{activeModel.emoji}</span>
                   <span>{activeModel.name}</span>
-                  {activeModel.hint && (
-                    <span className="text-[10px] text-muted-foreground">
-                      · {activeModel.hint}
-                    </span>
-                  )}
                   <ChevronDown className="h-3 w-3 text-muted-foreground" />
                 </button>
               </PopoverTrigger>
@@ -407,7 +344,7 @@ export function PromptReferenceBar({
                       }}
                       className={cn(
                         "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                        active ? "bg-primary/10 text-primary" : "hover:bg-muted",
+                        active ? "bg-foreground/[0.06]" : "hover:bg-muted",
                       )}
                     >
                       <span className="text-base">{m.emoji}</span>
@@ -423,76 +360,45 @@ export function PromptReferenceBar({
               </PopoverContent>
             </Popover>
 
-            {/* Variations pills — no eyebrow label, the pills self-explain */}
-            <div className="inline-flex rounded-full border border-border bg-background p-0.5">
-              {COUNTS.map((n) => {
-                const active = state.count === n;
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => wizard.set("count", n)}
-                    className={cn(
-                      "inline-flex h-6 min-w-[24px] items-center justify-center rounded-full px-2 font-mono text-[11px] font-semibold transition-colors",
-                      active
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {n}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Variations — segmented */}
+            <Segmented
+              options={COUNTS as unknown as readonly (string | number)[]}
+              value={state.count}
+              onChange={(n) => wizard.set("count", Number(n))}
+              renderLabel={(n) => `${n}×`}
+            />
 
-            {/* Credits chip */}
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground">
-              ⚡ <span className="font-mono">{state.credits}</span> credits
+            {/* Aspect ratio — segmented (same DNA as variations) */}
+            <Segmented
+              options={RATIOS}
+              value={state.aspectRatio}
+              onChange={(r) => wizard.set("aspectRatio", r as typeof RATIOS[number])}
+            />
+
+            {/* Credits — minimal text only, no chip bg */}
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {state.credits} cr
             </span>
 
-            {/* Aspect ratio pills */}
-            {(["1:1", "4:5", "9:16", "16:9"] as const).map((ratio) => {
-              const active = state.aspectRatio === ratio;
-              return (
-                <button
-                  key={ratio}
-                  type="button"
-                  onClick={() => wizard.set("aspectRatio", ratio)}
-                  className={cn(
-                    "rounded-md px-2 py-0.5 font-mono text-[11px] font-semibold transition-colors",
-                    active
-                      ? "bg-foreground/90 text-background"
-                      : "border border-border text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {ratio}
-                </button>
-              );
-            })}
-
-            {/* Variant A — inline Send */}
+            {/* Generate — only colored element */}
             {showInlineSend && (
               <button
                 type="button"
                 onClick={() => wizard.goTo(5)}
                 disabled={!state.prompt.trim()}
                 className={cn(
-                  "ml-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-bold text-primary-foreground transition-transform",
-                  "hover:scale-[1.02]",
-                  "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100",
+                  "ml-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-5 text-[12px] font-bold text-primary-foreground transition-all",
+                  "shadow-md shadow-primary/20",
+                  "hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/30",
+                  "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none",
                 )}
               >
-                <Sparkles className="h-4 w-4" />
+                <Sparkles className="h-3.5 w-3.5" />
                 Generate
-                <span className="font-mono text-[10px] opacity-80">
-                  {conceptCount === 1
-                    ? `· ${variations}× · ${totalOutputs} cr`
-                    : `· ${conceptCount}×${variations} = ${totalOutputs} · ${totalOutputs} cr`}
-                </span>
               </button>
             )}
 
-            {/* Dev toggle — hidden in Alpha (hideLayoutToggle=true) */}
+            {/* Dev toggle — hidden in Alpha */}
             {!hideLayoutToggle && (
               <CtaLayoutToggle
                 value={state.ctaLayout}
@@ -512,27 +418,19 @@ export function PromptReferenceBar({
           onChange={handleFiles}
         />
       </div>
-
-      {/* Heavy attach sources (library / pinterest / brand-WA / product-WA)
-          are now hosted by Step4Configure's persistent right-rail column —
-          PromptReferenceBar delegates the open via `onAttachPickerOpen`. */}
     </>
   );
 }
 
 /* ────────────────────────────────────────────────────────── *
- *  ChipBtn — top-row picker chip (Concept·Angle / Avatar·Voice
- *  / Style·Brand). Click → onChipOpen → rail opens for editing.
- *  Pattern matches the reference image: small icon circle +
- *  value (top, semibold) + label (bottom, muted, smaller).
+ *  RefChip — picker reference chip (Concept · Avatar · Style).
+ *  Single-line, label + value, unified pill DNA.
  * ────────────────────────────────────────────────────────── */
-function ChipBtn({
-  icon,
+function RefChip({
   label,
   value,
   onClick,
 }: {
-  icon: string;
   label: string;
   value: string;
   onClick: () => void;
@@ -541,29 +439,19 @@ function ChipBtn({
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1 text-left transition-colors",
-        "hover:border-primary/40 hover:bg-muted/40",
-      )}
+      className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-3 text-[11px] font-medium transition-colors hover:border-foreground/20 hover:bg-background/70"
     >
-      <span
-        aria-hidden
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[12px]"
-      >
-        {icon}
-      </span>
-      <span className="leading-tight">
-        <span className="block text-[11px] font-semibold text-foreground">
-          {value}
-        </span>
-        <span className="block font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-      </span>
+      <span className="text-muted-foreground">{label}</span>
+      <span aria-hidden className="text-muted-foreground/40">·</span>
+      <span className="text-foreground">{value}</span>
     </button>
   );
 }
 
+/* ────────────────────────────────────────────────────────── *
+ *  ToggleChip — Brand Guidelines / KB toggle pill.
+ *  Active = subtle muted-tinted bg. Off = line-through, no scream.
+ * ────────────────────────────────────────────────────────── */
 function ToggleChip({
   icon,
   label,
@@ -580,14 +468,54 @@ function ToggleChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all",
+        "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-all",
         active
-          ? "border-foreground/20 bg-foreground/90 text-background"
-          : "border-border text-muted-foreground/60 line-through hover:text-muted-foreground",
+          ? "border-foreground/20 bg-foreground/[0.06] text-foreground"
+          : "border-border/40 bg-background/30 text-muted-foreground/60 line-through hover:text-muted-foreground",
       )}
     >
       {icon}
       {label}
     </button>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  Segmented — generic segmented pill control.
+ *  Used for Variations and Aspect Ratio. Same DNA = visual unity.
+ * ────────────────────────────────────────────────────────── */
+function Segmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+  renderLabel,
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (v: T) => void;
+  renderLabel?: (v: T) => string;
+}) {
+  return (
+    <div className="inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
+      {options.map((opt) => {
+        const active = value === opt;
+        const label = renderLabel ? renderLabel(opt) : String(opt);
+        return (
+          <button
+            key={String(opt)}
+            type="button"
+            onClick={() => onChange(opt)}
+            className={cn(
+              "inline-flex h-6 min-w-[28px] items-center justify-center rounded-full px-2 font-mono text-[10px] font-semibold transition-colors",
+              active
+                ? "bg-foreground/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

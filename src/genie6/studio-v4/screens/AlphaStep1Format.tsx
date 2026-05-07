@@ -48,10 +48,10 @@ export function AlphaStep1Format({ wizard, onAdvance }: Step1Props) {
                 onAdvance();
               }}
               className={cn(
-                "flex flex-col items-center gap-4 p-8 rounded-2xl border bg-card transition-all cursor-pointer",
+                "flex cursor-pointer flex-col items-center gap-4 rounded-3xl border bg-card/60 p-8 backdrop-blur-xl transition-all",
                 selected
-                  ? "border-primary ring-2 ring-primary/30 bg-primary/5"
-                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+                  ? "border-primary/50 bg-primary/5 shadow-[0_8px_32px_rgba(195,235,66,0.15)] ring-2 ring-primary/30"
+                  : "border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]",
               )}
             >
               <Icon

@@ -98,8 +98,16 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
       {/* ── Main layout — 2-column on xl: form + ContextRail ── */}
       <div className="flex min-h-0 w-full gap-6 px-6 pt-8 pb-10">
         {/* Left: form content */}
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
           <HeroHeader title="Configure" />
+
+          {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
+          {wizard.state.prompt.trim().length === 0 && (
+            <PromptSuggestions
+              angleId={wizard.state.angleId}
+              onPick={(p) => wizard.set("prompt", p)}
+            />
+          )}
 
           {/* Prompt bar — Layout A (inline Send) always. */}
           <PromptReferenceBar
@@ -109,32 +117,24 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
             hideLayoutToggle
           />
 
-          {/* AI prompt suggestions — shown when textarea is empty */}
-          {wizard.state.prompt.trim().length === 0 && (
-            <PromptSuggestions
-              angleId={wizard.state.angleId}
-              onPick={(p) => wizard.set("prompt", p)}
-            />
-          )}
-
-          {/* Trending concepts strip */}
+          {/* Trending concepts — vertical grid (more space available, easier to scan) */}
           <section className="space-y-2">
-            <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Trending concepts
             </h2>
-            <ul className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 snap-x snap-mandatory">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {trending.map((t) => {
                 const active = isTrendingSelected(t.id);
                 return (
-                  <li key={t.id} className="snap-start shrink-0 w-[140px]">
+                  <li key={t.id}>
                     <button
                       type="button"
                       onClick={() => toggleTrending(t.id)}
                       className={cn(
-                        "group relative flex w-full flex-col gap-1 overflow-hidden rounded-lg border bg-card text-left transition-all",
+                        "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
                         active
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-border hover:-translate-y-0.5 hover:border-primary/40",
+                          ? "border-primary/50 ring-2 ring-primary/30"
+                          : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                       )}
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
@@ -298,6 +298,10 @@ const ANGLE_PROMPTS: Record<string, string[]> = {
   ],
 };
 
+/**
+ * PromptSuggestions — A-12.18 sleek single-line strip ABOVE the prompt bar.
+ * Inspired by Old Studio's "TRY:" pattern — minimal, glass-like pills, click to fill.
+ */
 function PromptSuggestions({
   angleId,
   onPick,
@@ -309,22 +313,20 @@ function PromptSuggestions({
     (angleId && ANGLE_PROMPTS[angleId]) ?? GENERIC_PROMPTS;
 
   return (
-    <div className="space-y-2">
-      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
-        Prompt ideas
-      </p>
-      <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 snap-x">
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        Try
+      </span>
+      <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {suggestions.map((s) => (
-          <li key={s} className="snap-start shrink-0 max-w-[240px]">
+          <li key={s} className="shrink-0">
             <button
               type="button"
               onClick={() => onPick(s)}
-              className="group flex items-start gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+              className="group inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border/40 bg-background/40 px-3 py-1 text-[11px] text-foreground/70 backdrop-blur-sm transition-all hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
             >
-              <Sparkles className="mt-px h-3 w-3 shrink-0 text-primary/60 group-hover:text-primary" />
-              <span className="line-clamp-2 text-[11px] leading-snug text-foreground">
-                {s}
-              </span>
+              <Sparkles className="h-2.5 w-2.5 text-primary/60 group-hover:text-primary" />
+              {s.length > 56 ? s.slice(0, 56) + "…" : s}
             </button>
           </li>
         ))}

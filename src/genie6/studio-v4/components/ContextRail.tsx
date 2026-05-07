@@ -35,11 +35,11 @@ interface SectionProps {
 function Section({ label, defaultOpen = false, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-border/40">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between border-b border-border px-3 py-2.5"
+        className="flex w-full items-center justify-between border-b border-border/40 px-3 py-2.5"
       >
         <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground">
           {label}
@@ -100,7 +100,7 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
   ).slice(0, 4);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden rounded-2xl border border-border bg-card overflow-y-auto">
+    <div className="flex h-full flex-col overflow-hidden overflow-y-auto rounded-3xl border border-border/40 bg-card/60 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.25)]">
 
       {/* 1. Run Details — open by default */}
       <Section label="Run Details" defaultOpen>
