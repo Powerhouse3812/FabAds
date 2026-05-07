@@ -142,6 +142,10 @@ export const MODULES: ModuleDef[] = [
       { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2 },
       // A-12.0: Studio v4 — prototype-faithful single Studio. Beta until validated.
       { label: "Studio", path: "/iq/genie6/studio", icon: Wand2, badge: "Beta" },
+      // A-12.8: Studio Alpha — evolved variant. Home-first, HeyGen-minimal,
+      // Mode (Product Shoot / Brand Ad / Product Ad / Performance Ad) +
+      // Format picked on Home before entering the 4-step wizard.
+      { label: "Studio Alpha", path: "/iq/genie6/studio-alpha", icon: Wand2, badge: "New" },
       { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },

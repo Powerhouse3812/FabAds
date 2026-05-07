@@ -33,6 +33,7 @@ import { StudioV3Lab } from "./generate-v3/_dev/StudioV3Lab";
 import { StudioV3Finder } from "./generate-v3/_dev/StudioV3Finder";
 import { RailPopoverVariants } from "./generate-v3/_dev/RailPopoverVariants";
 import { StudioV4 } from "./studio-v4/StudioV4";
+import { StudioAlpha } from "./studio-v4/StudioAlpha";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -91,6 +92,12 @@ export const genie6Routes = (
         (A-12.0). Single new Studio replaces v3 routes' role going forward.
         Existing /generate-v3/* untouched. */}
     <Route path="studio" element={<StudioV4 />} />
+
+    {/* Studio Alpha — evolved Beta (A-12.8). Home-first (mode + format
+        picked on Home), then 4-step wizard. Reuses Beta's Step2/3/5 plus
+        a new Alpha Configure step (prompt-on-top + trending concepts +
+        no footer). Lives in parallel with Beta until validated. */}
+    <Route path="studio-alpha" element={<StudioAlpha />} />
 
     {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
         flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted
