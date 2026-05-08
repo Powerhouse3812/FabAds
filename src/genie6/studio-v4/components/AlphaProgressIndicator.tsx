@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type AlphaStep = 1 | 2 | 3 | 4;
@@ -18,75 +17,61 @@ const STEPS: { num: AlphaStep; label: string }[] = [
 ];
 
 /**
- * AlphaProgressIndicator (A-12.8) — 4-step stepper for Studio Alpha's
- * wizard (Product / Approach / Configure / Output). Mode + format are
- * picked on Home before the wizard begins, so they don't take a step.
- *
- * Same Stripe-faithful numbered-circle pattern as Beta's
- * ProgressIndicator. Done steps clickable; future not.
+ * AlphaProgressIndicator (A-12.28) — breadcrumb chevron pattern.
+ * Past steps muted + clickable, current bold with lime dot prefix,
+ * future steps faint. Reads instantly without numbered circles.
  */
-export function AlphaProgressIndicator({
-  step,
-  onJumpTo,
-}: AlphaProgressIndicatorProps) {
+export function AlphaProgressIndicator({ step, onJumpTo }: AlphaProgressIndicatorProps) {
   return (
-    <div className="flex justify-center">
-      <div className="flex w-full max-w-2xl items-start">
-        {STEPS.map((s, i) => {
-          const isDone = step > s.num;
-          const isCurrent = step === s.num;
-          const isFuture = step < s.num;
-          const canJump = isDone && onJumpTo !== undefined;
-          const lineFilled = step > i;
-
-          return (
-            <Fragment key={s.num}>
-              {i > 0 && (
+    <nav
+      aria-label="Wizard progress"
+      className="flex items-center gap-1.5 overflow-hidden text-[12px]"
+    >
+      {STEPS.map((s, i) => {
+        const isDone = step > s.num;
+        const isCurrent = step === s.num;
+        const canJump = isDone && onJumpTo !== undefined;
+        return (
+          <Fragment key={s.num}>
+            {i > 0 && (
+              <span aria-hidden className="font-mono text-[11px] text-muted-foreground/40">
+                ›
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              {isCurrent && (
                 <span
-                  className={cn(
-                    "mx-1 mt-3 h-px flex-1",
-                    lineFilled ? "bg-foreground/25" : "bg-border",
-                  )}
+                  aria-hidden
+                  className="inline-block h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(74_81%_59%/0.6)]"
                 />
               )}
-              <div className="flex shrink-0 flex-col items-center gap-1">
-                {canJump ? (
-                  <button
-                    type="button"
-                    onClick={() => onJumpTo!(s.num)}
-                    title={`Go back to ${s.label}`}
-                    className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-primary/15 text-primary transition-colors hover:bg-primary/25"
-                  >
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  </button>
-                ) : isDone ? (
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary">
-                    <Check className="h-3 w-3" strokeWidth={3} />
-                  </span>
-                ) : isCurrent ? (
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-foreground/90 text-background ring-2 ring-foreground/15">
-                    <span className="font-mono text-[11px] font-bold">{s.num}</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border text-muted-foreground">
-                    <span className="font-mono text-[10px] font-medium">{s.num}</span>
-                  </span>
-                )}
+              {canJump ? (
+                <button
+                  type="button"
+                  onClick={() => onJumpTo!(s.num)}
+                  className="font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {s.label}
+                </button>
+              ) : (
                 <span
                   className={cn(
-                    "text-[10px] uppercase tracking-wider",
-                    isCurrent && "font-bold text-foreground",
-                    isDone && "font-medium text-foreground",
-                    isFuture && "font-medium text-muted-foreground",
+                    "font-medium",
+                    isCurrent
+                      ? "font-bold text-foreground"
+                      : isDone
+                        ? "text-muted-foreground"
+                        : "text-muted-foreground/40",
                   )}
+                  aria-current={isCurrent ? "step" : undefined}
                 >
                   {s.label}
                 </span>
-              </div>
-            </Fragment>
-          );
-        })}
-      </div>
-    </div>
+              )}
+            </span>
+          </Fragment>
+        );
+      })}
+    </nav>
   );
 }

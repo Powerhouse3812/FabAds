@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, Sparkles, Target, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
@@ -178,50 +178,47 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
             </div>
           )}
 
-          {/* Angles — minimal chip row inside subtle backdrop, click to toggle. */}
-          <section className="space-y-2">
-            <div className="flex items-center gap-1.5">
-              <Target className="h-3 w-3 text-muted-foreground" />
-              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Angles
-              </h2>
-              <span className="font-mono text-[9px] text-muted-foreground/60">
-                · pick one to guide style
-              </span>
-            </div>
-            {/* Subtle backdrop so the chips don't float without anchor */}
-            <div className="rounded-2xl border border-border/40 bg-muted/20 px-3 py-2.5 backdrop-blur-sm">
-              <ul className="flex flex-wrap items-center gap-1.5">
-                {ANGLE_IDS.map((id) => {
-                  const active = wizard.state.angleId === id;
-                  const label = ANGLE_CHIP_LABEL[id] ?? id;
-                  return (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        onClick={() => toggleAngle(id)}
-                        aria-pressed={active}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-                          active
-                            ? "border-primary/50 bg-primary/10 text-primary"
-                            : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
-                        )}
-                      >
-                        {label}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </section>
+          {/* Angles — collapsed accordion. Expands inline. */}
+          <AccordionStrip
+            title="Angles"
+            icon={Target}
+            count={ANGLE_IDS.length}
+            hint="pick one to guide style"
+            defaultOpen={wizard.state.angleId !== null}
+          >
+            <ul className="flex flex-wrap items-center gap-1.5">
+              {ANGLE_IDS.map((id) => {
+                const active = wizard.state.angleId === id;
+                const label = ANGLE_CHIP_LABEL[id] ?? id;
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleAngle(id)}
+                      aria-pressed={active}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                        active
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </AccordionStrip>
 
-          {/* Trending concepts — vertical grid (more space available, easier to scan) */}
-          <section className="space-y-2">
-            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Trending concepts
-            </h2>
+          {/* Trending concepts — collapsed accordion. Expands inline. */}
+          <AccordionStrip
+            title="Trending concepts"
+            icon={Sparkles}
+            count={trending.length}
+            hint="pre-built starting points from this week"
+            defaultOpen={wizard.state.selectedConceptIds.length > 0}
+          >
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {trending.map((t) => {
                 const active = isTrendingSelected(t.id);
@@ -269,7 +266,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
                 );
               })}
             </ul>
-          </section>
+          </AccordionStrip>
       </div>
 
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
@@ -384,6 +381,55 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
         </div>
       )}
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * AccordionStrip — bold collapsed strip used for Angles + Trending concepts.
+ * Header has presence (icon + uppercase mono title + filled count badge +
+ * italic hint + chevron). Click to expand inline.
+ * ───────────────────────────────────────────────────────────────────────── */
+function AccordionStrip({
+  title,
+  icon: Icon,
+  count,
+  hint,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  count: number;
+  hint: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm transition-colors hover:border-foreground/20">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-card/60"
+      >
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">
+          {title}
+        </span>
+        <span className="inline-flex items-center justify-center rounded-full bg-foreground/[0.08] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
+          {count}
+        </span>
+        <span className="line-clamp-1 text-[10px] italic text-muted-foreground/80">{hint}</span>
+        <ChevronDown
+          className={cn(
+            "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && <div className="border-t border-border/40 px-4 pb-4 pt-3">{children}</div>}
+    </div>
   );
 }
 

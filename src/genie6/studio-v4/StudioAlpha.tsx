@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, PanelRightOpen } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
 import { AlphaStep1Format } from "./screens/AlphaStep1Format";
 import { Step2Product } from "./screens/Step2Product";
@@ -9,7 +9,6 @@ import { Step5Results } from "./screens/Step5Results";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
 import { useWizard } from "./state/useWizard";
-import { cn } from "@/lib/utils";
 
 type AlphaPhase = "home" | "wizard";
 
@@ -122,7 +121,7 @@ export function StudioAlpha() {
           </div>
 
           {/* Wizard body — flex layout: main content + collapsible rail */}
-          <div className="flex min-h-0 flex-1">
+          <div className="relative flex min-h-0 flex-1">
             {/* Main step content — scrollable */}
             <main className="min-h-0 flex-1 overflow-y-auto">
               {state.step === 1 && (
@@ -150,13 +149,8 @@ export function StudioAlpha() {
             </main>
 
             {/* Global ContextRail — visible across all wizard steps */}
-            <aside
-              className={cn(
-                "hidden shrink-0 border-l border-border/40 bg-background/40 transition-all md:flex md:flex-col",
-                railOpen ? "w-[280px]" : "w-10",
-              )}
-            >
-              {railOpen ? (
+            {railOpen && (
+              <aside className="hidden shrink-0 border-l border-border/40 bg-background/40 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
                 <div className="flex-1 overflow-y-auto p-3">
                   <ContextRail
                     wizard={wizard}
@@ -164,23 +158,18 @@ export function StudioAlpha() {
                     onCollapse={() => setRailOpen(false)}
                   />
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRailOpen(true)}
-                  className="flex h-full w-full flex-col items-center gap-2 py-4 transition-colors hover:bg-foreground/[0.04]"
-                  aria-label="Show overview"
-                >
-                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                  <span
-                    className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
-                    style={{ writingMode: "vertical-rl" }}
-                  >
-                    Overview
-                  </span>
-                </button>
-              )}
-            </aside>
+              </aside>
+            )}
+            {!railOpen && (
+              <button
+                type="button"
+                onClick={() => setRailOpen(true)}
+                aria-label="Show overview"
+                className="group absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-card/80 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:scale-105 hover:border-foreground/30 hover:bg-card"
+              >
+                <PanelRightOpen className="h-4 w-4 text-foreground transition-transform duration-300 group-hover:-rotate-12" />
+              </button>
+            )}
           </div>
           {/* NO WizardNav footer — all steps are click-to-advance or inline Send */}
         </>
