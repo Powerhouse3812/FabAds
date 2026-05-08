@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { KbInstruction } from "../data/kbInstructions";
 
 export type Category = "asset" | "ad" | "social";
 export type Format = "image" | "video";
@@ -60,6 +61,8 @@ export interface WizardState {
   aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
   useKnowledgeBase: boolean;
   useBrandGuidelines: boolean;
+  /** User-created KB instructions (additive over the built-in defaults). */
+  customKbInstructions: KbInstruction[];
 }
 
 const INITIAL_STATE: WizardState = {
@@ -86,6 +89,7 @@ const INITIAL_STATE: WizardState = {
   aspectRatio: "1:1",
   useKnowledgeBase: true,
   useBrandGuidelines: true,
+  customKbInstructions: [],
 };
 
 export interface UseWizardReturn {

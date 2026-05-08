@@ -1,5 +1,14 @@
 import { useRef, useState } from "react";
-import { BookOpen, ChevronDown, Database, Plus, Sparkles, X, Link as LinkIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  Database,
+  Plus,
+  Sparkles,
+  X,
+  Link as LinkIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -13,6 +22,7 @@ import type {
   AttachSource,
   AttachedRef,
 } from "../state/useWizard";
+import { findInstructionForAngle } from "../data/kbInstructions";
 
 /**
  * PromptReferenceBar — Step 4 prompt + reference dock.
@@ -30,7 +40,12 @@ import type {
  * Pinterest note (preserved): v3's column drawer is a follow-up integration.
  */
 
-export type ChipKind = "concept-angle" | "avatar-voice" | "style-brand" | "script";
+export type ChipKind =
+  | "concept-angle"
+  | "avatar-voice"
+  | "style-brand"
+  | "script"
+  | "kb-instruction";
 
 interface PromptReferenceBarProps {
   wizard: UseWizardReturn;
@@ -59,7 +74,7 @@ const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
 
 const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 
-const ANGLE_CHIP_LABEL: Record<string, string> = {
+export const ANGLE_CHIP_LABEL: Record<string, string> = {
   hero: "Hero",
   lifestyle: "Lifestyle",
   "social-proof": "Social Proof",
@@ -216,6 +231,45 @@ export function PromptReferenceBar({
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
+              {state.useKnowledgeBase &&
+                (() => {
+                  const angleLabel = state.angleId
+                    ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
+                    : null;
+                  const currentInstruction = findInstructionForAngle(
+                    state.angleId,
+                    state.customKbInstructions,
+                  );
+                  // Warning state — angle picked but no instruction covers it.
+                  if (state.angleId && !currentInstruction) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => onChipOpen?.("kb-instruction")}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-50/40 px-2.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100/60 dark:border-amber-500/30 dark:bg-amber-500/[0.08] dark:text-amber-400 dark:hover:bg-amber-500/[0.12]"
+                        title={`No Knowledge Base instruction for ${angleLabel} — click to create one`}
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                        No {angleLabel} instruction · Create
+                      </button>
+                    );
+                  }
+                  // Using state — show which instruction is active.
+                  if (currentInstruction) {
+                    return (
+                      <span
+                        className="inline-flex h-7 items-center gap-1 rounded-full px-2 font-mono text-[10px] text-muted-foreground"
+                        title={currentInstruction.description}
+                      >
+                        Using:{" "}
+                        <span className="text-foreground/70">
+                          {currentInstruction.name}
+                        </span>
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
             </div>
           )}
 

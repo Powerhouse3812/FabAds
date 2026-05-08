@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
@@ -8,6 +8,8 @@ import {
   products as ALL_PRODUCTS,
   categories as ALL_CATEGORIES,
 } from "@/mocks/shared";
+import { findInstructionForAngle } from "../data/kbInstructions";
+import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 
 interface ContextRailProps {
   wizard: UseWizardReturn;
@@ -204,26 +206,63 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
         )}
       </Section>
 
-      {/* 5. Knowledge Base — stub, collapsed */}
+      {/* 5. Knowledge Base — active instruction or warning if uncovered. */}
       <Section label="Knowledge Base">
-        {(
-          [
-            "Target Audience",
-            "What to say",
-            "What to avoid",
-            "Problem → Solution",
-          ] as const
-        ).map((label) => (
-          <div key={label} className="flex items-start justify-between gap-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
-              {label}
-            </span>
-            <span className="text-foreground/50">—</span>
-          </div>
-        ))}
-        <p className="text-[10px] text-muted-foreground/60 italic pt-1">
-          KB coming soon
-        </p>
+        {(() => {
+          const angleLabel = state.angleId
+            ? (ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId)
+            : null;
+          const currentInstruction = findInstructionForAngle(
+            state.angleId,
+            state.customKbInstructions,
+          );
+          if (state.angleId && !currentInstruction) {
+            return (
+              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-semibold">
+                    No instruction for {angleLabel}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Click the warning chip near Knowledge Base to create one.
+                  </p>
+                </div>
+              </div>
+            );
+          }
+          if (currentInstruction) {
+            return (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Active
+                  </span>
+                  <span className="break-words text-right text-foreground/80">
+                    {currentInstruction.name}
+                  </span>
+                </div>
+                <p className="text-[10px] leading-relaxed text-muted-foreground">
+                  {currentInstruction.description}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    /* future: open KB editor */
+                  }}
+                  className="text-[10px] font-semibold text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  View / Edit
+                </button>
+              </>
+            );
+          }
+          return (
+            <p className="text-[11px] text-muted-foreground">
+              Pick an angle to see the matching instruction.
+            </p>
+          );
+        })()}
       </Section>
 
     </div>

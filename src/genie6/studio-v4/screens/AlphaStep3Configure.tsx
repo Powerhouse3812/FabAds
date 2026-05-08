@@ -8,11 +8,16 @@ import type {
   UseWizardReturn,
 } from "../state/useWizard";
 import { HeroHeader } from "../components/HeroHeader";
-import { PromptReferenceBar, type ChipKind } from "../components/PromptReferenceBar";
+import {
+  PromptReferenceBar,
+  type ChipKind,
+  ANGLE_CHIP_LABEL,
+} from "../components/PromptReferenceBar";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
 import { ScriptRail } from "../components/ScriptRail";
+import { KbInstructionRail } from "../components/KbInstructionRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
@@ -29,7 +34,20 @@ export type RailMode =
   | "concept-angle"
   | "avatar-voice"
   | "style-brand"
-  | "script";
+  | "script"
+  | "kb-instruction";
+
+/** Angles list in display order — minimal chips below the prompt bar. */
+const ANGLE_IDS: string[] = [
+  "hero",
+  "lifestyle",
+  "social-proof",
+  "urgency",
+  "comparison",
+  "ugc-style",
+  "unboxing",
+  "infographic",
+];
 
 interface AlphaStep3Props {
   wizard: UseWizardReturn;
@@ -95,6 +113,12 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
   const isTrendingSelected = (id: string) =>
     wizard.state.selectedConceptIds.includes(`trend:${id}`);
 
+  // Click an angle chip → toggle (set null if already selected, else replace).
+  const toggleAngle = (angleId: string) => {
+    const next = wizard.state.angleId === angleId ? null : angleId;
+    wizard.set("angleId", next);
+  };
+
   return (
     <>
       {/* ── Main layout — 2-column on xl: form + ContextRail ── */}
@@ -118,6 +142,36 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
             onChipOpen={handleChipOpen}
             hideLayoutToggle
           />
+
+          {/* Angles — minimal chip row, single line, click to toggle. */}
+          <section className="space-y-2">
+            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Angles
+            </h2>
+            <ul className="flex flex-wrap items-center gap-1.5">
+              {ANGLE_IDS.map((id) => {
+                const active = wizard.state.angleId === id;
+                const label = ANGLE_CHIP_LABEL[id] ?? id;
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleAngle(id)}
+                      aria-pressed={active}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                        active
+                          ? "border-foreground/20 bg-foreground/[0.08] text-foreground"
+                          : "border-border/60 bg-background/50 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
 
           {/* Trending concepts — vertical grid (more space available, easier to scan) */}
           <section className="space-y-2">
@@ -224,6 +278,24 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
                 currentScript={wizard.state.script}
                 onSave={(script) => {
                   wizard.set("script", script);
+                  setRailMode(null);
+                }}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "kb-instruction" && (
+              <KbInstructionRail
+                targetAngle={wizard.state.angleId}
+                targetAngleLabel={
+                  wizard.state.angleId
+                    ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
+                    : "general"
+                }
+                onSave={(inst) => {
+                  wizard.set("customKbInstructions", [
+                    ...wizard.state.customKbInstructions,
+                    inst,
+                  ]);
                   setRailMode(null);
                 }}
                 onClose={handleAttachCancel}
