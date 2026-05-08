@@ -47,6 +47,7 @@ import {
 } from "@/mocks/shared";
 import type { Avatar } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
+import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
 
 type CatalogueType =
   | "categories"
@@ -538,10 +539,26 @@ function KnowledgeBaseSection({
   entityLabel: string;
 }) {
   const [tab, setTab] = useState<KbTabKey>("main");
-  const { main, custom } = getInstructionsForEntity(entityType, entityId);
-  const winners = getWinnerAdsForEntity(entityType, entityId);
-  const conceptsList = getConceptsForEntity(entityType, entityId);
+  const [createKind, setCreateKind] = useState<KbCreateKind | null>(null);
+  // Locally-saved items added during this session (merged with seed data).
+  const [customInstructions, setCustomInstructions] = useState<KbInstruction[]>([]);
+  const [customWinners, setCustomWinners] = useState<WinnerAd[]>([]);
+  const [customConcepts, setCustomConcepts] = useState<KbConcept[]>([]);
+
+  const seedInstr = getInstructionsForEntity(entityType, entityId);
+  const main = seedInstr.main;
+  // Custom = seed customs + session-added customs
+  const custom = [...seedInstr.custom, ...customInstructions];
+  const winners = [...getWinnerAdsForEntity(entityType, entityId), ...customWinners];
+  const conceptsList = [...getConceptsForEntity(entityType, entityId), ...customConcepts];
   const refs = getReferenceUrlsForEntity(entityType, entityId);
+
+  const handleSaved = (saved: { kind: "instruction"; item: KbInstruction } | { kind: "winner-ad"; item: WinnerAd } | { kind: "concept"; item: KbConcept }) => {
+    if (saved.kind === "instruction") setCustomInstructions((prev) => [...prev, saved.item]);
+    else if (saved.kind === "winner-ad") setCustomWinners((prev) => [...prev, saved.item]);
+    else setCustomConcepts((prev) => [...prev, saved.item]);
+    setCreateKind(null);
+  };
 
   const tabs: { key: KbTabKey; label: string; count: number }[] = [
     { key: "main", label: "Main", count: main ? 1 : 0 },
@@ -600,7 +617,7 @@ function KnowledgeBaseSection({
             hint={`The default writing rules Genie follows for this ${entityLabel}.`}
             emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
             createLabel={main ? "Replace" : "Create instruction"}
-            onCreate={() => alert("Create instruction — coming soon")}
+            onCreate={() => setCreateKind("instruction")}
             isEmpty={!main}
           >
             {main && (
@@ -616,7 +633,7 @@ function KnowledgeBaseSection({
             hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
             emptyMessage="No custom instructions yet."
             createLabel="Add instruction"
-            onCreate={() => alert("Add instruction — coming soon")}
+            onCreate={() => setCreateKind("instruction")}
             isEmpty={custom.length === 0}
           >
             <ul className="space-y-2">
@@ -632,7 +649,7 @@ function KnowledgeBaseSection({
             hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
             emptyMessage="No winner ads saved yet."
             createLabel="Add winner ad"
-            onCreate={() => alert("Add winner ad — opens upload modal")}
+            onCreate={() => setCreateKind("winner-ad")}
             isEmpty={winners.length === 0}
             countMax={50}
             countCurrent={winners.length}
@@ -650,7 +667,7 @@ function KnowledgeBaseSection({
             hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
             emptyMessage="No concepts saved yet."
             createLabel="Add concept"
-            onCreate={() => alert("Save concept from Genie or Industry Insights")}
+            onCreate={() => setCreateKind("concept")}
             isEmpty={conceptsList.length === 0}
           >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -677,6 +694,18 @@ function KnowledgeBaseSection({
           </KbTabPanel>
         )}
       </div>
+
+      {/* Creation modal — shared chassis for instruction / winner-ad / concept */}
+      {createKind && (
+        <KbCreateModal
+          kind={createKind}
+          entityType={entityType}
+          entityId={entityId}
+          entityName={entityLabel}
+          onSave={handleSaved}
+          onClose={() => setCreateKind(null)}
+        />
+      )}
     </section>
   );
 }
