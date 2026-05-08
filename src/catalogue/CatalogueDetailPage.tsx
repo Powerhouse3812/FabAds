@@ -13,12 +13,23 @@ import {
   Trash2,
   Users,
   Building2,
+  Crosshair,
+  MessageSquareQuote,
+  UserRound,
+  Mic,
+  Volume2,
+  Wand2,
 } from "lucide-react";
 import {
   brands,
   categories,
   products,
   audiences,
+  angles,
+  hooks,
+  concepts,
+  avatars,
+  voices,
   getInstructionsForEntity,
   getWinnerAdsForEntity,
   getConceptsForEntity,
@@ -28,8 +39,23 @@ import {
   type WinnerAd,
   type KbConcept,
 } from "@/mocks/shared";
+import type { Avatar } from "@/genie6/types/entities";
 
-type CatalogueType = "categories" | "brands" | "products" | "audiences";
+type CatalogueType =
+  | "categories"
+  | "brands"
+  | "products"
+  | "audiences"
+  | "angles"
+  | "hooks"
+  | "concepts"
+  | "avatars"
+  | "voices";
+
+// Note: KB block (KnowledgeBaseSection) only renders inside the brand /
+// product / category branches below. The new types (angles / hooks /
+// concepts / avatars / voices) never reach it — they return their own
+// Shell before the products fallthrough.
 
 /**
  * Catalogue entity detail — stub for iter-6 A-9.
@@ -151,6 +177,241 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
         </Section>
         <Section title="Linked campaigns">
           <p className="text-sm text-muted-foreground italic">No campaigns linked yet.</p>
+        </Section>
+      </Shell>
+    );
+  }
+
+  if (type === "angles") {
+    const angle = angles.find((a) => a.id === id);
+    if (!angle) return <NotFound type={type} navigate={navigate} />;
+    // Find hooks + concepts that reference this angle (denormalised relation).
+    const linkedHooks = hooks.filter((h) => h.angleId === angle.id);
+    const linkedConcepts = concepts.filter(
+      (c) => c.angle.toLowerCase() === angle.label.toLowerCase()
+    );
+    return (
+      <Shell type={type} title={angle.label} subtitle={angle.description} icon={<Crosshair className="h-5 w-5" />}>
+        {angle.description && (
+          <Section title="What it is"><p className="text-sm text-foreground">{angle.description}</p></Section>
+        )}
+        <Section title={`Linked hooks · ${linkedHooks.length}`}>
+          {linkedHooks.length > 0 ? (
+            <ul className="space-y-1.5">
+              {linkedHooks.slice(0, 8).map((h) => (
+                <li key={h.id}>
+                  <Link
+                    to={`/catalogue/hooks/${h.id}`}
+                    className="block rounded-lg border border-border p-2.5 text-sm hover:border-primary/40"
+                  >
+                    <p className="text-foreground line-clamp-2">"{h.text}"</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No hooks linked yet.</p>
+          )}
+        </Section>
+        <Section title={`Linked concepts · ${linkedConcepts.length}`}>
+          {linkedConcepts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {linkedConcepts.slice(0, 6).map((c) => (
+                <Link
+                  key={c.id}
+                  to={`/catalogue/concepts/${c.id}`}
+                  className="rounded-lg border border-border p-2.5 text-sm hover:border-primary/40"
+                >
+                  <p className="font-medium text-foreground line-clamp-1">{c.name}</p>
+                  <p className="text-[11px] text-muted-foreground line-clamp-1">{c.tone}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No concepts linked yet.</p>
+          )}
+        </Section>
+        <Section title="Generation history">
+          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
+        </Section>
+      </Shell>
+    );
+  }
+
+  if (type === "hooks") {
+    const hook = hooks.find((h) => h.id === id);
+    if (!hook) return <NotFound type={type} navigate={navigate} />;
+    const brand = hook.brandId ? brands.find((b) => b.id === hook.brandId) : undefined;
+    const angle = hook.angleId ? angles.find((a) => a.id === hook.angleId) : undefined;
+    return (
+      <Shell type={type} title={`"${hook.text}"`} subtitle={undefined} icon={<MessageSquareQuote className="h-5 w-5" />}>
+        <Section title="Linked brand">
+          {brand ? (
+            <Link
+              to={`/catalogue/brands/${brand.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+            >
+              {brand.logo && <img src={brand.logo} alt="" className="h-5 w-5 rounded" />}
+              <span className="font-medium text-foreground">{brand.name}</span>
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No brand linked.</p>
+          )}
+        </Section>
+        <Section title="Linked angle">
+          {angle ? (
+            <Link
+              to={`/catalogue/angles/${angle.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+            >
+              <Crosshair className="h-3.5 w-3.5 text-primary" />
+              <span className="font-medium text-foreground">{angle.label}</span>
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No angle linked.</p>
+          )}
+        </Section>
+        {hook.performance && (
+          <Section title="Performance">
+            <div className="flex items-center gap-4 font-mono tabular-nums">
+              <div>
+                <p className="text-xs text-muted-foreground">CTR</p>
+                <p className="text-xl font-bold text-foreground">{hook.performance.ctr.toFixed(2)}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Impressions</p>
+                <p className="text-xl font-bold text-foreground">{formatCompact(hook.performance.impressions)}</p>
+              </div>
+            </div>
+          </Section>
+        )}
+        <Section title="Generation history">
+          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
+        </Section>
+      </Shell>
+    );
+  }
+
+  if (type === "concepts") {
+    const concept = concepts.find((c) => c.id === id);
+    if (!concept) return <NotFound type={type} navigate={navigate} />;
+    const brand = brands.find((b) => b.id === concept.brandId);
+    // Look up the linked angle by label match (concept stores angle by string label,
+    // not id — see Concept shape in entities.ts).
+    const angle = angles.find((a) => a.label.toLowerCase() === concept.angle.toLowerCase());
+    // Find hooks that match this concept's hook text exactly (since Concept.hook
+    // is also a string, not a ref).
+    const linkedHook = hooks.find((h) => h.text === concept.hook);
+    return (
+      <Shell type={type} title={concept.name} subtitle={`${concept.angle} · ${concept.tone}`} icon={<Lightbulb className="h-5 w-5" />}>
+        <Section title="Format"><p className="text-sm text-foreground font-mono">{concept.format}</p></Section>
+        <Section title="Visual direction"><p className="text-sm text-foreground">{concept.visualDirection}</p></Section>
+        <Section title="Hook copy"><p className="text-sm text-foreground italic">"{concept.hook}"</p></Section>
+        <Section title="Linked brand">
+          {brand ? (
+            <Link
+              to={`/catalogue/brands/${brand.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+            >
+              {brand.logo && <img src={brand.logo} alt="" className="h-5 w-5 rounded" />}
+              <span className="font-medium text-foreground">{brand.name}</span>
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No brand linked.</p>
+          )}
+        </Section>
+        {angle && (
+          <Section title="Linked angle">
+            <Link
+              to={`/catalogue/angles/${angle.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+            >
+              <Crosshair className="h-3.5 w-3.5 text-primary" />
+              <span className="font-medium text-foreground">{angle.label}</span>
+            </Link>
+          </Section>
+        )}
+        {linkedHook && (
+          <Section title="Linked hook">
+            <Link
+              to={`/catalogue/hooks/${linkedHook.id}`}
+              className="block rounded-lg border border-border p-2.5 text-sm hover:border-primary/40"
+            >
+              <p className="text-foreground line-clamp-2">"{linkedHook.text}"</p>
+            </Link>
+          </Section>
+        )}
+        <Section title="Generation history">
+          <div className="flex items-baseline gap-2">
+            <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-sm text-foreground font-mono tabular-nums">{concept.generationCount} runs</p>
+          </div>
+        </Section>
+      </Shell>
+    );
+  }
+
+  if (type === "avatars") {
+    const avatar = avatars.find((a) => a.id === id);
+    if (!avatar) return <NotFound type={type} navigate={navigate} />;
+    const visual = avatarVisual(avatar);
+    return (
+      <Shell
+        type={type}
+        title={avatar.name}
+        subtitle={avatar.demographic}
+        icon={
+          <div
+            className="flex h-full w-full items-center justify-center rounded-xl text-[14px] font-semibold"
+            style={{ background: visual.bg, color: visual.fg }}
+          >
+            {visual.initials}
+          </div>
+        }
+      >
+        <Section title="Demographic"><p className="text-sm text-foreground">{avatar.demographic}</p></Section>
+        <Section title={`Languages · ${avatar.language.length}`}>
+          <div className="flex flex-wrap gap-1.5">
+            {avatar.language.map((l) => (
+              <span key={l} className="text-xs font-mono rounded bg-muted px-2 py-1 text-muted-foreground">
+                {l}
+              </span>
+            ))}
+          </div>
+        </Section>
+        <Section title="Generation history">
+          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
+        </Section>
+      </Shell>
+    );
+  }
+
+  if (type === "voices") {
+    const voice = voices.find((v) => v.id === id);
+    if (!voice) return <NotFound type={type} navigate={navigate} />;
+    return (
+      <Shell type={type} title={voice.name} subtitle={voice.language} icon={<Mic className="h-5 w-5" />}>
+        <Section title="Description"><p className="text-sm text-foreground">{voice.description}</p></Section>
+        <Section title="Language">
+          <span className="text-xs font-mono rounded bg-muted px-2 py-1 text-muted-foreground">
+            {voice.language}
+          </span>
+        </Section>
+        {voice.sample && (
+          <Section title="Sample">
+            <a
+              href={voice.sample}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40"
+            >
+              <Volume2 className="h-3.5 w-3.5 text-primary" />
+              <span className="font-medium text-foreground">Play sample</span>
+            </a>
+          </Section>
+        )}
+        <Section title="Generation history">
+          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
         </Section>
       </Shell>
     );
@@ -531,4 +792,26 @@ function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
   return String(n);
+}
+
+/* Deterministic palette for avatar circles (same logic as CatalogueListPage). */
+function avatarVisual(avatar: Avatar): { bg: string; fg: string; initials: string } {
+  const palette = [
+    { bg: "hsl(220, 40%, 88%)", fg: "hsl(220, 50%, 30%)" },
+    { bg: "hsl(160, 35%, 86%)", fg: "hsl(160, 50%, 25%)" },
+    { bg: "hsl(30, 50%, 88%)", fg: "hsl(30, 60%, 30%)" },
+    { bg: "hsl(340, 35%, 88%)", fg: "hsl(340, 50%, 32%)" },
+    { bg: "hsl(265, 35%, 88%)", fg: "hsl(265, 50%, 32%)" },
+    { bg: "hsl(195, 35%, 86%)", fg: "hsl(195, 60%, 28%)" },
+  ];
+  let hash = 0;
+  for (let i = 0; i < avatar.id.length; i++) hash = (hash * 31 + avatar.id.charCodeAt(i)) | 0;
+  const slot = Math.abs(hash) % palette.length;
+  const initials = avatar.name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return { ...palette[slot], initials };
 }

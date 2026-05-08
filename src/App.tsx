@@ -139,15 +139,37 @@ const App = () => (
                 {/* Iter-6 A-10: Audiences — first-class Catalogue entity */}
                 <Route path="catalogue/audiences" element={<CatalogueFinder type="audiences" />} />
                 <Route path="catalogue/audiences/:id" element={<CatalogueFinder type="audiences" />} />
+                {/* Iter-6 A-10: Angles / Hooks / Concepts / Avatars / Voices —
+                    final batch of Catalogue surfaces. Mirrors Audience pattern. */}
+                <Route path="catalogue/angles" element={<CatalogueFinder type="angles" />} />
+                <Route path="catalogue/angles/:id" element={<CatalogueFinder type="angles" />} />
+                <Route path="catalogue/hooks" element={<CatalogueFinder type="hooks" />} />
+                <Route path="catalogue/hooks/:id" element={<CatalogueFinder type="hooks" />} />
+                <Route path="catalogue/concepts" element={<CatalogueFinder type="concepts" />} />
+                <Route path="catalogue/concepts/:id" element={<CatalogueFinder type="concepts" />} />
+                <Route path="catalogue/avatars" element={<CatalogueFinder type="avatars" />} />
+                <Route path="catalogue/avatars/:id" element={<CatalogueFinder type="avatars" />} />
+                <Route path="catalogue/voices" element={<CatalogueFinder type="voices" />} />
+                <Route path="catalogue/voices/:id" element={<CatalogueFinder type="voices" />} />
                 {/* Legacy grid views — accessible via /grid suffix if needed for comparison */}
                 <Route path="catalogue/categories/grid" element={<CatalogueListPage type="categories" />} />
                 <Route path="catalogue/brands/grid" element={<CatalogueListPage type="brands" />} />
                 <Route path="catalogue/products/grid" element={<CatalogueListPage type="products" />} />
                 <Route path="catalogue/audiences/grid" element={<CatalogueListPage type="audiences" />} />
+                <Route path="catalogue/angles/grid" element={<CatalogueListPage type="angles" />} />
+                <Route path="catalogue/hooks/grid" element={<CatalogueListPage type="hooks" />} />
+                <Route path="catalogue/concepts/grid" element={<CatalogueListPage type="concepts" />} />
+                <Route path="catalogue/avatars/grid" element={<CatalogueListPage type="avatars" />} />
+                <Route path="catalogue/voices/grid" element={<CatalogueListPage type="voices" />} />
                 <Route path="catalogue/categories/grid/:id" element={<CatalogueDetailPage type="categories" />} />
                 <Route path="catalogue/brands/grid/:id" element={<CatalogueDetailPage type="brands" />} />
                 <Route path="catalogue/products/grid/:id" element={<CatalogueDetailPage type="products" />} />
                 <Route path="catalogue/audiences/grid/:id" element={<CatalogueDetailPage type="audiences" />} />
+                <Route path="catalogue/angles/grid/:id" element={<CatalogueDetailPage type="angles" />} />
+                <Route path="catalogue/hooks/grid/:id" element={<CatalogueDetailPage type="hooks" />} />
+                <Route path="catalogue/concepts/grid/:id" element={<CatalogueDetailPage type="concepts" />} />
+                <Route path="catalogue/avatars/grid/:id" element={<CatalogueDetailPage type="avatars" />} />
+                <Route path="catalogue/voices/grid/:id" element={<CatalogueDetailPage type="voices" />} />
 
                 {/* Automation */}
                 <Route path="automation" element={<ComingSoonPage label="Automation" description="Automate launch rules, budget pacing, and creative rotation." />} />

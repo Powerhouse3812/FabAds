@@ -37,8 +37,10 @@ export interface WizardState {
   step: 1 | 2 | 3 | 4 | 5;
   category: Category | null;
   format: Format | null;
-  /** Step 2 selection — XOR with categoryId. User picks EITHER a product
-   *  OR a category, never both. Picking one clears the other. */
+  /** Step 2 selection — XOR across brand / product / category. User picks
+   *  EITHER a brand, a product, or a category — never more than one.
+   *  Picking one clears the other two. */
+  brandId: string | null;
   productId: string | null;
   categoryId: string | null;
   mode: Mode;
@@ -69,6 +71,7 @@ const INITIAL_STATE: WizardState = {
   step: 1,
   category: null,
   format: null,
+  brandId: null,
   productId: null,
   categoryId: null,
   mode: "scratch",

@@ -6,6 +6,7 @@ import {
   Home, Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Tag, Building2, Package, Boxes, Users,
   Workflow, Eraser, Scissors,
+  Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -150,13 +151,21 @@ export const MODULES: ModuleDef[] = [
   {
     key: "catalogue", label: "Catalogue", icon: Boxes,
     subItems: [
-      { label: "Category", path: "/catalogue/categories", icon: Tag },
+      // Iter-6 A-10: ordering per Maalik —
+      //   Brands | Products | Category | Audiences | Angles | Hooks | Concepts | Avatars | Voices
+      // Brands first (parent of Products), then Category as classifier, then Audience
+      // (targeting), then the Genie creative entities (Angles → Hooks → Concepts) in
+      // the order they're chained in the generation flow, then identity-tier
+      // (Avatars → Voices) for video output.
       { label: "Brands", path: "/catalogue/brands", icon: Building2 },
       { label: "Product", path: "/catalogue/products", icon: Package },
-      // Iter-6 A-10: Audience promoted to first-class Catalogue entity.
-      // Listed last per Catalogue ordering convention (audience extends the
-      // brand → product chain, sits at the end of the tab strip).
+      { label: "Category", path: "/catalogue/categories", icon: Tag },
       { label: "Audiences", path: "/catalogue/audiences", icon: Users },
+      { label: "Angles", path: "/catalogue/angles", icon: Crosshair },
+      { label: "Hooks", path: "/catalogue/hooks", icon: MessageSquareQuote },
+      { label: "Concepts", path: "/catalogue/concepts", icon: Lightbulb },
+      { label: "Avatars", path: "/catalogue/avatars", icon: UserRound },
+      { label: "Voices", path: "/catalogue/voices", icon: Mic },
     ],
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },

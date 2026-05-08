@@ -8,7 +8,9 @@ import {
   Loader2,
   Package,
   FolderOpen,
+  Factory,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -25,7 +27,7 @@ interface Step2Props {
   onAdvance: () => void;
 }
 
-type Tab = "product" | "category";
+type Tab = "brand" | "product" | "category";
 
 /* ────────────────────────────────────────────────────────── *
  *  Image helpers — curated Unsplash photos for products and
@@ -209,12 +211,20 @@ const TOP_CATEGORIES = [...ALL_CATEGORIES]
 
 export function Step2Product({ wizard, onAdvance }: Step2Props) {
   const [tab, setTab] = useState<Tab>(
-    wizard.state.categoryId ? "category" : "product",
+    wizard.state.productId
+      ? "product"
+      : wizard.state.categoryId
+        ? "category"
+        : "brand",
   );
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState<string | null>(null);
   const [brandSearch, setBrandSearch] = useState("");
   const [brandOpen, setBrandOpen] = useState(false);
+  // Industry filter (Brand tab) — distinct values pulled from brands[].category
+  const [industryFilter, setIndustryFilter] = useState<string | null>(null);
+  const [industrySearch, setIndustrySearch] = useState("");
+  const [industryOpen, setIndustryOpen] = useState(false);
   const [urlOpen, setUrlOpen] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [fetching, setFetching] = useState(false);
@@ -227,13 +237,55 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
     setFetching(true);
     await new Promise((r) => setTimeout(r, 1200));
     setFetching(false);
-    const sample = ALL_PRODUCTS[Math.floor(Math.random() * Math.min(20, ALL_PRODUCTS.length))];
+    setUrlInput("");
+    setUrlOpen(false);
+
+    if (tab === "brand") {
+      // Brand tab: pick a random brand, set wizard state, toast, advance.
+      const sampleBrand =
+        ALL_BRANDS[Math.floor(Math.random() * Math.min(20, ALL_BRANDS.length))];
+      if (!sampleBrand) return;
+      wizard.patch({
+        brandId: sampleBrand.id,
+        productId: null,
+        categoryId: null,
+      });
+      toast.success(`Found brand: ${sampleBrand.name}`);
+      onAdvance();
+      return;
+    }
+
+    const sample =
+      ALL_PRODUCTS[Math.floor(Math.random() * Math.min(20, ALL_PRODUCTS.length))];
     if (!sample) return;
     setFetchedProduct(sample);
     setShowFetchModal(true);
-    setUrlInput("");
-    setUrlOpen(false);
   };
+
+  const filteredBrands = useMemo(() => {
+    let list = ALL_BRANDS;
+    if (industryFilter) list = list.filter((b) => b.category === industryFilter);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (b) =>
+          b.name.toLowerCase().includes(q) ||
+          b.category.toLowerCase().includes(q),
+      );
+    }
+    return list.slice(0, 60);
+  }, [industryFilter, search]);
+
+  const industries = useMemo(
+    () => Array.from(new Set(ALL_BRANDS.map((b) => b.category))).sort(),
+    [],
+  );
+
+  const filteredIndustryList = useMemo(() => {
+    const term = industrySearch.trim().toLowerCase();
+    if (!term) return industries;
+    return industries.filter((i) => i.toLowerCase().includes(term));
+  }, [industries, industrySearch]);
 
   const filteredProducts = useMemo(() => {
     let list = ALL_PRODUCTS;
@@ -281,16 +333,27 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
     ? ALL_BRANDS.find((b) => b.id === brandFilter)
     : null;
 
-  // Switch tab — clear opposite side's selection to enforce XOR
+  // Switch tab — clear other tabs' selections to enforce XOR across
+  // brand / product / category.
   const switchTab = (t: Tab) => {
     if (t === tab) return;
     setTab(t);
     setSearch("");
-    if (t === "product" && wizard.state.categoryId) {
-      wizard.set("categoryId", null);
+    if (t === "brand") {
+      // Picking the brand tab clears product + category
+      if (wizard.state.productId || wizard.state.categoryId) {
+        wizard.patch({ productId: null, categoryId: null });
+      }
     }
-    if (t === "category" && wizard.state.productId) {
-      wizard.set("productId", null);
+    if (t === "product") {
+      if (wizard.state.brandId || wizard.state.categoryId) {
+        wizard.patch({ brandId: null, categoryId: null });
+      }
+    }
+    if (t === "category") {
+      if (wizard.state.brandId || wizard.state.productId) {
+        wizard.patch({ brandId: null, productId: null });
+      }
     }
   };
 
@@ -298,12 +361,19 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title="What are you creating for?" />
 
-      {/* Tab toggle — Product vs Category */}
+      {/* Tab toggle — Brand vs Product vs Category */}
       <div className="flex justify-center">
         <div
           role="tablist"
           className="inline-flex rounded-xl border border-border bg-muted/40 p-1 shadow-sm"
         >
+          <TabBtn
+            active={tab === "brand"}
+            onClick={() => switchTab("brand")}
+            icon={Building2}
+            label="Brand"
+            count={ALL_BRANDS.length}
+          />
           <TabBtn
             active={tab === "product"}
             onClick={() => switchTab("product")}
@@ -330,75 +400,163 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={
-              tab === "product"
-                ? "Search products or brands…"
-                : "Search categories…"
+              tab === "brand"
+                ? "Search brands or industries…"
+                : tab === "product"
+                  ? "Search products or brands…"
+                  : "Search categories…"
             }
             className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
           />
         </div>
 
-        {tab === "product" && (
-          <>
-            <Popover open={urlOpen} onOpenChange={setUrlOpen}>
-              <PopoverTrigger asChild>
+        {(tab === "brand" || tab === "product") && (
+          <Popover open={urlOpen} onOpenChange={setUrlOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:border-foreground/30"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Fetch URL
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-3 space-y-2">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                {tab === "brand" ? "Paste a brand URL" : "Paste a product URL"}
+              </p>
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleFetchUrl();
+                  }
+                }}
+                placeholder={
+                  tab === "brand"
+                    ? "https://brand.example.com"
+                    : "https://store.example.com/product/…"
+                }
+                autoFocus
+                disabled={fetching}
+                className="block h-9 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:border-primary/40 focus:outline-none"
+              />
+              <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  className="shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:border-foreground/30"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Fetch URL
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-3 space-y-2">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Paste a product URL
-                </p>
-                <input
-                  type="url"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleFetchUrl();
-                    }
+                  onClick={() => {
+                    setUrlInput("");
+                    setUrlOpen(false);
                   }}
-                  placeholder="https://store.example.com/product/…"
-                  autoFocus
                   disabled={fetching}
-                  className="block h-9 w-full rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:border-primary/40 focus:outline-none"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUrlInput("");
-                      setUrlOpen(false);
-                    }}
-                    disabled={fetching}
-                    className="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleFetchUrl}
-                    disabled={!urlInput.trim() || fetching}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors",
-                      !urlInput.trim() || fetching
-                        ? "bg-muted text-muted-foreground"
-                        : "bg-primary text-primary-foreground hover:opacity-90",
-                    )}
-                  >
-                    {fetching ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                    {fetching ? "Fetching…" : "Fetch"}
-                  </button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                  className="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFetchUrl}
+                  disabled={!urlInput.trim() || fetching}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors",
+                    !urlInput.trim() || fetching
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-primary text-primary-foreground hover:opacity-90",
+                  )}
+                >
+                  {fetching ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  {fetching ? "Fetching…" : "Fetch"}
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
 
+        {tab === "brand" && (
+          <Popover open={industryOpen} onOpenChange={setIndustryOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-xs transition-colors",
+                  industryFilter
+                    ? "border-primary/40 bg-primary/5 text-foreground"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+              >
+                <Factory className="h-3.5 w-3.5" />
+                <span className="font-medium max-w-[120px] truncate">
+                  {industryFilter ?? "All industries"}
+                </span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-0">
+              <div className="border-b border-border p-2">
+                <div className="flex items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={industrySearch}
+                    onChange={(e) => setIndustrySearch(e.target.value)}
+                    placeholder="Search industry…"
+                    className="w-full bg-transparent text-xs outline-none"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="max-h-[260px] overflow-y-auto py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIndustryFilter(null);
+                    setIndustryOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition-colors",
+                    !industryFilter
+                      ? "bg-primary/10 text-foreground"
+                      : "text-foreground hover:bg-muted/40",
+                  )}
+                >
+                  <span className="flex-1 truncate font-medium">All industries</span>
+                  {!industryFilter && (
+                    <Check className="h-3.5 w-3.5 text-primary" />
+                  )}
+                </button>
+                {filteredIndustryList.map((i) => {
+                  const active = industryFilter === i;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setIndustryFilter(i);
+                        setIndustryOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs transition-colors",
+                        active
+                          ? "bg-primary/10 text-foreground"
+                          : "text-foreground hover:bg-muted/40",
+                      )}
+                    >
+                      <Factory className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="flex-1 truncate font-medium">{i}</span>
+                      {active && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {tab === "product" && (
+          <>
             <Popover open={brandOpen} onOpenChange={setBrandOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -490,7 +648,15 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
         )}
 
         <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {tab === "product" ? (
+          {tab === "brand" ? (
+            <>
+              {filteredBrands.length}
+              <span className="text-muted-foreground/60">
+                {" / "}
+                {ALL_BRANDS.length}
+              </span>
+            </>
+          ) : tab === "product" ? (
             <>
               {filteredProducts.length}
               <span className="text-muted-foreground/60">
@@ -510,13 +676,27 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
         </span>
       </div>
 
-      {/* Grid — product tab or category tab with optional drill-down */}
-      {tab === "product" ? (
+      {/* Grid — brand / product / category */}
+      {tab === "brand" ? (
+        <BrandGrid
+          brands={filteredBrands}
+          selectedId={wizard.state.brandId}
+          onPick={(id) => {
+            wizard.patch({
+              brandId: id,
+              productId: null,
+              categoryId: null,
+            });
+            onAdvance();
+          }}
+          search={search}
+        />
+      ) : tab === "product" ? (
         <ProductGrid
           products={filteredProducts}
           selectedId={wizard.state.productId}
           onPick={(id) => {
-            wizard.patch({ productId: id, categoryId: null });
+            wizard.patch({ productId: id, categoryId: null, brandId: null });
             onAdvance();
           }}
           search={search}
@@ -528,7 +708,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
               categories={filteredCategories}
               selectedId={wizard.state.categoryId}
               onPick={(id) =>
-                wizard.patch({ categoryId: id, productId: null })
+                wizard.patch({ categoryId: id, productId: null, brandId: null })
               }
               search={search}
               compact
@@ -546,6 +726,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
                 wizard.patch({
                   productId: wizard.state.productId === id ? null : id,
                   categoryId: wizard.state.categoryId,
+                  brandId: null,
                 });
                 if (wizard.state.productId !== id) onAdvance();
               }}
@@ -561,7 +742,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
           categories={filteredCategories}
           selectedId={wizard.state.categoryId}
           onPick={(id) =>
-            wizard.patch({ categoryId: id, productId: null })
+            wizard.patch({ categoryId: id, productId: null, brandId: null })
           }
           search={search}
         />
@@ -572,7 +753,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
           product={fetchedProduct}
           brand={ALL_BRANDS.find((b) => b.id === fetchedProduct.brandId)}
           onSave={(productId) => {
-            wizard.patch({ productId, categoryId: null });
+            wizard.patch({ productId, categoryId: null, brandId: null });
             setShowFetchModal(false);
             setFetchedProduct(null);
             onAdvance();
@@ -717,6 +898,96 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
                   promo={p.promo}
                   generatedCount={p.generatedCount}
                 />
+              </div>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  Brand grid — square logo + industry chip + tone snippet
+ * ─────────────────────────────────────────────────────────── */
+interface BrandGridProps {
+  brands: typeof ALL_BRANDS;
+  selectedId: string | null;
+  onPick: (id: string) => void;
+  search: string;
+}
+
+function BrandGrid({ brands, selectedId, onPick, search }: BrandGridProps) {
+  if (brands.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 px-3 py-12 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <Search className="h-5 w-5 text-muted-foreground/70" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">
+            No brands found
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {search
+              ? `Nothing matches "${search}". Try a different search or industry filter.`
+              : "Adjust the industry filter or use Fetch URL to add a new brand."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3 lg:grid-cols-4">
+      {brands.map((b) => {
+        const isSelected = selectedId === b.id;
+        const detail =
+          b.tone && b.tone.trim().length > 0
+            ? b.tone
+            : `${b.productIds.length} products`;
+        return (
+          <li key={b.id}>
+            <button
+              type="button"
+              onClick={() => onPick(b.id)}
+              className={cn(
+                "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
+                isSelected
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+              )}
+            >
+              {/* Logo / image area — square aspect */}
+              <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
+                {b.logo ? (
+                  <img
+                    src={b.logo}
+                    alt={b.name}
+                    loading="lazy"
+                    className="h-16 w-16 rounded-lg object-contain"
+                  />
+                ) : (
+                  <Building2 className="h-12 w-12 text-muted-foreground/40" />
+                )}
+                {/* Industry chip top-left */}
+                <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-card/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
+                  {b.category}
+                </span>
+                {/* Check on selected */}
+                {isSelected && (
+                  <span className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+              </div>
+              {/* Meta */}
+              <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {b.name}
+                </p>
+                <p className="line-clamp-2 text-[10px] leading-tight text-muted-foreground">
+                  {detail}
+                </p>
               </div>
             </button>
           </li>
