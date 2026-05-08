@@ -359,7 +359,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title="What are you creating for?" />
 
       {/* Tab toggle — Brand vs Product vs Category */}
@@ -703,40 +703,35 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
           search={search}
         />
       ) : wizard.state.categoryId ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div>
-            <CategoryGrid
-              categories={filteredCategories}
-              selectedId={wizard.state.categoryId}
-              onPick={(id) =>
-                wizard.patch({ categoryId: id, productId: null, brandId: null })
-              }
-              search={search}
-              compact
-            />
-          </div>
-          <div>
-            <CategoryProductsSection
-              categoryName={
-                ALL_CATEGORIES.find((c) => c.id === wizard.state.categoryId)
-                  ?.name ?? "Category"
-              }
-              products={categoryProducts}
-              selectedProductId={wizard.state.productId}
-              onPick={(id) => {
-                wizard.patch({
-                  productId: wizard.state.productId === id ? null : id,
-                  categoryId: wizard.state.categoryId,
-                  brandId: null,
-                });
-                if (wizard.state.productId !== id) onAdvance();
-              }}
-              onSkip={() => {
-                // Already has a category selected; advance without a specific product
-                onAdvance();
-              }}
-            />
-          </div>
+        <div className="flex flex-col gap-6">
+          <CategoryGrid
+            categories={filteredCategories}
+            selectedId={wizard.state.categoryId}
+            onPick={(id) =>
+              wizard.patch({ categoryId: id, productId: null, brandId: null })
+            }
+            search={search}
+          />
+          <CategoryProductsSection
+            categoryName={
+              ALL_CATEGORIES.find((c) => c.id === wizard.state.categoryId)
+                ?.name ?? "Category"
+            }
+            products={categoryProducts}
+            selectedProductId={wizard.state.productId}
+            onPick={(id) => {
+              wizard.patch({
+                productId: wizard.state.productId === id ? null : id,
+                categoryId: wizard.state.categoryId,
+                brandId: null,
+              });
+              if (wizard.state.productId !== id) onAdvance();
+            }}
+            onSkip={() => {
+              // Already has a category selected; advance without a specific product
+              onAdvance();
+            }}
+          />
         </div>
       ) : (
         <CategoryGrid
@@ -845,7 +840,7 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3">
       {products.map((p) => {
         const isSelected = selectedId === p.id;
         const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
@@ -939,7 +934,7 @@ function BrandGrid({ brands, selectedId, onPick, search }: BrandGridProps) {
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3">
       {brands.map((b) => {
         const isSelected = selectedId === b.id;
         const detail =

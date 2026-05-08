@@ -116,7 +116,7 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
       <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />
 
       {/* Loader chip — shown only while !done */}
@@ -157,8 +157,8 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
                 </span>
               }
             />
-            {/* Variations grid — adapts to count, max 4 per row */}
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {/* Variations grid — 2 cols at max-w-2xl per Pure Center alignment */}
+            <ul className="grid grid-cols-2 gap-3">
               {row.outputs.map((output) => (
                 <li key={output.id}>
                   {done ? (

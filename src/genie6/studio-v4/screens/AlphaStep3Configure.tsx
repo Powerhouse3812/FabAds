@@ -219,7 +219,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
             hint="pre-built starting points from this week"
             defaultOpen={wizard.state.selectedConceptIds.length > 0}
           >
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {trending.map((t) => {
                 const active = isTrendingSelected(t.id);
                 return (

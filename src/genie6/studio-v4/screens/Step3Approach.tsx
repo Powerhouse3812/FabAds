@@ -90,7 +90,7 @@ export function Step3Approach({ wizard, onAdvance }: Step3Props) {
   };
 
   return (
-    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
       {/* Ambient bg — consistent with Step 1 */}
       <div
         aria-hidden
@@ -109,9 +109,9 @@ export function Step3Approach({ wizard, onAdvance }: Step3Props) {
 
       <HeroHeader title="What's your approach?" />
 
-      {/* Single unified grid — 2 cols mobile, 3 cols md, 4 cols lg.
-          With 7 cards, lg breakpoint produces 4 + 3 layout. */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      {/* Single unified grid — 2 cols mobile, 3 cols md.
+          With 7 cards at max-w-2xl, this produces a 3+3+1 layout on desktop. */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {ALL_MODES.map((m) => {
           const selected = wizard.state.mode === m.id;
           return (

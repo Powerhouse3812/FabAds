@@ -97,7 +97,7 @@ function VideoPreview({ selected }: { selected: boolean }) {
 
 export function AlphaStep1Format({ wizard, onAdvance }: Step1Props) {
   return (
-    <div className="relative mx-auto w-full max-w-2xl px-6 pt-8 pb-10">
+    <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
       {/* Ambient layer — dot grid + radial lime wash + 2 geometric shapes */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 text-foreground opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,currentColor_1px,transparent_0)] [background-size:22px_22px]" />
@@ -106,14 +106,14 @@ export function AlphaStep1Format({ wizard, onAdvance }: Step1Props) {
         <div className="absolute -right-8 bottom-16 h-16 w-16 -rotate-6 rounded-full border border-primary/15" />
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <HeroHeader title="Pick your format" />
         <p className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           Step 1 of 4 · Choose how your creative will appear
         </p>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-6">
         {FORMAT_OPTIONS.map((f) => {
           const selected = wizard.state.format === f.id;
           return (
