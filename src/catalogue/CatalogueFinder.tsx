@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
   Layers, FileText, Globe, Settings as SettingsIcon, Wand2, Sparkles,
@@ -17,6 +17,7 @@ import type {
   Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
+import { BrandDetail } from "./CatalogueDetailPage";
 
 type CatalogueType =
   | "categories"
@@ -243,8 +244,11 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
           </div>
         </aside>
 
-        {/* PANE 2 — sections */}
-        {(isLoading || selectedId) && (
+        {/* PANE 2 — sections.
+            A-12.42 (Maalik): pane-2 sub-nav removed for brands — BrandDetail's
+            own 6-tab strip in pane 3 is the only nav. Other entity types still
+            render pane 2. */}
+        {type !== "brands" && (isLoading || selectedId) && (
           <aside className="w-[280px] flex-shrink-0 border-r border-border flex flex-col">
             {isLoading ? (
               <Pane2Skeleton />
@@ -710,46 +714,21 @@ function Pane3Detail({
 
 /* Brand section views */
 function BrandSectionView({ brandId, section }: { brandId: string; section: string }) {
+  const navigate = useNavigate();
   const brand = brands.find((b) => b.id === brandId);
   if (!brand) return <Empty>Brand not found</Empty>;
 
+  // A-12.42 (Maalik): Brand "overview" pane-3 now renders the full 6-tab
+  // BrandDetail (Guidelines / KB / Winners / Library / Activity / Products).
+  // Replaces the legacy voice/USPs/colors/competitors stub. The BrandDetail
+  // component reads its active sub-tab from ?tab= so it stays URL-syncable
+  // even inside the Finder.
   if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center gap-3">
-          {brand.logo && <img src={brand.logo} alt="" className="h-12 w-12 rounded-lg bg-muted" />}
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">{brand.name}</h2>
-            <a href={`https://${brand.domain}`} target="_blank" rel="noreferrer" className="text-xs text-primary inline-flex items-center gap-1 hover:underline">
-              {brand.domain} <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-        </div>
-        <Section title="Voice"><p className="text-sm text-foreground">{brand.voice}</p></Section>
-        <Section title="USPs">
-          <div className="flex flex-wrap gap-1.5">
-            {brand.usps.map((u) => (<span key={u} className="text-xs rounded bg-muted px-2 py-1 text-muted-foreground">{u}</span>))}
-          </div>
-        </Section>
-        <Section title="Brand colors">
-          <div className="flex gap-2">
-            {brand.colors.map((c) => (<div key={c} className="h-8 w-8 rounded border border-border" style={{ background: c }} title={c} />))}
-          </div>
-        </Section>
-        <Section title="Competitors">
-          <div className="flex flex-wrap gap-1.5">
-            {brand.competitors.map((cid) => {
-              const c = brands.find((bb) => bb.id === cid);
-              return c ? (<span key={cid} className="text-xs rounded bg-muted px-2 py-1 text-muted-foreground">{c.name}</span>) : null;
-            })}
-          </div>
-        </Section>
-      </div>
-    );
+    return <BrandDetail brand={brand} navigate={navigate} embedded />;
   }
 
   if (section === "kb") {
-    return <div className="p-6"><Empty>Knowledge Base · stub. Brand-level KB editor ships next sprint.</Empty></div>;
+    return <div className="p-6"><Empty>Knowledge Base · use the &quot;Knowledge Base&quot; tab inside Overview for the full KB editor.</Empty></div>;
   }
   if (section === "settings") {
     return <div className="p-6"><Empty>Settings · stub. Brand voice, fonts, and identity editor ships next sprint.</Empty></div>;

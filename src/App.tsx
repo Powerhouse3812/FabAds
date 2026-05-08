@@ -128,19 +128,20 @@ const App = () => (
 
                 {/* Catalogue — new FabAds-wide module */}
                 <Route path="catalogue" element={<Navigate to="/catalogue/categories" replace />} />
-                {/* iter-6 A-9.7: Catalogue uses Genie's Finder UI (3-pane drill-down)
-                    by default. Old grid-based List/Detail kept as fallback at /grid for now. */}
+                {/* A-12.42 (Maalik, refined): Finder layout PRESERVED for brand/product/
+                    category LISTING. On brand click → full-screen 6-tab Brand Detail page
+                    (CatalogueDetailPage). Products + categories: Finder for both list and
+                    detail until their tab redesigns ship. */}
                 <Route path="catalogue/categories" element={<CatalogueFinder type="categories" />} />
                 <Route path="catalogue/categories/:id" element={<CatalogueFinder type="categories" />} />
                 <Route path="catalogue/brands" element={<CatalogueFinder type="brands" />} />
-                <Route path="catalogue/brands/:id" element={<CatalogueFinder type="brands" />} />
+                <Route path="catalogue/brands/:id" element={<CatalogueDetailPage type="brands" />} />
                 <Route path="catalogue/products" element={<CatalogueFinder type="products" />} />
                 <Route path="catalogue/products/:id" element={<CatalogueFinder type="products" />} />
-                {/* Iter-6 A-10: Audiences — first-class Catalogue entity */}
+                {/* Iter-6 A-10: Audiences / Angles / Hooks / Concepts / Avatars / Voices —
+                    deprioritized entities, still on the Finder UI. */}
                 <Route path="catalogue/audiences" element={<CatalogueFinder type="audiences" />} />
                 <Route path="catalogue/audiences/:id" element={<CatalogueFinder type="audiences" />} />
-                {/* Iter-6 A-10: Angles / Hooks / Concepts / Avatars / Voices —
-                    final batch of Catalogue surfaces. Mirrors Audience pattern. */}
                 <Route path="catalogue/angles" element={<CatalogueFinder type="angles" />} />
                 <Route path="catalogue/angles/:id" element={<CatalogueFinder type="angles" />} />
                 <Route path="catalogue/hooks" element={<CatalogueFinder type="hooks" />} />
@@ -151,19 +152,20 @@ const App = () => (
                 <Route path="catalogue/avatars/:id" element={<CatalogueFinder type="avatars" />} />
                 <Route path="catalogue/voices" element={<CatalogueFinder type="voices" />} />
                 <Route path="catalogue/voices/:id" element={<CatalogueFinder type="voices" />} />
-                {/* Legacy grid views — accessible via /grid suffix if needed for comparison */}
-                <Route path="catalogue/categories/grid" element={<CatalogueListPage type="categories" />} />
-                <Route path="catalogue/brands/grid" element={<CatalogueListPage type="brands" />} />
-                <Route path="catalogue/products/grid" element={<CatalogueListPage type="products" />} />
+                {/* Backward-compat redirects: old /grid URLs → bare URLs */}
+                <Route path="catalogue/categories/grid" element={<Navigate to="/catalogue/categories" replace />} />
+                <Route path="catalogue/categories/grid/:id" element={<CatalogueDetailPage type="categories" />} />
+                <Route path="catalogue/brands/grid" element={<Navigate to="/catalogue/brands" replace />} />
+                <Route path="catalogue/brands/grid/:id" element={<CatalogueDetailPage type="brands" />} />
+                <Route path="catalogue/products/grid" element={<Navigate to="/catalogue/products" replace />} />
+                <Route path="catalogue/products/grid/:id" element={<CatalogueDetailPage type="products" />} />
+                {/* Legacy grid views for deprioritized entities — kept as fallback */}
                 <Route path="catalogue/audiences/grid" element={<CatalogueListPage type="audiences" />} />
                 <Route path="catalogue/angles/grid" element={<CatalogueListPage type="angles" />} />
                 <Route path="catalogue/hooks/grid" element={<CatalogueListPage type="hooks" />} />
                 <Route path="catalogue/concepts/grid" element={<CatalogueListPage type="concepts" />} />
                 <Route path="catalogue/avatars/grid" element={<CatalogueListPage type="avatars" />} />
                 <Route path="catalogue/voices/grid" element={<CatalogueListPage type="voices" />} />
-                <Route path="catalogue/categories/grid/:id" element={<CatalogueDetailPage type="categories" />} />
-                <Route path="catalogue/brands/grid/:id" element={<CatalogueDetailPage type="brands" />} />
-                <Route path="catalogue/products/grid/:id" element={<CatalogueDetailPage type="products" />} />
                 <Route path="catalogue/audiences/grid/:id" element={<CatalogueDetailPage type="audiences" />} />
                 <Route path="catalogue/angles/grid/:id" element={<CatalogueDetailPage type="angles" />} />
                 <Route path="catalogue/hooks/grid/:id" element={<CatalogueDetailPage type="hooks" />} />

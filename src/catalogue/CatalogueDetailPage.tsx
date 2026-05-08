@@ -51,11 +51,12 @@ import {
   type KbConcept,
   type ReferenceUrl,
 } from "@/mocks/shared";
-import type { Avatar, Brand, Product } from "@/genie6/types/entities";
+import type { Avatar, Brand, Category, Product } from "@/genie6/types/entities";
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import {
   ACTIVITY_LOG,
   getActivityLogForBrand,
+  getActivityLogForEntity,
   type ActivityLogEntry,
   type ActivityKind,
 } from "@/mocks/shared";
@@ -418,42 +419,12 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   const brand = brands.find((b) => b.id === prod.brandId);
   const category = categories.find((c) => c.id === prod.categoryId);
   return (
-    <Shell type={type} title={prod.name} subtitle={`${brand?.name}${category ? ` · ${category.name}` : ""}`} icon={<Package className="h-5 w-5" />}>
-      <Section title="Price"><p className="text-2xl font-bold text-foreground font-mono">{prod.price}</p></Section>
-      {prod.promo && <Section title="Promo"><span className="inline-block rounded bg-primary/15 text-primary px-2 py-1 text-sm">{prod.promo}</span></Section>}
-      <Section title="Benefits">
-        <ul className="space-y-1 text-sm text-foreground">
-          {prod.benefits.map((b) => <li key={b}>· {b}</li>)}
-        </ul>
-      </Section>
-      {prod.landingPages && prod.landingPages.length > 0 && (
-        <Section title={`Landing pages · ${prod.landingPages.length}`}>
-          <ul className="space-y-1">
-            {prod.landingPages.map((lp) => (
-              <li key={lp}>
-                <a href={lp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                  {lp} <ExternalLink className="h-3 w-3" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-      {prod.campaignUrls && prod.campaignUrls.length > 0 && (
-        <Section title={`Campaign URLs · ${prod.campaignUrls.length}`}>
-          <ul className="space-y-1">
-            {prod.campaignUrls.map((cu) => (
-              <li key={cu}>
-                <a href={cu} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-mono text-muted-foreground hover:text-foreground">
-                  {cu} <ExternalLink className="h-3 w-3" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-      <KnowledgeBaseSection entityType="product" entityId={prod.id} entityLabel="product" />
-    </Shell>
+    <ProductDetail
+      product={prod}
+      brand={brand}
+      category={category}
+      navigate={navigate}
+    />
   );
 }
 
@@ -514,8 +485,6 @@ function NotFound({ type, navigate }: { type: CatalogueType; navigate: (to: stri
 
 /* ─── Knowledge Base block ─── */
 
-type KbTabKey = "main" | "custom" | "winners" | "concepts" | "refs";
-
 function KnowledgeBaseSection({
   entityType,
   entityId,
@@ -525,7 +494,6 @@ function KnowledgeBaseSection({
   entityId: KbEntityId;
   entityLabel: string;
 }) {
-  const [tab, setTab] = useState<KbTabKey>("main");
   const [createKind, setCreateKind] = useState<KbCreateKind | null>(null);
 
   // Saved items live in the global saved-store — surfaces here AND in
@@ -553,139 +521,97 @@ function KnowledgeBaseSection({
     setCreateKind(null);
   };
 
-  const tabs: { key: KbTabKey; label: string; count: number }[] = [
-    { key: "main", label: "Main", count: main ? 1 : 0 },
-    { key: "custom", label: "Custom", count: custom.length },
-    { key: "winners", label: "Winners", count: winners.length },
-    { key: "concepts", label: "Concepts", count: conceptsList.length },
-    { key: "refs", label: "References", count: refs.length },
-  ];
-
   return (
-    <section className="space-y-4 border-t border-border/40 pt-6">
+    <section className="space-y-5 border-t border-border/40 pt-6">
       <SectionHeader
         title="Knowledge Base"
         icon={BookOpen}
         hint="For Genie generations"
       />
 
-      {/* Tab strip — pill segmented */}
-      <div className="inline-flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5">
-        {tabs.map((t) => {
-          const active = tab === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-                active
-                  ? "bg-foreground/[0.08] text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t.label}
-              {t.count > 0 && (
-                <span
-                  className={cn(
-                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
-                    active
-                      ? "bg-primary/20 text-primary"
-                      : "bg-foreground/[0.08] text-foreground",
-                  )}
-                >
-                  {t.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Active tab content */}
-      <div>
-        {tab === "main" && (
-          <KbTabPanel
-            hint={`The default writing rules Genie follows for this ${entityLabel}.`}
-            emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
-            createLabel={main ? "Replace" : "Create instruction"}
-            onCreate={() => setCreateKind("instruction")}
-            isEmpty={!main}
-          >
-            {main && (
-              <ul className="space-y-2">
-                <InstructionRow item={main} />
-              </ul>
-            )}
-          </KbTabPanel>
-        )}
-
-        {tab === "custom" && (
-          <KbTabPanel
-            hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
-            emptyMessage="No custom instructions yet."
-            createLabel="Add instruction"
-            onCreate={() => setCreateKind("instruction")}
-            isEmpty={custom.length === 0}
-          >
+      {/* A-12.42 (Maalik): tabs removed — vertical sections, scroll OK. */}
+      <div className="space-y-5">
+        <KbTabPanel
+          title="Main instruction"
+          count={main ? 1 : 0}
+          hint={`The default writing rules Genie follows for this ${entityLabel}.`}
+          emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
+          createLabel={main ? "Replace" : "Create instruction"}
+          onCreate={() => setCreateKind("instruction")}
+          isEmpty={!main}
+        >
+          {main && (
             <ul className="space-y-2">
-              {custom.map((it) => (
-                <InstructionRow key={it.id} item={it} />
-              ))}
+              <InstructionRow item={main} />
             </ul>
-          </KbTabPanel>
-        )}
+          )}
+        </KbTabPanel>
 
-        {tab === "winners" && (
-          <KbTabPanel
-            hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
-            emptyMessage="No winner ads saved yet."
-            createLabel="Add winner ad"
-            onCreate={() => setCreateKind("winner-ad")}
-            isEmpty={winners.length === 0}
-            countMax={50}
-            countCurrent={winners.length}
-          >
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {winners.map((w) => (
-                <WinnerAdCard key={w.id} ad={w} />
-              ))}
-            </div>
-          </KbTabPanel>
-        )}
+        <KbTabPanel
+          title="Custom instructions"
+          count={custom.length}
+          hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
+          emptyMessage="No custom instructions yet."
+          createLabel="Add instruction"
+          onCreate={() => setCreateKind("instruction")}
+          isEmpty={custom.length === 0}
+        >
+          <ul className="space-y-2">
+            {custom.map((it) => (
+              <InstructionRow key={it.id} item={it} />
+            ))}
+          </ul>
+        </KbTabPanel>
 
-        {tab === "concepts" && (
-          <KbTabPanel
-            hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
-            emptyMessage="No concepts saved yet."
-            createLabel="Add concept"
-            onCreate={() => setCreateKind("concept")}
-            isEmpty={conceptsList.length === 0}
-          >
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {conceptsList.map((c) => (
-                <ConceptCard key={c.id} concept={c} />
-              ))}
-            </div>
-          </KbTabPanel>
-        )}
+        <KbTabPanel
+          title="Winner ads"
+          count={winners.length}
+          hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
+          emptyMessage="No winner ads saved yet."
+          createLabel="Add winner ad"
+          onCreate={() => setCreateKind("winner-ad")}
+          isEmpty={winners.length === 0}
+          countMax={50}
+          countCurrent={winners.length}
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {winners.map((w) => (
+              <WinnerAdCard key={w.id} ad={w} />
+            ))}
+          </div>
+        </KbTabPanel>
 
-        {tab === "refs" && (
-          <KbTabPanel
-            hint="Reference URLs — landing pages, brand assets, inspiration links."
-            emptyMessage="No reference URLs saved."
-            createLabel="Add URL"
-            onCreate={() => alert("Add reference URL — coming soon")}
-            isEmpty={refs.length === 0}
-          >
-            <ul className="space-y-1.5">
-              {refs.map((r) => (
-                <RefRow key={r.id} ref={r} />
-              ))}
-            </ul>
-          </KbTabPanel>
-        )}
+        <KbTabPanel
+          title="Concepts"
+          count={conceptsList.length}
+          hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
+          emptyMessage="No concepts saved yet."
+          createLabel="Add concept"
+          onCreate={() => setCreateKind("concept")}
+          isEmpty={conceptsList.length === 0}
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {conceptsList.map((c) => (
+              <ConceptCard key={c.id} concept={c} />
+            ))}
+          </div>
+        </KbTabPanel>
+
+        <KbTabPanel
+          title="References"
+          count={refs.length}
+          hint="Reference URLs — landing pages, brand assets, inspiration links."
+          emptyMessage="No reference URLs saved."
+          createLabel="Add URL"
+          onCreate={() => alert("Add reference URL — coming soon")}
+          isEmpty={refs.length === 0}
+        >
+          <ul className="space-y-1.5">
+            {refs.map((r) => (
+              <RefRow key={r.id} ref={r} />
+            ))}
+          </ul>
+        </KbTabPanel>
       </div>
 
       {/* Creation modal — shared chassis for instruction / winner-ad / concept */}
@@ -704,6 +630,8 @@ function KnowledgeBaseSection({
 }
 
 function KbTabPanel({
+  title,
+  count,
   hint,
   emptyMessage,
   createLabel,
@@ -713,6 +641,8 @@ function KbTabPanel({
   countMax,
   children,
 }: {
+  title: string;
+  count: number;
   hint: string;
   emptyMessage: string;
   createLabel: string;
@@ -726,7 +656,17 @@ function KbTabPanel({
     <div className="rounded-xl border border-border/60 bg-card/40 p-3.5">
       <header className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] text-muted-foreground">{hint}</p>
+          <div className="flex items-center gap-2">
+            <h4 className="text-[13px] font-semibold tracking-tight text-foreground">
+              {title}
+            </h4>
+            {count > 0 && (
+              <span className="inline-flex items-center justify-center rounded-full bg-foreground/[0.08] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
+                {count}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
           {countMax && countCurrent !== undefined && (
             <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/60">
               {countCurrent} of {countMax} max
@@ -951,12 +891,17 @@ type BrandTabKey =
   | "activity"
   | "products";
 
-function BrandDetail({
+export function BrandDetail({
   brand,
   navigate,
+  embedded = false,
 }: {
   brand: Brand;
   navigate: ReturnType<typeof useNavigate>;
+  /** When true, the component is being rendered inside the Catalogue Finder's
+   *  pane 3 — drop outer padding/max-width and hide the Back button (the
+   *  Finder's own pane-1 list serves as the back affordance). */
+  embedded?: boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") as BrandTabKey | null;
@@ -1005,16 +950,25 @@ function BrandDetail({
   ];
 
   return (
-    <div className="v3-page-mesh mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-6 pb-10">
-      {/* ── Top action: ← Back ── */}
-      <button
-        type="button"
-        onClick={() => navigate("/catalogue/brands")}
-        className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-3 w-3" />
-        Back to Brands
-      </button>
+    <div
+      className={cn(
+        "flex w-full flex-col gap-6",
+        embedded
+          ? "p-5"
+          : "v3-page-mesh mx-auto max-w-6xl px-6 pt-6 pb-10",
+      )}
+    >
+      {/* ── Top action: ← Back (hidden when embedded inside Finder) ── */}
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => navigate("/catalogue/brands")}
+          className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to Brands
+        </button>
+      )}
 
       {/* ── Hero header ── */}
       <BrandHero brand={brand} productCount={linkedProducts.length} />
@@ -1490,6 +1444,667 @@ function ProductsPanel({
                   )}
                 </div>
               </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Product Detail — A-12.42
+ *
+ * Mirrors BrandDetail but with a Product-shaped Guidelines tab:
+ *   ── Compact Brand Guidelines (read-only, inherited from parent brand:
+ *       voice / colors / typography) ──
+ *   ── Then product-specific cards: Audience, USPs (= benefits),
+ *      Category, Price, Promo, Landing pages, Campaign URLs ──
+ *
+ * Tabs: Guidelines · KB · Winners · Library · Activity · Variants.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+type ProductTabKey =
+  | "guidelines"
+  | "kb"
+  | "winners"
+  | "library"
+  | "activity"
+  | "variants";
+
+function ProductDetail({
+  product,
+  brand,
+  category,
+  navigate,
+}: {
+  product: Product;
+  brand?: Brand;
+  category?: Category;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") as ProductTabKey | null;
+  const tab: ProductTabKey =
+    tabParam &&
+    ["guidelines", "kb", "winners", "library", "activity", "variants"].includes(
+      tabParam,
+    )
+      ? tabParam
+      : "guidelines";
+  const setTab = (next: ProductTabKey) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === "guidelines") sp.delete("tab");
+        else sp.set("tab", next);
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+
+  const winnersCount = getWinnerAdsForEntity("product", product.id).length;
+  const libraryCount = sampleOutputs.filter(
+    (o) => o.product?.name === product.name,
+  ).length;
+  const activityCount = ACTIVITY_LOG.filter(
+    (e) => e.entityType === "product" && e.entityId === product.id,
+  ).length;
+  const kbInstrCount = (() => {
+    const { main, custom } = getInstructionsForEntity("product", product.id);
+    return (main ? 1 : 0) + custom.length;
+  })();
+  const variantsCount = product.variants?.length ?? 0;
+
+  const tabs: { key: ProductTabKey; label: string; count?: number }[] = [
+    { key: "guidelines", label: "Guidelines" },
+    { key: "kb", label: "Knowledge Base", count: kbInstrCount },
+    { key: "winners", label: "Winner Ads", count: winnersCount },
+    { key: "library", label: "Library", count: libraryCount },
+    { key: "activity", label: "Activity", count: activityCount },
+    { key: "variants", label: "Variants", count: variantsCount },
+  ];
+
+  return (
+    <div className="v3-page-mesh mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-6 pb-10">
+      {/* ── Top action: ← Back ── */}
+      <button
+        type="button"
+        onClick={() => navigate("/catalogue/products")}
+        className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        Back to Products
+      </button>
+
+      {/* ── Hero header ── */}
+      <ProductHero product={product} brand={brand} category={category} />
+
+      {/* ── Tab strip ── */}
+      <div className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5 self-start">
+        {tabs.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                active
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              {typeof t.count === "number" && t.count > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
+                    active
+                      ? "bg-primary/20 text-primary"
+                      : "bg-foreground/[0.08] text-foreground",
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Active tab content ── */}
+      <div>
+        {tab === "guidelines" && (
+          <ProductGuidelinesPanel
+            product={product}
+            brand={brand}
+            category={category}
+          />
+        )}
+        {tab === "kb" && (
+          <KnowledgeBaseSection
+            entityType="product"
+            entityId={product.id}
+            entityLabel="product"
+          />
+        )}
+        {tab === "winners" && <ProductWinnersPanel productId={product.id} />}
+        {tab === "library" && <ProductLibraryPanel productName={product.name} />}
+        {tab === "activity" && <ProductActivityPanel productId={product.id} />}
+        {tab === "variants" && (
+          <ProductVariantsPanel product={product} brand={brand} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductHero({
+  product,
+  brand,
+  category,
+}: {
+  product: Product;
+  brand?: Brand;
+  category?: Category;
+}) {
+  return (
+    <div className="flex items-start gap-4 rounded-2xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border/40 bg-muted">
+        {product.thumbnail ? (
+          <img
+            src={product.thumbnail}
+            alt={product.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center text-xl text-white/80"
+            style={{ background: brand?.colors[0] ?? "#888" }}
+          >
+            {product.name.charAt(0)}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground">{product.name}</h1>
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
+            {product.price}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          {brand && (
+            <Link
+              to={`/catalogue/brands/${brand.id}`}
+              className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
+            >
+              {brand.name}
+            </Link>
+          )}
+          {category && (
+            <Link
+              to={`/catalogue/categories/${category.id}`}
+              className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-muted"
+            >
+              {category.name}
+            </Link>
+          )}
+          {product.variants && product.variants.length > 0 && (
+            <span className="font-mono">
+              · {product.variants.length} variants
+            </span>
+          )}
+          {product.generatedCount > 0 && (
+            <span className="font-mono">
+              · {product.generatedCount} generations
+            </span>
+          )}
+        </div>
+        {product.promo && (
+          <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+            {product.promo}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductGuidelinesPanel({
+  product,
+  brand,
+  category,
+}: {
+  product: Product;
+  brand?: Brand;
+  category?: Category;
+}) {
+  const linkedAudiences = brand
+    ? audiences.filter((a) => a.brandId === brand.id)
+    : [];
+
+  return (
+    <div className="space-y-5">
+      {/* ── Brand guidelines (compact) ─────────────────────── */}
+      {brand && (
+        <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Building2 className="h-3 w-3 text-muted-foreground" />
+              <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
+                Brand guidelines · {brand.name}
+              </h3>
+            </div>
+            <Link
+              to={`/catalogue/brands/${brand.id}`}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              View brand
+              <ExternalLink className="h-2.5 w-2.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {/* Voice */}
+            <div className="space-y-1">
+              <p className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                <Sparkles className="h-2.5 w-2.5" />
+                Voice
+              </p>
+              <p className="line-clamp-3 text-[12px] leading-relaxed text-foreground">
+                {brand.voice}
+              </p>
+              {brand.tone && (
+                <p className="font-mono text-[10px] italic text-muted-foreground/80">
+                  {brand.tone}
+                </p>
+              )}
+            </div>
+
+            {/* Colors */}
+            <div className="space-y-1">
+              <p className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                <Palette className="h-2.5 w-2.5" />
+                Colors
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {brand.colors.map((c) => (
+                  <span
+                    key={c}
+                    className="inline-block h-6 w-6 rounded-md border border-border/60"
+                    style={{ backgroundColor: c }}
+                    title={c}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Typography */}
+            <div className="space-y-1">
+              <p className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                <TypeIcon className="h-2.5 w-2.5" />
+                Typography
+              </p>
+              <p
+                className="text-[13px] font-semibold text-foreground"
+                style={{ fontFamily: brand.fonts.display }}
+              >
+                {brand.fonts.display}
+              </p>
+              <p
+                className="text-[11px] text-muted-foreground"
+                style={{ fontFamily: brand.fonts.body }}
+              >
+                {brand.fonts.body}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Product-specific cards ─────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <GuidelinesCard
+          title={`USPs · ${product.benefits.length}`}
+          icon={Sparkles}
+        >
+          {product.benefits.length === 0 ? (
+            <p className="text-[12px] italic text-muted-foreground">
+              No benefits listed yet.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {product.benefits.map((b) => (
+                <li
+                  key={b}
+                  className="flex items-start gap-1.5 text-[13px] text-foreground"
+                >
+                  <span className="text-muted-foreground/50">·</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </GuidelinesCard>
+
+        <GuidelinesCard
+          title={`Audiences · ${linkedAudiences.length}`}
+          icon={Users}
+        >
+          {linkedAudiences.length === 0 ? (
+            <p className="text-[12px] italic text-muted-foreground">
+              No audiences linked to this brand.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {linkedAudiences.map((a) => (
+                <span
+                  key={a.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2 py-1 text-[11px]"
+                  title={a.segment}
+                >
+                  <span className="font-medium text-foreground">{a.label}</span>
+                  <span className="font-mono text-[9px] text-muted-foreground">·</span>
+                  <span className="line-clamp-1 max-w-[180px] text-muted-foreground">
+                    {a.segment}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+        </GuidelinesCard>
+
+        <GuidelinesCard title="Category" icon={Tag}>
+          {category ? (
+            <Link
+              to={`/catalogue/categories/${category.id}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-primary transition-colors hover:bg-primary/15"
+            >
+              {category.name}
+            </Link>
+          ) : (
+            <p className="text-[12px] italic text-muted-foreground">
+              No category linked.
+            </p>
+          )}
+        </GuidelinesCard>
+
+        <GuidelinesCard title="Price & promo" icon={Tag}>
+          <p className="font-mono text-base font-bold text-foreground">
+            {product.price}
+          </p>
+          {product.promo && (
+            <span className="mt-1.5 inline-block rounded-full bg-primary/15 px-2 py-0.5 text-[11px] text-primary">
+              {product.promo}
+            </span>
+          )}
+        </GuidelinesCard>
+
+        {product.landingPages && product.landingPages.length > 0 && (
+          <GuidelinesCard
+            title={`Landing pages · ${product.landingPages.length}`}
+            icon={Link2}
+          >
+            <ul className="space-y-1">
+              {product.landingPages.map((lp) => (
+                <li key={lp}>
+                  <a
+                    href={lp}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 truncate text-[12px] text-primary hover:underline"
+                  >
+                    {shortUrl(lp)}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </GuidelinesCard>
+        )}
+
+        {product.campaignUrls && product.campaignUrls.length > 0 && (
+          <GuidelinesCard
+            title={`Campaign URLs · ${product.campaignUrls.length}`}
+            icon={Link2}
+          >
+            <ul className="space-y-1">
+              {product.campaignUrls.map((cu) => (
+                <li key={cu}>
+                  <a
+                    href={cu}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 truncate font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {shortUrl(cu)}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </GuidelinesCard>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductWinnersPanel({ productId }: { productId: string }) {
+  const seedWinners = getWinnerAdsForEntity("product", productId);
+  const savedWinners = useSavedWinnersForEntity("product", productId);
+  const winners = [...seedWinners, ...savedWinners];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title={`Winner ads · ${winners.length}`}
+          icon={Trophy}
+        />
+        <button
+          type="button"
+          onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          Add winner ad
+        </button>
+      </div>
+      {winners.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            Upload winner ads to teach Genie what works for this product.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {winners.map((w) => (
+            <WinnerAdCard key={w.id} ad={w} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductLibraryPanel({ productName }: { productName: string }) {
+  const generations = sampleOutputs.filter(
+    (o) => o.product?.name === productName,
+  );
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title={`Library · ${generations.length}`}
+          icon={GalleryHorizontal}
+          hint="all generations for this product"
+        />
+        <Link
+          to="/iq/genie6/library"
+          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          View all →
+        </Link>
+      </div>
+      {generations.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No generations yet for this product.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {generations.slice(0, 24).map((o) => (
+            <li key={o.id}>
+              <div className="overflow-hidden rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  {o.thumbnail ? (
+                    <img src={o.thumbnail} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Sparkles className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+                <p className="line-clamp-2 px-2 py-1.5 text-[11px] font-medium leading-tight text-foreground">
+                  {o.headline ?? "Untitled"}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ProductActivityPanel({ productId }: { productId: string }) {
+  const log = getActivityLogForEntity("product", productId);
+  return (
+    <div className="space-y-3">
+      <SectionHeader
+        title={`Activity · ${log.length}`}
+        icon={History}
+        hint="audit log of edits, saves, and runs"
+      />
+      {log.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No activity yet for this product.
+          </p>
+        </div>
+      ) : (
+        <ol className="space-y-2">
+          {log.map((entry) => {
+            const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
+            return (
+              <li
+                key={entry.id}
+                className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
+                  <Icon className="h-3.5 w-3.5 text-foreground/65" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-foreground">
+                    {entry.summary}
+                  </p>
+                  {entry.detail && (
+                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">
+                      {entry.detail}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                    {entry.actor}
+                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground/60">
+                    {formatActivityAge(entry.at)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function ProductVariantsPanel({
+  product,
+  brand,
+}: {
+  product: Product;
+  brand?: Brand;
+}) {
+  const variants = product.variants ?? [];
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title={`Variants · ${variants.length}`}
+          icon={Package}
+          hint="SKU-level options — sizes, colors, fragrances"
+        />
+        <button
+          type="button"
+          onClick={() =>
+            alert(`Add variant to ${product.name} — coming soon.`)
+          }
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          Add variant
+        </button>
+      </div>
+      {variants.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            This product has no variants — single SKU.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {variants.map((v) => (
+            <li
+              key={v.id}
+              className="overflow-hidden rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm"
+            >
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                {v.thumbnail ? (
+                  <img src={v.thumbnail} alt={v.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center text-2xl text-white/80"
+                    style={{
+                      background: v.color ?? brand?.colors[0] ?? "#888",
+                    }}
+                  >
+                    {v.name.charAt(0)}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-0.5 px-2 py-2">
+                <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
+                  {v.name}
+                </p>
+                <div className="flex flex-wrap items-center gap-1 font-mono text-[10px] text-muted-foreground">
+                  {v.sku && <span>{v.sku}</span>}
+                  {v.price && (
+                    <>
+                      {v.sku && <span>·</span>}
+                      <span className="text-foreground">{v.price}</span>
+                    </>
+                  )}
+                </div>
+              </div>
             </li>
           ))}
         </ul>
