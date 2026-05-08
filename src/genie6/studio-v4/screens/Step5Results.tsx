@@ -7,6 +7,8 @@ import type { OutputData, EllipsisAction } from "../../types/output";
 import { HeroHeader } from "../components/HeroHeader";
 import { OutputCardHybrid } from "../components/OutputCardHybrid";
 import { SaveToKbModal } from "../components/SaveToKbModal";
+import { addWinnerAd } from "@/genie6/concepts/saved-store";
+import type { EntityType, EntityId } from "@/mocks/shared";
 import { SectionHeader } from "../components/SectionHeader";
 import type { UseWizardReturn } from "../state/useWizard";
 
@@ -204,9 +206,21 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
           sourceLabel={`Output ${saveKbForOutput.id}`}
           onClose={() => setSaveKbForOutput(null)}
           onSave={(payload) => {
-            console.log("[Step5] saveToKb", {
-              outputId: saveKbForOutput.id,
-              ...payload,
+            // Persist into the global saved-store. Auto-derives a paired
+            // concept (Maalik: jitne winner ads, utne concepts).
+            const out = saveKbForOutput;
+            const headline =
+              out.headline ?? out.body?.slice(0, 50) ?? `Saved output ${out.id}`;
+            addWinnerAd({
+              id: `wa-saved-${out.id}-${Date.now()}`,
+              entityType: payload.entityType as EntityType,
+              entityId: payload.entityId as EntityId,
+              source: "saved-from-genie",
+              thumbnail: out.thumbnail,
+              format: out.mediaType === "video" ? "video" : "image",
+              headline,
+              description: out.body ?? out.headline ?? undefined,
+              capturedAt: new Date(),
             });
             setSaveKbForOutput(null);
           }}

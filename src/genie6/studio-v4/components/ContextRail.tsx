@@ -16,6 +16,11 @@ import {
 } from "@/mocks/shared";
 import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 import { SectionHeader } from "./SectionHeader";
+import {
+  useSavedWinnersForEntity,
+  useSavedConceptsForEntity,
+  useSavedInstructionsForEntity,
+} from "@/genie6/concepts/saved-store";
 
 interface ContextRailProps {
   wizard: UseWizardReturn;
@@ -96,11 +101,34 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
     entity = { type: "category", id: state.categoryId as EntityId };
   }
 
-  const instructionGroups = entity
+  // Cross-app saved-store hooks. Always called (rules-of-hooks); narrow with
+  // null entity by passing harmless dummies that produce empty arrays.
+  const savedInstr = useSavedInstructionsForEntity(
+    entity?.type ?? "brand",
+    entity?.id ?? "__none__",
+  );
+  const savedWinners = useSavedWinnersForEntity(
+    entity?.type ?? "brand",
+    entity?.id ?? "__none__",
+  );
+  const savedConcepts = useSavedConceptsForEntity(
+    entity?.type ?? "brand",
+    entity?.id ?? "__none__",
+  );
+
+  const seedGroups = entity
     ? getInstructionsForEntity(entity.type, entity.id, state.customKbInstructions)
     : { main: null, custom: [], angles: [] };
-  const winners = entity ? getWinnerAdsForEntity(entity.type, entity.id) : [];
+  const instructionGroups = entity
+    ? { ...seedGroups, custom: [...seedGroups.custom, ...savedInstr] }
+    : seedGroups;
+  const winners = entity
+    ? [...getWinnerAdsForEntity(entity.type, entity.id), ...savedWinners]
+    : [];
   const refs = entity ? getReferenceUrlsForEntity(entity.type, entity.id) : [];
+  // Saved concepts not surfaced in this rail today (concepts panel was removed
+  // in earlier rev) — but exposed via the store so future surfaces can use it.
+  void savedConcepts;
 
   const instructionsCount =
     (instructionGroups.main ? 1 : 0) +

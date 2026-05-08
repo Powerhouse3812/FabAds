@@ -48,6 +48,14 @@ import {
 import type { Avatar } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
+import {
+  addInstruction as savedAddInstruction,
+  addWinnerAd as savedAddWinnerAd,
+  addConcept as savedAddConcept,
+  useSavedInstructionsForEntity,
+  useSavedWinnersForEntity,
+  useSavedConceptsForEntity,
+} from "@/genie6/concepts/saved-store";
 
 type CatalogueType =
   | "categories"
@@ -540,23 +548,29 @@ function KnowledgeBaseSection({
 }) {
   const [tab, setTab] = useState<KbTabKey>("main");
   const [createKind, setCreateKind] = useState<KbCreateKind | null>(null);
-  // Locally-saved items added during this session (merged with seed data).
-  const [customInstructions, setCustomInstructions] = useState<KbInstruction[]>([]);
-  const [customWinners, setCustomWinners] = useState<WinnerAd[]>([]);
-  const [customConcepts, setCustomConcepts] = useState<KbConcept[]>([]);
+
+  // Saved items live in the global saved-store — surfaces here AND in
+  // ConceptsLibrary AND ContextRail without prop-drilling.
+  const savedInstr = useSavedInstructionsForEntity(entityType, entityId);
+  const savedWinners = useSavedWinnersForEntity(entityType, entityId);
+  const savedConcepts = useSavedConceptsForEntity(entityType, entityId);
 
   const seedInstr = getInstructionsForEntity(entityType, entityId);
   const main = seedInstr.main;
-  // Custom = seed customs + session-added customs
-  const custom = [...seedInstr.custom, ...customInstructions];
-  const winners = [...getWinnerAdsForEntity(entityType, entityId), ...customWinners];
-  const conceptsList = [...getConceptsForEntity(entityType, entityId), ...customConcepts];
+  const custom = [...seedInstr.custom, ...savedInstr];
+  const winners = [...getWinnerAdsForEntity(entityType, entityId), ...savedWinners];
+  const conceptsList = [...getConceptsForEntity(entityType, entityId), ...savedConcepts];
   const refs = getReferenceUrlsForEntity(entityType, entityId);
 
-  const handleSaved = (saved: { kind: "instruction"; item: KbInstruction } | { kind: "winner-ad"; item: WinnerAd } | { kind: "concept"; item: KbConcept }) => {
-    if (saved.kind === "instruction") setCustomInstructions((prev) => [...prev, saved.item]);
-    else if (saved.kind === "winner-ad") setCustomWinners((prev) => [...prev, saved.item]);
-    else setCustomConcepts((prev) => [...prev, saved.item]);
+  const handleSaved = (
+    saved:
+      | { kind: "instruction"; item: KbInstruction }
+      | { kind: "winner-ad"; item: WinnerAd }
+      | { kind: "concept"; item: KbConcept },
+  ) => {
+    if (saved.kind === "instruction") savedAddInstruction(saved.item);
+    else if (saved.kind === "winner-ad") savedAddWinnerAd(saved.item);
+    else savedAddConcept(saved.item);
     setCreateKind(null);
   };
 

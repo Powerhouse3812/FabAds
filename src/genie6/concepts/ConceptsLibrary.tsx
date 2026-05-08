@@ -24,6 +24,7 @@ import {
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import { HeroHeader } from "@/genie6/studio-v4/components/HeroHeader";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
+import { useSavedStore } from "./saved-store";
 
 /**
  * ConceptsLibrary — full-page library at /iq/genie6/concepts.
@@ -129,7 +130,10 @@ export function ConceptsLibrary() {
   const toneFilter = searchParams.get("tone");
   const sort = (searchParams.get("sort") as SortKey | null) ?? "recent";
 
-  // Build unified feed.
+  // Saved-store gives us the user-saved-during-this-session concepts.
+  const { concepts: savedConcepts } = useSavedStore();
+
+  // Build unified feed: catalogue + KB seed + user-saved.
   const items: ConceptItem[] = useMemo(() => {
     const fromCatalogue: ConceptItem[] = catalogueConcepts.map((c) => ({
       id: `cat-${c.id}`,
@@ -143,8 +147,8 @@ export function ConceptsLibrary() {
       capturedAt: deriveCapturedAt(c.id),
       generationCount: c.generationCount,
     }));
-    const fromKb: ConceptItem[] = KB_CONCEPTS.map((c) => ({
-      id: `kb-${c.id}`,
+    const mapKb = (c: typeof KB_CONCEPTS[number], idPrefix: string): ConceptItem => ({
+      id: `${idPrefix}-${c.id}`,
       name: c.name,
       thumbnail: c.thumbnail ?? deriveThumbnail(c.id),
       tone: c.tone,
@@ -159,9 +163,11 @@ export function ConceptsLibrary() {
             : ("saved-from-insights" as const),
       capturedAt: c.capturedAt,
       generationCount: 0,
-    }));
-    return [...fromCatalogue, ...fromKb];
-  }, []);
+    });
+    const fromKb: ConceptItem[] = KB_CONCEPTS.map((c) => mapKb(c, "kb"));
+    const fromSaved: ConceptItem[] = savedConcepts.map((c) => mapKb(c, "saved"));
+    return [...fromCatalogue, ...fromKb, ...fromSaved];
+  }, [savedConcepts]);
 
   // Distinct option lists.
   const angleOptions = useMemo(
