@@ -64,13 +64,13 @@ export function SecondaryNavigationItem({
         aria-current={active ? "page" : undefined}
         aria-expanded={hasChildren ? open : undefined}
         className={cn(
-          "w-full text-left pr-2 rounded-md transition-colors flex items-center gap-2 h-8",
+          // A-12.38 redesign: 32px tall, 16px radius (rounded-2xl), Geist 13px,
+          // active = bg-foreground/[0.04] + medium weight.
+          "flex h-8 w-full items-center gap-2 rounded-2xl pr-2 text-left transition-colors",
           active
-            ? "bg-zinc-900/[0.06] text-zinc-900 font-medium"
-            : "text-zinc-700 hover:bg-zinc-900/[0.04] hover:text-zinc-900",
-          // A-11.15: deprioritized = legacy/archive entry. Reduced opacity
-          // + lighter weight so users don't focus on it. Active-state still
-          // resolves cleanly when clicked.
+            ? "bg-foreground/[0.04] text-foreground font-medium"
+            : "text-foreground/65 hover:bg-foreground/[0.04] hover:text-foreground",
+          // Deprioritized = 50% opacity; weight stays normal.
           item.deprioritized && !active && "opacity-50 hover:opacity-80",
         )}
         style={{ paddingLeft: `${paddingLeftPx}px` }}
@@ -79,24 +79,29 @@ export function SecondaryNavigationItem({
           <ItemIcon
             className={cn(
               "h-4 w-4 shrink-0",
-              active ? "text-zinc-900" : "text-zinc-500"
+              active ? "text-foreground" : "text-foreground/45",
             )}
           />
         )}
-        <span className={cn(
-          "flex-1 truncate text-[13px] leading-[16px]",
-          item.deprioritized && !active && "italic",
-        )}>{item.label}</span>
+        <span
+          className={cn(
+            "flex-1 truncate text-[13px] leading-4",
+            // Deprioritized stays italic per existing convention.
+            item.deprioritized && !active && "italic",
+          )}
+        >
+          {item.label}
+        </span>
         {item.badge && (
-          <span className="text-[10px] font-medium uppercase tracking-wider rounded px-1.5 py-0.5 shrink-0 bg-zinc-900/[0.06] text-zinc-600">
+          <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-foreground/65">
             {item.badge}
           </span>
         )}
         {hasChildren && (
           <ChevronRight
             className={cn(
-              "h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform duration-200",
-              open && "rotate-90"
+              "h-3.5 w-3.5 shrink-0 text-foreground/45 transition-transform duration-200",
+              open && "rotate-90",
             )}
           />
         )}
@@ -108,7 +113,7 @@ export function SecondaryNavigationItem({
           {/* Vertical guide line */}
           <span
             aria-hidden
-            className="absolute top-0 bottom-0 w-px bg-zinc-900/[0.08]"
+            className="absolute bottom-0 top-0 w-px bg-foreground/[0.08]"
             style={{ left: `${paddingLeftPx + 8}px` }}
           />
           {item.subItems!.map((child) => (

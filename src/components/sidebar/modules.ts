@@ -4,9 +4,9 @@ import {
   History, Target, Compass, Map, Settings,
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
-  Bookmark, Copy, Tag, Building2, Package, Boxes, Users,
+  Bookmark, Copy, Tag, Building2, Package, Boxes,
   Workflow, Eraser, Scissors,
-  Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic,
+  Lightbulb,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -137,35 +137,31 @@ export const MODULES: ModuleDef[] = [
       { label: "Overview",    path: "/iq/genie6",                  icon: Home },
       // A-12.17: Studio Alpha is primary. Studio v3 + Beta deprioritized below Old Studio.
       { label: "Studio Alpha", path: "/iq/genie6/studio-alpha", icon: Wand2, badge: "New" },
+      // A-12.38: Concepts library promoted to primary. Aggregates catalogue +
+      // KB-attached + user-saved concepts into one searchable feed.
+      { label: "Concepts",    path: "/iq/genie6/concepts",         icon: Lightbulb },
       { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
-      { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
-      // Deprioritized — legacy studios below divider
+      // Deprioritized — legacy studios + Assets below divider
       { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2, deprioritized: true },
       { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2, deprioritized: true },
       { label: "Studio",      path: "/iq/genie6/studio",           icon: Wand2, badge: "Beta", deprioritized: true },
       { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2, deprioritized: true },
+      // A-12.38: Assets moved from primary to deprioritized — Workspace/Assets
+      // is no longer the day-to-day path; Concepts + Catalogue cover that need.
+      { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree, deprioritized: true },
       { label: "Genie 5",     path: "/iq/genie5",                  icon: Wand2, deprioritized: true },
     ],
   },
   {
     key: "catalogue", label: "Catalogue", icon: Boxes,
     subItems: [
-      // Iter-6 A-10: ordering per Maalik —
-      //   Brands | Products | Category | Audiences | Angles | Hooks | Concepts | Avatars | Voices
-      // Brands first (parent of Products), then Category as classifier, then Audience
-      // (targeting), then the Genie creative entities (Angles → Hooks → Concepts) in
-      // the order they're chained in the generation flow, then identity-tier
-      // (Avatars → Voices) for video output.
+      // A-12.38: reduced to 3 — Brands / Product / Category. Audiences /
+      // Angles / Hooks / Concepts / Avatars / Voices removed from sub-nav per
+      // Maalik. Routes + data files preserved (may be re-surfaced later).
       { label: "Brands", path: "/catalogue/brands", icon: Building2 },
       { label: "Product", path: "/catalogue/products", icon: Package },
       { label: "Category", path: "/catalogue/categories", icon: Tag },
-      { label: "Audiences", path: "/catalogue/audiences", icon: Users },
-      { label: "Angles", path: "/catalogue/angles", icon: Crosshair },
-      { label: "Hooks", path: "/catalogue/hooks", icon: MessageSquareQuote },
-      { label: "Concepts", path: "/catalogue/concepts", icon: Lightbulb },
-      { label: "Avatars", path: "/catalogue/avatars", icon: UserRound },
-      { label: "Voices", path: "/catalogue/voices", icon: Mic },
     ],
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },

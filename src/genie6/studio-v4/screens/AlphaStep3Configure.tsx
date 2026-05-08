@@ -202,49 +202,59 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
             hideLayoutToggle
           />
 
-          {/* Angles — collapsed accordion. Expands inline. */}
-          <AccordionStrip
-            id="angles"
-            title="Angles"
-            icon={Target}
-            count={ANGLE_IDS.length}
-            hint="pick one to guide style"
-            defaultOpen={wizard.state.angleId !== null}
-          >
-            <ul className="flex flex-wrap items-center gap-1.5">
-              {ANGLE_IDS.map((id) => {
-                const active = wizard.state.angleId === id;
-                const label = ANGLE_CHIP_LABEL[id] ?? id;
-                return (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleAngle(id)}
-                      aria-pressed={active}
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-                        active
-                          ? "border-primary/50 bg-primary/10 text-primary"
-                          : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </AccordionStrip>
+          {/* Angles + Trending concepts — combined glass card with a gradient
+              divider between (parent-nav style). Each section keeps its own
+              collapsible header so URL state for both still works. */}
+          <div className="v3-glass-card overflow-hidden rounded-2xl">
+            {/* Section 1: Angles */}
+            <AccordionSection
+              id="angles"
+              title="Angles"
+              icon={Target}
+              count={ANGLE_IDS.length}
+              hint="pick one to guide style"
+              defaultOpen={wizard.state.angleId !== null}
+            >
+              <ul className="flex flex-wrap items-center gap-1.5">
+                {ANGLE_IDS.map((id) => {
+                  const active = wizard.state.angleId === id;
+                  const label = ANGLE_CHIP_LABEL[id] ?? id;
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleAngle(id)}
+                        aria-pressed={active}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                          active
+                            ? "border-primary/50 bg-primary/10 text-primary"
+                            : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </AccordionSection>
 
-          {/* Trending concepts — collapsed accordion. Expands inline. */}
-          <AccordionStrip
-            id="trending"
-            title="Trending concepts"
-            icon={Sparkles}
-            count={trending.length}
-            hint="pre-built starting points from this week"
-            defaultOpen={wizard.state.selectedConceptIds.length > 0}
-          >
+            {/* Gradient divider — same DNA as parent-nav rail divider */}
+            <div
+              aria-hidden
+              className="mx-3 h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
+            />
+
+            {/* Section 2: Trending concepts */}
+            <AccordionSection
+              id="trending"
+              title="Trending concepts"
+              icon={Sparkles}
+              count={trending.length}
+              hint="pre-built starting points from this week"
+              defaultOpen={wizard.state.selectedConceptIds.length > 0}
+            >
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {trending.map((t) => {
                 const active = isTrendingSelected(t.id);
@@ -292,7 +302,8 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
                 );
               })}
             </ul>
-          </AccordionStrip>
+            </AccordionSection>
+          </div>
       </div>
 
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
@@ -407,6 +418,58 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
         </div>
       )}
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * AccordionSection — body-only accordion (no card chassis).
+ * Used INSIDE a parent card to group multiple collapsible sections together
+ * separated by gradient dividers. Header pattern + URL-backed open state
+ * mirror AccordionStrip but without the v3-glass-card wrapper.
+ * ───────────────────────────────────────────────────────────────────────── */
+function AccordionSection({
+  id,
+  title,
+  icon: Icon,
+  count,
+  hint,
+  defaultOpen = false,
+  children,
+}: {
+  id: string;
+  title: string;
+  icon: React.ElementType;
+  count: number;
+  hint: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useAccordionUrl(`${id}-acc`, defaultOpen);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
+      >
+        <SectionHeader
+          title={title}
+          icon={Icon}
+          count={count}
+          hint={hint}
+          trailing={
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
+                open && "rotate-180",
+              )}
+            />
+          }
+        />
+      </button>
+      {open && <div className="px-4 pb-4 pt-1">{children}</div>}
+    </div>
   );
 }
 

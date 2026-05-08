@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronDown, Sparkles, Maximize2, Terminal, Grid3x3 } from "lucide-react";
+import {
+  ChevronDown,
+  Sparkles,
+  Maximize2,
+  Terminal,
+  Grid3x3,
+  PanelLeftClose,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type ModuleDef,
@@ -45,37 +52,39 @@ export function SecondaryNavigationPanel() {
     <aside
       data-fabads-nav-panel="secondary"
       className={cn(
-        "flex w-[240px] shrink-0 flex-col overflow-hidden text-zinc-900",
-        // A-11.25: when Genie is active, the panel matches the form area
-        // visually — same gradient mesh + dot grid through transparent bg.
-        // Other modules keep the flat white panel.
-        isGenie ? "v3-page-mesh bg-transparent" : "bg-white",
+        // A-12.38 redesign: 200px wide, hairline right divider, plain bg.
+        // Genie pages get v3-page-mesh through-bleed for the warm gradient
+        // ambiance; other modules render on plain background.
+        "relative flex w-[200px] shrink-0 flex-col overflow-hidden text-foreground",
+        "border-r border-foreground/[0.06]",
+        isGenie ? "v3-page-mesh bg-transparent" : "bg-background",
       )}
     >
-      {/* HEADER — sticky, compact. Transparent in Genie so the page mesh
-          flows through; bg-white in other modules. */}
+      {/* HEADER — fixed 52px height with bottom hairline divider */}
       <header
         className={cn(
-          "sticky top-0 z-10 shrink-0",
-          isGenie ? "bg-transparent" : "bg-white",
+          "sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-4",
+          isGenie ? "bg-transparent" : "bg-background",
         )}
       >
-        <div className="flex items-center gap-2 px-3 py-2">
-          <ModuleIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
-          <h2 className="flex-1 truncate text-[11px] font-medium tracking-tight text-zinc-600">
-            {activeMod.label}
-          </h2>
-          {isGenie && <GenieVariantCycler />}
-        </div>
+        <ModuleIcon className="h-3.5 w-3.5 shrink-0 text-foreground/65" />
+        <h2 className="flex-1 truncate font-mono text-[13px] font-medium leading-4 tracking-tight text-foreground/65">
+          {activeMod.label}
+        </h2>
+        {isGenie && <GenieVariantCycler />}
+        <button
+          type="button"
+          aria-label="Collapse panel"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-foreground/45 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/65"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
       </header>
 
-      {/* BODY — independently scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-1.5 py-2">
-        {/* Flat sub-items.
-            A-11.15: insert a divider before the FIRST deprioritized item so
-            legacy entries are visually separated from primary nav. */}
+      {/* BODY — independently scrollable, 8px/6px padding, 2px row gap */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-[6px] py-2">
         {activeMod.subItems && (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-[2px]">
             {activeMod.subItems.map((item, i) => {
               const prev = activeMod.subItems![i - 1];
               const showDivider =
@@ -83,10 +92,12 @@ export function SecondaryNavigationPanel() {
               return (
                 <div key={item.path} className="contents">
                   {showDivider && (
-                    <div
-                      aria-hidden
-                      className="my-1.5 mx-2 h-px bg-zinc-900/[0.08]"
-                    />
+                    <div className="px-2 py-1.5">
+                      <div
+                        aria-hidden
+                        className="h-px bg-foreground/[0.06]"
+                      />
+                    </div>
                   )}
                   <SecondaryNavigationItem
                     item={item}
@@ -100,7 +111,6 @@ export function SecondaryNavigationPanel() {
           </div>
         )}
 
-        {/* Sectioned sub-items — each section header is a collapse toggle */}
         {activeMod.sections && (
           <div className="flex flex-col gap-1.5">
             {activeMod.sections.map((section) => (
@@ -158,7 +168,7 @@ function GenieVariantCycler() {
       onClick={() => setVariant(next.key)}
       title={tooltip}
       aria-label={tooltip}
-      className="relative flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-900/[0.06] transition-colors shrink-0"
+      className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-foreground/45 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/65"
     >
       {/* Cross-fade between 4 variant icons. Same animation grammar as
           DarkModeToggleIcon (rotate + scale + fade). Only the active
@@ -202,7 +212,7 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 hover:text-zinc-700 transition-colors"
+        className="flex w-full items-center gap-1.5 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/45 transition-colors hover:text-foreground/65"
         aria-expanded={open}
       >
         <ChevronDown
