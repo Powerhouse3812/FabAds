@@ -27,3 +27,9 @@ export type {
   Brand, Category, Product,
   Audience, Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
+
+// Knowledge Base structure — entity-keyed instructions, winner ads, concepts.
+// Iter-6 directive (Maalik): Brand / Product / Category each carry a KB.
+export * from "./kbInstructions";
+export * from "./winnerAds";
+export * from "./kbConcepts";

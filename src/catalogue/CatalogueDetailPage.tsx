@@ -1,6 +1,33 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Package, Tag, Building2, Users } from "lucide-react";
-import { brands, categories, products, audiences } from "@/mocks/shared";
+import {
+  ArrowLeft,
+  BookOpen,
+  ExternalLink,
+  Image as ImageIcon,
+  Lightbulb,
+  Package,
+  Pencil,
+  Plus,
+  Sparkles,
+  Tag,
+  Trash2,
+  Users,
+  Building2,
+} from "lucide-react";
+import {
+  brands,
+  categories,
+  products,
+  audiences,
+  getInstructionsForEntity,
+  getWinnerAdsForEntity,
+  getConceptsForEntity,
+  type EntityType as KbEntityType,
+  type EntityId as KbEntityId,
+  type KbInstruction,
+  type WinnerAd,
+  type KbConcept,
+} from "@/mocks/shared";
 
 type CatalogueType = "categories" | "brands" | "products" | "audiences";
 
@@ -10,6 +37,10 @@ type CatalogueType = "categories" | "brands" | "products" | "audiences";
  * Displays the entity's full metadata + linked relations. Real entity-level
  * sub-nav (Products / KB / Generations / Targeting Templates / Linked Folder /
  * Campaign URLs / etc. tabs) ships in the next sprint per A-1's planning.
+ *
+ * Iter-6 KB block: for Brand / Product / Category (NOT Audience), a
+ * Knowledge Base section is appended after the entity-specific sections.
+ * Sub-sections: Main instruction · Custom instructions · Winner ads · Concepts.
  */
 export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   const { id } = useParams<{ id: string }>();
@@ -53,6 +84,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             ))}
           </div>
         </Section>
+        <KnowledgeBaseSection entityType="brand" entityId={brand.id} entityLabel="brand" />
       </Shell>
     );
   }
@@ -87,6 +119,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             ))}
           </div>
         </Section>
+        <KnowledgeBaseSection entityType="category" entityId={cat.id} entityLabel="category" />
       </Shell>
     );
   }
@@ -163,11 +196,12 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           </ul>
         </Section>
       )}
+      <KnowledgeBaseSection entityType="product" entityId={prod.id} entityLabel="product" />
     </Shell>
   );
 }
 
-/* Shared layout pieces */
+/* ─── Shared layout pieces ─── */
 
 function Shell({
   type,
@@ -220,4 +254,281 @@ function NotFound({ type, navigate }: { type: CatalogueType; navigate: (to: stri
       </button>
     </div>
   );
+}
+
+/* ─── Knowledge Base block ─── */
+
+function KnowledgeBaseSection({
+  entityType,
+  entityId,
+  entityLabel,
+}: {
+  entityType: KbEntityType;
+  entityId: KbEntityId;
+  entityLabel: string;
+}) {
+  const { main, custom } = getInstructionsForEntity(entityType, entityId);
+  const winners = getWinnerAdsForEntity(entityType, entityId);
+  const concepts = getConceptsForEntity(entityType, entityId);
+
+  const mainList = main ? [main] : [];
+
+  return (
+    <section className="space-y-4 border-t border-border/40 pt-6">
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-bold text-foreground">Knowledge Base</h2>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          For Genie generations
+        </span>
+      </header>
+
+      <KbSubsection
+        title="Main instruction"
+        hint={`The default writing rules Genie follows for this ${entityLabel}.`}
+        emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
+        createLabel={main ? "Replace" : "Create instruction"}
+        onCreate={() => alert("Create instruction — coming soon")}
+      >
+        {mainList.length > 0 && (
+          <ul className="space-y-2">
+            {mainList.map((it) => (
+              <InstructionRow key={it.id} item={it} />
+            ))}
+          </ul>
+        )}
+      </KbSubsection>
+
+      <KbSubsection
+        title={`Custom instructions${custom.length ? ` · ${custom.length}` : ""}`}
+        hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
+        emptyMessage="No custom instructions yet."
+        createLabel="Add instruction"
+        onCreate={() => alert("Add instruction — coming soon")}
+      >
+        {custom.length > 0 && (
+          <ul className="space-y-2">
+            {custom.map((it) => (
+              <InstructionRow key={it.id} item={it} />
+            ))}
+          </ul>
+        )}
+      </KbSubsection>
+
+      <KbSubsection
+        title={`Winner ads${winners.length ? ` · ${winners.length}` : ""}`}
+        hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
+        emptyMessage="No winner ads saved yet."
+        createLabel="Add winner ad"
+        onCreate={() => alert("Add winner ad — opens upload modal")}
+      >
+        {winners.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {winners.map((w) => (
+              <WinnerAdCard key={w.id} ad={w} />
+            ))}
+          </div>
+        )}
+      </KbSubsection>
+
+      <KbSubsection
+        title={`Concepts${concepts.length ? ` · ${concepts.length}` : ""}`}
+        hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
+        emptyMessage="No concepts saved yet."
+        createLabel="Add concept"
+        onCreate={() => alert("Save concept from Genie or Industry Insights")}
+      >
+        {concepts.length > 0 && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {concepts.map((c) => (
+              <ConceptCard key={c.id} concept={c} />
+            ))}
+          </div>
+        )}
+      </KbSubsection>
+    </section>
+  );
+}
+
+function KbSubsection({
+  title,
+  hint,
+  emptyMessage,
+  createLabel,
+  onCreate,
+  children,
+}: {
+  title: string;
+  hint: string;
+  emptyMessage: string;
+  createLabel: string;
+  onCreate: () => void;
+  children?: React.ReactNode;
+}) {
+  const isEmpty = !children;
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/40 p-3.5">
+      <header className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreate}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          {createLabel}
+        </button>
+      </header>
+      {isEmpty ? (
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/20 px-3 py-6">
+          <p className="text-[11px] italic text-muted-foreground">{emptyMessage}</p>
+        </div>
+      ) : (
+        children
+      )}
+    </div>
+  );
+}
+
+function InstructionRow({ item }: { item: KbInstruction }) {
+  return (
+    <li className="flex items-start gap-3 rounded-lg border border-border/40 bg-background px-3 py-2">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <BookOpen className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+          <SourceChip source={item.source} />
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
+      </div>
+      <div className="flex items-center gap-1">
+        <IconBtn label="Edit" icon={Pencil} onClick={() => alert(`Edit "${item.name}" — coming soon`)} />
+        <IconBtn label="Delete" icon={Trash2} onClick={() => alert(`Delete "${item.name}" — coming soon`)} />
+      </div>
+    </li>
+  );
+}
+
+function WinnerAdCard({ ad }: { ad: WinnerAd }) {
+  const sourceLabel: Record<WinnerAd["source"], string> = {
+    uploaded: "Uploaded",
+    "saved-from-genie": "From Genie",
+    "saved-from-insights": "From Insights",
+    "saved-from-library": "From Library",
+  };
+  const ctrPct = typeof ad.ctr === "number" ? `${(ad.ctr * 100).toFixed(1)}% CTR` : null;
+  const imp = typeof ad.impressions === "number" ? formatCompact(ad.impressions) : null;
+
+  return (
+    <article className="overflow-hidden rounded-lg border border-border/60 bg-background transition-shadow hover:shadow-sm">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+        {ad.thumbnail ? (
+          <img
+            src={ad.thumbnail}
+            alt={ad.headline}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+        )}
+        <span className="absolute left-1.5 top-1.5 inline-flex items-center rounded-full border border-border/60 bg-background/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+          {sourceLabel[ad.source]}
+        </span>
+      </div>
+      <div className="space-y-1 p-2">
+        <p className="line-clamp-2 text-[12px] font-medium leading-snug text-foreground">{ad.headline}</p>
+        {(ctrPct || imp) && (
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {[ctrPct, imp ? `${imp} imp` : null].filter(Boolean).join(" · ")}
+          </p>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function ConceptCard({ concept }: { concept: KbConcept }) {
+  const sourceLabel: Record<KbConcept["source"], string> = {
+    "from-winner-ad": "From Winner Ad",
+    "saved-from-genie": "From Genie",
+    "saved-from-insights": "From Insights",
+  };
+  return (
+    <article className="flex gap-3 rounded-lg border border-border/60 bg-background p-2.5 transition-shadow hover:shadow-sm">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+        {concept.thumbnail ? (
+          <img src={concept.thumbnail} alt={concept.name} loading="lazy" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+            <Lightbulb className="h-5 w-5" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-[13px] font-semibold text-foreground">{concept.name}</p>
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
+            {concept.tone}
+          </span>
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{concept.description}</p>
+        <p className="mt-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
+          <Sparkles className="mr-0.5 inline h-2.5 w-2.5" />
+          {sourceLabel[concept.source]}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+function SourceChip({ source }: { source: KbInstruction["source"] }) {
+  const label: Record<KbInstruction["source"], string> = {
+    default: "Default",
+    manual: "Manual",
+    uploaded: "Uploaded",
+    "ai-generated": "AI",
+  };
+  return (
+    <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+      {label[source]}
+    </span>
+  );
+}
+
+function IconBtn({
+  label,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  icon: React.ElementType;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return String(n);
 }

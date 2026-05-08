@@ -6,6 +6,7 @@ import { PreviewPane } from "../../components/PreviewPane";
 import type { OutputData, EllipsisAction } from "../../types/output";
 import { HeroHeader } from "../components/HeroHeader";
 import { OutputCardHybrid } from "../components/OutputCardHybrid";
+import { SaveToKbModal } from "../components/SaveToKbModal";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step5Props {
@@ -52,10 +53,12 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
   const variations = wizard.state.count;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [saveKbForOutput, setSaveKbForOutput] = useState<OutputData | null>(null);
 
   useEffect(() => {
     setSelectedIds(new Set());
     setPreviewId(null);
+    setSaveKbForOutput(null);
   }, [regenKey]);
 
   const outputs = useMemo(() => {
@@ -104,6 +107,10 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
   const clearSelection = () => setSelectedIds(new Set());
 
   const handleAction = (output: OutputData, action: EllipsisAction) => {
+    if (action === "saveToKb") {
+      setSaveKbForOutput(output);
+      return;
+    }
     console.log(`[Step5] ${action}`, output.id);
   };
 
@@ -184,6 +191,23 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
           onLaunch={() => console.log("[Step5] launch", previewOutput.id)}
           onDownload={() => handleAction(previewOutput, "downloadMediaOnly")}
           onEllipsisAction={(a) => handleAction(previewOutput, a)}
+        />
+      )}
+
+      {/* SaveToKbModal — cross-app save flow stub. Maalik's directive:
+          Winner Ads must always ask "kiske liye?" (Brand / Product / Category) +
+          which one. */}
+      {saveKbForOutput && (
+        <SaveToKbModal
+          sourceLabel={`Output ${saveKbForOutput.id}`}
+          onClose={() => setSaveKbForOutput(null)}
+          onSave={(payload) => {
+            console.log("[Step5] saveToKb", {
+              outputId: saveKbForOutput.id,
+              ...payload,
+            });
+            setSaveKbForOutput(null);
+          }}
         />
       )}
 

@@ -18,6 +18,7 @@ const ITEMS: Array<{ action: EllipsisAction; label: string; group?: number }> = 
   { action: "saveAsTemplate", label: "Save as Template", group: 3 },
   { action: "saveTextOnly", label: "Save text-only to Library", group: 3 },
   { action: "saveMediaOnly", label: "Save media-only to Library", group: 3 },
+  { action: "saveToKb", label: "Save to Knowledge Base", group: 3 },
   { action: "downloadMediaOnly", label: "Download media only", group: 4 },
 ];
 

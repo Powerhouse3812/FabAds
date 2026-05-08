@@ -39,6 +39,7 @@ export type EllipsisAction =
   | "saveTextOnly"
   | "saveMediaOnly"
   | "downloadMediaOnly"
+  | "saveToKb"
   | "regenerate";
 
 export type KanbanColumn = "winner" | "maybe" | "reject";
