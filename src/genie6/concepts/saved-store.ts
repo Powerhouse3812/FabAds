@@ -5,6 +5,8 @@ import type {
   KbInstruction,
   EntityType,
   EntityId,
+  Product,
+  BrandId,
 } from "@/mocks/shared";
 
 /**
@@ -26,9 +28,17 @@ interface SavedStore {
   winners: WinnerAd[];
   concepts: KbConcept[];
   instructions: KbInstruction[];
+  /** A-12.42: products added via Brand-Detail "Add product". Surface in
+   *  global /catalogue/products grid + on the brand's Products tab. */
+  products: Product[];
 }
 
-let state: SavedStore = { winners: [], concepts: [], instructions: [] };
+let state: SavedStore = {
+  winners: [],
+  concepts: [],
+  instructions: [],
+  products: [],
+};
 const listeners = new Set<() => void>();
 
 const emit = () => {
@@ -86,9 +96,17 @@ export function addInstruction(instruction: KbInstruction) {
   emit();
 }
 
+/** Save a product (created via Brand-Detail "Add product" flow).
+ *  Surfaces in BOTH the brand's Products tab AND the global /catalogue/products
+ *  grid — single source of truth for the session. */
+export function addProduct(product: Product) {
+  state = { ...state, products: [...state.products, product] };
+  emit();
+}
+
 /** Reset the store (for tests or "clear session" UI). */
 export function resetSavedStore() {
-  state = { winners: [], concepts: [], instructions: [] };
+  state = { winners: [], concepts: [], instructions: [], products: [] };
   emit();
 }
 
@@ -126,4 +144,17 @@ export function useSavedInstructionsForEntity(
   return instructions.filter(
     (i) => i.entityType === entityType && i.entityId === entityId,
   );
+}
+
+/** All session-saved products (regardless of brand). Used by the global
+ *  /catalogue/products grid to show new additions live. */
+export function useSavedProducts(): Product[] {
+  return useSavedStore().products;
+}
+
+/** Session-saved products filtered to one brand. Used by Brand Detail's
+ *  Products tab. */
+export function useSavedProductsForBrand(brandId: BrandId): Product[] {
+  const { products } = useSavedStore();
+  return products.filter((p) => p.brandId === brandId);
 }

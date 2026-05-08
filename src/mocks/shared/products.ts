@@ -1,4 +1,4 @@
-import type { Product } from "@/genie6/types/entities";
+import type { Product, Variant } from "@/genie6/types/entities";
 
 /**
  * Products — single source of truth (Catalogue ↔ Genie sync).
@@ -38,7 +38,7 @@ const p = (
   generatedCount,
 });
 
-export const products: Product[] = [
+const _baseProducts: Product[] = [
   // Mamaearth (4)
   p("mamaearth-onion-shampoo", "mamaearth", "hair-care", "Onion Hair Shampoo for Hair Fall Control",
     "₹349", ["reduces hair fall","strengthens roots","biotin-enriched","sulfate-free"],
@@ -421,6 +421,76 @@ export const products: Product[] = [
 export function getProduct(id: string) {
   return products.find((p) => p.id === id);
 }
+
+/* ─── Variants — A-12.42 SKU-level distinctions ──────────────────── *
+ * Curated variants for ~12 popular products. Most products keep
+ * `variants` undefined; only ones below have meaningful SKU diversity.
+ * ─────────────────────────────────────────────────────────────────── */
+const VARIANTS_BY_PRODUCT: Record<string, Variant[]> = {
+  "mamaearth-onion-shampoo": [
+    { id: "v-mh-onion-100", name: "100 ml", sku: "ME-ONS-100", price: "₹199", size: "100ml" },
+    { id: "v-mh-onion-250", name: "250 ml", sku: "ME-ONS-250", price: "₹349", size: "250ml" },
+    { id: "v-mh-onion-500", name: "500 ml", sku: "ME-ONS-500", price: "₹599", size: "500ml" },
+  ],
+  "mamaearth-vc-facewash": [
+    { id: "v-mh-vc-100", name: "100 ml", sku: "ME-VCF-100", price: "₹249", size: "100ml" },
+    { id: "v-mh-vc-200", name: "200 ml", sku: "ME-VCF-200", price: "₹399", size: "200ml" },
+  ],
+  "plum-vc-serum": [
+    { id: "v-plum-vc-15", name: "15 ml", sku: "PLM-VCS-15", price: "₹525", size: "15ml" },
+    { id: "v-plum-vc-30", name: "30 ml", sku: "PLM-VCS-30", price: "₹875", size: "30ml" },
+  ],
+  "boat-airdopes-161": [
+    { id: "v-boat-161-blk", name: "Active Black", sku: "BT-AD161-BK", price: "₹999", color: "Black" },
+    { id: "v-boat-161-wht", name: "Pearl White", sku: "BT-AD161-WH", price: "₹999", color: "White" },
+    { id: "v-boat-161-blu", name: "Bold Blue", sku: "BT-AD161-BL", price: "₹999", color: "Blue" },
+    { id: "v-boat-161-red", name: "Hot Red", sku: "BT-AD161-RD", price: "₹999", color: "Red" },
+  ],
+  "noise-colorfit-pro-5": [
+    { id: "v-noise-cfp5-jb", name: "Jet Black", sku: "NS-CFP5-JB", price: "₹2299", color: "Black" },
+    { id: "v-noise-cfp5-rg", name: "Rose Gold", sku: "NS-CFP5-RG", price: "₹2499", color: "Rose Gold" },
+    { id: "v-noise-cfp5-sg", name: "Silver Grey", sku: "NS-CFP5-SG", price: "₹2299", color: "Silver" },
+  ],
+  "sleepyhead-original-mattress": [
+    { id: "v-sh-orig-s", name: "Single", sku: "SH-OM-S", price: "₹13,999", size: "Single" },
+    { id: "v-sh-orig-q", name: "Queen", sku: "SH-OM-Q", price: "₹19,999", size: "Queen" },
+    { id: "v-sh-orig-k", name: "King", sku: "SH-OM-K", price: "₹24,999", size: "King" },
+  ],
+  "sugar-matte-lipstick": [
+    { id: "v-sg-mt-01", name: "Brown Sugar", sku: "SG-ML-01", price: "₹499", color: "Brown" },
+    { id: "v-sg-mt-02", name: "Cherry Tomato", sku: "SG-ML-02", price: "₹499", color: "Red" },
+    { id: "v-sg-mt-03", name: "Plum Punch", sku: "SG-ML-03", price: "₹499", color: "Plum" },
+    { id: "v-sg-mt-04", name: "Nude Rose", sku: "SG-ML-04", price: "₹499", color: "Nude" },
+  ],
+  "yoga-bar-protein-bar": [
+    { id: "v-yb-pb-choco", name: "Chocolate Brownie · 6 pack", sku: "YB-PB-CB-6", price: "₹399" },
+    { id: "v-yb-pb-peanut", name: "Peanut Butter · 6 pack", sku: "YB-PB-PB-6", price: "₹399" },
+    { id: "v-yb-pb-mix", name: "Mixed flavors · 12 pack", sku: "YB-PB-MX-12", price: "₹749" },
+  ],
+  "wow-apple-cider-shampoo": [
+    { id: "v-wow-acs-200", name: "200 ml", sku: "WOW-ACS-200", price: "₹299", size: "200ml" },
+    { id: "v-wow-acs-300", name: "300 ml", sku: "WOW-ACS-300", price: "₹399", size: "300ml" },
+  ],
+  "lenskart-air-flex": [
+    { id: "v-lk-af-blk", name: "Matte Black", sku: "LK-AF-BK", price: "₹1,999", color: "Black" },
+    { id: "v-lk-af-tor", name: "Tortoise", sku: "LK-AF-TR", price: "₹1,999", color: "Tortoise" },
+    { id: "v-lk-af-grd", name: "Gradient Blue", sku: "LK-AF-GB", price: "₹2,199", color: "Blue" },
+  ],
+  "bluestone-everyday-ring": [
+    { id: "v-bs-er-14k", name: "14K Gold", sku: "BS-ER-14K", price: "₹14,500" },
+    { id: "v-bs-er-18k", name: "18K Gold", sku: "BS-ER-18K", price: "₹19,800" },
+    { id: "v-bs-er-pl", name: "Platinum", sku: "BS-ER-PL", price: "₹24,500" },
+  ],
+  "kapiva-himalayan-shilajit": [
+    { id: "v-kp-shi-15", name: "15 g", sku: "KP-SHI-15", price: "₹699", size: "15g" },
+    { id: "v-kp-shi-30", name: "30 g", sku: "KP-SHI-30", price: "₹1,199", size: "30g" },
+  ],
+};
+
+/** Final products export — base seed augmented with variants where curated. */
+export const products: Product[] = _baseProducts.map((p) =>
+  VARIANTS_BY_PRODUCT[p.id] ? { ...p, variants: VARIANTS_BY_PRODUCT[p.id] } : p,
+);
 
 export function productsForBrand(brandId: string) {
   return products.filter((p) => p.brandId === brandId);

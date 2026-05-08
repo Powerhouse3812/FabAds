@@ -24,8 +24,9 @@ export { avatars } from "./avatars";
 export { voices } from "./voices";
 
 export type {
-  Brand, Category, Product,
+  Brand, Category, Product, Variant,
   Audience, Angle, Hook, Concept, Avatar, Voice,
+  BrandId, ProductId, CategoryId,
 } from "@/genie6/types/entities";
 
 // Knowledge Base structure — entity-keyed instructions, winner ads, concepts.
@@ -34,3 +35,7 @@ export * from "./kbInstructions";
 export * from "./winnerAds";
 export * from "./kbConcepts";
 export * from "./referenceUrls";
+
+// Activity log — audit trail of edits / saves / runs across entities.
+// A-12.42: introduced for Brand Detail's Activity tab.
+export * from "./activityLog";

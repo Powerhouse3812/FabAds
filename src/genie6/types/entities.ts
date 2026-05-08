@@ -29,6 +29,20 @@ export interface Brand {
   productIds: ProductId[];
 }
 
+/** Product variants — SKU-level distinctions like size / color / fragrance.
+ *  Optional; most seed products are still single-SKU. NEW for Brand Detail
+ *  redesign. */
+export interface Variant {
+  id: string;
+  name: string;          // e.g. "200ml" / "Lavender" / "Original"
+  sku?: string;
+  price?: string;        // e.g. "₹399"
+  thumbnail?: string;    // optional, distinct from product thumbnail
+  /** Optional descriptors. */
+  color?: string;
+  size?: string;
+}
+
 export interface Product {
   id: ProductId;
   brandId: BrandId;
@@ -48,6 +62,9 @@ export interface Product {
    *  the Launch flow. NEW iter-6 A-9. */
   campaignUrls?: string[];
   generatedCount: number;
+  /** SKU-level variants — sizes / colors / fragrances. Optional; most seed
+   *  products are single-SKU. NEW for Brand Detail redesign. */
+  variants?: Variant[];
 }
 
 export interface Category {

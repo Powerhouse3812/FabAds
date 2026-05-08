@@ -1,18 +1,24 @@
 import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   BookOpen,
   ExternalLink,
+  GalleryHorizontal,
+  History,
   Image as ImageIcon,
   Lightbulb,
   Link2,
   Package,
+  Palette,
   Pencil,
   Plus,
+  ShoppingBag,
   Sparkles,
   Tag,
   Trash2,
+  Trophy,
+  Type as TypeIcon,
   Users,
   Building2,
   Crosshair,
@@ -45,13 +51,21 @@ import {
   type KbConcept,
   type ReferenceUrl,
 } from "@/mocks/shared";
-import type { Avatar } from "@/genie6/types/entities";
+import type { Avatar, Brand, Product } from "@/genie6/types/entities";
+import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
+import {
+  ACTIVITY_LOG,
+  getActivityLogForBrand,
+  type ActivityLogEntry,
+  type ActivityKind,
+} from "@/mocks/shared";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
 import {
   addInstruction as savedAddInstruction,
   addWinnerAd as savedAddWinnerAd,
   addConcept as savedAddConcept,
+  useSavedProductsForBrand,
   useSavedInstructionsForEntity,
   useSavedWinnersForEntity,
   useSavedConceptsForEntity,
@@ -93,42 +107,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   if (type === "brands") {
     const brand = brands.find((b) => b.id === id);
     if (!brand) return <NotFound type={type} navigate={navigate} />;
-    const linkedProducts = products.filter((p) => p.brandId === brand.id);
-    const linkedCategories = categories.filter((c) => brand.categoryIds?.includes(c.id));
-    return (
-      <Shell type={type} title={brand.name} subtitle={brand.domain} icon={<Building2 className="h-5 w-5" />}>
-        <Section title="Brand voice"><p className="text-sm text-foreground">{brand.voice}</p></Section>
-        <Section title="USPs">
-          <div className="flex flex-wrap gap-1.5">
-            {brand.usps.map((u) => (
-              <span key={u} className="text-xs rounded bg-muted px-2 py-1 text-muted-foreground">{u}</span>
-            ))}
-          </div>
-        </Section>
-        <Section title={`Categories · ${linkedCategories.length}`}>
-          <div className="flex flex-wrap gap-1.5">
-            {linkedCategories.map((c) => (
-              <Link key={c.id} to={`/catalogue/categories/${c.id}`}
-                className="text-xs rounded bg-primary/10 text-primary px-2 py-1 hover:bg-primary/15">
-                {c.name}
-              </Link>
-            ))}
-          </div>
-        </Section>
-        <Section title={`Products · ${linkedProducts.length}`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {linkedProducts.map((p) => (
-              <Link key={p.id} to={`/catalogue/products/${p.id}`}
-                className="rounded-lg border border-border p-3 text-sm hover:border-primary/40">
-                <p className="font-medium text-foreground line-clamp-1">{p.name}</p>
-                <p className="text-xs text-muted-foreground font-mono">{p.price}</p>
-              </Link>
-            ))}
-          </div>
-        </Section>
-        <KnowledgeBaseSection entityType="brand" entityId={brand.id} entityLabel="brand" />
-      </Shell>
-    );
+    return <BrandDetail brand={brand} navigate={navigate} />;
   }
 
   if (type === "categories") {
@@ -952,4 +931,569 @@ function avatarVisual(avatar: Avatar): { bg: string; fg: string; initials: strin
     .slice(0, 2)
     .toUpperCase();
   return { ...palette[slot], initials };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * BrandDetail — A-12.42 6-tab redesign for brand catalogue detail.
+ *
+ * Hero header (logo + name + key stats + colors + tone)
+ * Tab strip: Guidelines · KB · Winners · Library · Activity · Products
+ * Active tab via ?tab=... URL state.
+ *
+ * Each tab is its own panel component below.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+type BrandTabKey =
+  | "guidelines"
+  | "kb"
+  | "winners"
+  | "library"
+  | "activity"
+  | "products";
+
+function BrandDetail({
+  brand,
+  navigate,
+}: {
+  brand: Brand;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") as BrandTabKey | null;
+  const tab: BrandTabKey =
+    tabParam &&
+    ["guidelines", "kb", "winners", "library", "activity", "products"].includes(tabParam)
+      ? tabParam
+      : "guidelines";
+  const setTab = (next: BrandTabKey) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === "guidelines") sp.delete("tab");
+        else sp.set("tab", next);
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+
+  // Counts for tab badges.
+  const seedProducts = products.filter((p) => p.brandId === brand.id);
+  const savedProducts = useSavedProductsForBrand(brand.id);
+  const linkedProducts = [...seedProducts, ...savedProducts];
+
+  const winnersCount =
+    getWinnerAdsForEntity("brand", brand.id).length;
+  const libraryCount = sampleOutputs.filter(
+    (o) => o.brand?.name === brand.name,
+  ).length;
+  const activityCount = ACTIVITY_LOG.filter(
+    (e) => e.entityType === "brand" && e.entityId === brand.id,
+  ).length;
+  const kbInstrCount = (() => {
+    const { main, custom } = getInstructionsForEntity("brand", brand.id);
+    return (main ? 1 : 0) + custom.length;
+  })();
+
+  const tabs: { key: BrandTabKey; label: string; count?: number }[] = [
+    { key: "guidelines", label: "Guidelines" },
+    { key: "kb", label: "Knowledge Base", count: kbInstrCount },
+    { key: "winners", label: "Winner Ads", count: winnersCount },
+    { key: "library", label: "Library", count: libraryCount },
+    { key: "activity", label: "Activity", count: activityCount },
+    { key: "products", label: "Products", count: linkedProducts.length },
+  ];
+
+  return (
+    <div className="v3-page-mesh mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-6 pb-10">
+      {/* ── Top action: ← Back ── */}
+      <button
+        type="button"
+        onClick={() => navigate("/catalogue/brands")}
+        className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        Back to Brands
+      </button>
+
+      {/* ── Hero header ── */}
+      <BrandHero brand={brand} productCount={linkedProducts.length} />
+
+      {/* ── Tab strip ── */}
+      <div className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5 self-start">
+        {tabs.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                active
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              {typeof t.count === "number" && t.count > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
+                    active
+                      ? "bg-primary/20 text-primary"
+                      : "bg-foreground/[0.08] text-foreground",
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Active tab content ── */}
+      <div>
+        {tab === "guidelines" && <GuidelinesPanel brand={brand} />}
+        {tab === "kb" && (
+          <KnowledgeBaseSection
+            entityType="brand"
+            entityId={brand.id}
+            entityLabel="brand"
+          />
+        )}
+        {tab === "winners" && <WinnersPanel brandId={brand.id} />}
+        {tab === "library" && <LibraryPanel brandName={brand.name} />}
+        {tab === "activity" && <ActivityPanel brandId={brand.id} />}
+        {tab === "products" && <ProductsPanel brand={brand} products={linkedProducts} />}
+      </div>
+    </div>
+  );
+}
+
+function BrandHero({ brand, productCount }: { brand: Brand; productCount: number }) {
+  return (
+    <div className="flex items-start gap-4 rounded-2xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+      <img
+        src={brand.logo}
+        alt={brand.name}
+        className="h-16 w-16 rounded-xl border border-border/40 bg-background object-contain p-1.5"
+      />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground">{brand.name}</h1>
+          <span className="rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground">
+            {brand.category}
+          </span>
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          {productCount} products · {brand.competitors.length} competitors tracked
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {brand.colors.slice(0, 4).map((c) => (
+            <span
+              key={c}
+              className="h-5 w-5 rounded-full border border-border/40"
+              style={{ backgroundColor: c }}
+              title={c}
+            />
+          ))}
+          {brand.tone && (
+            <span className="ml-1 line-clamp-1 text-[10px] italic text-muted-foreground">
+              · {brand.tone}
+            </span>
+          )}
+        </div>
+      </div>
+      <a
+        href={`https://${brand.domain}`}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {brand.domain}
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    </div>
+  );
+}
+
+/* ─── Tab panels ─────────────────────────────────────────────────────── */
+
+function GuidelinesPanel({ brand }: { brand: Brand }) {
+  const linkedAudiences = audiences.filter((a) => a.brandId === brand.id);
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <GuidelinesCard title="Brand voice" icon={Sparkles}>
+        <p className="text-[13px] leading-relaxed text-foreground">{brand.voice}</p>
+        {brand.tone && (
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+            Tone · <span className="lowercase tracking-normal text-foreground/70">{brand.tone}</span>
+          </p>
+        )}
+      </GuidelinesCard>
+
+      <GuidelinesCard title="Colors" icon={Palette}>
+        <div className="flex flex-wrap items-center gap-2">
+          {brand.colors.map((c) => (
+            <div key={c} className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-7 w-7 rounded-lg border border-border/60"
+                style={{ backgroundColor: c }}
+                title={c}
+              />
+              <code className="font-mono text-[10px] text-muted-foreground">{c}</code>
+            </div>
+          ))}
+        </div>
+      </GuidelinesCard>
+
+      <GuidelinesCard title="Typography" icon={TypeIcon}>
+        <div className="space-y-2">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Display</p>
+            <p
+              className="text-base font-semibold text-foreground"
+              style={{ fontFamily: brand.fonts.display }}
+            >
+              {brand.fonts.display}
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Body</p>
+            <p
+              className="text-sm text-foreground"
+              style={{ fontFamily: brand.fonts.body }}
+            >
+              {brand.fonts.body}
+            </p>
+          </div>
+        </div>
+      </GuidelinesCard>
+
+      <GuidelinesCard title={`USPs · ${brand.usps.length}`} icon={Sparkles}>
+        <ul className="space-y-1">
+          {brand.usps.map((u) => (
+            <li key={u} className="flex items-start gap-1.5 text-[13px] text-foreground">
+              <span className="text-muted-foreground/50">·</span>
+              <span>{u}</span>
+            </li>
+          ))}
+        </ul>
+      </GuidelinesCard>
+
+      <GuidelinesCard title={`Audiences · ${linkedAudiences.length}`} icon={Users}>
+        {linkedAudiences.length === 0 ? (
+          <p className="text-[12px] italic text-muted-foreground">No audiences linked yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {linkedAudiences.map((a) => (
+              <span
+                key={a.id}
+                className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2 py-1 text-[11px]"
+                title={a.segment}
+              >
+                <span className="font-medium text-foreground">{a.label}</span>
+                <span className="font-mono text-[9px] text-muted-foreground">·</span>
+                <span className="line-clamp-1 max-w-[180px] text-muted-foreground">{a.segment}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </GuidelinesCard>
+
+      <GuidelinesCard title={`Competitors · ${brand.competitors.length}`} icon={Crosshair}>
+        {brand.competitors.length === 0 ? (
+          <p className="text-[12px] italic text-muted-foreground">No competitors tracked.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {brand.competitors.map((c) => (
+              <span key={c} className="rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground">
+                {c}
+              </span>
+            ))}
+          </div>
+        )}
+      </GuidelinesCard>
+
+      <GuidelinesCard title="Domain" icon={Link2}>
+        <a
+          href={`https://${brand.domain}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[13px] text-foreground hover:text-primary"
+        >
+          {brand.domain}
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </GuidelinesCard>
+
+      <GuidelinesCard title="Industry" icon={Building2}>
+        <p className="text-[13px] text-foreground">{brand.category}</p>
+        {brand.categoryIds && brand.categoryIds.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {brand.categoryIds.slice(0, 6).map((cid) => {
+              const c = categories.find((x) => x.id === cid);
+              return (
+                <Link
+                  key={cid}
+                  to={`/catalogue/categories/${cid}`}
+                  className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary hover:bg-primary/15"
+                >
+                  {c?.name ?? cid}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </GuidelinesCard>
+    </div>
+  );
+}
+
+function GuidelinesCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+      <div className="mb-3 flex items-center gap-1.5">
+        <Icon className="h-3 w-3 text-muted-foreground" />
+        <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
+          {title}
+        </h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function WinnersPanel({ brandId }: { brandId: string }) {
+  const seedWinners = getWinnerAdsForEntity("brand", brandId);
+  const savedWinners = useSavedWinnersForEntity("brand", brandId);
+  const winners = [...seedWinners, ...savedWinners];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader title={`Winner ads · ${winners.length}`} icon={Trophy} />
+        <button
+          type="button"
+          onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          Add winner ad
+        </button>
+      </div>
+      {winners.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            Upload winner ads to teach Genie what works for this brand.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {winners.map((w) => (
+            <WinnerAdCard key={w.id} ad={w} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LibraryPanel({ brandName }: { brandName: string }) {
+  const generations = sampleOutputs.filter((o) => o.brand?.name === brandName);
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title={`Library · ${generations.length}`}
+          icon={GalleryHorizontal}
+          hint="all generations for this brand"
+        />
+        <Link
+          to="/iq/genie6/library"
+          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          View all →
+        </Link>
+      </div>
+      {generations.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">No generations yet for this brand.</p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {generations.slice(0, 24).map((o) => (
+            <li key={o.id}>
+              <div className="overflow-hidden rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  {o.thumbnail ? (
+                    <img src={o.thumbnail} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Sparkles className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+                <p className="line-clamp-2 px-2 py-1.5 text-[11px] font-medium leading-tight text-foreground">
+                  {o.headline ?? "Untitled"}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const ACTIVITY_ICON: Record<ActivityKind, React.ElementType> = {
+  "instruction-added": BookOpen,
+  "instruction-edited": Pencil,
+  "product-added": Plus,
+  "winner-ad-saved": Trophy,
+  "concept-saved": Lightbulb,
+  "generation-run": Sparkles,
+  "reference-added": Link2,
+  "brand-edited": Building2,
+};
+
+function formatActivityAge(d: Date): string {
+  const ms = Date.now() - d.getTime();
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours < 1) return "just now";
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
+function ActivityPanel({ brandId }: { brandId: string }) {
+  const log = getActivityLogForBrand(brandId);
+  return (
+    <div className="space-y-3">
+      <SectionHeader
+        title={`Activity · ${log.length}`}
+        icon={History}
+        hint="audit log of edits, saves, and runs"
+      />
+      {log.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">No activity yet for this brand.</p>
+        </div>
+      ) : (
+        <ol className="space-y-2">
+          {log.map((entry) => {
+            const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
+            return (
+              <li
+                key={entry.id}
+                className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
+                  <Icon className="h-3.5 w-3.5 text-foreground/65" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-foreground">{entry.summary}</p>
+                  {entry.detail && (
+                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">{entry.detail}</p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                    {entry.actor}
+                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground/60">
+                    {formatActivityAge(entry.at)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function ProductsPanel({
+  brand,
+  products: list,
+}: {
+  brand: Brand;
+  products: Product[];
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader title={`Products · ${list.length}`} icon={ShoppingBag} />
+        <button
+          type="button"
+          onClick={() =>
+            alert(
+              `Add product to ${brand.name} — wire this to a creation modal next.`,
+            )
+          }
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          Add product
+        </button>
+      </div>
+      {list.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No products yet. Add the first one to start generating ads.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {list.map((p) => (
+            <li key={p.id}>
+              <Link
+                to={`/catalogue/products/${p.id}`}
+                className="group relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card/60 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+              >
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  {p.thumbnail ? (
+                    <img src={p.thumbnail} alt={p.name} loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <div
+                      className="flex h-full w-full items-center justify-center text-2xl text-white/80"
+                      style={{ background: brand.colors[0] ?? "#888" }}
+                    >
+                      {p.name.charAt(0)}
+                    </div>
+                  )}
+                  {p.variants && p.variants.length > 0 && (
+                    <span className="absolute right-1.5 top-1.5 rounded-full bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-foreground backdrop-blur">
+                      {p.variants.length} variants
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-0.5 px-2 py-2">
+                  <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
+                    {p.name}
+                  </p>
+                  {p.price && (
+                    <p className="font-mono text-[10px] text-muted-foreground">{p.price}</p>
+                  )}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
