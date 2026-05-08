@@ -47,10 +47,10 @@ export function OutputCardHybrid({
     <div
       onClick={onClick}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border bg-card transition-shadow",
+        "v3-glass-card group relative flex flex-col overflow-hidden rounded-xl transition-shadow",
         selected
-          ? "border-primary ring-2 ring-primary/30 shadow-md"
-          : "border-border hover:shadow-md",
+          ? "ring-2 ring-primary/30 shadow-md"
+          : "hover:shadow-md",
         onClick && "cursor-pointer",
       )}
     >

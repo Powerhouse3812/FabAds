@@ -182,14 +182,10 @@ export function PromptReferenceBar({
 
   return (
     <>
-      {/* GLASS container — backdrop-blur, translucent, subtle border + soft shadow */}
+      {/* GLASS container — uses shared .v3-glass utility (light + dark tuned) */}
       <div
         className={cn(
-          "relative overflow-hidden rounded-3xl",
-          "border border-border/40",
-          "bg-card/60 backdrop-blur-xl",
-          "shadow-[0_8px_32px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
-          "px-5 py-4",
+          "v3-glass relative overflow-hidden rounded-3xl px-5 py-4",
         )}
       >
         <div className="flex w-full flex-col gap-3">

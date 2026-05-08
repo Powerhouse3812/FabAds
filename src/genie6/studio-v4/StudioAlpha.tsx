@@ -85,7 +85,7 @@ export function StudioAlpha() {
   const showStepper = state.step <= 4;
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
+    <div className="v3-page-mesh flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       {phase === "home" && (
         <main className="min-h-0 flex-1 overflow-y-auto">
           <StudioHome onStart={startWizard} />
@@ -148,9 +148,10 @@ export function StudioAlpha() {
               )}
             </main>
 
-            {/* Global ContextRail — visible across all wizard steps */}
+            {/* Global ContextRail — visible across all wizard steps. Container
+                is transparent so the glass rail card sits over the page mesh. */}
             {railOpen && (
-              <aside className="hidden shrink-0 border-l border-border/40 bg-background/40 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
+              <aside className="hidden shrink-0 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
                 <div className="flex-1 overflow-y-auto p-3">
                   <ContextRail
                     wizard={wizard}

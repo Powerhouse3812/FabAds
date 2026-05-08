@@ -24,7 +24,7 @@ export function StudioLibrary() {
   const brandOptions = brands.map((b) => ({ value: b.id, label: b.name }));
 
   return (
-    <div className="flex h-full p-3">
+    <div className="v3-page-mesh flex h-full p-3">
       <main className="flex flex-1 overflow-hidden rounded-g6-card border border-g6-border-secondary bg-g6-bg-container">
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="border-b border-g6-border-secondary bg-g6-bg-base px-5 py-3">

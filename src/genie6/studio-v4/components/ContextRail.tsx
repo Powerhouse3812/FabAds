@@ -15,6 +15,7 @@ import {
   type EntityId,
 } from "@/mocks/shared";
 import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
+import { SectionHeader } from "./SectionHeader";
 
 interface ContextRailProps {
   wizard: UseWizardReturn;
@@ -116,23 +117,23 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
   const titleText = `${brand?.name ?? "No brand"} / ${productName ?? "No product"}`;
 
   return (
-    <div className="space-y-4">
+    <div className="v3-glass space-y-4 rounded-3xl p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Overview
-        </span>
-        {onCollapse && (
-          <button
-            type="button"
-            onClick={onCollapse}
-            aria-label="Hide overview"
-            className="group inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-all duration-300 ease-out hover:bg-foreground/[0.06] hover:text-foreground"
-          >
-            <PanelRightClose className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
-          </button>
-        )}
-      </div>
+      <SectionHeader
+        title="Overview"
+        trailing={
+          onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Hide overview"
+              className="group inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-all duration-300 ease-out hover:bg-foreground/[0.06] hover:text-foreground"
+            >
+              <PanelRightClose className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
+            </button>
+          )
+        }
+      />
 
       {/* Hero combo card — brand + product + chips */}
       <div className="overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-background to-primary/[0.04] p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -191,9 +192,7 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
 
       {/* Quick actions — KB tiles */}
       <div className="space-y-2">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Knowledge Base
-        </span>
+        <SectionHeader title="Knowledge Base" />
         <div className="grid grid-cols-3 gap-2">
           <KbTile label="Instructions" count={instructionsCount} />
           <KbTile label="Winner Ads" count={winners.length} subtext="of 50 max" />
@@ -201,13 +200,14 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
         </div>
       </div>
 
-      {/* Below-fold — full detail accordion */}
-      <div className="overflow-hidden rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm">
+      {/* Below-fold — full detail accordion. Nested inside glass rail, so use
+          solid bg-card to avoid double-glass. */}
+      <div className="overflow-hidden rounded-2xl border border-border/40 bg-card">
         <button
           type="button"
           onClick={() => setMoreOpen((v) => !v)}
           aria-expanded={moreOpen}
-          className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-card/60"
+          className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-foreground/[0.04]"
         >
           <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
             More details

@@ -125,10 +125,10 @@ export function AlphaStep1Format({ wizard, onAdvance }: Step1Props) {
                 onAdvance();
               }}
               className={cn(
-                "group relative flex min-h-[300px] cursor-pointer flex-col items-center gap-5 overflow-hidden rounded-3xl border bg-card/60 p-8 backdrop-blur-xl transition-all duration-300 ease-out",
+                "v3-glass-card group relative flex min-h-[300px] cursor-pointer flex-col items-center gap-5 overflow-hidden rounded-3xl p-8 transition-all duration-300 ease-out",
                 selected
-                  ? "border-primary/50 bg-primary/5 shadow-[0_8px_32px_rgba(195,235,66,0.15)] ring-2 ring-primary/30"
-                  : "border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:border-foreground/30 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)]",
+                  ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
+                  : "shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:border-foreground/30 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)]",
               )}
             >
               {!selected && (

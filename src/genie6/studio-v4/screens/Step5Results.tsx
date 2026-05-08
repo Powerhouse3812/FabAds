@@ -7,6 +7,7 @@ import type { OutputData, EllipsisAction } from "../../types/output";
 import { HeroHeader } from "../components/HeroHeader";
 import { OutputCardHybrid } from "../components/OutputCardHybrid";
 import { SaveToKbModal } from "../components/SaveToKbModal";
+import { SectionHeader } from "../components/SectionHeader";
 import type { UseWizardReturn } from "../state/useWizard";
 
 interface Step5Props {
@@ -145,18 +146,17 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
       <div className="space-y-8">
         {conceptRows.map((row, rowIdx) => (
           <section key={row.id} className="space-y-3">
-            {/* Concept row header */}
-            <div className="flex items-baseline gap-2 px-1">
-              <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
-                {row.label}
-              </h3>
-              <span className="font-mono text-[10px] text-muted-foreground/60">
-                · {row.outputs.length} variation{row.outputs.length === 1 ? "" : "s"}
-              </span>
-              <span className="ml-auto font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">
-                Concept {rowIdx + 1}
-              </span>
-            </div>
+            {/* Concept row header — shared SectionHeader (lime stripe pattern). */}
+            <SectionHeader
+              title={row.label}
+              count={row.outputs.length}
+              hint={`${row.outputs.length === 1 ? "variation" : "variations"}`}
+              trailing={
+                <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/50">
+                  Concept {rowIdx + 1}
+                </span>
+              }
+            />
             {/* Variations grid — adapts to count, max 4 per row */}
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {row.outputs.map((output) => (

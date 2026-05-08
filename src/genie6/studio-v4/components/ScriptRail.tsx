@@ -171,7 +171,7 @@ export function ScriptRail({
               placeholder="Paste or type your script here…"
               value={enteredText}
               onChange={(e) => setEnteredText(e.target.value)}
-              className="w-full rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3 text-sm leading-relaxed outline-none focus:border-foreground/20"
+              className="w-full rounded-xl border border-border/40 bg-card p-3 text-sm leading-relaxed outline-none focus:border-foreground/20"
             />
             <div className="mt-2 flex items-center justify-between">
               <span className="font-mono text-[10px] text-muted-foreground">
@@ -219,7 +219,7 @@ export function ScriptRail({
             </div>
 
             {uploadedText && (
-              <div className="mt-3 rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3">
+              <div className="mt-3 rounded-xl border border-border/40 bg-card p-3">
                 <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                   {uploadedFilename}
                 </p>
@@ -278,7 +278,7 @@ export function ScriptRail({
             {generations.map((gen, idx) => (
               <div
                 key={gen.id}
-                className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3"
+                className="rounded-xl border border-border/40 bg-card p-3"
               >
                 <div className="mb-2 flex items-center gap-1.5">
                   <Sparkles className="h-3 w-3 text-primary" />

@@ -176,7 +176,7 @@ export function CatalogueListPage({ type }: { type: CatalogueType }) {
   const onCardClick = (id: string) => navigate(`/catalogue/${type}/${id}`);
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="v3-page-mesh flex h-full flex-col p-6">
       {/* Header */}
       <header className="mb-6">
         <div className="flex items-center justify-between">

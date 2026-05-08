@@ -271,7 +271,7 @@ export function KbInstructionRail({
                 placeholder={`Write the rules for "${targetAngleLabel}" creatives. E.g. DO: Lead with urgency hook. DON'T: Use generic copy.`}
                 value={enteredText}
                 onChange={(e) => setEnteredText(e.target.value)}
-                className="w-full rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3 text-sm leading-relaxed outline-none focus:border-foreground/20"
+                className="w-full rounded-xl border border-border/40 bg-card p-3 text-sm leading-relaxed outline-none focus:border-foreground/20"
               />
             </div>
             <div className="flex items-center justify-between">
@@ -321,7 +321,7 @@ export function KbInstructionRail({
             </div>
 
             {uploadedText && (
-              <div className="mt-3 space-y-2 rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3">
+              <div className="mt-3 space-y-2 rounded-xl border border-border/40 bg-card p-3">
                 <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                   {uploadedFilename}
                 </p>
@@ -389,7 +389,7 @@ export function KbInstructionRail({
             {generations.map((gen, idx) => (
               <div
                 key={gen.id}
-                className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm p-3"
+                className="rounded-xl border border-border/40 bg-card p-3"
               >
                 <div className="mb-2 flex items-center gap-1.5">
                   <Sparkles className="h-3 w-3 text-primary" />

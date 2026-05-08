@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Sparkles, Clock, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "../components/SectionHeader";
 
 export type AlphaMode =
   | "product-shoot"
@@ -182,13 +183,11 @@ export function StudioHome({ onStart }: StudioHomeProps) {
           </p>
         </div>
 
-        {/* Hero card — elevated chassis containing mode + format + start */}
-        <div className="rounded-2xl border border-border bg-card p-8 shadow-md">
+        {/* Hero card — elevated glass chassis containing mode + format + start */}
+        <div className="v3-glass rounded-2xl p-8 shadow-md">
           {/* Mode picker — 5-card grid (3+2 on desktop) */}
           <div className="mb-6">
-            <h2 className="mb-2 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Mode
-            </h2>
+            <SectionHeader title="Mode" />
             <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               {MODES.map((m) => (
                 <li key={m.id}>
@@ -226,40 +225,42 @@ export function StudioHome({ onStart }: StudioHomeProps) {
 
       {/* ─── HISTORY ─── Config-only cards with status tags + filter pills */}
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Clock className="h-3 w-3 text-muted-foreground" />
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            History
-          </h2>
-          {/* Filter pills */}
-          <div className="ml-2 inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
-            {(["all", "draft", "completed"] as const).map((f) => {
-              const active = filter === f;
-              const label = f === "all" ? "Both" : f === "draft" ? "Draft" : "Completed";
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
-                    active
-                      ? "bg-foreground/[0.08] text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            className="ml-auto text-[10px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            View all →
-          </button>
-        </div>
+        <SectionHeader
+          title="History"
+          icon={Clock}
+          trailing={
+            <div className="flex items-center gap-2">
+              {/* Filter pills */}
+              <div className="inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
+                {(["all", "draft", "completed"] as const).map((f) => {
+                  const active = filter === f;
+                  const label = f === "all" ? "Both" : f === "draft" ? "Draft" : "Completed";
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFilter(f)}
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
+                        active
+                          ? "bg-foreground/[0.08] text-foreground"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
+              >
+                View all →
+              </button>
+            </div>
+          }
+        />
         {filteredHistory.length === 0 ? (
           <p className="py-6 text-center text-[12px] text-muted-foreground">
             No {filter === "all" ? "" : filter} history yet
@@ -288,10 +289,10 @@ function HistoryCard({ item }: { item: HistoryItem }) {
       <button
         type="button"
         className={cn(
-          "group flex h-full w-full flex-col gap-2 rounded-xl p-3 text-left transition-all backdrop-blur-sm",
+          "group flex h-full w-full flex-col gap-2 rounded-xl p-3 text-left transition-all",
           isCompleted
-            ? "border border-border/60 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-            : "border border-dashed border-border/60 bg-card/30 hover:border-foreground/20 hover:bg-card/60",
+            ? "v3-glass-card hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+            : "v3-glass-card border-dashed opacity-90 hover:border-foreground/20",
         )}
       >
         {/* Status tag + time */}

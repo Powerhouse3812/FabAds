@@ -40,6 +40,7 @@ import {
   type KbConcept,
 } from "@/mocks/shared";
 import type { Avatar } from "@/genie6/types/entities";
+import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 
 type CatalogueType =
   | "categories"
@@ -478,7 +479,7 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="v3-page-mesh flex h-full flex-col p-6">
       <div className="mb-5">
         <Link to={`/catalogue/${type}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
           <ArrowLeft className="h-3 w-3" /> Back to {type}
@@ -499,8 +500,8 @@ function Shell({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">{title}</p>
-      {children}
+      <SectionHeader title={title} />
+      <div className="mt-2">{children}</div>
     </section>
   );
 }
@@ -536,15 +537,11 @@ function KnowledgeBaseSection({
 
   return (
     <section className="space-y-4 border-t border-border/40 pt-6">
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-base font-bold text-foreground">Knowledge Base</h2>
-        </div>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          For Genie generations
-        </span>
-      </header>
+      <SectionHeader
+        title="Knowledge Base"
+        icon={BookOpen}
+        hint="For Genie generations"
+      />
 
       <KbSubsection
         title="Main instruction"

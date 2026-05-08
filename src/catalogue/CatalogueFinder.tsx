@@ -16,6 +16,7 @@ import type {
   Brand, Category, Product, Audience,
   Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
+import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 
 type CatalogueType =
   | "categories"
@@ -187,7 +188,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
   };
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="v3-page-mesh flex h-full flex-col bg-background">
       {/* Top header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2.5">
@@ -1231,8 +1232,8 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">{title}</p>
-      {children}
+      <SectionHeader title={title} />
+      <div className="mt-2">{children}</div>
     </section>
   );
 }

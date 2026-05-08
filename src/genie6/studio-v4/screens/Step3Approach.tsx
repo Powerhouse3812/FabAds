@@ -120,10 +120,10 @@ export function Step3Approach({ wizard, onAdvance }: Step3Props) {
               type="button"
               onClick={() => pickMode(m.id, m.autoAngleId)}
               className={cn(
-                "group flex flex-col items-center gap-2 rounded-2xl border bg-card/60 p-5 backdrop-blur-xl transition-all",
+                "v3-glass-card group flex flex-col items-center gap-2 rounded-2xl p-5 transition-all",
                 selected
-                  ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
-                  : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
+                  ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
+                  : "hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
               )}
             >
               <span className="text-3xl leading-none">{m.emoji}</span>

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { brands as ALL_BRANDS, products as ALL_PRODUCTS, categories as ALL_CATEGORIES } from "@/mocks/shared";
 import { HeroHeader } from "../components/HeroHeader";
+import { SectionHeader } from "../components/SectionHeader";
 import { UrlFetchModal } from "../components/UrlFetchModal";
 import type { UseWizardReturn } from "../state/useWizard";
 
@@ -1089,10 +1090,10 @@ function CategoryGrid({
             type="button"
             onClick={() => onPick(c.id)}
             className={cn(
-              "flex min-h-[72px] items-center gap-2 rounded-xl border p-3 text-left backdrop-blur-sm transition-all",
+              "v3-glass-card flex min-h-[72px] items-center gap-2 rounded-xl p-3 text-left transition-all",
               isSelected
-                ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
-                : "border-border/40 bg-card/60 hover:border-foreground/20 hover:bg-card/80",
+                ? "ring-2 ring-primary/30"
+                : "hover:border-foreground/20",
             )}
           >
             <span className="shrink-0 text-xl" aria-hidden>
@@ -1142,23 +1143,21 @@ function CategoryProductsSection({
 }: CategoryProductsSectionProps) {
   return (
     <div className="space-y-3">
-      {/* Section header */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Package className="h-3 w-3 text-muted-foreground" />
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          Products in {categoryName}
-        </span>
-        <span className="font-mono text-[9px] text-muted-foreground/60">
-          — optional
-        </span>
-        <button
-          type="button"
-          onClick={onSkip}
-          className="ml-auto text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Skip — continue without a product →
-        </button>
-      </div>
+      {/* Section header — shared SectionHeader pattern */}
+      <SectionHeader
+        title={`Products in ${categoryName}`}
+        icon={Package}
+        hint="optional"
+        trailing={
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Skip — continue without a product →
+          </button>
+        }
+      />
 
       {products.length === 0 ? (
         <p className="py-4 text-center text-[12px] text-muted-foreground">

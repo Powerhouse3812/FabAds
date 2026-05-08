@@ -228,7 +228,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
                       type="button"
                       onClick={() => toggleTrending(t.id)}
                       className={cn(
-                        "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
+                        "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card text-left transition-all",
                         active
                           ? "border-primary/50 ring-2 ring-primary/30"
                           : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
@@ -277,8 +277,8 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
             className="absolute inset-0 bg-background/70 backdrop-blur-sm"
             onClick={handleAttachCancel}
           />
-          {/* Dialog box */}
-          <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl max-h-[70vh]">
+          {/* Dialog box — glass chassis */}
+          <div className="v3-glass relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl shadow-2xl max-h-[70vh]">
             {railMode === "generate-concepts" && (
               <RailGenerateConcepts
                 selectedIds={wizard.state.selectedConceptIds}
@@ -386,8 +386,8 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
 
 /* ─────────────────────────────────────────────────────────────────────────
  * AccordionStrip — bold collapsed strip used for Angles + Trending concepts.
- * Header has presence (icon + uppercase mono title + filled count badge +
- * italic hint + chevron). Click to expand inline.
+ * Header uses the shared <SectionHeader> for the lime-stripe + mono uppercase
+ * pattern. Chassis = .v3-glass-card so it reads as "lifted glass".
  * ───────────────────────────────────────────────────────────────────────── */
 function AccordionStrip({
   title,
@@ -406,26 +406,26 @@ function AccordionStrip({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm transition-colors hover:border-foreground/20">
+    <div className="v3-glass-card overflow-hidden rounded-2xl transition-colors hover:border-foreground/20">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-card/60"
+        className="flex w-full items-center px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
       >
-        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">
-          {title}
-        </span>
-        <span className="inline-flex items-center justify-center rounded-full bg-foreground/[0.08] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
-          {count}
-        </span>
-        <span className="line-clamp-1 text-[10px] italic text-muted-foreground/80">{hint}</span>
-        <ChevronDown
-          className={cn(
-            "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
-            open && "rotate-180",
-          )}
+        <SectionHeader
+          title={title}
+          icon={Icon}
+          count={count}
+          hint={hint}
+          trailing={
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
+                open && "rotate-180",
+              )}
+            />
+          }
         />
       </button>
       {open && <div className="border-t border-border/40 px-4 pb-4 pt-3">{children}</div>}
@@ -565,7 +565,7 @@ function StyleBrandStub({ onClose }: { onClose: () => void }) {
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {STYLE_PACK_PLACEHOLDERS.map((p) => (
             <li key={p.id}>
-              <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card/40 backdrop-blur-sm opacity-70">
+              <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card opacity-70">
                 <div className="relative flex aspect-[4/5] w-full items-center justify-center bg-muted">
                   <Sparkles className="h-5 w-5 text-muted-foreground/50" />
                   <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-muted-foreground backdrop-blur">
