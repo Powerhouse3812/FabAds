@@ -189,16 +189,16 @@ export function StudioAlpha() {
             {/* Main step content — scrollable */}
             <main className="min-h-0 flex-1 overflow-y-auto">
               {state.step === 1 && (
-                <AlphaStep1Format wizard={wizard} onAdvance={wizard.next} />
+                <AlphaStep1Format wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
               )}
               {state.step === 2 && (
-                <Step2Product wizard={wizard} onAdvance={wizard.next} />
+                <Step2Product wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
               )}
               {state.step === 3 && (
-                <Step3Approach wizard={wizard} onAdvance={wizard.next} />
+                <Step3Approach wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
               )}
               {state.step === 4 && (
-                <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} />
+                <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} onBack={handleBack} />
               )}
               {state.step === 5 && (
                 <Step5Results
@@ -208,6 +208,7 @@ export function StudioAlpha() {
                   onGenerateAgain={handleGenerateAgain}
                   onSaveBatch={handleSaveBatch}
                   onStartOver={exitToHome}
+                  onBack={handleBack}
                 />
               )}
             </main>

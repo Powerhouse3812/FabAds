@@ -21,6 +21,7 @@ import {
   concepts as catalogueConcepts,
   KB_CONCEPTS,
 } from "@/mocks/shared";
+import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import { HeroHeader } from "@/genie6/studio-v4/components/HeroHeader";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 
@@ -82,13 +83,18 @@ function deriveCapturedAt(id: string): Date {
   return new Date(Date.now() - daysAgo * 86400_000);
 }
 
-/** Deterministic gradient colours for thumbnail fallback. */
-function thumbColors(id: string): [string, string] {
+/** Pool of real ad thumbnails sourced from sampleOutputs (Unsplash URLs).
+ *  Used for catalogue concepts that lack their own thumbnail. */
+const REAL_THUMB_POOL: string[] = sampleOutputs
+  .map((o) => o.thumbnail)
+  .filter((t): t is string => typeof t === "string");
+
+/** Deterministic mapping: concept id → real thumbnail from sampleOutputs. */
+function deriveThumbnail(id: string): string | undefined {
+  if (REAL_THUMB_POOL.length === 0) return undefined;
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  const hue1 = h % 360;
-  const hue2 = (h * 7) % 360;
-  return [`hsl(${hue1}, 60%, 75%)`, `hsl(${hue2}, 60%, 60%)`];
+  return REAL_THUMB_POOL[h % REAL_THUMB_POOL.length];
 }
 
 function formatAge(d: Date): string {
@@ -128,6 +134,7 @@ export function ConceptsLibrary() {
     const fromCatalogue: ConceptItem[] = catalogueConcepts.map((c) => ({
       id: `cat-${c.id}`,
       name: c.name,
+      thumbnail: deriveThumbnail(c.id),
       angle: c.angle,
       tone: c.tone,
       format: c.format,
@@ -139,7 +146,7 @@ export function ConceptsLibrary() {
     const fromKb: ConceptItem[] = KB_CONCEPTS.map((c) => ({
       id: `kb-${c.id}`,
       name: c.name,
-      thumbnail: c.thumbnail,
+      thumbnail: c.thumbnail ?? deriveThumbnail(c.id),
       tone: c.tone,
       brandId: c.entityType === "brand" ? (c.entityId as string) : undefined,
       productId: c.entityType === "product" ? (c.entityId as string) : undefined,
@@ -347,7 +354,7 @@ export function ConceptsLibrary() {
           </button>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filtered.map((item) => (
             <li key={item.id}>
               <ConceptCard item={item} />
@@ -364,15 +371,14 @@ export function ConceptsLibrary() {
  * ────────────────────────────────────────────────────────── */
 function ConceptCard({ item }: { item: ConceptItem }) {
   const brand = item.brandId ? brands.find((b) => b.id === item.brandId) : null;
-  const [c1, c2] = thumbColors(item.id);
-  const initial = item.name.charAt(0).toUpperCase();
 
   return (
     <button
       type="button"
       className="group flex w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card/60 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden">
+      {/* Aspect 4:3 — synced with Step 4 trending strip cards. */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
         {item.thumbnail ? (
           <img
             src={item.thumbnail}
@@ -381,15 +387,12 @@ function ConceptCard({ item }: { item: ConceptItem }) {
             className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
           />
         ) : (
-          <div
-            className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/90"
-            style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}
-          >
-            {initial}
+          <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/40">
+            ✨
           </div>
         )}
         {brand && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+          <span className="absolute left-1.5 bottom-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
             {brand.name}
           </span>
         )}
@@ -397,8 +400,8 @@ function ConceptCard({ item }: { item: ConceptItem }) {
           {SOURCE_LABEL[item.source]}
         </span>
       </div>
-      <div className="flex flex-col gap-1.5 px-2.5 py-2">
-        <p className="line-clamp-2 text-[12px] font-bold leading-tight text-foreground">
+      <div className="flex flex-col gap-1 px-2 py-1.5">
+        <p className="line-clamp-2 text-[11px] font-bold leading-tight text-foreground">
           {item.name}
         </p>
         <div className="flex flex-wrap items-center gap-1">
@@ -410,11 +413,6 @@ function ConceptCard({ item }: { item: ConceptItem }) {
           {item.tone && (
             <span className="rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-foreground">
               {item.tone}
-            </span>
-          )}
-          {item.format && (
-            <span className="rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-foreground">
-              {item.format}
             </span>
           )}
         </div>

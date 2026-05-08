@@ -26,6 +26,7 @@ import type { UseWizardReturn } from "../state/useWizard";
 interface Step2Props {
   wizard: UseWizardReturn;
   onAdvance: () => void;
+  onBack?: () => void;
 }
 
 type Tab = "brand" | "product" | "category";
@@ -210,7 +211,7 @@ const TOP_CATEGORIES = [...ALL_CATEGORIES]
   .sort((a, b) => b.winnerCount - a.winnerCount)
   .slice(0, 30);
 
-export function Step2Product({ wizard, onAdvance }: Step2Props) {
+export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   const [tab, setTab] = useState<Tab>(
     wizard.state.productId
       ? "product"
@@ -360,7 +361,7 @@ export function Step2Product({ wizard, onAdvance }: Step2Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
-      <HeroHeader title="What are you creating for?" />
+      <HeroHeader title="What are you creating for?" onBack={onBack} />
 
       {/* Tab toggle — Brand vs Product vs Category */}
       <div className="flex justify-center">

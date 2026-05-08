@@ -22,6 +22,7 @@ import type { Format, UseWizardReturn } from "../state/useWizard";
 interface Step1Props {
   wizard: UseWizardReturn;
   onAdvance: () => void;
+  onBack?: () => void;
 }
 
 interface FormatOption {
@@ -95,7 +96,7 @@ function VideoPreview({ selected }: { selected: boolean }) {
   );
 }
 
-export function AlphaStep1Format({ wizard, onAdvance }: Step1Props) {
+export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
   return (
     <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
       {/* Ambient layer — dot grid + radial lime wash + 2 geometric shapes */}
@@ -107,7 +108,7 @@ export function AlphaStep1Format({ wizard, onAdvance }: Step1Props) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <HeroHeader title="Pick your format" />
+        <HeroHeader title="Pick your format" onBack={onBack} />
         <p className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           Step 1 of 4 · Choose how your creative will appear
         </p>

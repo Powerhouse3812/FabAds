@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, Sparkles, Target, X } from "lucide-react";
+import { Check, ChevronDown, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
@@ -74,7 +74,7 @@ function useAccordionUrl(key: string, defaultOpen: boolean): [boolean, (next: bo
   return [open, setOpen];
 }
 
-/** Angles list in display order — minimal chips below the prompt bar. */
+/** Angles list in display order — 20 entries, shown in 2 rows (no scroll). */
 const ANGLE_IDS: string[] = [
   "hero",
   "lifestyle",
@@ -84,11 +84,24 @@ const ANGLE_IDS: string[] = [
   "ugc-style",
   "unboxing",
   "infographic",
+  "testimonial",
+  "before-after",
+  "problem-solution",
+  "feature-highlight",
+  "benefit-led",
+  "fomo",
+  "scarcity",
+  "premium",
+  "value-prop",
+  "story",
+  "demo",
+  "educational",
 ];
 
 interface AlphaStep3Props {
   wizard: UseWizardReturn;
   studioMode?: AlphaMode;
+  onBack?: () => void;
 }
 
 /**
@@ -103,7 +116,7 @@ interface AlphaStep3Props {
  *     the prompt bar's inline Send button (Variant A behavior, forced)
  *   - HeyGen-minimal — nothing else on the page
  */
-export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaStep3Props) {
+export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }: AlphaStep3Props) {
   // Picker modal ↔ URL (?picker=concept-angle / script / etc.)
   // replace:false so browser Back closes the modal.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,12 +137,25 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
     );
   };
 
-  // Trending concepts — top 8 sample outputs by qualityScore desc
+  // Trending concepts — top 16 sample outputs by qualityScore desc.
+  // Pool is bigger so the horizontal-scroll strip has substance.
   const trending = useMemo(() => {
     const all = sampleOutputs.slice();
     all.sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0));
-    return all.slice(0, 8);
+    return all.slice(0, 16);
   }, []);
+
+  // Concept search input — local state, filters the trending strip in-place.
+  const [conceptSearch, setConceptSearch] = useState("");
+  const filteredTrending = useMemo(() => {
+    const q = conceptSearch.trim().toLowerCase();
+    if (!q) return trending;
+    return trending.filter(
+      (t) =>
+        (t.headline ?? "").toLowerCase().includes(q) ||
+        (t.brand?.name ?? "").toLowerCase().includes(q),
+    );
+  }, [trending, conceptSearch]);
 
   const handleAttachSave =
     (source: AttachSource) => (refs: AttachedRef[]) => {
@@ -184,7 +210,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
     <>
       {/* Form content — centered single column. ContextRail lives in the global shell. */}
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
-        <HeroHeader title="Configure" />
+        <HeroHeader title="Configure" onBack={onBack} />
 
           {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
           {wizard.state.prompt.trim().length === 0 && (
@@ -202,20 +228,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
             hideLayoutToggle
           />
 
-          {/* Angles + Trending concepts — combined glass card with a gradient
-              divider between (parent-nav style). Each section keeps its own
-              collapsible header so URL state for both still works. */}
+          {/* Angles + Concepts — combined glass card. Both sections always
+              open. Angles: 20 chips in 2 rows (no scroll). Concepts:
+              horizontal scroll strip with search bar. Designed to fit
+              without vertical page scroll. */}
           <div className="v3-glass-card overflow-hidden rounded-2xl">
-            {/* Section 1: Angles */}
-            <AccordionSection
-              id="angles"
-              title="Angles"
-              icon={Target}
-              count={ANGLE_IDS.length}
-              hint="pick one to guide style"
-              defaultOpen={wizard.state.angleId !== null}
-            >
-              <ul className="flex flex-wrap items-center gap-1.5">
+            {/* Section 1: Angles — flex-wrap chips, 2 rows on desktop */}
+            <div className="px-4 py-3">
+              <SectionHeader
+                title="Angles"
+                icon={Target}
+                count={ANGLE_IDS.length}
+                hint="pick one to guide style"
+              />
+              <ul className="mt-2 flex flex-wrap items-center gap-1.5">
                 {ANGLE_IDS.map((id) => {
                   const active = wizard.state.angleId === id;
                   const label = ANGLE_CHIP_LABEL[id] ?? id;
@@ -238,71 +264,90 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
                   );
                 })}
               </ul>
-            </AccordionSection>
+            </div>
 
-            {/* Gradient divider — same DNA as parent-nav rail divider */}
+            {/* Gradient divider — parent-nav rail style */}
             <div
               aria-hidden
               className="mx-3 h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
             />
 
-            {/* Section 2: Trending concepts */}
-            <AccordionSection
-              id="trending"
-              title="Trending concepts"
-              icon={Sparkles}
-              count={trending.length}
-              hint="pre-built starting points from this week"
-              defaultOpen={wizard.state.selectedConceptIds.length > 0}
-            >
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {trending.map((t) => {
-                const active = isTrendingSelected(t.id);
-                return (
-                  <li key={t.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleTrending(t.id)}
-                      className={cn(
-                        "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card text-left transition-all",
-                        active
-                          ? "border-primary/50 ring-2 ring-primary/30"
-                          : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
-                      )}
-                    >
-                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                        {t.thumbnail ? (
-                          <img
-                            src={t.thumbnail}
-                            alt=""
-                            loading="lazy"
-                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/50">
-                            ✨
-                          </div>
+            {/* Section 2: Trending concepts — horizontal scroll strip + search */}
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <SectionHeader
+                  title="Concepts"
+                  icon={Sparkles}
+                  count={filteredTrending.length}
+                  hint="pre-built starting points"
+                />
+                <div className="relative ml-auto w-44">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={conceptSearch}
+                    onChange={(e) => setConceptSearch(e.target.value)}
+                    placeholder="Search concepts…"
+                    className="h-7 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-foreground/30"
+                  />
+                </div>
+              </div>
+
+              {/* Horizontal scroll strip — bleeds to card edge so cards
+                  scroll under boundary. Hidden scrollbar, snap-to-card. */}
+              <ul className="-mx-4 mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                {filteredTrending.map((t) => {
+                  const active = isTrendingSelected(t.id);
+                  return (
+                    <li key={t.id} className="snap-start shrink-0 w-[150px]">
+                      <button
+                        type="button"
+                        onClick={() => toggleTrending(t.id)}
+                        className={cn(
+                          "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card text-left transition-all",
+                          active
+                            ? "border-primary/50 ring-2 ring-primary/30"
+                            : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                         )}
-                        {t.brand?.name && (
-                          <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-                            {t.brand.name}
-                          </span>
-                        )}
-                        {active && (
-                          <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                            <Check className="h-3 w-3" strokeWidth={3} />
-                          </span>
-                        )}
-                      </div>
-                      <p className="truncate px-2 pb-1.5 pt-0.5 text-[11px] font-semibold leading-tight text-foreground">
-                        {t.headline ?? "Concept"}
-                      </p>
-                    </button>
+                      >
+                        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                          {t.thumbnail ? (
+                            <img
+                              src={t.thumbnail}
+                              alt=""
+                              loading="lazy"
+                              className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/50">
+                              ✨
+                            </div>
+                          )}
+                          {t.brand?.name && (
+                            <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+                              {t.brand.name}
+                            </span>
+                          )}
+                          {active && (
+                            <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            </span>
+                          )}
+                        </div>
+                        <p className="truncate px-2 pb-1.5 pt-0.5 text-[11px] font-semibold leading-tight text-foreground">
+                          {t.headline ?? "Concept"}
+                        </p>
+                      </button>
+                    </li>
+                  );
+                })}
+                {filteredTrending.length === 0 && (
+                  <li className="flex shrink-0 items-center px-2 text-[11px] italic text-muted-foreground">
+                    No concepts match "{conceptSearch}"
                   </li>
-                );
-              })}
-            </ul>
-            </AccordionSection>
+                )}
+              </ul>
+            </div>
           </div>
       </div>
 

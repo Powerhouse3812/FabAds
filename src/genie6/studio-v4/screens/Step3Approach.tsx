@@ -6,6 +6,7 @@ import type { Mode, UseWizardReturn } from "../state/useWizard";
 interface Step3Props {
   wizard: UseWizardReturn;
   onAdvance: () => void;
+  onBack?: () => void;
 }
 
 interface ApproachMode {
@@ -69,7 +70,7 @@ const ALL_MODES: ApproachMode[] = [
   },
 ];
 
-export function Step3Approach({ wizard, onAdvance }: Step3Props) {
+export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
   // Auto-select "scratch" on mount if nothing is selected yet.
   useEffect(() => {
     if (!wizard.state.mode) {
@@ -107,7 +108,7 @@ export function Step3Approach({ wizard, onAdvance }: Step3Props) {
         <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,hsl(74_81%_59%/0.08),transparent_70%)]" />
       </div>
 
-      <HeroHeader title="What's your approach?" />
+      <HeroHeader title="What's your approach?" onBack={onBack} />
 
       {/* Single unified grid — 2 cols mobile, 3 cols md.
           With 7 cards at max-w-2xl, this produces a 3+3+1 layout on desktop. */}

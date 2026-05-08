@@ -17,6 +17,7 @@ interface Step5Props {
   onGenerateAgain: () => void;
   onSaveBatch: () => void;
   onStartOver: () => void;
+  onBack?: () => void;
 }
 
 /** Default concept labels when the user hasn't picked specific concepts. */
@@ -49,7 +50,7 @@ const ANGLE_LABEL: Record<string, string> = {
  * containing all its variations side-by-side. Multiple concepts stack
  * vertically. Reference: per Maalik's screenshot — Genie 5 ad-card style.
  */
-export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBatch, onStartOver }: Step5Props) {
+export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBatch, onStartOver, onBack }: Step5Props) {
   const totalOutputs = wizard.state.credits;
   const variations = wizard.state.count;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -117,7 +118,7 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
-      <HeroHeader title={done ? "Done!" : "Generating with Genie…"} />
+      <HeroHeader title={done ? "Done!" : "Generating with Genie…"} onBack={onBack} />
 
       {/* Loader chip — shown only while !done */}
       {!done && (

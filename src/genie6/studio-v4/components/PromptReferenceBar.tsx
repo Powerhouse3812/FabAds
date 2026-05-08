@@ -82,6 +82,18 @@ export const ANGLE_CHIP_LABEL: Record<string, string> = {
   "ugc-style": "UGC",
   unboxing: "Unboxing",
   infographic: "Infographic",
+  testimonial: "Testimonial",
+  "before-after": "Before / After",
+  "problem-solution": "Problem · Solution",
+  "feature-highlight": "Feature",
+  "benefit-led": "Benefit-led",
+  fomo: "FOMO",
+  scarcity: "Scarcity",
+  premium: "Premium",
+  "value-prop": "Value Prop",
+  story: "Story",
+  demo: "Demo",
+  educational: "Educational",
 };
 
 export function PromptReferenceBar({
