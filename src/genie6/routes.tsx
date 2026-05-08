@@ -34,6 +34,7 @@ import { StudioV3Finder } from "./generate-v3/_dev/StudioV3Finder";
 import { RailPopoverVariants } from "./generate-v3/_dev/RailPopoverVariants";
 import { StudioV4 } from "./studio-v4/StudioV4";
 import { StudioAlpha } from "./studio-v4/StudioAlpha";
+import { ConceptsLibrary } from "./concepts/ConceptsLibrary";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -99,6 +100,10 @@ export const genie6Routes = (
         no footer). Lives in parallel with Beta until validated. */}
     <Route path="studio-alpha" element={<StudioAlpha />} />
     <Route path="studio-alpha/:step" element={<StudioAlpha />} />
+
+    {/* A-12.38: Concepts library — full-page browse of catalogue + KB +
+        user-saved concepts. Search / filter / sort with URL state. */}
+    <Route path="concepts" element={<ConceptsLibrary />} />
 
     {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
         flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted
