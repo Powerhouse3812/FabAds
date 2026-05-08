@@ -136,13 +136,18 @@ const App = () => (
                 <Route path="catalogue/brands/:id" element={<CatalogueFinder type="brands" />} />
                 <Route path="catalogue/products" element={<CatalogueFinder type="products" />} />
                 <Route path="catalogue/products/:id" element={<CatalogueFinder type="products" />} />
+                {/* Iter-6 A-10: Audiences — first-class Catalogue entity */}
+                <Route path="catalogue/audiences" element={<CatalogueFinder type="audiences" />} />
+                <Route path="catalogue/audiences/:id" element={<CatalogueFinder type="audiences" />} />
                 {/* Legacy grid views — accessible via /grid suffix if needed for comparison */}
                 <Route path="catalogue/categories/grid" element={<CatalogueListPage type="categories" />} />
                 <Route path="catalogue/brands/grid" element={<CatalogueListPage type="brands" />} />
                 <Route path="catalogue/products/grid" element={<CatalogueListPage type="products" />} />
+                <Route path="catalogue/audiences/grid" element={<CatalogueListPage type="audiences" />} />
                 <Route path="catalogue/categories/grid/:id" element={<CatalogueDetailPage type="categories" />} />
                 <Route path="catalogue/brands/grid/:id" element={<CatalogueDetailPage type="brands" />} />
                 <Route path="catalogue/products/grid/:id" element={<CatalogueDetailPage type="products" />} />
+                <Route path="catalogue/audiences/grid/:id" element={<CatalogueDetailPage type="audiences" />} />
 
                 {/* Automation */}
                 <Route path="automation" element={<ComingSoonPage label="Automation" description="Automate launch rules, budget pacing, and creative rotation." />} />

@@ -3,12 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
   Layers, FileText, Globe, Settings as SettingsIcon, Wand2, Sparkles,
+  Users, Megaphone,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { brands, categories, products } from "@/mocks/shared";
-import type { Brand, Category, Product } from "@/genie6/types/entities";
+import { brands, categories, products, audiences } from "@/mocks/shared";
+import type { Brand, Category, Product, Audience } from "@/genie6/types/entities";
 
-type CatalogueType = "categories" | "brands" | "products";
+type CatalogueType = "categories" | "brands" | "products" | "audiences";
 
 /**
  * CatalogueFinder — 3-pane drill-down (Genie WorkspaceMasterDetail pattern).
@@ -38,6 +39,10 @@ const TYPE_CONFIG: Record<
     label: "Products", singular: "Product", icon: Package,
     description: "Browse products — drill into landing pages, campaign URLs, KB.",
   },
+  audiences: {
+    label: "Audiences", singular: "Audience", icon: Users,
+    description: "Targeting segments your campaigns reach. Each audience has a brand link, demographic profile, and generation history.",
+  },
 };
 
 export function CatalogueFinder({ type }: { type: CatalogueType }) {
@@ -49,20 +54,34 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     if (type === "brands") return brands[0]?.id ?? null;
     if (type === "categories") return categories[0]?.id ?? null;
+    if (type === "audiences") return audiences[0]?.id ?? null;
     return products[0]?.id ?? null;
   });
   const [section, setSection] = useState<string>("overview");
   const [childId, setChildId] = useState<string | null>(null);
 
-  // Pane 1 list
+  // Pane 1 list — search by `name` for brand/category/product, or by
+  // `label`/`segment` for audience (audiences don't have a `name` field).
   const items = useMemo(() => {
     const base =
-      type === "brands" ? brands : type === "categories" ? categories : products;
+      type === "brands"
+        ? brands
+        : type === "categories"
+          ? categories
+          : type === "audiences"
+            ? audiences
+            : products;
     const q = query.trim().toLowerCase();
     if (!q) return base;
-    return (base as Array<Brand | Category | Product>).filter((it) =>
-      it.name.toLowerCase().includes(q)
-    );
+    return (base as Array<Brand | Category | Product | Audience>).filter((it) => {
+      if ("label" in it) {
+        return (
+          it.label.toLowerCase().includes(q) ||
+          it.segment.toLowerCase().includes(q)
+        );
+      }
+      return it.name.toLowerCase().includes(q);
+    });
   }, [type, query]);
 
   const handleSelectEntity = (id: string) => {
@@ -247,7 +266,7 @@ function Pane1Row({
   active,
   onClick,
 }: {
-  item: Brand | Category | Product;
+  item: Brand | Category | Product | Audience;
   type: CatalogueType;
   active: boolean;
   onClick: () => void;
@@ -261,6 +280,15 @@ function Pane1Row({
       const c = item as Category;
       const productCount = products.filter((p) => p.categoryId === c.id).length;
       return { line1: c.name, line2: `${productCount} products`, logo: undefined };
+    }
+    if (type === "audiences") {
+      const a = item as Audience;
+      const brand = a.brandId ? brands.find((b) => b.id === a.brandId) : undefined;
+      return {
+        line1: a.label,
+        line2: brand ? `${brand.name} · ${a.segment}` : a.segment,
+        logo: brand?.logo,
+      };
     }
     const p = item as Product;
     const brand = brands.find((b) => b.id === p.brandId);
@@ -279,7 +307,11 @@ function Pane1Row({
         <img src={meta.logo} alt="" className="h-6 w-6 rounded-md bg-muted shrink-0" />
       ) : (
         <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0">
-          <Tag className="h-3 w-3 text-muted-foreground" />
+          {type === "audiences" ? (
+            <Users className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <Tag className="h-3 w-3 text-muted-foreground" />
+          )}
         </div>
       )}
       <div className="min-w-0 flex-1">
@@ -305,10 +337,12 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
   if (type === "brands") {
     const linkedProducts = products.filter((p) => p.brandId === selectedId);
     const linkedCategories = categories.filter((c) => brands.find((b) => b.id === selectedId)?.categoryIds?.includes(c.id));
+    const linkedAudiences = audiences.filter((a) => a.brandId === selectedId);
     return [
       { key: "overview", label: "Overview", icon: FileText },
       { key: "products", label: "Products", icon: Package, count: linkedProducts.length, children: linkedProducts.map((p) => ({ id: p.id, label: p.name, sub: p.price })) },
       { key: "categories", label: "Categories", icon: Tag, count: linkedCategories.length, children: linkedCategories.map((c) => ({ id: c.id, label: c.name })) },
+      { key: "audiences", label: "Audiences", icon: Users, count: linkedAudiences.length, children: linkedAudiences.map((a) => ({ id: a.id, label: a.label, sub: a.segment })) },
       { key: "kb", label: "Knowledge Base", icon: Layers },
       { key: "settings", label: "Settings", icon: SettingsIcon },
     ];
@@ -322,6 +356,14 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
       { key: "products", label: "Products", icon: Package, count: linkedProducts.length, children: linkedProducts.map((p) => ({ id: p.id, label: p.name, sub: p.price })) },
       { key: "kb", label: "Knowledge Base", icon: Layers },
       { key: "references", label: "Reference URLs", icon: Globe },
+    ];
+  }
+  if (type === "audiences") {
+    return [
+      { key: "overview", label: "Overview", icon: FileText },
+      { key: "brand", label: "Parent brand", icon: Building2 },
+      { key: "campaigns", label: "Linked campaigns", icon: Megaphone, count: 0 },
+      { key: "kb", label: "Knowledge Base", icon: Layers },
     ];
   }
   // products
@@ -351,20 +393,29 @@ function Pane2Sections({
   onSelectChild: (s: string, id: string) => void;
 }) {
   const sections = getSections(type, selectedId);
-  const entity =
+  // Entity lookup — for audience we use `label` not `name` (different shape).
+  const entityName = (() => {
+    if (type === "brands") return brands.find((b) => b.id === selectedId)?.name ?? "—";
+    if (type === "categories") return categories.find((c) => c.id === selectedId)?.name ?? "—";
+    if (type === "audiences") return audiences.find((a) => a.id === selectedId)?.label ?? "—";
+    return products.find((p) => p.id === selectedId)?.name ?? "—";
+  })();
+  const entityKindLabel =
     type === "brands"
-      ? brands.find((b) => b.id === selectedId)
+      ? "Brand"
       : type === "categories"
-        ? categories.find((c) => c.id === selectedId)
-        : products.find((p) => p.id === selectedId);
+        ? "Category"
+        : type === "audiences"
+          ? "Audience"
+          : "Product";
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-3 py-3 border-b border-border shrink-0">
         <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          {type === "brands" ? "Brand" : type === "categories" ? "Category" : "Product"}
+          {entityKindLabel}
         </p>
-        <p className="text-sm font-semibold text-foreground truncate mt-0.5">{entity?.name ?? "—"}</p>
+        <p className="text-sm font-semibold text-foreground truncate mt-0.5">{entityName}</p>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {sections.map((sec) => {
@@ -436,6 +487,7 @@ function Pane3Detail({
   if (childId) {
     if (type === "brands" && section === "products") return <ProductDetail productId={childId} />;
     if (type === "brands" && section === "categories") return <CategoryQuickCard categoryId={childId} />;
+    if (type === "brands" && section === "audiences") return <AudienceQuickCard audienceId={childId} />;
     if (type === "categories" && section === "brands") return <BrandQuickCard brandId={childId} />;
     if (type === "categories" && section === "products") return <ProductDetail productId={childId} />;
   }
@@ -443,6 +495,7 @@ function Pane3Detail({
   // Section overviews
   if (type === "brands") return <BrandSectionView brandId={selectedId} section={section} />;
   if (type === "categories") return <CategorySectionView categoryId={selectedId} section={section} />;
+  if (type === "audiences") return <AudienceSectionView audienceId={selectedId} section={section} />;
   return <ProductSectionView productId={selectedId} section={section} />;
 }
 
@@ -603,6 +656,72 @@ function ProductSectionView({ productId, section }: { productId: string; section
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
 }
 
+/* Audience section views */
+function AudienceSectionView({ audienceId, section }: { audienceId: string; section: string }) {
+  const audience = audiences.find((a) => a.id === audienceId);
+  if (!audience) return <Empty>Audience not found</Empty>;
+  const brand = audience.brandId ? brands.find((b) => b.id === audience.brandId) : undefined;
+
+  if (section === "overview") {
+    return (
+      <div className="p-6 space-y-5 max-w-3xl">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Users className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-foreground truncate">{audience.label}</h2>
+            <p className="text-xs text-muted-foreground truncate">{audience.segment}</p>
+          </div>
+        </div>
+        <Section title="Segment definition">
+          <p className="text-sm text-foreground">{audience.segment}</p>
+        </Section>
+        <Section title="Parent brand">
+          {brand ? (
+            <Link
+              to={`/catalogue/brands/${brand.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+            >
+              {brand.logo && <img src={brand.logo} alt="" className="h-5 w-5 rounded" />}
+              <span className="font-medium text-foreground">{brand.name}</span>
+              <span className="text-xs text-muted-foreground">· {brand.domain}</span>
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              Brand-agnostic audience — applies across multiple brands.
+            </p>
+          )}
+        </Section>
+        <Section title="Linked campaigns">
+          <p className="text-sm text-muted-foreground italic">No campaigns linked yet.</p>
+        </Section>
+      </div>
+    );
+  }
+  if (section === "brand") {
+    if (!brand) {
+      return (
+        <div className="p-6">
+          <Empty>Brand-agnostic audience — applies across multiple brands.</Empty>
+        </div>
+      );
+    }
+    return <BrandSectionView brandId={brand.id} section="overview" />;
+  }
+  if (section === "campaigns") {
+    return (
+      <div className="p-6">
+        <Empty>No campaigns linked yet.</Empty>
+      </div>
+    );
+  }
+  if (section === "kb") {
+    return <div className="p-6"><Empty>Audience KB · stub. Per-audience targeting templates ship next sprint.</Empty></div>;
+  }
+  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+}
+
 /* Reusable detail cards */
 function ProductDetail({ productId }: { productId: string }) {
   return <ProductSectionView productId={productId} section="overview" />;
@@ -612,6 +731,9 @@ function BrandQuickCard({ brandId }: { brandId: string }) {
 }
 function CategoryQuickCard({ categoryId }: { categoryId: string }) {
   return <CategorySectionView categoryId={categoryId} section="overview" />;
+}
+function AudienceQuickCard({ audienceId }: { audienceId: string }) {
+  return <AudienceSectionView audienceId={audienceId} section="overview" />;
 }
 
 /* ─── Layout helpers ───────────────────────────────────── */

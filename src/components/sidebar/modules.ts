@@ -4,7 +4,7 @@ import {
   History, Target, Compass, Map, Settings,
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
-  Bookmark, Copy, Tag, Building2, Package, Boxes,
+  Bookmark, Copy, Tag, Building2, Package, Boxes, Users,
   Workflow, Eraser, Scissors,
 } from "lucide-react";
 
@@ -153,6 +153,10 @@ export const MODULES: ModuleDef[] = [
       { label: "Category", path: "/catalogue/categories", icon: Tag },
       { label: "Brands", path: "/catalogue/brands", icon: Building2 },
       { label: "Product", path: "/catalogue/products", icon: Package },
+      // Iter-6 A-10: Audience promoted to first-class Catalogue entity.
+      // Listed last per Catalogue ordering convention (audience extends the
+      // brand → product chain, sits at the end of the tab strip).
+      { label: "Audiences", path: "/catalogue/audiences", icon: Users },
     ],
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },

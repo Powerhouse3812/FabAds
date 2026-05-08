@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Tag, Building2, Package, Search, ArrowUpRight } from "lucide-react";
-import { brands, categories, products } from "@/mocks/shared";
-import type { Brand, Category, Product } from "@/genie6/types/entities";
+import { Plus, Tag, Building2, Package, Search, ArrowUpRight, Users } from "lucide-react";
+import { brands, categories, products, audiences } from "@/mocks/shared";
+import type { Brand, Category, Product, Audience } from "@/genie6/types/entities";
 
-type CatalogueType = "categories" | "brands" | "products";
+type CatalogueType = "categories" | "brands" | "products" | "audiences";
 
 const CONFIG: Record<
   CatalogueType,
@@ -28,6 +28,12 @@ const CONFIG: Record<
     icon: Package,
     description: "Every product SKU across all brands — with landing pages, targeting templates, and generation history.",
   },
+  audiences: {
+    label: "Audiences",
+    singular: "Audience",
+    icon: Users,
+    description: "Targeting segments your campaigns reach. Each audience has a brand link, demographic profile, and generation history.",
+  },
 };
 
 /**
@@ -48,15 +54,24 @@ export function CatalogueListPage({ type }: { type: CatalogueType }) {
   const items = useMemo(() => {
     if (type === "brands") return brands;
     if (type === "products") return products;
+    if (type === "audiences") return audiences;
     return categories;
   }, [type]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((item: Brand | Category | Product) =>
-      item.name.toLowerCase().includes(q)
-    );
+    return items.filter((item: Brand | Category | Product | Audience) => {
+      // Audiences have label + segment instead of name; brands/categories/products
+      // use name. Match on whichever shape this entity has.
+      if ("label" in item) {
+        return (
+          item.label.toLowerCase().includes(q) ||
+          item.segment.toLowerCase().includes(q)
+        );
+      }
+      return item.name.toLowerCase().includes(q);
+    });
   }, [items, query]);
 
   const onCardClick = (id: string) => navigate(`/catalogue/${type}/${id}`);
@@ -125,6 +140,9 @@ export function CatalogueListPage({ type }: { type: CatalogueType }) {
           ))}
           {type === "products" && (filtered as Product[]).map((p) => (
             <ProductCard key={p.id} product={p} onClick={() => onCardClick(p.id)} />
+          ))}
+          {type === "audiences" && (filtered as Audience[]).map((a) => (
+            <AudienceCard key={a.id} audience={a} onClick={() => onCardClick(a.id)} />
           ))}
         </div>
       )}
@@ -232,6 +250,41 @@ function ProductCard({ product, onClick }: { product: Product; onClick: () => vo
         <span>{product.campaignUrls?.length ?? 0} URLs</span>
         <span>·</span>
         <span>{product.generatedCount} gens</span>
+      </div>
+    </button>
+  );
+}
+
+function AudienceCard({ audience, onClick }: { audience: Audience; onClick: () => void }) {
+  const brand = audience.brandId ? brands.find((b) => b.id === audience.brandId) : undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col gap-3 rounded-xl border border-border bg-background p-4 text-left transition-all hover:border-primary/40 hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+          <Users className="h-4 w-4 text-primary" />
+        </div>
+        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground line-clamp-1">{audience.label}</p>
+        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{audience.segment}</p>
+      </div>
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        {brand ? (
+          <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5">
+            {brand.logo && <img src={brand.logo} alt="" className="h-3 w-3 rounded" />}
+            <span className="truncate">{brand.name}</span>
+          </span>
+        ) : (
+          <span className="text-[10px] font-medium uppercase tracking-wider rounded bg-muted-foreground/10 px-1.5 py-0.5">
+            Brand-agnostic
+          </span>
+        )}
       </div>
     </button>
   );

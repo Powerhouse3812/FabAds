@@ -1,8 +1,8 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Package, Tag, Building2 } from "lucide-react";
-import { brands, categories, products } from "@/mocks/shared";
+import { ArrowLeft, ExternalLink, Package, Tag, Building2, Users } from "lucide-react";
+import { brands, categories, products, audiences } from "@/mocks/shared";
 
-type CatalogueType = "categories" | "brands" | "products";
+type CatalogueType = "categories" | "brands" | "products" | "audiences";
 
 /**
  * Catalogue entity detail — stub for iter-6 A-9.
@@ -86,6 +86,38 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
               </Link>
             ))}
           </div>
+        </Section>
+      </Shell>
+    );
+  }
+
+  if (type === "audiences") {
+    const audience = audiences.find((a) => a.id === id);
+    if (!audience) return <NotFound type={type} navigate={navigate} />;
+    const brand = audience.brandId ? brands.find((b) => b.id === audience.brandId) : undefined;
+    return (
+      <Shell type={type} title={audience.label} subtitle={audience.segment} icon={<Users className="h-5 w-5" />}>
+        <Section title="Segment definition">
+          <p className="text-sm text-foreground">{audience.segment}</p>
+        </Section>
+        <Section title="Parent brand">
+          {brand ? (
+            <Link
+              to={`/catalogue/brands/${brand.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+            >
+              {brand.logo && <img src={brand.logo} alt="" className="h-5 w-5 rounded" />}
+              <span className="font-medium text-foreground">{brand.name}</span>
+              <span className="text-xs text-muted-foreground">· {brand.domain}</span>
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              Brand-agnostic audience — applies across multiple brands.
+            </p>
+          )}
+        </Section>
+        <Section title="Linked campaigns">
+          <p className="text-sm text-muted-foreground italic">No campaigns linked yet.</p>
         </Section>
       </Shell>
     );
