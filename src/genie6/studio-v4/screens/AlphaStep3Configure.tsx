@@ -8,6 +8,7 @@ import type {
   UseWizardReturn,
 } from "../state/useWizard";
 import { HeroHeader } from "../components/HeroHeader";
+import { SectionHeader } from "../components/SectionHeader";
 import {
   PromptReferenceBar,
   type ChipKind,
