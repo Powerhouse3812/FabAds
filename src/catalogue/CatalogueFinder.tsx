@@ -17,7 +17,7 @@ import type {
   Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
-import { BrandDetail } from "./CatalogueDetailPage";
+import { BrandDetail, ProductDetail } from "./CatalogueDetailPage";
 
 type CatalogueType =
   | "categories"
@@ -245,10 +245,10 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         </aside>
 
         {/* PANE 2 — sections.
-            A-12.42 (Maalik): pane-2 sub-nav removed for brands — BrandDetail's
-            own 6-tab strip in pane 3 is the only nav. Other entity types still
-            render pane 2. */}
-        {type !== "brands" && (isLoading || selectedId) && (
+            A-12.42-43 (Maalik): pane-2 sub-nav removed for brands AND products
+            — BrandDetail / ProductDetail's own 6-tab strip in pane 3 is the
+            only nav. Other entity types still render pane 2. */}
+        {type !== "brands" && type !== "products" && (isLoading || selectedId) && (
           <aside className="w-[280px] flex-shrink-0 border-r border-border flex flex-col">
             {isLoading ? (
               <Pane2Skeleton />
@@ -691,11 +691,11 @@ function Pane3Detail({
 }) {
   // If a child is picked, render its detail. Otherwise render the section overview.
   if (childId) {
-    if (type === "brands" && section === "products") return <ProductDetail productId={childId} />;
+    if (type === "brands" && section === "products") return <ProductQuickCard productId={childId} />;
     if (type === "brands" && section === "categories") return <CategoryQuickCard categoryId={childId} />;
     if (type === "brands" && section === "audiences") return <AudienceQuickCard audienceId={childId} />;
     if (type === "categories" && section === "brands") return <BrandQuickCard brandId={childId} />;
-    if (type === "categories" && section === "products") return <ProductDetail productId={childId} />;
+    if (type === "categories" && section === "products") return <ProductQuickCard productId={childId} />;
     if (type === "angles" && section === "hooks") return <HookQuickCard hookId={childId} />;
     if (type === "angles" && section === "concepts") return <ConceptQuickCard conceptId={childId} />;
   }
@@ -768,41 +768,24 @@ function CategorySectionView({ categoryId, section }: { categoryId: string; sect
 }
 
 function ProductSectionView({ productId, section }: { productId: string; section: string }) {
+  const navigate = useNavigate();
   const prod = products.find((p) => p.id === productId);
   if (!prod) return <Empty>Product not found</Empty>;
 
+  // A-12.43 (Maalik): Product "overview" pane-3 now renders the full 6-tab
+  // ProductDetail (Guidelines / KB / Winners / Library / Activity / Variants),
+  // mirroring brand. Replaces the legacy name+price+benefits stub.
   if (section === "overview") {
     const brand = brands.find((b) => b.id === prod.brandId);
     const cat = categories.find((c) => c.id === prod.categoryId);
     return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground">{prod.name}</h2>
-            <p className="text-xs text-muted-foreground">
-              {brand && (<Link to={`/catalogue/brands/${brand.id}`} className="hover:text-primary">{brand.name}</Link>)}
-              {cat && (<> · <Link to={`/catalogue/categories/${cat.id}`} className="hover:text-primary">{cat.name}</Link></>)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <p className="text-xl font-bold text-foreground font-mono">{prod.price}</p>
-            {/* A-10.1: catalogue → generate shortcut. Skips ProductPicker entirely. */}
-            <Link
-              to={`/iq/genie6/generate/product-ad?product=${prod.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:scale-[1.02] active:scale-[0.99] transition-transform"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Generate ad
-            </Link>
-          </div>
-        </div>
-        {prod.promo && <Section title="Promo"><span className="inline-block rounded bg-primary/15 text-primary px-2 py-1 text-xs">{prod.promo}</span></Section>}
-        <Section title="Benefits">
-          <ul className="space-y-1 text-sm text-foreground">
-            {prod.benefits.map((b) => <li key={b} className="flex gap-2"><span className="text-muted-foreground">·</span> {b}</li>)}
-          </ul>
-        </Section>
-      </div>
+      <ProductDetail
+        product={prod}
+        brand={brand}
+        category={cat}
+        navigate={navigate}
+        embedded
+      />
     );
   }
   if (section === "landingPages") {
@@ -911,7 +894,7 @@ function AudienceSectionView({ audienceId, section }: { audienceId: string; sect
 }
 
 /* Reusable detail cards */
-function ProductDetail({ productId }: { productId: string }) {
+function ProductQuickCard({ productId }: { productId: string }) {
   return <ProductSectionView productId={productId} section="overview" />;
 }
 function BrandQuickCard({ brandId }: { brandId: string }) {

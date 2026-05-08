@@ -1472,16 +1472,20 @@ type ProductTabKey =
   | "activity"
   | "variants";
 
-function ProductDetail({
+export function ProductDetail({
   product,
   brand,
   category,
   navigate,
+  embedded = false,
 }: {
   product: Product;
   brand?: Brand;
   category?: Category;
   navigate: ReturnType<typeof useNavigate>;
+  /** When true, rendered inside the Catalogue Finder's pane 3 — drop outer
+   *  padding/max-width and hide the Back button (pane 1 list = back). */
+  embedded?: boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab") as ProductTabKey | null;
@@ -1527,16 +1531,25 @@ function ProductDetail({
   ];
 
   return (
-    <div className="v3-page-mesh mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-6 pb-10">
-      {/* ── Top action: ← Back ── */}
-      <button
-        type="button"
-        onClick={() => navigate("/catalogue/products")}
-        className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-3 w-3" />
-        Back to Products
-      </button>
+    <div
+      className={cn(
+        "flex w-full flex-col gap-6",
+        embedded
+          ? "p-5"
+          : "v3-page-mesh mx-auto max-w-6xl px-6 pt-6 pb-10",
+      )}
+    >
+      {/* ── Top action: ← Back (hidden when embedded) ── */}
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => navigate("/catalogue/products")}
+          className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to Products
+        </button>
+      )}
 
       {/* ── Hero header ── */}
       <ProductHero product={product} brand={brand} category={category} />
