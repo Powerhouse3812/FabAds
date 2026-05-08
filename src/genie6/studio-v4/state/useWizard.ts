@@ -19,7 +19,8 @@ export type AttachSource =
   | "pinterest"
   | "brand-winner-ads"
   | "product-winner-ads"
-  | "url";
+  | "url"
+  | "instruction";
 
 export interface AttachedRef {
   id: string;

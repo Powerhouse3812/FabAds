@@ -21,7 +21,6 @@ import type {
   AttachSource,
   AttachedRef,
 } from "../state/useWizard";
-import { findInstructionForAngle } from "../data/kbInstructions";
 
 /**
  * PromptReferenceBar — Step 4 prompt + reference dock.
@@ -61,6 +60,7 @@ const SOURCE_ICON: Record<AttachSource, string> = {
   "brand-winner-ads": "🏆",
   "product-winner-ads": "📦",
   url: "🔗",
+  instruction: "📝",
 };
 
 const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
@@ -108,6 +108,8 @@ export function PromptReferenceBar({
       setUrlPopoverOpen(true);
       return;
     }
+    // library / pinterest / brand-winner-ads / product-winner-ads / instruction
+    // — all delegate to parent via onAttachPickerOpen
     onAttachPickerOpen?.(source);
   };
 
@@ -230,30 +232,6 @@ export function PromptReferenceBar({
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
-              {state.useKnowledgeBase &&
-                (() => {
-                  const currentInstruction = findInstructionForAngle(
-                    state.angleId,
-                    state.customKbInstructions,
-                  );
-                  // Using state — show which instruction is active. Warning
-                  // for the unmatched case lives below the prompt bar in
-                  // AlphaStep3Configure so this chip row stays compact.
-                  if (currentInstruction) {
-                    return (
-                      <span
-                        className="inline-flex h-7 items-center gap-1 rounded-full px-2 font-mono text-[10px] text-muted-foreground"
-                        title={currentInstruction.description}
-                      >
-                        Using:{" "}
-                        <span className="text-foreground/70">
-                          {currentInstruction.name}
-                        </span>
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
             </div>
           )}
 

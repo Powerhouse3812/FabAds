@@ -60,6 +60,12 @@ const ITEMS: {
     subtext: "top-performing product creatives",
   },
   {
+    source: "instruction",
+    emoji: "📝",
+    label: "Instruction",
+    subtext: "attach a KB instruction to guide this generation",
+  },
+  {
     source: "url",
     emoji: "🔗",
     label: "URL",

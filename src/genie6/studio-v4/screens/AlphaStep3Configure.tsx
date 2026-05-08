@@ -22,6 +22,7 @@ import { KbInstructionRail } from "../components/KbInstructionRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
+import { InstructionsPickerModal } from "../components/InstructionsPickerModal";
 import type { AlphaMode } from "./StudioHome";
 
 export type RailMode =
@@ -35,7 +36,8 @@ export type RailMode =
   | "avatar-voice"
   | "style-brand"
   | "script"
-  | "kb-instruction";
+  | "kb-instruction"
+  | "instructions";
 
 /** Angles list in display order — minimal chips below the prompt bar. */
 const ANGLE_IDS: string[] = [
@@ -87,6 +89,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
   const handleAttachCancel = () => setRailMode(null);
 
   const handleAttachPickerOpen = (source: AttachSource) => {
+    if (source === "instruction") {
+      setRailMode("instructions");
+      return;
+    }
     if (
       source === "library" ||
       source === "pinterest" ||
@@ -356,6 +362,22 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
               <ProductWinnerAdsDrawer
                 onSave={handleAttachSave("product-winner-ads")}
                 onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "instructions" && (
+              <InstructionsPickerModal
+                brandId={wizard.state.brandId}
+                productId={wizard.state.productId}
+                categoryId={wizard.state.categoryId}
+                customInstructions={wizard.state.customKbInstructions}
+                onSave={(refs) => {
+                  wizard.set("attachedReferences", [
+                    ...wizard.state.attachedReferences,
+                    ...refs,
+                  ]);
+                  setRailMode(null);
+                }}
+                onClose={handleAttachCancel}
               />
             )}
           </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
@@ -7,8 +7,13 @@ import {
   brands as ALL_BRANDS,
   products as ALL_PRODUCTS,
   categories as ALL_CATEGORIES,
+  getInstructionsForEntity,
+  getWinnerAdsForEntity,
+  getReferenceUrlsForEntity,
+  shortUrl,
+  type EntityType,
+  type EntityId,
 } from "@/mocks/shared";
-import { findInstructionForAngle } from "../data/kbInstructions";
 import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 
 interface ContextRailProps {
@@ -213,73 +218,179 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
         )}
       </Section>
 
-      {/* Knowledge Base — active instruction or warning if uncovered. */}
+      {/* Knowledge Base — single section, 3 sub-blocks (Instructions / Winner Ads / Reference URLs) */}
       <Section label="Knowledge Base">
         {(() => {
-          const currentInstruction = findInstructionForAngle(
-            state.angleId,
+          // Resolve active entity (priority: product → brand → category).
+          let entity:
+            | { type: EntityType; id: EntityId }
+            | null = null;
+          if (state.productId) {
+            entity = { type: "product", id: state.productId as EntityId };
+          } else if (state.brandId) {
+            entity = { type: "brand", id: state.brandId as EntityId };
+          } else if (state.categoryId) {
+            entity = { type: "category", id: state.categoryId as EntityId };
+          }
+
+          if (!entity) {
+            return (
+              <p className="text-[11px] text-muted-foreground">
+                No entity selected — pick a brand / product / category.
+              </p>
+            );
+          }
+
+          const instructionGroups = getInstructionsForEntity(
+            entity.type,
+            entity.id,
             state.customKbInstructions,
           );
-          if (state.angleId && !currentInstruction) {
-            return (
-              <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                <div className="space-y-0.5">
-                  <p className="text-[11px] font-semibold">
-                    No instruction for {angleLabel}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    Click the warning chip near Knowledge Base to create one.
-                  </p>
-                </div>
-              </div>
-            );
-          }
-          if (currentInstruction) {
-            return (
-              <>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Active
-                  </span>
-                  <span className="break-words text-right text-foreground/80">
-                    {currentInstruction.name}
-                  </span>
-                </div>
-                <p className="text-[10px] leading-relaxed text-muted-foreground">
-                  {currentInstruction.description}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    /* future: open KB editor */
-                  }}
-                  className="text-[10px] font-semibold text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  View / Edit
-                </button>
-              </>
-            );
-          }
+          const winnerAds = getWinnerAdsForEntity(entity.type, entity.id);
+          const referenceUrls = getReferenceUrlsForEntity(
+            entity.type,
+            entity.id,
+          );
+
+          const mainCount = instructionGroups.main ? 1 : 0;
+          const customCount = instructionGroups.custom.length;
+          const angleCount = instructionGroups.angles.length;
+          const totalInstructions = mainCount + customCount + angleCount;
+          const visibleInstructions = [
+            ...(instructionGroups.main ? [instructionGroups.main] : []),
+            ...instructionGroups.custom,
+            ...instructionGroups.angles,
+          ].slice(0, 5);
+
           return (
-            <p className="text-[11px] text-muted-foreground">
-              Pick an angle to see the matching instruction.
-            </p>
+            <div className="space-y-3">
+              {/* Block 1 — Instructions */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Instructions
+                  </span>
+                  <span className="font-mono text-[9px] text-muted-foreground/60">
+                    · {mainCount} main · {customCount} custom · {angleCount} angle-specific
+                  </span>
+                </div>
+                {totalInstructions === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    No instructions saved yet.
+                  </p>
+                ) : (
+                  <>
+                    <ul className="space-y-1">
+                      {visibleInstructions.map((i) => (
+                        <li key={i.id} className="space-y-0.5">
+                          <p className="text-[11px] font-semibold leading-tight text-foreground">
+                            {i.name}
+                          </p>
+                          <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                            {i.description}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                    {totalInstructions > visibleInstructions.length && (
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        View all →
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Block 2 — Winner Ads */}
+              <div className="space-y-2 border-t border-border/40 pt-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Winner Ads
+                  </span>
+                  <span className="font-mono text-[9px] text-muted-foreground/60">
+                    · {winnerAds.length} of 50 max
+                  </span>
+                </div>
+                {winnerAds.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    No winners saved yet.
+                  </p>
+                ) : (
+                  <>
+                    <ul className="grid grid-cols-2 gap-1.5">
+                      {winnerAds.slice(0, 4).map((ad) => (
+                        <li
+                          key={ad.id}
+                          className="overflow-hidden rounded-md border border-border/40 bg-muted/40"
+                        >
+                          {ad.thumbnail ? (
+                            <img
+                              src={ad.thumbnail}
+                              alt={ad.headline}
+                              loading="lazy"
+                              className="aspect-square w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex aspect-square w-full items-center justify-center text-base text-muted-foreground/50">
+                              ✨
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {winnerAds.length > 4 && (
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        View all →
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Block 3 — Reference URLs */}
+              <div className="space-y-2 border-t border-border/40 pt-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Reference URLs
+                  </span>
+                  <span className="font-mono text-[9px] text-muted-foreground/60">
+                    · {referenceUrls.length} saved
+                  </span>
+                </div>
+                {referenceUrls.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    No reference URLs saved.
+                  </p>
+                ) : (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {referenceUrls.map((r) => (
+                      <li key={r.id}>
+                        <a
+                          href={r.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={r.label}
+                          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:text-foreground"
+                        >
+                          <span className="truncate max-w-[140px]">
+                            {shortUrl(r.url)}
+                          </span>
+                          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           );
         })()}
-      </Section>
-
-      {/* Winner Ads — stub placeholder for upcoming feature */}
-      <Section label="Winner Ads">
-        <div className="flex items-start gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Coming soon
-          </span>
-        </div>
-        <p className="text-[10px] leading-relaxed text-muted-foreground">
-          Top-performing creatives for this brand and product will appear here
-          once the winner-ads feed is connected.
-        </p>
       </Section>
 
     </div>
