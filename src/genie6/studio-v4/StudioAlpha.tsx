@@ -7,21 +7,27 @@ import { Step3Approach } from "./screens/Step3Approach";
 import { AlphaStep3Configure } from "./screens/AlphaStep3Configure";
 import { Step5Results } from "./screens/Step5Results";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
+import { ContextRail } from "./components/ContextRail";
 import { useWizard } from "./state/useWizard";
+import { cn } from "@/lib/utils";
 
 type AlphaPhase = "home" | "wizard";
 
 /**
- * StudioAlpha (A-12.17) — Studio Alpha shell.
+ * StudioAlpha (A-12.26) — Studio Alpha shell.
  *
  * Architecture:
  *   - Home phase: StudioHome — click any available mode card → startWizard.
- *   - Wizard phase: 5 internal steps.
- *       Step 1 = Format (Image/Video) — NEW AlphaStep1Format
+ *   - Wizard phase: 5 internal steps + a global right-side ContextRail.
+ *       Step 1 = Format (Image/Video) — AlphaStep1Format
  *       Step 2 = Product — Step2Product
  *       Step 3 = Approach — Step3Approach
- *       Step 4 = Configure — AlphaStep3Configure (with ContextRail on right)
+ *       Step 4 = Configure — AlphaStep3Configure
  *       Step 5 = Results — Step5Results (final screen, NOT in stepper)
+ *   - ContextRail: GLOBAL right rail visible across ALL wizard steps. Shows
+ *     overview of selections so far (mode, format, brand, product, angle, KB
+ *     instruction, winners). Collapsible — railOpen state persists across
+ *     step navigation.
  *   - Click-to-advance: each step auto-advances on selection (no footer buttons).
  *   - Topbar: ← Back (one step back; from step 1 → exits to Home).
  *   - AlphaProgressIndicator: 4 steps only (Format/Product/Approach/Configure).
@@ -32,6 +38,9 @@ export function StudioAlpha() {
   const { state } = wizard;
   const [phase, setPhase] = useState<AlphaPhase>("home");
   const [homeMode, setHomeMode] = useState<AlphaMode | null>("product-ad");
+
+  // Global rail state — persists across step navigation.
+  const [railOpen, setRailOpen] = useState(true);
 
   // Step 5 — generation done flag + regen counter.
   const [step5Done, setStep5Done] = useState(false);
@@ -112,30 +121,67 @@ export function StudioAlpha() {
             )}
           </div>
 
-          <main className="min-h-0 flex-1 overflow-y-auto">
-            {state.step === 1 && (
-              <AlphaStep1Format wizard={wizard} onAdvance={wizard.next} />
-            )}
-            {state.step === 2 && (
-              <Step2Product wizard={wizard} onAdvance={wizard.next} />
-            )}
-            {state.step === 3 && (
-              <Step3Approach wizard={wizard} onAdvance={wizard.next} />
-            )}
-            {state.step === 4 && (
-              <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} />
-            )}
-            {state.step === 5 && (
-              <Step5Results
-                wizard={wizard}
-                done={step5Done}
-                regenKey={step5Key}
-                onGenerateAgain={handleGenerateAgain}
-                onSaveBatch={handleSaveBatch}
-                onStartOver={exitToHome}
-              />
-            )}
-          </main>
+          {/* Wizard body — flex layout: main content + collapsible rail */}
+          <div className="flex min-h-0 flex-1">
+            {/* Main step content — scrollable */}
+            <main className="min-h-0 flex-1 overflow-y-auto">
+              {state.step === 1 && (
+                <AlphaStep1Format wizard={wizard} onAdvance={wizard.next} />
+              )}
+              {state.step === 2 && (
+                <Step2Product wizard={wizard} onAdvance={wizard.next} />
+              )}
+              {state.step === 3 && (
+                <Step3Approach wizard={wizard} onAdvance={wizard.next} />
+              )}
+              {state.step === 4 && (
+                <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} />
+              )}
+              {state.step === 5 && (
+                <Step5Results
+                  wizard={wizard}
+                  done={step5Done}
+                  regenKey={step5Key}
+                  onGenerateAgain={handleGenerateAgain}
+                  onSaveBatch={handleSaveBatch}
+                  onStartOver={exitToHome}
+                />
+              )}
+            </main>
+
+            {/* Global ContextRail — visible across all wizard steps */}
+            <aside
+              className={cn(
+                "hidden shrink-0 border-l border-border/40 bg-background/40 transition-all md:flex md:flex-col",
+                railOpen ? "w-[280px]" : "w-10",
+              )}
+            >
+              {railOpen ? (
+                <div className="flex-1 overflow-y-auto p-3">
+                  <ContextRail
+                    wizard={wizard}
+                    studioMode={homeMode ?? undefined}
+                    onCollapse={() => setRailOpen(false)}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRailOpen(true)}
+                  className="flex h-full w-full flex-col items-center gap-2 py-4 transition-colors hover:bg-foreground/[0.04]"
+                  aria-label="Show overview"
+                >
+                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                  <span
+                    className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                    style={{ writingMode: "vertical-rl" }}
+                  >
+                    Overview
+                  </span>
+                </button>
+              )}
+            </aside>
+          </div>
           {/* NO WizardNav footer — all steps are click-to-advance or inline Send */}
         </>
       )}

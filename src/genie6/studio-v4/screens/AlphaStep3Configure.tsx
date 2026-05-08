@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, ChevronLeft, Sparkles, Target, X } from "lucide-react";
+import { AlertTriangle, Check, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
@@ -22,7 +22,6 @@ import { KbInstructionRail } from "../components/KbInstructionRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
-import { ContextRail } from "../components/ContextRail";
 import type { AlphaMode } from "./StudioHome";
 
 export type RailMode =
@@ -67,9 +66,8 @@ interface AlphaStep3Props {
  *     the prompt bar's inline Send button (Variant A behavior, forced)
  *   - HeyGen-minimal — nothing else on the page
  */
-export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
+export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaStep3Props) {
   const [railMode, setRailMode] = useState<RailMode>(null);
-  const [railOpen, setRailOpen] = useState(true);
 
   // Trending concepts — top 8 sample outputs by qualityScore desc
   const trending = useMemo(() => {
@@ -136,11 +134,9 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
 
   return (
     <>
-      {/* ── Main layout — 2-column on xl: form + ContextRail ── */}
-      <div className="flex min-h-0 w-full gap-6 px-6 pt-8 pb-10">
-        {/* Left: form content */}
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-          <HeroHeader title="Configure" />
+      {/* Form content — centered single column. ContextRail lives in the global shell. */}
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+        <HeroHeader title="Configure" />
 
           {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
           {wizard.state.prompt.trim().length === 0 && (
@@ -268,37 +264,6 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
               })}
             </ul>
           </section>
-        </div>
-        {/* Right: ContextRail — collapsible */}
-        <div
-          className={cn(
-            "hidden shrink-0 transition-all xl:block",
-            railOpen ? "w-[300px]" : "w-10",
-          )}
-        >
-          {railOpen ? (
-            <ContextRail
-              wizard={wizard}
-              studioMode={studioMode}
-              onCollapse={() => setRailOpen(false)}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setRailOpen(true)}
-              className="flex h-full w-full flex-col items-center gap-2 rounded-3xl border border-border/40 bg-card/60 py-4 backdrop-blur-xl transition-colors hover:border-foreground/20 hover:bg-card/80"
-              aria-label="Show overview"
-            >
-              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-              <span
-                className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
-                style={{ writingMode: "vertical-rl" }}
-              >
-                Overview
-              </span>
-            </button>
-          )}
-        </div>
       </div>
 
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
