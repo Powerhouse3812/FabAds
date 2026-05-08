@@ -8,7 +8,8 @@ import { useEffect, useSyncExternalStore } from "react";
  *   - "edge"     : merged shell fills viewport edge-to-edge (no margin/rounded/shadow)
  *
  * Toggled by clicking the FabAds logo in the V7 rail. Persisted to
- * localStorage so it survives reloads. Default = "floating".
+ * localStorage so it survives reloads. Default = "edge" (filled nav panel,
+ * per Maalik A-12.36 — floating variant temporarily de-emphasised).
  *
  * Architecture: external store + useSyncExternalStore (mirrors useGenie6Theme +
  * useFabAdsNavVariant patterns).
@@ -17,12 +18,15 @@ import { useEffect, useSyncExternalStore } from "react";
 export type V7Shape = "floating" | "edge";
 
 const KEY = "fabads-v7-shape";
-const DEFAULT_SHAPE: V7Shape = "floating";
+const DEFAULT_SHAPE: V7Shape = "edge";
 
 function read(): V7Shape {
   if (typeof window === "undefined") return DEFAULT_SHAPE;
   const v = window.localStorage.getItem(KEY);
-  return v === "floating" || v === "edge" ? v : DEFAULT_SHAPE;
+  // Force edge default — ignore any stored "floating" so old localStorage
+  // values don't keep users on the deprioritised floating variant.
+  if (v === "edge") return "edge";
+  return DEFAULT_SHAPE;
 }
 
 let current: V7Shape = read();
