@@ -98,6 +98,7 @@ export const genie6Routes = (
         a new Alpha Configure step (prompt-on-top + trending concepts +
         no footer). Lives in parallel with Beta until validated. */}
     <Route path="studio-alpha" element={<StudioAlpha />} />
+    <Route path="studio-alpha/:step" element={<StudioAlpha />} />
 
     {/* Old Studio (A-11.1: preserved as full copy of the previous Generate
         flow). Mounted at /generate-legacy/* AND simultaneously dual-mounted

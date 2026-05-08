@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Check, ChevronDown, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
@@ -39,6 +40,40 @@ export type RailMode =
   | "kb-instruction"
   | "instructions";
 
+const VALID_PICKERS: ReadonlyArray<Exclude<RailMode, null>> = [
+  "generate-concepts",
+  "library",
+  "pinterest",
+  "brand-winner-ads",
+  "product-winner-ads",
+  "concept-angle",
+  "avatar-voice",
+  "style-brand",
+  "script",
+  "kb-instruction",
+  "instructions",
+];
+
+/** URL-backed accordion open state. Default behaviour preserved if no param.
+ *  Pushes to history with replace=true (no clutter). */
+function useAccordionUrl(key: string, defaultOpen: boolean): [boolean, (next: boolean) => void] {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const param = searchParams.get(key);
+  const open = param === "open" || (param === null && defaultOpen);
+  const setOpen = (next: boolean) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === defaultOpen) sp.delete(key);
+        else sp.set(key, next ? "open" : "closed");
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+  return [open, setOpen];
+}
+
 /** Angles list in display order — minimal chips below the prompt bar. */
 const ANGLE_IDS: string[] = [
   "hero",
@@ -69,7 +104,25 @@ interface AlphaStep3Props {
  *   - HeyGen-minimal — nothing else on the page
  */
 export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaStep3Props) {
-  const [railMode, setRailMode] = useState<RailMode>(null);
+  // Picker modal ↔ URL (?picker=concept-angle / script / etc.)
+  // replace:false so browser Back closes the modal.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlPicker = searchParams.get("picker");
+  const railMode: RailMode =
+    urlPicker && VALID_PICKERS.includes(urlPicker as Exclude<RailMode, null>)
+      ? (urlPicker as RailMode)
+      : null;
+  const setRailMode = (next: RailMode) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === null) sp.delete("picker");
+        else sp.set("picker", next);
+        return sp;
+      },
+      { replace: false },
+    );
+  };
 
   // Trending concepts — top 8 sample outputs by qualityScore desc
   const trending = useMemo(() => {
@@ -151,6 +204,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
 
           {/* Angles — collapsed accordion. Expands inline. */}
           <AccordionStrip
+            id="angles"
             title="Angles"
             icon={Target}
             count={ANGLE_IDS.length}
@@ -184,6 +238,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
 
           {/* Trending concepts — collapsed accordion. Expands inline. */}
           <AccordionStrip
+            id="trending"
             title="Trending concepts"
             icon={Sparkles}
             count={trending.length}
@@ -361,6 +416,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
  * pattern. Chassis = .v3-glass-card so it reads as "lifted glass".
  * ───────────────────────────────────────────────────────────────────────── */
 function AccordionStrip({
+  id,
   title,
   icon: Icon,
   count,
@@ -368,6 +424,8 @@ function AccordionStrip({
   defaultOpen = false,
   children,
 }: {
+  /** Unique slug used for the URL param (e.g. "angles" → ?angles-acc=open). */
+  id: string;
   title: string;
   icon: React.ElementType;
   count: number;
@@ -375,7 +433,7 @@ function AccordionStrip({
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useAccordionUrl(`${id}-acc`, defaultOpen);
   return (
     <div className="v3-glass-card overflow-hidden rounded-2xl transition-colors hover:border-foreground/20">
       <button

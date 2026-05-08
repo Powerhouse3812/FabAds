@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, PanelRightOpen } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
 import { AlphaStep1Format } from "./screens/AlphaStep1Format";
@@ -9,8 +10,25 @@ import { Step5Results } from "./screens/Step5Results";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
 import { useWizard } from "./state/useWizard";
+import { useStudioAlphaUrlSync } from "./state/useUrlSync";
 
 type AlphaPhase = "home" | "wizard";
+
+const STEP_TO_SLUG: Record<number, string> = {
+  1: "format",
+  2: "product",
+  3: "approach",
+  4: "configure",
+  5: "results",
+};
+
+const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
+  format: 1,
+  product: 2,
+  approach: 3,
+  configure: 4,
+  results: 5,
+};
 
 /**
  * StudioAlpha (A-12.26) — Studio Alpha shell.
@@ -33,13 +51,29 @@ type AlphaPhase = "home" | "wizard";
  *     Hidden on step 5 (Results).
  */
 export function StudioAlpha() {
+  const navigate = useNavigate();
+  const params = useParams<{ step?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const wizard = useWizard();
   const { state } = wizard;
-  const [phase, setPhase] = useState<AlphaPhase>("home");
+  // Selections / toggles ↔ URL (?brand, ?product, ?angle, ?ratio, etc.)
+  useStudioAlphaUrlSync(wizard);
+  const [phase, setPhase] = useState<AlphaPhase>(() => (params.step ? "wizard" : "home"));
   const [homeMode, setHomeMode] = useState<AlphaMode | null>("product-ad");
 
-  // Global rail state — persists across step navigation.
-  const [railOpen, setRailOpen] = useState(true);
+  // Global rail open/closed ↔ URL (?rail=closed; default = open).
+  const railOpen = searchParams.get("rail") !== "closed";
+  const setRailOpen = (next: boolean) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next) sp.delete("rail");
+        else sp.set("rail", "closed");
+        return sp;
+      },
+      { replace: true },
+    );
+  };
 
   // Step 5 — generation done flag + regen counter.
   const [step5Done, setStep5Done] = useState(false);
@@ -52,17 +86,47 @@ export function StudioAlpha() {
     return () => clearTimeout(t);
   }, [state.step, step5Key]);
 
+  // URL → wizard.state.step + phase sync (on mount + URL changes from Back/Forward).
+  useEffect(() => {
+    if (!params.step) {
+      if (phase !== "home") setPhase("home");
+      return;
+    }
+    const targetStep = SLUG_TO_STEP[params.step];
+    if (!targetStep) return;
+    if (phase === "home") {
+      setPhase("wizard");
+      wizard.patch({ category: "ad", step: targetStep });
+    } else if (state.step !== targetStep) {
+      wizard.goTo(targetStep);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.step]);
+
+  // wizard.state.step → URL sync (when state advances via clicks).
+  useEffect(() => {
+    if (phase !== "wizard") return;
+    const slug = STEP_TO_SLUG[state.step];
+    if (!slug) return;
+    if (params.step !== slug) {
+      navigate(`/iq/genie6/studio-alpha/${slug}`, { replace: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.step, phase]);
+
   const startWizard = (mode: AlphaMode) => {
     setHomeMode(mode);
     const category = mode === "product-shoot" ? "asset" : "ad";
     wizard.patch({ category, step: 1 });
     setPhase("wizard");
+    navigate("/iq/genie6/studio-alpha/format", { replace: false });
   };
 
   const exitToHome = () => {
     wizard.reset();
     setHomeMode("product-ad");
     setPhase("home");
+    navigate("/iq/genie6/studio-alpha", { replace: false });
   };
 
   const handleBack = () => {
