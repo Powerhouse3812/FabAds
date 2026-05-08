@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -5,6 +6,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Lightbulb,
+  Link2,
   Package,
   Pencil,
   Plus,
@@ -20,6 +22,7 @@ import {
   Volume2,
   Wand2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   brands,
   categories,
@@ -33,11 +36,14 @@ import {
   getInstructionsForEntity,
   getWinnerAdsForEntity,
   getConceptsForEntity,
+  getReferenceUrlsForEntity,
+  shortUrl,
   type EntityType as KbEntityType,
   type EntityId as KbEntityId,
   type KbInstruction,
   type WinnerAd,
   type KbConcept,
+  type ReferenceUrl,
 } from "@/mocks/shared";
 import type { Avatar } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
@@ -520,6 +526,8 @@ function NotFound({ type, navigate }: { type: CatalogueType; navigate: (to: stri
 
 /* ─── Knowledge Base block ─── */
 
+type KbTabKey = "main" | "custom" | "winners" | "concepts" | "refs";
+
 function KnowledgeBaseSection({
   entityType,
   entityId,
@@ -529,11 +537,19 @@ function KnowledgeBaseSection({
   entityId: KbEntityId;
   entityLabel: string;
 }) {
+  const [tab, setTab] = useState<KbTabKey>("main");
   const { main, custom } = getInstructionsForEntity(entityType, entityId);
   const winners = getWinnerAdsForEntity(entityType, entityId);
-  const concepts = getConceptsForEntity(entityType, entityId);
+  const conceptsList = getConceptsForEntity(entityType, entityId);
+  const refs = getReferenceUrlsForEntity(entityType, entityId);
 
-  const mainList = main ? [main] : [];
+  const tabs: { key: KbTabKey; label: string; count: number }[] = [
+    { key: "main", label: "Main", count: main ? 1 : 0 },
+    { key: "custom", label: "Custom", count: custom.length },
+    { key: "winners", label: "Winners", count: winners.length },
+    { key: "concepts", label: "Concepts", count: conceptsList.length },
+    { key: "refs", label: "References", count: refs.length },
+  ];
 
   return (
     <section className="space-y-4 border-t border-border/40 pt-6">
@@ -543,95 +559,157 @@ function KnowledgeBaseSection({
         hint="For Genie generations"
       />
 
-      <KbSubsection
-        title="Main instruction"
-        hint={`The default writing rules Genie follows for this ${entityLabel}.`}
-        emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
-        createLabel={main ? "Replace" : "Create instruction"}
-        onCreate={() => alert("Create instruction — coming soon")}
-      >
-        {mainList.length > 0 && (
-          <ul className="space-y-2">
-            {mainList.map((it) => (
-              <InstructionRow key={it.id} item={it} />
-            ))}
-          </ul>
-        )}
-      </KbSubsection>
+      {/* Tab strip — pill segmented */}
+      <div className="inline-flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5">
+        {tabs.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                active
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              {t.count > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
+                    active
+                      ? "bg-primary/20 text-primary"
+                      : "bg-foreground/[0.08] text-foreground",
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-      <KbSubsection
-        title={`Custom instructions${custom.length ? ` · ${custom.length}` : ""}`}
-        hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
-        emptyMessage="No custom instructions yet."
-        createLabel="Add instruction"
-        onCreate={() => alert("Add instruction — coming soon")}
-      >
-        {custom.length > 0 && (
-          <ul className="space-y-2">
-            {custom.map((it) => (
-              <InstructionRow key={it.id} item={it} />
-            ))}
-          </ul>
+      {/* Active tab content */}
+      <div>
+        {tab === "main" && (
+          <KbTabPanel
+            hint={`The default writing rules Genie follows for this ${entityLabel}.`}
+            emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
+            createLabel={main ? "Replace" : "Create instruction"}
+            onCreate={() => alert("Create instruction — coming soon")}
+            isEmpty={!main}
+          >
+            {main && (
+              <ul className="space-y-2">
+                <InstructionRow item={main} />
+              </ul>
+            )}
+          </KbTabPanel>
         )}
-      </KbSubsection>
 
-      <KbSubsection
-        title={`Winner ads${winners.length ? ` · ${winners.length}` : ""}`}
-        hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
-        emptyMessage="No winner ads saved yet."
-        createLabel="Add winner ad"
-        onCreate={() => alert("Add winner ad — opens upload modal")}
-      >
-        {winners.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {winners.map((w) => (
-              <WinnerAdCard key={w.id} ad={w} />
-            ))}
-          </div>
+        {tab === "custom" && (
+          <KbTabPanel
+            hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
+            emptyMessage="No custom instructions yet."
+            createLabel="Add instruction"
+            onCreate={() => alert("Add instruction — coming soon")}
+            isEmpty={custom.length === 0}
+          >
+            <ul className="space-y-2">
+              {custom.map((it) => (
+                <InstructionRow key={it.id} item={it} />
+              ))}
+            </ul>
+          </KbTabPanel>
         )}
-      </KbSubsection>
 
-      <KbSubsection
-        title={`Concepts${concepts.length ? ` · ${concepts.length}` : ""}`}
-        hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
-        emptyMessage="No concepts saved yet."
-        createLabel="Add concept"
-        onCreate={() => alert("Save concept from Genie or Industry Insights")}
-      >
-        {concepts.length > 0 && (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {concepts.map((c) => (
-              <ConceptCard key={c.id} concept={c} />
-            ))}
-          </div>
+        {tab === "winners" && (
+          <KbTabPanel
+            hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
+            emptyMessage="No winner ads saved yet."
+            createLabel="Add winner ad"
+            onCreate={() => alert("Add winner ad — opens upload modal")}
+            isEmpty={winners.length === 0}
+            countMax={50}
+            countCurrent={winners.length}
+          >
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {winners.map((w) => (
+                <WinnerAdCard key={w.id} ad={w} />
+              ))}
+            </div>
+          </KbTabPanel>
         )}
-      </KbSubsection>
+
+        {tab === "concepts" && (
+          <KbTabPanel
+            hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
+            emptyMessage="No concepts saved yet."
+            createLabel="Add concept"
+            onCreate={() => alert("Save concept from Genie or Industry Insights")}
+            isEmpty={conceptsList.length === 0}
+          >
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {conceptsList.map((c) => (
+                <ConceptCard key={c.id} concept={c} />
+              ))}
+            </div>
+          </KbTabPanel>
+        )}
+
+        {tab === "refs" && (
+          <KbTabPanel
+            hint="Reference URLs — landing pages, brand assets, inspiration links."
+            emptyMessage="No reference URLs saved."
+            createLabel="Add URL"
+            onCreate={() => alert("Add reference URL — coming soon")}
+            isEmpty={refs.length === 0}
+          >
+            <ul className="space-y-1.5">
+              {refs.map((r) => (
+                <RefRow key={r.id} ref={r} />
+              ))}
+            </ul>
+          </KbTabPanel>
+        )}
+      </div>
     </section>
   );
 }
 
-function KbSubsection({
-  title,
+function KbTabPanel({
   hint,
   emptyMessage,
   createLabel,
   onCreate,
+  isEmpty,
+  countCurrent,
+  countMax,
   children,
 }: {
-  title: string;
   hint: string;
   emptyMessage: string;
   createLabel: string;
   onCreate: () => void;
+  isEmpty: boolean;
+  countCurrent?: number;
+  countMax?: number;
   children?: React.ReactNode;
 }) {
-  const isEmpty = !children;
   return (
     <div className="rounded-xl border border-border/60 bg-card/40 p-3.5">
-      <header className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] text-muted-foreground">{hint}</p>
+          {countMax && countCurrent !== undefined && (
+            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/60">
+              {countCurrent} of {countMax} max
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -643,13 +721,33 @@ function KbSubsection({
         </button>
       </header>
       {isEmpty ? (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/20 px-3 py-6">
-          <p className="text-[11px] italic text-muted-foreground">{emptyMessage}</p>
-        </div>
+        <p className="rounded-lg border border-dashed border-border/40 px-3 py-6 text-center text-[11px] italic text-muted-foreground">
+          {emptyMessage}
+        </p>
       ) : (
         children
       )}
     </div>
+  );
+}
+
+function RefRow({ ref: r }: { ref: ReferenceUrl }) {
+  return (
+    <li>
+      <a
+        href={r.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2 text-[11px] transition-colors hover:border-foreground/20 hover:bg-background"
+      >
+        <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate font-medium text-foreground">{r.label}</span>
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+          {shortUrl(r.url)}
+        </span>
+        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+      </a>
+    </li>
   );
 }
 
