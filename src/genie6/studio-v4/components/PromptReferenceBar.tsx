@@ -311,7 +311,7 @@ export function PromptReferenceBar({
               value={state.prompt}
               onChange={(e) => wizard.set("prompt", e.target.value)}
               rows={2}
-              placeholder="Describe what you want to generate… (Cmd+Enter to generate)"
+              placeholder="Describe the script, visual angle, hook… or tap a TRY prompt above to start.  ⌘+Enter to generate."
               className="block w-full flex-1 resize-none bg-transparent px-1 pt-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
             />
           </div>
