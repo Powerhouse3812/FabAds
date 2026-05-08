@@ -46,6 +46,8 @@ export interface WizardState {
   /** UGC Video mode — avatar + voice picks. null = AI auto-decides. */
   avatarId: string | null;
   voiceId: string | null;
+  /** Script — null = Auto (Genie writes one). String = user-provided/AI-generated. */
+  script: string | null;
   prompt: string;
   uploadedFiles: UploadedFile[];
   selectedTemplateIds: string[];
@@ -71,6 +73,7 @@ const INITIAL_STATE: WizardState = {
   angleId: null,
   avatarId: null,
   voiceId: null,
+  script: null,
   prompt: "",
   uploadedFiles: [],
   selectedTemplateIds: [],

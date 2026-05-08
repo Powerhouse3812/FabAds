@@ -81,7 +81,7 @@ export function ConceptAngleRail({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {tab === "angle" && (
-          <ul className="grid grid-cols-2 gap-2">
+          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {ANGLES.map((a) => {
               const active = selectedAngleId === a.id;
               return (
@@ -90,19 +90,21 @@ export function ConceptAngleRail({
                     type="button"
                     onClick={() => onAngleChange(active ? null : a.id)}
                     className={cn(
-                      "relative flex h-full w-full flex-col gap-1 overflow-hidden rounded-lg border bg-background text-left transition-all",
+                      "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border text-left backdrop-blur-sm transition-all",
                       active
-                        ? "border-primary ring-2 ring-primary/30"
-                        : "border-border hover:border-primary/40",
+                        ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                        : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                     )}
                   >
-                    <AngleMockup variant={a.mockup} selected={active} />
-                    {active && (
-                      <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                      </span>
-                    )}
-                    <p className="px-2 pb-1.5 text-[11px] font-semibold leading-tight text-foreground">
+                    <div className="relative w-full overflow-hidden bg-muted">
+                      <AngleMockup variant={a.mockup} selected={active} />
+                      {active && (
+                        <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                          <Check className="h-3 w-3" strokeWidth={3} />
+                        </span>
+                      )}
+                    </div>
+                    <p className="px-2.5 py-2 text-[11px] font-semibold leading-tight text-foreground">
                       {a.label}
                     </p>
                   </button>
@@ -113,7 +115,7 @@ export function ConceptAngleRail({
         )}
 
         {tab === "concept" && (
-          <ul className="grid grid-cols-2 gap-2">
+          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {CONCEPTS.map((c) => {
               const active = selectedConceptIds.includes(c.id);
               const v = getConceptVisuals(c);
@@ -123,34 +125,47 @@ export function ConceptAngleRail({
                     type="button"
                     onClick={() => toggleConcept(c.id)}
                     className={cn(
-                      "relative flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background text-left transition-all",
+                      "group flex h-full w-full flex-col overflow-hidden rounded-xl border text-left backdrop-blur-sm transition-all",
                       active
-                        ? "border-primary ring-2 ring-primary/30"
-                        : "border-border hover:border-primary/40",
+                        ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                        : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                     )}
                   >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                    <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
                       {v?.thumbnail ? (
                         <img
                           src={v.thumbnail}
                           alt=""
                           loading="lazy"
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-2xl">
                           {c.emoji}
                         </div>
                       )}
+                      {v?.brand && (
+                        <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+                          {v.brand}
+                        </span>
+                      )}
+                      <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-foreground backdrop-blur">
+                        {c.category}
+                      </span>
                       {active && (
-                        <span className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                          <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                        <span className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                          <Check className="h-3 w-3" strokeWidth={3} />
                         </span>
                       )}
                     </div>
-                    <p className="truncate px-2 py-1.5 text-[11px] font-semibold leading-tight text-foreground">
-                      {c.name}
-                    </p>
+                    <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                      <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                        {c.name}
+                      </p>
+                      <p className="line-clamp-1 font-mono text-[10px] text-muted-foreground">
+                        {c.desc}
+                      </p>
+                    </div>
                   </button>
                 </li>
               );

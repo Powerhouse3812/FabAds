@@ -12,6 +12,7 @@ import { PromptReferenceBar, type ChipKind } from "../components/PromptReference
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
+import { ScriptRail } from "../components/ScriptRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
@@ -27,7 +28,8 @@ export type RailMode =
   | "product-winner-ads"
   | "concept-angle"
   | "avatar-voice"
-  | "style-brand";
+  | "style-brand"
+  | "script";
 
 interface AlphaStep3Props {
   wizard: UseWizardReturn;
@@ -217,9 +219,25 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
             {railMode === "style-brand" && (
               <StyleBrandStub onClose={handleAttachCancel} />
             )}
+            {railMode === "script" && (
+              <ScriptRail
+                currentScript={wizard.state.script}
+                onSave={(script) => {
+                  wizard.set("script", script);
+                  setRailMode(null);
+                }}
+                onClose={handleAttachCancel}
+              />
+            )}
             {railMode === "library" && (
               <LibraryColumnDrawer
                 onSave={handleAttachSave("library")}
+                onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "pinterest" && (
+              <PinterestStub
+                onSave={handleAttachSave("pinterest")}
                 onCancel={handleAttachCancel}
               />
             )}
@@ -335,6 +353,18 @@ function PromptSuggestions({
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────── *
+ * StyleBrandStub — placeholder picker for upcoming "Style packs" feature.
+ * Same chassis as the real pickers (header / 3-col 4:5 grid / footer).
+ * Cards are dimmed "Coming soon" stylepacks so the modal doesn't feel empty.
+ * ────────────────────────────────────────────────────────────────────── */
+const STYLE_PACK_PLACEHOLDERS: { id: string; name: string; vibe: string }[] = [
+  { id: "sp-mono",  name: "Mono Editorial",  vibe: "Black · white · grain" },
+  { id: "sp-warm",  name: "Warm Lifestyle",  vibe: "Beige · golden · soft" },
+  { id: "sp-bold",  name: "Bold Promo",      vibe: "Hi-contrast · CTA-led" },
+  { id: "sp-clean", name: "Clean Hero",      vibe: "White · centered · airy" },
+];
+
 function StyleBrandStub({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex h-full flex-col">
@@ -354,11 +384,33 @@ function StyleBrandStub({ onClose }: { onClose: () => void }) {
           <X className="h-3.5 w-3.5" />
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <p className="text-[11px] text-muted-foreground">
-          Brand style is auto-pulled from the product's brand profile.
-          Custom style preset picker coming soon.
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <p className="mb-3 text-[11px] text-muted-foreground">
+          Brand style is auto-pulled from the product's brand profile. Custom
+          style packs are on the way:
         </p>
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {STYLE_PACK_PLACEHOLDERS.map((p) => (
+            <li key={p.id}>
+              <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card/40 backdrop-blur-sm opacity-70">
+                <div className="relative flex aspect-[4/5] w-full items-center justify-center bg-muted">
+                  <Sparkles className="h-5 w-5 text-muted-foreground/50" />
+                  <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-muted-foreground backdrop-blur">
+                    Soon
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                  <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                    {p.name}
+                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    {p.vibe}
+                  </p>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
       <footer className="shrink-0 flex items-center justify-end border-t border-border px-3 py-2.5">
         <button
@@ -367,6 +419,164 @@ function StyleBrandStub({ onClose }: { onClose: () => void }) {
           className="inline-flex items-center rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90"
         >
           Done
+        </button>
+      </footer>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * PinterestStub — minimal pin grid for the "From Pinterest" rail mode.
+ * Same chassis as Library / Winner Ads. Mock pins, multi-select, 3-col 4:5.
+ * ────────────────────────────────────────────────────────────────────── */
+const MOCK_PINS: { id: string; thumbnail: string; label: string; tag: string }[] = [
+  {
+    id: "pin-1",
+    thumbnail: "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=240&q=70",
+    label: "Pastel flat-lay",
+    tag: "Flat-lay",
+  },
+  {
+    id: "pin-2",
+    thumbnail: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=240&q=70",
+    label: "Bold typography",
+    tag: "Type",
+  },
+  {
+    id: "pin-3",
+    thumbnail: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=240&q=70",
+    label: "Editorial fashion",
+    tag: "Editorial",
+  },
+  {
+    id: "pin-4",
+    thumbnail: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=240&q=70",
+    label: "Minimal product",
+    tag: "Minimal",
+  },
+  {
+    id: "pin-5",
+    thumbnail: "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=240&q=70",
+    label: "Color block",
+    tag: "Color",
+  },
+  {
+    id: "pin-6",
+    thumbnail: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=240&q=70",
+    label: "Festive set",
+    tag: "Festive",
+  },
+];
+
+function PinterestStub({
+  onSave,
+  onCancel,
+}: {
+  onSave: (refs: AttachedRef[]) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const save = () => {
+    onSave(
+      MOCK_PINS.filter((p) => selected.has(p.id)).map((p) => ({
+        id: p.id,
+        source: "pinterest",
+        label: p.label,
+        thumbnail: p.thumbnail,
+      })),
+    );
+  };
+  const n = selected.size;
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="shrink-0 flex items-center justify-between border-b border-border px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            References
+          </p>
+          <h3 className="text-sm font-semibold text-foreground">Pinterest</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Close"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {MOCK_PINS.map((p) => {
+            const isSel = selected.has(p.id);
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => toggle(p.id)}
+                  aria-pressed={isSel}
+                  className={cn(
+                    "group flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
+                    isSel
+                      ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                      : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
+                  )}
+                >
+                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+                    <img
+                      src={p.thumbnail}
+                      alt={p.label}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                    />
+                    <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-foreground backdrop-blur">
+                      {p.tag}
+                    </span>
+                    {isSel && (
+                      <span className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                    <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                      {p.label}
+                    </p>
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <footer className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-3 py-2.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={n === 0}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity",
+            "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
+          )}
+        >
+          Save{n > 0 && <span className="font-mono opacity-90">· {n}</span>}
         </button>
       </footer>
     </div>

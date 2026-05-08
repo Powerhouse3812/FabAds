@@ -30,7 +30,7 @@ import type {
  * Pinterest note (preserved): v3's column drawer is a follow-up integration.
  */
 
-export type ChipKind = "concept-angle" | "avatar-voice" | "style-brand";
+export type ChipKind = "concept-angle" | "avatar-voice" | "style-brand" | "script";
 
 interface PromptReferenceBarProps {
   wizard: UseWizardReturn;
@@ -184,6 +184,11 @@ export function PromptReferenceBar({
                 label="Concept"
                 value={conceptAngleValue}
                 onClick={() => onChipOpen("concept-angle")}
+              />
+              <RefChip
+                label="Script"
+                value={state.script ? "Custom" : "Auto"}
+                onClick={() => onChipOpen("script")}
               />
               {isUgcMode ? (
                 <RefChip

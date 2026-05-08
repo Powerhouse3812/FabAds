@@ -66,12 +66,12 @@ export function RailGenerateConcepts({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="shrink-0 flex items-center justify-between border-b border-border px-4 py-3">
+      <header className="shrink-0 flex items-center justify-between border-b border-border px-3 py-2.5">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             Concepts
           </p>
-          <h3 className="text-sm font-bold text-foreground">Generate new</h3>
+          <h3 className="text-sm font-semibold text-foreground">Generate new</h3>
         </div>
         <button
           type="button"
@@ -121,7 +121,7 @@ export function RailGenerateConcepts({
             <p className="text-[11px] text-muted-foreground">
               Pick the ones to use. Saved concepts add to your selection on the left.
             </p>
-            <ul className="grid grid-cols-2 gap-2">
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {MOCK_GENERATED.map((g) => {
                 const active = picks.has(g.id);
                 return (
@@ -130,10 +130,10 @@ export function RailGenerateConcepts({
                       type="button"
                       onClick={() => togglePick(g.id)}
                       className={cn(
-                        "relative flex h-full w-full flex-col items-start gap-1 rounded-lg border bg-background p-2 text-left transition-all",
+                        "group relative flex h-full w-full flex-col items-start gap-1.5 rounded-xl border p-3 text-left backdrop-blur-sm transition-all",
                         active
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-border hover:-translate-y-0.5 hover:border-primary/40",
+                          ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                          : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                       )}
                     >
                       {active && (
@@ -141,11 +141,11 @@ export function RailGenerateConcepts({
                           <Check className="h-2.5 w-2.5" strokeWidth={3} />
                         </span>
                       )}
-                      <span className="text-lg leading-none">{g.emoji}</span>
+                      <span className="text-xl leading-none">{g.emoji}</span>
                       <p className="text-[12px] font-bold leading-tight text-foreground">
                         {g.name}
                       </p>
-                      <p className="line-clamp-2 text-[10px] text-muted-foreground">
+                      <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">
                         {g.desc}
                       </p>
                     </button>
@@ -157,7 +157,7 @@ export function RailGenerateConcepts({
         )}
       </div>
 
-      <footer className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+      <footer className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-3 py-2.5">
         <button
           type="button"
           onClick={onClose}
