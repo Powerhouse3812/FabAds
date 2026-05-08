@@ -56,9 +56,9 @@ const SECTIONS = [
  */
 export function StudioSettings() {
   return (
-    <div className="grid h-full grid-cols-[220px_1fr] gap-3 p-3">
+    <div className="v3-page-mesh grid h-full grid-cols-[220px_1fr] gap-3 p-3">
       {/* Left: section nav */}
-      <aside className="overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-3">
+      <aside className="v3-glass overflow-y-auto rounded-g6-card p-3">
         <div className="flex items-center gap-2 mb-3">
           <SettingsIcon className="h-3.5 w-3.5 text-g6-primary" />
           <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
@@ -92,8 +92,8 @@ export function StudioSettings() {
       </aside>
 
       {/* Right: detail content */}
-      <main className="overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container">
-        <header className="border-b border-g6-border-secondary bg-g6-bg-base px-6 py-4">
+      <main className="v3-glass overflow-y-auto rounded-g6-card">
+        <header className="border-b border-g6-border-secondary bg-g6-bg-base/60 px-6 py-4">
           <h1 className="text-g6-h3 font-bold text-g6-text">Profiles & libraries</h1>
           <p className="text-g6-sm text-g6-text-secondary mt-1">
             Brand identity, category knowledge bases, avatar + voice libraries, layout templates.

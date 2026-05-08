@@ -71,8 +71,8 @@ export function StudioWorkspace() {
   const emptyConfig = EMPTY_CONFIGS[tab];
 
   return (
-    <div className="flex h-full flex-col p-3">
-      <div className="flex flex-1 flex-col overflow-hidden rounded-g6-card border border-g6-border-secondary bg-g6-bg-container">
+    <div className="v3-page-mesh flex h-full flex-col p-3">
+      <div className="v3-glass flex flex-1 flex-col overflow-hidden rounded-g6-card">
         <header className="flex flex-shrink-0 items-center gap-3 border-b border-g6-border-secondary bg-g6-bg-base px-4 py-2.5">
           <div className="flex items-center gap-2">
             <FolderTree className="h-4 w-4 text-g6-primary" />

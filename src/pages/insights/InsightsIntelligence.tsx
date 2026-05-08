@@ -13,7 +13,7 @@ export default function InsightsIntelligence() {
   const [prefsOpen, setPrefsOpen] = useState(false);
 
   return (
-    <div className="space-y-2 h-full flex flex-col">
+    <div className="v3-page-mesh space-y-2 h-full flex flex-col p-3">
       <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-semibold tracking-tight shrink-0">Intelligence</h1>

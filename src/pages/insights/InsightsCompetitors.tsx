@@ -51,7 +51,7 @@ export default function InsightsCompetitors() {
   }, [competitors]);
 
   return (
-    <div className="space-y-3">
+    <div className="v3-page-mesh space-y-3 p-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Competitors</h2>

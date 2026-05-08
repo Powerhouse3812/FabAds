@@ -68,7 +68,7 @@ export default function InsightsBoardDetail() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="v3-page-mesh space-y-4 p-3">
       {/* Header */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => navigate("/insights/intelligence")}><ArrowLeft className="h-4 w-4" /></Button>

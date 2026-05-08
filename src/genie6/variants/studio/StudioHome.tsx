@@ -30,10 +30,10 @@ export function StudioHome() {
   };
 
   return (
-    <div className="grid h-full grid-cols-[1fr_280px] gap-3 p-3">
+    <div className="v3-page-mesh grid h-full grid-cols-[1fr_280px] gap-3 p-3">
       {/* MAIN — workspace (brand portfolio rail removed in iter-6 A-5; brands
           are managed from Catalogue / Workspace > Brands now). */}
-      <main className="overflow-y-auto rounded-g6-card border border-g6-border-secondary bg-g6-bg-container p-6 space-y-6">
+      <main className="v3-glass overflow-y-auto rounded-g6-card p-6 space-y-6">
         <header>
           <p className="font-g6-mono text-g6-xs uppercase tracking-[0.18em] text-g6-text-tertiary">
             {greeting()}

@@ -45,7 +45,7 @@ export default function InsightsBoards() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
+      <div className="v3-page-mesh space-y-4 p-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Boards</h1>
           <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" /> Create Board</Button>

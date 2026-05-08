@@ -51,7 +51,7 @@ export default function InsightsDiscover() {
   const paginated = ads.slice((page - 1) * perPage, page * perPage);
 
   return (
-    <div className="space-y-6 h-full flex flex-col overflow-x-hidden w-full max-w-full">
+    <div className="v3-page-mesh space-y-6 h-full flex flex-col overflow-x-hidden w-full max-w-full p-3">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Discover</h1>
       </div>
