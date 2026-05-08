@@ -157,10 +157,11 @@ export function Step5Results({ wizard, done, regenKey, onGenerateAgain, onSaveBa
                 </span>
               }
             />
-            {/* Variations grid — 2 cols at max-w-2xl per Pure Center alignment */}
-            <ul className="grid grid-cols-2 gap-3">
+            {/* Variations strip — Suno-style horizontal scroll. Bleeds to container
+                edge so cards scroll under the boundary. Hidden scrollbar; snap-to-card. */}
+            <ul className="-mx-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-2 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               {row.outputs.map((output) => (
-                <li key={output.id}>
+                <li key={output.id} className="snap-start shrink-0 w-[200px]">
                   {done ? (
                     <OutputCardHybrid
                       output={output}

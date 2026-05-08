@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, Sparkles, Target, X } from "lucide-react";
+import { Check, ChevronDown, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
@@ -7,7 +7,6 @@ import type {
   AttachedRef,
   UseWizardReturn,
 } from "../state/useWizard";
-import { findInstructionForAngle } from "../data/kbInstructions";
 import { HeroHeader } from "../components/HeroHeader";
 import {
   PromptReferenceBar,
@@ -125,18 +124,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
     wizard.set("angleId", next);
   };
 
-  // KB warning — shown below the prompt bar when KB is on, an angle is picked,
-  // and no Knowledge Base instruction matches that angle.
-  const angleLabel = wizard.state.angleId
-    ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
-    : null;
-  const showKbWarning =
-    wizard.state.useKnowledgeBase &&
-    wizard.state.angleId !== null &&
-    findInstructionForAngle(
-      wizard.state.angleId,
-      wizard.state.customKbInstructions,
-    ) === null;
+
 
   return (
     <>
@@ -159,24 +147,6 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode }: AlphaSt
             onChipOpen={handleChipOpen}
             hideLayoutToggle
           />
-
-          {/* KB warning — surfaces below the prompt bar so the bar stays compact. */}
-          {showKbWarning && (
-            <div className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-50/40 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/[0.08]">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <p className="flex-1 text-[12px] text-amber-700 dark:text-amber-400">
-                No <strong>{angleLabel}</strong> instruction in your Knowledge
-                Base — Genie will use a generic fallback.
-              </p>
-              <button
-                type="button"
-                onClick={() => setRailMode("kb-instruction")}
-                className="shrink-0 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-500/30 dark:text-amber-400"
-              >
-                Create →
-              </button>
-            </div>
-          )}
 
           {/* Angles — collapsed accordion. Expands inline. */}
           <AccordionStrip
