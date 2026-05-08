@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
@@ -7,6 +7,7 @@ import type {
   AttachedRef,
   UseWizardReturn,
 } from "../state/useWizard";
+import { findInstructionForAngle } from "../data/kbInstructions";
 import { HeroHeader } from "../components/HeroHeader";
 import {
   PromptReferenceBar,
@@ -68,6 +69,7 @@ interface AlphaStep3Props {
  */
 export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
   const [railMode, setRailMode] = useState<RailMode>(null);
+  const [railOpen, setRailOpen] = useState(true);
 
   // Trending concepts — top 8 sample outputs by qualityScore desc
   const trending = useMemo(() => {
@@ -119,6 +121,19 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
     wizard.set("angleId", next);
   };
 
+  // KB warning — shown below the prompt bar when KB is on, an angle is picked,
+  // and no Knowledge Base instruction matches that angle.
+  const angleLabel = wizard.state.angleId
+    ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
+    : null;
+  const showKbWarning =
+    wizard.state.useKnowledgeBase &&
+    wizard.state.angleId !== null &&
+    findInstructionForAngle(
+      wizard.state.angleId,
+      wizard.state.customKbInstructions,
+    ) === null;
+
   return (
     <>
       {/* ── Main layout — 2-column on xl: form + ContextRail ── */}
@@ -143,34 +158,61 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
             hideLayoutToggle
           />
 
-          {/* Angles — minimal chip row, single line, click to toggle. */}
+          {/* KB warning — surfaces below the prompt bar so the bar stays compact. */}
+          {showKbWarning && (
+            <div className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-50/40 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/[0.08]">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="flex-1 text-[12px] text-amber-700 dark:text-amber-400">
+                No <strong>{angleLabel}</strong> instruction in your Knowledge
+                Base — Genie will use a generic fallback.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRailMode("kb-instruction")}
+                className="shrink-0 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold text-amber-700 transition-colors hover:bg-amber-500/30 dark:text-amber-400"
+              >
+                Create →
+              </button>
+            </div>
+          )}
+
+          {/* Angles — minimal chip row inside subtle backdrop, click to toggle. */}
           <section className="space-y-2">
-            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Angles
-            </h2>
-            <ul className="flex flex-wrap items-center gap-1.5">
-              {ANGLE_IDS.map((id) => {
-                const active = wizard.state.angleId === id;
-                const label = ANGLE_CHIP_LABEL[id] ?? id;
-                return (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleAngle(id)}
-                      aria-pressed={active}
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-                        active
-                          ? "border-foreground/20 bg-foreground/[0.08] text-foreground"
-                          : "border-border/60 bg-background/50 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="flex items-center gap-1.5">
+              <Target className="h-3 w-3 text-muted-foreground" />
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Angles
+              </h2>
+              <span className="font-mono text-[9px] text-muted-foreground/60">
+                · pick one to guide style
+              </span>
+            </div>
+            {/* Subtle backdrop so the chips don't float without anchor */}
+            <div className="rounded-2xl border border-border/40 bg-muted/20 px-3 py-2.5 backdrop-blur-sm">
+              <ul className="flex flex-wrap items-center gap-1.5">
+                {ANGLE_IDS.map((id) => {
+                  const active = wizard.state.angleId === id;
+                  const label = ANGLE_CHIP_LABEL[id] ?? id;
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleAngle(id)}
+                        aria-pressed={active}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                          active
+                            ? "border-primary/50 bg-primary/10 text-primary"
+                            : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </section>
 
           {/* Trending concepts — vertical grid (more space available, easier to scan) */}
@@ -227,9 +269,35 @@ export function AlphaStep3Configure({ wizard, studioMode }: AlphaStep3Props) {
             </ul>
           </section>
         </div>
-        {/* Right: ContextRail */}
-        <div className="hidden w-[280px] shrink-0 xl:block">
-          <ContextRail wizard={wizard} studioMode={studioMode} />
+        {/* Right: ContextRail — collapsible */}
+        <div
+          className={cn(
+            "hidden shrink-0 transition-all xl:block",
+            railOpen ? "w-[300px]" : "w-10",
+          )}
+        >
+          {railOpen ? (
+            <ContextRail
+              wizard={wizard}
+              studioMode={studioMode}
+              onCollapse={() => setRailOpen(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRailOpen(true)}
+              className="flex h-full w-full flex-col items-center gap-2 rounded-3xl border border-border/40 bg-card/60 py-4 backdrop-blur-xl transition-colors hover:border-foreground/20 hover:bg-card/80"
+              aria-label="Show overview"
+            >
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+              <span
+                className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                style={{ writingMode: "vertical-rl" }}
+              >
+                Overview
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -405,7 +473,7 @@ function PromptSuggestions({
   return (
     <div className="flex items-center gap-2">
       <span className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Try
+        Suggestions
       </span>
       <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         {suggestions.map((s) => (

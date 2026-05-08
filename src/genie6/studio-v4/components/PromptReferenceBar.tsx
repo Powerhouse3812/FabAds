@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import {
-  AlertTriangle,
   BookOpen,
   ChevronDown,
   Database,
@@ -233,28 +232,13 @@ export function PromptReferenceBar({
               />
               {state.useKnowledgeBase &&
                 (() => {
-                  const angleLabel = state.angleId
-                    ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-                    : null;
                   const currentInstruction = findInstructionForAngle(
                     state.angleId,
                     state.customKbInstructions,
                   );
-                  // Warning state — angle picked but no instruction covers it.
-                  if (state.angleId && !currentInstruction) {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => onChipOpen?.("kb-instruction")}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-50/40 px-2.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-100/60 dark:border-amber-500/30 dark:bg-amber-500/[0.08] dark:text-amber-400 dark:hover:bg-amber-500/[0.12]"
-                        title={`No Knowledge Base instruction for ${angleLabel} — click to create one`}
-                      >
-                        <AlertTriangle className="h-3 w-3" />
-                        No {angleLabel} instruction · Create
-                      </button>
-                    );
-                  }
-                  // Using state — show which instruction is active.
+                  // Using state — show which instruction is active. Warning
+                  // for the unmatched case lives below the prompt bar in
+                  // AlphaStep3Configure so this chip row stays compact.
                   if (currentInstruction) {
                     return (
                       <span
@@ -306,9 +290,9 @@ export function PromptReferenceBar({
               <button
                 type="button"
                 aria-label="Attach reference"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/40 text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-4 w-4" />
               </button>
             </AttachPopover>
 

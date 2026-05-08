@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
@@ -14,6 +14,7 @@ import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 interface ContextRailProps {
   wizard: UseWizardReturn;
   studioMode?: AlphaMode;
+  onCollapse?: () => void;
 }
 
 function modeLabel(m: AlphaMode | undefined): string {
@@ -71,7 +72,7 @@ function KVRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ContextRail({ wizard, studioMode }: ContextRailProps) {
+export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps) {
   const { state } = wizard;
 
   const selectedProduct = ALL_PRODUCTS.find((p) => p.id === state.productId);
@@ -83,16 +84,16 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
       ? (ALL_CATEGORIES.find((c) => c.id === state.categoryId)?.name ?? "—")
       : "—");
 
-  const approachLabel =
-    state.mode === "scratch"
-      ? "Custom"
-      : state.mode === "ugc-video"
-        ? "UGC Video"
+  const formatLabel =
+    state.format === "image"
+      ? "Image"
+      : state.format === "video"
+        ? "Video"
         : "—";
 
-  const promptSnippet = state.prompt
-    ? state.prompt.slice(0, 80) + (state.prompt.length > 80 ? "…" : "")
-    : "—";
+  const angleLabel = state.angleId
+    ? (ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId)
+    : null;
 
   const otherProducts = ALL_PRODUCTS.filter(
     (p) =>
@@ -104,27 +105,33 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden overflow-y-auto rounded-3xl border border-border/40 bg-card/60 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.25)]">
 
-      {/* 1. Run Details — open by default */}
-      <Section label="Run Details" defaultOpen>
-        <KVRow label="Mode" value={modeLabel(studioMode)} />
-        <KVRow
-          label="Format"
-          value={
-            state.format === "image"
-              ? "Image"
-              : state.format === "video"
-                ? "Video"
-                : "—"
-          }
-        />
-        <KVRow label="Product" value={productName} />
-        <KVRow label="Approach" value={approachLabel} />
-        <KVRow label="Model" value={state.modelId} />
-        <KVRow label="Outputs" value={String(state.credits)} />
-        <KVRow label="Prompt" value={promptSnippet} />
-      </Section>
+      {/* Header — title + collapse button */}
+      <div className="flex items-center justify-between border-b border-border/40 px-3 py-2.5">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
+          Overview
+        </span>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Collapse overview"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
 
-      {/* 2. Brand — collapsed */}
+      {/* Always-visible compact summary — scan-friendly key/value rows */}
+      <div className="space-y-1 border-b border-border/40 px-3 py-3 text-[11px]">
+        <KVRow label="Mode" value={modeLabel(studioMode)} />
+        <KVRow label="Format" value={formatLabel} />
+        <KVRow label="Brand" value={brand?.name ?? "—"} />
+        <KVRow label="Product" value={productName} />
+        <KVRow label="Angle" value={angleLabel ?? "—"} />
+      </div>
+
+      {/* Brand — collapsed */}
       <Section label="Brand">
         {brand ? (
           <>
@@ -166,7 +173,7 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
         )}
       </Section>
 
-      {/* 3. Product — collapsed */}
+      {/* Product — collapsed */}
       <Section label="Product">
         {selectedProduct ? (
           <>
@@ -190,7 +197,7 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
         )}
       </Section>
 
-      {/* 4. Related Products — collapsed */}
+      {/* Related Products — collapsed */}
       <Section label="Related Products">
         {otherProducts.length > 0 ? (
           otherProducts.map((p) => (
@@ -206,12 +213,9 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
         )}
       </Section>
 
-      {/* 5. Knowledge Base — active instruction or warning if uncovered. */}
+      {/* Knowledge Base — active instruction or warning if uncovered. */}
       <Section label="Knowledge Base">
         {(() => {
-          const angleLabel = state.angleId
-            ? (ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId)
-            : null;
           const currentInstruction = findInstructionForAngle(
             state.angleId,
             state.customKbInstructions,
@@ -263,6 +267,19 @@ export function ContextRail({ wizard, studioMode }: ContextRailProps) {
             </p>
           );
         })()}
+      </Section>
+
+      {/* Winner Ads — stub placeholder for upcoming feature */}
+      <Section label="Winner Ads">
+        <div className="flex items-start gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Coming soon
+          </span>
+        </div>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">
+          Top-performing creatives for this brand and product will appear here
+          once the winner-ads feed is connected.
+        </p>
       </Section>
 
     </div>
