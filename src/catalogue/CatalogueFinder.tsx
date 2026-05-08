@@ -17,7 +17,7 @@ import type {
   Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
-import { BrandDetail, ProductDetail } from "./CatalogueDetailPage";
+import { BrandDetail, CategoryDetail, ProductDetail } from "./CatalogueDetailPage";
 
 type CatalogueType =
   | "categories"
@@ -245,10 +245,10 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         </aside>
 
         {/* PANE 2 — sections.
-            A-12.42-43 (Maalik): pane-2 sub-nav removed for brands AND products
-            — BrandDetail / ProductDetail's own 6-tab strip in pane 3 is the
-            only nav. Other entity types still render pane 2. */}
-        {type !== "brands" && type !== "products" && (isLoading || selectedId) && (
+            A-12.42-45 (Maalik): pane-2 sub-nav removed for brands, products,
+            AND categories — each detail component carries its own tab strip
+            in pane 3. Other entity types still render pane 2. */}
+        {type !== "brands" && type !== "products" && type !== "categories" && (isLoading || selectedId) && (
           <aside className="w-[280px] flex-shrink-0 border-r border-border flex flex-col">
             {isLoading ? (
               <Pane2Skeleton />
@@ -739,27 +739,18 @@ function BrandSectionView({ brandId, section }: { brandId: string; section: stri
 }
 
 function CategorySectionView({ categoryId, section }: { categoryId: string; section: string }) {
+  const navigate = useNavigate();
   const cat = categories.find((c) => c.id === categoryId);
   if (!cat) return <Empty>Category not found</Empty>;
 
+  // A-12.45 (Maalik): Category "overview" pane-3 now renders the full 7-tab
+  // CategoryDetail (Overview / KB / Winners / Library / Activity / Brands /
+  // Products). Replaces the legacy name+icon+kb-instruction stub.
   if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Tag className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">{cat.name}</h2>
-            <p className="text-xs text-muted-foreground">{cat.feedbackCount} feedback · {cat.winnerCount} winners</p>
-          </div>
-        </div>
-        <Section title="KB instruction"><p className="text-sm text-foreground">{cat.instruction}</p></Section>
-      </div>
-    );
+    return <CategoryDetail category={cat} navigate={navigate} embedded />;
   }
   if (section === "kb") {
-    return <div className="p-6"><Empty>Knowledge Base · stub. Category-level KB editor ships next sprint.</Empty></div>;
+    return <div className="p-6"><Empty>Knowledge Base · use the &quot;Knowledge Base&quot; tab inside Overview for the full KB editor.</Empty></div>;
   }
   if (section === "references") {
     return <div className="p-6"><Empty>Reference URLs · stub. Curated reference list ships next sprint.</Empty></div>;

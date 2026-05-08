@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
   BookOpen,
+  ChevronRight,
   ExternalLink,
   GalleryHorizontal,
   History,
@@ -51,7 +52,7 @@ import {
   type KbConcept,
   type ReferenceUrl,
 } from "@/mocks/shared";
-import type { Avatar, Brand, Category, Product } from "@/genie6/types/entities";
+import type { Audience, Avatar, Brand, Category, Product } from "@/genie6/types/entities";
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import {
   ACTIVITY_LOG,
@@ -114,36 +115,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   if (type === "categories") {
     const cat = categories.find((c) => c.id === id);
     if (!cat) return <NotFound type={type} navigate={navigate} />;
-    const linkedProducts = products.filter((p) => p.categoryId === cat.id);
-    const linkedBrands = brands.filter((b) => b.categoryIds?.includes(cat.id));
-    return (
-      <Shell type={type} title={cat.name} subtitle={`${linkedBrands.length} brands · ${linkedProducts.length} products`} icon={<Tag className="h-5 w-5" />}>
-        <Section title="KB instruction"><p className="text-sm text-foreground">{cat.instruction}</p></Section>
-        <Section title={`Brands · ${linkedBrands.length}`}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {linkedBrands.map((b) => (
-              <Link key={b.id} to={`/catalogue/brands/${b.id}`}
-                className="flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40">
-                {b.logo && <img src={b.logo} alt="" className="h-5 w-5 rounded" />}
-                <span className="truncate">{b.name}</span>
-              </Link>
-            ))}
-          </div>
-        </Section>
-        <Section title={`Products · ${linkedProducts.length}`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {linkedProducts.map((p) => (
-              <Link key={p.id} to={`/catalogue/products/${p.id}`}
-                className="rounded-lg border border-border p-3 text-sm hover:border-primary/40">
-                <p className="font-medium text-foreground line-clamp-1">{p.name}</p>
-                <p className="text-xs text-muted-foreground font-mono">{p.price}</p>
-              </Link>
-            ))}
-          </div>
-        </Section>
-        <KnowledgeBaseSection entityType="category" entityId={cat.id} entityLabel="category" />
-      </Shell>
-    );
+    return <CategoryDetail category={cat} navigate={navigate} />;
   }
 
   if (type === "audiences") {
@@ -2120,6 +2092,677 @@ function ProductVariantsPanel({
               </div>
             </li>
           ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Category Detail — A-12.45
+ *
+ * Mirrors Brand/Product but shaped for an aggregator entity. Tabs:
+ *   Overview · KB · Winners · Library · Activity · Brands · Products
+ *
+ * Hero: brand logo montage (top 4-5 overlapped) + name + counts +
+ *       similar-categories chips row (compact, always visible).
+ * Overview tab (Maalik Q2.b): Description + Reference URLs +
+ *       Aggregated patterns (top voice tones, top USPs, top audience
+ *       tags) computed across linked brands.
+ * Brands tab (Maalik Q3.iii): same row pattern as Finder pane-1.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+type CategoryTabKey =
+  | "overview"
+  | "kb"
+  | "winners"
+  | "library"
+  | "activity"
+  | "brands"
+  | "products";
+
+export function CategoryDetail({
+  category,
+  navigate,
+  embedded = false,
+}: {
+  category: Category;
+  navigate: ReturnType<typeof useNavigate>;
+  embedded?: boolean;
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab") as CategoryTabKey | null;
+  const tab: CategoryTabKey =
+    tabParam &&
+    ["overview", "kb", "winners", "library", "activity", "brands", "products"].includes(
+      tabParam,
+    )
+      ? tabParam
+      : "overview";
+  const setTab = (next: CategoryTabKey) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === "overview") sp.delete("tab");
+        else sp.set("tab", next);
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+
+  const linkedBrands = brands.filter((b) =>
+    b.categoryIds?.includes(category.id),
+  );
+  const linkedProducts = products.filter((p) => p.categoryId === category.id);
+  const linkedProductNames = new Set(linkedProducts.map((p) => p.name));
+  const linkedAudiences = audiences.filter(
+    (a) => a.brandId && linkedBrands.some((b) => b.id === a.brandId),
+  );
+  const similarCategories = category.similarCategoryIds
+    .map((id) => categories.find((c) => c.id === id))
+    .filter((c): c is Category => Boolean(c));
+
+  const winnersCount = getWinnerAdsForEntity("category", category.id).length;
+  const libraryCount = sampleOutputs.filter(
+    (o) => o.product?.name && linkedProductNames.has(o.product.name),
+  ).length;
+  const activityCount = ACTIVITY_LOG.filter(
+    (e) => e.entityType === "category" && e.entityId === category.id,
+  ).length;
+  const kbInstrCount = (() => {
+    const { main, custom } = getInstructionsForEntity("category", category.id);
+    return (main ? 1 : 0) + custom.length;
+  })();
+
+  const tabs: { key: CategoryTabKey; label: string; count?: number }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "kb", label: "Knowledge Base", count: kbInstrCount },
+    { key: "winners", label: "Winner Ads", count: winnersCount },
+    { key: "library", label: "Library", count: libraryCount },
+    { key: "activity", label: "Activity", count: activityCount },
+    { key: "brands", label: "Brands", count: linkedBrands.length },
+    { key: "products", label: "Products", count: linkedProducts.length },
+  ];
+
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col gap-6",
+        embedded
+          ? "p-5"
+          : "v3-page-mesh mx-auto max-w-6xl px-6 pt-6 pb-10",
+      )}
+    >
+      {!embedded && (
+        <button
+          type="button"
+          onClick={() => navigate("/catalogue/categories")}
+          className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3 w-3" />
+          Back to Categories
+        </button>
+      )}
+
+      <CategoryHero
+        category={category}
+        linkedBrands={linkedBrands}
+        linkedProducts={linkedProducts}
+        similarCategories={similarCategories}
+      />
+
+      <div className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5 self-start">
+        {tabs.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                active
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t.label}
+              {typeof t.count === "number" && t.count > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
+                    active
+                      ? "bg-primary/20 text-primary"
+                      : "bg-foreground/[0.08] text-foreground",
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div>
+        {tab === "overview" && (
+          <CategoryOverviewPanel
+            category={category}
+            linkedBrands={linkedBrands}
+            linkedAudiences={linkedAudiences}
+          />
+        )}
+        {tab === "kb" && (
+          <KnowledgeBaseSection
+            entityType="category"
+            entityId={category.id}
+            entityLabel="category"
+          />
+        )}
+        {tab === "winners" && <CategoryWinnersPanel categoryId={category.id} />}
+        {tab === "library" && (
+          <CategoryLibraryPanel productNames={linkedProductNames} />
+        )}
+        {tab === "activity" && (
+          <CategoryActivityPanel categoryId={category.id} />
+        )}
+        {tab === "brands" && <CategoryBrandsPanel brands={linkedBrands} />}
+        {tab === "products" && (
+          <CategoryProductsPanel
+            products={linkedProducts}
+            brands={linkedBrands}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CategoryHero({
+  category,
+  linkedBrands,
+  linkedProducts,
+  similarCategories,
+}: {
+  category: Category;
+  linkedBrands: Brand[];
+  linkedProducts: Product[];
+  similarCategories: Category[];
+}) {
+  const montage = linkedBrands.slice(0, 5);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+      <div className="flex items-start gap-4">
+        {montage.length > 0 ? (
+          <div className="flex shrink-0 items-center">
+            {montage.map((b, i) => (
+              <img
+                key={b.id}
+                src={b.logo}
+                alt={b.name}
+                title={b.name}
+                className="h-12 w-12 rounded-xl border-2 border-card bg-background object-contain p-1"
+                style={{
+                  marginLeft: i === 0 ? 0 : -14,
+                  zIndex: montage.length - i,
+                }}
+              />
+            ))}
+            {linkedBrands.length > montage.length && (
+              <span
+                className="ml-2 inline-flex h-12 items-center rounded-full bg-muted/60 px-2.5 font-mono text-[10px] font-bold uppercase tracking-wider text-foreground"
+                style={{ zIndex: 0 }}
+              >
+                +{linkedBrands.length - montage.length}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted">
+            <Tag className="h-5 w-5 text-muted-foreground" />
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1 space-y-1">
+          <h1 className="text-xl font-bold text-foreground">{category.name}</h1>
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+            <span>{linkedBrands.length} brands</span>
+            <span>·</span>
+            <span>{linkedProducts.length} products</span>
+            {category.winnerCount > 0 && (
+              <>
+                <span>·</span>
+                <span>{category.winnerCount} winners</span>
+              </>
+            )}
+            {category.feedbackCount > 0 && (
+              <>
+                <span>·</span>
+                <span>{category.feedbackCount} feedback</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {similarCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border/40 pt-2.5">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+            Similar
+          </span>
+          {similarCategories.map((c) => (
+            <Link
+              key={c.id}
+              to={`/catalogue/categories/${c.id}`}
+              className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-primary/15 hover:text-primary"
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryOverviewPanel({
+  category,
+  linkedBrands,
+  linkedAudiences,
+}: {
+  category: Category;
+  linkedBrands: Brand[];
+  linkedAudiences: Audience[];
+}) {
+  const toneCounts = new Map<string, number>();
+  linkedBrands.forEach((b) => {
+    if (b.tone) toneCounts.set(b.tone, (toneCounts.get(b.tone) ?? 0) + 1);
+  });
+  const topTones = [...toneCounts.entries()]
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([t]) => t);
+
+  const uspCounts = new Map<string, number>();
+  linkedBrands.forEach((b) =>
+    b.usps.forEach((u) => uspCounts.set(u, (uspCounts.get(u) ?? 0) + 1)),
+  );
+  const topUsps = [...uspCounts.entries()]
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4)
+    .map(([u]) => u);
+
+  const audienceLabels = [...new Set(linkedAudiences.map((a) => a.label))].slice(
+    0,
+    4,
+  );
+
+  return (
+    <div className="space-y-5">
+      <GuidelinesCard title="Description" icon={BookOpen}>
+        <p className="text-[13px] leading-relaxed text-foreground">
+          {category.instruction}
+        </p>
+      </GuidelinesCard>
+
+      <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+        <div className="mb-3 flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3 text-muted-foreground" />
+          <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
+            Aggregated patterns · across {linkedBrands.length} brands
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="space-y-1.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              Top voice tones
+            </p>
+            {topTones.length === 0 ? (
+              <p className="text-[11px] italic text-muted-foreground">
+                No tone data yet.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {topTones.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-foreground"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              Top USPs
+            </p>
+            {topUsps.length === 0 ? (
+              <p className="text-[11px] italic text-muted-foreground">
+                No USPs yet.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {topUsps.map((u) => (
+                  <span
+                    key={u}
+                    className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-foreground"
+                  >
+                    {u}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              Top audiences
+            </p>
+            {audienceLabels.length === 0 ? (
+              <p className="text-[11px] italic text-muted-foreground">
+                No audiences linked.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {audienceLabels.map((a) => (
+                  <span
+                    key={a}
+                    className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-foreground"
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {category.referenceUrls.length > 0 && (
+        <GuidelinesCard
+          title={`Reference URLs · ${category.referenceUrls.length}`}
+          icon={Link2}
+        >
+          <ul className="space-y-1">
+            {category.referenceUrls.map((url) => (
+              <li key={url}>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 truncate text-[12px] text-primary hover:underline"
+                >
+                  {shortUrl(url)}
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </GuidelinesCard>
+      )}
+    </div>
+  );
+}
+
+function CategoryWinnersPanel({ categoryId }: { categoryId: string }) {
+  const seedWinners = getWinnerAdsForEntity("category", categoryId);
+  const savedWinners = useSavedWinnersForEntity("category", categoryId);
+  const winners = [...seedWinners, ...savedWinners];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title={`Winner ads · ${winners.length}`}
+          icon={Trophy}
+        />
+        <button
+          type="button"
+          onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          Add winner ad
+        </button>
+      </div>
+      {winners.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            Upload winner ads to teach Genie what works in this category.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {winners.map((w) => (
+            <WinnerAdCard key={w.id} ad={w} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CategoryLibraryPanel({
+  productNames,
+}: {
+  productNames: Set<string>;
+}) {
+  const generations = sampleOutputs.filter(
+    (o) => o.product?.name && productNames.has(o.product.name),
+  );
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <SectionHeader
+          title={`Library · ${generations.length}`}
+          icon={GalleryHorizontal}
+          hint="all generations across this category's products"
+        />
+        <Link
+          to="/iq/genie6/library"
+          className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          View all →
+        </Link>
+      </div>
+      {generations.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No generations yet for this category.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {generations.slice(0, 24).map((o) => (
+            <li key={o.id}>
+              <div className="overflow-hidden rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  {o.thumbnail ? (
+                    <img src={o.thumbnail} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Sparkles className="h-5 w-5 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+                <p className="line-clamp-2 px-2 py-1.5 text-[11px] font-medium leading-tight text-foreground">
+                  {o.headline ?? "Untitled"}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function CategoryActivityPanel({ categoryId }: { categoryId: string }) {
+  const log = getActivityLogForEntity("category", categoryId);
+  return (
+    <div className="space-y-3">
+      <SectionHeader
+        title={`Activity · ${log.length}`}
+        icon={History}
+        hint="audit log of edits, saves, and runs"
+      />
+      {log.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No activity yet for this category.
+          </p>
+        </div>
+      ) : (
+        <ol className="space-y-2">
+          {log.map((entry) => {
+            const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
+            return (
+              <li
+                key={entry.id}
+                className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
+                  <Icon className="h-3.5 w-3.5 text-foreground/65" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-foreground">
+                    {entry.summary}
+                  </p>
+                  {entry.detail && (
+                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">
+                      {entry.detail}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
+                    {entry.actor}
+                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground/60">
+                    {formatActivityAge(entry.at)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** Q3.iii: Brand row mirroring Finder's pane-1 visual pattern. */
+function CategoryBrandsPanel({ brands: list }: { brands: Brand[] }) {
+  return (
+    <div className="space-y-3">
+      <SectionHeader title={`Brands · ${list.length}`} icon={Building2} />
+      {list.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No brands linked to this category yet.
+          </p>
+        </div>
+      ) : (
+        <ul className="overflow-hidden rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm">
+          {list.map((b, i) => {
+            const productCount = products.filter(
+              (p) => p.brandId === b.id,
+            ).length;
+            return (
+              <li
+                key={b.id}
+                className={cn(i > 0 && "border-t border-border/40")}
+              >
+                <Link
+                  to={`/catalogue/brands/${b.id}`}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 transition-colors hover:bg-primary/10"
+                >
+                  <img
+                    src={b.logo}
+                    alt={b.name}
+                    className="h-6 w-6 shrink-0 rounded-md bg-muted object-contain"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-foreground">
+                      {b.name}
+                    </p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {b.domain} · {productCount} products
+                    </p>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function CategoryProductsPanel({
+  products: list,
+  brands: brandList,
+}: {
+  products: Product[];
+  brands: Brand[];
+}) {
+  const brandById = new Map(brandList.map((b) => [b.id, b]));
+  return (
+    <div className="space-y-3">
+      <SectionHeader title={`Products · ${list.length}`} icon={Package} />
+      {list.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+          <p className="text-[12px] italic text-muted-foreground">
+            No products yet in this category.
+          </p>
+        </div>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {list.map((p) => {
+            const brand = brandById.get(p.brandId);
+            return (
+              <li key={p.id}>
+                <Link
+                  to={`/catalogue/products/${p.id}`}
+                  className="group relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card/60 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+                >
+                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                    {p.thumbnail ? (
+                      <img
+                        src={p.thumbnail}
+                        alt={p.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-full w-full items-center justify-center text-2xl text-white/80"
+                        style={{ background: brand?.colors[0] ?? "#888" }}
+                      >
+                        {p.name.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-0.5 px-2 py-2">
+                    <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
+                      {p.name}
+                    </p>
+                    <div className="flex items-center justify-between gap-1.5 font-mono text-[10px] text-muted-foreground">
+                      {brand && <span className="truncate">{brand.name}</span>}
+                      {p.price && (
+                        <span className="text-foreground">{p.price}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
