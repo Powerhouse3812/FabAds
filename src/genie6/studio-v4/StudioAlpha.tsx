@@ -57,6 +57,16 @@ function readUrlIntoState(
   if (bg === "off") patch.useBrandGuidelines = false;
   const kb = searchParams.get("kb");
   if (kb === "off") patch.useKnowledgeBase = false;
+  // A-12.52 (Maalik): ?demo=1 seeds a full sample-result shape — 4 concept
+  // rows × 4 variations = 16 outputs. Used to deliver shareable sample-result
+  // URLs for HTML.to.design captures + design reviews.
+  if (searchParams.get("demo") === "1") {
+    patch.selectedConceptIds = ["c-hero", "c-lifestyle", "c-social-proof", "c-unboxing"];
+    patch.count = 4;
+    patch.credits = 16;
+    if (!patch.angleId) patch.angleId = "hero";
+    if (!patch.format) patch.format = "image";
+  }
   return patch;
 }
 
@@ -144,15 +154,22 @@ export function StudioAlpha() {
   };
 
   // Step 5 — generation done flag + regen counter.
-  const [step5Done, setStep5Done] = useState(false);
+  // A-12.52: when ?demo=1 is present, skip the 2.5s loader entirely — sample
+  // URLs render the finished state immediately for HTML.to.design captures.
+  const isDemoMode = searchParams.get("demo") === "1";
+  const [step5Done, setStep5Done] = useState(isDemoMode);
   const [step5Key, setStep5Key] = useState(0);
 
   useEffect(() => {
     if (state.step !== 5) return;
+    if (isDemoMode) {
+      setStep5Done(true);
+      return;
+    }
     setStep5Done(false);
     const t = setTimeout(() => setStep5Done(true), 2500);
     return () => clearTimeout(t);
-  }, [state.step, step5Key]);
+  }, [state.step, step5Key, isDemoMode]);
 
   // URL → wizard.state.step + phase sync (on mount + URL changes from Back/Forward).
   // A-12.47 (Maalik): also sync state.step IMMEDIATELY here on first mount so
