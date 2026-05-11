@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   BookOpen,
   ChevronDown,
@@ -61,9 +60,24 @@ function modeLabel(m: AlphaMode | undefined): string | null {
  * ──────────────────────────────────────────────────────────────────────── */
 export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps) {
   const { state } = wizard;
-  // Default OPEN — the rail is already opt-in (rail itself is collapsible).
-  // Once a user opens the rail they want the full context, not a teaser.
-  const [moreOpen, setMoreOpen] = useState(true);
+  // A-12.51 (Maalik): "More details" accordion state is URL-backed via
+  // ?more=closed (default = open). Mirrors the ?rail=closed pattern so a
+  // hard refresh / HTML.to.design capture restores the exact accordion
+  // state the user was viewing.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const moreOpen = searchParams.get("more") !== "closed";
+  const setMoreOpen = (next: boolean | ((v: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(moreOpen) : next;
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (resolved) sp.delete("more");
+        else sp.set("more", "closed");
+        return sp;
+      },
+      { replace: true },
+    );
+  };
 
   const selectedProduct = ALL_PRODUCTS.find((p) => p.id === state.productId);
   // A-12.46: brand resolution now falls back to state.brandId when no product
