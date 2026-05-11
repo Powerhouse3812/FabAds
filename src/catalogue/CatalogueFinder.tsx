@@ -89,12 +89,31 @@ const TYPE_CONFIG: Record<
 export function CatalogueFinder({ type }: { type: CatalogueType }) {
   const cfg = TYPE_CONFIG[type];
   const Icon = cfg.icon;
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isLoading = searchParams.get("loading") === "1";
-  const [query, setQuery] = useState("");
+  // A-12.46 (Maalik): pane-1 search query is URL-backed via ?q= so HTML.to.design
+  // captures + hard refreshes preserve the typed-in filter exactly.
+  const query = searchParams.get("q") ?? "";
+  const setQuery = (value: string) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (value) sp.set("q", value);
+        else sp.delete("q");
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+  // A-12.46 (Maalik): pane-1 selection for non-B/P/C entities is URL-backed via
+  // ?selected=. Brand/product/category own selection via the route param, so
+  // they keep their existing first-entity fallback and ignore ?selected.
+  const isRouteOwned = type === "brands" || type === "products" || type === "categories";
+  const urlSelected = searchParams.get("selected");
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     if (type === "brands") return brands[0]?.id ?? null;
     if (type === "categories") return categories[0]?.id ?? null;
+    if (!isRouteOwned && urlSelected) return urlSelected;
     if (type === "audiences") return audiences[0]?.id ?? null;
     if (type === "angles") return angles[0]?.id ?? null;
     if (type === "hooks") return hooks[0]?.id ?? null;
@@ -181,6 +200,19 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
     setSelectedId(id);
     setSection("overview");
     setChildId(null);
+    // Mirror selection into the URL for non-route-owned types so HTML.to.design
+    // captures preserve which entity is active in pane-1 after a hard refresh.
+    if (!isRouteOwned) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (id) sp.set("selected", id);
+          else sp.delete("selected");
+          return sp;
+        },
+        { replace: true },
+      );
+    }
   };
 
   const handleSelectSection = (s: string) => {

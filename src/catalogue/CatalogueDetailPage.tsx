@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -466,7 +465,27 @@ function KnowledgeBaseSection({
   entityId: KbEntityId;
   entityLabel: string;
 }) {
-  const [createKind, setCreateKind] = useState<KbCreateKind | null>(null);
+  // URL-backed modal state so HTML.to.design captures + hard refresh preserve
+  // the open modal. ?create=instruction|winner-ad|concept. replace:false so
+  // browser Back closes the modal (matches Step2Product pattern, c9101b2).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const VALID_KINDS: KbCreateKind[] = ["instruction", "winner-ad", "concept"];
+  const urlCreate = searchParams.get("create");
+  const createKind: KbCreateKind | null =
+    urlCreate && VALID_KINDS.includes(urlCreate as KbCreateKind)
+      ? (urlCreate as KbCreateKind)
+      : null;
+  const setCreateKind = (next: KbCreateKind | null) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === null) sp.delete("create");
+        else sp.set("create", next);
+        return sp;
+      },
+      { replace: false },
+    );
+  };
 
   // Saved items live in the global saved-store — surfaces here AND in
   // ConceptsLibrary AND ContextRail without prop-drilling.
