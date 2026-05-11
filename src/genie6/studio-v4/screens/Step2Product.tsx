@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Building2,
@@ -212,22 +213,64 @@ const TOP_CATEGORIES = [...ALL_CATEGORIES]
   .slice(0, 30);
 
 export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
-  const [tab, setTab] = useState<Tab>(
-    wizard.state.productId
-      ? "product"
-      : wizard.state.categoryId
-        ? "category"
-        : "brand",
-  );
+  // A-12.49 (Maalik): tab + the 3 picker popovers are URL-backed so a hard
+  // refresh / deep link restores the exact UI state, and HTML.to.design
+  // captures pick up the same screen the user was on.
+  //
+  //   ?step-tab     = brand | product | category   (active sub-tab)
+  //   ?brand-picker = open                          (brand filter popover)
+  //   ?industry-picker = open                       (industry filter popover)
+  //   ?url-fetch    = open                          (URL fetch popover)
+  //
+  // Picker opens use replace:false → browser Back closes the picker first.
+  // Tab switching uses replace:true → no history clutter.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("step-tab");
+  const tab: Tab =
+    urlTab === "product" || urlTab === "category" || urlTab === "brand"
+      ? urlTab
+      : wizard.state.productId
+        ? "product"
+        : wizard.state.categoryId
+          ? "category"
+          : "brand";
+  const setTab = (next: Tab) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === "brand") sp.delete("step-tab");
+        else sp.set("step-tab", next);
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+
+  const makePopoverUrlState = (key: string) => {
+    const open = searchParams.get(key) === "open";
+    const setOpen = (next: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next) sp.set(key, "open");
+          else sp.delete(key);
+          return sp;
+        },
+        { replace: false },
+      );
+    };
+    return [open, setOpen] as const;
+  };
+
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState<string | null>(null);
   const [brandSearch, setBrandSearch] = useState("");
-  const [brandOpen, setBrandOpen] = useState(false);
+  const [brandOpen, setBrandOpen] = makePopoverUrlState("brand-picker");
   // Industry filter (Brand tab) — distinct values pulled from brands[].category
   const [industryFilter, setIndustryFilter] = useState<string | null>(null);
   const [industrySearch, setIndustrySearch] = useState("");
-  const [industryOpen, setIndustryOpen] = useState(false);
-  const [urlOpen, setUrlOpen] = useState(false);
+  const [industryOpen, setIndustryOpen] = makePopoverUrlState("industry-picker");
+  const [urlOpen, setUrlOpen] = makePopoverUrlState("url-fetch");
   const [urlInput, setUrlInput] = useState("");
   const [fetching, setFetching] = useState(false);
   const [showFetchModal, setShowFetchModal] = useState(false);
