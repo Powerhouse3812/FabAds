@@ -64,23 +64,24 @@ type CarouselCtx = {
 const Ctx = createContext<CarouselCtx | null>(null);
 
 export function WelcomeCarouselProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setOpen] = useState(false);
-
-  const hasBeenSeen = useCallback(() => {
-    if (typeof window === "undefined") return true;
-    return Boolean(window.localStorage.getItem(STORAGE_KEY));
-  }, []);
-
-  const open = useCallback(() => setOpen(true), []);
-  const close = useCallback(() => {
-    setOpen(false);
-    window.localStorage.setItem(STORAGE_KEY, "1");
-  }, []);
+  // A-12.46 (Maalik): WelcomeCarousel disabled entirely. The onboarding
+  // overlay was leaking into every screen capture (HTMLtoDesign / Figma
+  // plugin imports) and adds no value during active design iteration.
+  //
+  // Provider + hook kept so any callers (HelpIcon, future help triggers)
+  // still compile and just no-op. `open()` is a no-op, `isOpen` stays
+  // false, the Dialog is never rendered.
+  //
+  // Re-enable later by restoring the body of this provider from git
+  // history before this commit.
+  const noop = useCallback(() => {}, []);
+  const hasBeenSeen = useCallback(() => true, []);
 
   return (
-    <Ctx.Provider value={{ isOpen, open, close, hasBeenSeen }}>
+    <Ctx.Provider
+      value={{ isOpen: false, open: noop, close: noop, hasBeenSeen }}
+    >
       {children}
-      <WelcomeCarouselDialog isOpen={isOpen} onClose={close} />
     </Ctx.Provider>
   );
 }
