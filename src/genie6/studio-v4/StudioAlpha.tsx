@@ -61,6 +61,21 @@ export function StudioAlpha() {
   const [phase, setPhase] = useState<AlphaPhase>(() => (params.step ? "wizard" : "home"));
   const [homeMode, setHomeMode] = useState<AlphaMode | null>("product-ad");
 
+  // A-12.48 (Maalik): derive the render step DIRECTLY from URL on every render
+  // (not just from `state.step`). This guarantees first-paint correctness when
+  // the page is deep-linked — HTML.to.design plugin captures the synchronous
+  // initial paint, and useEffect-driven step sync was firing too late for the
+  // capture window. state.step still gets reconciled via the URL → state effect
+  // below (so other consumers like AlphaProgressIndicator + ContextRail stay
+  // consistent on second paint), but the active step component is picked from
+  // the URL-derived step right from render 0.
+  const urlStep =
+    params.step && SLUG_TO_STEP[params.step]
+      ? SLUG_TO_STEP[params.step]
+      : null;
+  const renderStep =
+    phase === "wizard" ? (urlStep ?? state.step) : state.step;
+
   // Global rail open/closed ↔ URL (?rail=closed; default = open).
   const railOpen = searchParams.get("rail") !== "closed";
   const setRailOpen = (next: boolean) => {
@@ -158,8 +173,9 @@ export function StudioAlpha() {
 
   // Stepper: AlphaStep is 1-4 (Format/Product/Approach/Configure).
   // Step 5 (Results) hides the stepper entirely.
-  const alphaStep = Math.min(state.step, 4) as AlphaStep;
-  const showStepper = state.step <= 4;
+  // Uses renderStep so the stepper highlight matches the screen on deep-link.
+  const alphaStep = Math.min(renderStep, 4) as AlphaStep;
+  const showStepper = renderStep <= 4;
 
   return (
     <div className="v3-page-mesh flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
@@ -201,19 +217,19 @@ export function StudioAlpha() {
           <div className="relative flex min-h-0 flex-1">
             {/* Main step content — scrollable */}
             <main className="min-h-0 flex-1 overflow-y-auto">
-              {state.step === 1 && (
+              {renderStep === 1 && (
                 <AlphaStep1Format wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
               )}
-              {state.step === 2 && (
+              {renderStep === 2 && (
                 <Step2Product wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
               )}
-              {state.step === 3 && (
+              {renderStep === 3 && (
                 <Step3Approach wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
               )}
-              {state.step === 4 && (
+              {renderStep === 4 && (
                 <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} onBack={handleBack} />
               )}
-              {state.step === 5 && (
+              {renderStep === 5 && (
                 <Step5Results
                   wizard={wizard}
                   done={step5Done}
