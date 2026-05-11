@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, PanelRightOpen } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
@@ -87,24 +87,37 @@ export function StudioAlpha() {
   }, [state.step, step5Key]);
 
   // URL → wizard.state.step + phase sync (on mount + URL changes from Back/Forward).
+  // A-12.47 (Maalik): also sync state.step IMMEDIATELY here on first mount so
+  // the state→URL effect below doesn't race and override the URL back to /format.
+  // Bug was: deep-linked /studio-alpha/product loaded with state.step=1, the
+  // state→URL effect fired first and forced URL → /format, masking Step 2-5.
+  const urlSyncedRef = useRef(false);
   useEffect(() => {
     if (!params.step) {
       if (phase !== "home") setPhase("home");
+      urlSyncedRef.current = true;
       return;
     }
     const targetStep = SLUG_TO_STEP[params.step];
-    if (!targetStep) return;
+    if (!targetStep) {
+      urlSyncedRef.current = true;
+      return;
+    }
     if (phase === "home") {
       setPhase("wizard");
       wizard.patch({ category: "ad", step: targetStep });
     } else if (state.step !== targetStep) {
       wizard.goTo(targetStep);
     }
+    urlSyncedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.step]);
 
   // wizard.state.step → URL sync (when state advances via clicks).
+  // Skip until urlSyncedRef is set — otherwise we'd navigate /product → /format
+  // before the URL→state effect has had a chance to bump state.step from 1 → 2.
   useEffect(() => {
+    if (!urlSyncedRef.current) return;
     if (phase !== "wizard") return;
     const slug = STEP_TO_SLUG[state.step];
     if (!slug) return;
