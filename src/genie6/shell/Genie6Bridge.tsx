@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useGenie6Theme, setVariant, type GenieVariant } from "../hooks/useGenie6Theme";
-import { useWelcomeCarousel } from "./WelcomeCarousel";
 import { useNewGenerationOverlay } from "./NewGenerationOverlay";
 import { resolvePrefillFromRoute } from "../lib/prefillContext";
 
@@ -11,11 +10,16 @@ import { resolvePrefillFromRoute } from "../lib/prefillContext";
  *
  * Jobs:
  *  1. Mirror FabAds' next-themes onto <html data-theme=...> via useGenie6Theme().
- *  2. Auto-open WelcomeCarousel on first visit.
- *  3. Bind keyboard shortcuts:
+ *  2. Bind keyboard shortcuts:
  *       ⌘N   — open New Generation overlay (with route-derived prefill)
  *       ⌘1/2/3/4 — switch variant directly
  *       ⌘⇧D — toggle dark mode
+ *
+ * A-12.46 (Maalik): WelcomeCarousel auto-open removed. It was firing on every
+ * fresh browser context (incl. HTMLtoDesign / Figma plugin captures), polluting
+ * every screen with the onboarding overlay. The carousel component itself
+ * stays (power users can still trigger it manually via the help icon),
+ * but it no longer fires automatically.
  *
  * Iter-5: Command palette modal removed. Keyboard shortcuts live here directly,
  * no longer inside a CommandPaletteProvider. ⌘K binding removed entirely (was
@@ -26,16 +30,6 @@ import { resolvePrefillFromRoute } from "../lib/prefillContext";
 export function Genie6Bridge() {
   useGenie6Theme();
   useGenie6KeyboardShortcuts();
-
-  const { open: openCarousel, hasBeenSeen } = useWelcomeCarousel();
-
-  // Welcome carousel — auto-open on first visit
-  useEffect(() => {
-    if (hasBeenSeen()) return;
-    const t = setTimeout(() => openCarousel(), 350);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="g6-root flex flex-1 min-h-0 flex-col" data-g6-build="2026-04-30-iter5">

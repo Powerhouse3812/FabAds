@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { ChevronDown, ExternalLink, PanelRightClose } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Link2,
+  PanelRightClose,
+  Sparkles,
+  Tag as TagIcon,
+  Trophy,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
@@ -50,16 +61,30 @@ function modeLabel(m: AlphaMode | undefined): string | null {
  * ──────────────────────────────────────────────────────────────────────── */
 export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps) {
   const { state } = wizard;
-  const [moreOpen, setMoreOpen] = useState(false);
+  // Default OPEN — the rail is already opt-in (rail itself is collapsible).
+  // Once a user opens the rail they want the full context, not a teaser.
+  const [moreOpen, setMoreOpen] = useState(true);
 
   const selectedProduct = ALL_PRODUCTS.find((p) => p.id === state.productId);
-  const brand = ALL_BRANDS.find((b) => b.id === selectedProduct?.brandId);
+  // A-12.46: brand resolution now falls back to state.brandId when no product
+  // is picked yet. Earlier the rail only read brand FROM the product, so a
+  // brand-only or category-only selection silently showed "No brand".
+  const brand =
+    (selectedProduct && ALL_BRANDS.find((b) => b.id === selectedProduct.brandId)) ||
+    (state.brandId
+      ? ALL_BRANDS.find((b) => b.id === state.brandId)
+      : undefined) ||
+    null;
 
-  const productName =
-    selectedProduct?.name ??
+  const category =
+    (selectedProduct?.categoryId &&
+      ALL_CATEGORIES.find((c) => c.id === selectedProduct.categoryId)) ||
     (state.categoryId
-      ? (ALL_CATEGORIES.find((c) => c.id === state.categoryId)?.name ?? null)
-      : null);
+      ? ALL_CATEGORIES.find((c) => c.id === state.categoryId)
+      : undefined) ||
+    null;
+
+  const productName = selectedProduct?.name ?? category?.name ?? null;
 
   const formatText =
     state.format === "image" ? "Image" : state.format === "video" ? "Video" : null;
@@ -228,8 +253,17 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
         </div>
       </div>
 
-      {/* Below-fold — full detail accordion. Nested inside glass rail, so use
-          solid bg-card to avoid double-glass. */}
+      {/* A-12.46 (Maalik): More Details rebuilt for scan-first interactivity.
+          - Brand block: clickable mini-card → /catalogue/brands/:id, with
+            inline color swatches + tone pill + USP pills.
+          - Product block: thumb + name + price pill + benefit pills + promo
+            banner. Category chip if present.
+          - Related Products: horizontal snap-scroll strip of mini cards.
+            Click any card to switch wizard.productId without leaving step.
+          - Knowledge Base: 3 metric pills (icon-led), reference-URL chip
+            row, deep-link to BrandDetail KB tab.
+          Each block lives in its own card surface — hairline separators,
+          tight typography, scannable left-to-right rhythm. */}
       <div className="overflow-hidden rounded-2xl border border-border/40 bg-card">
         <button
           type="button"
@@ -248,114 +282,30 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
           />
         </button>
         {moreOpen && (
-          <div className="space-y-3 border-t border-border/40 px-3 py-3 text-[11px] text-foreground">
-            {/* Brand */}
-            <DetailBlock label="Brand">
-              {brand ? (
-                <div className="space-y-1">
-                  <p className="text-[12px] font-semibold">{brand.name}</p>
-                  {brand.colors.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      {brand.colors.slice(0, 3).map((color) => (
-                        <span
-                          key={color}
-                          className="inline-block h-4 w-4 rounded-full border border-border/40"
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {brand.tone && (
-                    <p className="text-muted-foreground">
-                      {brand.tone.slice(0, 80)}
-                      {brand.tone.length > 80 ? "…" : ""}
-                    </p>
-                  )}
-                  {brand.usps.slice(0, 3).map((usp) => (
-                    <p key={usp} className="text-muted-foreground">
-                      · {usp}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">No brand selected</p>
-              )}
-            </DetailBlock>
+          <div className="space-y-2.5 border-t border-border/40 p-2.5">
+            {/* ── Brand mini-card ───────────────────────────── */}
+            <BrandMiniCard brand={brand} />
 
-            {/* Product */}
-            <DetailBlock label="Product">
-              {selectedProduct ? (
-                <div className="space-y-1">
-                  <p className="text-[12px] font-semibold">{selectedProduct.name}</p>
-                  <p className="font-mono text-[11px] text-muted-foreground">
-                    {selectedProduct.price}
-                  </p>
-                  {selectedProduct.benefits.slice(0, 3).map((b) => (
-                    <p key={b} className="text-muted-foreground">
-                      · {b}
-                    </p>
-                  ))}
-                  {selectedProduct.promo && (
-                    <p className="italic text-primary/80">{selectedProduct.promo}</p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-muted-foreground">No product selected</p>
-              )}
-            </DetailBlock>
+            {/* ── Product mini-card ─────────────────────────── */}
+            <ProductMiniCard
+              product={selectedProduct ?? null}
+              category={category}
+            />
 
-            {/* Related products */}
-            <DetailBlock label="Related Products">
-              {otherProducts.length > 0 ? (
-                <ul className="space-y-1">
-                  {otherProducts.map((p) => (
-                    <li key={p.id} className="flex items-center gap-1">
-                      <span className="truncate text-[11px] font-medium">{p.name}</span>
-                      <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
-                        {p.price}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">No related products</p>
-              )}
-            </DetailBlock>
+            {/* ── Related Products strip ────────────────────── */}
+            <RelatedProductsStrip
+              products={otherProducts}
+              onPick={(id) => wizard.set("productId", id)}
+            />
 
-            {/* KB lists */}
-            <DetailBlock label="Knowledge Base">
-              {!entity ? (
-                <p className="text-muted-foreground">
-                  No entity selected — pick a brand / product / category.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <p className="font-mono text-[10px] text-muted-foreground/80">
-                    {instructionsCount} instruction{instructionsCount === 1 ? "" : "s"} ·{" "}
-                    {winners.length} winner{winners.length === 1 ? "" : "s"} · {refs.length}{" "}
-                    ref{refs.length === 1 ? "" : "s"}
-                  </p>
-                  {refs.length > 0 && (
-                    <ul className="flex flex-wrap gap-1.5">
-                      {refs.slice(0, 6).map((r) => (
-                        <li key={r.id}>
-                          <a
-                            href={r.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={r.label}
-                            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:text-foreground"
-                          >
-                            <span className="max-w-[140px] truncate">{shortUrl(r.url)}</span>
-                            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </DetailBlock>
+            {/* ── Knowledge Base at-a-glance ────────────────── */}
+            <KbGlance
+              entityType={entity?.type}
+              brandId={brand?.id}
+              instructionsCount={instructionsCount}
+              winnersCount={winners.length}
+              refs={refs}
+            />
           </div>
         )}
       </div>
@@ -411,19 +361,314 @@ function KbTile({
   );
 }
 
-function DetailBlock({
-  label,
-  children,
+function BlockLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+/* ── More Details · Brand mini-card ─────────────────────── */
+
+function BrandMiniCard({
+  brand,
 }: {
+  brand:
+    | (typeof ALL_BRANDS[number])
+    | null;
+}) {
+  if (!brand) {
+    return (
+      <div className="rounded-xl border border-dashed border-border/50 bg-background/30 px-3 py-2.5">
+        <BlockLabel>Brand</BlockLabel>
+        <p className="mt-1 text-[11px] italic text-muted-foreground">
+          Pick a brand to fill this in.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <Link
+      to={`/catalogue/brands/${brand.id}`}
+      className="group block rounded-xl border border-border/50 bg-background/40 p-2.5 transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-sm"
+    >
+      <div className="mb-2 flex items-center gap-2.5">
+        {brand.logo ? (
+          <img
+            src={brand.logo}
+            alt={brand.name}
+            className="h-8 w-8 shrink-0 rounded-lg border border-border/40 bg-card object-contain p-0.5"
+          />
+        ) : (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-card text-[11px] font-bold">
+            {brand.name.charAt(0)}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] font-semibold text-foreground">
+            {brand.name}
+          </p>
+          <p className="truncate font-mono text-[9px] text-muted-foreground">
+            {brand.domain}
+          </p>
+        </div>
+        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5" />
+      </div>
+
+      {/* Color swatches strip */}
+      {brand.colors.length > 0 && (
+        <div className="mb-2 flex items-center gap-1">
+          {brand.colors.slice(0, 5).map((c) => (
+            <span
+              key={c}
+              title={c}
+              className="inline-block h-3.5 w-3.5 rounded-full border border-border/40"
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Tone + USPs as pills */}
+      <div className="flex flex-wrap gap-1">
+        {brand.tone && (
+          <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] italic text-primary">
+            {brand.tone.length > 40 ? `${brand.tone.slice(0, 40)}…` : brand.tone}
+          </span>
+        )}
+        {brand.usps.slice(0, 3).map((u) => (
+          <span
+            key={u}
+            className="inline-flex items-center rounded-full border border-border/50 bg-card px-1.5 py-0.5 text-[9px] text-foreground/80"
+          >
+            {u}
+          </span>
+        ))}
+      </div>
+    </Link>
+  );
+}
+
+/* ── More Details · Product mini-card ───────────────────── */
+
+function ProductMiniCard({
+  product,
+  category,
+}: {
+  product: (typeof ALL_PRODUCTS[number]) | null;
+  category: (typeof ALL_CATEGORIES[number]) | null;
+}) {
+  if (!product) {
+    return (
+      <div className="rounded-xl border border-dashed border-border/50 bg-background/30 px-3 py-2.5">
+        <BlockLabel>Product</BlockLabel>
+        <p className="mt-1 text-[11px] italic text-muted-foreground">
+          Pick a product to fill this in.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
+      <div className="mb-2 flex items-start gap-2.5">
+        {product.thumbnail ? (
+          <img
+            src={product.thumbnail}
+            alt={product.name}
+            className="h-10 w-10 shrink-0 rounded-lg border border-border/40 object-cover"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-muted text-[11px] text-muted-foreground">
+            —
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
+            {product.name}
+          </p>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
+              {product.price}
+            </span>
+            {category && (
+              <Link
+                to={`/catalogue/categories/${category.id}`}
+                className="inline-flex items-center gap-0.5 rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground hover:bg-primary/15 hover:text-primary"
+              >
+                <TagIcon className="h-2 w-2" />
+                {category.name}
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Benefit pills */}
+      {product.benefits.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1">
+          {product.benefits.slice(0, 3).map((b) => (
+            <span
+              key={b}
+              className="inline-flex items-center rounded-full border border-border/50 bg-card px-1.5 py-0.5 text-[9px] text-foreground/80"
+            >
+              {b}
+            </span>
+          ))}
+          {product.benefits.length > 3 && (
+            <span className="inline-flex items-center rounded-full bg-muted/40 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
+              +{product.benefits.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Promo banner */}
+      {product.promo && (
+        <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[10px] text-primary">
+          <Sparkles className="h-2.5 w-2.5 shrink-0" />
+          <span className="line-clamp-1 italic">{product.promo}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── More Details · Related products horizontal strip ─── */
+
+function RelatedProductsStrip({
+  products: list,
+  onPick,
+}: {
+  products: typeof ALL_PRODUCTS;
+  onPick: (id: string) => void;
+}) {
+  if (list.length === 0) return null;
+  return (
+    <div className="space-y-1.5 rounded-xl border border-border/50 bg-background/40 p-2.5">
+      <BlockLabel>Related products · {list.length}</BlockLabel>
+      <div className="-mx-2.5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-2.5 pb-1">
+        {list.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onPick(p.id)}
+            className="group block w-[90px] shrink-0 snap-start overflow-hidden rounded-lg border border-border/50 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+            title={`Switch to ${p.name}`}
+          >
+            <div className="aspect-square w-full overflow-hidden bg-muted">
+              {p.thumbnail ? (
+                <img
+                  src={p.thumbnail}
+                  alt={p.name}
+                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                  —
+                </div>
+              )}
+            </div>
+            <div className="space-y-0.5 px-1.5 py-1">
+              <p className="line-clamp-1 text-[10px] font-medium text-foreground">
+                {p.name}
+              </p>
+              <p className="font-mono text-[9px] text-muted-foreground">{p.price}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── More Details · KB at-a-glance ────────────────────── */
+
+function KbGlance({
+  entityType,
+  brandId,
+  instructionsCount,
+  winnersCount,
+  refs,
+}: {
+  entityType: EntityType | undefined;
+  brandId: string | undefined;
+  instructionsCount: number;
+  winnersCount: number;
+  refs: ReturnType<typeof getReferenceUrlsForEntity>;
+}) {
+  if (!entityType) {
+    return (
+      <div className="rounded-xl border border-dashed border-border/50 bg-background/30 px-3 py-2.5">
+        <BlockLabel>Knowledge Base</BlockLabel>
+        <p className="mt-1 text-[11px] italic text-muted-foreground">
+          Pick a brand / product / category to surface KB context.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded-xl border border-border/50 bg-background/40 p-2.5">
+      <div className="flex items-center justify-between">
+        <BlockLabel>Knowledge Base</BlockLabel>
+        {brandId && (
+          <Link
+            to={`/catalogue/brands/${brandId}?tab=kb`}
+            className="inline-flex items-center gap-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Open KB
+            <ChevronRight className="h-2.5 w-2.5" />
+          </Link>
+        )}
+      </div>
+
+      {/* 3 metric pills */}
+      <div className="grid grid-cols-3 gap-1.5">
+        <KbMetricPill icon={BookOpen} count={instructionsCount} label="Instr." />
+        <KbMetricPill icon={Trophy} count={winnersCount} label="Winners" />
+        <KbMetricPill icon={Link2} count={refs.length} label="Refs" />
+      </div>
+
+      {/* Reference URL chips */}
+      {refs.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {refs.slice(0, 6).map((r) => (
+            <a
+              key={r.id}
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={r.label}
+              className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-card px-1.5 py-0.5 text-[9px] font-medium text-foreground/80 transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:text-foreground"
+            >
+              <span className="max-w-[120px] truncate">{shortUrl(r.url)}</span>
+              <ExternalLink className="h-2 w-2 shrink-0" />
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KbMetricPill({
+  icon: Icon,
+  count,
+  label,
+}: {
+  icon: React.ElementType;
+  count: number;
   label: string;
-  children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="flex items-center gap-1.5 rounded-lg border border-border/50 bg-card px-2 py-1.5">
+      <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <span className="text-[13px] font-bold leading-none text-foreground">
+        {count}
+      </span>
+      <span className="ml-auto font-mono text-[8px] uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
-      <div className="text-[11px]">{children}</div>
     </div>
   );
 }
