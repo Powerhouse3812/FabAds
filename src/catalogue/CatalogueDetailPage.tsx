@@ -580,7 +580,7 @@ function KnowledgeBaseSection({
         >
           <ul className="space-y-1.5">
             {refs.map((r) => (
-              <RefRow key={r.id} ref={r} />
+              <RefRow key={r.id} item={r} />
             ))}
           </ul>
         </KbTabPanel>
@@ -665,7 +665,7 @@ function KbTabPanel({
   );
 }
 
-function RefRow({ ref: r }: { ref: ReferenceUrl }) {
+function RefRow({ item: r }: { item: ReferenceUrl }) {
   return (
     <li>
       <a
