@@ -9,8 +9,56 @@ import { AlphaStep3Configure } from "./screens/AlphaStep3Configure";
 import { Step5Results } from "./screens/Step5Results";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
-import { useWizard } from "./state/useWizard";
+import { useWizard, type WizardState, type Format, type Mode } from "./state/useWizard";
 import { useStudioAlphaUrlSync } from "./state/useUrlSync";
+
+/**
+ * A-12.49 (Maalik): Read the URL (path :step + query string) and produce a
+ * partial wizard state suitable for the initial useWizard() construction.
+ * This makes hard-refresh on any step + deep linking restore the full wizard
+ * shape on the very first render — no effect tick needed.
+ *
+ * We mirror the shape of useStudioAlphaUrlSync's mount-time read, but for the
+ * INITIAL state (not a post-mount patch). Both hooks coexist: this one seeds
+ * useState, the hook keeps URL ↔ state in sync afterwards.
+ */
+function readUrlIntoState(
+  pathStep: string | undefined,
+  searchParams: URLSearchParams,
+): Partial<WizardState> {
+  const patch: Partial<WizardState> = {};
+  if (pathStep && SLUG_TO_STEP[pathStep]) {
+    patch.step = SLUG_TO_STEP[pathStep];
+    patch.category = "ad";
+  }
+  const format = searchParams.get("format");
+  if (format === "image" || format === "video") patch.format = format as Format;
+  const brand = searchParams.get("brand");
+  if (brand) patch.brandId = brand;
+  const product = searchParams.get("product");
+  if (product) patch.productId = product;
+  const category = searchParams.get("category");
+  if (category) patch.categoryId = category;
+  const approach = searchParams.get("approach");
+  if (approach) patch.mode = approach as Mode;
+  const angle = searchParams.get("angle");
+  if (angle) patch.angleId = angle;
+  const ratio = searchParams.get("ratio");
+  if (ratio === "1:1" || ratio === "4:5" || ratio === "9:16" || ratio === "16:9")
+    patch.aspectRatio = ratio;
+  const count = searchParams.get("count");
+  if (count) {
+    const n = parseInt(count, 10);
+    if (!Number.isNaN(n)) patch.count = n;
+  }
+  const model = searchParams.get("model");
+  if (model) patch.modelId = model;
+  const bg = searchParams.get("bg");
+  if (bg === "off") patch.useBrandGuidelines = false;
+  const kb = searchParams.get("kb");
+  if (kb === "off") patch.useKnowledgeBase = false;
+  return patch;
+}
 
 type AlphaPhase = "home" | "wizard";
 
@@ -54,7 +102,12 @@ export function StudioAlpha() {
   const navigate = useNavigate();
   const params = useParams<{ step?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const wizard = useWizard();
+  // A-12.49 (Maalik): hydrate wizard.state directly from the URL at construction
+  // so deep links and hard refresh land on the correct step + selections
+  // BEFORE first paint. Previously this happened via useEffect, which left
+  // a one-tick gap where state.step was still 1 — long enough for HTML.to.design
+  // (and other headless capture tools) to grab the wrong frame.
+  const wizard = useWizard(readUrlIntoState(params.step, searchParams));
   const { state } = wizard;
   // Selections / toggles ↔ URL (?brand, ?product, ?angle, ?ratio, etc.)
   useStudioAlphaUrlSync(wizard);

@@ -106,8 +106,16 @@ export interface UseWizardReturn {
   reset: () => void;
 }
 
-export function useWizard(): UseWizardReturn {
-  const [state, setState] = useState<WizardState>(INITIAL_STATE);
+export function useWizard(
+  initialPatch?: Partial<WizardState>,
+): UseWizardReturn {
+  // A-12.49 (Maalik): accept an `initialPatch` so the wizard can hydrate from
+  // URL params at the very first render — no effect tick required. Used by
+  // StudioAlpha to make deep links + hard refresh restore the correct step on
+  // first paint (incl. for headless capture tools like HTML.to.design).
+  const [state, setState] = useState<WizardState>(() =>
+    initialPatch ? { ...INITIAL_STATE, ...initialPatch } : INITIAL_STATE,
+  );
 
   const set = useCallback<UseWizardReturn["set"]>((key, value) => {
     setState((prev) => {
