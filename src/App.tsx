@@ -24,7 +24,7 @@ import Genie5 from "@/pages/iq/Genie5";
 import Genie5QuickStartPage from "@/pages/iq/Genie5QuickStartPage";
 import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
-import { brandBookRoutes } from "@/brand-book/routes";
+import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 
 import InsightsIntelligence from "@/pages/insights/InsightsIntelligence";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
@@ -66,6 +66,14 @@ const App = () => (
             <Route path="auth" element={<Auth />} />
             <Route path="reset-password" element={<ResetPassword />} />
             <Route path="no-access" element={<NoAccess />} />
+
+            {/* Brand Book — PUBLIC print routes for design-importer tools
+                (html.to.design, Anima, etc.). No auth, no shell, no scale —
+                each slide renders at native dimensions in document flow so
+                headless scrapers get clean content instead of an auth
+                spinner. URL: /brand-book-print/:slug */}
+            {brandBookPrintRoutes}
+
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
