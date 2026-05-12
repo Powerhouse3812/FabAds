@@ -19,6 +19,7 @@ import {
 } from "@/components/sidebar/modules";
 import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme";
 import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
+import { setSubNavCollapsed } from "./useSubNavCollapsed";
 
 /**
  * SecondaryNavigationPanel — V7 ClickUp Strict (iter-6 A-10.3 update).
@@ -74,7 +75,9 @@ export function SecondaryNavigationPanel() {
         {isGenie && <GenieVariantCycler />}
         <button
           type="button"
+          onClick={() => setSubNavCollapsed(true)}
           aria-label="Collapse panel"
+          title="Collapse sub-navigation"
           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-foreground/45 transition-colors hover:bg-foreground/[0.06] hover:text-foreground/65"
         >
           <PanelLeftClose className="h-4 w-4" />

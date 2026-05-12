@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   deriveActiveModule,
@@ -9,6 +10,7 @@ import {
 import { useV7Shape } from "@/components/sidebar/useV7Shape";
 import { ParentNavigationRail } from "./ParentNavigationRail";
 import { SecondaryNavigationPanel } from "./SecondaryNavigationPanel";
+import { useSubNavCollapsed, setSubNavCollapsed } from "./useSubNavCollapsed";
 
 /**
  * AppShell — V7 ClickUp Strict (iter-6 A-10.8).
@@ -41,7 +43,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activeMod = activeKey
     ? [...MODULES, ...SYSTEM_MODULES].find((m) => m.key === activeKey)
     : undefined;
-  const showSubNav = !!activeMod && hasSubItems(activeMod);
+  const hasSubNav = !!activeMod && hasSubItems(activeMod);
+  const subNavCollapsed = useSubNavCollapsed();
+  const showSubNav = hasSubNav && !subNavCollapsed;
   const { shape } = useV7Shape();
   const isFloating = shape === "floating";
 
@@ -81,8 +85,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             home pages' own outer rounded-g6-card wrappers). */}
         <main
           data-fabads-shell-main="v7"
-          className="flex-1 min-w-0 overflow-auto bg-white"
+          className="relative flex-1 min-w-0 overflow-auto bg-white"
         >
+          {/* A-12.53 (Maalik): reopen button for sub-nav. Renders when the
+              active module HAS a sub-nav but the user collapsed it.
+              Mirrors the right-rail reopen pattern in StudioAlpha. */}
+          {hasSubNav && subNavCollapsed && (
+            <button
+              type="button"
+              onClick={() => setSubNavCollapsed(false)}
+              aria-label="Show sub-navigation"
+              title="Show sub-navigation"
+              className="group absolute left-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-card/80 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:scale-105 hover:border-foreground/30 hover:bg-card"
+            >
+              <PanelLeftOpen className="h-4 w-4 text-foreground transition-transform duration-300 group-hover:rotate-12" />
+            </button>
+          )}
           {children}
         </main>
       </div>
