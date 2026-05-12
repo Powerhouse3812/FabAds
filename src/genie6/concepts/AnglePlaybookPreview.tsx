@@ -128,7 +128,10 @@ const BULK_COST = Math.ceil(EMPTY_COUNT * 0.6);
 
 export function AnglePlaybookPreview() {
   return (
-    <div className="v3-page-mesh min-h-screen bg-background text-foreground">
+    // A-12.58 (Maalik): /iq/genie6/* routes get `overflow-hidden` from
+    // AppLayout (Studio Alpha needs its own internal scroll regions).
+    // This page has no internal scroll, so we own the scroll here.
+    <div className="v3-page-mesh h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 pt-8 pb-24">
         {/* Page hero */}
         <header className="space-y-2">
