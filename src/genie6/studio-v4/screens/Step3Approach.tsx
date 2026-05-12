@@ -1,4 +1,13 @@
 import { useEffect } from "react";
+import {
+  Film,
+  Maximize2,
+  Mic,
+  Repeat,
+  Scissors,
+  Video,
+  Wand2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HeroHeader } from "../components/HeroHeader";
 import type { Mode, UseWizardReturn } from "../state/useWizard";
@@ -11,7 +20,7 @@ interface Step3Props {
 
 interface ApproachMode {
   id: Mode;
-  emoji: string;
+  Icon: React.ElementType;
   title: string;
   desc: string;
   /** When user picks this mode, auto-set angleId to this. undefined = leave as is. */
@@ -23,48 +32,52 @@ interface ApproachMode {
  * and run the same pickMode flow (advances to next step). Order: UGC Video
  * first, "From scratch" last so users see the special-purpose modes before
  * the catch-all custom flow.
+ *
+ * A-12.68 (Maalik): emojis replaced with lucide-react icons. Each icon
+ * sits inside a soft-tinted square so the cards read as professional /
+ * product-grade, not consumer-emoji-led.
  */
 const ALL_MODES: ApproachMode[] = [
   {
     id: "ugc-video",
-    emoji: "🎬",
+    Icon: Mic, // talking-head, voice-led
     title: "UGC Video",
     desc: "Avatar-led talking-head, script-first.",
     autoAngleId: "ugc-style",
   },
   {
     id: "create-variations",
-    emoji: "🔄",
+    Icon: Repeat, // iteration loop
     title: "Create Variations",
     desc: "Iterate on existing creatives — keep layout, colors, or copy.",
   },
   {
     id: "image-to-video",
-    emoji: "🖼️",
+    Icon: Video, // image becomes video
     title: "Image to Video",
     desc: "Animate a static image — subtle motion or full AI.",
   },
   {
     id: "broll",
-    emoji: "🎥",
+    Icon: Film, // film reel, classic cutaway
     title: "B-Roll",
     desc: "Cutaway footage to layer with primary content.",
   },
   {
     id: "bg-remover",
-    emoji: "✂️",
+    Icon: Scissors, // cut/strip
     title: "BG Remover",
     desc: "Strip backgrounds from product shots.",
   },
   {
     id: "resize",
-    emoji: "📐",
+    Icon: Maximize2, // expand/contract arrows
     title: "Resize",
     desc: "Reformat to platform aspect ratios.",
   },
   {
     id: "scratch",
-    emoji: "✨",
+    Icon: Wand2, // AI-from-nothing
     title: "From scratch",
     desc: "Full flow — prompt, references, angle, model, output count.",
   },
@@ -115,19 +128,29 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {ALL_MODES.map((m) => {
           const selected = wizard.state.mode === m.id;
+          const Icon = m.Icon;
           return (
             <button
               key={m.id}
               type="button"
               onClick={() => pickMode(m.id, m.autoAngleId)}
               className={cn(
-                "v3-glass-card group flex flex-col items-center gap-2 rounded-2xl p-5 transition-all",
+                "v3-glass-card group flex flex-col items-center gap-2.5 rounded-2xl p-5 transition-all",
                 selected
                   ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
                   : "hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
               )}
             >
-              <span className="text-3xl leading-none">{m.emoji}</span>
+              <span
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
+                  selected
+                    ? "bg-primary/[0.18] text-primary"
+                    : "bg-foreground/[0.06] text-foreground/70 group-hover:bg-primary/[0.10] group-hover:text-primary",
+                )}
+              >
+                <Icon className="h-5 w-5" strokeWidth={2} />
+              </span>
               <span className="text-[13px] font-bold text-foreground">
                 {m.title}
               </span>
