@@ -422,6 +422,9 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 />
                 {conceptsOpen && (
                   <>
+                    {/* A-12.65 (Maalik): demoted to ghost-outline so the
+                        bottom prompt-bar Generate stays the only primary
+                        CTA on this step. */}
                     <span
                       role="button"
                       tabIndex={0}
@@ -437,7 +440,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                         }
                       }}
                       title="Generate concepts with AI"
-                      className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-full bg-primary px-2.5 text-[11px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+                      className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.08] hover:text-primary"
                     >
                       <Sparkles className="h-3 w-3" />
                       Generate

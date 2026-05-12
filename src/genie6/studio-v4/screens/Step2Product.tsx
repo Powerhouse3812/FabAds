@@ -1182,20 +1182,15 @@ function CategoryProductsSection({
 }: CategoryProductsSectionProps) {
   return (
     <div className="space-y-3">
-      {/* Section header — shared SectionHeader pattern */}
+      {/* A-12.65 (Maalik): Continue priority flipped.
+          Was: tiny "Skip" text link tucked into the header trailing slot
+               (de-prioritized) — picking a product looked mandatory.
+          Now: section is framed as OPTIONAL refinement; the primary
+               action is the Continue CTA at the bottom of the grid. */}
       <SectionHeader
         title={`Products in ${categoryName}`}
         icon={Package}
-        hint="optional"
-        trailing={
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Skip — continue without a product →
-          </button>
-        }
+        hint="optional — pick one to refine, or just continue"
       />
 
       {products.length === 0 ? (
@@ -1255,6 +1250,19 @@ function CategoryProductsSection({
           })}
         </ul>
       )}
+
+      {/* A-12.65 (Maalik): primary Continue CTA. Click → advances to
+          Step 3 without selecting a specific product (categoryId only). */}
+      <div className="flex justify-center pt-1">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-[13px] font-bold text-primary-foreground shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Continue with {categoryName}
+          <span aria-hidden>→</span>
+        </button>
+      </div>
     </div>
   );
 }
