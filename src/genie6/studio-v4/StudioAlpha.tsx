@@ -53,6 +53,11 @@ function readUrlIntoState(
   }
   const model = searchParams.get("model");
   if (model) patch.modelId = model;
+  const resolution = searchParams.get("resolution");
+  if (resolution === "720p" || resolution === "1080p" || resolution === "4K")
+    patch.videoResolution = resolution;
+  const audio = searchParams.get("audio");
+  if (audio === "off") patch.videoAudio = false;
   const bg = searchParams.get("bg");
   if (bg === "off") patch.useBrandGuidelines = false;
   const kb = searchParams.get("kb");

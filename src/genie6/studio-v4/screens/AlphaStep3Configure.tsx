@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, Search, Sparkles, Target, X } from "lucide-react";
+import { Check, ChevronDown, MoreVertical, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
   AttachSource,
@@ -137,6 +143,21 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     );
   };
 
+  // Generation-settings popover ↔ URL (?settings=open).
+  // replace:false so browser Back closes the popover first (mirrors picker).
+  const settingsOpen = searchParams.get("settings") === "open";
+  const setSettingsOpen = (next: boolean) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next) sp.set("settings", "open");
+        else sp.delete("settings");
+        return sp;
+      },
+      { replace: false },
+    );
+  };
+
   // Trending concepts — top 16 sample outputs by qualityScore desc.
   // Pool is bigger so the horizontal-scroll strip has substance.
   const trending = useMemo(() => {
@@ -220,12 +241,21 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             />
           )}
 
-          {/* Prompt bar — Layout A (inline Send) always. */}
+          {/* Prompt bar — Layout A (inline Send) always.
+              footerExtras injects the Generation-settings popover trigger
+              between the aspect-ratio picker and the Generate button. */}
           <PromptReferenceBar
             wizard={wizard}
             onAttachPickerOpen={handleAttachPickerOpen}
             onChipOpen={handleChipOpen}
             hideLayoutToggle
+            footerExtras={
+              <GenerationSettingsButton
+                wizard={wizard}
+                open={settingsOpen}
+                onOpenChange={setSettingsOpen}
+              />
+            }
           />
 
           {/* Angles + Concepts — combined glass card. Both sections always
@@ -660,6 +690,155 @@ function PromptSuggestions({
         ))}
       </ul>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * GenerationSettingsButton — three-dot popover trigger that sits in the
+ * prompt bar's footer row (between aspect-ratio picker and Generate).
+ *
+ * Surfaces two video-generation settings:
+ *   1. Quality / video resolution (720p · 1080p · 4K) with cost-multiplier hints.
+ *   2. Audio required (boolean) — only meaningful when format === "video";
+ *      visually disabled with caption when format is image.
+ *
+ * Open/closed state is URL-backed (?settings=open). The toggles themselves
+ * are URL-synced by the wizard's own state plumbing.
+ * ───────────────────────────────────────────────────────────────────────── */
+const RESOLUTION_OPTIONS: {
+  value: "720p" | "1080p" | "4K";
+  tier: string;
+  multiplier: string;
+}[] = [
+  { value: "720p",  tier: "Standard", multiplier: "×1" },
+  { value: "1080p", tier: "High",     multiplier: "×1.5" },
+  { value: "4K",    tier: "Premium",  multiplier: "×3" },
+];
+
+function GenerationSettingsButton({
+  wizard,
+  open,
+  onOpenChange,
+}: {
+  wizard: UseWizardReturn;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+}) {
+  const { state } = wizard;
+  const audioApplies = state.format === "video";
+
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Generation settings"
+          title="Quality + audio"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" side="top" className="w-[280px] rounded-xl border bg-card p-4">
+        <div className="flex flex-col gap-4">
+          {/* — Quality section — */}
+          <div className="flex flex-col gap-1.5">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Quality
+            </p>
+            <ul className="flex flex-col gap-1">
+              {RESOLUTION_OPTIONS.map((opt) => {
+                const active = state.videoResolution === opt.value;
+                return (
+                  <li key={opt.value}>
+                    <button
+                      type="button"
+                      onClick={() => wizard.set("videoResolution", opt.value)}
+                      role="radio"
+                      aria-checked={active}
+                      className={cn(
+                        "group flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
+                        active
+                          ? "border-primary/40 bg-primary/[0.08]"
+                          : "border-transparent hover:border-border/60 hover:bg-foreground/[0.04]",
+                      )}
+                    >
+                      {/* Radio dot */}
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "relative inline-block h-3.5 w-3.5 shrink-0 rounded-full border transition-colors",
+                          active
+                            ? "border-primary bg-primary"
+                            : "border-border bg-background",
+                        )}
+                      >
+                        {active && (
+                          <span className="absolute inset-[3px] rounded-full bg-primary-foreground" />
+                        )}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-[12px] font-medium",
+                          active ? "text-foreground" : "text-foreground/80",
+                        )}
+                      >
+                        {opt.tier}
+                      </span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {opt.value}
+                      </span>
+                      <span
+                        className={cn(
+                          "ml-auto font-mono text-[10px]",
+                          active ? "text-primary" : "text-muted-foreground/70",
+                        )}
+                      >
+                        {opt.multiplier}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Divider */}
+          <div
+            aria-hidden
+            className="h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
+          />
+
+          {/* — Audio section — */}
+          <div className="flex flex-col gap-1.5">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Audio
+            </p>
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg px-2.5 py-1.5 transition-opacity",
+                !audioApplies && "pointer-events-none opacity-40",
+              )}
+            >
+              <span className="text-[12px] font-medium text-foreground/80">
+                Required for video
+              </span>
+              <Switch
+                checked={state.videoAudio}
+                onCheckedChange={(v) => wizard.set("videoAudio", v)}
+                disabled={!audioApplies}
+                aria-label="Audio required for video"
+              />
+            </div>
+            {!audioApplies && (
+              <p className="px-2.5 text-[10px] italic text-muted-foreground">
+                Audio applies to video generations only
+              </p>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -51,6 +51,9 @@ interface PromptReferenceBarProps {
   onChipOpen?: (chip: ChipKind) => void;
   /** Forces inline Send + hides the dev CtaLayoutToggle. Used by Studio Alpha. */
   hideLayoutToggle?: boolean;
+  /** Optional slot rendered in the footer row, just before the Generate button.
+   *  Used by Studio Alpha to inject the Generation-settings popover trigger. */
+  footerExtras?: React.ReactNode;
 }
 
 const SOURCE_ICON: Record<AttachSource, string> = {
@@ -101,6 +104,7 @@ export function PromptReferenceBar({
   onAttachPickerOpen,
   onChipOpen,
   hideLayoutToggle = false,
+  footerExtras,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -402,6 +406,9 @@ export function PromptReferenceBar({
               value={state.aspectRatio}
               onChange={(r) => wizard.set("aspectRatio", r)}
             />
+
+            {/* Optional parent-provided slot (e.g. Generation-settings popover) */}
+            {footerExtras}
 
             {/* Generate — credits inline in label */}
             {showInlineSend && (

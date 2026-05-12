@@ -3,6 +3,7 @@ import type { KbInstruction } from "../data/kbInstructions";
 
 export type Category = "asset" | "ad" | "social";
 export type Format = "image" | "video";
+export type VideoResolution = "720p" | "1080p" | "4K";
 
 export type Mode =
   | "scratch"
@@ -62,6 +63,8 @@ export interface WizardState {
   credits: number;
   count: number;
   aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  videoResolution: VideoResolution;
+  videoAudio: boolean;
   useKnowledgeBase: boolean;
   useBrandGuidelines: boolean;
   /** User-created KB instructions (additive over the built-in defaults). */
@@ -91,6 +94,8 @@ const INITIAL_STATE: WizardState = {
   credits: 4,
   count: 4,
   aspectRatio: "1:1",
+  videoResolution: "1080p",
+  videoAudio: true,
   useKnowledgeBase: true,
   useBrandGuidelines: true,
   customKbInstructions: [],
@@ -120,11 +125,24 @@ export function useWizard(
   const set = useCallback<UseWizardReturn["set"]>((key, value) => {
     setState((prev) => {
       const updated: WizardState = { ...prev, [key]: value };
-      // Recompute credits whenever count or selectedConceptIds change
-      if (key === "count" || key === "selectedConceptIds") {
+      // Recompute credits whenever count, selectedConceptIds, videoResolution,
+      // or format changes — video output has a resolution-based multiplier.
+      if (
+        key === "count" ||
+        key === "selectedConceptIds" ||
+        key === "videoResolution" ||
+        key === "format"
+      ) {
         const conceptCount = updated.selectedConceptIds.length;
         const variations = updated.count;
-        updated.credits = Math.max(conceptCount, 1) * variations;
+        const baseCredits = Math.max(conceptCount, 1) * variations;
+        const resolutionMultiplier =
+          updated.format === "video"
+            ? (updated.videoResolution === "4K" ? 3
+              : updated.videoResolution === "1080p" ? 1.5
+              : 1)
+            : 1;
+        updated.credits = Math.ceil(baseCredits * resolutionMultiplier);
       }
       return updated;
     });
@@ -133,10 +151,22 @@ export function useWizard(
   const patch = useCallback((p: Partial<WizardState>) => {
     setState((prev) => {
       const merged: WizardState = { ...prev, ...p };
-      if ("count" in p || "selectedConceptIds" in p) {
+      if (
+        "count" in p ||
+        "selectedConceptIds" in p ||
+        "videoResolution" in p ||
+        "format" in p
+      ) {
         const conceptCount = merged.selectedConceptIds.length;
         const variations = merged.count;
-        merged.credits = Math.max(conceptCount, 1) * variations;
+        const baseCredits = Math.max(conceptCount, 1) * variations;
+        const resolutionMultiplier =
+          merged.format === "video"
+            ? (merged.videoResolution === "4K" ? 3
+              : merged.videoResolution === "1080p" ? 1.5
+              : 1)
+            : 1;
+        merged.credits = Math.ceil(baseCredits * resolutionMultiplier);
       }
       return merged;
     });

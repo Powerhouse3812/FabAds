@@ -16,6 +16,8 @@ import type { UseWizardReturn, WizardState, Mode, Format } from "./useWizard";
  *   ?ratio        1:1 | 4:5 | 9:16 | 16:9
  *   ?count        N
  *   ?model        modelId
+ *   ?resolution   720p | 1080p | 4K (only encoded when not default 1080p)
+ *   ?audio        off (toggle is "on" by default — only encode when "off")
  *   ?bg           off (toggle is "on" by default — only encode when "off")
  *   ?kb           off (same)
  *
@@ -55,6 +57,11 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
     }
     const model = searchParams.get("model");
     if (model) patches.modelId = model;
+    const resolution = searchParams.get("resolution");
+    if (resolution === "720p" || resolution === "1080p" || resolution === "4K")
+      patches.videoResolution = resolution;
+    const audio = searchParams.get("audio");
+    if (audio === "off") patches.videoAudio = false;
     const bg = searchParams.get("bg");
     if (bg === "on" || bg === "off") patches.useBrandGuidelines = bg === "on";
     const kb = searchParams.get("kb");
@@ -81,6 +88,10 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
         setOrDelete("ratio", state.aspectRatio);
         setOrDelete("count", String(state.count));
         setOrDelete("model", state.modelId);
+        if (state.videoResolution !== "1080p") next.set("resolution", state.videoResolution);
+        else next.delete("resolution");
+        if (!state.videoAudio) next.set("audio", "off");
+        else next.delete("audio");
         if (!state.useBrandGuidelines) next.set("bg", "off");
         else next.delete("bg");
         if (!state.useKnowledgeBase) next.set("kb", "off");
@@ -99,6 +110,8 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
     state.aspectRatio,
     state.count,
     state.modelId,
+    state.videoResolution,
+    state.videoAudio,
     state.useBrandGuidelines,
     state.useKnowledgeBase,
     // eslint-disable-next-line react-hooks/exhaustive-deps
