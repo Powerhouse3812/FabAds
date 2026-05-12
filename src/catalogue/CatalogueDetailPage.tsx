@@ -489,14 +489,16 @@ function KnowledgeBaseSection({
 
   // Saved items live in the global saved-store — surfaces here AND in
   // ConceptsLibrary AND ContextRail without prop-drilling.
+  // A-12.54 (Maalik): winners are NO LONGER rendered inside KB — they live
+  // on the dedicated "Winner Ads" top-level tab. So winners + savedWinners
+  // are not derived here anymore. Per-tab WinnersPanel/ProductWinnersPanel/
+  // CategoryWinnersPanel re-read them independently via the same hooks.
   const savedInstr = useSavedInstructionsForEntity(entityType, entityId);
-  const savedWinners = useSavedWinnersForEntity(entityType, entityId);
   const savedConcepts = useSavedConceptsForEntity(entityType, entityId);
 
   const seedInstr = getInstructionsForEntity(entityType, entityId);
   const main = seedInstr.main;
   const custom = [...seedInstr.custom, ...savedInstr];
-  const winners = [...getWinnerAdsForEntity(entityType, entityId), ...savedWinners];
   const conceptsList = [...getConceptsForEntity(entityType, entityId), ...savedConcepts];
   const refs = getReferenceUrlsForEntity(entityType, entityId);
 
@@ -554,23 +556,8 @@ function KnowledgeBaseSection({
           </ul>
         </KbTabPanel>
 
-        <KbTabPanel
-          title="Winner ads"
-          count={winners.length}
-          hint="Top-performing ads — uploaded, saved from Genie, or saved from Industry Insights."
-          emptyMessage="No winner ads saved yet."
-          createLabel="Add winner ad"
-          onCreate={() => setCreateKind("winner-ad")}
-          isEmpty={winners.length === 0}
-          countMax={50}
-          countCurrent={winners.length}
-        >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {winners.map((w) => (
-              <WinnerAdCard key={w.id} ad={w} />
-            ))}
-          </div>
-        </KbTabPanel>
+        {/* A-12.54 (Maalik): Winner ads sub-section removed — winners now
+            live on the dedicated "Winner Ads" top-level tab. Single source. */}
 
         <KbTabPanel
           title="Concepts"
@@ -680,6 +667,24 @@ function KbTabPanel({
       ) : (
         children
       )}
+    </div>
+  );
+}
+
+/**
+ * KbUsageBanner — A-12.54 (Maalik). Shows on the Winner Ads tab across
+ * Brand / Product / Category so the user knows winners feed the Knowledge
+ * Base + Genie generations, even though the Winner Ads sub-section was
+ * removed from the KB tab itself.
+ */
+function KbUsageBanner() {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-2">
+      <BookOpen className="h-3 w-3 shrink-0 text-primary" />
+      <p className="text-[11px] leading-tight text-foreground/80">
+        These winners feed the Knowledge Base — Genie pulls them in as
+        references during generation.
+      </p>
     </div>
   );
 }
@@ -1237,6 +1242,8 @@ function WinnersPanel({ brandId }: { brandId: string }) {
           Add winner ad
         </button>
       </div>
+      <KbUsageBanner />
+
       {winners.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
           <p className="text-[12px] italic text-muted-foreground">
@@ -1919,6 +1926,8 @@ function ProductWinnersPanel({ productId }: { productId: string }) {
           Add winner ad
         </button>
       </div>
+      <KbUsageBanner />
+
       {winners.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
           <p className="text-[12px] italic text-muted-foreground">
@@ -2547,6 +2556,8 @@ function CategoryWinnersPanel({ categoryId }: { categoryId: string }) {
           Add winner ad
         </button>
       </div>
+      <KbUsageBanner />
+
       {winners.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
           <p className="text-[12px] italic text-muted-foreground">
