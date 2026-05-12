@@ -61,7 +61,7 @@ import {
 } from "@/mocks/shared";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
-import { AnglePlaybookPanel } from "./AnglePlaybookPanel";
+import { AnglePlaybookPanel, CATEGORIES as ANGLE_CATEGORIES } from "./AnglePlaybookPanel";
 import {
   addInstruction as savedAddInstruction,
   addWinnerAd as savedAddWinnerAd,
@@ -697,13 +697,72 @@ function UsedElsewhereCards({
     );
   };
 
-  // Angle Playbook stats: filled count + top 3 angle labels (first 3 filled)
-  const { angles: seedAngles } = getInstructionsForEntity(entityType, entityId);
-  const filledAngleCount = seedAngles.length;
-  const topAngleLabels = seedAngles
+  // Angle Playbook stats (Maalik's spec):
+  //   - kitne angle hain                 → 30 tracked (from CATEGORIES)
+  //   - no of filled angle knowledge     → filled count
+  //   - top used angle in tags           → resolve angleId → angle.label
+  // Plus: categories covered (M of 10) + recency.
+  const savedAngleInstr = useSavedInstructionsForEntity(entityType, entityId)
+    .filter((i) => i.kind === "angle");
+  const { angles: seedAngleInstr } = getInstructionsForEntity(entityType, entityId);
+  const allAngleInstr = [...seedAngleInstr, ...savedAngleInstr];
+
+  const filledAngleIds = new Set<string>();
+  for (const i of allAngleInstr) {
+    for (const id of i.anglesCovered) filledAngleIds.add(id);
+  }
+  const filledAngleCount = filledAngleIds.size;
+
+  const ANGLE_PLAYBOOK_TOTAL = ANGLE_CATEGORIES.reduce(
+    (n, c) => n + c.angleIds.length,
+    0,
+  );
+
+  // Top 3 by most recently updated (proxy for "most used"). Resolve to a
+  // human label: canonical angles list first, then a title-case fallback
+  // for legacy short-form ids ("hero" → "Hero").
+  const titleCase = (s: string) =>
+    s
+      .replace(/^ang-/, "")
+      .split("-")
+      .map((p) => (p.length ? p[0].toUpperCase() + p.slice(1) : p))
+      .join(" ");
+  const topAngles = allAngleInstr
+    .slice()
+    .sort((a, b) => +b.createdAt - +a.createdAt)
     .slice(0, 3)
-    .map((i) => i.anglesCovered[0])
+    .map((i) => {
+      const angleId = i.anglesCovered[0];
+      if (!angleId) return null;
+      const angle = angles.find((a) => a.id === angleId);
+      return angle?.label ?? titleCase(angleId);
+    })
     .filter(Boolean) as string[];
+
+  // Categories covered out of 10
+  const coveredCategorySet = new Set<string>();
+  for (const cat of ANGLE_CATEGORIES) {
+    if (cat.angleIds.some((id) => filledAngleIds.has(id))) {
+      coveredCategorySet.add(cat.name);
+    }
+  }
+  const coveredCategoryCount = coveredCategorySet.size;
+
+  // Most recent angle-instruction timestamp
+  const lastAngleUpdate = allAngleInstr
+    .map((i) => i.createdAt)
+    .sort((a, b) => +b - +a)[0];
+
+  // Source mix — manual vs ai-drafted
+  const angleSourceMix = (() => {
+    let manual = 0;
+    let ai = 0;
+    for (const i of allAngleInstr) {
+      if (i.source === "ai-generated") ai++;
+      else manual++;
+    }
+    return { manual, ai };
+  })();
 
   // Winner Ads stats: count + source mix + most recent timestamp
   const seedWinners = getWinnerAdsForEntity(entityType, entityId);
@@ -728,7 +787,7 @@ function UsedElsewhereCards({
         <button
           type="button"
           onClick={() => goToTab("angles")}
-          className="group flex flex-col gap-2 rounded-xl border border-border/40 bg-card/60 p-3.5 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
+          className="group flex flex-col gap-2.5 rounded-xl border border-border/40 bg-card/60 p-3.5 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
         >
           <div className="flex items-center gap-2">
             <BookOpen className="h-3.5 w-3.5 text-primary" />
@@ -736,25 +795,58 @@ function UsedElsewhereCards({
               Angle Playbook
             </h5>
             <span className="ml-auto inline-flex items-center rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
-              {filledAngleCount} / 30
+              {filledAngleCount} / {ANGLE_PLAYBOOK_TOTAL} filled
             </span>
           </div>
-          {topAngleLabels.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {topAngleLabels.map((id) => (
-                <span
-                  key={id}
-                  className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground/70"
-                >
-                  {id}
+
+          {/* Stat strip: total angles · categories covered · source mix */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-muted-foreground">
+            <span>{ANGLE_PLAYBOOK_TOTAL} angles tracked</span>
+            <span className="text-muted-foreground/30">·</span>
+            <span>
+              {coveredCategoryCount} / {ANGLE_CATEGORIES.length} categories
+            </span>
+            {(angleSourceMix.ai > 0 || angleSourceMix.manual > 0) && (
+              <>
+                <span className="text-muted-foreground/30">·</span>
+                <span>
+                  {angleSourceMix.manual > 0 && `${angleSourceMix.manual} manual`}
+                  {angleSourceMix.manual > 0 && angleSourceMix.ai > 0 && " · "}
+                  {angleSourceMix.ai > 0 && `${angleSourceMix.ai} AI`}
                 </span>
-              ))}
+              </>
+            )}
+          </div>
+
+          {/* Top used angles — proper labels, tag-style chips */}
+          {topAngles.length > 0 ? (
+            <div>
+              <p className="mb-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                Top used
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {topAngles.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/[0.08] px-2 py-0.5 text-[10px] font-medium text-primary"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
           ) : (
             <p className="text-[11px] italic text-muted-foreground">
               No angle rules yet — click to add.
             </p>
           )}
+
+          {lastAngleUpdate && (
+            <p className="font-mono text-[9px] text-muted-foreground/70">
+              last update · {formatActivityAge(new Date(lastAngleUpdate))}
+            </p>
+          )}
+
           <p className="mt-auto inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
             Open Angles tab <ChevronRight className="h-2.5 w-2.5" />
           </p>

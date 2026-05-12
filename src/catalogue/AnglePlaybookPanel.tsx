@@ -40,7 +40,7 @@ import {
 
 // ── Top 30 (Maalik: 3 per category × 10 categories) ─────────────────────
 
-const CATEGORIES: { name: string; angleIds: string[] }[] = [
+export const CATEGORIES: { name: string; angleIds: string[] }[] = [
   { name: "Emotional",       angleIds: ["ang-asp-lifestyle", "ang-empowerment", "ang-emotional-story"] },
   { name: "Pressure",        angleIds: ["ang-fomo", "ang-urgency", "ang-scarcity"] },
   { name: "Comparison",      angleIds: ["ang-comparison", "ang-before-after", "ang-social-proof"] },
