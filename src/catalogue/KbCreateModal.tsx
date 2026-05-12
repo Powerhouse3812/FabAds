@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Bookmark, Check, Copy, Mic, RefreshCw, Sparkles, Type, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
 import type {
   EntityType,
   EntityId,
@@ -333,7 +334,22 @@ export function KbCreateModal({ kind, entityType, entityId, entityName, onSave, 
             </div>
           )}
 
-          {tab === "ai" && (
+          {tab === "ai" && kind === "concept" && (
+            // A-12.60 (Maalik): structured AI form for concepts — replaces
+            // the old free-text prompt with prompt + angle + audience +
+            // visual + research sources. Same form is also mounted at
+            // /iq/genie6/concepts/generate (page) and in Step 4's right
+            // rail (rail surface).
+            <GenerateConceptsForm
+              surface="modal"
+              entityContext={{ type: entityType, id: entityId, label: entityName }}
+              onConceptSaved={(c) => {
+                onSave({ kind: "concept", item: c });
+              }}
+              onClose={onClose}
+            />
+          )}
+          {tab === "ai" && kind !== "concept" && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <input

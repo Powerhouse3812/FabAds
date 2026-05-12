@@ -36,6 +36,7 @@ import { StudioV4 } from "./studio-v4/StudioV4";
 import { StudioAlpha } from "./studio-v4/StudioAlpha";
 import { ConceptsLibrary } from "./concepts/ConceptsLibrary";
 import { AnglePlaybookPreview } from "./concepts/AnglePlaybookPreview";
+import { GenerateConceptsPage } from "./concepts/GenerateConceptsPage";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -105,6 +106,9 @@ export const genie6Routes = (
     {/* A-12.38: Concepts library — full-page browse of catalogue + KB +
         user-saved concepts. Search / filter / sort with URL state. */}
     <Route path="concepts" element={<ConceptsLibrary />} />
+
+    {/* A-12.60 (Maalik): structured Generate-Concepts-with-AI form. */}
+    <Route path="concepts/generate" element={<GenerateConceptsPage />} />
 
     {/* A-12.58 (Maalik): shareable preview of the 4 candidate Angle
         Playbook UIs. Visible at /iq/genie6/angle-playbook-preview. */}

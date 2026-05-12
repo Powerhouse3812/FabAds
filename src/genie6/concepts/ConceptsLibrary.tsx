@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Calendar as CalendarIcon,
   Check,
@@ -253,6 +253,14 @@ export function ConceptsLibrary() {
         <span className="font-mono text-[11px] text-muted-foreground">
           {filtered.length} of {items.length}
         </span>
+        {/* A-12.60 (Maalik): structured AI generation entry point. */}
+        <Link
+          to="/iq/genie6/concepts/generate"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[12px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Generate with AI
+        </Link>
       </div>
 
       {/* Toolbar */}

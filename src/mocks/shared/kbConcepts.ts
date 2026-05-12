@@ -8,6 +8,17 @@ import type { EntityType, EntityId } from "./kbInstructions";
  * Genie generations or Industry Insights without a Winner-Ad source.
  */
 
+export type ResearchSource =
+  | "reddit"
+  | "youtube"
+  | "instagram"
+  | "tiktok"
+  | "x"
+  | "threads"
+  | "web"
+  | "reviews"
+  | "insights";
+
 export interface KbConcept {
   id: string;
   entityType: EntityType;
@@ -23,6 +34,15 @@ export interface KbConcept {
   tone: string;
   thumbnail?: string;
   capturedAt: Date;
+  /** A-12.60 (Maalik): set when this concept came from the structured
+   *  "Generate with AI" form. Optional — left undefined for legacy /
+   *  winner-derived / insights-derived concepts. */
+  angle?: string;
+  audience?: string;
+  researchSources?: ResearchSource[];
+  /** The user's original generation prompt. */
+  prompt?: string;
+  generatedAt?: Date;
 }
 
 export const KB_CONCEPTS: KbConcept[] = [

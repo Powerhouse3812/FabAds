@@ -23,6 +23,7 @@ import {
   RATIOS,
 } from "../components/PromptReferenceBar";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
+import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
 import { ScriptRail } from "../components/ScriptRail";
@@ -36,6 +37,7 @@ import type { AlphaMode } from "./StudioHome";
 export type RailMode =
   | null
   | "generate-concepts"
+  | "ai-generate-concepts"
   | "library"
   | "pinterest"
   | "brand-winner-ads"
@@ -49,6 +51,7 @@ export type RailMode =
 
 const VALID_PICKERS: ReadonlyArray<Exclude<RailMode, null>> = [
   "generate-concepts",
+  "ai-generate-concepts",
   "library",
   "pinterest",
   "brand-winner-ads",
@@ -486,6 +489,42 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 onChange={(ids) => wizard.set("selectedConceptIds", ids)}
                 onClose={handleAttachCancel}
               />
+            )}
+            {railMode === "ai-generate-concepts" && (
+              <div className="flex flex-col p-4">
+                <header className="mb-3 flex items-center gap-2">
+                  <h3 className="text-[13px] font-semibold tracking-tight">
+                    Generate concepts with AI
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleAttachCancel}
+                    aria-label="Close"
+                    className="ml-auto text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </header>
+                <GenerateConceptsForm
+                  surface="rail"
+                  entityContext={
+                    wizard.state.brandId
+                      ? {
+                          type: "brand",
+                          id: wizard.state.brandId,
+                          label: wizard.state.brandId,
+                        }
+                      : undefined
+                  }
+                  onConceptSaved={(c) => {
+                    wizard.set("selectedConceptIds", [
+                      ...wizard.state.selectedConceptIds,
+                      c.id,
+                    ]);
+                  }}
+                  onClose={handleAttachCancel}
+                />
+              </div>
             )}
             {railMode === "concept-angle" && (
               <ConceptAngleRail
