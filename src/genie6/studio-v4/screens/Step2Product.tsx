@@ -10,6 +10,12 @@ import {
   Package,
   FolderOpen,
   Factory,
+  // A-12.70: category icons replace emoji
+  Scissors, Droplet, Palette, Sparkles, FlaskConical, CircleDot, Sun,
+  Bath, Footprints, Heart, Baby, Smile, User, Flower2, Eye,
+  Watch, Headphones, Volume2, Activity, Gamepad2, Bed, Leaf, Pill,
+  Shirt, Moon, Glasses, Gem, Sofa, ChefHat, Utensils, PawPrint, Bone,
+  Briefcase, PersonStanding,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -106,66 +112,135 @@ function resolveCategoryThumb(categoryId: string): string {
   return CATEGORY_IMAGES[categoryId] ?? u("1556228720-195a672e8a03");
 }
 
-/** Category-id → emoji illustration (top 30+ Indian DTC verticals) */
-const CATEGORY_EMOJI: Record<string, string> = {
-  "hair-care":          "💇",
-  "hair-oil":           "🫒",
-  "hair-color":         "🎨",
-  "anti-dandruff":      "💆",
-  "skin-care":          "🧴",
-  "anti-aging":         "✨",
-  "acne":               "🧪",
-  "pigmentation":       "🌗",
-  "sunscreen":          "☀️",
-  "body-care":          "🧼",
-  "foot-care":          "🦶",
-  "lip-care":           "💋",
-  "baby-care":          "👶",
-  "mens-grooming":      "🪒",
-  "beard-care":         "🧔",
-  "oral-care":          "🪥",
-  "personal-hygiene":   "🧻",
-  "fragrance":          "🌸",
-  "makeup":             "💄",
-  "makeup-lip":         "💋",
-  "makeup-eye":         "👁️",
-  "makeup-face":        "💄",
-  "smartwatches":       "⌚",
-  "wireless-earbuds":   "🎧",
-  "bluetooth-speakers": "🔊",
-  "fitness-trackers":   "⌚",
-  "gaming-headsets":    "🎮",
-  "smart-rings":        "💍",
-  "mattresses":         "🛏️",
-  "pillows":            "🛌",
-  "bedding":            "🛏️",
-  "wellness":           "🌿",
-  "vitamins":           "💊",
-  "probiotics":         "🦠",
-  "apparel-casual":     "👕",
-  "apparel-formal":     "👔",
-  "apparel-ethnic":     "🥻",
-  "streetwear":         "🧢",
-  "activewear":         "🏃",
-  "yoga":               "🧘",
-  "innerwear":          "🩲",
-  "sleepwear":          "🌙",
-  "sneakers":           "👟",
-  "footwear-formal":    "👞",
-  "sandals":            "🩴",
-  "eyewear-sunglasses": "🕶️",
-  "eyewear-optical":    "👓",
-  "jewellery-gold":     "💍",
-  "jewellery-silver":   "💎",
-  "diamond":            "💎",
-  "lab-diamond":        "💎",
-  "furniture-sofa":     "🛋️",
-  "furniture-bed":      "🛏️",
-  "kitchen-appliances": "🍳",
-  "cookware":           "🍲",
-  "pet-care":           "🐾",
-  "pet-food":           "🦴",
-  "travel-bags":        "🧳",
+/** A-12.70 (Maalik): emojis swapped for lucide icons + tonal color
+ *  per category. Same color SCHEME used as Step 3 Approach (indigo /
+ *  emerald / fuchsia / amber / rose / cyan / lime). Categories grouped
+ *  by domain — Hair / Skin / Body / Mens → rose · Fragrance / Makeup /
+ *  Apparel → fuchsia · Tech / Travel → indigo · Sleep / Wellness / Pet
+ *  / Baby → emerald · Footwear / Kitchen / Furniture / Sunscreen / Gold
+ *  jewellery → amber · Eyewear / Diamond → cyan. */
+const CATEGORY_SCHEME = {
+  indigo: {
+    bgRest: "bg-indigo-50", bgHover: "group-hover:bg-indigo-100",
+    bgSelected: "bg-indigo-100",
+    textRest: "text-indigo-600", textSelected: "text-indigo-700",
+  },
+  emerald: {
+    bgRest: "bg-emerald-50", bgHover: "group-hover:bg-emerald-100",
+    bgSelected: "bg-emerald-100",
+    textRest: "text-emerald-600", textSelected: "text-emerald-700",
+  },
+  fuchsia: {
+    bgRest: "bg-fuchsia-50", bgHover: "group-hover:bg-fuchsia-100",
+    bgSelected: "bg-fuchsia-100",
+    textRest: "text-fuchsia-600", textSelected: "text-fuchsia-700",
+  },
+  amber: {
+    bgRest: "bg-amber-50", bgHover: "group-hover:bg-amber-100",
+    bgSelected: "bg-amber-100",
+    textRest: "text-amber-600", textSelected: "text-amber-700",
+  },
+  rose: {
+    bgRest: "bg-rose-50", bgHover: "group-hover:bg-rose-100",
+    bgSelected: "bg-rose-100",
+    textRest: "text-rose-600", textSelected: "text-rose-700",
+  },
+  cyan: {
+    bgRest: "bg-cyan-50", bgHover: "group-hover:bg-cyan-100",
+    bgSelected: "bg-cyan-100",
+    textRest: "text-cyan-600", textSelected: "text-cyan-700",
+  },
+  lime: {
+    bgRest: "bg-primary/[0.10]", bgHover: "group-hover:bg-primary/[0.18]",
+    bgSelected: "bg-primary/[0.20]",
+    textRest: "text-primary", textSelected: "text-primary",
+  },
+} as const;
+type CategoryTone = keyof typeof CATEGORY_SCHEME;
+
+const CATEGORY_ICON: Record<
+  string,
+  { Icon: React.ElementType; tone: CategoryTone }
+> = {
+  // Hair
+  "hair-care":          { Icon: Scissors,        tone: "rose" },
+  "hair-oil":           { Icon: Droplet,         tone: "rose" },
+  "hair-color":         { Icon: Palette,         tone: "rose" },
+  "anti-dandruff":      { Icon: Sparkles,        tone: "rose" },
+  // Skin
+  "skin-care":          { Icon: Droplet,         tone: "rose" },
+  "anti-aging":         { Icon: Sparkles,        tone: "rose" },
+  "acne":               { Icon: FlaskConical,    tone: "rose" },
+  "pigmentation":       { Icon: CircleDot,       tone: "rose" },
+  "sunscreen":          { Icon: Sun,             tone: "amber" },
+  // Body
+  "body-care":          { Icon: Bath,            tone: "rose" },
+  "foot-care":          { Icon: Footprints,      tone: "rose" },
+  "lip-care":           { Icon: Heart,           tone: "rose" },
+  // Baby / Hygiene / Oral
+  "baby-care":          { Icon: Baby,            tone: "emerald" },
+  "personal-hygiene":   { Icon: Bath,            tone: "emerald" },
+  "oral-care":          { Icon: Smile,           tone: "emerald" },
+  // Mens
+  "mens-grooming":      { Icon: User,            tone: "rose" },
+  "beard-care":         { Icon: User,            tone: "rose" },
+  // Fragrance / Makeup
+  "fragrance":          { Icon: Flower2,         tone: "fuchsia" },
+  "makeup":             { Icon: Sparkles,        tone: "fuchsia" },
+  "makeup-lip":         { Icon: Heart,           tone: "fuchsia" },
+  "makeup-eye":         { Icon: Eye,             tone: "fuchsia" },
+  "makeup-face":        { Icon: Sparkles,        tone: "fuchsia" },
+  // Tech
+  "smartwatches":       { Icon: Watch,           tone: "indigo" },
+  "wireless-earbuds":   { Icon: Headphones,      tone: "indigo" },
+  "bluetooth-speakers": { Icon: Volume2,         tone: "indigo" },
+  "fitness-trackers":   { Icon: Activity,        tone: "indigo" },
+  "gaming-headsets":    { Icon: Gamepad2,        tone: "indigo" },
+  "smart-rings":        { Icon: CircleDot,       tone: "indigo" },
+  // Sleep
+  "mattresses":         { Icon: Bed,             tone: "emerald" },
+  "pillows":            { Icon: Bed,             tone: "emerald" },
+  "bedding":            { Icon: Bed,             tone: "emerald" },
+  "sleepwear":          { Icon: Moon,            tone: "emerald" },
+  // Wellness
+  "wellness":           { Icon: Leaf,            tone: "emerald" },
+  "vitamins":           { Icon: Pill,            tone: "emerald" },
+  "probiotics":         { Icon: FlaskConical,    tone: "emerald" },
+  "yoga":               { Icon: PersonStanding,  tone: "emerald" },
+  // Apparel
+  "apparel-casual":     { Icon: Shirt,           tone: "fuchsia" },
+  "apparel-formal":     { Icon: Shirt,           tone: "fuchsia" },
+  "apparel-ethnic":     { Icon: Shirt,           tone: "fuchsia" },
+  "streetwear":         { Icon: Shirt,           tone: "fuchsia" },
+  "activewear":         { Icon: Activity,        tone: "fuchsia" },
+  "innerwear":          { Icon: Shirt,           tone: "fuchsia" },
+  // Footwear
+  "sneakers":           { Icon: Footprints,      tone: "amber" },
+  "footwear-formal":    { Icon: Footprints,      tone: "amber" },
+  "sandals":            { Icon: Footprints,      tone: "amber" },
+  // Eyewear
+  "eyewear-sunglasses": { Icon: Glasses,         tone: "cyan" },
+  "eyewear-optical":    { Icon: Glasses,         tone: "cyan" },
+  // Jewellery / Diamond
+  "jewellery-gold":     { Icon: Gem,             tone: "amber" },
+  "jewellery-silver":   { Icon: Gem,             tone: "cyan" },
+  "diamond":            { Icon: Gem,             tone: "cyan" },
+  "lab-diamond":        { Icon: Gem,             tone: "cyan" },
+  // Furniture
+  "furniture-sofa":     { Icon: Sofa,            tone: "amber" },
+  "furniture-bed":      { Icon: Bed,             tone: "amber" },
+  // Kitchen
+  "kitchen-appliances": { Icon: ChefHat,         tone: "amber" },
+  "cookware":           { Icon: Utensils,        tone: "amber" },
+  // Pet
+  "pet-care":           { Icon: PawPrint,        tone: "emerald" },
+  "pet-food":           { Icon: Bone,            tone: "emerald" },
+  // Travel
+  "travel-bags":        { Icon: Briefcase,       tone: "indigo" },
+};
+
+const DEFAULT_CATEGORY_META: { Icon: React.ElementType; tone: CategoryTone } = {
+  Icon: Package, tone: "lime",
 };
 
 /** Product keyword → curated photo. Prioritise thumbnail, then categoryId, then name. */
@@ -1136,20 +1211,31 @@ function CategoryGrid({
     >
       {categories.map((c) => {
         const isSelected = selectedId === c.id;
+        const meta = CATEGORY_ICON[c.id] ?? DEFAULT_CATEGORY_META;
+        const tone = CATEGORY_SCHEME[meta.tone];
+        const Icon = meta.Icon;
         return (
           <button
             key={c.id}
             type="button"
             onClick={() => onPick(c.id)}
             className={cn(
-              "v3-glass-card flex min-h-[72px] items-center gap-2 rounded-xl p-3 text-left transition-all",
+              "v3-glass-card group flex min-h-[72px] items-center gap-2.5 rounded-xl p-3 text-left transition-all",
               isSelected
                 ? "ring-2 ring-primary/30"
                 : "hover:border-foreground/20",
             )}
           >
-            <span className="shrink-0 text-xl" aria-hidden>
-              {CATEGORY_EMOJI[c.id] ?? "📦"}
+            <span
+              aria-hidden
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                isSelected
+                  ? `${tone.bgSelected} ${tone.textSelected}`
+                  : `${tone.bgRest} ${tone.textRest} ${tone.bgHover}`,
+              )}
+            >
+              <Icon className="h-4 w-4" strokeWidth={2} />
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[12px] font-semibold text-foreground">
