@@ -558,20 +558,10 @@ function KnowledgeBaseSection({
         {/* A-12.54 (Maalik): Winner ads sub-section removed — winners now
             live on the dedicated "Winner Ads" top-level tab. Single source. */}
 
-        {/* A-12.59 (Maalik): Angle Playbook — per-angle authoring rules
-            (top 30 angles, 10 categories × 3). Variant B picked. Auto-
-            applies to Brand / Product / Category via shared component. */}
-        <AnglePlaybookPanel
-          entityType={entityType}
-          entityId={entityId}
-          entityLabel={entityLabel}
-        />
-
         {/* A-12.61 (Maalik): Concepts sub-section removed from KB. KB
-            holds main + custom + angle playbook — these are the inputs
-            Genie uses to generate concepts + ads. Concepts themselves
-            live on /iq/genie6/concepts (ConceptsLibrary) and surface via
-            the saved-store; they're an output, not a KB input. */}
+            holds main + custom + references — these are the inputs Genie
+            uses to generate concepts + ads. Concepts themselves live on
+            /iq/genie6/concepts. */}
 
         <KbTabPanel
           title="References"
@@ -588,6 +578,15 @@ function KnowledgeBaseSection({
             ))}
           </ul>
         </KbTabPanel>
+
+        {/* A-12.62 (Maalik): two summary cards at the bottom of the KB
+            tab — Angle Playbook + Winner Ads. Each is a 50/50 clickable
+            card that navigates to the matching top-level tab. Reads as:
+            "these things plug into your KB but live in their own tab". */}
+        <UsedElsewhereCards
+          entityType={entityType}
+          entityId={entityId}
+        />
       </div>
 
       {/* Creation modal — shared chassis for instruction / winner-ad / concept */}
@@ -670,20 +669,141 @@ function KbTabPanel({
 }
 
 /**
- * KbUsageBanner — A-12.54 (Maalik). Shows on the Winner Ads tab across
- * Brand / Product / Category so the user knows winners feed the Knowledge
- * Base + Genie generations, even though the Winner Ads sub-section was
- * removed from the KB tab itself.
+ * A-12.62 (Maalik): "Used elsewhere" 50/50 cards at the bottom of the KB
+ * tab. Two clickable summary cards (Angle Playbook + Winner Ads) that
+ * navigate to the matching top-level tab via ?tab= URL. Different stats
+ * per card.
  */
-function KbUsageBanner() {
+function UsedElsewhereCards({
+  entityType,
+  entityId,
+}: {
+  entityType: KbEntityType;
+  entityId: KbEntityId;
+}) {
+  const [, setSearchParams] = useSearchParams();
+  const goToTab = (next: "angles" | "winners") => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("tab", next);
+        // clear sub-state owned by the previous tab
+        sp.delete("playbook");
+        sp.delete("playbook-cat");
+        sp.delete("playbook-angle");
+        return sp;
+      },
+      { replace: false },
+    );
+  };
+
+  // Angle Playbook stats: filled count + top 3 angle labels (first 3 filled)
+  const { angles: seedAngles } = getInstructionsForEntity(entityType, entityId);
+  const filledAngleCount = seedAngles.length;
+  const topAngleLabels = seedAngles
+    .slice(0, 3)
+    .map((i) => i.anglesCovered[0])
+    .filter(Boolean) as string[];
+
+  // Winner Ads stats: count + source mix + most recent timestamp
+  const seedWinners = getWinnerAdsForEntity(entityType, entityId);
+  const winnerCount = seedWinners.length;
+  const sourceMix = (() => {
+    const counts: Record<string, number> = {};
+    for (const w of seedWinners) counts[w.source] = (counts[w.source] ?? 0) + 1;
+    return counts;
+  })();
+  const mostRecent = seedWinners
+    .map((w) => w.capturedAt)
+    .filter(Boolean)
+    .sort((a, b) => +new Date(b!) - +new Date(a!))[0];
+
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-2">
-      <BookOpen className="h-3 w-3 shrink-0 text-primary" />
-      <p className="text-[11px] leading-tight text-foreground/80">
-        These winners feed the Knowledge Base — Genie pulls them in as
-        references during generation.
+    <section className="space-y-2 pt-2">
+      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        Used in generation · lives in its own tab
       </p>
-    </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Angle Playbook card */}
+        <button
+          type="button"
+          onClick={() => goToTab("angles")}
+          className="group flex flex-col gap-2 rounded-xl border border-border/40 bg-card/60 p-3.5 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
+        >
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-3.5 w-3.5 text-primary" />
+            <h5 className="text-[12px] font-semibold tracking-tight text-foreground">
+              Angle Playbook
+            </h5>
+            <span className="ml-auto inline-flex items-center rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
+              {filledAngleCount} / 30
+            </span>
+          </div>
+          {topAngleLabels.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {topAngleLabels.map((id) => (
+                <span
+                  key={id}
+                  className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground/70"
+                >
+                  {id}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] italic text-muted-foreground">
+              No angle rules yet — click to add.
+            </p>
+          )}
+          <p className="mt-auto inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
+            Open Angles tab <ChevronRight className="h-2.5 w-2.5" />
+          </p>
+        </button>
+
+        {/* Winner Ads card */}
+        <button
+          type="button"
+          onClick={() => goToTab("winners")}
+          className="group flex flex-col gap-2 rounded-xl border border-border/40 bg-card/60 p-3.5 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
+        >
+          <div className="flex items-center gap-2">
+            <Trophy className="h-3.5 w-3.5 text-primary" />
+            <h5 className="text-[12px] font-semibold tracking-tight text-foreground">
+              Winner Ads
+            </h5>
+            <span className="ml-auto inline-flex items-center rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
+              {winnerCount} saved
+            </span>
+          </div>
+          {winnerCount > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(sourceMix).map(([src, n]) => (
+                  <span
+                    key={src}
+                    className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-foreground/70"
+                  >
+                    {src.replace("saved-from-", "").replace("-", " ")} · {n}
+                  </span>
+                ))}
+              </div>
+              {mostRecent && (
+                <p className="font-mono text-[9px] text-muted-foreground/80">
+                  last update · {formatActivityAge(new Date(mostRecent))}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-[11px] italic text-muted-foreground">
+              No winner ads saved — click to add.
+            </p>
+          )}
+          <p className="mt-auto inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground group-hover:text-foreground">
+            Open Winner Ads tab <ChevronRight className="h-2.5 w-2.5" />
+          </p>
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -880,6 +1000,7 @@ function avatarVisual(avatar: Avatar): { bg: string; fg: string; initials: strin
 type BrandTabKey =
   | "guidelines"
   | "kb"
+  | "angles"
   | "winners"
   | "library"
   | "activity"
@@ -901,7 +1022,7 @@ export function BrandDetail({
   const tabParam = searchParams.get("tab") as BrandTabKey | null;
   const tab: BrandTabKey =
     tabParam &&
-    ["guidelines", "kb", "winners", "library", "activity", "products"].includes(tabParam)
+    ["guidelines", "kb", "angles", "winners", "library", "activity", "products"].includes(tabParam)
       ? tabParam
       : "guidelines";
   const setTab = (next: BrandTabKey) => {
@@ -933,10 +1054,15 @@ export function BrandDetail({
     const { main, custom } = getInstructionsForEntity("brand", brand.id);
     return (main ? 1 : 0) + custom.length;
   })();
+  const angleInstrCount = (() => {
+    const { angles } = getInstructionsForEntity("brand", brand.id);
+    return angles.length;
+  })();
 
   const tabs: { key: BrandTabKey; label: string; count?: number }[] = [
     { key: "guidelines", label: "Guidelines" },
     { key: "kb", label: "Knowledge Base", count: kbInstrCount },
+    { key: "angles", label: "Angles", count: angleInstrCount },
     { key: "winners", label: "Winner Ads", count: winnersCount },
     { key: "library", label: "Library", count: libraryCount },
     { key: "activity", label: "Activity", count: activityCount },
@@ -1009,6 +1135,14 @@ export function BrandDetail({
             entityType="brand"
             entityId={brand.id}
             entityLabel="brand"
+          />
+        )}
+        {tab === "angles" && (
+          <AnglePlaybookPanel
+            entityType="brand"
+            entityId={brand.id}
+            entityLabel="brand"
+            forceOpen
           />
         )}
         {tab === "winners" && <WinnersPanel brandId={brand.id} />}
@@ -1230,7 +1364,11 @@ function WinnersPanel({ brandId }: { brandId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <SectionHeader title={`Winner ads · ${winners.length}`} icon={Trophy} />
+        <SectionHeader
+          title={`Winner ads · ${winners.length}`}
+          icon={Trophy}
+          hint="feeds the Knowledge Base"
+        />
         <button
           type="button"
           onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
@@ -1240,7 +1378,6 @@ function WinnersPanel({ brandId }: { brandId: string }) {
           Add winner ad
         </button>
       </div>
-      <KbUsageBanner />
 
       {winners.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
@@ -1463,6 +1600,7 @@ function ProductsPanel({
 type ProductTabKey =
   | "guidelines"
   | "kb"
+  | "angles"
   | "winners"
   | "library"
   | "activity"
@@ -1487,7 +1625,7 @@ export function ProductDetail({
   const tabParam = searchParams.get("tab") as ProductTabKey | null;
   const tab: ProductTabKey =
     tabParam &&
-    ["guidelines", "kb", "winners", "library", "activity", "variants"].includes(
+    ["guidelines", "kb", "angles", "winners", "library", "activity", "variants"].includes(
       tabParam,
     )
       ? tabParam
@@ -1515,11 +1653,16 @@ export function ProductDetail({
     const { main, custom } = getInstructionsForEntity("product", product.id);
     return (main ? 1 : 0) + custom.length;
   })();
+  const angleInstrCount = (() => {
+    const { angles } = getInstructionsForEntity("product", product.id);
+    return angles.length;
+  })();
   const variantsCount = product.variants?.length ?? 0;
 
   const tabs: { key: ProductTabKey; label: string; count?: number }[] = [
     { key: "guidelines", label: "Guidelines" },
     { key: "kb", label: "Knowledge Base", count: kbInstrCount },
+    { key: "angles", label: "Angles", count: angleInstrCount },
     { key: "winners", label: "Winner Ads", count: winnersCount },
     { key: "library", label: "Library", count: libraryCount },
     { key: "activity", label: "Activity", count: activityCount },
@@ -1598,6 +1741,14 @@ export function ProductDetail({
             entityType="product"
             entityId={product.id}
             entityLabel="product"
+          />
+        )}
+        {tab === "angles" && (
+          <AnglePlaybookPanel
+            entityType="product"
+            entityId={product.id}
+            entityLabel="product"
+            forceOpen
           />
         )}
         {tab === "winners" && <ProductWinnersPanel productId={product.id} />}
@@ -1914,6 +2065,7 @@ function ProductWinnersPanel({ productId }: { productId: string }) {
         <SectionHeader
           title={`Winner ads · ${winners.length}`}
           icon={Trophy}
+          hint="feeds the Knowledge Base"
         />
         <button
           type="button"
@@ -1924,7 +2076,6 @@ function ProductWinnersPanel({ productId }: { productId: string }) {
           Add winner ad
         </button>
       </div>
-      <KbUsageBanner />
 
       {winners.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
@@ -2141,6 +2292,7 @@ function ProductVariantsPanel({
 type CategoryTabKey =
   | "overview"
   | "kb"
+  | "angles"
   | "winners"
   | "library"
   | "activity"
@@ -2160,7 +2312,7 @@ export function CategoryDetail({
   const tabParam = searchParams.get("tab") as CategoryTabKey | null;
   const tab: CategoryTabKey =
     tabParam &&
-    ["overview", "kb", "winners", "library", "activity", "brands", "products"].includes(
+    ["overview", "kb", "angles", "winners", "library", "activity", "brands", "products"].includes(
       tabParam,
     )
       ? tabParam
@@ -2200,10 +2352,15 @@ export function CategoryDetail({
     const { main, custom } = getInstructionsForEntity("category", category.id);
     return (main ? 1 : 0) + custom.length;
   })();
+  const angleInstrCount = (() => {
+    const { angles } = getInstructionsForEntity("category", category.id);
+    return angles.length;
+  })();
 
   const tabs: { key: CategoryTabKey; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" },
     { key: "kb", label: "Knowledge Base", count: kbInstrCount },
+    { key: "angles", label: "Angles", count: angleInstrCount },
     { key: "winners", label: "Winner Ads", count: winnersCount },
     { key: "library", label: "Library", count: libraryCount },
     { key: "activity", label: "Activity", count: activityCount },
@@ -2284,6 +2441,14 @@ export function CategoryDetail({
             entityType="category"
             entityId={category.id}
             entityLabel="category"
+          />
+        )}
+        {tab === "angles" && (
+          <AnglePlaybookPanel
+            entityType="category"
+            entityId={category.id}
+            entityLabel="category"
+            forceOpen
           />
         )}
         {tab === "winners" && <CategoryWinnersPanel categoryId={category.id} />}
@@ -2544,6 +2709,7 @@ function CategoryWinnersPanel({ categoryId }: { categoryId: string }) {
         <SectionHeader
           title={`Winner ads · ${winners.length}`}
           icon={Trophy}
+          hint="feeds the Knowledge Base"
         />
         <button
           type="button"
@@ -2554,7 +2720,6 @@ function CategoryWinnersPanel({ categoryId }: { categoryId: string }) {
           Add winner ad
         </button>
       </div>
-      <KbUsageBanner />
 
       {winners.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">

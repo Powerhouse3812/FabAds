@@ -83,18 +83,24 @@ interface AnglePlaybookPanelProps {
   entityType: EntityType;
   entityId: EntityId;
   entityLabel: string;
+  /** A-12.62: when rendered inside its own top-level "Angles" tab, the
+   *  panel ignores ?playbook= and stays fully expanded — the tab IS the
+   *  dedicated home, no need for a second-level collapse toggle. */
+  forceOpen?: boolean;
 }
 
 export function AnglePlaybookPanel({
   entityType,
   entityId,
   entityLabel,
+  forceOpen = false,
 }: AnglePlaybookPanelProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   // A-12.61 (Maalik · UX): top-level collapse for the whole panel. Default
   // collapsed — at 0/30 fresh state, 10 category rows are pure noise.
   // URL-backed via ?playbook=open so the user's choice survives refresh.
-  const playbookOpen = searchParams.get("playbook") === "open";
+  // A-12.62: forceOpen overrides the URL when the panel is a tab.
+  const playbookOpen = forceOpen || searchParams.get("playbook") === "open";
   const openCategory = searchParams.get("playbook-cat") ?? "";
   const activeAngleId = searchParams.get("playbook-angle") ?? "";
 
@@ -213,26 +219,39 @@ export function AnglePlaybookPanel({
 
   return (
     <div className="rounded-xl border border-border/60 bg-card/40 p-3">
-      {/* Compact header — click anywhere on the title strip to toggle. */}
+      {/* Compact header — click anywhere on the title strip to toggle.
+          A-12.62: when forceOpen (rendered as a top-level tab) the header
+          isn't a toggle — no chevron, no click action, full body always
+          rendered. */}
       <button
         type="button"
-        onClick={() => setPlaybookOpen(!playbookOpen)}
+        onClick={() => {
+          if (!forceOpen) setPlaybookOpen(!playbookOpen);
+        }}
         aria-expanded={playbookOpen}
+        disabled={forceOpen}
         className={cn(
           "flex w-full flex-wrap items-center gap-2 rounded-md text-left transition-colors",
           playbookOpen && "mb-2",
         )}
       >
-        <ChevronRight
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300",
-            playbookOpen && "rotate-90",
-          )}
-        />
+        {!forceOpen && (
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300",
+              playbookOpen && "rotate-90",
+            )}
+          />
+        )}
         <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
         <h4 className="text-[13px] font-semibold tracking-tight text-foreground">
           Angle Playbook
         </h4>
+        {forceOpen && (
+          <span className="font-mono text-[10px] italic text-muted-foreground">
+            · feeds the Knowledge Base
+          </span>
+        )}
         <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
           {filledCount} / {TOTAL_ANGLES}
         </span>
