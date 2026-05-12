@@ -62,6 +62,7 @@ import {
 } from "@/mocks/shared";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
+import { AnglePlaybookPanel } from "./AnglePlaybookPanel";
 import {
   addInstruction as savedAddInstruction,
   addWinnerAd as savedAddWinnerAd,
@@ -558,6 +559,15 @@ function KnowledgeBaseSection({
 
         {/* A-12.54 (Maalik): Winner ads sub-section removed — winners now
             live on the dedicated "Winner Ads" top-level tab. Single source. */}
+
+        {/* A-12.59 (Maalik): Angle Playbook — per-angle authoring rules
+            (top 30 angles, 10 categories × 3). Variant B picked. Auto-
+            applies to Brand / Product / Category via shared component. */}
+        <AnglePlaybookPanel
+          entityType={entityType}
+          entityId={entityId}
+          entityLabel={entityLabel}
+        />
 
         <KbTabPanel
           title="Concepts"
