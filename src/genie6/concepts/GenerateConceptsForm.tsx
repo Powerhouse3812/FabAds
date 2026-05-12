@@ -3,15 +3,18 @@ import { useSearchParams } from "react-router-dom";
 import {
   ChevronDown,
   Globe,
-  Lightbulb,
+  Instagram,
   MessageCircle,
+  Music2,
   RefreshCw,
   Sparkles,
   Star,
   Target,
+  Twitter,
   Users,
   Wand2,
   X,
+  Youtube,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -57,10 +60,10 @@ export interface GenerateConceptsFormProps {
 
 const SOURCES: { id: ResearchSource; label: string; Icon: React.ElementType }[] = [
   { id: "reddit",    label: "Reddit",            Icon: MessageCircle },
-  { id: "youtube",   label: "YouTube",           Icon: Lightbulb },
-  { id: "instagram", label: "Instagram",         Icon: Sparkles },
-  { id: "tiktok",    label: "TikTok",            Icon: Sparkles },
-  { id: "x",         label: "X / Twitter",       Icon: MessageCircle },
+  { id: "youtube",   label: "YouTube",           Icon: Youtube },
+  { id: "instagram", label: "Instagram",         Icon: Instagram },
+  { id: "tiktok",    label: "TikTok",            Icon: Music2 },
+  { id: "x",         label: "X / Twitter",       Icon: Twitter },
   { id: "threads",   label: "Threads",           Icon: MessageCircle },
   { id: "web",       label: "Web search",        Icon: Globe },
   { id: "reviews",   label: "Customer reviews",  Icon: Star },

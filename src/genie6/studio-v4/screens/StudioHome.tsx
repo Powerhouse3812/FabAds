@@ -1,5 +1,14 @@
 import { useMemo, useState } from "react";
-import { Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import {
+  Sparkles,
+  Clock,
+  CheckCircle2,
+  Camera,
+  Megaphone,
+  ShoppingBag,
+  Smartphone,
+  TrendingUp,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../components/SectionHeader";
 
@@ -16,50 +25,81 @@ interface StudioHomeProps {
 
 interface ModeOption {
   id: AlphaMode;
-  emoji: string;
+  Icon: React.ElementType;
   title: string;
   desc: string;
   available: boolean;
   /** Optional badge label shown top-right of the card (e.g. "Affiliate"). */
   tag?: string;
+  /** A-12.73: per-mode tonal SCHEME key (same palette as Step 3 Approach). */
+  tone: "rose" | "fuchsia" | "lime" | "indigo" | "amber";
 }
+
+// Same SCHEME shape as Step 3 Approach (A-12.69) — soft-tint per card.
+const SCHEME = {
+  rose: {
+    bg: "bg-rose-50",   text: "text-rose-600",
+    bgSel: "bg-rose-100", textSel: "text-rose-700",
+  },
+  fuchsia: {
+    bg: "bg-fuchsia-50", text: "text-fuchsia-600",
+    bgSel: "bg-fuchsia-100", textSel: "text-fuchsia-700",
+  },
+  lime: {
+    bg: "bg-primary/[0.10]", text: "text-primary",
+    bgSel: "bg-primary/[0.18]", textSel: "text-primary",
+  },
+  indigo: {
+    bg: "bg-indigo-50", text: "text-indigo-600",
+    bgSel: "bg-indigo-100", textSel: "text-indigo-700",
+  },
+  amber: {
+    bg: "bg-amber-50", text: "text-amber-600",
+    bgSel: "bg-amber-100", textSel: "text-amber-700",
+  },
+} as const;
 
 const MODES: ModeOption[] = [
   {
     id: "product-shoot",
-    emoji: "📷",
+    Icon: Camera,
     title: "Product Shoot",
     desc: "Studio-quality product photography. Hero shots, detail macros, bundles.",
     available: false,
+    tone: "rose",
   },
   {
     id: "brand-ad",
-    emoji: "🪧",
+    Icon: Megaphone,
     title: "Brand Ad",
     desc: "Top-of-funnel awareness. Tone, story, brand positioning.",
     available: false,
+    tone: "fuchsia",
   },
   {
     id: "product-ad",
-    emoji: "🛍",
+    Icon: ShoppingBag,
     title: "Product Ad",
     desc: "Conversion-driven product creative with offer + CTA.",
     available: true,
+    tone: "lime",
   },
   {
     id: "social",
-    emoji: "📱",
+    Icon: Smartphone,
     title: "Social",
     desc: "Organic content for feed, Stories, Reels, and carousels.",
     available: false,
+    tone: "indigo",
   },
   {
     id: "performance-ad",
-    emoji: "📈",
+    Icon: TrendingUp,
     title: "Performance Ad",
     desc: "ROAS-driven format. Tested angles, urgency, social proof.",
     available: false,
     tag: "Affiliate",
+    tone: "amber",
   },
 ];
 
@@ -207,7 +247,15 @@ export function StudioHome({ onStart }: StudioHomeProps) {
                         {m.tag}
                       </span>
                     )}
-                    <span className="text-2xl leading-none">{m.emoji}</span>
+                    <span
+                      className={cn(
+                        "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
+                        SCHEME[m.tone].bg,
+                        SCHEME[m.tone].text,
+                      )}
+                    >
+                      <m.Icon className="h-5 w-5" strokeWidth={2} />
+                    </span>
                     <p className="text-[13px] font-bold leading-tight text-foreground">
                       {m.title}
                     </p>

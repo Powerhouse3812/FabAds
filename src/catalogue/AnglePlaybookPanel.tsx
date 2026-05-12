@@ -500,7 +500,7 @@ function AngleEditor({
             if (wasAiFilled) setWasAiFilled(false);
           }}
           rows={3}
-          placeholder={`Describe how Genie should generate ${angle.label} for this ${entityLabel}. Or click ✨ to draft with AI.`}
+          placeholder={`Describe how Genie should generate ${angle.label} for this ${entityLabel}. Or click the AI fill button to draft.`}
           className="w-full resize-none rounded-md border border-border/60 bg-background px-2.5 py-2 pr-16 text-[11px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary/40"
         />
         <button

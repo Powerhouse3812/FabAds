@@ -7,6 +7,17 @@ import {
   Sparkles,
   X,
   Link as LinkIcon,
+  // A-12.73: source + model icons (replacing emoji maps)
+  Upload,
+  Library,
+  Pin,
+  Trophy,
+  Package,
+  FileText,
+  Zap,
+  Rocket,
+  Video,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -56,22 +67,23 @@ interface PromptReferenceBarProps {
   footerExtras?: React.ReactNode;
 }
 
-const SOURCE_ICON: Record<AttachSource, string> = {
-  upload: "🖼",
-  library: "🗂",
-  pinterest: "📌",
-  "brand-winner-ads": "🏆",
-  "product-winner-ads": "📦",
-  url: "🔗",
-  instruction: "📝",
+// A-12.73: emoji map → lucide icon map. DS §7 #10 (no emojis in product UI).
+const SOURCE_ICON: Record<AttachSource, React.ElementType> = {
+  upload: Upload,
+  library: Library,
+  pinterest: Pin,
+  "brand-winner-ads": Trophy,
+  "product-winner-ads": Package,
+  url: LinkIcon,
+  instruction: FileText,
 };
 
-const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
-  { id: "genie-1.0", emoji: "✨", name: "Genie 1.0", hint: "Fast" },
-  { id: "genie-2.0-pro", emoji: "🚀", name: "Genie 2.0 Pro", hint: "Higher quality" },
-  { id: "genie-flash", emoji: "⚡", name: "Genie Flash", hint: "Ultra-fast" },
-  { id: "genie-video", emoji: "🎬", name: "Genie Video" },
-  { id: "genie-labs", emoji: "🧪", name: "Genie Labs", hint: "Experimental" },
+const MODELS: { id: string; Icon: React.ElementType; name: string; hint?: string }[] = [
+  { id: "genie-1.0", Icon: Sparkles, name: "Genie 1.0", hint: "Fast" },
+  { id: "genie-2.0-pro", Icon: Rocket, name: "Genie 2.0 Pro", hint: "Higher quality" },
+  { id: "genie-flash", Icon: Zap, name: "Genie Flash", hint: "Ultra-fast" },
+  { id: "genie-video", Icon: Video, name: "Genie Video" },
+  { id: "genie-labs", Icon: FlaskConical, name: "Genie Labs", hint: "Experimental" },
 ];
 
 export const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
@@ -251,12 +263,14 @@ export function PromptReferenceBar({
           {/* Row 1 — attached refs (compact) */}
           {state.attachedReferences.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {state.attachedReferences.map((ref) => (
+              {state.attachedReferences.map((ref) => {
+                const SourceIcon = SOURCE_ICON[ref.source];
+                return (
                 <span
                   key={ref.id}
                   className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[11px] font-medium text-foreground"
                 >
-                  <span aria-hidden>{SOURCE_ICON[ref.source]}</span>
+                  <SourceIcon className="h-3 w-3 text-muted-foreground" aria-hidden />
                   <span className="max-w-[140px] truncate">{ref.label}</span>
                   <button
                     type="button"
@@ -267,7 +281,8 @@ export function PromptReferenceBar({
                     <X className="h-2.5 w-2.5" />
                   </button>
                 </span>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -359,7 +374,7 @@ export function PromptReferenceBar({
                   type="button"
                   className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-3 text-[11px] font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
                 >
-                  <span className="text-[12px] leading-none">{activeModel.emoji}</span>
+                  <activeModel.Icon className="h-3 w-3 text-muted-foreground" aria-hidden />
                   <span>{activeModel.name}</span>
                   <ChevronDown className="h-3 w-3 text-muted-foreground" />
                 </button>
@@ -380,7 +395,7 @@ export function PromptReferenceBar({
                         active ? "bg-foreground/[0.06]" : "hover:bg-muted",
                       )}
                     >
-                      <span className="text-base">{m.emoji}</span>
+                      <m.Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
                       <span className="font-semibold">{m.name}</span>
                       {m.hint && (
                         <span className="ml-auto text-xs text-muted-foreground">
