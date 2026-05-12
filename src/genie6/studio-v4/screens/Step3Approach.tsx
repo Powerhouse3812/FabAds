@@ -25,7 +25,58 @@ interface ApproachMode {
   desc: string;
   /** When user picks this mode, auto-set angleId to this. undefined = leave as is. */
   autoAngleId?: string | null;
+  /** A-12.69 (Maalik): per-card signature color. Soft tint, not neon
+   *  (§7 #3 — no purple/blue neon glows). Resting bg is the 50/100
+   *  pale variant; hover lifts to 100/200; icon stays the saturated
+   *  600. From-scratch keeps lime to anchor it to the default
+   *  selected-ring color. */
+  colors: {
+    bgRest: string;
+    bgHover: string;
+    bgSelected: string;
+    textRest: string;
+    textSelected: string;
+  };
 }
+
+const SCHEME = {
+  indigo: {
+    bgRest: "bg-indigo-50", bgHover: "group-hover:bg-indigo-100",
+    bgSelected: "bg-indigo-100",
+    textRest: "text-indigo-600", textSelected: "text-indigo-700",
+  },
+  emerald: {
+    bgRest: "bg-emerald-50", bgHover: "group-hover:bg-emerald-100",
+    bgSelected: "bg-emerald-100",
+    textRest: "text-emerald-600", textSelected: "text-emerald-700",
+  },
+  fuchsia: {
+    bgRest: "bg-fuchsia-50", bgHover: "group-hover:bg-fuchsia-100",
+    bgSelected: "bg-fuchsia-100",
+    textRest: "text-fuchsia-600", textSelected: "text-fuchsia-700",
+  },
+  amber: {
+    bgRest: "bg-amber-50", bgHover: "group-hover:bg-amber-100",
+    bgSelected: "bg-amber-100",
+    textRest: "text-amber-600", textSelected: "text-amber-700",
+  },
+  rose: {
+    bgRest: "bg-rose-50", bgHover: "group-hover:bg-rose-100",
+    bgSelected: "bg-rose-100",
+    textRest: "text-rose-600", textSelected: "text-rose-700",
+  },
+  cyan: {
+    bgRest: "bg-cyan-50", bgHover: "group-hover:bg-cyan-100",
+    bgSelected: "bg-cyan-100",
+    textRest: "text-cyan-600", textSelected: "text-cyan-700",
+  },
+  lime: {
+    // Anchored to brand lime; keeps "From scratch" feeling primary.
+    bgRest: "bg-primary/[0.10]", bgHover: "group-hover:bg-primary/[0.18]",
+    bgSelected: "bg-primary/[0.20]",
+    textRest: "text-primary", textSelected: "text-primary",
+  },
+} as const;
 
 /**
  * Single unified mode list — no "Coming soon" split. All entries are clickable
@@ -40,46 +91,53 @@ interface ApproachMode {
 const ALL_MODES: ApproachMode[] = [
   {
     id: "ugc-video",
-    Icon: Mic, // talking-head, voice-led
+    Icon: Mic,
     title: "UGC Video",
     desc: "Avatar-led talking-head, script-first.",
     autoAngleId: "ugc-style",
+    colors: SCHEME.indigo,
   },
   {
     id: "create-variations",
-    Icon: Repeat, // iteration loop
+    Icon: Repeat,
     title: "Create Variations",
     desc: "Iterate on existing creatives — keep layout, colors, or copy.",
+    colors: SCHEME.emerald,
   },
   {
     id: "image-to-video",
-    Icon: Video, // image becomes video
+    Icon: Video,
     title: "Image to Video",
     desc: "Animate a static image — subtle motion or full AI.",
+    colors: SCHEME.fuchsia,
   },
   {
     id: "broll",
-    Icon: Film, // film reel, classic cutaway
+    Icon: Film,
     title: "B-Roll",
     desc: "Cutaway footage to layer with primary content.",
+    colors: SCHEME.amber,
   },
   {
     id: "bg-remover",
-    Icon: Scissors, // cut/strip
+    Icon: Scissors,
     title: "BG Remover",
     desc: "Strip backgrounds from product shots.",
+    colors: SCHEME.rose,
   },
   {
     id: "resize",
-    Icon: Maximize2, // expand/contract arrows
+    Icon: Maximize2,
     title: "Resize",
     desc: "Reformat to platform aspect ratios.",
+    colors: SCHEME.cyan,
   },
   {
     id: "scratch",
-    Icon: Wand2, // AI-from-nothing
+    Icon: Wand2,
     title: "From scratch",
     desc: "Full flow — prompt, references, angle, model, output count.",
+    colors: SCHEME.lime,
   },
 ];
 
@@ -145,8 +203,8 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
                 className={cn(
                   "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
                   selected
-                    ? "bg-primary/[0.18] text-primary"
-                    : "bg-foreground/[0.06] text-foreground/70 group-hover:bg-primary/[0.10] group-hover:text-primary",
+                    ? `${m.colors.bgSelected} ${m.colors.textSelected}`
+                    : `${m.colors.bgRest} ${m.colors.textRest} ${m.colors.bgHover}`,
                 )}
               >
                 <Icon className="h-5 w-5" strokeWidth={2} />
