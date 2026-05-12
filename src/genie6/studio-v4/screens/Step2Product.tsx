@@ -403,7 +403,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 px-6 pt-8 pb-6">
       <HeroHeader title="What are you creating for?" onBack={onBack} />
 
       {/* Tab toggle — Brand vs Product vs Category */}
@@ -746,45 +746,42 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           }}
           search={search}
         />
-      ) : wizard.state.categoryId ? (
-        <div className="flex flex-col gap-6">
-          <CategoryGrid
-            categories={filteredCategories}
-            selectedId={wizard.state.categoryId}
-            onPick={(id) =>
-              wizard.patch({ categoryId: id, productId: null, brandId: null })
-            }
-            search={search}
-          />
-          <CategoryProductsSection
-            categoryName={
-              ALL_CATEGORIES.find((c) => c.id === wizard.state.categoryId)
-                ?.name ?? "Category"
-            }
-            products={categoryProducts}
-            selectedProductId={wizard.state.productId}
-            onPick={(id) => {
-              wizard.patch({
-                productId: wizard.state.productId === id ? null : id,
-                categoryId: wizard.state.categoryId,
-                brandId: null,
-              });
-              if (wizard.state.productId !== id) onAdvance();
-            }}
-            onSkip={() => {
-              // Already has a category selected; advance without a specific product
-              onAdvance();
-            }}
-          />
-        </div>
       ) : (
-        <CategoryGrid
+        /* A-12.66 (Maalik): no page scroll. Category branch fills the
+           remaining height of the step. Both categories and the optional
+           refine-with-product section use INTERNAL overflow only.
+           60% / 40% height split when refine toggle is ON. Continue
+           button always visible at the bottom. */
+        <CategoryBranch
           categories={filteredCategories}
-          selectedId={wizard.state.categoryId}
-          onPick={(id) =>
+          selectedCategoryId={wizard.state.categoryId}
+          onPickCategory={(id) =>
             wizard.patch({ categoryId: id, productId: null, brandId: null })
           }
           search={search}
+          products={categoryProducts}
+          selectedProductId={wizard.state.productId}
+          onPickProduct={(id) => {
+            wizard.patch({
+              productId: wizard.state.productId === id ? null : id,
+              categoryId: wizard.state.categoryId,
+              brandId: null,
+            });
+            if (wizard.state.productId !== id) onAdvance();
+          }}
+          onContinue={onAdvance}
+          refineOpen={searchParams.get("refine") === "open"}
+          onRefineToggle={(next) =>
+            setSearchParams(
+              (prev) => {
+                const sp = new URLSearchParams(prev);
+                if (next) sp.set("refine", "open");
+                else sp.delete("refine");
+                return sp;
+              },
+              { replace: true },
+            )
+          }
         />
       )}
 
@@ -1261,6 +1258,200 @@ function CategoryProductsSection({
         >
           Continue with {categoryName}
           <span aria-hidden>→</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  CategoryBranch — A-12.66 (Maalik): height-constrained layout
+ *  for the Category tab. No page scroll, internal containers only.
+ *
+ *  Layout (vertical stack inside the step's available height):
+ *    ┌──────────────────────────────────────────────────┐
+ *    │ Categories grid                       60% height │
+ *    │   internal overflow-y-auto                       │
+ *    ├──────────────────────────────────────────────────┤
+ *    │ Toggle: "Add a product to refine?"     auto      │
+ *    ├──────────────────────────────────────────────────┤
+ *    │ Products grid (only when toggle ON)   40% height │
+ *    │   internal overflow-y-auto                       │
+ *    ├──────────────────────────────────────────────────┤
+ *    │ Continue button                        auto      │
+ *    └──────────────────────────────────────────────────┘
+ *
+ *  Continue button is always visible regardless of toggle state.
+ *  Heights are constrained so the whole layout fits in viewport.
+ *  Refine toggle URL-backed via ?refine=open.
+ * ─────────────────────────────────────────────────────────── */
+
+interface CategoryBranchProps {
+  categories: CategoryItem[];
+  selectedCategoryId: string | null;
+  onPickCategory: (id: string) => void;
+  search: string;
+  products: typeof ALL_PRODUCTS;
+  selectedProductId: string | null;
+  onPickProduct: (id: string) => void;
+  onContinue: () => void;
+  refineOpen: boolean;
+  onRefineToggle: (next: boolean) => void;
+}
+
+function CategoryBranch({
+  categories,
+  selectedCategoryId,
+  onPickCategory,
+  search,
+  products,
+  selectedProductId,
+  onPickProduct,
+  onContinue,
+  refineOpen,
+  onRefineToggle,
+}: CategoryBranchProps) {
+  const selectedCategoryName =
+    categories.find((c) => c.id === selectedCategoryId)?.name ?? null;
+  const continueDisabled = !selectedCategoryId;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {/* Categories — flex-[6] when refine ON, flex-1 when OFF */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-col rounded-2xl border border-border/40 bg-card/40 p-3",
+          refineOpen ? "flex-[6]" : "flex-1",
+        )}
+      >
+        <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          Pick a category
+        </p>
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+          <CategoryGrid
+            categories={categories}
+            selectedId={selectedCategoryId}
+            onPick={onPickCategory}
+            search={search}
+          />
+        </div>
+      </div>
+
+      {/* Refine toggle row — only meaningful once a category is picked */}
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-2 rounded-xl border border-border/40 bg-card/40 px-3 py-2 transition-opacity",
+          !selectedCategoryId && "opacity-50 pointer-events-none",
+        )}
+      >
+        <span className="text-[12px] font-medium text-foreground">
+          Add a product to refine?
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          (optional)
+        </span>
+        <button
+          type="button"
+          onClick={() => onRefineToggle(!refineOpen)}
+          aria-pressed={refineOpen}
+          disabled={!selectedCategoryId}
+          className={cn(
+            "ml-auto relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+            refineOpen ? "bg-primary" : "bg-muted",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block h-4 w-4 transform rounded-full bg-background shadow-sm transition-transform",
+              refineOpen ? "translate-x-4" : "translate-x-0.5",
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Products — only renders when refine ON. flex-[4] keeps the 60:40 ratio */}
+      {refineOpen && (
+        <div className="flex min-h-0 flex-[4] flex-col rounded-2xl border border-border/40 bg-card/40 p-3">
+          <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Products in {selectedCategoryName ?? "category"}
+          </p>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+            {products.length === 0 ? (
+              <p className="py-4 text-center text-[12px] italic text-muted-foreground">
+                No products in this category — just continue.
+              </p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {products.map((p) => {
+                  const isSelected = selectedProductId === p.id;
+                  const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => onPickProduct(p.id)}
+                        className={cn(
+                          "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/30"
+                            : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
+                        )}
+                      >
+                        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                          <img
+                            src={resolveProductThumb(p)}
+                            alt={p.name}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                          />
+                          {brand?.logo && (
+                            <img
+                              src={brand.logo}
+                              alt={brand.name}
+                              className="absolute bottom-1 left-1 h-4 w-4 rounded bg-white/90 object-contain p-0.5 shadow-sm"
+                            />
+                          )}
+                          {isSelected && (
+                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                            </span>
+                          )}
+                        </div>
+                        <div className="px-2 pb-1.5 pt-1">
+                          <p className="line-clamp-1 text-[11px] font-semibold leading-tight text-foreground">
+                            {p.name}
+                          </p>
+                          <p className="line-clamp-1 font-mono text-[9px] text-muted-foreground">
+                            {p.price}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Continue button — always visible, sticks to bottom */}
+      <div className="shrink-0 flex justify-center pt-1">
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={continueDisabled}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13px] font-bold shadow-sm transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+            continueDisabled
+              ? "cursor-not-allowed bg-muted text-muted-foreground"
+              : "bg-primary text-primary-foreground hover:scale-[1.02]",
+          )}
+        >
+          {selectedCategoryName
+            ? `Continue with ${selectedCategoryName}`
+            : "Pick a category to continue"}
+          {!continueDisabled && <span aria-hidden>→</span>}
         </button>
       </div>
     </div>
