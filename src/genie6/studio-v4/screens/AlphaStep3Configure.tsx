@@ -266,8 +266,12 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
   return (
     <>
-      {/* Form content — centered single column. ContextRail lives in the global shell. */}
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+      {/* Form content — centered single column. ContextRail lives in the global shell.
+          A-12.67 (Maalik): h-full so the step claims viewport height; the
+          combined Angles+Concepts card becomes the single flex-1 min-h-0
+          region absorbing leftover height. Concepts grid's max-h scroll
+          becomes the only internal scroll surface — page never scrolls. */}
+      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
         <HeroHeader title="Configure" onBack={onBack} />
 
           {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
@@ -295,11 +299,12 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             }
           />
 
-          {/* Angles + Concepts — combined glass card. Both sections always
-              open. Angles: 20 chips in 2 rows (no scroll). Concepts:
-              horizontal scroll strip with search bar. Designed to fit
-              without vertical page scroll. */}
-          <div className="v3-glass-card overflow-hidden rounded-2xl">
+          {/* Angles + Concepts — combined glass card. A-12.67: this card
+              is the single flex-1 min-h-0 region in the step's flex column,
+              absorbing leftover height. The Concepts grid inside has its
+              own max-h + overflow-y-auto, which is now the only internal
+              scroll surface on the entire step. */}
+          <div className="v3-glass-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
             {/* Section 1: Angles — single horizontal-scroll row by default;
                 View more expands to 2-row flex-wrap. A-12.57 (Maalik). */}
             <div className="px-4 py-3">

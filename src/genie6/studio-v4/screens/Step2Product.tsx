@@ -721,31 +721,47 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
         </span>
       </div>
 
-      {/* Grid — brand / product / category */}
+      {/* Grid — brand / product / category. A-12.67 (Maalik): Brand and
+          Product tabs wrapped in the same height-fit chassis as CategoryBranch
+          so the page itself doesn't scroll — only the inner grid does. */}
       {tab === "brand" ? (
-        <BrandGrid
-          brands={filteredBrands}
-          selectedId={wizard.state.brandId}
-          onPick={(id) => {
-            wizard.patch({
-              brandId: id,
-              productId: null,
-              categoryId: null,
-            });
-            onAdvance();
-          }}
-          search={search}
-        />
+        <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/40 bg-card/40 p-3">
+          <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Pick a brand
+          </p>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+            <BrandGrid
+              brands={filteredBrands}
+              selectedId={wizard.state.brandId}
+              onPick={(id) => {
+                wizard.patch({
+                  brandId: id,
+                  productId: null,
+                  categoryId: null,
+                });
+                onAdvance();
+              }}
+              search={search}
+            />
+          </div>
+        </div>
       ) : tab === "product" ? (
-        <ProductGrid
-          products={filteredProducts}
-          selectedId={wizard.state.productId}
-          onPick={(id) => {
-            wizard.patch({ productId: id, categoryId: null, brandId: null });
-            onAdvance();
-          }}
-          search={search}
-        />
+        <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/40 bg-card/40 p-3">
+          <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Pick a product
+          </p>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+            <ProductGrid
+              products={filteredProducts}
+              selectedId={wizard.state.productId}
+              onPick={(id) => {
+                wizard.patch({ productId: id, categoryId: null, brandId: null });
+                onAdvance();
+              }}
+              search={search}
+            />
+          </div>
+        </div>
       ) : (
         /* A-12.66 (Maalik): no page scroll. Category branch fills the
            remaining height of the step. Both categories and the optional
