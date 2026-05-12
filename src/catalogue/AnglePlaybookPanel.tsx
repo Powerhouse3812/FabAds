@@ -91,8 +91,29 @@ export function AnglePlaybookPanel({
   entityLabel,
 }: AnglePlaybookPanelProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  // A-12.61 (Maalik · UX): top-level collapse for the whole panel. Default
+  // collapsed — at 0/30 fresh state, 10 category rows are pure noise.
+  // URL-backed via ?playbook=open so the user's choice survives refresh.
+  const playbookOpen = searchParams.get("playbook") === "open";
   const openCategory = searchParams.get("playbook-cat") ?? "";
   const activeAngleId = searchParams.get("playbook-angle") ?? "";
+
+  const setPlaybookOpen = (next: boolean) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next) sp.set("playbook", "open");
+        else {
+          sp.delete("playbook");
+          // closing the panel collapses everything inside too
+          sp.delete("playbook-cat");
+          sp.delete("playbook-angle");
+        }
+        return sp;
+      },
+      { replace: true },
+    );
+  };
 
   const setOpenCategory = (next: string) => {
     setSearchParams(
@@ -191,8 +212,23 @@ export function AnglePlaybookPanel({
   };
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card/40 p-3.5">
-      <header className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="rounded-xl border border-border/60 bg-card/40 p-3">
+      {/* Compact header — click anywhere on the title strip to toggle. */}
+      <button
+        type="button"
+        onClick={() => setPlaybookOpen(!playbookOpen)}
+        aria-expanded={playbookOpen}
+        className={cn(
+          "flex w-full flex-wrap items-center gap-2 rounded-md text-left transition-colors",
+          playbookOpen && "mb-2",
+        )}
+      >
+        <ChevronRight
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300",
+            playbookOpen && "rotate-90",
+          )}
+        />
         <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
         <h4 className="text-[13px] font-semibold tracking-tight text-foreground">
           Angle Playbook
@@ -200,30 +236,40 @@ export function AnglePlaybookPanel({
         <span className="inline-flex items-center rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold text-foreground">
           {filledCount} / {TOTAL_ANGLES}
         </span>
-        <button
-          type="button"
-          onClick={fillAllEmpty}
-          disabled={emptyCount === 0}
+        {/* Bulk fill button — stop click propagation so it doesn't toggle. */}
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (emptyCount > 0) fillAllEmpty();
+          }}
+          onKeyDown={(e) => {
+            if ((e.key === "Enter" || e.key === " ") && emptyCount > 0) {
+              e.preventDefault();
+              e.stopPropagation();
+              fillAllEmpty();
+            }
+          }}
           className={cn(
-            "ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-transform",
+            "ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
             emptyCount === 0
               ? "cursor-not-allowed bg-muted text-muted-foreground"
-              : "bg-primary text-primary-foreground hover:scale-[1.02]",
+              : "cursor-pointer bg-primary/10 text-primary hover:bg-primary/20",
           )}
-          title={emptyCount === 0 ? "All angles filled" : "AI-draft all empty angles"}
+          title={
+            emptyCount === 0
+              ? "All angles filled"
+              : `AI-draft all ${emptyCount} empty angles`
+          }
         >
-          <Sparkles className="h-3 w-3" />
-          {emptyCount === 0
-            ? "All filled"
-            : `Fill all empties · ${bulkCost} credits`}
-        </button>
-      </header>
+          <Sparkles className="h-2.5 w-2.5" />
+          {emptyCount === 0 ? "All filled" : `Fill all · ${bulkCost}c`}
+        </span>
+      </button>
 
-      <p className="mb-2.5 text-[11px] text-muted-foreground">
-        Per-angle rules Genie follows when generating ads for this {entityLabel}.
-      </p>
-
-      <ul className="space-y-1.5">
+      {!playbookOpen ? null : (
+      <ul className="space-y-1">
         {CATEGORIES.map((cat) => {
           const items = cat.angleIds.map((id) => ({
             id,
@@ -339,6 +385,7 @@ export function AnglePlaybookPanel({
           );
         })}
       </ul>
+      )}
     </div>
   );
 }

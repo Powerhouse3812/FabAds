@@ -41,7 +41,6 @@ import {
   voices,
   getInstructionsForEntity,
   getWinnerAdsForEntity,
-  getConceptsForEntity,
   getReferenceUrlsForEntity,
   shortUrl,
   type EntityType as KbEntityType,
@@ -70,7 +69,6 @@ import {
   useSavedProductsForBrand,
   useSavedInstructionsForEntity,
   useSavedWinnersForEntity,
-  useSavedConceptsForEntity,
 } from "@/genie6/concepts/saved-store";
 
 type CatalogueType =
@@ -494,13 +492,13 @@ function KnowledgeBaseSection({
   // on the dedicated "Winner Ads" top-level tab. So winners + savedWinners
   // are not derived here anymore. Per-tab WinnersPanel/ProductWinnersPanel/
   // CategoryWinnersPanel re-read them independently via the same hooks.
+  // A-12.61 (Maalik): concepts derivation dropped — KB no longer renders
+  // a Concepts sub-section. Concepts are an output of KB, not an input.
   const savedInstr = useSavedInstructionsForEntity(entityType, entityId);
-  const savedConcepts = useSavedConceptsForEntity(entityType, entityId);
 
   const seedInstr = getInstructionsForEntity(entityType, entityId);
   const main = seedInstr.main;
   const custom = [...seedInstr.custom, ...savedInstr];
-  const conceptsList = [...getConceptsForEntity(entityType, entityId), ...savedConcepts];
   const refs = getReferenceUrlsForEntity(entityType, entityId);
 
   const handleSaved = (
@@ -569,21 +567,11 @@ function KnowledgeBaseSection({
           entityLabel={entityLabel}
         />
 
-        <KbTabPanel
-          title="Concepts"
-          count={conceptsList.length}
-          hint="Visual + tonal concepts — derived from winner ads, or saved from Genie / Industry Insights."
-          emptyMessage="No concepts saved yet."
-          createLabel="Add concept"
-          onCreate={() => setCreateKind("concept")}
-          isEmpty={conceptsList.length === 0}
-        >
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {conceptsList.map((c) => (
-              <ConceptCard key={c.id} concept={c} />
-            ))}
-          </div>
-        </KbTabPanel>
+        {/* A-12.61 (Maalik): Concepts sub-section removed from KB. KB
+            holds main + custom + angle playbook — these are the inputs
+            Genie uses to generate concepts + ads. Concepts themselves
+            live on /iq/genie6/concepts (ConceptsLibrary) and surface via
+            the saved-store; they're an output, not a KB input. */}
 
         <KbTabPanel
           title="References"
