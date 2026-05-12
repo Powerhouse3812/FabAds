@@ -369,59 +369,119 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               className="mx-3 h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
             />
 
-            {/* Section 2: Trending concepts — horizontal scroll strip + search */}
+            {/* Section 2: Concepts — A-12.64 (Maalik):
+                  • Collapsed by default; auto-expands when an angle is picked.
+                  • Vertical scroll inside a fixed max-height frame
+                    (not horizontal anymore).
+                  • Dim-all-when-no-match bug gone — matching concepts get a
+                    positive lime accent instead of dimming the rest.
+                  • ✨ Generate button in header → opens the AI generate
+                    rail picker (same one /iq/genie6/concepts/generate uses).
+            */}
+            {(() => {
+              const userOpenedConcepts =
+                searchParams.get("concepts-acc") === "open";
+              const conceptsOpen =
+                userOpenedConcepts || !!wizard.state.angleId;
+              const toggleConcepts = () => {
+                setSearchParams(
+                  (prev) => {
+                    const sp = new URLSearchParams(prev);
+                    if (conceptsOpen) sp.delete("concepts-acc");
+                    else sp.set("concepts-acc", "open");
+                    return sp;
+                  },
+                  { replace: true },
+                );
+              };
+              return (
             <div className="px-4 py-3">
-              <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleConcepts}
+                aria-expanded={conceptsOpen}
+                className="flex w-full items-center gap-3"
+              >
+                <ChevronRight
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300",
+                    conceptsOpen && "rotate-90",
+                  )}
+                />
                 <SectionHeader
                   title="Concepts"
                   icon={Sparkles}
                   count={filteredTrending.length}
-                  hint="pre-built starting points"
+                  hint={
+                    wizard.state.angleId
+                      ? "matched to your angle"
+                      : conceptsOpen
+                        ? "pre-built starting points"
+                        : "pick an angle to expand"
+                  }
                 />
-                <div className="relative ml-auto w-44">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={conceptSearch}
-                    onChange={(e) => setConceptSearch(e.target.value)}
-                    placeholder="Search concepts…"
-                    className="h-7 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-foreground/30"
-                  />
-                </div>
-              </div>
+                {conceptsOpen && (
+                  <>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRailMode("ai-generate-concepts");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setRailMode("ai-generate-concepts");
+                        }
+                      }}
+                      title="Generate concepts with AI"
+                      className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-full bg-primary px-2.5 text-[11px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      Generate
+                    </span>
+                    <div
+                      className="relative w-44"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={conceptSearch}
+                        onChange={(e) => setConceptSearch(e.target.value)}
+                        placeholder="Search concepts…"
+                        className="h-7 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-foreground/30"
+                      />
+                    </div>
+                  </>
+                )}
+              </button>
 
-              {/* Horizontal scroll strip — bleeds to card edge so cards
-                  scroll under boundary. Hidden scrollbar, snap-to-card.
-                  A-12.57 (Maalik): ref + smooth-scroll-to-zero on angle pick
-                  (see useEffect above). Each card has a transition + dimmed
-                  opacity when a non-matching angle is selected. */}
+              {conceptsOpen && (
               <ul
                 ref={conceptStripRef}
-                className="-mx-4 mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+                className="mt-2 grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pb-1 sm:grid-cols-3 lg:grid-cols-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5"
               >
-                {filteredTrending.map((t, idx) => {
+                {filteredTrending.map((t) => {
                   const active = isTrendingSelected(t.id);
                   const anglePicked = !!wizard.state.angleId;
-                  // A concept "matches" the picked angle iff its index landed
-                  // in the matches[] front-group during the filter pass above.
-                  // We can't reach that group easily here — derive at render:
-                  // re-run the same hay-check inline. Cheap, deterministic.
-                  let dimmed = false;
+                  // A-12.64 (Maalik): drop the universal dim. Matching concepts
+                  // get a POSITIVE lime accent ring instead of dimming the rest.
+                  let isAngleMatch = false;
                   if (anglePicked) {
-                    const angleLabel = (ANGLE_CHIP_LABEL[wizard.state.angleId!] ?? wizard.state.angleId!).toLowerCase();
+                    const angleLabel = (
+                      ANGLE_CHIP_LABEL[wizard.state.angleId!] ??
+                      wizard.state.angleId!
+                    ).toLowerCase();
                     const angleIdLc = wizard.state.angleId!.toLowerCase();
                     const hay = `${t.headline ?? ""} ${t.body ?? ""} ${t.mode ?? ""} ${(t as { angle?: string }).angle ?? ""}`.toLowerCase();
-                    dimmed = !(hay.includes(angleLabel) || hay.includes(angleIdLc));
+                    isAngleMatch =
+                      hay.includes(angleLabel) || hay.includes(angleIdLc);
                   }
                   return (
-                    <li
-                      key={t.id}
-                      className={cn(
-                        "snap-start shrink-0 w-[150px] transition-all duration-400 ease-out",
-                        dimmed ? "opacity-50" : "opacity-100",
-                      )}
-                      style={{ transitionDelay: `${Math.min(idx * 20, 200)}ms` }}
-                    >
+                    <li key={t.id} className="transition-all duration-300 ease-out">
                       <button
                         type="button"
                         onClick={() => toggleTrending(t.id)}
@@ -429,7 +489,9 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                           "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card text-left transition-all",
                           active
                             ? "border-primary/50 ring-2 ring-primary/30"
-                            : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
+                            : isAngleMatch
+                              ? "border-primary/30 hover:-translate-y-0.5 hover:shadow-md"
+                              : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                         )}
                       >
                         <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
@@ -464,12 +526,15 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                   );
                 })}
                 {filteredTrending.length === 0 && (
-                  <li className="flex shrink-0 items-center px-2 text-[11px] italic text-muted-foreground">
+                  <li className="col-span-full px-2 py-6 text-center text-[11px] italic text-muted-foreground">
                     No concepts match "{conceptSearch}"
                   </li>
                 )}
               </ul>
+              )}
             </div>
+              );
+            })()}
           </div>
       </div>
 
