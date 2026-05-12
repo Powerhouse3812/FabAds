@@ -74,7 +74,8 @@ const MODELS: { id: string; emoji: string; name: string; hint?: string }[] = [
   { id: "genie-labs", emoji: "🧪", name: "Genie Labs", hint: "Experimental" },
 ];
 
-const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
+export const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
+export type AspectRatio = (typeof RATIOS)[number];
 
 export const ANGLE_CHIP_LABEL: Record<string, string> = {
   hero: "Hero",
@@ -401,13 +402,13 @@ export function PromptReferenceBar({
               max={20}
             />
 
-            {/* Aspect ratio — popover (minimal, not segmented) */}
-            <AspectRatioPopover
-              value={state.aspectRatio}
-              onChange={(r) => wizard.set("aspectRatio", r)}
-            />
+            {/* A-12.56 (Maalik): aspect ratio merged into the 3-dot Generation
+                Settings popover injected via footerExtras. AspectRatioPopover
+                component kept in this file as dead code in case we want to
+                revert. */}
 
-            {/* Optional parent-provided slot (e.g. Generation-settings popover) */}
+            {/* Optional parent-provided slot (e.g. Generation-settings popover
+                with Ratio + Quality + Audio sections) */}
             {footerExtras}
 
             {/* Generate — credits inline in label */}

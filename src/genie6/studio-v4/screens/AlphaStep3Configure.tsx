@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, MoreVertical, Search, Sparkles, Target, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MoreVertical, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -20,6 +20,7 @@ import {
   PromptReferenceBar,
   type ChipKind,
   ANGLE_CHIP_LABEL,
+  RATIOS,
 } from "../components/PromptReferenceBar";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
@@ -170,13 +171,31 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   const [conceptSearch, setConceptSearch] = useState("");
   const filteredTrending = useMemo(() => {
     const q = conceptSearch.trim().toLowerCase();
-    if (!q) return trending;
-    return trending.filter(
-      (t) =>
-        (t.headline ?? "").toLowerCase().includes(q) ||
-        (t.brand?.name ?? "").toLowerCase().includes(q),
-    );
-  }, [trending, conceptSearch]);
+    const base = !q
+      ? trending
+      : trending.filter(
+          (t) =>
+            (t.headline ?? "").toLowerCase().includes(q) ||
+            (t.brand?.name ?? "").toLowerCase().includes(q),
+        );
+
+    // A-12.57 (Maalik): when an angle is picked, re-order the strip so
+    // matching concepts move to the FRONT (preserving relative order).
+    // OutputData has no formal `angle` field — tolerant lowercase-contains
+    // match against headline / body / mode / angle (if present).
+    const angleId = wizard.state.angleId;
+    if (!angleId) return base;
+    const label = (ANGLE_CHIP_LABEL[angleId] ?? angleId).toLowerCase();
+    const id = angleId.toLowerCase();
+    const matches: typeof base = [];
+    const rest: typeof base = [];
+    for (const t of base) {
+      const hay = `${t.headline ?? ""} ${t.body ?? ""} ${t.mode ?? ""} ${(t as { angle?: string }).angle ?? ""}`.toLowerCase();
+      if (hay.includes(label) || hay.includes(id)) matches.push(t);
+      else rest.push(t);
+    }
+    return [...matches, ...rest];
+  }, [trending, conceptSearch, wizard.state.angleId]);
 
   const handleAttachSave =
     (source: AttachSource) => (refs: AttachedRef[]) => {
@@ -225,6 +244,21 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     wizard.set("angleId", next);
   };
 
+  // A-12.57 (Maalik): Angles section is single-row horizontal-scroll by
+  // default; "View more" expands to the full 2-row flex-wrap layout.
+  // URL-backed via ?angles=open (mirrors the existing accordion convention
+  // used elsewhere in this file).
+  const [anglesExpanded, setAnglesExpanded] = useAccordionUrl("angles", false);
+
+  // A-12.57: Concepts strip ref + scroll-to-start on angle pick.
+  // When wizard.state.angleId changes, smooth-scroll the strip back to the
+  // start so the matching concepts (re-ordered first) are immediately visible.
+  const conceptStripRef = useRef<HTMLUListElement | null>(null);
+  useEffect(() => {
+    if (!conceptStripRef.current) return;
+    conceptStripRef.current.scrollTo({ left: 0, behavior: "smooth" });
+  }, [wizard.state.angleId]);
+
 
 
   return (
@@ -263,37 +297,67 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               horizontal scroll strip with search bar. Designed to fit
               without vertical page scroll. */}
           <div className="v3-glass-card overflow-hidden rounded-2xl">
-            {/* Section 1: Angles — flex-wrap chips, 2 rows on desktop */}
+            {/* Section 1: Angles — single horizontal-scroll row by default;
+                View more expands to 2-row flex-wrap. A-12.57 (Maalik). */}
             <div className="px-4 py-3">
               <SectionHeader
                 title="Angles"
                 icon={Target}
                 count={ANGLE_IDS.length}
                 hint="pick one to guide style"
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setAnglesExpanded(!anglesExpanded)}
+                    aria-expanded={anglesExpanded}
+                    className="ml-auto inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                  >
+                    {anglesExpanded ? "View less" : "View more"}
+                    <ChevronRight
+                      className={cn(
+                        "h-3 w-3 transition-transform duration-300",
+                        anglesExpanded && "rotate-90",
+                      )}
+                    />
+                  </button>
+                }
               />
-              <ul className="mt-2 flex flex-wrap items-center gap-1.5">
-                {ANGLE_IDS.map((id) => {
-                  const active = wizard.state.angleId === id;
-                  const label = ANGLE_CHIP_LABEL[id] ?? id;
-                  return (
-                    <li key={id}>
-                      <button
-                        type="button"
-                        onClick={() => toggleAngle(id)}
-                        aria-pressed={active}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-                          active
-                            ? "border-primary/50 bg-primary/10 text-primary"
-                            : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
-                        )}
-                      >
-                        {label}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div
+                className={cn(
+                  "mt-2 overflow-hidden transition-[max-height] duration-300 ease-out",
+                  anglesExpanded ? "max-h-[200px]" : "max-h-[44px]",
+                )}
+              >
+                <ul
+                  className={cn(
+                    anglesExpanded
+                      ? "flex flex-wrap items-center gap-1.5"
+                      : "flex items-center gap-1.5 overflow-x-auto pb-1.5 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_92%,transparent)]",
+                  )}
+                >
+                  {ANGLE_IDS.map((id) => {
+                    const active = wizard.state.angleId === id;
+                    const label = ANGLE_CHIP_LABEL[id] ?? id;
+                    return (
+                      <li key={id} className={cn(!anglesExpanded && "snap-start shrink-0")}>
+                        <button
+                          type="button"
+                          onClick={() => toggleAngle(id)}
+                          aria-pressed={active}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                            active
+                              ? "border-primary/50 bg-primary/10 text-primary"
+                              : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                          )}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
 
             {/* Gradient divider — parent-nav rail style */}
@@ -324,12 +388,37 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               </div>
 
               {/* Horizontal scroll strip — bleeds to card edge so cards
-                  scroll under boundary. Hidden scrollbar, snap-to-card. */}
-              <ul className="-mx-4 mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-                {filteredTrending.map((t) => {
+                  scroll under boundary. Hidden scrollbar, snap-to-card.
+                  A-12.57 (Maalik): ref + smooth-scroll-to-zero on angle pick
+                  (see useEffect above). Each card has a transition + dimmed
+                  opacity when a non-matching angle is selected. */}
+              <ul
+                ref={conceptStripRef}
+                className="-mx-4 mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+              >
+                {filteredTrending.map((t, idx) => {
                   const active = isTrendingSelected(t.id);
+                  const anglePicked = !!wizard.state.angleId;
+                  // A concept "matches" the picked angle iff its index landed
+                  // in the matches[] front-group during the filter pass above.
+                  // We can't reach that group easily here — derive at render:
+                  // re-run the same hay-check inline. Cheap, deterministic.
+                  let dimmed = false;
+                  if (anglePicked) {
+                    const angleLabel = (ANGLE_CHIP_LABEL[wizard.state.angleId!] ?? wizard.state.angleId!).toLowerCase();
+                    const angleIdLc = wizard.state.angleId!.toLowerCase();
+                    const hay = `${t.headline ?? ""} ${t.body ?? ""} ${t.mode ?? ""} ${(t as { angle?: string }).angle ?? ""}`.toLowerCase();
+                    dimmed = !(hay.includes(angleLabel) || hay.includes(angleIdLc));
+                  }
                   return (
-                    <li key={t.id} className="snap-start shrink-0 w-[150px]">
+                    <li
+                      key={t.id}
+                      className={cn(
+                        "snap-start shrink-0 w-[150px] transition-all duration-400 ease-out",
+                        dimmed ? "opacity-50" : "opacity-100",
+                      )}
+                      style={{ transitionDelay: `${Math.min(idx * 20, 200)}ms` }}
+                    >
                       <button
                         type="button"
                         onClick={() => toggleTrending(t.id)}
@@ -739,8 +828,43 @@ function GenerationSettingsButton({
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" side="top" className="w-[280px] rounded-xl border bg-card p-4">
+      <PopoverContent align="end" side="top" className="w-[310px] rounded-xl border bg-card p-4">
         <div className="flex flex-col gap-4">
+          {/* — Aspect Ratio section (A-12.56: merged in from the standalone
+              picker that used to live in PromptReferenceBar's Row 3) — */}
+          <div className="flex flex-col gap-1.5">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Aspect Ratio
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {RATIOS.map((r) => {
+                const active = state.aspectRatio === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => wizard.set("aspectRatio", r)}
+                    aria-pressed={active}
+                    className={cn(
+                      "inline-flex h-7 items-center justify-center rounded-full border px-3 font-mono text-[11px] font-medium transition-colors",
+                      active
+                        ? "border-primary/40 bg-primary/[0.10] text-primary"
+                        : "border-border/60 bg-background/50 text-foreground/80 hover:border-foreground/30",
+                    )}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div
+            aria-hidden
+            className="h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
+          />
+
           {/* — Quality section — */}
           <div className="flex flex-col gap-1.5">
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
