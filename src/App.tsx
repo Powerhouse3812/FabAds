@@ -24,6 +24,7 @@ import Genie5 from "@/pages/iq/Genie5";
 import Genie5QuickStartPage from "@/pages/iq/Genie5QuickStartPage";
 import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
+import { brandBookRoutes } from "@/brand-book/routes";
 
 import InsightsIntelligence from "@/pages/insights/InsightsIntelligence";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
@@ -110,6 +111,9 @@ const App = () => (
 
                 {/* Genie 6.0 — mounted inside FabAds shell, like Genie 5.0 */}
                 {genie6Routes}
+
+                {/* Brand Book — temporary FabFunnel slideshow; URL changes per slide */}
+                {brandBookRoutes}
 
                 <Route path="insights" element={<Navigate to="/insights/discover" replace />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />

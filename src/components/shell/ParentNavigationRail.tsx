@@ -171,6 +171,14 @@ function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolea
         )}
       >
         <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
+        {mod.badge ? (
+          <span
+            className="absolute -right-2 -top-1.5 rounded-sm bg-[#c3eb42] px-[3px] py-[1px] font-mono text-[7px] font-bold uppercase tracking-wider leading-none text-[#1a1a17] shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
+            aria-hidden="true"
+          >
+            {mod.badge}
+          </span>
+        ) : null}
       </span>
       <span
         className={cn(

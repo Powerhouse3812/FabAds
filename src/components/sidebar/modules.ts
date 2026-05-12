@@ -7,6 +7,7 @@ import {
   Bookmark, Copy, Tag, Building2, Package, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
+  BookOpen,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -45,6 +46,8 @@ export interface ModuleDef {
   /** Grouped sub-items (e.g. Reports) */
   sections?: SectionGroup[];
   comingSoon?: boolean;
+  /** Optional small chip rendered on the parent rail item (e.g. "Temp", "Beta") */
+  badge?: string;
 }
 
 /** Shell-level functional groups used by the nav. */
@@ -171,6 +174,8 @@ export const MODULES: ModuleDef[] = [
   { key: "copilot", label: "Copilot", icon: MessageSquare, path: "/iq/copilot" },
   { key: "bg-remover", label: "BG Remover", icon: Eraser, path: "/tools/bg-remover", comingSoon: true },
   { key: "obj-remover", label: "Object Remover", icon: Scissors, path: "/tools/obj-remover", comingSoon: true },
+  // Temporary — FabFunnel Brand Book slideshow. No sub-nav; each slide is its own route.
+  { key: "brand-book", label: "Brand Book", icon: BookOpen, path: "/brand-book", badge: "Temp" },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.
@@ -209,6 +214,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   copilot: "TOOLS",
   "bg-remover": "TOOLS",
   "obj-remover": "TOOLS",
+  "brand-book": "TOOLS",
 };
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];
