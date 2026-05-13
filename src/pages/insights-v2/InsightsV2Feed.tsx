@@ -250,7 +250,10 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const [optimisticBookmarked, setOptimisticBookmarked] = useState<Set<string>>(
     () => new Set(),
   );
-  const dismissedAutoModal = useRef(false);
+  // Industry/interest/brand preference modal — opened manually from the
+  // Settings popover in the toolbar. NO LONGER auto-opens on first visit
+  // (per Maalik: the auto-popup was annoying on every navigation to feed).
+  const [prefsModalOpen, setPrefsModalOpen] = useState(false);
 
   // Sync filter/tag state -> URL (replace so back-button isn't spammed)
   useEffect(() => {
@@ -400,10 +403,14 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     }
   }, []);
 
-  /* ----- onboarding gate (mirrors InsightsFeed.tsx) ----- */
+  /* ----- loading state ----- */
   const isLoading = forceLoading || prefsLoading;
-  const showOnboarding =
-    !prefsLoading && !preferences?.onboarded && !dismissedAutoModal.current;
+  // Used only to decide which "no ads" empty-state copy to show.
+  // The actual modal NO LONGER auto-opens here — Maalik found it
+  // intrusive on every navigation. Now opens only via the Settings
+  // popover in the toolbar.
+  const hasUnsetPreferences =
+    !prefsLoading && !preferences?.onboarded;
 
   const handleClearFilters = useCallback(() => {
     setFilters(DEFAULT_INSIGHTS_V2_FILTERS);
@@ -494,6 +501,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         onSearchFocus={handleSearchFocus}
         onApplySearchHere={handleApplySearchHere}
         onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
+        onEditPreferences={() => setPrefsModalOpen(true)}
       />
       <div
         className={cn(
@@ -511,11 +519,11 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         {isLoading ? (
           <IndustryInsightsAdsCardGridSkeleton count={10} />
         ) : visibleAds.length === 0 ? (
-          showOnboarding ? (
+          hasUnsetPreferences ? (
             <InsightsV2EmptyState
               icon={Compass}
               title="Set your preferences"
-              description="Pick the industries and brands you care about — we'll surface the ads that matter."
+              description="Pick the industries and brands you care about — open the Settings menu to set them."
             />
           ) : (
             <InsightsV2EmptyState
@@ -584,15 +592,31 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         open={!!saveModalAd}
         onClose={handleSaveModalClose}
       />
+      {/* Industries / interests / brands preference modal.
+          Opens manually from the toolbar Settings popover via
+          onEditPreferences (sets prefsModalOpen=true) OR via the
+          prefsOpen prop passed in by a parent. Auto-open on first
+          visit was removed — Maalik found the popup intrusive on
+          every navigation to feed. */}
       <OnboardingModal
-        open={showOnboarding || !!prefsOpen}
+        open={prefsModalOpen || !!prefsOpen}
         onClose={() => {
-          dismissedAutoModal.current = true;
+          setPrefsModalOpen(false);
           onPrefsClose?.();
         }}
-        initialIndustries={prefsOpen ? preferences?.industries ?? undefined : undefined}
-        initialInterests={prefsOpen ? preferences?.interests ?? undefined : undefined}
-        initialBrands={prefsOpen ? followedBrands : undefined}
+        initialIndustries={
+          prefsModalOpen || prefsOpen
+            ? preferences?.industries ?? undefined
+            : undefined
+        }
+        initialInterests={
+          prefsModalOpen || prefsOpen
+            ? preferences?.interests ?? undefined
+            : undefined
+        }
+        initialBrands={
+          prefsModalOpen || prefsOpen ? followedBrands : undefined
+        }
       />
 
       {/* First-login wizard demo — ported from ff.ai. Renders over the

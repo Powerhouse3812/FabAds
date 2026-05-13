@@ -5,6 +5,7 @@ import {
   Filter,
   Search,
   Settings,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,9 @@ interface InsightsV2ToolbarProps {
       the date picker renders in the toolbar (alongside Filters/Sort/Settings)
       since the IdentityRow has collapsed on scroll. */
   onDateRangeChange?: (range: import("react-day-picker").DateRange | undefined) => void;
+  /** Opens the industries / interests / brands preference modal manually.
+      Wired into the Settings popover as a menu item. */
+  onEditPreferences?: () => void;
 }
 
 export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
@@ -192,6 +196,7 @@ export function InsightsV2Toolbar({
   onSearchFocus,
   onApplySearchHere,
   onDateRangeChange,
+  onEditPreferences,
 }: InsightsV2ToolbarProps) {
   const [addFilterOpen, setAddFilterOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -531,7 +536,7 @@ export function InsightsV2Toolbar({
                 </span>
               </div>
               <div className="px-3 py-3 space-y-3">
-                <div>
+                <div className="space-y-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -541,6 +546,20 @@ export function InsightsV2Toolbar({
                   >
                     Reload feed
                   </Button>
+                  {onEditPreferences && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full text-[12px] gap-1.5 justify-start"
+                      onClick={() => {
+                        setSettingsOpen(false);
+                        onEditPreferences();
+                      }}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                      Edit industries, interests &amp; brands
+                    </Button>
+                  )}
                 </div>
                 <div className="border-t border-border/60 -mx-3" />
                 <div>
