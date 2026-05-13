@@ -23,7 +23,7 @@ import {
   HeartOff,
   ShieldCheck,
   ListPlus,
-  BarChart3,
+  BadgeCheck,
   Plus,
   CheckCircle2,
 } from "lucide-react";
@@ -176,11 +176,11 @@ export function IndustryInsightsAdsCard({
         )}
 
         <div className="p-3 space-y-2.5">
-          {/* Brand row — avatar + (brand+Follow / status subtitle replaces adType).
-              Killed the standalone status+similar-ads row above; status info
-              folded into the brand subtitle for a Foreplay-style minimal upper
-              section. */}
-          <div className="flex items-center gap-2.5 pr-9">
+          {/* Brand row — SINGLE horizontal line, everything fits.
+              Avatar + brand + Follow (icon-only) on the left;
+              status meta + similar count pushed right via ml-auto;
+              bookmark sits absolute top-right (pr-9 reserves room). */}
+          <div className="flex items-center gap-2 pr-9 min-w-0">
             <div className="h-8 w-8 rounded-md overflow-hidden bg-muted shrink-0">
               {ad.pageAvatar ? (
                 <img src={ad.pageAvatar} alt="" className="h-full w-full object-cover" />
@@ -188,53 +188,71 @@ export function IndustryInsightsAdsCard({
                 <AvatarFallbackInitials name={ad.brand} />
               )}
             </div>
-            <div className="min-w-0 flex-1 flex flex-col">
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="text-[13px] font-semibold leading-tight text-foreground line-clamp-1">
-                  {ad.brand}
-                </span>
-                {isFollowedBrand ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <CheckCircle2 className="h-3 w-3 text-primary/70 shrink-0" />
-                    </TooltipTrigger>
-                    <TooltipContent>Following</TooltipContent>
-                  </Tooltip>
-                ) : (
+            <span className="text-[13px] font-semibold leading-tight text-foreground truncate min-w-0">
+              {ad.brand}
+            </span>
+            {isFollowedBrand ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0 inline-flex">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-primary/70" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Following</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onFollowBrand?.(ad);
                     }}
-                    className="text-[11px] text-muted-foreground hover:text-primary inline-flex items-center gap-0.5 shrink-0"
+                    aria-label="Follow brand"
+                    className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted"
                   >
-                    <Plus className="h-3 w-3" /> Follow
+                    <Plus className="h-3.5 w-3.5" />
                   </button>
-                )}
-              </div>
-              {/* Status meta subtitle (replaces "Video" / adType). Dot + duration
-                  + similar-ads count, all in one compact line. */}
-              <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground leading-tight">
-                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", statusDotClass)} />
-                <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
-                  {statusDuration}
-                </span>
-                {(ad.similarAdsCount ?? 0) > 0 && (
-                  <>
-                    <span className="text-muted-foreground/40">·</span>
-                    <span className="line-clamp-1">
-                      <span className="tabular-nums">{ad.similarAdsCount}</span> similar
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+                </TooltipTrigger>
+                <TooltipContent>Follow brand</TooltipContent>
+              </Tooltip>
+            )}
+            <span className="ml-auto flex items-center gap-1.5 shrink-0 text-[11px] text-muted-foreground">
+              <span className={cn("h-1.5 w-1.5 rounded-full", statusDotClass)} />
+              <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
+                {statusDuration}
+              </span>
+              {(ad.similarAdsCount ?? 0) > 0 && (
+                <>
+                  <span className="text-muted-foreground/40">·</span>
+                  <span className="tabular-nums">{ad.similarAdsCount}</span>
+                </>
+              )}
+            </span>
           </div>
 
-          {/* Primary text */}
+          {/* Primary text — max 2 rows in default card view, with a floating
+              "Read More" CTA at the bottom-right of the truncated text that
+              redirects to the full detail drawer. The bg-card hides text
+              behind the chip so it looks like a clean inline truncation. */}
           {ad.primaryText ? (
-            <p className="text-xs text-foreground line-clamp-2 leading-snug">{ad.primaryText}</p>
+            <div className="relative">
+              <p className="text-xs text-foreground line-clamp-2 leading-snug">
+                {ad.primaryText}
+              </p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetail?.(ad);
+                }}
+                className="absolute bottom-0 right-0 bg-card pl-2 text-[11px] font-medium text-muted-foreground hover:text-foreground rounded-full px-2 py-px border border-border/40 hover:border-border transition-colors"
+                aria-label="Read more in detail view"
+              >
+                Read More
+              </button>
+            </div>
           ) : (
             <p className="text-xs italic text-muted-foreground/70 line-clamp-2 leading-snug">*Primary text missing*</p>
           )}
@@ -318,7 +336,7 @@ export function IndustryInsightsAdsCard({
                           aria-label="View AI analysis"
                           className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-background/85 backdrop-blur-sm border border-border/60 text-foreground hover:bg-background hover:border-primary/40 transition-colors"
                         >
-                          <BarChart3 className="h-3 w-3" />
+                          <BadgeCheck className="h-3.5 w-3.5 text-primary" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px]">
