@@ -296,9 +296,15 @@ function AdMetaColumn({
             >
               {ad.analysed ? "Analysed" : "Not Analysed"}
             </Badge>
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-              Active, since {ad.activeDuration}
-            </span>
+            {ad.status === "active" ? (
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+                Active, since {ad.activeDuration}
+              </span>
+            ) : (
+              <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap capitalize">
+                {ad.status}
+              </span>
+            )}
           </div>
         </div>
 
@@ -576,15 +582,14 @@ function StatCell({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] text-muted-foreground truncate">{label}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
       {cta ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 mt-1 text-[12px] px-3 pointer-events-none"
+        <span
+          className="inline-flex items-center h-7 mt-1 px-2.5 rounded-md border border-border bg-background text-foreground text-[12px] max-w-full truncate"
+          title={value}
         >
           {value}
-        </Button>
+        </span>
       ) : (
         <p
           className={cn(
