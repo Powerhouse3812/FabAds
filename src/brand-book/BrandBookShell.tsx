@@ -179,8 +179,15 @@ export function BrandBookShell() {
   });
 
   function copyLink() {
-    const url = window.location.href;
-    navigator.clipboard?.writeText(url).then(() => {
+    // Copy the PUBLIC print URL (/brand-book-print/:slug) — that's the
+    // route that bypasses ProtectedRoute + AppLayout, so html.to.design
+    // / Anima / Locofy etc. can actually capture the slide content.
+    // The interactive /brand-book/:slug URL just gives them an auth spinner.
+    const printUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/brand-book-print/${slide.slug}`
+        : "";
+    navigator.clipboard?.writeText(printUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     });
@@ -358,7 +365,7 @@ export function BrandBookShell() {
                   >
                     <span className="bb-num">{String(it.i + 1).padStart(2, "0")}</span>
                     <span className="bb-label">{it.label}</span>
-                    <span className="bb-slug">/brand-book/{it.slug}</span>
+                    <span className="bb-slug">/brand-book-print/{it.slug}</span>
                   </button>
                 ))}
               </div>
@@ -366,8 +373,12 @@ export function BrandBookShell() {
           ))}
 
           <div className="bb-share">
-            <span>Share this view</span>
-            <span className="bb-url">{typeof window !== "undefined" ? window.location.href : ""}</span>
+            <span>Export to design tool</span>
+            <span className="bb-url">
+              {typeof window !== "undefined"
+                ? `${window.location.origin}/brand-book-print/${slide.slug}`
+                : ""}
+            </span>
             <button onClick={copyLink}>{copied ? "Copied" : "Copy link"}</button>
           </div>
         </div>
