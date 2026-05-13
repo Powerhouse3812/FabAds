@@ -50,7 +50,7 @@ export function TrendingTagsStrip({
       )}
     >
       <span className="flex shrink-0 items-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        Trending tags (AI)
+        Trending tags
       </span>
       {visibleTags.map((tag) => {
         const isActive = selectedTag === tag;
