@@ -33,6 +33,10 @@ export function TrendingTagsStrip({
   );
 
   const hiddenCount = TRENDING_TAGS.length - COLLAPSED_COUNT;
+  const hiddenPreviewTags = useMemo(
+    () => TRENDING_TAGS.slice(COLLAPSED_COUNT, COLLAPSED_COUNT + 3),
+    [],
+  );
 
   const handleTagClick = (tag: string) => {
     const isActive = selectedTag === tag;
@@ -73,7 +77,9 @@ export function TrendingTagsStrip({
         );
       })}
 
-      {/* Trailing meta-action chip: "+N more" or "Show less" */}
+      {/* Trailing meta-action chip:
+           - Collapsed: stacked-avatar style preview of hidden tags + "+N"
+           - Expanded: "Show less" with chevron */}
       {hiddenCount > 0 && (
         <button
           type="button"
@@ -81,7 +87,7 @@ export function TrendingTagsStrip({
           aria-expanded={expanded}
           aria-label={expanded ? "Show fewer trending tags" : `Show ${hiddenCount} more trending tags`}
           className={cn(
-            "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] italic transition-colors",
+            "inline-flex shrink-0 items-center gap-1.5 rounded-full pl-1 pr-2 py-0.5 text-[11px] transition-colors",
             "text-muted-foreground hover:text-foreground hover:bg-muted/60",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
@@ -89,12 +95,28 @@ export function TrendingTagsStrip({
           {expanded ? (
             <>
               <ChevronUp className="h-3 w-3" strokeWidth={2} aria-hidden />
-              Show less
+              <span className="italic">Show less</span>
             </>
           ) : (
             <>
-              +{hiddenCount} more
-              <ChevronDown className="h-3 w-3" strokeWidth={2} aria-hidden />
+              {/* Stacked-avatar style preview of hidden tags. Each mini-pill
+                  carries the first 2 letters of the tag (sans #), overlapping
+                  the previous by 6px for the layered-avatar feel. */}
+              <span className="flex items-center" aria-hidden>
+                {hiddenPreviewTags.map((tag, idx) => (
+                  <span
+                    key={tag}
+                    className={cn(
+                      "inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[9px] font-semibold uppercase text-foreground/70 ring-1 ring-background",
+                      idx > 0 && "-ml-1.5",
+                    )}
+                    style={{ zIndex: hiddenPreviewTags.length - idx }}
+                  >
+                    {tag.replace(/^#/, "").slice(0, 2)}
+                  </span>
+                ))}
+              </span>
+              <span className="font-mono text-[11px]">+{hiddenCount}</span>
             </>
           )}
         </button>
