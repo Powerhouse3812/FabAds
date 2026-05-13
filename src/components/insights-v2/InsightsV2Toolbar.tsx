@@ -98,6 +98,13 @@ interface InsightsV2ToolbarProps {
   searchScope?: InsightsSearchScope;
   displayPrefs?: InsightsV2DisplayPrefs;
   onDisplayPrefsChange?: (next: InsightsV2DisplayPrefs) => void;
+  /** When true, toolbar collapses to compact mode: search + applied-filter
+      chips + date picker. Industry, Status, Sort, Settings, More-filters all
+      animate out via max-width + opacity transitions. */
+  compact?: boolean;
+  /** For active-filter chip removal */
+  selectedTag?: string;
+  onClearTag?: () => void;
 }
 
 export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
@@ -139,6 +146,31 @@ const RUNNING_DAYS_CHIPS = [
   { value: "90+", label: "90+ days" },
 ];
 
+function ActiveFilterChip({
+  label,
+  dotClass,
+  onClear,
+}: {
+  label: string;
+  dotClass?: string;
+  onClear: () => void;
+}) {
+  return (
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-primary/10 border border-primary/30 px-2.5 text-[11px] font-medium text-primary">
+      {dotClass && <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} aria-hidden />}
+      <span className="truncate max-w-[140px]">{label}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear ${label} filter`}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+
 const DISPLAY_TOGGLES: { key: keyof InsightsV2DisplayPrefs; label: string }[] = [
   { key: "brandDetails", label: "Brand Details" },
   { key: "adCopy", label: "Ad Copy" },
@@ -158,6 +190,9 @@ export function InsightsV2Toolbar({
   searchScope = "feed",
   displayPrefs = DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
   onDisplayPrefsChange,
+  compact = false,
+  selectedTag,
+  onClearTag,
 }: InsightsV2ToolbarProps) {
   const [searchPopoverOpen, setSearchPopoverOpen] = useState(false);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
@@ -203,12 +238,23 @@ export function InsightsV2Toolbar({
   };
 
   const industrySelectValue = filters.industry || "all";
-  const statusSelectValue = filters.status || "all";
   const adTypeChipValue = filters.adType || "all";
   const runningDaysChipValue = filters.runningDays || "all";
 
   const moreFiltersActiveCount =
     (filters.adType ? 1 : 0) + (filters.runningDays ? 1 : 0);
+
+  // Common collapse classes — animate width + opacity smoothly when compact.
+  const collapseCls = (collapsed: boolean) =>
+    cn(
+      "transition-[max-width,opacity,margin] duration-300 ease-out overflow-hidden whitespace-nowrap",
+      collapsed
+        ? "max-w-0 opacity-0 ml-0 -mr-2 pointer-events-none"
+        : "max-w-[200px] opacity-100",
+    );
+
+  // Sort label for active-filter chip
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === filters.sort)?.label;
 
   return (
     <div
@@ -239,6 +285,7 @@ export function InsightsV2Toolbar({
               currentScope={searchScope}
             />
           </div>
+          <div className={collapseCls(compact)} aria-hidden={compact}>
           <Popover open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -341,13 +388,60 @@ export function InsightsV2Toolbar({
               </div>
             </PopoverContent>
           </Popover>
+          </div>
         </div>
+
+        {/* Applied-filter chip strip — appears when compact (scrolled). Mirrors
+            the user's active filters as removable pills so they can clear
+            individual filters without scrolling back up to expand. */}
+        {compact && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {filters.industry && (
+              <ActiveFilterChip
+                label={filters.industry}
+                onClear={() => setField("industry", "")}
+              />
+            )}
+            {filters.status === "active" && (
+              <ActiveFilterChip
+                label="Active only"
+                dotClass="bg-emerald-500"
+                onClear={() => setField("status", "all")}
+              />
+            )}
+            {filters.sort !== "newest" && sortLabel && (
+              <ActiveFilterChip
+                label={`Sort: ${sortLabel}`}
+                onClear={() => setField("sort", "newest")}
+              />
+            )}
+            {filters.adType && (
+              <ActiveFilterChip
+                label={filters.adType}
+                onClear={() => setField("adType", "")}
+              />
+            )}
+            {filters.runningDays && (
+              <ActiveFilterChip
+                label={`${filters.runningDays} days`}
+                onClear={() => setField("runningDays", "")}
+              />
+            )}
+            {selectedTag && (
+              <ActiveFilterChip
+                label={selectedTag}
+                onClear={() => onClearTag?.()}
+              />
+            )}
+          </div>
+        )}
 
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right: 2 dropdowns + big Sort + settings */}
+        {/* Right: 2 dropdowns + big Sort + settings — all collapse when compact */}
         <div className="flex items-center gap-2 shrink-0">
+          <div className={collapseCls(compact)} aria-hidden={compact}>
           <Select
             value={industrySelectValue}
             onValueChange={(v) => setField("industry", v === "all" ? "" : v)}
@@ -364,12 +458,12 @@ export function InsightsV2Toolbar({
               ))}
             </SelectContent>
           </Select>
+          </div>
 
+          <div className={collapseCls(compact)} aria-hidden={compact}>
           {/* Status — compact 2-state toggle pill. "Active only" when pressed
               (filters to status === "active"); "All" when unpressed (no filter).
-              Less space + less data than the prior 4-option Select. Paused +
-              Inactive are still encoded on the cards via the status dot, so
-              users can see them — they just don't filter to them from here. */}
+              Less space + less data than the prior 4-option Select. */}
           <button
             type="button"
             onClick={() =>
@@ -393,7 +487,9 @@ export function InsightsV2Toolbar({
             />
             Active only
           </button>
+          </div>
 
+          <div className={collapseCls(compact)} aria-hidden={compact}>
           {/* Sort by — 3rd in the right-side filter row. */}
           <Select
             value={filters.sort}
@@ -418,6 +514,7 @@ export function InsightsV2Toolbar({
               ))}
             </SelectContent>
           </Select>
+          </div>
 
           {/* Date range picker — 4th in the right-side filter row. Merged
               quick presets (Today / 3d / 7d / 15d / 30d) + full calendar
@@ -503,6 +600,7 @@ export function InsightsV2Toolbar({
 
           {/* Settings popover — replaces the standalone refresh icon. Houses
               the Reload feed action and per-section display toggles. */}
+          <div className={collapseCls(compact)} aria-hidden={compact}>
           <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -558,6 +656,7 @@ export function InsightsV2Toolbar({
               </div>
             </PopoverContent>
           </Popover>
+          </div>
         </div>
       </div>
     </div>

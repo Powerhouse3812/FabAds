@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import { Compass, SearchX } from "lucide-react";
 import { toast } from "sonner";
@@ -212,6 +213,11 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
   );
   const [gridSize, setGridSize] = useState<2 | 3 | 4 | 5>(4);
+  // Scroll-driven compact header. When scrollTop > threshold, the toolbar
+  // collapses to: Search + applied-filter chips + Date. Everything else
+  // (Industry, Sort, Settings, More filters, Trending strip) animates out.
+  const [isScrolled, setIsScrolled] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState(1);
   const [drawerAd, setDrawerAd] = useState<InsightAd | null>(null);
   const [saveModalAd, setSaveModalAd] = useState<InsightAd | null>(null);
@@ -382,18 +388,51 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     setPage(1);
   }, []);
 
+  // Scroll-driven compact header. When the scroll container passes ~80px,
+  // we set isScrolled=true and the toolbar + trending strip collapse via
+  // CSS transitions on their parent's data-attr / className.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        setIsScrolled(el.scrollTop > 80);
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col pt-2 bg-muted/30">
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}
         onRefresh={handleRefresh}
         displayPrefs={displayPrefs}
         onDisplayPrefsChange={setDisplayPrefs}
+        compact={isScrolled}
+        onClearTag={() => setSelectedTag(undefined)}
+        selectedTag={selectedTag}
       />
-      <TrendingTagsStrip selectedTag={selectedTag} onSelectTag={setSelectedTag} />
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+          isScrolled ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+        )}
+        aria-hidden={isScrolled}
+      >
+        <div className="overflow-hidden">
+          <TrendingTagsStrip selectedTag={selectedTag} onSelectTag={setSelectedTag} />
+        </div>
+      </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 bg-muted/30">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-3 bg-muted/30">
         {isLoading ? (
           <IndustryInsightsAdsCardGridSkeleton count={10} />
         ) : visibleAds.length === 0 ? (

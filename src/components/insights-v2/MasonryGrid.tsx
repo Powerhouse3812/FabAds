@@ -12,7 +12,7 @@ export function MasonryGrid({ children, gridSize = 5, className }: MasonryGridPr
     <div
       role="list"
       className={cn(
-        "gap-3 [&>*]:break-inside-avoid [&>*]:mb-3",
+        "gap-4 [&>*]:break-inside-avoid [&>*]:mb-4",
         gridSize === 2 && "columns-1 sm:columns-1 md:columns-2",
         gridSize === 3 && "columns-1 sm:columns-2 md:columns-2 lg:columns-3",
         gridSize === 4 && "columns-1 sm:columns-2 md:columns-3 lg:columns-3 xl:columns-4",
