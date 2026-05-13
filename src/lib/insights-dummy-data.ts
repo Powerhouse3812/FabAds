@@ -13,9 +13,7 @@ export const INSIGHT_INTERESTS = [
 ] as const;
 
 export const TRENDING_TAGS = [
-  "#ChicVibes", "#StyleInspo", "#TrendAlert", "#FashionForward",
-  "#DigitalFirst", "#AdCreative", "#GrowthHack", "#DTC",
-  "#VideoAds", "#EcomTrends", "#SaaSTech", "#AIMarketing",
+  "#ChicVibes", "#StyleInspo", "#TrendAlert", "#FashionForward", "#GrowthHack", "#AIMarketing",
 ] as const;
 
 export const PLATFORMS = ["Meta", "Instagram", "Messenger", "WhatsApp", "Audience Network", "Threads"] as const;
@@ -108,9 +106,10 @@ function makeAd(i: number): InsightAd {
     mediaUrl: i % 5 < 3 ? (isVideo ? videoUrls[i % videoUrls.length] : `https://picsum.photos/seed/${brand.toLowerCase()}/600/800`) : "",
     mediaType: isVideo ? "video" : "image",
     thumbUrl: i % 5 < 3 ? `https://picsum.photos/seed/${brand.toLowerCase()}-thumb/600/800` : "",
-    // Random aspect ratio per ad — true Pinterest variance. Deterministic by i so
-    // re-renders stay stable.
-    mediaAspectRatio: ["3/4", "4/5", "1/1", "16/9", "2/3"][i % 5],
+    // Random aspect ratio per ad — true Pinterest variance.
+    // Locked to: 1:1 (square), 2:3 (portrait), 16:9 (landscape wide), 9:16 (portrait tall).
+    // Deterministic by i so re-renders stay stable.
+    mediaAspectRatio: ["1/1", "2/3", "16/9", "9/16"][i % 4],
     transparencyMode: i % 2 === 0,
     analysed: i % 3 !== 2,
     createdAt: new Date(Date.now() - i * 86400000 * 3).toISOString(),

@@ -46,6 +46,7 @@ export interface InsightsV2DisplayPrefs {
   brandDetails: boolean;
   adCopy: boolean;
   headlineDesc: boolean;
+  cta: boolean;
   domain: boolean;
   statusMeta: boolean;
   similarAds: boolean;
@@ -57,10 +58,11 @@ export const DEFAULT_INSIGHTS_V2_DISPLAY_PREFS: InsightsV2DisplayPrefs = {
   brandDetails: true,
   adCopy: true,
   headlineDesc: true,
+  cta: true,
   domain: true,
   statusMeta: true,
   similarAds: true,
-  analysed: true,
+  analysed: false,
   transparency: true,
 };
 
@@ -118,10 +120,10 @@ const DISPLAY_TOGGLES: { key: keyof InsightsV2DisplayPrefs; label: string }[] = 
   { key: "brandDetails", label: "Brand Details" },
   { key: "adCopy", label: "Ad Copy" },
   { key: "headlineDesc", label: "Headline & Description" },
+  { key: "cta", label: "CTA button" },
   { key: "domain", label: "Domain" },
   { key: "statusMeta", label: "Status meta (dot + duration)" },
   { key: "similarAds", label: "Similar Ads tag" },
-  { key: "analysed", label: "Analysed badge" },
   { key: "transparency", label: "Transparency mode badge" },
 ];
 

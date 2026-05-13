@@ -1,4 +1,3 @@
-import { Sparkles, Tag } from "lucide-react";
 import { TRENDING_TAGS } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
 
@@ -21,8 +20,7 @@ export function TrendingTagsStrip({
         className,
       )}
     >
-      <span className="flex shrink-0 items-center gap-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        <Sparkles className="h-3.5 w-3.5 text-primary" />
+      <span className="flex shrink-0 items-center font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
         Trending tags (AI)
       </span>
       {TRENDING_TAGS.map((tag) => {
@@ -33,14 +31,13 @@ export function TrendingTagsStrip({
             type="button"
             onClick={() => onSelectTag?.(isActive ? undefined : tag)}
             className={cn(
-              "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors",
+              "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] transition-colors",
               isActive
                 ? "bg-primary text-primary-foreground font-semibold"
                 : "bg-muted text-muted-foreground hover:bg-muted/80",
             )}
             aria-pressed={isActive}
           >
-            <Tag className="h-3 w-3" />
             {tag}
           </button>
         );

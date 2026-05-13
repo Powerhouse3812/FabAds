@@ -23,7 +23,6 @@ import {
   HeartOff,
   ShieldCheck,
   ListPlus,
-  BadgeCheck,
   Plus,
   CheckCircle2,
   Layers,
@@ -325,7 +324,6 @@ export function IndustryInsightsAdsCard({
 
               {!isProcessing &&
                 ((display.transparency && ad.transparencyMode) ||
-                  (display.analysed && ad.analysed) ||
                   (display.similarAds && (ad.similarAdsCount ?? 0) >= 5)) && (
                 <div className="absolute bottom-2 left-2 flex flex-wrap gap-1.5 max-w-[calc(100%-1rem)]">
                   {/* Similar Ads chip — only on ads with 5+ similar (≈ "this ad
@@ -343,29 +341,10 @@ export function IndustryInsightsAdsCard({
                       Transparency mode
                     </span>
                   )}
-                  {display.analysed && ad.analysed && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onViewDetail?.(ad);
-                          }}
-                          aria-label="View AI analysis"
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
-                        >
-                          <BadgeCheck className="h-3.5 w-3.5" fill="currentColor" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[220px]">
-                        <p className="text-xs font-medium">Analysed by AI</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Click to view the full insights breakdown — hooks, angles, audience signals.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
+                  {/* TODO (Maalik): restore Analysed indicator — removed in
+                      A-12.86. Was a lime-filled circle with checkmark + tooltip
+                      that linked to AI analysis. Add back when the analysis
+                      detail view is ready. */}
                 </div>
               )}
             </div>
@@ -376,18 +355,35 @@ export function IndustryInsightsAdsCard({
             <p className="font-mono text-[11px] text-muted-foreground line-clamp-1">{ad.domain}</p>
           )}
 
-          {/* Headline + Description */}
-          {display.headlineDesc && (
-            <div className="space-y-0.5">
-              {ad.headline ? (
-                <p className="text-sm font-medium line-clamp-1">{ad.headline}</p>
-              ) : (
-                <p className="text-sm font-medium italic text-muted-foreground/70 line-clamp-1">*Headline missing*</p>
+          {/* Headline + Description + Meta-style CTA row */}
+          {(display.headlineDesc || display.cta) && (
+            <div className="flex items-center gap-2">
+              {display.headlineDesc && (
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  {ad.headline ? (
+                    <p className="text-sm font-medium line-clamp-1">{ad.headline}</p>
+                  ) : (
+                    <p className="text-sm font-medium italic text-muted-foreground/70 line-clamp-1">*Headline missing*</p>
+                  )}
+                  {ad.description ? (
+                    <p className="text-xs text-muted-foreground line-clamp-1">{ad.description}</p>
+                  ) : (
+                    <p className="text-xs italic text-muted-foreground/70 line-clamp-1">*Description missing*</p>
+                  )}
+                </div>
               )}
-              {ad.description ? (
-                <p className="text-xs text-muted-foreground line-clamp-1">{ad.description}</p>
-              ) : (
-                <p className="text-xs italic text-muted-foreground/70 line-clamp-1">*Description missing*</p>
+              {display.cta && ad.cta && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetail?.(ad);
+                  }}
+                  className="shrink-0 inline-flex items-center rounded-md bg-muted hover:bg-muted/80 text-foreground px-2.5 py-1 text-[11px] font-semibold transition-colors"
+                  aria-label={`CTA: ${ad.cta}`}
+                >
+                  {ad.cta}
+                </button>
               )}
             </div>
           )}

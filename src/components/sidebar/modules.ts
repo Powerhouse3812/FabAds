@@ -8,6 +8,7 @@ import {
   Workflow, Eraser, Scissors,
   Lightbulb,
   BookOpen,
+  Compass, Eye, Layers,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -99,15 +100,13 @@ export const MODULES: ModuleDef[] = [
     key: "insights", label: "Industry Insights", icon: Telescope,
     subItems: [
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
-      // remaining three items (Discovery / Board / Competitor) continue to
-      // point at the existing v1 routes until each gets its own v2 redesign.
-      // Figma spec: sub-nav rendered TEXT-ONLY — icons omitted intentionally.
-      // SecondaryNavigationItem renders `{ItemIcon && …}` so undefined icon
-      // collapses cleanly (gap-2 + depth-based padding leave no gutter).
-      { label: "My feeds", path: "/insights-v2/feed" },
-      { label: "Discovery", path: "/insights/discover" },
-      { label: "Board", path: "/insights/boards" },
-      { label: "Competitor", path: "/insights/competitors" },
+      // remaining items continue to point at v1 routes until each gets its
+      // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.
+      { label: "My feeds",  path: "/insights-v2/feed",     icon: Compass },
+      { label: "Saved Ads", path: "/insights/saved",       icon: Bookmark },
+      { label: "Discovery", path: "/insights/discover",    icon: Telescope },
+      { label: "Board",     path: "/insights/boards",      icon: Layers },
+      { label: "Competitor", path: "/insights/competitors", icon: Eye },
     ],
   },
   {
