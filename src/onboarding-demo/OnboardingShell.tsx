@@ -22,6 +22,16 @@ interface OnboardingData {
   affLink?: string;
 }
 
+interface OnboardingShellProps {
+  /**
+   * Called when the user completes the flow (Start Creating) or chooses
+   * to skip. The parent (OnboardingModal) listens to this to dismiss
+   * the modal. When omitted, falls back to navigating to /insights-v2/feed
+   * (legacy standalone-route usage).
+   */
+  onComplete?: () => void;
+}
+
 /**
  * Demo first-login onboarding flow ported from the ff.ai marketing site.
  *
@@ -35,10 +45,11 @@ interface OnboardingData {
  * hardcoded sample data. Drop-in demo for showing prospective users the
  * onboarding UX without needing a real scraping pipeline yet.
  *
- * "Start Creating" lands on /insights-v2/feed (currently the most visual
- * surface to show a "filled-in" workspace).
+ * Rendered inside a forced-flow OnboardingModal — `onComplete` is invoked
+ * to close the modal once the user finishes or skips. Sign-in still
+ * navigates away (to /auth) since that exits the demo entirely.
  */
-export function OnboardingShell() {
+export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   const navigate = useNavigate();
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [data, setData] = useState<OnboardingData>({ mode: "ecom" });
@@ -51,7 +62,15 @@ export function OnboardingShell() {
     );
   }, []);
 
-  const skipToDashboard = useCallback(() => navigate("/insights-v2/feed"), [navigate]);
+  const finish = useCallback(() => {
+    if (onComplete) {
+      onComplete();
+    } else {
+      // Standalone fallback when no modal is wrapping us.
+      navigate("/insights-v2/feed");
+    }
+  }, [onComplete, navigate]);
+
   const goToLogin = useCallback(() => navigate("/auth"), [navigate]);
 
   if (step === 0) {
@@ -61,7 +80,7 @@ export function OnboardingShell() {
           setData((d) => ({ ...d, mode }));
           goto(1);
         }}
-        onSkip={skipToDashboard}
+        onSkip={finish}
         onLogin={goToLogin}
       />
     );
@@ -106,7 +125,7 @@ export function OnboardingShell() {
       platforms={data.platforms}
       refUrls={data.refUrls}
       onBack={() => goto(1)}
-      onStart={skipToDashboard}
+      onStart={finish}
       onRestart={() => goto(0)}
     />
   );

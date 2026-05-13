@@ -181,8 +181,10 @@ export const MODULES: ModuleDef[] = [
   // Temporary — FabFunnel Brand Book slideshow. No sub-nav; each slide is its own route.
   { key: "brand-book", label: "Brand Book", icon: BookOpen, path: "/brand-book", badge: "Temp" },
   // Demo — first-login onboarding wizard ported from ff.ai marketing site.
-  // Presentational only; not auto-launched on real first login.
-  { key: "onboarding-demo", label: "Onboarding", icon: Sparkles, path: "/onboarding-demo", badge: "Demo" },
+  // Renders as a forced-flow modal over /insights-v2/feed (My Feeds) with
+  // a dark backdrop. Presentational only; not auto-launched on real first
+  // login.
+  { key: "onboarding-demo", label: "Onboarding", icon: Sparkles, path: "/insights-v2/feed?onboarding=true", badge: "Demo" },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.

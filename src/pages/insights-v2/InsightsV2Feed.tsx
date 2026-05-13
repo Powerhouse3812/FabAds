@@ -15,6 +15,7 @@ import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { InsightAdDetailDrawer } from "@/components/insights/InsightAdDetailDrawer";
 import { SaveToBoardModal } from "@/components/insights/SaveToBoardModal";
 import { OnboardingModal } from "@/components/insights/OnboardingModal";
+import { FirstLoginOnboardingModal } from "@/onboarding-demo/FirstLoginOnboardingModal";
 
 import { IndustryInsightsAdsCard } from "@/components/insights-v2/IndustryInsightsAdsCard";
 import {
@@ -210,6 +211,20 @@ function applyFilters({
 function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const forceLoading = searchParams.get("loading") === "1";
+  // First-login onboarding wizard. Modal pops over the feed when the URL
+  // carries ?onboarding=true (nav-rail Onboarding entry sets this).
+  // Closing clears the param so refresh doesn't reopen.
+  const showFirstLoginOnboarding = searchParams.get("onboarding") === "true";
+  const closeFirstLoginOnboarding = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("onboarding");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   // Hydrate filters/tag from URL on first render
   const initial = useMemo(() => readFiltersFromSearch(searchParams), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -578,6 +593,14 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         initialIndustries={prefsOpen ? preferences?.industries ?? undefined : undefined}
         initialInterests={prefsOpen ? preferences?.interests ?? undefined : undefined}
         initialBrands={prefsOpen ? followedBrands : undefined}
+      />
+
+      {/* First-login wizard demo — ported from ff.ai. Renders over the
+          feed when ?onboarding=true is in the URL. Forced flow — can only
+          be dismissed by completing or Skip / Sign in. */}
+      <FirstLoginOnboardingModal
+        open={showFirstLoginOnboarding}
+        onComplete={closeFirstLoginOnboarding}
       />
     </div>
   );

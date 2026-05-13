@@ -13,17 +13,16 @@ interface StepNavProps {
 /**
  * Modern stepper — Vercel / Linear / Arc inspired.
  *
- * Two parts:
- *   1. Fixed thin progress bar at the top edge of the viewport — fills with
- *      lime as the user advances. Reads as ambient progress without
- *      dominating the page.
- *   2. Floating "STEP 02 / 04 · INPUT" mono chip in the top-right —
- *      gives precise step context for power users.
+ * Designed for use inside a 720px modal. Two parts:
+ *   1. Sticky 3px progress bar pinned to the top of the modal's scroll
+ *      container — fills with lime as the user advances. Reads as ambient
+ *      progress without dominating the page.
+ *   2. A row below with: Back link (left) · mono step chip
+ *      "STEP 02 / 04 · INPUT" (center) · Start-over (right).
  *
- * Back / Start-over actions sit in the top-left as plain text links.
- *
- * Replaces the older circles + connecting bars stepper after Maalik
- * asked for something "more trendy and modern."
+ * Was previously fixed-positioned to viewport for the standalone full-page
+ * route; now sticky inside the modal so it pins to the modal top, not the
+ * window top.
  */
 export function StepNav({ active, onBack, backLabel, onRestart }: StepNavProps) {
   const progress = ((active + 1) / ONB_STEPS.length) * 100;
@@ -31,30 +30,30 @@ export function StepNav({ active, onBack, backLabel, onRestart }: StepNavProps) 
 
   return (
     <>
-      {/* Top-edge progress bar — fixed, 3px, lime fill */}
-      <div className="fixed top-0 inset-x-0 h-[3px] bg-border/60 z-50">
+      {/* Sticky progress bar at top of modal scroll container */}
+      <div className="sticky top-0 inset-x-0 h-[3px] bg-border/60 z-20">
         <div
           className="h-full bg-primary transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      {/* Top bar — Back link (left) + step chip (right) */}
-      <div className="flex items-center justify-between gap-3 px-6 pt-6 pb-2">
+      {/* Action row — Back link / step chip / start over */}
+      <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-1">
         <div className="flex-1 min-w-0">
           {onBack && (
             <button
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              {backLabel ?? "Back"}
+              <span className="truncate">{backLabel ?? "Back"}</span>
             </button>
           )}
         </div>
 
         {/* Center: step chip */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 backdrop-blur px-3 py-1.5 text-[11px] font-mono shrink-0">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 backdrop-blur px-2.5 py-1 text-[10px] font-mono shrink-0">
           <span className="text-muted-foreground uppercase tracking-wider">
             Step
           </span>
@@ -80,10 +79,10 @@ export function StepNav({ active, onBack, backLabel, onRestart }: StepNavProps) 
           {onRestart && (
             <button
               onClick={onRestart}
-              className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Start over
+              <span className="truncate">Start over</span>
             </button>
           )}
         </div>
