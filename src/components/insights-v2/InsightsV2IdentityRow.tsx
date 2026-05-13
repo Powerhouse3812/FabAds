@@ -50,7 +50,7 @@ export function InsightsV2IdentityRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 px-5 py-2.5 border-b border-border/40 bg-background",
+        "flex flex-wrap items-center gap-3 gap-y-2 px-5 py-2.5 border-b border-border/40 bg-background",
         className,
       )}
     >
@@ -68,16 +68,18 @@ export function InsightsV2IdentityRow({
       </div>
 
       {/* Spacer */}
-      <div className="flex-1" />
+      <div className="flex-1 min-w-[1rem]" />
 
-      {/* Right: date range picker with merged quick presets + calendar */}
+      {/* Right: date range picker with merged quick presets + calendar.
+          shrink-0 + min-w to ensure the trigger is always visible even at
+          narrow viewports. */}
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
             className={cn(
-              "h-9 gap-1.5 text-[12px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "h-9 gap-1.5 text-[12px] font-normal shrink-0 min-w-[140px] justify-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               dateRange?.from && "bg-primary/5 border-primary/40 text-foreground",
             )}
             aria-label="Date range"
