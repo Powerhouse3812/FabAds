@@ -365,15 +365,52 @@ export function InsightsV2Toolbar({
             </SelectContent>
           </Select>
 
-          <Select
-            value={statusSelectValue}
-            onValueChange={(v) => setField("status", v)}
+          {/* Status — compact 2-state toggle pill. "Active only" when pressed
+              (filters to status === "active"); "All" when unpressed (no filter).
+              Less space + less data than the prior 4-option Select. Paused +
+              Inactive are still encoded on the cards via the status dot, so
+              users can see them — they just don't filter to them from here. */}
+          <button
+            type="button"
+            onClick={() =>
+              setField("status", filters.status === "active" ? "all" : "active")
+            }
+            aria-pressed={filters.status === "active"}
+            className={cn(
+              "h-8 rounded-full px-3 inline-flex items-center gap-1.5 text-[11px] font-medium transition-colors",
+              filters.status === "active"
+                ? "bg-primary/15 text-primary border border-primary/40 hover:bg-primary/20"
+                : "border border-border/60 text-muted-foreground hover:bg-muted",
+            )}
           >
-            <SelectTrigger className="h-8 w-[110px] text-[12px]">
-              <SelectValue placeholder="Status" />
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                filters.status === "active" ? "bg-emerald-500" : "bg-muted-foreground/60",
+              )}
+              aria-hidden
+            />
+            Active only
+          </button>
+
+          {/* Sort by — 3rd in the right-side filter row. */}
+          <Select
+            value={filters.sort}
+            onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
+          >
+            <SelectTrigger className="h-8 w-[160px] text-[12px] relative" aria-label="Sort by">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1 shrink-0" />
+              <span className="text-muted-foreground mr-1">Sort:</span>
+              <SelectValue />
+              {filters.sort !== "newest" && (
+                <span
+                  aria-hidden
+                  className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-primary"
+                />
+              )}
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((opt) => (
+              {SORT_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
@@ -381,10 +418,9 @@ export function InsightsV2Toolbar({
             </SelectContent>
           </Select>
 
-          {/* Sort by — full-sized dropdown on the right with "Sort:" prefix label
-              so the dropdown's purpose is unambiguous. */}
-          {/* Date range picker — merged: quick presets (Today / 3d / 7d / 15d / 30d)
-              + full calendar range. Default: Last 7 days. */}
+          {/* Date range picker — 4th in the right-side filter row. Merged
+              quick presets (Today / 3d / 7d / 15d / 30d) + full calendar
+              range. Default: Last 7 days. */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -463,30 +499,6 @@ export function InsightsV2Toolbar({
               />
             </PopoverContent>
           </Popover>
-
-          <Select
-            value={filters.sort}
-            onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
-          >
-            <SelectTrigger className="h-8 w-[160px] text-[12px] relative" aria-label="Sort by">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1 shrink-0" />
-              <span className="text-muted-foreground mr-1">Sort:</span>
-              <SelectValue />
-              {filters.sort !== "newest" && (
-                <span
-                  aria-hidden
-                  className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-primary"
-                />
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           {/* Settings popover — replaces the standalone refresh icon. Houses
               the Reload feed action and per-section display toggles. */}

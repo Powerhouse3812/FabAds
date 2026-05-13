@@ -211,7 +211,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const [displayPrefs, setDisplayPrefs] = useState<InsightsV2DisplayPrefs>(
     DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
   );
-  const [gridSize, setGridSize] = useState<2 | 3 | 4 | 5>(3);
+  const [gridSize, setGridSize] = useState<2 | 3 | 4 | 5>(4);
   const [page, setPage] = useState(1);
   const [drawerAd, setDrawerAd] = useState<InsightAd | null>(null);
   const [saveModalAd, setSaveModalAd] = useState<InsightAd | null>(null);
