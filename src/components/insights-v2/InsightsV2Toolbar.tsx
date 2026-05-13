@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { INSIGHT_INDUSTRIES } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
 import { InsightsSearchPopover } from "./InsightsSearchPopover";
+import { DateRangeWithPresets } from "./DateRangeWithPresets";
 
 function startOfDay(d: Date) {
   const x = new Date(d);
@@ -100,6 +101,10 @@ interface InsightsV2ToolbarProps {
   onSearchChange: (next: string) => void;
   onSearchFocus?: () => void;
   onApplySearchHere: (q: string) => void;
+  /** Optional date-range setter — when provided AND `compact` is true,
+      the date picker renders in the toolbar (alongside Filters/Sort/Settings)
+      since the IdentityRow has collapsed on scroll. */
+  onDateRangeChange?: (range: import("react-day-picker").DateRange | undefined) => void;
 }
 
 export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
@@ -186,6 +191,7 @@ export function InsightsV2Toolbar({
   onSearchChange,
   onSearchFocus,
   onApplySearchHere,
+  onDateRangeChange,
 }: InsightsV2ToolbarProps) {
   const [addFilterOpen, setAddFilterOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -322,9 +328,18 @@ export function InsightsV2Toolbar({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right: Add Filter + Sort + Settings — all collapse when compact */}
+        {/* Right: Date (only when scrolled) + Filters + Sort + Settings.
+             Filters + Sort stay visible always per Maalik (round 28).
+             Date picker appears here when the IdentityRow collapses on
+             scroll, so the user can still adjust dates. */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className={collapseCls(compact)} aria-hidden={compact}>
+          {compact && onDateRangeChange && (
+            <DateRangeWithPresets
+              value={filters.dateRange}
+              onChange={onDateRangeChange}
+              size="sm"
+            />
+          )}
           {/* Add Filter — moved here from the left section. Consolidates
               Industry / Status / Ad type / Running days into one popover. */}
           <Popover open={addFilterOpen} onOpenChange={setAddFilterOpen}>
@@ -472,9 +487,7 @@ export function InsightsV2Toolbar({
               </div>
             </PopoverContent>
           </Popover>
-          </div>
 
-          <div className={collapseCls(compact)} aria-hidden={compact}>
           {/* Sort by */}
           <Select
             value={filters.sort}
@@ -498,10 +511,8 @@ export function InsightsV2Toolbar({
               ))}
             </SelectContent>
           </Select>
-          </div>
 
           {/* Settings popover — Reload feed + per-section display toggles. */}
-          <div className={collapseCls(compact)} aria-hidden={compact}>
           <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -557,7 +568,6 @@ export function InsightsV2Toolbar({
               </div>
             </PopoverContent>
           </Popover>
-          </div>
         </div>
       </div>
     </div>

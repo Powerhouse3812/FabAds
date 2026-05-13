@@ -439,18 +439,30 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
-      {/* ROW 1 — Identity: section label + ad count chip + Date picker. */}
-      <InsightsV2IdentityRow
-        sectionLabel="My feeds"
-        adCount={filtered.length}
-        brandsFollowed={Math.max(followedBrands.length, 28)}
-        followedBrandNames={followedBrands}
-        allBrands={[...BRANDS]}
-        onToggleBrand={(brand) => toggleFollowBrand.mutate(brand)}
-        dateRange={filters.dateRange}
-        onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
-      />
-      {/* ROW 2 — Filter actions: Search + chips · Add Filter + Sort + Settings */}
+      {/* ROW 1 — Identity: section label + ad count chip + Date picker.
+           Collapses entirely on scroll via grid-rows transition; the date
+           picker re-appears in the Toolbar (Row 2). */}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
+          isScrolled ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+        )}
+        aria-hidden={isScrolled}
+      >
+        <div className="overflow-hidden">
+          <InsightsV2IdentityRow
+            sectionLabel="My feeds"
+            adCount={filtered.length}
+            brandsFollowed={Math.max(followedBrands.length, 28)}
+            followedBrandNames={followedBrands}
+            allBrands={[...BRANDS]}
+            onToggleBrand={(brand) => toggleFollowBrand.mutate(brand)}
+            dateRange={filters.dateRange}
+            onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
+          />
+        </div>
+      </div>
+      {/* ROW 2 — Filter actions: Search + chips · (Date on scroll) · Filters + Sort + Settings */}
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}
@@ -466,6 +478,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         onSearchChange={handleSearchChange}
         onSearchFocus={handleSearchFocus}
         onApplySearchHere={handleApplySearchHere}
+        onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
       />
       <div
         className={cn(
