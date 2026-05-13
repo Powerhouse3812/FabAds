@@ -23,6 +23,7 @@ import {
   DEFAULT_INSIGHTS_V2_FILTERS,
   type InsightsV2Filters,
 } from "@/components/insights-v2/InsightsV2Toolbar";
+import { InsightsV2PageHeader } from "@/components/insights-v2/InsightsV2PageHeader";
 import { TrendingTagsStrip } from "@/components/insights-v2/TrendingTagsStrip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { InsightsV2ErrorBoundary } from "@/components/insights-v2/InsightsV2ErrorBoundary";
@@ -315,6 +316,13 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
 
   return (
     <div className="flex h-full flex-col">
+      <InsightsV2PageHeader
+        sectionLabel="Intelligence"
+        metaOnly={filters.metaOnly}
+        onMetaOnlyChange={(v) => setFilters({ ...filters, metaOnly: v })}
+        dateRange={filters.dateRange}
+        onDateRangeChange={(r) => setFilters({ ...filters, dateRange: r })}
+      />
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}

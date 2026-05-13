@@ -1,14 +1,13 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Telescope, ImageIcon, Shield,
   Wand2, Zap, Video, MessageSquare,
-  History, Target, Compass, Map, Settings,
+  History, Target, Map, Settings,
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Tag, Building2, Package, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
   BookOpen,
-  Layers,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -102,10 +101,13 @@ export const MODULES: ModuleDef[] = [
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
       // remaining three items (Discovery / Board / Competitor) continue to
       // point at the existing v1 routes until each gets its own v2 redesign.
-      { label: "My feeds", path: "/insights-v2/feed", icon: Compass },
-      { label: "Discovery", path: "/insights/discover", icon: Telescope },
-      { label: "Board", path: "/insights/boards", icon: Layers },
-      { label: "Competitor", path: "/insights/competitors", icon: Globe },
+      // Figma spec: sub-nav rendered TEXT-ONLY — icons omitted intentionally.
+      // SecondaryNavigationItem renders `{ItemIcon && …}` so undefined icon
+      // collapses cleanly (gap-2 + depth-based padding leave no gutter).
+      { label: "My feeds", path: "/insights-v2/feed" },
+      { label: "Discovery", path: "/insights/discover" },
+      { label: "Board", path: "/insights/boards" },
+      { label: "Competitor", path: "/insights/competitors" },
     ],
   },
   {

@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   Bookmark,
-  BookmarkPlus,
   LayoutGrid,
   Play,
   Clock,
@@ -15,9 +13,11 @@ import {
   Sparkles,
   MoreHorizontal,
   UserPlus,
-  Users,
   Heart,
   ShieldCheck,
+  FilePlus,
+  ListPlus,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,15 @@ interface IndustryInsightsAdsCardProps {
   onSaveAd?: (ad: InsightAd) => void;
   onCopyLink?: (ad: InsightAd) => void;
   onSelectToggle?: (ad: InsightAd) => void;
+}
+
+function AvatarFallbackInitials({ name }: { name: string }) {
+  const initial = name?.[0]?.toUpperCase() ?? "?";
+  return (
+    <div className="h-full w-full flex items-center justify-center bg-muted text-muted-foreground text-[12px] font-semibold">
+      {initial}
+    </div>
+  );
 }
 
 export function IndustryInsightsAdsCard({
@@ -109,7 +118,8 @@ export function IndustryInsightsAdsCard({
         onClick={() => onViewDetail?.(ad)}
         className={cn(
           "group relative block cursor-pointer overflow-hidden",
-          "bg-card border-border shadow-sm hover:shadow-md transition-shadow",
+          "bg-card border-border/40 transition-shadow",
+          "shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
           "rounded-lg",
           isSelected && "ring-2 ring-primary ring-offset-1 ring-offset-background border-primary/60",
         )}
@@ -120,7 +130,7 @@ export function IndustryInsightsAdsCard({
               type="button"
               onClick={handleBookmark}
               className={cn(
-                "absolute top-2 right-2 z-10 h-7 w-7 rounded-md flex items-center justify-center",
+                "absolute top-2 right-2 z-10 h-6 w-6 rounded-md flex items-center justify-center",
                 "bg-background/85 backdrop-blur-sm border border-border/60 transition-colors",
                 "hover:bg-background hover:border-border",
               )}
@@ -130,7 +140,7 @@ export function IndustryInsightsAdsCard({
               <Bookmark
                 className={cn(
                   "h-3.5 w-3.5",
-                  isSavedToBoard ? "fill-primary stroke-primary text-primary" : "text-muted-foreground",
+                  isSavedToBoard ? "fill-lime-400 stroke-lime-500 text-lime-500" : "text-muted-foreground",
                 )}
               />
             </button>
@@ -162,6 +172,7 @@ export function IndustryInsightsAdsCard({
         )}
 
         <div className="p-3 space-y-2.5">
+          {/* Row 1 — Status */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground pr-9">
             <span className={cn("h-2 w-2 rounded-full shrink-0", statusDotClass)} />
             <span className={cn(ad.status === "paused" ? "text-muted-foreground" : "text-foreground", "font-medium")}>
@@ -169,36 +180,51 @@ export function IndustryInsightsAdsCard({
             </span>
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span>Similar Ads</span>
-              <span className="text-foreground font-semibold tabular-nums">{similarPadded}</span>
+          {/* Row 2 — Similar Ads stacked + Platforms right */}
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col">
+              <span className="text-[11px] font-medium text-muted-foreground leading-tight">Similar Ads</span>
+              <span className="text-[13px] font-semibold text-foreground leading-tight mt-0.5 tabular-nums">
+                {similarPadded}
+              </span>
             </div>
-            <PlatformIcons platforms={ad.platforms} />
+            <div className="flex items-center gap-1 self-end pb-0.5">
+              <PlatformIcons platforms={ad.platforms} />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 min-w-0">
-            <Avatar className="h-6 w-6 shrink-0">
-              <AvatarImage src={ad.pageAvatar} alt={ad.brand} />
-              <AvatarFallback className="text-[10px] font-semibold">{ad.brand?.[0] ?? "?"}</AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{ad.brand}</span>
-            <span className="bg-muted text-muted-foreground px-2 py-0.5 text-xs rounded-full shrink-0">
-              {ad.adType}
-            </span>
+          {/* Row 3 — Brand (avatar + stacked name/adType) */}
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-md overflow-hidden bg-muted shrink-0">
+              {ad.pageAvatar ? (
+                <img src={ad.pageAvatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <AvatarFallbackInitials name={ad.brand} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1 flex flex-col">
+              <span className="text-[13px] font-semibold leading-tight text-foreground line-clamp-1">{ad.brand}</span>
+              <span className="text-[11px] text-muted-foreground leading-tight line-clamp-1">
+                {ad.adType || "Flexible"}
+              </span>
+            </div>
           </div>
 
+          {/* Primary text */}
           {ad.primaryText ? (
             <p className="text-xs text-foreground line-clamp-2 leading-snug">{ad.primaryText}</p>
           ) : (
             <p className="text-xs italic text-muted-foreground/70 line-clamp-2 leading-snug">*Primary text missing*</p>
           )}
 
-          <div className="aspect-video rounded-md bg-muted overflow-hidden relative">
+          {/* Media block — portrait 3/4 */}
+          <div className="aspect-[3/4] rounded-md bg-muted overflow-hidden relative">
             {isProcessing ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-muted">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-mono text-[11px] text-muted-foreground">Media processing</span>
+              <div className="absolute inset-0 flex items-center justify-center bg-muted/60">
+                <div className="w-1/2 flex flex-col items-center justify-center gap-1.5">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-mono text-[11px] text-muted-foreground text-center">Media processing</span>
+                </div>
               </div>
             ) : isVideo && playing ? (
               <video
@@ -231,14 +257,14 @@ export function IndustryInsightsAdsCard({
                     }}
                     aria-label="Play video"
                   >
-                    <Play className="h-10 w-10 text-white drop-shadow" />
+                    <Play className="h-8 w-8 text-white drop-shadow-lg" />
                   </button>
                 )}
               </>
             )}
 
             {!isProcessing && (ad.transparencyMode || ad.analysed) && (
-              <div className="absolute bottom-2 left-2 flex gap-1">
+              <div className="absolute bottom-2 left-2 flex gap-1.5">
                 {ad.transparencyMode && (
                   <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
                     <ShieldCheck className="h-3 w-3" />
@@ -246,7 +272,8 @@ export function IndustryInsightsAdsCard({
                   </span>
                 )}
                 {ad.analysed && (
-                  <span className="inline-flex items-center bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                  <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                    <BarChart3 className="h-3 w-3" />
                     Analysed
                   </span>
                 )}
@@ -254,8 +281,10 @@ export function IndustryInsightsAdsCard({
             )}
           </div>
 
-          <p className="font-mono text-[11px] text-muted-foreground truncate">{ad.domain}</p>
+          {/* Domain */}
+          <p className="font-mono text-[11px] text-muted-foreground line-clamp-1">{ad.domain}</p>
 
+          {/* Headline + Description */}
           <div className="space-y-0.5">
             {ad.headline ? (
               <p className="text-sm font-medium line-clamp-1">{ad.headline}</p>
@@ -269,10 +298,12 @@ export function IndustryInsightsAdsCard({
             )}
           </div>
 
+          {/* Action row */}
           <div
-            className="border-t border-border pt-2 flex items-center gap-1"
+            className="border-t border-border pt-2 flex items-center justify-between gap-0.5"
             onClick={stop}
           >
+            {/* 1. Add Brand to Competitors */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -290,6 +321,45 @@ export function IndustryInsightsAdsCard({
               <TooltipContent>Add Brand to Competitors</TooltipContent>
             </Tooltip>
 
+            {/* 2. Save to Board (with savedCount red badge) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSaveToBoard?.(ad);
+                  }}
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  {savedCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-3.5 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {savedCount}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Save to Board</TooltipContent>
+            </Tooltip>
+
+            {/* 3. Copy Link */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleCopyLink}
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy link</TooltipContent>
+            </Tooltip>
+
+            {/* 4. Add Page to Competitors */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -301,40 +371,13 @@ export function IndustryInsightsAdsCard({
                     onAddPageToCompetitors?.(ad);
                   }}
                 >
-                  <Users className="h-3.5 w-3.5" />
+                  <FilePlus className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Add Page to Competitors</TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 relative"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFollowBrand?.(ad);
-                  }}
-                  aria-pressed={isFollowedBrand}
-                >
-                  <Heart
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      isFollowedBrand ? "fill-primary stroke-primary text-primary" : "",
-                    )}
-                  />
-                  {savedCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-3.5 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {savedCount}
-                    </span>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{isFollowedBrand ? "Unfollow Brand" : "Follow Brand"}</TooltipContent>
-            </Tooltip>
-
+            {/* 5. Save Ad (queue) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -346,44 +389,38 @@ export function IndustryInsightsAdsCard({
                     onSaveAd?.(ad);
                   }}
                 >
-                  <BookmarkPlus className="h-3.5 w-3.5" />
+                  <ListPlus className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Save Ad</TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSaveToBoard?.(ad);
-                  }}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Save to Board</TooltipContent>
-            </Tooltip>
-
+            {/* 6. Kebab menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 ml-auto"
+                  className="h-7 w-7"
                   onClick={stop}
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52" onClick={stop}>
-                <DropdownMenuItem onClick={handleCopyLink}>
-                  <LinkIcon className="h-3.5 w-3.5 mr-2" />
-                  Copy link
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFollowBrand?.(ad);
+                  }}
+                >
+                  <Heart
+                    className={cn(
+                      "h-3.5 w-3.5 mr-2",
+                      isFollowedBrand ? "fill-primary stroke-primary text-primary" : "",
+                    )}
+                  />
+                  {isFollowedBrand ? "Unfollow Brand" : "Follow Brand"}
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled className="opacity-50">
                   <Sparkles className="h-3.5 w-3.5 mr-2" />
