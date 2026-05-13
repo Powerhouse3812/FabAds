@@ -27,6 +27,7 @@ function startOfDay(d: Date) {
 interface InsightsV2IdentityRowProps {
   sectionLabel: string;
   adCount: number;
+  brandsFollowed: number;
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
   className?: string;
@@ -43,6 +44,7 @@ interface InsightsV2IdentityRowProps {
 export function InsightsV2IdentityRow({
   sectionLabel,
   adCount,
+  brandsFollowed,
   dateRange,
   onDateRangeChange,
   className,
@@ -54,16 +56,22 @@ export function InsightsV2IdentityRow({
         className,
       )}
     >
-      {/* Left: section label + ad count chip */}
-      <div className="flex items-center min-w-0">
+      {/* Left: section label + ad count chip + brands-followed chip */}
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
         <span className="text-sm font-medium text-foreground truncate">
           {sectionLabel}
         </span>
-        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
           <span className="font-mono text-foreground font-semibold">
             {adCount.toLocaleString()}
           </span>{" "}
           ads
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+          <span className="font-mono text-foreground font-semibold">
+            {brandsFollowed.toLocaleString()}
+          </span>{" "}
+          {brandsFollowed === 1 ? "brand followed" : "brands followed"}
         </span>
       </div>
 
