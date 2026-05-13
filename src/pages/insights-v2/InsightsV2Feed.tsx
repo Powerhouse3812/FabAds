@@ -362,7 +362,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
       />
       <TrendingTagsStrip selectedTag={selectedTag} onSelectTag={setSelectedTag} />
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 bg-muted/30">
         {isLoading ? (
           <IndustryInsightsAdsCardGridSkeleton count={10} />
         ) : visibleAds.length === 0 ? (

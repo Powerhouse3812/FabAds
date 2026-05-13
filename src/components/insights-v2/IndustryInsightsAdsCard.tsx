@@ -126,8 +126,8 @@ export function IndustryInsightsAdsCard({
         onClick={() => onViewDetail?.(ad)}
         className={cn(
           "group relative block cursor-pointer overflow-hidden",
-          "bg-card border-border/40 transition-shadow",
-          "shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
+          "bg-card border-border transition-shadow",
+          "shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)]",
           "rounded-lg",
           isSelected && "ring-2 ring-primary ring-offset-1 ring-offset-background border-primary/60",
         )}
