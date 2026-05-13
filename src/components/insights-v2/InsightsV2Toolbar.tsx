@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUpDown,
@@ -13,6 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -22,6 +27,10 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { INSIGHT_INDUSTRIES } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
+import {
+  InsightsSearchPopover,
+  type InsightsSearchScope,
+} from "./InsightsSearchPopover";
 
 export interface InsightsV2Filters {
   search: string;
@@ -40,6 +49,8 @@ interface InsightsV2ToolbarProps {
   onGridSizeChange: (size: 2 | 3 | 4 | 5) => void;
   onRefresh?: () => void;
   className?: string;
+  /** Search scope this toolbar belongs to. Defaults to "feed" (My feeds). */
+  searchScope?: InsightsSearchScope;
 }
 
 export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
@@ -58,14 +69,14 @@ const STATUS_OPTIONS = [
   { value: "paused", label: "Paused" },
 ];
 
-const TYPE_OPTIONS = [
-  { value: "all", label: "All types" },
+const TYPE_CHIPS = [
+  { value: "all", label: "All" },
   { value: "Image", label: "Image" },
   { value: "Video", label: "Video" },
   { value: "Carousel", label: "Carousel" },
 ];
 
-const RUNNING_DAYS_OPTIONS = [
+const RUNNING_DAYS_CHIPS = [
   { value: "all", label: "All" },
   { value: "1-7", label: "1-7 days" },
   { value: "8-30", label: "8-30 days" },
@@ -80,8 +91,12 @@ export function InsightsV2Toolbar({
   onGridSizeChange,
   onRefresh,
   className,
+  searchScope = "feed",
 }: InsightsV2ToolbarProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchPopoverOpen, setSearchPopoverOpen] = useState(false);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const setField = <K extends keyof InsightsV2Filters>(
     key: K,
@@ -97,15 +112,37 @@ export function InsightsV2Toolbar({
     window.setTimeout(() => setIsRefreshing(false), 400);
   };
 
+  const handleSearchChange = (next: string) => {
+    setField("search", next);
+    if (next.trim().length > 0) {
+      setSearchPopoverOpen(true);
+    } else {
+      setSearchPopoverOpen(false);
+    }
+  };
+
+  const handleSearchFocus = () => {
+    if (filters.search.trim().length > 0) {
+      setSearchPopoverOpen(true);
+    }
+  };
+
+  const resetMoreFilters = () => {
+    onFiltersChange({ ...filters, adType: "", runningDays: "" });
+  };
+
   const industrySelectValue = filters.industry || "all";
   const statusSelectValue = filters.status || "all";
-  const typeSelectValue = filters.adType || "all";
-  const runningSelectValue = filters.runningDays || "all";
+  const adTypeChipValue = filters.adType || "all";
+  const runningDaysChipValue = filters.runningDays || "all";
+
+  const moreFiltersActiveCount =
+    (filters.adType ? 1 : 0) + (filters.runningDays ? 1 : 0);
 
   return (
     <div
       className={cn(
-        "sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/60 px-4 py-1.5",
+        "sticky top-0 z-20 bg-background/95 backdrop-blur px-4 py-1.5",
         className,
       )}
     >
@@ -116,20 +153,122 @@ export function InsightsV2Toolbar({
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Tag className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
             <Input
+              ref={searchInputRef}
               value={filters.search}
-              onChange={(e) => setField("search", e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={handleSearchFocus}
               placeholder="Search by keyword, brand…"
               className="h-8 pl-8 pr-8 text-[12px]"
             />
+            <InsightsSearchPopover
+              query={filters.search}
+              open={searchPopoverOpen}
+              onOpenChange={setSearchPopoverOpen}
+              onApplyHere={(q) => setField("search", q)}
+              anchorRef={searchInputRef}
+              currentScope={searchScope}
+            />
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-9 shrink-0"
-            aria-label="Filter"
-          >
-            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
+          <Popover open={moreFiltersOpen} onOpenChange={setMoreFiltersOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-9 shrink-0 relative"
+                aria-label="More filters"
+              >
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                {moreFiltersActiveCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary"
+                  />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-0">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                  More filters
+                </span>
+              </div>
+              <div className="px-3 py-3 space-y-3">
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Ad type
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TYPE_CHIPS.map((opt) => {
+                      const active = adTypeChipValue === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            setField(
+                              "adType",
+                              opt.value === "all" ? "" : opt.value,
+                            )
+                          }
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary font-semibold"
+                              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
+                          )}
+                          aria-pressed={active}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Running days
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RUNNING_DAYS_CHIPS.map((opt) => {
+                      const active = runningDaysChipValue === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            setField(
+                              "runningDays",
+                              opt.value === "all" ? "" : opt.value,
+                            )
+                          }
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary font-semibold"
+                              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
+                          )}
+                          aria-pressed={active}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end px-3 py-2 border-t border-border/60">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={resetMoreFilters}
+                  disabled={moreFiltersActiveCount === 0}
+                >
+                  Reset
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button
             variant="ghost"
             size="icon"
@@ -143,7 +282,7 @@ export function InsightsV2Toolbar({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right: 4 dropdowns + grid toggle + refresh */}
+        {/* Right: 2 dropdowns + grid toggle + refresh */}
         <div className="flex items-center gap-2 shrink-0">
           <Select
             value={industrySelectValue}
@@ -171,38 +310,6 @@ export function InsightsV2Toolbar({
             </SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={typeSelectValue}
-            onValueChange={(v) => setField("adType", v === "all" ? "" : v)}
-          >
-            <SelectTrigger className="h-8 w-[110px] text-[12px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={runningSelectValue}
-            onValueChange={(v) => setField("runningDays", v === "all" ? "" : v)}
-          >
-            <SelectTrigger className="h-8 w-[130px] text-[12px]">
-              <SelectValue placeholder="Running days" />
-            </SelectTrigger>
-            <SelectContent>
-              {RUNNING_DAYS_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>

@@ -16,7 +16,7 @@ export function TrendingTagsStrip({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 overflow-x-auto px-4 py-1.5 border-b border-border/60",
+        "flex items-center gap-1.5 overflow-x-auto px-4 py-1 border-b border-border/60",
         "[&::-webkit-scrollbar]:h-0",
         className,
       )}
@@ -33,7 +33,7 @@ export function TrendingTagsStrip({
             type="button"
             onClick={() => onSelectTag?.(isActive ? undefined : tag)}
             className={cn(
-              "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors",
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors",
               isActive
                 ? "bg-primary text-primary-foreground font-semibold"
                 : "bg-muted text-muted-foreground hover:bg-muted/80",

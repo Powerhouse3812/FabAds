@@ -3,7 +3,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Bookmark,
   LayoutGrid,
@@ -13,11 +19,13 @@ import {
   Sparkles,
   MoreHorizontal,
   UserPlus,
-  Heart,
+  Users,
+  HeartOff,
   ShieldCheck,
-  FilePlus,
   ListPlus,
   BarChart3,
+  Plus,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -78,12 +86,7 @@ export function IndustryInsightsAdsCard({
         ? "bg-red-500"
         : "bg-muted-foreground";
 
-  const statusLabel = (() => {
-    const duration = ad.activeDuration || "";
-    if (ad.status === "active") return `Active since: ${duration}`;
-    if (ad.status === "inactive") return `In-Active since: ${duration}`;
-    return `Paused since: ${duration}`;
-  })();
+  const statusDuration = ad.activeDuration || "";
 
   const similarPadded = String(ad.similarAdsCount ?? 0).padStart(2, "0");
 
@@ -175,10 +178,15 @@ export function IndustryInsightsAdsCard({
 
         <div className="p-3 space-y-2.5">
           {/* Row 1 — Status */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground pr-9">
+          <div className="flex items-center gap-1.5 pr-9">
             <span className={cn("h-2 w-2 rounded-full shrink-0", statusDotClass)} />
-            <span className={cn(ad.status === "paused" ? "text-muted-foreground" : "text-foreground", "font-medium")}>
-              {statusLabel}
+            <span
+              className={cn(
+                "text-xs font-medium",
+                ad.status === "paused" ? "text-muted-foreground" : "text-foreground",
+              )}
+            >
+              {statusDuration}
             </span>
           </div>
 
@@ -195,7 +203,7 @@ export function IndustryInsightsAdsCard({
             </div>
           </div>
 
-          {/* Row 3 — Brand (avatar + stacked name/adType) */}
+          {/* Row 3 — Brand (avatar + stacked name+follow / adType) */}
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-md overflow-hidden bg-muted shrink-0">
               {ad.pageAvatar ? (
@@ -205,7 +213,30 @@ export function IndustryInsightsAdsCard({
               )}
             </div>
             <div className="min-w-0 flex-1 flex flex-col">
-              <span className="text-[13px] font-semibold leading-tight text-foreground line-clamp-1">{ad.brand}</span>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="text-[13px] font-semibold leading-tight text-foreground line-clamp-1">
+                  {ad.brand}
+                </span>
+                {isFollowedBrand ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <CheckCircle2 className="h-3 w-3 text-primary/70 shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>Following</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFollowBrand?.(ad);
+                    }}
+                    className="text-[11px] text-muted-foreground hover:text-primary inline-flex items-center gap-0.5 shrink-0"
+                  >
+                    <Plus className="h-3 w-3" /> Follow
+                  </button>
+                )}
+              </div>
               <span className="text-[11px] text-muted-foreground leading-tight line-clamp-1">
                 {ad.adType || "Flexible"}
               </span>
@@ -223,7 +254,10 @@ export function IndustryInsightsAdsCard({
               no border-radius. Skipped entirely when no media URL and not processing —
               gives true Pinterest masonry: cards without media are SHORT. */}
           {showMediaBlock && (
-            <div className="-mx-3 aspect-[3/4] bg-muted overflow-hidden relative">
+            <div
+              className="-mx-3 bg-muted overflow-hidden relative"
+              style={{ aspectRatio: ad.mediaAspectRatio || "3/4" }}
+            >
               {isProcessing ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted/60">
                   <div className="w-1/2 flex flex-col items-center justify-center gap-1.5">
@@ -284,10 +318,27 @@ export function IndustryInsightsAdsCard({
                     </span>
                   )}
                   {ad.analysed && (
-                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
-                      <BarChart3 className="h-3 w-3" />
-                      Analysed
-                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewDetail?.(ad);
+                          }}
+                          aria-label="View AI analysis"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-background/85 backdrop-blur-sm border border-border/60 text-foreground hover:bg-background hover:border-primary/40 transition-colors"
+                        >
+                          <BarChart3 className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px]">
+                        <p className="text-xs font-medium">Analysed by AI</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Click to view the full insights breakdown — hooks, angles, audience signals.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               )}
@@ -313,28 +364,10 @@ export function IndustryInsightsAdsCard({
 
           {/* Action row */}
           <div
-            className="border-t border-border pt-2 flex items-center justify-between gap-0.5"
+            className="border-t border-border pt-2 flex items-center justify-start gap-1"
             onClick={stop}
           >
-            {/* 1. Add Brand to Competitors */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddBrandToCompetitors?.(ad);
-                  }}
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Add Brand to Competitors</TooltipContent>
-            </Tooltip>
-
-            {/* 2. Save to Board (with savedCount red badge) */}
+            {/* 1. Save to Board (with savedCount red badge) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -357,40 +390,7 @@ export function IndustryInsightsAdsCard({
               <TooltipContent>Save to Board</TooltipContent>
             </Tooltip>
 
-            {/* 3. Copy Link */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handleCopyLink}
-                >
-                  <LinkIcon className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copy link</TooltipContent>
-            </Tooltip>
-
-            {/* 4. Add Page to Competitors */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddPageToCompetitors?.(ad);
-                  }}
-                >
-                  <FilePlus className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Add Page to Competitors</TooltipContent>
-            </Tooltip>
-
-            {/* 5. Save Ad (queue) */}
+            {/* 2. Save Ad (queue) */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -408,7 +408,22 @@ export function IndustryInsightsAdsCard({
               <TooltipContent>Save Ad</TooltipContent>
             </Tooltip>
 
-            {/* 6. Kebab menu */}
+            {/* 3. Copy Link */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleCopyLink}
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy link</TooltipContent>
+            </Tooltip>
+
+            {/* 4. Kebab menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -424,17 +439,36 @@ export function IndustryInsightsAdsCard({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    onFollowBrand?.(ad);
+                    onAddBrandToCompetitors?.(ad);
                   }}
                 >
-                  <Heart
-                    className={cn(
-                      "h-3.5 w-3.5 mr-2",
-                      isFollowedBrand ? "fill-primary stroke-primary text-primary" : "",
-                    )}
-                  />
-                  {isFollowedBrand ? "Unfollow Brand" : "Follow Brand"}
+                  <UserPlus className="h-3.5 w-3.5 mr-2" />
+                  Add Brand to Competitors
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddPageToCompetitors?.(ad);
+                  }}
+                >
+                  <Users className="h-3.5 w-3.5 mr-2" />
+                  Add Page to Competitors
+                </DropdownMenuItem>
+                {isFollowedBrand && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFollowBrand?.(ad);
+                      }}
+                    >
+                      <HeartOff className="h-3.5 w-3.5 mr-2" />
+                      Unfollow Brand
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem disabled className="opacity-50">
                   <Sparkles className="h-3.5 w-3.5 mr-2" />
                   Generate Variations · Soon

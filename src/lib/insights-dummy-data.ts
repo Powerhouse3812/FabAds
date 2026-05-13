@@ -43,6 +43,9 @@ export type InsightAd = {
   transparencyMode: boolean;
   analysed: boolean;
   mediaProcessing?: boolean;
+  /** CSS aspect-ratio string for the media block (e.g. "3/4", "1/1", "16/9").
+      Drives Pinterest masonry variance — each ad gets a deterministic ratio. */
+  mediaAspectRatio?: string;
   createdAt: string;
   activeDuration: string;
   similarAdsCount: number;
@@ -105,6 +108,9 @@ function makeAd(i: number): InsightAd {
     mediaUrl: i % 5 < 3 ? (isVideo ? videoUrls[i % videoUrls.length] : `https://picsum.photos/seed/${brand.toLowerCase()}/600/800`) : "",
     mediaType: isVideo ? "video" : "image",
     thumbUrl: i % 5 < 3 ? `https://picsum.photos/seed/${brand.toLowerCase()}-thumb/600/800` : "",
+    // Random aspect ratio per ad — true Pinterest variance. Deterministic by i so
+    // re-renders stay stable.
+    mediaAspectRatio: ["3/4", "4/5", "1/1", "16/9", "2/3"][i % 5],
     transparencyMode: i % 2 === 0,
     analysed: i % 3 !== 2,
     createdAt: new Date(Date.now() - i * 86400000 * 3).toISOString(),
