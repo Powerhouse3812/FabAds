@@ -434,20 +434,14 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
-      {/* ROW 1 — Identity: section label + ad count chip + search w/ ⌘K. */}
+      {/* ROW 1 — Identity: section label + ad count chip + Date picker. */}
       <InsightsV2IdentityRow
         sectionLabel="My feeds"
         adCount={filtered.length}
-        searchValue={filters.search}
-        onSearchChange={handleSearchChange}
-        searchInputRef={searchInputRef}
-        onSearchFocus={handleSearchFocus}
-        searchScope="feed"
-        searchPopoverOpen={searchPopoverOpen}
-        onSearchPopoverOpenChange={setSearchPopoverOpen}
-        onApplyHere={handleApplySearchHere}
+        dateRange={filters.dateRange}
+        onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
       />
-      {/* ROW 2 — Filter actions: Add Filter + chips · Sort + Date + Settings */}
+      {/* ROW 2 — Filter actions: Search + chips · Add Filter + Sort + Settings */}
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}
@@ -457,6 +451,12 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         compact={isScrolled}
         onClearTag={() => setSelectedTag(undefined)}
         selectedTag={selectedTag}
+        searchInputRef={searchInputRef}
+        searchPopoverOpen={searchPopoverOpen}
+        onSearchPopoverOpenChange={setSearchPopoverOpen}
+        onSearchChange={handleSearchChange}
+        onSearchFocus={handleSearchFocus}
+        onApplySearchHere={handleApplySearchHere}
       />
       <div
         className={cn(

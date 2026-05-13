@@ -2,12 +2,13 @@ import { useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUpDown,
-  CalendarDays,
   Filter,
+  Search,
   Settings,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -23,16 +24,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { INSIGHT_INDUSTRIES } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-
-const DATE_PRESETS = [
-  { label: "Today", days: 1 },
-  { label: "3 days", days: 3 },
-  { label: "7 days", days: 7 },
-  { label: "15 days", days: 15 },
-  { label: "30 days", days: 30 },
-] as const;
+import { InsightsSearchPopover } from "./InsightsSearchPopover";
 
 function startOfDay(d: Date) {
   const x = new Date(d);
@@ -93,14 +85,21 @@ interface InsightsV2ToolbarProps {
   className?: string;
   displayPrefs?: InsightsV2DisplayPrefs;
   onDisplayPrefsChange?: (next: InsightsV2DisplayPrefs) => void;
-  /** When true, toolbar collapses to compact mode: Add Filter + applied chips
-      + Date stay. Industry/Status/Sort/Settings animate out via max-width +
-      opacity transitions. Search is no longer here — it lives in Row 1
-      (Identity row) and stays visible always. */
+  /** When true, toolbar collapses to compact mode: Search + applied chips
+      stay. Add Filter / Sort / Settings animate out via max-width + opacity
+      transitions. */
   compact?: boolean;
   /** For active-filter chip removal */
   selectedTag?: string;
   onClearTag?: () => void;
+  /** Search input + popover state (lifted to Feed so Row 1's ⌘K can refocus
+      it later if needed) */
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
+  searchPopoverOpen: boolean;
+  onSearchPopoverOpenChange: (next: boolean) => void;
+  onSearchChange: (next: string) => void;
+  onSearchFocus?: () => void;
+  onApplySearchHere: (q: string) => void;
 }
 
 export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
@@ -181,6 +180,12 @@ export function InsightsV2Toolbar({
   compact = false,
   selectedTag,
   onClearTag,
+  searchInputRef,
+  searchPopoverOpen,
+  onSearchPopoverOpenChange,
+  onSearchChange,
+  onSearchFocus,
+  onApplySearchHere,
 }: InsightsV2ToolbarProps) {
   const [addFilterOpen, setAddFilterOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -245,168 +250,34 @@ export function InsightsV2Toolbar({
       )}
     >
       <div className="flex flex-wrap items-center gap-2 gap-y-2">
-        {/* Left: Add Filter trigger + inline applied chips */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <Popover open={addFilterOpen} onOpenChange={setAddFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-[12px] font-normal relative"
-                aria-label="Add filter"
-              >
-                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Add Filter</span>
-                {addFilterActiveCount > 0 && (
-                  <span
-                    aria-hidden="true"
-                    className="ml-0.5 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold inline-flex items-center justify-center px-1"
-                  >
-                    {addFilterActiveCount}
-                  </span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-80 p-0">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                  Filters
-                </span>
-              </div>
-              <div className="px-3 py-3 space-y-4">
-                {/* Industry */}
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Industry
-                  </div>
-                  <Select
-                    value={industrySelectValue}
-                    onValueChange={(v) => setField("industry", v === "all" ? "" : v)}
-                  >
-                    <SelectTrigger className="h-8 w-full text-[12px]">
-                      <SelectValue placeholder="All industries" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All industries</SelectItem>
-                      {INSIGHT_INDUSTRIES.map((ind) => (
-                        <SelectItem key={ind} value={ind}>
-                          {ind}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+        {/* Left: Search input (moved from Row 1) + inline applied chips */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1 max-w-[520px]">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              ref={searchInputRef}
+              value={filters.search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onFocus={onSearchFocus}
+              placeholder="Search ads, brands, headlines…"
+              className="h-9 pl-9 pr-12 text-[13px]"
+              aria-label="Search feed"
+            />
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/60 text-muted-foreground" aria-hidden>
+              ⌘K
+            </kbd>
+            <InsightsSearchPopover
+              query={filters.search}
+              open={searchPopoverOpen}
+              onOpenChange={onSearchPopoverOpenChange}
+              onApplyHere={onApplySearchHere}
+              anchorRef={searchInputRef as React.RefObject<HTMLInputElement>}
+              currentScope="feed"
+            />
+          </div>
 
-                {/* Status — Active only toggle */}
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Status
-                  </div>
-                  <label className="flex items-center justify-between py-1 text-sm cursor-pointer">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          filters.status === "active"
-                            ? "bg-emerald-500"
-                            : "bg-muted-foreground/60",
-                        )}
-                        aria-hidden
-                      />
-                      Active only
-                    </span>
-                    <Switch
-                      checked={filters.status === "active"}
-                      onCheckedChange={(checked) =>
-                        setField("status", checked ? "active" : "all")
-                      }
-                      aria-label="Toggle Active only"
-                    />
-                  </label>
-                </div>
-
-                {/* Ad type chips */}
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Ad type
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {TYPE_CHIPS.map((opt) => {
-                      const active = adTypeChipValue === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() =>
-                            setField(
-                              "adType",
-                              opt.value === "all" ? "" : opt.value,
-                            )
-                          }
-                          className={cn(
-                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                            active
-                              ? "bg-primary text-primary-foreground border-primary font-semibold"
-                              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
-                          )}
-                          aria-pressed={active}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Running days chips */}
-                <div>
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
-                    Running days
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {RUNNING_DAYS_CHIPS.map((opt) => {
-                      const active = runningDaysChipValue === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() =>
-                            setField(
-                              "runningDays",
-                              opt.value === "all" ? "" : opt.value,
-                            )
-                          }
-                          className={cn(
-                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                            active
-                              ? "bg-primary text-primary-foreground border-primary font-semibold"
-                              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
-                          )}
-                          aria-pressed={active}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-end px-3 py-2 border-t border-border/60">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-[11px]"
-                  onClick={resetAddFilter}
-                  disabled={addFilterActiveCount === 0}
-                >
-                  Reset
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Applied-filter chip strip — always visible inline next to Add
-              Filter. Mirrors active filters as removable pills. */}
+          {/* Applied-filter chip strip — always visible inline next to Search.
+              Mirrors active filters as removable pills. */}
           <div className="flex flex-wrap items-center gap-1.5">
             {filters.industry && (
               <ActiveFilterChip
@@ -451,8 +322,158 @@ export function InsightsV2Toolbar({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right: Sort + Date + Settings — Sort/Settings collapse when compact */}
+        {/* Right: Add Filter + Sort + Settings — all collapse when compact */}
         <div className="flex items-center gap-2 shrink-0">
+          <div className={collapseCls(compact)} aria-hidden={compact}>
+          {/* Add Filter — moved here from the left section. Consolidates
+              Industry / Status / Ad type / Running days into one popover. */}
+          <Popover open={addFilterOpen} onOpenChange={setAddFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-[12px] font-normal relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                aria-label="Add filter"
+              >
+                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Add Filter</span>
+                {addFilterActiveCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="ml-0.5 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold inline-flex items-center justify-center px-1"
+                  >
+                    {addFilterActiveCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 p-0">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Filters
+                </span>
+              </div>
+              <div className="px-3 py-3 space-y-4">
+                {/* Industry */}
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Industry
+                  </div>
+                  <Select
+                    value={industrySelectValue}
+                    onValueChange={(v) => setField("industry", v === "all" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-8 w-full text-[12px]">
+                      <SelectValue placeholder="All industries" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All industries</SelectItem>
+                      {INSIGHT_INDUSTRIES.map((ind) => (
+                        <SelectItem key={ind} value={ind}>
+                          {ind}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status — Active only toggle */}
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Status
+                  </div>
+                  <label className="flex items-center justify-between py-1 text-sm cursor-pointer">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          filters.status === "active" ? "bg-emerald-500" : "bg-muted-foreground/60",
+                        )}
+                        aria-hidden
+                      />
+                      Active only
+                    </span>
+                    <Switch
+                      checked={filters.status === "active"}
+                      onCheckedChange={(checked) =>
+                        setField("status", checked ? "active" : "all")
+                      }
+                      aria-label="Toggle Active only"
+                    />
+                  </label>
+                </div>
+
+                {/* Ad type chips */}
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Ad type
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TYPE_CHIPS.map((opt) => {
+                      const active = adTypeChipValue === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setField("adType", opt.value === "all" ? "" : opt.value)}
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary font-semibold"
+                              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
+                          )}
+                          aria-pressed={active}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Running days chips */}
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Running days
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {RUNNING_DAYS_CHIPS.map((opt) => {
+                      const active = runningDaysChipValue === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setField("runningDays", opt.value === "all" ? "" : opt.value)}
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary font-semibold"
+                              : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
+                          )}
+                          aria-pressed={active}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end px-3 py-2 border-t border-border/60">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={resetAddFilter}
+                  disabled={addFilterActiveCount === 0}
+                >
+                  Reset
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          </div>
+
           <div className={collapseCls(compact)} aria-hidden={compact}>
           {/* Sort by */}
           <Select
@@ -479,86 +500,6 @@ export function InsightsV2Toolbar({
             </SelectContent>
           </Select>
           </div>
-
-          {/* Date range picker — stays visible in compact too. */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-[12px] font-normal"
-                aria-label="Date range"
-              >
-                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                {(() => {
-                  const r = filters.dateRange;
-                  if (!r?.from) return <span className="text-muted-foreground">Date range</span>;
-                  const today = startOfDay(new Date());
-                  const from = startOfDay(r.from);
-                  const diffDays = Math.round((today.getTime() - from.getTime()) / 86400000) + 1;
-                  const matchedPreset = DATE_PRESETS.find((p) => p.days === diffDays && r.to && startOfDay(r.to).getTime() === today.getTime());
-                  if (matchedPreset) {
-                    return <span>{matchedPreset.label === "Today" ? "Today" : `Last ${matchedPreset.label}`}</span>;
-                  }
-                  if (r.to) {
-                    return <span>{format(r.from, "MMM d")} – {format(r.to, "MMM d")}</span>;
-                  }
-                  return <span>{format(r.from, "MMM d, yyyy")}</span>;
-                })()}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-auto p-0">
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 p-3">
-                {DATE_PRESETS.map((p) => {
-                  const r = filters.dateRange;
-                  let active = false;
-                  if (r?.from && r?.to) {
-                    const today = startOfDay(new Date());
-                    const from = startOfDay(r.from);
-                    const diff = Math.round((today.getTime() - from.getTime()) / 86400000) + 1;
-                    active = diff === p.days && startOfDay(r.to).getTime() === today.getTime();
-                  }
-                  return (
-                    <button
-                      key={p.days}
-                      type="button"
-                      onClick={() => {
-                        const to = startOfDay(new Date());
-                        const from = new Date(to);
-                        from.setDate(from.getDate() - (p.days - 1));
-                        setField("dateRange", { from, to });
-                      }}
-                      className={cn(
-                        "rounded-full px-2.5 py-1 text-[11px] transition-colors border",
-                        active
-                          ? "bg-primary text-primary-foreground border-primary font-semibold"
-                          : "border-transparent bg-muted text-muted-foreground hover:bg-muted/80",
-                      )}
-                      aria-pressed={active}
-                    >
-                      {p.label === "Today" ? "Today" : `Last ${p.label}`}
-                    </button>
-                  );
-                })}
-                {filters.dateRange?.from && (
-                  <button
-                    type="button"
-                    onClick={() => setField("dateRange", undefined)}
-                    className="ml-auto inline-flex items-center gap-1 rounded-full px-2 text-[11px] text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" />
-                    Clear
-                  </button>
-                )}
-              </div>
-              <Calendar
-                mode="range"
-                selected={filters.dateRange}
-                onSelect={(r) => setField("dateRange", r ?? undefined)}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
 
           {/* Settings popover — Reload feed + per-section display toggles. */}
           <div className={collapseCls(compact)} aria-hidden={compact}>

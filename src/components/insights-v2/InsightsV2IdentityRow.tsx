@@ -1,44 +1,50 @@
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { CalendarDays, X } from "lucide-react";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
-  InsightsSearchPopover,
-  type InsightsSearchScope,
-} from "./InsightsSearchPopover";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+
+const DATE_PRESETS = [
+  { label: "Today", days: 1 },
+  { label: "3 days", days: 3 },
+  { label: "7 days", days: 7 },
+  { label: "15 days", days: 15 },
+  { label: "30 days", days: 30 },
+] as const;
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
 
 interface InsightsV2IdentityRowProps {
   sectionLabel: string;
   adCount: number;
-  searchValue: string;
-  onSearchChange: (next: string) => void;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
-  onSearchFocus?: () => void;
-  searchScope?: InsightsSearchScope;
-  searchPopoverOpen: boolean;
-  onSearchPopoverOpenChange: (next: boolean) => void;
-  onApplyHere: (q: string) => void;
+  dateRange: DateRange | undefined;
+  onDateRangeChange: (range: DateRange | undefined) => void;
   className?: string;
 }
 
 /**
  * ROW 1 — Identity row. Foreplay-style page-identity band:
- *   [Section label]  [Ad count chip]   ........   [Big search w/ ⌘K hint]
+ *   [Section label]  [Ad count chip]   ........   [Date range picker]
  *
  * Sits ABOVE the toolbar. Always visible — does NOT collapse on scroll. The
- * row is short (py-2.5) and breathy. Search lives here permanently so it
- * stays reachable even when the toolbar collapses to compact.
+ * row is short (py-2.5) and breathy. Search lives in Row 2 (Toolbar) now;
+ * date picker lives here.
  */
 export function InsightsV2IdentityRow({
   sectionLabel,
   adCount,
-  searchValue,
-  onSearchChange,
-  searchInputRef,
-  onSearchFocus,
-  searchScope = "feed",
-  searchPopoverOpen,
-  onSearchPopoverOpenChange,
-  onApplyHere,
+  dateRange,
+  onDateRangeChange,
   className,
 }: InsightsV2IdentityRowProps) {
   return (
@@ -64,36 +70,105 @@ export function InsightsV2IdentityRow({
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Right: big search bar with ⌘K hint */}
-      <div className="relative w-full max-w-[460px] flex-1">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-        <Input
-          ref={searchInputRef}
-          value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
-          onFocus={onSearchFocus}
-          placeholder="Search ads, brands, headlines…"
-          className="h-9 pl-9 pr-14 text-[13px]"
-          aria-label="Search feed"
-        />
-        <kbd
-          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/60 text-muted-foreground"
-          aria-hidden
-        >
-          ⌘K
-        </kbd>
-        <InsightsSearchPopover
-          query={searchValue}
-          open={searchPopoverOpen}
-          onOpenChange={onSearchPopoverOpenChange}
-          onApplyHere={onApplyHere}
-          anchorRef={searchInputRef as React.RefObject<HTMLInputElement>}
-          currentScope={searchScope}
-        />
-      </div>
+      {/* Right: date range picker with merged quick presets + calendar */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-[12px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            aria-label="Date range"
+          >
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            {(() => {
+              const r = dateRange;
+              if (!r?.from)
+                return <span className="text-muted-foreground">Date range</span>;
+              const today = startOfDay(new Date());
+              const from = startOfDay(r.from);
+              const diffDays =
+                Math.round((today.getTime() - from.getTime()) / 86400000) + 1;
+              const matchedPreset = DATE_PRESETS.find(
+                (p) =>
+                  p.days === diffDays &&
+                  r.to &&
+                  startOfDay(r.to).getTime() === today.getTime(),
+              );
+              if (matchedPreset) {
+                return (
+                  <span>
+                    {matchedPreset.label === "Today"
+                      ? "Today"
+                      : `Last ${matchedPreset.label}`}
+                  </span>
+                );
+              }
+              if (r.to) {
+                return (
+                  <span>
+                    {format(r.from, "MMM d")} – {format(r.to, "MMM d")}
+                  </span>
+                );
+              }
+              return <span>{format(r.from, "MMM d, yyyy")}</span>;
+            })()}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-auto p-0">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 p-3">
+            {DATE_PRESETS.map((p) => {
+              const r = dateRange;
+              let active = false;
+              if (r?.from && r?.to) {
+                const today = startOfDay(new Date());
+                const from = startOfDay(r.from);
+                const diff =
+                  Math.round((today.getTime() - from.getTime()) / 86400000) + 1;
+                active =
+                  diff === p.days &&
+                  startOfDay(r.to).getTime() === today.getTime();
+              }
+              return (
+                <button
+                  key={p.days}
+                  type="button"
+                  onClick={() => {
+                    const to = startOfDay(new Date());
+                    const from = new Date(to);
+                    from.setDate(from.getDate() - (p.days - 1));
+                    onDateRangeChange({ from, to });
+                  }}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                    active
+                      ? "bg-primary text-primary-foreground border-primary font-semibold"
+                      : "border-transparent bg-muted text-muted-foreground hover:bg-muted/80",
+                  )}
+                  aria-pressed={active}
+                >
+                  {p.label === "Today" ? "Today" : `Last ${p.label}`}
+                </button>
+              );
+            })}
+            {dateRange?.from && (
+              <button
+                type="button"
+                onClick={() => onDateRangeChange(undefined)}
+                className="ml-auto inline-flex items-center gap-1 rounded-full px-2 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </button>
+            )}
+          </div>
+          <Calendar
+            mode="range"
+            selected={dateRange}
+            onSelect={(r) => onDateRangeChange(r ?? undefined)}
+            numberOfMonths={2}
+          />
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
