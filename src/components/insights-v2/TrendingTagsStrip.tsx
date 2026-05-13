@@ -99,24 +99,26 @@ export function TrendingTagsStrip({
             </>
           ) : (
             <>
-              {/* Stacked-avatar style preview of hidden tags. Each mini-pill
-                  carries the first 2 letters of the tag (sans #), overlapping
-                  the previous by 6px for the layered-avatar feel. */}
+              {/* Stacked-avatar style preview of hidden tags. Single-letter
+                  circles (initial of the tag, sans #), overlapping the
+                  previous by ~40% so the layering reads as intentional. Solid
+                  contrast against the strip + ring-2 ring-background gives
+                  the "cut out from parent" separator effect. */}
               <span className="flex items-center" aria-hidden>
                 {hiddenPreviewTags.map((tag, idx) => (
                   <span
                     key={tag}
                     className={cn(
-                      "inline-flex h-4 min-w-[18px] items-center justify-center rounded-full bg-muted px-1 font-mono text-[9px] font-semibold uppercase text-foreground/70 ring-1 ring-background",
-                      idx > 0 && "-ml-1.5",
+                      "inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-muted-foreground/25 font-mono text-[10px] font-bold uppercase text-foreground ring-2 ring-background",
+                      idx > 0 && "-ml-2",
                     )}
                     style={{ zIndex: hiddenPreviewTags.length - idx }}
                   >
-                    {tag.replace(/^#/, "").slice(0, 2)}
+                    {tag.replace(/^#/, "").charAt(0)}
                   </span>
                 ))}
               </span>
-              <span className="font-mono text-[11px]">+{hiddenCount}</span>
+              <span className="font-mono text-[11px] ml-0.5">+{hiddenCount}</span>
             </>
           )}
         </button>
