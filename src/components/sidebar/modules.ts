@@ -7,7 +7,7 @@ import {
   Bookmark, Copy, Tag, Building2, Package, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
-  BookOpen,
+  BookOpen, Sparkles,
   Compass, Eye, Layers, Rss,
 } from "lucide-react";
 
@@ -180,6 +180,9 @@ export const MODULES: ModuleDef[] = [
   { key: "obj-remover", label: "Object Remover", icon: Scissors, path: "/tools/obj-remover", comingSoon: true },
   // Temporary — FabFunnel Brand Book slideshow. No sub-nav; each slide is its own route.
   { key: "brand-book", label: "Brand Book", icon: BookOpen, path: "/brand-book", badge: "Temp" },
+  // Demo — first-login onboarding wizard ported from ff.ai marketing site.
+  // Presentational only; not auto-launched on real first login.
+  { key: "onboarding-demo", label: "Onboarding", icon: Sparkles, path: "/onboarding-demo", badge: "Demo" },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.
@@ -219,6 +222,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   "bg-remover": "TOOLS",
   "obj-remover": "TOOLS",
   "brand-book": "TOOLS",
+  "onboarding-demo": "TOOLS",
 };
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];
