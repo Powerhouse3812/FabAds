@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   LayoutGrid, Copy, Link as LinkIcon, ChevronRight, ChevronDown,
-  Sparkles, UserPlus, MoreHorizontal, Mars, Venus, CircleHelp, Play,
+  Sparkles, UserPlus, MoreHorizontal, Play,
 } from "lucide-react";
 import { PlatformIcons } from "./PlatformIcons";
 import { SimilarAdCard } from "./SimilarAdCard";
@@ -604,10 +604,25 @@ function StatCell({
 
 function GenderCell({ gender }: { gender: string }) {
   const g = gender.toLowerCase();
-  const Icon = g.includes("male") && !g.includes("female") ? Mars : g.includes("female") ? Venus : CircleHelp;
+  // Unicode gender symbols — render cross-platform without depending on
+  // lucide-react Mars/Venus icons (not in our pinned version).
+  const symbol = g === "male"
+    ? "♂"
+    : g === "female"
+      ? "♀"
+      : g.includes("male") && !g.includes("female")
+        ? "♂"
+        : g.includes("female")
+          ? "♀"
+          : "⚧"; // unknown / non-binary
   return (
     <span className="inline-flex items-center gap-1.5 capitalize">
-      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span
+        className="text-muted-foreground text-sm leading-none"
+        aria-hidden
+      >
+        {symbol}
+      </span>
       {gender}
     </span>
   );
