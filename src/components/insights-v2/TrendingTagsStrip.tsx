@@ -32,6 +32,7 @@ export function TrendingTagsStrip({
             onClick={() => onSelectTag?.(isActive ? undefined : tag)}
             className={cn(
               "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[11px] transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isActive
                 ? "bg-primary text-primary-foreground font-semibold"
                 : "bg-muted text-muted-foreground hover:bg-muted/80",

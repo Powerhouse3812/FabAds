@@ -230,8 +230,8 @@ export function IndustryInsightsAdsCard({
                         onFollowBrand?.(ad);
                       }}
                       aria-label="Follow brand"
-                      // h-7 w-7 (28x28) — desktop density target; mobile detail view exposes larger hit targets per WCAG 2.5.5
-                      className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      // h-8 w-8 (32x32) — matches all other card-level hit targets
+                      className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -272,7 +272,7 @@ export function IndustryInsightsAdsCard({
                     e.stopPropagation();
                     onViewDetail?.(ad);
                   }}
-                  className="absolute bottom-0 right-0 bg-card pl-2 text-[11px] font-medium text-muted-foreground hover:text-foreground rounded-full px-2 py-px border border-border/40 hover:border-border transition-colors"
+                  className="absolute bottom-0 right-0 bg-card pl-2 text-[11px] font-medium text-muted-foreground hover:text-foreground rounded-full px-2 py-px border border-border/60 hover:border-border transition-colors"
                   aria-label="Read more in detail view"
                 >
                   Read More
@@ -350,13 +350,13 @@ export function IndustryInsightsAdsCard({
                       has notable spread"). Promoted from brand row to media
                       chip per Maalik's spec. */}
                   {display.similarAds && (ad.similarAdsCount ?? 0) >= 5 && (
-                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-full">
                       <Layers className="h-3 w-3" />
                       <span className="tabular-nums">{ad.similarAdsCount}</span> similar Ads
                     </span>
                   )}
                   {display.transparency && ad.transparencyMode && (
-                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-full">
                       <ShieldCheck className="h-3 w-3" />
                       Transparency mode
                     </span>

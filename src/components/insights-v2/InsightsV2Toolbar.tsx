@@ -283,7 +283,7 @@ export function InsightsV2Toolbar({
                             )
                           }
                           className={cn(
-                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border",
+                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                             active
                               ? "bg-primary text-primary-foreground border-primary font-semibold"
                               : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
@@ -314,7 +314,7 @@ export function InsightsV2Toolbar({
                             )
                           }
                           className={cn(
-                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border",
+                            "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                             active
                               ? "bg-primary text-primary-foreground border-primary font-semibold"
                               : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80",
@@ -378,6 +378,7 @@ export function InsightsV2Toolbar({
             aria-pressed={filters.status === "active"}
             className={cn(
               "h-8 rounded-full px-3 inline-flex items-center gap-1.5 text-[11px] font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               filters.status === "active"
                 ? "bg-primary/15 text-primary border border-primary/40 hover:bg-primary/20"
                 : "border border-border/60 text-muted-foreground hover:bg-muted",
