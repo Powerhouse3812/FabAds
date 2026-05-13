@@ -87,7 +87,9 @@ export function IndustryInsightsAdsCard({
 
   const similarPadded = String(ad.similarAdsCount ?? 0).padStart(2, "0");
 
-  const isProcessing = ad.mediaProcessing === true || (!ad.thumbUrl && !ad.mediaUrl);
+  const hasAnyMedia = !!ad.mediaUrl || !!ad.thumbUrl;
+  const isProcessing = ad.mediaProcessing === true;
+  const showMediaBlock = hasAnyMedia || isProcessing;
   const isVideo = ad.mediaType === "video";
 
   const handleCopyLink = (e: Event | React.SyntheticEvent) => {
@@ -217,69 +219,80 @@ export function IndustryInsightsAdsCard({
             <p className="text-xs italic text-muted-foreground/70 line-clamp-2 leading-snug">*Primary text missing*</p>
           )}
 
-          {/* Media block — portrait 3/4 */}
-          <div className="aspect-[3/4] rounded-md bg-muted overflow-hidden relative">
-            {isProcessing ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/60">
-                <div className="w-1/2 flex flex-col items-center justify-center gap-1.5">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-mono text-[11px] text-muted-foreground text-center">Media processing</span>
+          {/* Media block — portrait 3/4, edge-to-edge (negative margin to bleed past p-3),
+              no border-radius. Skipped entirely when no media URL and not processing —
+              gives true Pinterest masonry: cards without media are SHORT. */}
+          {showMediaBlock && (
+            <div className="-mx-3 aspect-[3/4] bg-muted overflow-hidden relative">
+              {isProcessing ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted/60">
+                  <div className="w-1/2 flex flex-col items-center justify-center gap-1.5">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-mono text-[11px] text-muted-foreground text-center">Media processing</span>
+                  </div>
                 </div>
-              </div>
-            ) : isVideo && playing ? (
-              <video
-                src={ad.mediaUrl}
-                poster={ad.thumbUrl}
-                controls
-                autoPlay
-                className="w-full h-full object-cover"
-                onClick={stop}
-              />
-            ) : (
-              <>
-                <img
-                  src={isVideo ? ad.thumbUrl : ad.mediaUrl || ad.thumbUrl}
-                  alt={ad.headline || ad.brand}
-                  loading="lazy"
-                  onLoad={() => setImageLoaded(true)}
-                  className={cn(
-                    "w-full h-full object-cover transition-opacity duration-300",
-                    imageLoaded ? "opacity-100" : "opacity-0",
-                  )}
+              ) : isVideo && playing ? (
+                <video
+                  src={ad.mediaUrl}
+                  poster={ad.thumbUrl}
+                  controls
+                  autoPlay
+                  className="w-full h-full object-cover"
+                  onClick={stop}
                 />
-                {isVideo && (
-                  <button
-                    type="button"
-                    className="absolute inset-0 flex items-center justify-center"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPlaying(true);
-                    }}
-                    aria-label="Play video"
-                  >
-                    <Play className="h-8 w-8 text-white drop-shadow-lg" />
-                  </button>
-                )}
-              </>
-            )}
+              ) : (
+                <>
+                  <img
+                    src={isVideo ? ad.thumbUrl : ad.mediaUrl || ad.thumbUrl}
+                    alt={ad.headline || ad.brand}
+                    loading="lazy"
+                    onLoad={() => setImageLoaded(true)}
+                    className={cn(
+                      "w-full h-full object-cover transition-opacity duration-300",
+                      imageLoaded ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {isVideo && (
+                    <button
+                      type="button"
+                      className="absolute inset-0 flex items-center justify-center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPlaying(true);
+                      }}
+                      aria-label="Play video"
+                    >
+                      <span className="h-12 w-12 rounded-full bg-black/45 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                        <Play
+                          className="h-5 w-5 text-white"
+                          fill="currentColor"
+                          stroke="currentColor"
+                          strokeWidth={1}
+                        />
+                      </span>
+                    </button>
+                  )}
+                </>
+              )}
 
-            {!isProcessing && (ad.transparencyMode || ad.analysed) && (
-              <div className="absolute bottom-2 left-2 flex gap-1.5">
-                {ad.transparencyMode && (
-                  <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
-                    <ShieldCheck className="h-3 w-3" />
-                    Transparency mode
-                  </span>
-                )}
-                {ad.analysed && (
-                  <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
-                    <BarChart3 className="h-3 w-3" />
-                    Analysed
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+              {!isProcessing && (ad.transparencyMode || ad.analysed) && (
+                <div className="absolute bottom-2 left-2 flex gap-1.5">
+                  {ad.transparencyMode && (
+                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                      <ShieldCheck className="h-3 w-3" />
+                      Transparency mode
+                    </span>
+                  )}
+                  {ad.analysed && (
+                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                      <BarChart3 className="h-3 w-3" />
+                      Analysed
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Domain */}
           <p className="font-mono text-[11px] text-muted-foreground line-clamp-1">{ad.domain}</p>

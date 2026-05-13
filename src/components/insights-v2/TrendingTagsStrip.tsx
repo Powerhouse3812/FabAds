@@ -16,7 +16,7 @@ export function TrendingTagsStrip({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 overflow-x-auto px-4 py-2 border-b border-border/60",
+        "flex items-center gap-2 overflow-x-auto px-4 py-1.5 border-b border-border/60",
         "[&::-webkit-scrollbar]:h-0",
         className,
       )}

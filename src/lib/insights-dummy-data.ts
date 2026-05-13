@@ -100,9 +100,11 @@ function makeAd(i: number): InsightAd {
     headline: headlines[i % headlines.length],
     description: `${brand} — ${industries[i % industries.length]} leader since 2019.`,
     cta: ctas[i % ctas.length],
-    mediaUrl: isVideo ? videoUrls[i % videoUrls.length] : `https://picsum.photos/seed/${brand.toLowerCase()}/600/400`,
+    // Pinterest-masonry variance: ~40% of ads have NO media (short cards in grid).
+    // Drives natural column-pack variance without changing card logic.
+    mediaUrl: i % 5 < 3 ? (isVideo ? videoUrls[i % videoUrls.length] : `https://picsum.photos/seed/${brand.toLowerCase()}/600/800`) : "",
     mediaType: isVideo ? "video" : "image",
-    thumbUrl: isVideo ? `https://picsum.photos/seed/${brand.toLowerCase()}-thumb/600/400` : `https://picsum.photos/seed/${brand.toLowerCase()}/600/400`,
+    thumbUrl: i % 5 < 3 ? `https://picsum.photos/seed/${brand.toLowerCase()}-thumb/600/800` : "",
     transparencyMode: i % 2 === 0,
     analysed: i % 3 !== 2,
     createdAt: new Date(Date.now() - i * 86400000 * 3).toISOString(),

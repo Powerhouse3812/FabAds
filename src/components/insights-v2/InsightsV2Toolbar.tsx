@@ -105,7 +105,7 @@ export function InsightsV2Toolbar({
   return (
     <div
       className={cn(
-        "sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/60 px-4 py-2.5",
+        "sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border/60 px-4 py-1.5",
         className,
       )}
     >
@@ -119,13 +119,13 @@ export function InsightsV2Toolbar({
               value={filters.search}
               onChange={(e) => setField("search", e.target.value)}
               placeholder="Search by keyword, brand…"
-              className="h-9 pl-8 pr-8 text-[12px]"
+              className="h-8 pl-8 pr-8 text-[12px]"
             />
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-8 w-9 shrink-0"
             aria-label="Filter"
           >
             <Filter className="h-3.5 w-3.5 text-muted-foreground" />
@@ -133,7 +133,7 @@ export function InsightsV2Toolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-8 w-9 shrink-0"
             aria-label="Sort"
           >
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -149,7 +149,7 @@ export function InsightsV2Toolbar({
             value={industrySelectValue}
             onValueChange={(v) => setField("industry", v === "all" ? "" : v)}
           >
-            <SelectTrigger className="h-9 w-[140px] text-[12px]">
+            <SelectTrigger className="h-8 w-[140px] text-[12px]">
               <SelectValue placeholder="Industry" />
             </SelectTrigger>
             <SelectContent>
@@ -166,7 +166,7 @@ export function InsightsV2Toolbar({
             value={statusSelectValue}
             onValueChange={(v) => setField("status", v)}
           >
-            <SelectTrigger className="h-9 w-[110px] text-[12px]">
+            <SelectTrigger className="h-8 w-[110px] text-[12px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -182,7 +182,7 @@ export function InsightsV2Toolbar({
             value={typeSelectValue}
             onValueChange={(v) => setField("adType", v === "all" ? "" : v)}
           >
-            <SelectTrigger className="h-9 w-[110px] text-[12px]">
+            <SelectTrigger className="h-8 w-[110px] text-[12px]">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -198,7 +198,7 @@ export function InsightsV2Toolbar({
             value={runningSelectValue}
             onValueChange={(v) => setField("runningDays", v === "all" ? "" : v)}
           >
-            <SelectTrigger className="h-9 w-[130px] text-[12px]">
+            <SelectTrigger className="h-8 w-[130px] text-[12px]">
               <SelectValue placeholder="Running days" />
             </SelectTrigger>
             <SelectContent>
@@ -220,15 +220,15 @@ export function InsightsV2Toolbar({
                 onGridSizeChange(parsed);
               }
             }}
-            className="border border-border rounded-md h-9"
+            className="border border-border rounded-md h-8"
           >
-            <ToggleGroupItem value="3" aria-label="3 columns" className="h-9 w-9 px-0">
+            <ToggleGroupItem value="3" aria-label="3 columns" className="h-8 w-9 px-0">
               <Columns3 className="h-3.5 w-3.5" />
             </ToggleGroupItem>
-            <ToggleGroupItem value="4" aria-label="4 columns" className="h-9 w-9 px-0">
+            <ToggleGroupItem value="4" aria-label="4 columns" className="h-8 w-9 px-0">
               <Columns4 className="h-3.5 w-3.5" />
             </ToggleGroupItem>
-            <ToggleGroupItem value="5" aria-label="5 columns" className="h-9 w-9 px-0">
+            <ToggleGroupItem value="5" aria-label="5 columns" className="h-8 w-9 px-0">
               <Grid3X3 className="h-3.5 w-3.5" />
             </ToggleGroupItem>
           </ToggleGroup>
@@ -236,7 +236,7 @@ export function InsightsV2Toolbar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9"
+            className="h-8 w-9"
             onClick={handleRefresh}
             disabled={!onRefresh}
             aria-label="Refresh"

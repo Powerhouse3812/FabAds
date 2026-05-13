@@ -31,7 +31,7 @@ export function InsightsV2PageHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between px-4 py-2 border-b border-border/40",
+        "flex items-center justify-between px-4 py-1.5 border-b border-border/40",
         className,
       )}
     >
@@ -66,7 +66,7 @@ export function InsightsV2PageHeader({
             variant="outline"
             size="sm"
             className={cn(
-              "h-8 gap-2 text-[12px] font-normal",
+              "h-7 gap-2 text-[12px] font-normal",
               hasDateRange ? "border-primary/40 text-foreground" : "text-muted-foreground",
             )}
           >
