@@ -5,7 +5,7 @@ import { Compass, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import type { DateRange } from "react-day-picker";
 
-import { DUMMY_ADS, type InsightAd } from "@/lib/insights-dummy-data";
+import { DUMMY_ADS, BRANDS, type InsightAd } from "@/lib/insights-dummy-data";
 import { useInsightPreferences } from "@/hooks/use-insight-preferences";
 import { useSavedAdIds } from "@/hooks/use-insight-boards";
 import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
@@ -444,6 +444,9 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         sectionLabel="My feeds"
         adCount={filtered.length}
         brandsFollowed={Math.max(followedBrands.length, 28)}
+        followedBrandNames={followedBrands}
+        allBrands={[...BRANDS]}
+        onToggleBrand={(brand) => toggleFollowBrand.mutate(brand)}
         dateRange={filters.dateRange}
         onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
       />

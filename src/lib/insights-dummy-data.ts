@@ -237,7 +237,7 @@ const CTAS_BY_INDUSTRY: Record<string, string[]> = {
   "Technology": ["Buy Now", "Pre-Order", "Learn More", "Get It Now"],
 };
 
-const BRANDS = [
+export const BRANDS = [
   "GlowSkin", "TechPulse", "FitZone", "UrbanStyle", "DataForge", "SnapBite",
   "EduVerse", "TravelNow", "HomeLux", "AutoDrive", "PlayCore", "BeautyHQ",
   "SportMax", "FinEdge", "CloudWare", "TrendLine", "WellCo", "GameVault",

@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { BrandsFollowedPopover } from "./BrandsFollowedPopover";
 
 const DATE_PRESETS = [
   { label: "Today", days: 1 },
@@ -28,6 +29,12 @@ interface InsightsV2IdentityRowProps {
   sectionLabel: string;
   adCount: number;
   brandsFollowed: number;
+  /** Real followed brand names — drives the popover checkbox state. */
+  followedBrandNames: string[];
+  /** All brands available for follow/unfollow. */
+  allBrands: string[];
+  /** Mutation callback fired when user toggles a brand. */
+  onToggleBrand: (brand: string) => void;
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
   className?: string;
@@ -45,6 +52,9 @@ export function InsightsV2IdentityRow({
   sectionLabel,
   adCount,
   brandsFollowed,
+  followedBrandNames,
+  allBrands,
+  onToggleBrand,
   dateRange,
   onDateRangeChange,
   className,
@@ -67,12 +77,23 @@ export function InsightsV2IdentityRow({
           </span>{" "}
           ads
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
-          <span className="font-mono text-foreground font-semibold">
-            {brandsFollowed.toLocaleString()}
-          </span>{" "}
-          {brandsFollowed === 1 ? "brand followed" : "brands followed"}
-        </span>
+        <BrandsFollowedPopover
+          followedBrands={followedBrandNames}
+          allBrands={allBrands}
+          onToggleBrand={onToggleBrand}
+          trigger={
+            <button
+              type="button"
+              aria-label="Edit brands followed"
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            >
+              <span className="font-mono text-foreground font-semibold">
+                {brandsFollowed.toLocaleString()}
+              </span>{" "}
+              {brandsFollowed === 1 ? "brand followed" : "brands followed"}
+            </button>
+          }
+        />
       </div>
 
       {/* Spacer */}
