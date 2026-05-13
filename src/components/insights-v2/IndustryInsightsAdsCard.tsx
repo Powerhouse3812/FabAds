@@ -26,6 +26,7 @@ import {
   BadgeCheck,
   Plus,
   CheckCircle2,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -223,12 +224,6 @@ export function IndustryInsightsAdsCard({
               <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
                 {statusDuration}
               </span>
-              {(ad.similarAdsCount ?? 0) > 0 && (
-                <>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span className="tabular-nums">{ad.similarAdsCount}</span>
-                </>
-              )}
             </span>
           </div>
 
@@ -316,8 +311,17 @@ export function IndustryInsightsAdsCard({
                 </>
               )}
 
-              {!isProcessing && (ad.transparencyMode || ad.analysed) && (
-                <div className="absolute bottom-2 left-2 flex gap-1.5">
+              {!isProcessing && (ad.transparencyMode || ad.analysed || (ad.similarAdsCount ?? 0) >= 5) && (
+                <div className="absolute bottom-2 left-2 flex flex-wrap gap-1.5 max-w-[calc(100%-1rem)]">
+                  {/* Similar Ads chip — only on ads with 5+ similar (≈ "this ad
+                      has notable spread"). Promoted from brand row to media
+                      chip per Maalik's spec. */}
+                  {(ad.similarAdsCount ?? 0) >= 5 && (
+                    <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
+                      <Layers className="h-3 w-3" />
+                      <span className="tabular-nums">{ad.similarAdsCount}</span> similar Ads
+                    </span>
+                  )}
                   {ad.transparencyMode && (
                     <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
                       <ShieldCheck className="h-3 w-3" />
@@ -369,13 +373,14 @@ export function IndustryInsightsAdsCard({
             )}
           </div>
 
-          {/* Action row — 3 inline left + kebab right */}
+          {/* Action row — all 4 buttons horizontally evenly spaced (no
+              left/right grouping). justify-around gives equal margin between
+              and around each icon. */}
           <div
-            className="border-t border-border pt-2 flex items-center justify-between"
+            className="border-t border-border pt-2 flex items-center justify-around"
             onClick={stop}
           >
-            <div className="flex items-center gap-1">
-              {/* 1. Save to Board (with savedCount red badge) */}
+            {/* 1. Save to Board (with savedCount red badge) */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -430,7 +435,6 @@ export function IndustryInsightsAdsCard({
                 </TooltipTrigger>
                 <TooltipContent>Copy link</TooltipContent>
               </Tooltip>
-            </div>
 
             {/* 4. Kebab menu */}
             <DropdownMenu>

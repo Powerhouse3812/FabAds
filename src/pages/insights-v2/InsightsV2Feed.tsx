@@ -42,6 +42,11 @@ function readFiltersFromSearch(sp: URLSearchParams): {
   filters: InsightsV2Filters;
   selectedTag: string | undefined;
 } {
+  const sortRaw = sp.get("sort");
+  const sort: InsightsV2Filters["sort"] =
+    sortRaw === "oldest" || sortRaw === "most-active" || sortRaw === "popular"
+      ? sortRaw
+      : "newest";
   const filters: InsightsV2Filters = {
     search: sp.get("search") ?? "",
     industry: sp.get("industry") ?? "",
@@ -49,6 +54,7 @@ function readFiltersFromSearch(sp: URLSearchParams): {
     adType: sp.get("adType") ?? "",
     runningDays: sp.get("running") ?? "",
     metaOnly: sp.get("metaOnly") === "1" ? true : sp.get("metaOnly") === "0" ? false : DEFAULT_INSIGHTS_V2_FILTERS.metaOnly,
+    sort,
   };
   return { filters, selectedTag: sp.get("tag") ?? undefined };
 }
@@ -72,6 +78,9 @@ function writeFiltersToSearch(
   // metaOnly defaults true — only serialise when off, so URL stays clean
   if (filters.metaOnly === false) next.set("metaOnly", "0");
   else next.delete("metaOnly");
+  // sort defaults to "newest" — only serialise when not the default
+  if (filters.sort && filters.sort !== "newest") next.set("sort", filters.sort);
+  else next.delete("sort");
   return next;
 }
 
@@ -170,6 +179,22 @@ function applyFilters({
   }
   if (selectedTag) {
     out = out.filter((a) => a.tags.includes(selectedTag));
+  }
+
+  // Sort — applied last so all filtered results respect the order.
+  const sort = filters.sort ?? "newest";
+  if (sort === "newest") {
+    out = [...out].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  } else if (sort === "oldest") {
+    out = [...out].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  } else if (sort === "most-active") {
+    out = [...out].sort((a, b) => {
+      const ad = parseDurationDays(a.activeDuration) ?? 0;
+      const bd = parseDurationDays(b.activeDuration) ?? 0;
+      return bd - ad;
+    });
+  } else if (sort === "popular") {
+    out = [...out].sort((a, b) => (b.similarAdsCount ?? 0) - (a.similarAdsCount ?? 0));
   }
 
   return out;
@@ -326,8 +351,6 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}
-        gridSize={gridSize}
-        onGridSizeChange={setGridSize}
         onRefresh={handleRefresh}
       />
       <TrendingTagsStrip selectedTag={selectedTag} onSelectTag={setSelectedTag} />

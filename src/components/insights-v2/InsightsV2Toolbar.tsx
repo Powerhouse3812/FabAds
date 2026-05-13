@@ -2,10 +2,7 @@ import { useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUpDown,
-  Columns3,
-  Columns4,
   Filter,
-  Grid3X3,
   RefreshCw,
   Search,
   Tag,
@@ -24,13 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { INSIGHT_INDUSTRIES } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
 import {
   InsightsSearchPopover,
   type InsightsSearchScope,
 } from "./InsightsSearchPopover";
+
+export type InsightsV2Sort = "newest" | "oldest" | "most-active" | "popular";
 
 export interface InsightsV2Filters {
   search: string;
@@ -40,13 +38,12 @@ export interface InsightsV2Filters {
   runningDays: string;
   metaOnly: boolean;
   dateRange?: DateRange;
+  sort: InsightsV2Sort;
 }
 
 interface InsightsV2ToolbarProps {
   filters: InsightsV2Filters;
   onFiltersChange: (next: InsightsV2Filters) => void;
-  gridSize: 2 | 3 | 4 | 5;
-  onGridSizeChange: (size: 2 | 3 | 4 | 5) => void;
   onRefresh?: () => void;
   className?: string;
   /** Search scope this toolbar belongs to. Defaults to "feed" (My feeds). */
@@ -60,7 +57,15 @@ export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
   adType: "",
   runningDays: "",
   metaOnly: true,
+  sort: "newest",
 };
+
+const SORT_OPTIONS: { value: InsightsV2Sort; label: string }[] = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "most-active", label: "Most active" },
+  { value: "popular", label: "Most popular" },
+];
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
@@ -87,8 +92,6 @@ const RUNNING_DAYS_CHIPS = [
 export function InsightsV2Toolbar({
   filters,
   onFiltersChange,
-  gridSize,
-  onGridSizeChange,
   onRefresh,
   className,
   searchScope = "feed",
@@ -269,20 +272,12 @@ export function InsightsV2Toolbar({
               </div>
             </PopoverContent>
           </Popover>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-9 shrink-0"
-            aria-label="Sort"
-          >
-            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
         </div>
 
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right: 2 dropdowns + grid toggle + refresh */}
+        {/* Right: 2 dropdowns + big Sort + refresh */}
         <div className="flex items-center gap-2 shrink-0">
           <Select
             value={industrySelectValue}
@@ -317,28 +312,24 @@ export function InsightsV2Toolbar({
             </SelectContent>
           </Select>
 
-          <ToggleGroup
-            type="single"
-            value={String(gridSize)}
-            onValueChange={(val) => {
-              if (!val) return;
-              const parsed = Number(val);
-              if (parsed === 3 || parsed === 4 || parsed === 5) {
-                onGridSizeChange(parsed);
-              }
-            }}
-            className="border border-border rounded-md h-8"
+          {/* Sort by — promoted to a full-sized dropdown on the right (was a
+              tiny icon button on the left). Size matches Industry/Status. */}
+          <Select
+            value={filters.sort}
+            onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
           >
-            <ToggleGroupItem value="3" aria-label="3 columns" className="h-8 w-9 px-0">
-              <Columns3 className="h-3.5 w-3.5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="4" aria-label="4 columns" className="h-8 w-9 px-0">
-              <Columns4 className="h-3.5 w-3.5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="5" aria-label="5 columns" className="h-8 w-9 px-0">
-              <Grid3X3 className="h-3.5 w-3.5" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+            <SelectTrigger className="h-8 w-[140px] text-[12px]" aria-label="Sort by">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           <Button
             variant="ghost"
