@@ -194,7 +194,7 @@ export function IndustryInsightsAdsCard({
           </div>
         )}
 
-        <div className="p-3 space-y-2.5">
+        <div className="p-4 space-y-3">
           {/* Brand row — SINGLE horizontal line, everything fits.
               Avatar + brand + Follow (icon-only) on the left;
               status meta + similar count pushed right via ml-auto;
@@ -288,7 +288,7 @@ export function IndustryInsightsAdsCard({
               gives true Pinterest masonry: cards without media are SHORT. */}
           {showMediaBlock && (
             <div
-              className="-mx-3 bg-muted overflow-hidden relative"
+              className="-mx-4 bg-muted overflow-hidden relative"
               style={{ aspectRatio: ad.mediaAspectRatio || "3/4" }}
             >
               {isProcessing ? (

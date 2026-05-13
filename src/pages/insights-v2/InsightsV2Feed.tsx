@@ -409,7 +409,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   }, []);
 
   return (
-    <div className="flex h-full flex-col pt-2 bg-muted/30">
+    <div className="flex h-full flex-col pt-4 bg-muted/30">
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}

@@ -8,7 +8,7 @@ import {
   Workflow, Eraser, Scissors,
   Lightbulb,
   BookOpen,
-  Compass, Eye, Layers,
+  Compass, Eye, Layers, Rss,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -102,8 +102,8 @@ export const MODULES: ModuleDef[] = [
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
       // remaining items continue to point at v1 routes until each gets its
       // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.
-      { label: "Discovery", path: "/insights/discover",    icon: Telescope },
-      { label: "My feeds",  path: "/insights-v2/feed",     icon: Compass },
+      { label: "My feeds",  path: "/insights-v2/feed",     icon: Rss },
+      { label: "Discover",  path: "/insights/discover",    icon: Compass },
       { label: "Saved Ads", path: "/insights/saved",       icon: Bookmark },
       { label: "Competitor", path: "/insights/competitors", icon: Eye },
       { label: "Board",     path: "/insights/boards",      icon: Layers },

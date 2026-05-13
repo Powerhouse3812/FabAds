@@ -77,16 +77,19 @@ export interface InsightsV2DisplayPrefs {
   transparency: boolean;
 }
 
+// MINIMAL by default — only the essentials are visible to keep cognitive
+// load low and the surface breathy. Power users opt in to the rest via the
+// Settings popover.
 export const DEFAULT_INSIGHTS_V2_DISPLAY_PREFS: InsightsV2DisplayPrefs = {
-  brandDetails: true,
-  adCopy: true,
-  headlineDesc: true,
-  cta: true,
-  domain: true,
-  statusMeta: true,
-  similarAds: true,
-  analysed: false,
-  transparency: true,
+  brandDetails: true,   // avatar + brand name + follow + status dot — essential
+  adCopy: true,         // body text — essential
+  headlineDesc: false,  // headline + description — Meta-specific noise, opt-in
+  cta: false,           // CTA pill — opt-in
+  domain: false,        // page domain — opt-in
+  statusMeta: true,     // tiny status dot + duration on brand row — small, useful
+  similarAds: false,    // chip on media — opt-in
+  analysed: false,      // (chip removed in A-12.86) — opt-in pending restore
+  transparency: false,  // chip on media — opt-in
 };
 
 interface InsightsV2ToolbarProps {
