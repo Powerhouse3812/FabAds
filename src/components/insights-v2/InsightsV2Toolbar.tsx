@@ -336,7 +336,7 @@ export function InsightsV2Toolbar({
                 aria-label="Add filter"
               >
                 <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Add Filter</span>
+                <span>Filters</span>
                 {addFilterActiveCount > 0 && (
                   <span
                     aria-hidden="true"
@@ -480,9 +480,8 @@ export function InsightsV2Toolbar({
             value={filters.sort}
             onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
           >
-            <SelectTrigger className="h-8 w-[160px] text-[12px] relative" aria-label="Sort by">
+            <SelectTrigger className="h-8 w-[140px] text-[12px] relative" aria-label="Sort by">
               <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1 shrink-0" />
-              <span className="text-muted-foreground mr-1">Sort:</span>
               <SelectValue />
               {filters.sort !== "newest" && (
                 <span

@@ -26,6 +26,7 @@ import {
   InsightsV2Toolbar,
   DEFAULT_INSIGHTS_V2_FILTERS,
   DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
+  defaultDateRangeLast7,
   type InsightsV2Filters,
   type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
@@ -59,6 +60,10 @@ function readFiltersFromSearch(sp: URLSearchParams): {
     status: sp.get("status") ?? "all",
     adType: sp.get("adType") ?? "",
     runningDays: sp.get("running") ?? "",
+    // Default to Last 7 days when no URL state exists. The date range isn't
+    // currently serialised to URL (calendar ranges are awkward in query
+    // params); a future iteration can add explicit `from`/`to` params.
+    dateRange: defaultDateRangeLast7(),
     sort,
   };
   return { filters, selectedTag: sp.get("tag") ?? undefined };
