@@ -176,26 +176,11 @@ export function IndustryInsightsAdsCard({
         )}
 
         <div className="p-3 space-y-2.5">
-          {/* Row 1 — Status + Similar Ads inline (consolidated, no platform icons) */}
-          <div className="flex items-center gap-1.5 pr-9 text-xs">
-            <span className={cn("h-2 w-2 rounded-full shrink-0", statusDotClass)} />
-            <span
-              className={cn(
-                "font-medium",
-                ad.status === "paused" ? "text-muted-foreground" : "text-foreground",
-              )}
-            >
-              {statusDuration}
-            </span>
-            <span className="text-muted-foreground/40">·</span>
-            <span className="text-muted-foreground">
-              <span className="tabular-nums font-medium text-foreground">{ad.similarAdsCount ?? 0}</span>{" "}
-              similar Ads
-            </span>
-          </div>
-
-          {/* Row 3 — Brand (avatar + stacked name+follow / adType) */}
-          <div className="flex items-center gap-2.5">
+          {/* Brand row — avatar + (brand+Follow / status subtitle replaces adType).
+              Killed the standalone status+similar-ads row above; status info
+              folded into the brand subtitle for a Foreplay-style minimal upper
+              section. */}
+          <div className="flex items-center gap-2.5 pr-9">
             <div className="h-8 w-8 rounded-md overflow-hidden bg-muted shrink-0">
               {ad.pageAvatar ? (
                 <img src={ad.pageAvatar} alt="" className="h-full w-full object-cover" />
@@ -228,9 +213,22 @@ export function IndustryInsightsAdsCard({
                   </button>
                 )}
               </div>
-              <span className="text-[11px] text-muted-foreground leading-tight line-clamp-1">
-                {ad.adType || "Flexible"}
-              </span>
+              {/* Status meta subtitle (replaces "Video" / adType). Dot + duration
+                  + similar-ads count, all in one compact line. */}
+              <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", statusDotClass)} />
+                <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
+                  {statusDuration}
+                </span>
+                {(ad.similarAdsCount ?? 0) > 0 && (
+                  <>
+                    <span className="text-muted-foreground/40">·</span>
+                    <span className="line-clamp-1">
+                      <span className="tabular-nums">{ad.similarAdsCount}</span> similar
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
