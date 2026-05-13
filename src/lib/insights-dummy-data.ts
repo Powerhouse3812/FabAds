@@ -60,6 +60,17 @@ export type InsightAd = {
   estimatedAudienceSize: string;
   spendTillNow: string;
   regionReach: { region: string; value: string }[];
+  /** Sync state of the source page (Foreplay-style page-tracking).
+      Surfaced inline in the detail-drawer top meta row. */
+  syncStatus?: { state: "synced" | "paused" | "syncing"; lastSyncedAt: string };
+  /** Region codes the ad is in transparency mode for, e.g. ["UK","EU"].
+      Drives the "(Transparency mode: UK, EU...)" inline label. Empty/undefined
+      when not in transparency mode. */
+  transparencyRegions?: string[];
+  /** Multi-domain support. Single-domain ads get [domain]; some ads carry
+      2-3 sibling domains (alt brand fronts). Drives the "Domains" list in
+      the not-analysed detail view. */
+  domains?: string[];
 };
 
 const videoUrls = [
@@ -333,6 +344,42 @@ function makeAd(i: number): InsightAd {
       { region: "BR", value: `${(2 + i * 0.3).toFixed(1)}k (${60 + (i % 20)}%)` },
       { region: "EU", value: `${(1.5 + i * 0.2).toFixed(1)}k (${40 + (i % 15)}%)` },
     ],
+    // Sync status: ~70% synced, ~25% paused (1-7d ago), ~5% syncing.
+    syncStatus: (() => {
+      const bucket = i % 20;
+      if (bucket < 14) {
+        return {
+          state: "synced" as const,
+          lastSyncedAt: new Date(Date.now() - (i % 6) * 3600000).toISOString(),
+        };
+      }
+      if (bucket < 19) {
+        return {
+          state: "paused" as const,
+          lastSyncedAt: new Date(Date.now() - (1 + (i % 7)) * 86400000).toISOString(),
+        };
+      }
+      return {
+        state: "syncing" as const,
+        lastSyncedAt: new Date(Date.now() - 60000 * (i % 30)).toISOString(),
+      };
+    })(),
+    // Transparency regions: only populated when transparencyMode=true.
+    // Random 1-3 picks from the canonical list, seeded by i for stability.
+    transparencyRegions: (() => {
+      if (i % 2 !== 0) return []; // mirrors transparencyMode logic
+      const all = ["UK", "EU", "US", "CA", "AU"];
+      const count = 1 + (i % 3);
+      const start = i % all.length;
+      return Array.from({ length: count }, (_, k) => all[(start + k) % all.length]);
+    })(),
+    // Multi-domain: 75% single, 25% multi (2-3 sibling domains).
+    domains: (() => {
+      if (i % 4 !== 0) return [domain];
+      const altA = DOMAINS[(i + 7) % DOMAINS.length];
+      const altB = DOMAINS[(i + 13) % DOMAINS.length];
+      return i % 8 === 0 ? [domain, altA, altB] : [domain, altA];
+    })(),
   };
 }
 

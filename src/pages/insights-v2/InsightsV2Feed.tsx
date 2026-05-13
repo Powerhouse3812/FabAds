@@ -562,6 +562,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         open={!!drawerAd}
         onClose={() => setDrawerAd(null)}
         onSaveToBoard={handleOpenSaveModal}
+        onSelectAd={setDrawerAd}
       />
       <SaveToBoardModal
         ad={saveModalAd}
