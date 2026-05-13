@@ -16,7 +16,10 @@ import { SaveToBoardModal } from "@/components/insights/SaveToBoardModal";
 import { OnboardingModal } from "@/components/insights/OnboardingModal";
 
 import { IndustryInsightsAdsCard } from "@/components/insights-v2/IndustryInsightsAdsCard";
-import { IndustryInsightsAdsCardGridSkeleton } from "@/components/insights-v2/IndustryInsightsAdsCardSkeleton";
+import {
+  IndustryInsightsAdsCardGridSkeleton,
+  IndustryInsightsAdsCardSkeleton,
+} from "@/components/insights-v2/IndustryInsightsAdsCardSkeleton";
 import { MasonryGrid } from "@/components/insights-v2/MasonryGrid";
 import {
   InsightsV2Toolbar,
@@ -220,6 +223,9 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const [page, setPage] = useState(1);
   const [drawerAd, setDrawerAd] = useState<InsightAd | null>(null);
   const [saveModalAd, setSaveModalAd] = useState<InsightAd | null>(null);
+  const [optimisticBookmarked, setOptimisticBookmarked] = useState<Set<string>>(
+    () => new Set(),
+  );
   const dismissedAutoModal = useRef(false);
 
   // Sync filter/tag state -> URL (replace so back-button isn't spammed)
@@ -320,6 +326,46 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     [addToQueue],
   );
 
+  const handleOpenSaveModal = useCallback((ad: InsightAd) => {
+    setOptimisticBookmarked((prev) => {
+      if (prev.has(ad.id)) return prev;
+      const next = new Set(prev);
+      next.add(ad.id);
+      return next;
+    });
+    setSaveModalAd(ad);
+  }, []);
+
+  const handleSaveModalClose = useCallback(() => {
+    const closingAd = saveModalAd;
+    setSaveModalAd(null);
+    if (closingAd) {
+      setOptimisticBookmarked((prev) => {
+        if (!prev.has(closingAd.id)) return prev;
+        const next = new Set(prev);
+        next.delete(closingAd.id);
+        return next;
+      });
+    }
+  }, [saveModalAd]);
+
+  // Clear optimistic markers once the real savedAdIds query reflects the save,
+  // so the fill state is now driven by the authoritative source.
+  useEffect(() => {
+    if (optimisticBookmarked.size === 0) return;
+    setOptimisticBookmarked((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      prev.forEach((id) => {
+        if (savedAdIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [savedAdIds, optimisticBookmarked.size]);
+
   const handleCopyLink = useCallback((ad: InsightAd) => {
     const url = `${window.location.origin}/insights/discover?ad=${ad.id}`;
     if (navigator.clipboard?.writeText) {
@@ -388,11 +434,13 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
                   key={ad.id}
                   ad={ad}
                   savedCount={savedAdIdMap instanceof Map ? savedAdIdMap.get(ad.id) ?? 0 : 0}
-                  isSavedToBoard={savedAdIds.has(ad.id)}
+                  isSavedToBoard={
+                    savedAdIds.has(ad.id) || optimisticBookmarked.has(ad.id)
+                  }
                   isFollowedBrand={followedBrands.includes(ad.brand)}
                   display={displayPrefs}
-                  onSaveToBoard={setSaveModalAd}
-                  onUnsaveFromBoard={setSaveModalAd}
+                  onSaveToBoard={handleOpenSaveModal}
+                  onUnsaveFromBoard={handleOpenSaveModal}
                   onViewDetail={setDrawerAd}
                   onAddBrandToCompetitors={handleAddBrandCompetitor}
                   onAddPageToCompetitors={handleAddPageCompetitor}
@@ -402,15 +450,19 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
                 />
               ))}
             </MasonryGrid>
+            {hasMore && (
+              <div className="mt-3">
+                <MasonryGrid gridSize={gridSize}>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <IndustryInsightsAdsCardSkeleton key={`load-more-skeleton-${i}`} />
+                  ))}
+                </MasonryGrid>
+              </div>
+            )}
             <div
               ref={sentinelRef}
               className="h-12 flex items-center justify-center"
             >
-              {hasMore && (
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  Loading more…
-                </span>
-              )}
               {!hasMore && visibleAds.length > 0 && (
                 <span className="font-mono text-[11px] text-muted-foreground/60">
                   You've reached the end
@@ -425,12 +477,12 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         ad={drawerAd}
         open={!!drawerAd}
         onClose={() => setDrawerAd(null)}
-        onSaveToBoard={setSaveModalAd}
+        onSaveToBoard={handleOpenSaveModal}
       />
       <SaveToBoardModal
         ad={saveModalAd}
         open={!!saveModalAd}
-        onClose={() => setSaveModalAd(null)}
+        onClose={handleSaveModalClose}
       />
       <OnboardingModal
         open={showOnboarding || !!prefsOpen}

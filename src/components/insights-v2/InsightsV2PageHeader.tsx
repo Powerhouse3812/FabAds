@@ -31,7 +31,7 @@ export function InsightsV2PageHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between px-4 py-1.5 border-b border-border/40",
+        "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-1.5 border-b border-border/40",
         className,
       )}
     >
@@ -51,8 +51,8 @@ export function InsightsV2PageHeader({
         >
           <span
             className={cn(
-              "inline-flex h-3 w-3 items-center justify-center rounded-full border-2",
-              metaOnly ? "border-primary" : "border-muted-foreground/60",
+              "inline-flex h-3 w-3 rounded-full",
+              metaOnly ? "bg-primary" : "bg-muted-foreground/40",
             )}
             aria-hidden
           />

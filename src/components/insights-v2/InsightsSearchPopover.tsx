@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bookmark, Compass, Eye, Globe, Telescope } from "lucide-react";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
@@ -42,6 +42,7 @@ export function InsightsSearchPopover({
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const trimmed = query.trim();
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const counts = useMemo(() => {
     if (trimmed.length === 0) {
@@ -74,37 +75,9 @@ export function InsightsSearchPopover({
     };
   }, [trimmed]);
 
-  // Escape to close
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onOpenChange(false);
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open, onOpenChange]);
-
-  // Click outside (but not on anchor) to close
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (containerRef.current?.contains(target)) return;
-      if (anchorRef.current?.contains(target)) return;
-      onOpenChange(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open, onOpenChange, anchorRef]);
-
-  if (!open || trimmed.length === 0) {
-    return null;
-  }
-
-  const rows: ScopeRow[] = [
+  // Rows are computed up front (before keyboard effects + early return) so
+  // keyboard handlers can address them by index even if trimmed === "".
+  const rows: ScopeRow[] = useMemo(() => [
     {
       key: "feed",
       label: "My feeds",
@@ -149,11 +122,93 @@ export function InsightsSearchPopover({
         onOpenChange(false);
       },
     },
-  ];
+    {
+      key: "everywhere",
+      label: "Search everywhere",
+      icon: Globe,
+      count: counts.total,
+      onSelect: () => {
+        navigate(`/insights-v2/search?q=${encodeURIComponent(query)}`);
+        onOpenChange(false);
+      },
+    },
+  ], [counts, currentScope, navigate, onApplyHere, onOpenChange, query]);
+
+  // Reset active row whenever the popover (re)opens or rows change.
+  useEffect(() => {
+    if (open) setActiveIndex(0);
+  }, [open, rows.length]);
+
+  // Keyboard nav — Escape closes, Arrow keys move highlight, Enter activates,
+  // Tab falls through (default behavior exits the popover).
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onOpenChange(false);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % rows.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => (i - 1 + rows.length) % rows.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        // Only intercept Enter when the anchor input is focused — leaves
+        // Enter inside other inputs / focused buttons alone.
+        if (document.activeElement === anchorRef.current) {
+          e.preventDefault();
+          rows[activeIndex]?.onSelect();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open, onOpenChange, rows, activeIndex, anchorRef]);
+
+  // Mirror activeIndex onto the anchor input as aria-activedescendant so AT
+  // announces the highlighted option even though focus stays in the input.
+  useEffect(() => {
+    if (!open) return;
+    const input = anchorRef.current;
+    if (!input) return;
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-controls", "insights-search-listbox");
+    input.setAttribute("aria-expanded", "true");
+    input.setAttribute("aria-activedescendant", `scope-row-${activeIndex}`);
+    return () => {
+      input.removeAttribute("aria-activedescendant");
+      input.setAttribute("aria-expanded", "false");
+    };
+  }, [open, activeIndex, anchorRef]);
+
+  // Click outside (but not on anchor) to close
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (containerRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      onOpenChange(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open, onOpenChange, anchorRef]);
+
+  if (!open || trimmed.length === 0) {
+    return null;
+  }
 
   return (
     <div
       ref={containerRef}
+      id="insights-search-listbox"
       role="listbox"
       aria-label="Search scope"
       className={cn(
@@ -166,20 +221,29 @@ export function InsightsSearchPopover({
         Search <span className="text-foreground normal-case font-sans font-medium">&ldquo;{trimmed}&rdquo;</span> in&hellip;
       </div>
       <ul className="py-1">
-        {rows.map((row) => {
+        {rows.map((row, idx) => {
           const Icon = row.icon;
+          const isActive = idx === activeIndex;
+          const isLast = idx === rows.length - 1;
           return (
-            <li key={row.key}>
+            <li
+              key={row.key}
+              id={`scope-row-${idx}`}
+              role="option"
+              aria-selected={isActive}
+              className={cn(isLast && "mt-1 border-t border-border/60 pt-1")}
+            >
               <button
                 type="button"
                 onClick={row.onSelect}
+                onMouseEnter={() => setActiveIndex(idx)}
+                tabIndex={-1}
                 className={cn(
                   "flex w-full items-center justify-between px-3 py-2 text-sm transition-colors",
-                  "hover:bg-muted focus:bg-muted focus:outline-none",
-                  row.isCurrent && "bg-muted/60",
+                  "focus:outline-none",
+                  isActive && "bg-muted",
+                  !isActive && row.isCurrent && "bg-muted/60",
                 )}
-                role="option"
-                aria-selected={row.isCurrent}
               >
                 <span className="flex items-center gap-2 min-w-0">
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -200,27 +264,6 @@ export function InsightsSearchPopover({
           );
         })}
       </ul>
-      <div className="border-t border-border/60">
-        <button
-          type="button"
-          onClick={() => {
-            navigate(`/insights-v2/search?q=${encodeURIComponent(query)}`);
-            onOpenChange(false);
-          }}
-          className={cn(
-            "flex w-full items-center justify-between px-3 py-2 text-sm transition-colors",
-            "hover:bg-muted focus:bg-muted focus:outline-none",
-          )}
-        >
-          <span className="flex items-center gap-2 min-w-0">
-            <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="truncate">Search everywhere</span>
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {counts.total}
-          </span>
-        </button>
-      </div>
     </div>
   );
 }

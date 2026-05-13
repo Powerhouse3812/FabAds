@@ -10,6 +10,7 @@ interface MasonryGridProps {
 export function MasonryGrid({ children, gridSize = 5, className }: MasonryGridProps) {
   return (
     <div
+      role="list"
       className={cn(
         "gap-3 [&>*]:break-inside-avoid [&>*]:mb-3",
         gridSize === 2 && "columns-1 sm:columns-1 md:columns-2",

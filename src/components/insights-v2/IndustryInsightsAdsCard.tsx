@@ -124,11 +124,20 @@ export function IndustryInsightsAdsCard({
     <TooltipProvider delayDuration={250}>
       <Card
         onClick={() => onViewDetail?.(ad)}
+        role="listitem"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onViewDetail?.(ad);
+          }
+        }}
         className={cn(
           "group relative block cursor-pointer overflow-hidden",
           "bg-card border-border transition-shadow",
           "shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)]",
           "rounded-lg",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           isSelected && "ring-2 ring-primary ring-offset-1 ring-offset-background border-primary/60",
         )}
       >
@@ -138,9 +147,11 @@ export function IndustryInsightsAdsCard({
               type="button"
               onClick={handleBookmark}
               className={cn(
-                "absolute top-2 right-2 z-10 h-6 w-6 rounded-md flex items-center justify-center",
+                // h-8 w-8 (32x32) — desktop density target; mobile detail view exposes larger hit targets per WCAG 2.5.5
+                "absolute top-2 right-2 z-10 h-8 w-8 rounded-md flex items-center justify-center",
                 "bg-background/85 backdrop-blur-sm transition-colors",
                 "hover:bg-background",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               )}
               aria-pressed={isSavedToBoard}
               aria-label={isSavedToBoard ? "Unsave from board" : "Save to board"}
@@ -168,8 +179,10 @@ export function IndustryInsightsAdsCard({
           >
             <div
               className={cn(
-                "h-6 w-6 rounded-md flex items-center justify-center",
+                // h-8 w-8 (32x32) — desktop density target; mobile detail view exposes larger hit targets per WCAG 2.5.5
+                "h-8 w-8 rounded-md flex items-center justify-center",
                 "bg-background/85 backdrop-blur-sm border border-border/60",
+                "focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-1 focus-within:ring-offset-background",
               )}
             >
               <Checkbox
@@ -217,7 +230,8 @@ export function IndustryInsightsAdsCard({
                         onFollowBrand?.(ad);
                       }}
                       aria-label="Follow brand"
-                      className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted"
+                      // h-7 w-7 (28x28) — desktop density target; mobile detail view exposes larger hit targets per WCAG 2.5.5
+                      className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -226,8 +240,14 @@ export function IndustryInsightsAdsCard({
                 </Tooltip>
               )}
               {display.statusMeta && (
-                <span className="ml-auto flex items-center gap-1.5 shrink-0 text-[11px] text-muted-foreground">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", statusDotClass)} />
+                <span
+                  className="ml-auto flex items-center gap-1.5 shrink-0 text-[11px] text-muted-foreground"
+                  aria-label={`${ad.status} ad, running ${statusDuration}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn("h-1.5 w-1.5 rounded-full", statusDotClass)}
+                  />
                   <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
                     {statusDuration}
                   </span>
@@ -396,12 +416,15 @@ export function IndustryInsightsAdsCard({
             onClick={stop}
           >
             {/* 1. Save to Board (with savedCount red badge) */}
+              {/* h-8 w-8 (32x32) — desktop density target; mobile detail view exposes larger hit targets per WCAG 2.5.5.
+                  aria-label set explicitly on each Button: Tooltip text isn't announced by screen readers on click. */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 relative"
+                    aria-label="Save to Board"
+                    className="h-8 w-8 relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     onClick={(e) => {
                       e.stopPropagation();
                       onSaveToBoard?.(ad);
@@ -424,7 +447,8 @@ export function IndustryInsightsAdsCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    aria-label="Save Ad"
+                    className="h-8 w-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     onClick={(e) => {
                       e.stopPropagation();
                       onSaveAd?.(ad);
@@ -442,7 +466,8 @@ export function IndustryInsightsAdsCard({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    aria-label="Copy link"
+                    className="h-8 w-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     onClick={handleCopyLink}
                   >
                     <LinkIcon className="h-3.5 w-3.5" />
@@ -457,7 +482,8 @@ export function IndustryInsightsAdsCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  aria-label="More actions"
+                  className="h-8 w-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                   onClick={stop}
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />

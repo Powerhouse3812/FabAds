@@ -196,7 +196,7 @@ export function InsightsV2Toolbar({
     >
       <div className="flex flex-wrap items-center gap-2 gap-y-2">
         {/* Left: search + filter + sort icons */}
-        <div className="flex items-center gap-1 flex-1 min-w-[200px] max-w-[420px]">
+        <div className="flex items-center gap-1 flex-1 min-w-[160px] max-w-[420px]">
           <div className="relative flex-1 min-w-0">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Tag className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
@@ -229,8 +229,10 @@ export function InsightsV2Toolbar({
                 {moreFiltersActiveCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary"
-                  />
+                    className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold inline-flex items-center justify-center px-1"
+                  >
+                    {moreFiltersActiveCount}
+                  </span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -363,10 +365,16 @@ export function InsightsV2Toolbar({
             value={filters.sort}
             onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
           >
-            <SelectTrigger className="h-8 w-[160px] text-[12px]" aria-label="Sort by">
+            <SelectTrigger className="h-8 w-[160px] text-[12px] relative" aria-label="Sort by">
               <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1 shrink-0" />
               <span className="text-muted-foreground mr-1">Sort:</span>
               <SelectValue />
+              {filters.sort !== "newest" && (
+                <span
+                  aria-hidden
+                  className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-primary"
+                />
+              )}
             </SelectTrigger>
             <SelectContent>
               {SORT_OPTIONS.map((opt) => (
