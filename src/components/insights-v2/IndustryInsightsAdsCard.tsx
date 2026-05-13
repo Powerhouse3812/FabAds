@@ -29,7 +29,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { PlatformIcons } from "@/components/insights/PlatformIcons";
 import type { InsightAd } from "@/lib/insights-dummy-data";
 
 interface IndustryInsightsAdsCardProps {
@@ -87,8 +86,6 @@ export function IndustryInsightsAdsCard({
         : "bg-muted-foreground";
 
   const statusDuration = ad.activeDuration || "";
-
-  const similarPadded = String(ad.similarAdsCount ?? 0).padStart(2, "0");
 
   const hasAnyMedia = !!ad.mediaUrl || !!ad.thumbUrl;
   const isProcessing = ad.mediaProcessing === true;
@@ -179,30 +176,22 @@ export function IndustryInsightsAdsCard({
         )}
 
         <div className="p-3 space-y-2.5">
-          {/* Row 1 — Status */}
-          <div className="flex items-center gap-1.5 pr-9">
+          {/* Row 1 — Status + Similar Ads inline (consolidated, no platform icons) */}
+          <div className="flex items-center gap-1.5 pr-9 text-xs">
             <span className={cn("h-2 w-2 rounded-full shrink-0", statusDotClass)} />
             <span
               className={cn(
-                "text-xs font-medium",
+                "font-medium",
                 ad.status === "paused" ? "text-muted-foreground" : "text-foreground",
               )}
             >
               {statusDuration}
             </span>
-          </div>
-
-          {/* Row 2 — Similar Ads stacked + Platforms right */}
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col">
-              <span className="text-[11px] font-medium text-muted-foreground leading-tight">Similar Ads</span>
-              <span className="text-[13px] font-semibold text-foreground leading-tight mt-0.5 tabular-nums">
-                {similarPadded}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 self-end pb-0.5">
-              <PlatformIcons platforms={ad.platforms} />
-            </div>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-muted-foreground">
+              <span className="tabular-nums font-medium text-foreground">{ad.similarAdsCount ?? 0}</span>{" "}
+              similar Ads
+            </span>
           </div>
 
           {/* Row 3 — Brand (avatar + stacked name+follow / adType) */}
@@ -364,66 +353,68 @@ export function IndustryInsightsAdsCard({
             )}
           </div>
 
-          {/* Action row */}
+          {/* Action row — 3 inline left + kebab right */}
           <div
-            className="border-t border-border pt-2 flex items-center justify-start gap-1"
+            className="border-t border-border pt-2 flex items-center justify-between"
             onClick={stop}
           >
-            {/* 1. Save to Board (with savedCount red badge) */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 relative"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSaveToBoard?.(ad);
-                  }}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  {savedCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-3.5 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {savedCount}
-                    </span>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Save to Board</TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              {/* 1. Save to Board (with savedCount red badge) */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 relative"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSaveToBoard?.(ad);
+                    }}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    {savedCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-3.5 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                        {savedCount}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Save to Board</TooltipContent>
+              </Tooltip>
 
-            {/* 2. Save Ad (queue) */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSaveAd?.(ad);
-                  }}
-                >
-                  <ListPlus className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Save Ad</TooltipContent>
-            </Tooltip>
+              {/* 2. Save Ad (queue) */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSaveAd?.(ad);
+                    }}
+                  >
+                    <ListPlus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Save Ad</TooltipContent>
+              </Tooltip>
 
-            {/* 3. Copy Link */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={handleCopyLink}
-                >
-                  <LinkIcon className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Copy link</TooltipContent>
-            </Tooltip>
+              {/* 3. Copy Link */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={handleCopyLink}
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copy link</TooltipContent>
+              </Tooltip>
+            </div>
 
             {/* 4. Kebab menu */}
             <DropdownMenu>
