@@ -2,10 +2,11 @@ import { useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   ArrowUpDown,
+  CalendarDays,
   Filter,
   Search,
   Settings,
-  Tag,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +25,33 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { INSIGHT_INDUSTRIES } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
 import {
   InsightsSearchPopover,
   type InsightsSearchScope,
 } from "./InsightsSearchPopover";
+
+const DATE_PRESETS = [
+  { label: "Today", days: 1 },
+  { label: "3 days", days: 3 },
+  { label: "7 days", days: 7 },
+  { label: "15 days", days: 15 },
+  { label: "30 days", days: 30 },
+] as const;
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+export function defaultDateRangeLast7(): DateRange {
+  const to = startOfDay(new Date());
+  const from = new Date(to);
+  from.setDate(from.getDate() - 6);
+  return { from, to };
+}
 
 export type InsightsV2Sort = "newest" | "oldest" | "most-active" | "popular";
 
@@ -37,7 +61,6 @@ export interface InsightsV2Filters {
   status: string;
   adType: string;
   runningDays: string;
-  metaOnly: boolean;
   dateRange?: DateRange;
   sort: InsightsV2Sort;
 }
@@ -83,7 +106,7 @@ export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
   status: "all",
   adType: "",
   runningDays: "",
-  metaOnly: true,
+  dateRange: defaultDateRangeLast7(),
   sort: "newest",
 };
 
@@ -199,14 +222,13 @@ export function InsightsV2Toolbar({
         <div className="flex items-center gap-1 flex-1 min-w-[160px] max-w-[420px]">
           <div className="relative flex-1 min-w-0">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Tag className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
             <Input
               ref={searchInputRef}
               value={filters.search}
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={handleSearchFocus}
               placeholder="Search by keyword, brand…"
-              className="h-8 pl-8 pr-8 text-[12px]"
+              className="h-8 pl-8 pr-2.5 text-[12px]"
             />
             <InsightsSearchPopover
               query={filters.search}
@@ -361,6 +383,87 @@ export function InsightsV2Toolbar({
 
           {/* Sort by — full-sized dropdown on the right with "Sort:" prefix label
               so the dropdown's purpose is unambiguous. */}
+          {/* Date range picker — merged: quick presets (Today / 3d / 7d / 15d / 30d)
+              + full calendar range. Default: Last 7 days. */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-[12px] font-normal"
+                aria-label="Date range"
+              >
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                {(() => {
+                  const r = filters.dateRange;
+                  if (!r?.from) return <span className="text-muted-foreground">Date range</span>;
+                  const today = startOfDay(new Date());
+                  const from = startOfDay(r.from);
+                  const diffDays = Math.round((today.getTime() - from.getTime()) / 86400000) + 1;
+                  const matchedPreset = DATE_PRESETS.find((p) => p.days === diffDays && r.to && startOfDay(r.to).getTime() === today.getTime());
+                  if (matchedPreset) {
+                    return <span>{matchedPreset.label === "Today" ? "Today" : `Last ${matchedPreset.label}`}</span>;
+                  }
+                  if (r.to) {
+                    return <span>{format(r.from, "MMM d")} – {format(r.to, "MMM d")}</span>;
+                  }
+                  return <span>{format(r.from, "MMM d, yyyy")}</span>;
+                })()}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-0">
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 p-3">
+                {DATE_PRESETS.map((p) => {
+                  const r = filters.dateRange;
+                  let active = false;
+                  if (r?.from && r?.to) {
+                    const today = startOfDay(new Date());
+                    const from = startOfDay(r.from);
+                    const diff = Math.round((today.getTime() - from.getTime()) / 86400000) + 1;
+                    active = diff === p.days && startOfDay(r.to).getTime() === today.getTime();
+                  }
+                  return (
+                    <button
+                      key={p.days}
+                      type="button"
+                      onClick={() => {
+                        const to = startOfDay(new Date());
+                        const from = new Date(to);
+                        from.setDate(from.getDate() - (p.days - 1));
+                        setField("dateRange", { from, to });
+                      }}
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-[11px] transition-colors border",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary font-semibold"
+                          : "border-transparent bg-muted text-muted-foreground hover:bg-muted/80",
+                      )}
+                      aria-pressed={active}
+                    >
+                      {p.label === "Today" ? "Today" : `Last ${p.label}`}
+                    </button>
+                  );
+                })}
+                {filters.dateRange?.from && (
+                  <button
+                    type="button"
+                    onClick={() => setField("dateRange", undefined)}
+                    className="ml-auto inline-flex items-center gap-1 rounded-full px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                    Clear
+                  </button>
+                )}
+              </div>
+              <Calendar
+                mode="range"
+                selected={filters.dateRange}
+                onSelect={(r) => setField("dateRange", r ?? undefined)}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+
           <Select
             value={filters.sort}
             onValueChange={(v) => setField("sort", v as InsightsV2Sort)}

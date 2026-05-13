@@ -44,7 +44,6 @@ export function SecondaryNavigationPanel() {
     return null;
   }
 
-  const ModuleIcon = activeMod.icon;
   const siblingPaths = allSubPaths(activeMod);
   const onNavigate = (path: string) => navigate(path);
   const isGenie = activeMod.key === "genie";
@@ -68,7 +67,6 @@ export function SecondaryNavigationPanel() {
           isGenie ? "bg-transparent" : "bg-background",
         )}
       >
-        <ModuleIcon className="h-3.5 w-3.5 shrink-0 text-foreground/65" />
         <h2 className="flex-1 truncate font-mono text-[13px] font-medium leading-4 tracking-tight text-foreground/65">
           {activeMod.label}
         </h2>

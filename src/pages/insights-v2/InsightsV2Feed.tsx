@@ -28,7 +28,6 @@ import {
   type InsightsV2Filters,
   type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
-import { InsightsV2PageHeader } from "@/components/insights-v2/InsightsV2PageHeader";
 import { TrendingTagsStrip } from "@/components/insights-v2/TrendingTagsStrip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { InsightsV2ErrorBoundary } from "@/components/insights-v2/InsightsV2ErrorBoundary";
@@ -58,7 +57,6 @@ function readFiltersFromSearch(sp: URLSearchParams): {
     status: sp.get("status") ?? "all",
     adType: sp.get("adType") ?? "",
     runningDays: sp.get("running") ?? "",
-    metaOnly: sp.get("metaOnly") === "1" ? true : sp.get("metaOnly") === "0" ? false : DEFAULT_INSIGHTS_V2_FILTERS.metaOnly,
     sort,
   };
   return { filters, selectedTag: sp.get("tag") ?? undefined };
@@ -80,9 +78,6 @@ function writeFiltersToSearch(
   setOrDel("adType", filters.adType);
   setOrDel("running", filters.runningDays);
   setOrDel("tag", selectedTag);
-  // metaOnly defaults true — only serialise when off, so URL stays clean
-  if (filters.metaOnly === false) next.set("metaOnly", "0");
-  else next.delete("metaOnly");
   // sort defaults to "newest" — only serialise when not the default
   if (filters.sort && filters.sort !== "newest") next.set("sort", filters.sort);
   else next.delete("sort");
@@ -167,9 +162,6 @@ function applyFilters({
       const days = parseDurationDays(a.activeDuration);
       return days !== null && inRunningRange(days, filters.runningDays);
     });
-  }
-  if (filters.metaOnly) {
-    out = out.filter((a) => a.platforms.includes("Meta"));
   }
   if (filters.dateRange?.from) {
     out = out.filter((a) => dateInRange(a.createdAt, filters.dateRange));
@@ -392,13 +384,6 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <InsightsV2PageHeader
-        sectionLabel="Intelligence"
-        metaOnly={filters.metaOnly}
-        onMetaOnlyChange={(v) => setFilters({ ...filters, metaOnly: v })}
-        dateRange={filters.dateRange}
-        onDateRangeChange={(r) => setFilters({ ...filters, dateRange: r })}
-      />
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}
