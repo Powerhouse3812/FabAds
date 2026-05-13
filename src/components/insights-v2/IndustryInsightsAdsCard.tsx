@@ -31,6 +31,10 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { InsightAd } from "@/lib/insights-dummy-data";
+import {
+  DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
+  type InsightsV2DisplayPrefs,
+} from "@/components/insights-v2/InsightsV2Toolbar";
 
 interface IndustryInsightsAdsCardProps {
   ad: InsightAd;
@@ -39,6 +43,7 @@ interface IndustryInsightsAdsCardProps {
   isFollowedBrand?: boolean;
   isSelected?: boolean;
   selectable?: boolean;
+  display?: InsightsV2DisplayPrefs;
   onSaveToBoard?: (ad: InsightAd) => void;
   onUnsaveFromBoard?: (ad: InsightAd) => void;
   onViewDetail?: (ad: InsightAd) => void;
@@ -66,6 +71,7 @@ export function IndustryInsightsAdsCard({
   isFollowedBrand = false,
   isSelected = false,
   selectable = false,
+  display = DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
   onSaveToBoard,
   onUnsaveFromBoard,
   onViewDetail,
@@ -181,75 +187,81 @@ export function IndustryInsightsAdsCard({
               Avatar + brand + Follow (icon-only) on the left;
               status meta + similar count pushed right via ml-auto;
               bookmark sits absolute top-right (pr-9 reserves room). */}
-          <div className="flex items-center gap-2 pr-9 min-w-0">
-            <div className="h-8 w-8 rounded-md overflow-hidden bg-muted shrink-0">
-              {ad.pageAvatar ? (
-                <img src={ad.pageAvatar} alt="" className="h-full w-full object-cover" />
+          {display.brandDetails && (
+            <div className="flex items-center gap-2 pr-9 min-w-0">
+              <div className="h-8 w-8 rounded-md overflow-hidden bg-muted shrink-0">
+                {ad.pageAvatar ? (
+                  <img src={ad.pageAvatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <AvatarFallbackInitials name={ad.brand} />
+                )}
+              </div>
+              <span className="text-[13px] font-semibold leading-tight text-foreground truncate min-w-0">
+                {ad.brand}
+              </span>
+              {isFollowedBrand ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="shrink-0 inline-flex">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary/70" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Following</TooltipContent>
+                </Tooltip>
               ) : (
-                <AvatarFallbackInitials name={ad.brand} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFollowBrand?.(ad);
+                      }}
+                      aria-label="Follow brand"
+                      className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Follow brand</TooltipContent>
+                </Tooltip>
+              )}
+              {display.statusMeta && (
+                <span className="ml-auto flex items-center gap-1.5 shrink-0 text-[11px] text-muted-foreground">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", statusDotClass)} />
+                  <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
+                    {statusDuration}
+                  </span>
+                </span>
               )}
             </div>
-            <span className="text-[13px] font-semibold leading-tight text-foreground truncate min-w-0">
-              {ad.brand}
-            </span>
-            {isFollowedBrand ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="shrink-0 inline-flex">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-primary/70" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Following</TooltipContent>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onFollowBrand?.(ad);
-                    }}
-                    aria-label="Follow brand"
-                    className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-primary hover:bg-muted"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Follow brand</TooltipContent>
-              </Tooltip>
-            )}
-            <span className="ml-auto flex items-center gap-1.5 shrink-0 text-[11px] text-muted-foreground">
-              <span className={cn("h-1.5 w-1.5 rounded-full", statusDotClass)} />
-              <span className={cn(ad.status === "paused" ? "" : "text-foreground/80")}>
-                {statusDuration}
-              </span>
-            </span>
-          </div>
+          )}
 
           {/* Primary text — max 2 rows in default card view, with a floating
               "Read More" CTA at the bottom-right of the truncated text that
               redirects to the full detail drawer. The bg-card hides text
               behind the chip so it looks like a clean inline truncation. */}
-          {ad.primaryText ? (
-            <div className="relative">
-              <p className="text-xs text-foreground line-clamp-2 leading-snug">
-                {ad.primaryText}
-              </p>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onViewDetail?.(ad);
-                }}
-                className="absolute bottom-0 right-0 bg-card pl-2 text-[11px] font-medium text-muted-foreground hover:text-foreground rounded-full px-2 py-px border border-border/40 hover:border-border transition-colors"
-                aria-label="Read more in detail view"
-              >
-                Read More
-              </button>
-            </div>
-          ) : (
-            <p className="text-xs italic text-muted-foreground/70 line-clamp-2 leading-snug">*Primary text missing*</p>
+          {display.adCopy && (
+            ad.primaryText ? (
+              <div className="relative">
+                <p className="text-xs text-foreground line-clamp-2 leading-snug">
+                  {ad.primaryText}
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetail?.(ad);
+                  }}
+                  className="absolute bottom-0 right-0 bg-card pl-2 text-[11px] font-medium text-muted-foreground hover:text-foreground rounded-full px-2 py-px border border-border/40 hover:border-border transition-colors"
+                  aria-label="Read more in detail view"
+                >
+                  Read More
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs italic text-muted-foreground/70 line-clamp-2 leading-snug">*Primary text missing*</p>
+            )
           )}
 
           {/* Media block — portrait 3/4, edge-to-edge (negative margin to bleed past p-3),
@@ -311,24 +323,27 @@ export function IndustryInsightsAdsCard({
                 </>
               )}
 
-              {!isProcessing && (ad.transparencyMode || ad.analysed || (ad.similarAdsCount ?? 0) >= 5) && (
+              {!isProcessing &&
+                ((display.transparency && ad.transparencyMode) ||
+                  (display.analysed && ad.analysed) ||
+                  (display.similarAds && (ad.similarAdsCount ?? 0) >= 5)) && (
                 <div className="absolute bottom-2 left-2 flex flex-wrap gap-1.5 max-w-[calc(100%-1rem)]">
                   {/* Similar Ads chip — only on ads with 5+ similar (≈ "this ad
                       has notable spread"). Promoted from brand row to media
                       chip per Maalik's spec. */}
-                  {(ad.similarAdsCount ?? 0) >= 5 && (
+                  {display.similarAds && (ad.similarAdsCount ?? 0) >= 5 && (
                     <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
                       <Layers className="h-3 w-3" />
                       <span className="tabular-nums">{ad.similarAdsCount}</span> similar Ads
                     </span>
                   )}
-                  {ad.transparencyMode && (
+                  {display.transparency && ad.transparencyMode && (
                     <span className="inline-flex items-center gap-1 bg-background/85 backdrop-blur-sm border border-border/60 text-foreground px-2 py-0.5 text-[10px] rounded-md">
                       <ShieldCheck className="h-3 w-3" />
                       Transparency mode
                     </span>
                   )}
-                  {ad.analysed && (
+                  {display.analysed && ad.analysed && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -338,9 +353,9 @@ export function IndustryInsightsAdsCard({
                             onViewDetail?.(ad);
                           }}
                           aria-label="View AI analysis"
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-background/85 backdrop-blur-sm border border-border/60 text-foreground hover:bg-background hover:border-primary/40 transition-colors"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
                         >
-                          <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+                          <BadgeCheck className="h-3.5 w-3.5" fill="currentColor" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px]">
@@ -357,21 +372,25 @@ export function IndustryInsightsAdsCard({
           )}
 
           {/* Domain */}
-          <p className="font-mono text-[11px] text-muted-foreground line-clamp-1">{ad.domain}</p>
+          {display.domain && (
+            <p className="font-mono text-[11px] text-muted-foreground line-clamp-1">{ad.domain}</p>
+          )}
 
           {/* Headline + Description */}
-          <div className="space-y-0.5">
-            {ad.headline ? (
-              <p className="text-sm font-medium line-clamp-1">{ad.headline}</p>
-            ) : (
-              <p className="text-sm font-medium italic text-muted-foreground/70 line-clamp-1">*Headline missing*</p>
-            )}
-            {ad.description ? (
-              <p className="text-xs text-muted-foreground line-clamp-1">{ad.description}</p>
-            ) : (
-              <p className="text-xs italic text-muted-foreground/70 line-clamp-1">*Description missing*</p>
-            )}
-          </div>
+          {display.headlineDesc && (
+            <div className="space-y-0.5">
+              {ad.headline ? (
+                <p className="text-sm font-medium line-clamp-1">{ad.headline}</p>
+              ) : (
+                <p className="text-sm font-medium italic text-muted-foreground/70 line-clamp-1">*Headline missing*</p>
+              )}
+              {ad.description ? (
+                <p className="text-xs text-muted-foreground line-clamp-1">{ad.description}</p>
+              ) : (
+                <p className="text-xs italic text-muted-foreground/70 line-clamp-1">*Description missing*</p>
+              )}
+            </div>
+          )}
 
           {/* Action row — all 4 buttons horizontally evenly spaced (no
               left/right grouping). justify-around gives equal margin between

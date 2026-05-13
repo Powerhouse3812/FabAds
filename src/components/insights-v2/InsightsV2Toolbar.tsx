@@ -3,8 +3,8 @@ import type { DateRange } from "react-day-picker";
 import {
   ArrowUpDown,
   Filter,
-  RefreshCw,
   Search,
+  Settings,
   Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { INSIGHT_INDUSTRIES } from "@/lib/insights-dummy-data";
 import { cn } from "@/lib/utils";
 import {
@@ -41,6 +42,28 @@ export interface InsightsV2Filters {
   sort: InsightsV2Sort;
 }
 
+export interface InsightsV2DisplayPrefs {
+  brandDetails: boolean;
+  adCopy: boolean;
+  headlineDesc: boolean;
+  domain: boolean;
+  statusMeta: boolean;
+  similarAds: boolean;
+  analysed: boolean;
+  transparency: boolean;
+}
+
+export const DEFAULT_INSIGHTS_V2_DISPLAY_PREFS: InsightsV2DisplayPrefs = {
+  brandDetails: true,
+  adCopy: true,
+  headlineDesc: true,
+  domain: true,
+  statusMeta: true,
+  similarAds: true,
+  analysed: true,
+  transparency: true,
+};
+
 interface InsightsV2ToolbarProps {
   filters: InsightsV2Filters;
   onFiltersChange: (next: InsightsV2Filters) => void;
@@ -48,6 +71,8 @@ interface InsightsV2ToolbarProps {
   className?: string;
   /** Search scope this toolbar belongs to. Defaults to "feed" (My feeds). */
   searchScope?: InsightsSearchScope;
+  displayPrefs?: InsightsV2DisplayPrefs;
+  onDisplayPrefsChange?: (next: InsightsV2DisplayPrefs) => void;
 }
 
 export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
@@ -61,8 +86,8 @@ export const DEFAULT_INSIGHTS_V2_FILTERS: InsightsV2Filters = {
 };
 
 const SORT_OPTIONS: { value: InsightsV2Sort; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "oldest", label: "Oldest" },
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
   { value: "most-active", label: "Most active" },
   { value: "popular", label: "Most popular" },
 ];
@@ -89,16 +114,29 @@ const RUNNING_DAYS_CHIPS = [
   { value: "90+", label: "90+ days" },
 ];
 
+const DISPLAY_TOGGLES: { key: keyof InsightsV2DisplayPrefs; label: string }[] = [
+  { key: "brandDetails", label: "Brand Details" },
+  { key: "adCopy", label: "Ad Copy" },
+  { key: "headlineDesc", label: "Headline & Description" },
+  { key: "domain", label: "Domain" },
+  { key: "statusMeta", label: "Status meta (dot + duration)" },
+  { key: "similarAds", label: "Similar Ads tag" },
+  { key: "analysed", label: "Analysed badge" },
+  { key: "transparency", label: "Transparency mode badge" },
+];
+
 export function InsightsV2Toolbar({
   filters,
   onFiltersChange,
   onRefresh,
   className,
   searchScope = "feed",
+  displayPrefs = DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
+  onDisplayPrefsChange,
 }: InsightsV2ToolbarProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchPopoverOpen, setSearchPopoverOpen] = useState(false);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const setField = <K extends keyof InsightsV2Filters>(
@@ -108,11 +146,16 @@ export function InsightsV2Toolbar({
     onFiltersChange({ ...filters, [key]: value });
   };
 
-  const handleRefresh = () => {
-    if (!onRefresh) return;
-    setIsRefreshing(true);
-    onRefresh();
-    window.setTimeout(() => setIsRefreshing(false), 400);
+  const setDisplayField = (
+    key: keyof InsightsV2DisplayPrefs,
+    value: boolean,
+  ) => {
+    onDisplayPrefsChange?.({ ...displayPrefs, [key]: value });
+  };
+
+  const handleReload = () => {
+    onRefresh?.();
+    setSettingsOpen(false);
   };
 
   const handleSearchChange = (next: string) => {
@@ -149,9 +192,9 @@ export function InsightsV2Toolbar({
         className,
       )}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 gap-y-2">
         {/* Left: search + filter + sort icons */}
-        <div className="flex items-center gap-1 flex-1 min-w-0 max-w-[420px]">
+        <div className="flex items-center gap-1 flex-1 min-w-[200px] max-w-[420px]">
           <div className="relative flex-1 min-w-0">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Tag className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
@@ -277,7 +320,7 @@ export function InsightsV2Toolbar({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right: 2 dropdowns + big Sort + refresh */}
+        {/* Right: 2 dropdowns + big Sort + settings */}
         <div className="flex items-center gap-2 shrink-0">
           <Select
             value={industrySelectValue}
@@ -312,14 +355,15 @@ export function InsightsV2Toolbar({
             </SelectContent>
           </Select>
 
-          {/* Sort by — promoted to a full-sized dropdown on the right (was a
-              tiny icon button on the left). Size matches Industry/Status. */}
+          {/* Sort by — full-sized dropdown on the right with "Sort:" prefix label
+              so the dropdown's purpose is unambiguous. */}
           <Select
             value={filters.sort}
             onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
           >
-            <SelectTrigger className="h-8 w-[140px] text-[12px]" aria-label="Sort by">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+            <SelectTrigger className="h-8 w-[160px] text-[12px]" aria-label="Sort by">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1 shrink-0" />
+              <span className="text-muted-foreground mr-1">Sort:</span>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -331,21 +375,63 @@ export function InsightsV2Toolbar({
             </SelectContent>
           </Select>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-9"
-            onClick={handleRefresh}
-            disabled={!onRefresh}
-            aria-label="Refresh"
-          >
-            <RefreshCw
-              className={cn(
-                "h-3.5 w-3.5 text-muted-foreground transition-transform duration-300",
-                isRefreshing && "rotate-180",
-              )}
-            />
-          </Button>
+          {/* Settings popover — replaces the standalone refresh icon. Houses
+              the Reload feed action and per-section display toggles. */}
+          <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-9"
+                aria-label="Display settings"
+              >
+                <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[280px] p-0">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Settings
+                </span>
+              </div>
+              <div className="px-3 py-3 space-y-3">
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-full text-[12px]"
+                    onClick={handleReload}
+                    disabled={!onRefresh}
+                  >
+                    Reload feed
+                  </Button>
+                </div>
+                <div className="border-t border-border/60 -mx-3" />
+                <div>
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                    Data to show
+                  </div>
+                  <div className="flex flex-col">
+                    {DISPLAY_TOGGLES.map((toggle) => (
+                      <label
+                        key={toggle.key}
+                        className="flex items-center justify-between py-1.5 text-sm cursor-pointer"
+                      >
+                        <span>{toggle.label}</span>
+                        <Switch
+                          checked={displayPrefs[toggle.key]}
+                          onCheckedChange={(checked) =>
+                            setDisplayField(toggle.key, checked)
+                          }
+                          aria-label={`Toggle ${toggle.label}`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>

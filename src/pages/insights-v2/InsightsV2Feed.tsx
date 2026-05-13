@@ -21,7 +21,9 @@ import { MasonryGrid } from "@/components/insights-v2/MasonryGrid";
 import {
   InsightsV2Toolbar,
   DEFAULT_INSIGHTS_V2_FILTERS,
+  DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
   type InsightsV2Filters,
+  type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
 import { InsightsV2PageHeader } from "@/components/insights-v2/InsightsV2PageHeader";
 import { TrendingTagsStrip } from "@/components/insights-v2/TrendingTagsStrip";
@@ -211,6 +213,9 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const initial = useMemo(() => readFiltersFromSearch(searchParams), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [filters, setFilters] = useState<InsightsV2Filters>(initial.filters);
   const [selectedTag, setSelectedTag] = useState<string | undefined>(initial.selectedTag);
+  const [displayPrefs, setDisplayPrefs] = useState<InsightsV2DisplayPrefs>(
+    DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
+  );
   const [gridSize, setGridSize] = useState<2 | 3 | 4 | 5>(3);
   const [page, setPage] = useState(1);
   const [drawerAd, setDrawerAd] = useState<InsightAd | null>(null);
@@ -352,6 +357,8 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         filters={filters}
         onFiltersChange={setFilters}
         onRefresh={handleRefresh}
+        displayPrefs={displayPrefs}
+        onDisplayPrefsChange={setDisplayPrefs}
       />
       <TrendingTagsStrip selectedTag={selectedTag} onSelectTag={setSelectedTag} />
 
@@ -383,6 +390,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
                   savedCount={savedAdIdMap instanceof Map ? savedAdIdMap.get(ad.id) ?? 0 : 0}
                   isSavedToBoard={savedAdIds.has(ad.id)}
                   isFollowedBrand={followedBrands.includes(ad.brand)}
+                  display={displayPrefs}
                   onSaveToBoard={setSaveModalAd}
                   onUnsaveFromBoard={setSaveModalAd}
                   onViewDetail={setDrawerAd}
