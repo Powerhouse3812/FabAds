@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CopilotAction } from "@/lib/copilot-actions";
 
@@ -29,10 +29,10 @@ export function CopilotActionCard({ action, onExecute, onCancel }: CopilotAction
         </div>
       )}
       {action.status === "success" && action.result && (
-        <p className="text-xs text-green-600 dark:text-green-400">✓ {JSON.stringify(action.result).slice(0, 100)}</p>
+        <p className="text-xs text-green-600 dark:text-green-400 inline-flex items-center gap-1"><Check className="h-3 w-3" strokeWidth={3} /> {JSON.stringify(action.result).slice(0, 100)}</p>
       )}
       {action.status === "error" && action.result && (
-        <p className="text-xs text-destructive">✗ {action.result.error || "Action failed"}</p>
+        <p className="text-xs text-destructive inline-flex items-center gap-1"><X className="h-3 w-3" strokeWidth={3} /> {action.result.error || "Action failed"}</p>
       )}
     </div>
   );

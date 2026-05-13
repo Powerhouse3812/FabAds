@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Check } from "lucide-react";
 import { PulsingRingLoader } from "../../components/PulsingRingLoader";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 
@@ -88,7 +88,7 @@ export function ModularProgressScreen() {
                     active && "bg-g6-primary/15 text-g6-primary g6-stage-active",
                     !done && !active && "bg-g6-bg-spotlight text-g6-text-tertiary"
                   )}>
-                    {done ? "✓" : i + 1}
+                    {done ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
                   </span>
                   <span className="text-g6-sm text-g6-text">{s.label}</span>
                 </li>

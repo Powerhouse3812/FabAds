@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseWizardReturn } from "../state/useWizard";
 
@@ -45,7 +45,7 @@ export function Step4TopBar({ wizard }: Step4TopBarProps) {
                       : "bg-muted text-muted-foreground",
                 )}
               >
-                {isDone ? "✓" : isActive ? "●" : s.index}
+                {isDone ? <Check className="h-3 w-3" strokeWidth={3} /> : isActive ? <Circle className="h-2 w-2 fill-current" strokeWidth={0} /> : s.index}
               </span>
               <span
                 className={cn(

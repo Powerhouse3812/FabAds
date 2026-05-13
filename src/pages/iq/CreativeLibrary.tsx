@@ -30,7 +30,7 @@ import {
   Upload, Search, Trash2, Loader2, MoreVertical, Download, Link2,
   Play, Bookmark, X, Sparkles, Rocket, CloudUpload, Type, AlignLeft, FileText,
   Filter, ArrowUpDown, Shuffle, Plus, Music, Layers, FolderPlus,
-  BookmarkCheck, Copy, Trash,
+  BookmarkCheck, Copy, Trash, Package,
 } from "lucide-react";
 import { TextItemList } from "@/components/creative-library/TextItemList";
 import { CreateAdgroupModal } from "@/components/creative-library/CreateAdgroupModal";
@@ -632,7 +632,7 @@ export default function CreativeLibrary() {
                 <TooltipTrigger asChild>
                   <span><Button variant="outline" size="sm" className="h-7 text-xs" disabled><Download className="h-3 w-3 mr-1" /> Download</Button></span>
                 </TooltipTrigger>
-                <TooltipContent><p>📦 Bulk download — coming soon!</p></TooltipContent>
+                <TooltipContent><p className="inline-flex items-center gap-1"><Package className="h-3 w-3" strokeWidth={2} aria-hidden /> Bulk download — coming soon!</p></TooltipContent>
               </Tooltip>
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLaunchFromMedia([...selected])}>
                 <Rocket className="h-3 w-3 mr-1" /> Launch Adgroup

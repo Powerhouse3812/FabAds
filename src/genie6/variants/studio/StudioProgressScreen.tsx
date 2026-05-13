@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PulsingRingLoader } from "../../components/PulsingRingLoader";
 import { sampleOutputs } from "../../mocks/sample-outputs";
@@ -73,7 +74,7 @@ export function StudioProgressScreen() {
                   active && "bg-g6-primary/20 text-g6-primary g6-stage-active",
                   !done && !active && "bg-g6-bg-spotlight text-g6-text-tertiary"
                 )}>
-                  {done ? "✓" : i + 1}
+                  {done ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
                 </span>
                 <span className="text-[10px] uppercase tracking-wider text-g6-text-tertiary">{s.id}</span>
               </div>

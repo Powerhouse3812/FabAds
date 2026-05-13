@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Plus, Users, FileText, Radar, TrendingUp } from "lucide-react";
+import { Plus, Users, FileText, Radar, TrendingUp, Globe, Languages } from "lucide-react";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 
 // Fallback data matching DUMMY_ADS brands
@@ -131,8 +131,8 @@ export default function InsightsCompetitors() {
 
                   {/* Country + Language */}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {c.country && <span>🌍 {c.country}</span>}
-                    {c.language && <span>🗣️ {c.language}</span>}
+                    {c.country && <span className="inline-flex items-center gap-1"><Globe className="h-3 w-3" strokeWidth={2} aria-hidden /> {c.country}</span>}
+                    {c.language && <span className="inline-flex items-center gap-1"><Languages className="h-3 w-3" strokeWidth={2} aria-hidden /> {c.language}</span>}
                   </div>
 
                   {/* Stats row */}

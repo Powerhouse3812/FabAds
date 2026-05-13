@@ -14,6 +14,7 @@ import {
   Settings2,
   Star,
   Zap,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AngleMockup } from "@/genie6/generate-v3/forms/components/AngleMockup";
@@ -708,17 +709,7 @@ function ConceptCardsPanel() {
               </p>
               {isSel && (
                 <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground animate-v3-pop-in">
-                  <svg
-                    viewBox="0 0 12 12"
-                    className="h-2 w-2"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M2 6.5l2.5 2.5L10 3" />
-                  </svg>
+                  <Check className="h-2 w-2" strokeWidth={3} />
                 </span>
               )}
             </div>

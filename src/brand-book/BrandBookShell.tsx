@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { X, Menu } from "lucide-react";
 import { SLIDES, SLIDE_BY_SLUG } from "./slides";
 
 const FONT_HREF =
@@ -251,9 +252,7 @@ export function BrandBookShell() {
             aria-label="Close"
           >
             <span className="bb-glyph">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M2 2l8 8M10 2l-8 8" strokeLinecap="round"/>
-              </svg>
+              <X size={12} strokeWidth={1.4} aria-hidden />
             </span>
             Close
           </button>
@@ -272,9 +271,7 @@ export function BrandBookShell() {
             title="Contents (I)"
           >
             <span className="bb-glyph">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M1.5 2.2h9M1.5 6h9M1.5 9.8h6"/>
-              </svg>
+              <Menu size={12} strokeWidth={1.4} aria-hidden />
             </span>
             Contents
           </button>

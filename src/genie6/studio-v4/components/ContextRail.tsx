@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import {
   BookOpen,
+  Check,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -252,7 +253,7 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
               : "text-amber-600 dark:text-amber-400",
           )}
         >
-          {readinessTone === "ready" ? "✓ " : ""}
+          {readinessTone === "ready" && <Check className="inline h-3 w-3 mr-1" strokeWidth={3} />}
           {readinessCaption}
         </span>
       </div>

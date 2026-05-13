@@ -40,7 +40,7 @@ import ManageFolderDrawer from "./ManageFolderDrawer";
 import LaunchFromCampaignUrlModal from "./LaunchFromCampaignUrlModal";
 import { toast } from "@/hooks/use-toast";
 import {
-  Loader2, Plus, Trash2, FolderOpen, Image, Video, Info, Link2, X, Rocket, Layers,
+  Loader2, Plus, Trash2, FolderOpen, Image, Video, Info, Link2, X, Rocket, Layers, Circle,
 } from "lucide-react";
 import { DUMMY_CAMPAIGN_URL_AUTOPILOT_USAGE, DUMMY_STRATEGY_INSIGHTS } from "@/components/autopilot/autopilot-dummy-data";
 
@@ -576,9 +576,9 @@ export default function OfferSettingsDrawer({ open, onOpenChange, workspaceId, e
                           )}
                           {metrics && (
                             <div className="flex items-center gap-3 text-[10px]">
-                              <span className="text-primary">● {metrics.activeAds} active</span>
-                              <span className="text-destructive">● {metrics.rejectedAds} rejected</span>
-                              <span className="text-muted-foreground">● {metrics.inReviewAds} in review</span>
+                              <span className="text-primary inline-flex items-center gap-1"><Circle className="h-1.5 w-1.5 fill-current" strokeWidth={0} /> {metrics.activeAds} active</span>
+                              <span className="text-destructive inline-flex items-center gap-1"><Circle className="h-1.5 w-1.5 fill-current" strokeWidth={0} /> {metrics.rejectedAds} rejected</span>
+                              <span className="text-muted-foreground inline-flex items-center gap-1"><Circle className="h-1.5 w-1.5 fill-current" strokeWidth={0} /> {metrics.inReviewAds} in review</span>
                             </div>
                           )}
                         </div>

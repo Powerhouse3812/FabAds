@@ -1,4 +1,4 @@
-import { LayoutTemplate, Sparkles, Image as ImageIcon, Video, FileText, Plus } from "lucide-react";
+import { LayoutTemplate, Sparkles, Image as ImageIcon, Video, FileText, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -209,9 +209,7 @@ function TemplateCard({
         {/* Selected state badge */}
         {selected && (
           <span className="absolute top-1 left-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-            <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 6.5l2.5 2.5L10 3" />
-            </svg>
+            <Check className="h-2.5 w-2.5" strokeWidth={3} />
           </span>
         )}
         {/* Hover overlay (legacy "Apply" affordance — only when no onSelect) */}

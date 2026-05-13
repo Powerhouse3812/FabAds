@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Globe, Tag, MessageSquare, Palette, Package, Save, X, Plus, Trash2, Loader2 } from "lucide-react";
+import { Globe, Tag, MessageSquare, Palette, Package, Save, X, Plus, Trash2, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Brand, Product } from "../types/entities";
 import { addBrand } from "../stores/userBrandsStore";
@@ -257,7 +257,7 @@ function FetchingStage({ url, stageIdx }: { url: string; stageIdx: number }) {
                   !done && !active && "bg-g6-bg-spotlight"
                 )}
               >
-                {done && <span className="text-[10px]">✓</span>}
+                {done && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
                 {active && <Loader2 className="h-2.5 w-2.5 animate-spin text-g6-primary" />}
               </span>
               <span

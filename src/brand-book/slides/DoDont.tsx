@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Check, X } from "lucide-react";
 import { C } from "../tokens";
 import { Mark } from "../components/Mark";
 import { Wordmark } from "../components/Wordmark";
@@ -15,7 +16,7 @@ export function DoDont() {
         background: ok ? C.ok : C.alert,
         color: C.paper, display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: 'Geist', fontWeight: 800, fontSize: 12,
-      }}>{ok ? '✓' : '✗'}</div>
+      }}>{ok ? <Check size={12} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}</div>
       <Mono style={{ position: 'absolute', bottom: 10, left: 14, fontSize: 9, color: ok ? C.ok : C.alert, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700 }}>{label}</Mono>
     </div>
   );

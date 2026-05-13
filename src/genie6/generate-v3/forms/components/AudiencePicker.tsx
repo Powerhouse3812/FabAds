@@ -1,4 +1,4 @@
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Audience, Gender } from "@/genie6/generate-v3/mocks/audiences";
 import { formatAge } from "@/genie6/generate-v3/mocks/audiences";
@@ -146,38 +146,20 @@ function GenderGlyph({ gender }: { gender: Gender | "any" }) {
   }
   if (gender === "f") {
     return (
-      <svg
-        viewBox="0 0 12 12"
+      <User
         className="h-3.5 w-3.5 text-muted-foreground"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeWidth={2}
         aria-label="Female"
-        role="img"
-      >
-        <circle cx="6" cy="4.5" r="2.5" />
-        <path d="M6 7v4M4 9.5h4" />
-      </svg>
+      />
     );
   }
   if (gender === "m") {
     return (
-      <svg
-        viewBox="0 0 12 12"
+      <User
         className="h-3.5 w-3.5 text-muted-foreground"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeWidth={2}
         aria-label="Male"
-        role="img"
-      >
-        <circle cx="5" cy="7" r="2.5" />
-        <path d="M7 5l3-3M8 2h2v2" />
-      </svg>
+      />
     );
   }
   return null;

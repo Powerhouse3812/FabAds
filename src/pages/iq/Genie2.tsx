@@ -252,7 +252,7 @@ export default function Genie2() {
               <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 animate-in fade-in-0 slide-in-from-top-2 duration-300">
                 <Check className="h-4 w-4 text-primary" />
                 <span className="text-sm text-foreground">
-                  ✓ {successBanner} creatives generated
+                  {successBanner} creatives generated
                 </span>
                 <button
                   className="text-xs text-primary hover:underline ml-1 flex items-center gap-1"

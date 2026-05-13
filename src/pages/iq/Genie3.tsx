@@ -176,7 +176,7 @@ export default function Genie3() {
                 {successBanner != null && (
                   <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 animate-in fade-in-0 slide-in-from-top-2 duration-300">
                     <Check className="h-4 w-4 text-primary" />
-                    <span className="text-sm">✓ {successBanner} creatives generated</span>
+                    <span className="text-sm">{successBanner} creatives generated</span>
                     <button className="text-xs text-primary hover:underline ml-1 flex items-center gap-1"
                       onClick={() => zone2Ref.current?.scrollIntoView({ behavior: "smooth" })}>
                       View below <ArrowDown className="h-3 w-3" />

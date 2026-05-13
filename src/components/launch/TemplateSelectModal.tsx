@@ -125,7 +125,13 @@ export function TemplateSelectModal({
                   return (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}
-                      {isDefault ? " ★ Default" : isLinked ? " ✓ Linked" : ""}
+                      {isDefault ? (
+                        " ★ Default"
+                      ) : isLinked ? (
+                        <span className="inline-flex items-center gap-1 ml-1">
+                          <Check className="h-3 w-3" strokeWidth={3} /> Linked
+                        </span>
+                      ) : null}
                     </SelectItem>
                   );
                 })}

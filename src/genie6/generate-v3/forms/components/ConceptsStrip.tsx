@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lightbulb, RefreshCw, Loader2 } from "lucide-react";
+import { Lightbulb, RefreshCw, Loader2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   savedConcepts,
@@ -180,17 +180,7 @@ function ConceptCard({
         </p>
         {selected && (
           <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <svg
-              viewBox="0 0 12 12"
-              className="h-2 w-2"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2 6.5l2.5 2.5L10 3" />
-            </svg>
+            <Check className="h-2 w-2" strokeWidth={3} />
           </span>
         )}
       </div>

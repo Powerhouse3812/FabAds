@@ -178,8 +178,8 @@ export default function InsightsBoardDetail() {
                     </div>
                   </div>
                 ) : item.note ? (
-                  <p className="text-[10px] text-muted-foreground italic cursor-pointer" onClick={() => { setEditingNote(item.id); setNoteText(item.note ?? ""); }}>
-                    📝 {item.note}
+                  <p className="text-[10px] text-muted-foreground italic cursor-pointer inline-flex items-center gap-1" onClick={() => { setEditingNote(item.id); setNoteText(item.note ?? ""); }}>
+                    <StickyNote className="h-3 w-3" strokeWidth={2} aria-hidden /> {item.note}
                   </p>
                 ) : null}
 
