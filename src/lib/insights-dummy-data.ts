@@ -42,6 +42,7 @@ export type InsightAd = {
   thumbUrl: string;
   transparencyMode: boolean;
   analysed: boolean;
+  mediaProcessing?: boolean;
   createdAt: string;
   activeDuration: string;
   similarAdsCount: number;

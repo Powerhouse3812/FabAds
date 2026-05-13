@@ -8,6 +8,7 @@ import {
   Workflow, Eraser, Scissors,
   Lightbulb,
   BookOpen,
+  Layers,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -98,11 +99,13 @@ export const MODULES: ModuleDef[] = [
   {
     key: "insights", label: "Industry Insights", icon: Telescope,
     subItems: [
-      { label: "Discover", path: "/insights/discover", icon: Compass },
-      { label: "Intelligence", path: "/insights/intelligence", icon: Search },
-      { label: "Boards", path: "/insights/boards", icon: Map },
-      { label: "Competitors", path: "/insights/competitors", icon: Globe },
-      { label: "Saved Ads", path: "/insights/saved", icon: Bookmark },
+      // Phase 3: My Feed is the primary surface (Industry Insights v2). The
+      // remaining three items (Discovery / Board / Competitor) continue to
+      // point at the existing v1 routes until each gets its own v2 redesign.
+      { label: "My feeds", path: "/insights-v2/feed", icon: Compass },
+      { label: "Discovery", path: "/insights/discover", icon: Telescope },
+      { label: "Board", path: "/insights/boards", icon: Layers },
+      { label: "Competitor", path: "/insights/competitors", icon: Globe },
     ],
   },
   {

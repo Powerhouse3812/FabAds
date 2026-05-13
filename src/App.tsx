@@ -31,6 +31,7 @@ import InsightsDiscover from "@/pages/insights/InsightsDiscover";
 import InsightsBoards from "@/pages/insights/InsightsBoards";
 import InsightsBoardDetail from "@/pages/insights/InsightsBoardDetail";
 import InsightsCompetitors from "@/pages/insights/InsightsCompetitors";
+import InsightsV2Feed from "@/pages/insights-v2/InsightsV2Feed";
 import ActivityLogs from "@/pages/ActivityLogs";
 import Integrations from "@/pages/Integrations";
 import UMS from "@/pages/UMS";
@@ -130,6 +131,12 @@ const App = () => (
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />
                 <Route path="insights/competitors" element={<InsightsCompetitors />} />
                 <Route path="insights/saved" element={<ComingSoonPage label="Saved Ads" description="Save and organise winning ads from across the web." />} />
+
+                {/* Industry Insights v2 — My Feed redesign (Phase 3). Sub-nav for
+                    Discovery / Board / Competitor reuses the existing v1 routes
+                    above; only the Feed surface is net-new under /insights-v2. */}
+                <Route path="insights-v2" element={<Navigate to="/insights-v2/feed" replace />} />
+                <Route path="insights-v2/feed" element={<InsightsV2Feed />} />
                 <Route path="activity-logs" element={<ActivityLogs />} />
                 <Route path="integrations" element={<Integrations />} />
                 <Route path="rrm" element={<RRM />} />
