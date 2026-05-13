@@ -9,6 +9,7 @@ type Mode = "ecom" | "affiliate";
 interface ChooseModeProps {
   onPick: (mode: Mode) => void;
   onSkip: () => void;
+  onLogin?: () => void;
 }
 
 const OPTIONS: {
@@ -34,7 +35,7 @@ const OPTIONS: {
   },
 ];
 
-export function ChooseMode({ onPick, onSkip }: ChooseModeProps) {
+export function ChooseMode({ onPick, onSkip, onLogin }: ChooseModeProps) {
   return (
     <div className="min-h-full bg-background">
       <StepNav active={0} />
@@ -83,13 +84,26 @@ export function ChooseMode({ onPick, onSkip }: ChooseModeProps) {
           })}
         </div>
 
-        <div className="text-center mt-10">
-          <Button variant="link" onClick={onSkip} className="text-[13px]">
-            Skip for now — explore the dashboard →
-          </Button>
-          <p className="text-[11px] text-muted-foreground/80 mt-1.5">
-            You can set up your brand right from the dashboard.
-          </p>
+        <div className="text-center mt-10 space-y-4">
+          <div>
+            <Button variant="link" onClick={onSkip} className="text-[13px]">
+              Skip for now — explore the dashboard →
+            </Button>
+            <p className="text-[11px] text-muted-foreground/80 mt-1.5">
+              You can set up your brand right from the dashboard.
+            </p>
+          </div>
+          {onLogin && (
+            <p className="text-[12px] text-muted-foreground">
+              Already have an account?{" "}
+              <button
+                onClick={onLogin}
+                className="text-foreground font-semibold underline underline-offset-4 hover:text-primary transition-colors"
+              >
+                Sign in
+              </button>
+            </p>
+          )}
         </div>
       </div>
     </div>

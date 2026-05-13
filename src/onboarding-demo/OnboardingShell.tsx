@@ -52,6 +52,7 @@ export function OnboardingShell() {
   }, []);
 
   const skipToDashboard = useCallback(() => navigate("/insights-v2/feed"), [navigate]);
+  const goToLogin = useCallback(() => navigate("/auth"), [navigate]);
 
   if (step === 0) {
     return (
@@ -61,6 +62,7 @@ export function OnboardingShell() {
           goto(1);
         }}
         onSkip={skipToDashboard}
+        onLogin={goToLogin}
       />
     );
   }

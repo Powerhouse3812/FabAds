@@ -77,6 +77,11 @@ const App = () => (
             {brandBookPrintRoutes}
 
             <Route element={<ProtectedRoute />}>
+              {/* Onboarding Demo — first-login wizard. Mounted OUTSIDE
+                  AppLayout so the FabAds nav rail / chrome doesn't render —
+                  matches the wireframe's full-page takeover experience. */}
+              {onboardingDemoRoutes}
+
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 {/* Reports — new flat structure (FB/NB/TT/Creative Reporting) */}
@@ -124,9 +129,6 @@ const App = () => (
 
                 {/* Brand Book — temporary FabFunnel slideshow; URL changes per slide */}
                 {brandBookRoutes}
-
-                {/* Onboarding Demo — first-login wizard ported from ff.ai marketing site */}
-                {onboardingDemoRoutes}
 
                 <Route path="insights" element={<Navigate to="/insights/discover" replace />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
