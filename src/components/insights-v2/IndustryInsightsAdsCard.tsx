@@ -410,9 +410,14 @@ export function IndustryInsightsAdsCard({
 
           {/* Action row — all 4 buttons horizontally evenly spaced (no
               left/right grouping). justify-around gives equal margin between
-              and around each icon. */}
+              and around each icon. When the headline/description (+ CTA)
+              block is hidden via Settings, suppress the inherited
+              space-y-3 margin so the action row sits tight to the media. */}
           <div
-            className="border-t border-border pt-2 flex items-center justify-around"
+            className={cn(
+              "border-t border-border pt-2 flex items-center justify-around",
+              !display.headlineDesc && !display.cta && "!mt-1",
+            )}
             onClick={stop}
           >
             {/* 1. Save to Board (with savedCount red badge) */}
