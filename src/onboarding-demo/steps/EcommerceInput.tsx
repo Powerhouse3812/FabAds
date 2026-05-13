@@ -7,24 +7,27 @@ import { StepNav } from "../components/StepNav";
 
 interface EcommerceInputProps {
   onBack: () => void;
-  onContinue: (data: { storeUrl: string; brand: string }) => void;
+  onContinue: (data: { brandUrl: string }) => void;
 }
 
+/**
+ * Step 2 — E-commerce input. Single field: Brand URL. The wizard infers
+ * brand name, description, voice, colours, typography etc. from the URL
+ * in Step 3, so we don't ask the user for any of that up front.
+ */
 export function EcommerceInput({ onBack, onContinue }: EcommerceInputProps) {
-  const [storeUrl, setStoreUrl] = useState("");
-  const [brand, setBrand] = useState("");
+  const [brandUrl, setBrandUrl] = useState("");
 
   const submit = () => {
     onContinue({
-      storeUrl: storeUrl.trim() || "yourstore.com",
-      brand: brand.trim() || "Aurora Apparel",
+      brandUrl: brandUrl.trim() || "aurora-apparel.com",
     });
   };
 
   return (
-    <div className="min-h-full bg-background">
+    <div className="bg-background">
       <StepNav active={1} onBack={onBack} backLabel="Back to Quick Start" />
-      <div className="max-w-[720px] mx-auto px-6 py-10 pb-20">
+      <div className="max-w-[640px] mx-auto px-6 pt-2 pb-10">
         <Badge
           variant="outline"
           className="text-[10px] uppercase tracking-wider font-mono mb-3 bg-primary/10 border-primary/30 text-foreground"
@@ -40,49 +43,29 @@ export function EcommerceInput({ onBack, onContinue }: EcommerceInputProps) {
               Tell us about your store
             </h1>
             <p className="text-[14px] text-muted-foreground mt-1.5">
-              We'll auto-pull your products, colors, and branding.
+              Paste your URL — we'll auto-pull your brand, colors, voice,
+              typography, and audience.
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-7 mt-7 space-y-5">
-          <div>
-            <label
-              htmlFor="ecom-store-url"
-              className="block text-[13px] font-semibold text-foreground"
-            >
-              Store URL <span className="text-rose-500">*</span>
-            </label>
-            <Input
-              id="ecom-store-url"
-              value={storeUrl}
-              onChange={(e) => setStoreUrl(e.target.value)}
-              placeholder="https://yourstore.com"
-              className="mt-2 h-10"
-            />
-            <p className="text-[11px] text-muted-foreground mt-1.5">
-              Works with Shopify, WooCommerce, Amazon, and most platforms.
-            </p>
-          </div>
-
-          <div>
-            <label
-              htmlFor="ecom-brand"
-              className="block text-[13px] font-semibold text-foreground"
-            >
-              Brand name{" "}
-              <span className="text-[11px] font-normal text-muted-foreground">
-                (optional — we'll detect from your store)
-              </span>
-            </label>
-            <Input
-              id="ecom-brand"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder="e.g., Aurora Apparel"
-              className="mt-2 h-10"
-            />
-          </div>
+        <div className="rounded-2xl border border-border bg-card p-7 mt-7">
+          <label
+            htmlFor="ecom-brand-url"
+            className="block text-[13px] font-semibold text-foreground"
+          >
+            Brand URL <span className="text-rose-500">*</span>
+          </label>
+          <Input
+            id="ecom-brand-url"
+            value={brandUrl}
+            onChange={(e) => setBrandUrl(e.target.value)}
+            placeholder="https://yourstore.com"
+            className="mt-2 h-10"
+          />
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Works with Shopify, WooCommerce, Amazon, and most platforms.
+          </p>
         </div>
 
         <div className="flex items-center justify-between mt-7">

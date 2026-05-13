@@ -10,16 +10,11 @@ type Mode = "ecom" | "affiliate";
 
 interface OnboardingData {
   mode: Mode;
-  // Ecommerce
-  storeUrl?: string;
-  brand?: string;
-  // Affiliate
+  /** E-commerce — single input */
+  brandUrl?: string;
+  /** Affiliate — two inputs */
   category?: string;
-  industry?: string;
-  platforms?: string[];
-  audience?: string;
   refUrls?: string[];
-  affLink?: string;
 }
 
 interface OnboardingShellProps {
@@ -37,9 +32,11 @@ interface OnboardingShellProps {
  *
  * Flow:
  *   Step 0  Choose Mode      (E-commerce | Affiliate)
- *   Step 1  Input             (mode-specific form)
- *   Step 2  Processing        (4 simulated stages)
- *   Step 3  Done              (brand-ready summary + sample data + competitors)
+ *   Step 1  Input            E-com: Brand URL only
+ *                            Affiliate: Category name + Reference URLs
+ *   Step 2  Processing       (4 simulated stages)
+ *   Step 3  Done             Brand/category-ready summary using the
+ *                            locked field list per mode (see Done.tsx)
  *
  * No backend wiring — Step 2 is purely cosmetic (timed stages), Step 3 shows
  * hardcoded sample data. Drop-in demo for showing prospective users the
@@ -56,7 +53,6 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
 
   const goto = useCallback((s: 0 | 1 | 2 | 3) => {
     setStep(s);
-    // Scroll the page-level container to top so each step starts at top.
     requestAnimationFrame(() =>
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }),
     );
@@ -66,7 +62,6 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
     if (onComplete) {
       onComplete();
     } else {
-      // Standalone fallback when no modal is wrapping us.
       navigate("/insights-v2/feed");
     }
   }, [onComplete, navigate]);
@@ -119,11 +114,8 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   return (
     <Done
       mode={data.mode}
-      brandName={data.brand}
+      brandUrl={data.brandUrl}
       category={data.category}
-      industry={data.industry}
-      platforms={data.platforms}
-      refUrls={data.refUrls}
       onBack={() => goto(1)}
       onStart={finish}
       onRestart={() => goto(0)}

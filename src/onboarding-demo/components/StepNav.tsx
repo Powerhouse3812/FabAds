@@ -1,4 +1,4 @@
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { Check, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ONB_STEPS = ["Choose Mode", "Input", "Processing", "Done"] as const;
@@ -11,82 +11,88 @@ interface StepNavProps {
 }
 
 /**
- * Modern stepper — Vercel / Linear / Arc inspired.
+ * 4-step circles + connecting bars indicator. Active step shows lime
+ * fill, done steps show a check, upcoming steps are neutral.
  *
- * Designed for use inside a 720px modal. Two parts:
- *   1. Sticky 3px progress bar pinned to the top of the modal's scroll
- *      container — fills with lime as the user advances. Reads as ambient
- *      progress without dominating the page.
- *   2. A row below with: Back link (left) · mono step chip
- *      "STEP 02 / 04 · INPUT" (center) · Start-over (right).
+ * Reverted from the A-12.118 thin-progress-bar + mono-chip variant after
+ * Maalik flagged it as "worst" — back to the explicit circles pattern
+ * that signals "wizard, 4 steps, you are here" without ambiguity.
  *
- * Was previously fixed-positioned to viewport for the standalone full-page
- * route; now sticky inside the modal so it pins to the modal top, not the
- * window top.
+ * Inside the 720px modal the labels can wrap on narrow widths; that's
+ * acceptable since each row stays compact.
  */
 export function StepNav({ active, onBack, backLabel, onRestart }: StepNavProps) {
-  const progress = ((active + 1) / ONB_STEPS.length) * 100;
-  const currentLabel = ONB_STEPS[active];
-
   return (
-    <>
-      {/* Sticky progress bar at top of modal scroll container */}
-      <div className="sticky top-0 inset-x-0 h-[3px] bg-border/60 z-20">
-        <div
-          className="h-full bg-primary transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Action row — Back link / step chip / start over */}
-      <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-1">
-        <div className="flex-1 min-w-0">
-          {onBack && (
+    <div className="w-full px-5 pt-5 pb-2">
+      {(onBack || onRestart) && (
+        <div className="mb-4 flex items-center justify-between">
+          {onBack ? (
             <button
               onClick={onBack}
               className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="truncate">{backLabel ?? "Back"}</span>
+              {backLabel ?? "Back"}
             </button>
+          ) : (
+            <span />
           )}
-        </div>
-
-        {/* Center: step chip */}
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 backdrop-blur px-2.5 py-1 text-[10px] font-mono shrink-0">
-          <span className="text-muted-foreground uppercase tracking-wider">
-            Step
-          </span>
-          <span className="text-foreground font-semibold tabular-nums">
-            {String(active + 1).padStart(2, "0")}
-          </span>
-          <span className="text-muted-foreground/40">/</span>
-          <span className="text-muted-foreground tabular-nums">
-            {String(ONB_STEPS.length).padStart(2, "0")}
-          </span>
-          <span
-            className={cn(
-              "h-1 w-1 rounded-full bg-muted-foreground/40 mx-0.5",
-            )}
-            aria-hidden
-          />
-          <span className="text-foreground font-semibold uppercase tracking-wider">
-            {currentLabel}
-          </span>
-        </div>
-
-        <div className="flex-1 min-w-0 flex justify-end">
           {onRestart && (
             <button
               onClick={onRestart}
               className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span className="truncate">Start over</span>
+              Start over
             </button>
           )}
         </div>
+      )}
+      <div className="flex items-center justify-center gap-y-2 flex-wrap">
+        {ONB_STEPS.map((label, i) => {
+          const isActive = i === active;
+          const isDone = i < active;
+          return (
+            <div key={label} className="flex items-center">
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "h-7 w-7 rounded-full inline-flex items-center justify-center text-[12px] font-semibold border-2 transition-all shrink-0",
+                    isDone &&
+                      "bg-primary text-primary-foreground border-primary",
+                    isActive &&
+                      "bg-primary/20 text-foreground border-primary",
+                    !isActive && !isDone &&
+                      "bg-background text-muted-foreground border-border",
+                  )}
+                >
+                  {isDone ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                </div>
+                <span
+                  className={cn(
+                    "text-[12px] whitespace-nowrap transition-colors",
+                    isActive
+                      ? "font-semibold text-foreground"
+                      : isDone
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {label}
+                </span>
+              </div>
+              {i < ONB_STEPS.length - 1 && (
+                <div
+                  className={cn(
+                    "h-px w-6 mx-2 transition-colors shrink-0",
+                    i < active ? "bg-primary" : "bg-border",
+                  )}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
-    </>
+    </div>
   );
 }
