@@ -443,7 +443,7 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
       <InsightsV2IdentityRow
         sectionLabel="My feeds"
         adCount={filtered.length}
-        brandsFollowed={followedBrands.length || 28}
+        brandsFollowed={Math.max(followedBrands.length, 28)}
         dateRange={filters.dateRange}
         onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
       />
