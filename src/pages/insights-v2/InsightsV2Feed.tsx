@@ -29,6 +29,7 @@ import {
   type InsightsV2Filters,
   type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
+import { InsightsV2IdentityRow } from "@/components/insights-v2/InsightsV2IdentityRow";
 import { TrendingTagsStrip } from "@/components/insights-v2/TrendingTagsStrip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { InsightsV2ErrorBoundary } from "@/components/insights-v2/InsightsV2ErrorBoundary";
@@ -218,6 +219,11 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   // (Industry, Sort, Settings, More filters, Trending strip) animates out.
   const [isScrolled, setIsScrolled] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  // Search input lives in the Identity row (Row 1). State is hoisted here so
+  // it stays unchanged across compact-mode toolbar transitions and so the
+  // popover anchors against the row's input ref.
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [searchPopoverOpen, setSearchPopoverOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [drawerAd, setDrawerAd] = useState<InsightAd | null>(null);
   const [saveModalAd, setSaveModalAd] = useState<InsightAd | null>(null);
@@ -408,8 +414,40 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     };
   }, []);
 
+  const handleSearchChange = useCallback(
+    (next: string) => {
+      setFilters((prev) => ({ ...prev, search: next }));
+      setSearchPopoverOpen(next.trim().length > 0);
+    },
+    [],
+  );
+
+  const handleSearchFocus = useCallback(() => {
+    if (filters.search.trim().length > 0) {
+      setSearchPopoverOpen(true);
+    }
+  }, [filters.search]);
+
+  const handleApplySearchHere = useCallback((q: string) => {
+    setFilters((prev) => ({ ...prev, search: q }));
+  }, []);
+
   return (
-    <div className="flex h-full flex-col pt-4 bg-muted/30">
+    <div className="flex h-full flex-col bg-muted/30">
+      {/* ROW 1 — Identity: section label + ad count chip + search w/ ⌘K. */}
+      <InsightsV2IdentityRow
+        sectionLabel="My feeds"
+        adCount={filtered.length}
+        searchValue={filters.search}
+        onSearchChange={handleSearchChange}
+        searchInputRef={searchInputRef}
+        onSearchFocus={handleSearchFocus}
+        searchScope="feed"
+        searchPopoverOpen={searchPopoverOpen}
+        onSearchPopoverOpenChange={setSearchPopoverOpen}
+        onApplyHere={handleApplySearchHere}
+      />
+      {/* ROW 2 — Filter actions: Add Filter + chips · Sort + Date + Settings */}
       <InsightsV2Toolbar
         filters={filters}
         onFiltersChange={setFilters}
