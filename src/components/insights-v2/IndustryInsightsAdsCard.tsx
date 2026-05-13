@@ -136,8 +136,8 @@ export function IndustryInsightsAdsCard({
               onClick={handleBookmark}
               className={cn(
                 "absolute top-2 right-2 z-10 h-6 w-6 rounded-md flex items-center justify-center",
-                "bg-background/85 backdrop-blur-sm border border-border/60 transition-colors",
-                "hover:bg-background hover:border-border",
+                "bg-background/85 backdrop-blur-sm transition-colors",
+                "hover:bg-background",
               )}
               aria-pressed={isSavedToBoard}
               aria-label={isSavedToBoard ? "Unsave from board" : "Save to board"}
@@ -145,7 +145,9 @@ export function IndustryInsightsAdsCard({
               <Bookmark
                 className={cn(
                   "h-3.5 w-3.5",
-                  isSavedToBoard ? "fill-lime-400 stroke-lime-500 text-lime-500" : "text-muted-foreground",
+                  isSavedToBoard
+                    ? "fill-foreground stroke-foreground text-foreground"
+                    : "text-muted-foreground",
                 )}
               />
             </button>
