@@ -211,13 +211,19 @@ function AppLayoutInner() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
   const isGenie6Route = pathname.startsWith("/iq/genie6");
+  const isInsightsV2Route = pathname.startsWith("/insights-v2");
+  // Routes that own their own scroll regions + chrome (no AppLayout
+  // breadcrumb header, no outer padding). Genie6 set this pattern;
+  // Industry Insights v2 follows it so the masonry page bg + sticky
+  // toolbar both reach the top of the viewport.
+  const ownsLayout = isGenie6Route || isInsightsV2Route;
   const { isPinned, isOpen } = useCopilot();
 
   return (
     <div className="h-screen flex w-full overflow-hidden bg-zinc-100">
       {/* AppShell renders ParentRail + merged shell containing sub-nav + main */}
       <AppShell>
-        {!isGenie6Route && (
+        {!ownsLayout && (
           <div className="border-b border-zinc-900/[0.06] px-4 py-2 flex-shrink-0">
             <HeaderBreadcrumbs />
           </div>
@@ -225,13 +231,7 @@ function AppLayoutInner() {
         <div
           className={cn(
             "flex flex-col relative",
-            // Genie6 owns its own scroll regions + padding (FormSkeleton has
-            // a sticky bottom prompt bar that must NOT scroll with the body).
-            // For genie6 routes we hand it a fixed-height, non-scrolling
-            // shell so FormSkeleton's `h-full flex-col` chain resolves
-            // against a real viewport height. For non-genie6 routes we
-            // keep the historical padding + page-level overflow-y-auto.
-            isGenie6Route
+            ownsLayout
               ? "h-full min-h-0 overflow-hidden"
               : "flex-1 overflow-y-auto p-4 2xl:p-5",
           )}
