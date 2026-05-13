@@ -76,7 +76,10 @@ export function InsightsV2IdentityRow({
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 text-[12px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className={cn(
+              "h-9 gap-1.5 text-[12px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              dateRange?.from && "bg-primary/5 border-primary/40 text-foreground",
+            )}
             aria-label="Date range"
           >
             <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
@@ -115,6 +118,34 @@ export function InsightsV2IdentityRow({
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-auto p-0">
+          {/* Selected range banner — explicit, always visible so the user can
+              see at a glance which dates are bound. */}
+          {dateRange?.from && (
+            <div className="flex items-center gap-2 bg-muted/40 border-b border-border/60 px-3 py-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Selected
+              </span>
+              <span className="text-[12px] font-medium text-foreground">
+                {format(dateRange.from, "MMM d, yyyy")}
+                {dateRange.to && (
+                  <>
+                    {" — "}
+                    {format(dateRange.to, "MMM d, yyyy")}
+                  </>
+                )}
+              </span>
+              {dateRange.to && (
+                <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                  {Math.round(
+                    (startOfDay(dateRange.to).getTime() -
+                      startOfDay(dateRange.from).getTime()) /
+                      86400000,
+                  ) + 1}{" "}
+                  days
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 p-3">
             {DATE_PRESETS.map((p) => {
               const r = dateRange;
@@ -165,6 +196,7 @@ export function InsightsV2IdentityRow({
             mode="range"
             selected={dateRange}
             onSelect={(r) => onDateRangeChange(r ?? undefined)}
+            defaultMonth={dateRange?.from ?? new Date()}
             numberOfMonths={2}
           />
         </PopoverContent>
