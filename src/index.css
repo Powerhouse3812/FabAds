@@ -341,3 +341,23 @@ All colors MUST be HSL.
 [data-fabads-shell-main="v7"] > div.grid > aside {
   padding: 1.25rem !important;
 }
+/* ────────────────────────────────────────────────────────────────────────
+   Onboarding Welcome animations — see src/onboarding-demo/steps/Welcome.tsx
+   Particle drift, confetti burst, soft glow pulse around the check icon.
+   ──────────────────────────────────────────────────────────────────────── */
+@keyframes ff-particle-drift {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  10%  { opacity: var(--ff-particle-opacity, 0.25); }
+  90%  { opacity: var(--ff-particle-opacity, 0.25); }
+  100% { transform: translate3d(var(--ff-tx, 30px), var(--ff-ty, -60px), 0); opacity: 0; }
+}
+
+@keyframes ff-confetti-fly {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--ff-tx, 80px), var(--ff-ty, -80px), 0) rotate(var(--ff-rot, 360deg)); opacity: 0; }
+}
+
+@keyframes ff-welcome-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(195, 235, 66, 0.0); }
+  50%      { box-shadow: 0 0 40px 8px rgba(195, 235, 66, 0.32); }
+}

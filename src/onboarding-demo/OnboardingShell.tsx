@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Welcome } from "./steps/Welcome";
 import { ChooseMode } from "./steps/ChooseMode";
 import { EcommerceInput } from "./steps/EcommerceInput";
 import { AffiliateInput } from "./steps/AffiliateInput";
@@ -7,7 +8,8 @@ import { Processing } from "./steps/Processing";
 import { Done } from "./steps/Done";
 
 type Mode = "ecom" | "affiliate";
-type Step = 0 | 1 | 2 | 3;
+/** -1 = Welcome celebration screen (pre-wizard, plays before Choose Mode). */
+type Step = -1 | 0 | 1 | 2 | 3;
 
 interface OnboardingData {
   mode: Mode;
@@ -32,6 +34,7 @@ interface OnboardingShellProps {
 
 /** Encoded URL step name → internal {step, mode} pair. */
 const URL_TO_STATE: Record<string, { step: Step; mode: Mode }> = {
+  "welcome": { step: -1, mode: "ecom" },
   "choose-mode": { step: 0, mode: "ecom" },
   "ecom-input": { step: 1, mode: "ecom" },
   "ecom-processing": { step: 2, mode: "ecom" },
@@ -42,6 +45,7 @@ const URL_TO_STATE: Record<string, { step: Step; mode: Mode }> = {
 };
 
 function stateToUrl(step: Step, mode: Mode): string {
+  if (step === -1) return "welcome";
   if (step === 0) return "choose-mode";
   const prefix = mode;
   if (step === 1) return `${prefix}-input`;
@@ -78,10 +82,12 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Hydrate initial step/mode from `?onb_step=` if present (deep-link).
+  // Default landing: welcome (the celebration screen plays first; users
+  // who want to skip can hit ?onb_step=choose-mode).
   const initialUrlStep = searchParams.get("onb_step");
   const initialState =
     (initialUrlStep && URL_TO_STATE[initialUrlStep]) ??
-    { step: 0 as Step, mode: "ecom" as Mode };
+    { step: -1 as Step, mode: "ecom" as Mode };
 
   const [step, setStep] = useState<Step>(initialState.step);
   const [data, setData] = useState<OnboardingData>({ mode: initialState.mode });
@@ -125,6 +131,10 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   }, [onComplete, navigate, setSearchParams]);
 
   const goToLogin = useCallback(() => navigate("/auth"), [navigate]);
+
+  if (step === -1) {
+    return <Welcome onContinue={() => goto(0)} />;
+  }
 
   if (step === 0) {
     return (

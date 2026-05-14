@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { Welcome } from "@/onboarding-demo/steps/Welcome";
 import { ChooseMode } from "@/onboarding-demo/steps/ChooseMode";
 import { EcommerceInput } from "@/onboarding-demo/steps/EcommerceInput";
 import { AffiliateInput } from "@/onboarding-demo/steps/AffiliateInput";
@@ -12,6 +13,8 @@ import { Done } from "@/onboarding-demo/steps/Done";
  * URL: /onboarding-print/:step
  *
  * Step values:
+ *   welcome                 — Pre-wizard celebration screen (animated brag
+ *                              numbers + headline + CTA). Final phase only.
  *   choose-mode             — Step 1 (mode picker)
  *   ecom-input              — Step 2 e-commerce
  *   ecom-processing         — Step 3 e-commerce
@@ -63,6 +66,8 @@ const noop = () => {};
 
 function renderStep(step: string) {
   switch (step) {
+    case "welcome":
+      return <Welcome onContinue={noop} printMode />;
     case "choose-mode":
       return <ChooseMode onPick={noop} onSkip={noop} onLogin={noop} />;
     case "ecom-input":
@@ -98,13 +103,13 @@ function renderStep(step: string) {
         />
       );
     default:
-      return <ChooseMode onPick={noop} onSkip={noop} onLogin={noop} />;
+      return <Welcome onContinue={noop} printMode />;
   }
 }
 
 export function OnboardingPrintPage() {
   usePrintEnvironment();
-  const { step = "choose-mode" } = useParams<{ step: string }>();
+  const { step = "welcome" } = useParams<{ step: string }>();
 
   return (
     <div

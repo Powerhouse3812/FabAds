@@ -10,7 +10,9 @@ import { OnboardingPrintPage } from "./OnboardingPrintPage";
  * URL pattern: /onboarding-print/:step
  *
  * Step values:
- *   choose-mode             (default — Step 1 mode picker)
+ *   welcome                 (default — pre-wizard celebration screen,
+ *                            final phase rendered for design export)
+ *   choose-mode             (Step 1 mode picker)
  *   ecom-input              (Step 2 e-commerce — Brand URL form)
  *   ecom-processing         (Step 3 e-commerce — animated stages)
  *   ecom-done               (Step 4 e-commerce — Brand Ready)
@@ -18,11 +20,11 @@ import { OnboardingPrintPage } from "./OnboardingPrintPage";
  *   affiliate-processing    (Step 3 affiliate — animated stages)
  *   affiliate-done          (Step 4 affiliate — Category Ready)
  *
- * Visiting /onboarding-print without a slug redirects to choose-mode.
+ * Visiting /onboarding-print without a slug redirects to welcome.
  */
 export const onboardingPrintRoutes = (
   <Route path="onboarding-print">
-    <Route index element={<Navigate to="choose-mode" replace />} />
+    <Route index element={<Navigate to="welcome" replace />} />
     <Route path=":step" element={<OnboardingPrintPage />} />
   </Route>
 );
