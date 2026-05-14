@@ -37,15 +37,26 @@ export function ParentNavigationRail() {
   const isFloating = shape === "floating";
 
   const { plan } = usePlan();
-  // All non-coming-soon modules render in the rail. On AI plan, the ones
-  // tagged `plans: ["full"]` (Reports / Launch / Automation) render as
-  // LOCKED — greyed icon + Pro badge + click opens an upsell popover —
-  // rather than being hidden. Upsell-by-visibility per Maalik.
-  const visibleModules = MODULES.filter((m) => !m.comingSoon);
+  // Lock derivation. On AI plan the modules tagged `plans: ["full"]`
+  // (Reports / Launch / Automation) render as LOCKED — greyed icon +
+  // PRO badge + click opens the upsell popover. On the Full plan
+  // nothing is locked.
   const isLocked = (m: ModuleDef) =>
     !!(m.plans && !m.plans.includes(plan));
-  const primary = visibleModules.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
-  const tools = visibleModules.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
+
+  // Sort modules into three buckets: unlocked-primary (RUN + CREATE),
+  // unlocked-tools (TOOLS group), and locked (rendered at the very
+  // bottom as a separate upsell section). Maalik: "Report, Launch,
+  // Automation ko separate kr do bs sbse niche. Otherwise AI plan
+  // me inka kaam thode hi h."
+  const visibleModules = MODULES.filter((m) => !m.comingSoon);
+  const primary = visibleModules.filter(
+    (m) => !isLocked(m) && MODULE_GROUPS[m.key] !== "TOOLS",
+  );
+  const tools = visibleModules.filter(
+    (m) => !isLocked(m) && MODULE_GROUPS[m.key] === "TOOLS",
+  );
+  const locked = visibleModules.filter((m) => isLocked(m));
 
   const handleClick = (mod: ModuleDef) => {
     const target = hasSubItems(mod) ? firstSubPath(mod) : mod.path!;
@@ -97,12 +108,33 @@ export function ParentNavigationRail() {
             <div className="flex flex-col gap-0.5">
               {tools.map((mod) => (
                 <RailItem
-              key={mod.key}
-              mod={mod}
-              isActive={activeKey === mod.key}
-              locked={isLocked(mod)}
-              onClick={() => handleClick(mod)}
-            />
+                  key={mod.key}
+                  mod={mod}
+                  isActive={activeKey === mod.key}
+                  locked={isLocked(mod)}
+                  onClick={() => handleClick(mod)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+        {locked.length > 0 && (
+          <>
+            <div className="my-2"><RailDivider /></div>
+            <div className="px-1 pb-1 text-center">
+              <span className="font-mono text-[7px] uppercase tracking-[0.18em] text-zinc-500">
+                Upgrade
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {locked.map((mod) => (
+                <RailItem
+                  key={mod.key}
+                  mod={mod}
+                  isActive={activeKey === mod.key}
+                  locked
+                  onClick={() => handleClick(mod)}
+                />
               ))}
             </div>
           </>

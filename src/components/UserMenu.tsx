@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClientContext } from "@/contexts/ClientContext";
+import { usePlan } from "@/contexts/PlanContext";
 import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -45,6 +46,12 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
   const { user, role, signOut } = useAuth();
   const { activeClient, clients, setActiveClient } = useClientContext();
   const { setTheme, resolvedTheme } = useTheme();
+  const { plan } = usePlan();
+  // On AI plan, hide Integration + Team (UMS) — per Maalik they don't
+  // belong in the AI-focused surface. They're upsell territory; the
+  // PRO badges on Reports / Launch / Automation in the rail already
+  // hint at the Full plan's existence, so we keep this menu lean.
+  const isAiPlan = plan === "ai";
 
   if (!user) return null;
 
@@ -119,14 +126,18 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           <Settings className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Settings
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/integrations")}>
-          <Plug className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-          Integration
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/ums")}>
-          <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-          Team
-        </DropdownMenuItem>
+        {!isAiPlan && (
+          <DropdownMenuItem onClick={() => navigate("/integrations")}>
+            <Plug className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            Integration
+          </DropdownMenuItem>
+        )}
+        {!isAiPlan && (
+          <DropdownMenuItem onClick={() => navigate("/ums")}>
+            <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            Team
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => navigate("/settings/clients")}>
           <UserPlus className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Clients
