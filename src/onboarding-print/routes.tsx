@@ -10,8 +10,9 @@ import { OnboardingPrintPage } from "./OnboardingPrintPage";
  * URL pattern: /onboarding-print/:step
  *
  * Step values:
- *   welcome                 (default — pre-wizard celebration screen,
+ *   welcome                 (default — Creative variant welcome screen,
  *                            final phase rendered for design export)
+ *   welcome-insights        (Insights variant welcome screen)
  *   choose-mode             (Step 1 mode picker)
  *   ecom-input              (Step 2 e-commerce — Brand URL form)
  *   ecom-processing         (Step 3 e-commerce — animated stages)

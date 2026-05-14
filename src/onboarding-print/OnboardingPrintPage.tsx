@@ -13,8 +13,8 @@ import { Done } from "@/onboarding-demo/steps/Done";
  * URL: /onboarding-print/:step
  *
  * Step values:
- *   welcome                 — Pre-wizard celebration screen (animated brag
- *                              numbers + headline + CTA). Final phase only.
+ *   welcome                 — Creative variant of welcome screen (Step 0).
+ *   welcome-insights        — Insights variant of welcome screen (Step 0).
  *   choose-mode             — Step 1 (mode picker)
  *   ecom-input              — Step 2 e-commerce
  *   ecom-processing         — Step 3 e-commerce
@@ -67,7 +67,9 @@ const noop = () => {};
 function renderStep(step: string) {
   switch (step) {
     case "welcome":
-      return <Welcome onContinue={noop} printMode />;
+      return <Welcome onContinue={noop} printMode initialVariant="creative" />;
+    case "welcome-insights":
+      return <Welcome onContinue={noop} printMode initialVariant="insights" />;
     case "choose-mode":
       return <ChooseMode onPick={noop} onSkip={noop} onLogin={noop} />;
     case "ecom-input":
@@ -103,7 +105,7 @@ function renderStep(step: string) {
         />
       );
     default:
-      return <Welcome onContinue={noop} printMode />;
+      return <Welcome onContinue={noop} printMode initialVariant="creative" />;
   }
 }
 
