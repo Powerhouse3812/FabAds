@@ -2,20 +2,17 @@ import { Lock, Rocket, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-interface UpsellPopoverProps {
-  /** The locked module's label (e.g. "Reports"). Used in the headline. */
-  moduleLabel: string;
-}
-
 /**
- * Marketing-pitch upsell shown when a user clicks a locked module on
- * the AI plan. Primary CTA: "Start free trial". Secondary: "Talk to
- * sales". Per Maalik's call.
+ * Marketing-pitch upsell shown when a user clicks any locked module
+ * (Reports / Launch / Automation) on the AI plan. ONE tooltip,
+ * SAME content for all three — we're selling FabAds as a product,
+ * not pitching individual modules.
  *
- * For demo purposes both CTAs are no-op + toast. Real wiring (Stripe
- * checkout, sales calendly link, etc.) is a follow-up.
+ * Primary CTA: "Start free trial". Secondary: "Talk to sales".
+ * Both CTAs are no-op + toast for demo. Real wiring (Stripe checkout,
+ * sales calendly, etc.) is a follow-up.
  */
-export function UpsellPopover({ moduleLabel }: UpsellPopoverProps) {
+export function UpsellPopover() {
   return (
     <div className="w-[280px]">
       {/* Header — lime tint, lock icon */}
@@ -25,7 +22,7 @@ export function UpsellPopover({ moduleLabel }: UpsellPopoverProps) {
         </span>
         <div className="min-w-0">
           <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-            Full plan
+            FabAds
           </p>
           <p className="text-[14px] font-semibold text-foreground leading-tight mt-0.5">
             Ready to scale?
@@ -36,9 +33,8 @@ export function UpsellPopover({ moduleLabel }: UpsellPopoverProps) {
       {/* Pitch body */}
       <div className="px-3.5 pt-3 pb-2 space-y-2">
         <p className="text-[12px] text-foreground leading-relaxed">
-          <span className="font-semibold">{moduleLabel}</span> is part of
-          the Full plan. Turn your AI generations into live spend —
-          Reports, Launch, and Automation power the entire ad ops loop.
+          Run the full ad-ops loop — reporting, launch, and automation
+          — all wired to the same AI you already use for generation.
         </p>
         <ul className="text-[11px] text-muted-foreground space-y-0.5 pl-3.5 list-disc">
           <li>Real-time campaign reporting</li>

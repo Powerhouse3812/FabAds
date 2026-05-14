@@ -328,7 +328,7 @@ function RailItem({
           sideOffset={12}
           className="p-0 w-auto"
         >
-          <UpsellPopover moduleLabel={mod.label} />
+          <UpsellPopover />
         </PopoverContent>
       </Popover>
     );
