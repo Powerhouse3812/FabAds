@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Design System Updates — Genie 6.0 sync</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap">
+<style>
+@page { size: A4; margin: 14mm 12mm 14mm 12mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; font-family: 'Geist', system-ui, sans-serif; color: #0f0f0c; }
+body { font-size: 10pt; line-height: 1.5; }
+header.cover {
+  background: #0d0d0d; color: white;
+  padding: 48px 32px;
+  border-bottom: 4px solid #c3eb42;
+  page-break-after: always;
+}
+header.cover h1 { margin: 0; font-size: 32pt; font-weight: 700; letter-spacing: -0.02em; }
+header.cover .sub { margin-top: 8px; font-size: 12pt; color: rgba(255,255,255,0.6); }
+header.cover .meta { margin-top: 32px; font-family: 'Geist Mono', monospace; font-size: 9pt; color: rgba(255,255,255,0.5); }
+header.cover .meta div { margin: 4px 0; }
+header.cover .toc { margin-top: 32px; font-size: 10pt; }
+header.cover .toc-row { display: flex; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: 'Geist Mono', monospace; }
+header.cover .toc-row .n { width: 32px; color: #c3eb42; }
+header.cover .toc-row .t { flex: 1; }
+header.cover .toc-row .p { color: rgba(255,255,255,0.4); }
+main { padding: 0 6mm; }
+section { page-break-inside: avoid; margin-bottom: 24px; }
+section.major { page-break-before: always; }
+h2.section {
+  font-size: 18pt; font-weight: 700; margin: 0 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #c3eb42;
+  letter-spacing: -0.01em;
+}
+h2.section .num { font-family: 'Geist Mono', monospace; font-size: 9pt; font-weight: 600; color: #9cc42d; display: block; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+h3.sub { font-size: 12pt; font-weight: 600; margin: 14px 0 6px; }
+p.lead { font-size: 9pt; color: rgba(15,15,12,0.65); margin: 0 0 10px; max-width: 100%; }
+table.changes { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9pt; }
+table.changes thead th {
+  background: #f4f4f0;
+  text-align: left;
+  padding: 6px 8px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 7.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(15,15,12,0.62);
+  border-bottom: 1px solid #e7e5dc;
+}
+table.changes tbody td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #efeee7;
+  vertical-align: top;
+}
+table.changes tbody tr:last-child td { border-bottom: none; }
+table.changes .col-num { width: 24px; font-family: 'Geist Mono', monospace; color: rgba(15,15,12,0.42); text-align: center; }
+table.changes .col-what { width: 27%; font-weight: 600; }
+table.changes .col-where { width: 36%; font-family: 'Geist Mono', monospace; font-size: 8.5pt; color: rgba(15,15,12,0.7); }
+table.changes .col-update { font-family: 'Geist Mono', monospace; font-size: 8.5pt; }
+table.changes .col-update strong { background: rgba(195, 235, 66, 0.25); padding: 1px 5px; border-radius: 3px; color: #5b6b1a; }
+.tag { display: inline-block; padding: 1px 6px; background: rgba(195,235,66,0.2); border: 1px solid rgba(195,235,66,0.5); border-radius: 100px; font-family: 'Geist Mono', monospace; font-size: 7.5pt; font-weight: 600; color: #5b6b1a; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; border: 1px solid #e7e5dc; vertical-align: middle; margin-right: 4px; }
+.callout {
+  background: #fbfbf9; border: 1px solid #efeee7; border-left: 3px solid #c3eb42;
+  padding: 10px 14px; margin: 10px 0;
+  font-size: 9pt;
+  border-radius: 4px;
+}
+.callout strong { color: #0f0f0c; }
+.delta {
+  font-family: 'Geist Mono', monospace; font-size: 8.5pt;
+  background: rgba(195, 235, 66, 0.15);
+  padding: 2px 8px; border-radius: 4px;
+  display: inline-block; margin-bottom: 6px;
+}
+.foot { text-align: center; color: rgba(15,15,12,0.42); font-size: 8pt; padding: 24px 0 8px; font-family: 'Geist Mono', monospace; }
+hr.thin { border: none; border-top: 1px solid #efeee7; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <h1>Design System Updates</h1>
+  <div class="sub">Sync Figma DS + Real Project (React + Ant Design) to Genie 6.0</div>
+  <div class="meta">
+    <div>SOURCE OF TRUTH · src/genie6/styles/tokens.css + tailwind.config.ts</div>
+    <div>VISUAL REFERENCE · design-system-comparison.html (open in browser)</div>
+    <div>FORMAT · One row per change · Figma hook + Ant hook + new value</div>
+  </div>
+  <div class="toc">
+    <div class="toc-row"><span class="n">01</span><span class="t">Headline summary — 18 highest-impact changes</span><span class="p">p. 2</span></div>
+    <div class="toc-row"><span class="n">02</span><span class="t">Foundation tokens — colours · type · spacing · radius · shadows · motion</span><span class="p">p. 3</span></div>
+    <div class="toc-row"><span class="n">03</span><span class="t">Component changes — Button · Card · Input · Modal · Tag · Table · etc.</span><span class="p">p. 8</span></div>
+    <div class="toc-row"><span class="n">04</span><span class="t">Genie-exclusive patterns — 15 new patterns Ant doesn't ship</span><span class="p">p. 14</span></div>
+    <div class="toc-row"><span class="n">05</span><span class="t">Migration order</span><span class="p">p. 17</span></div>
+  </div>
+</header>
+
+<main>
+
+<!-- ─── 01. HEADLINE SUMMARY ─────────────────────────────────────── -->
+<section class="major">
+  <h2 class="section"><span class="num">Section 01</span>Headline summary</h2>
+  <p class="lead">The 18 highest-impact changes at a glance. Every row below is detailed further in Sections 02–04.</p>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">What changed</th><th class="col-where">Ant default</th><th class="col-update">Genie 6.0 (target)</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Primary colour</td><td class="col-where"><span class="swatch" style="background:#1677ff"></span>#1677ff blue</td><td class="col-update"><span class="swatch" style="background:#c3eb42"></span><strong>#c3eb42 lime</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Text on primary</td><td class="col-where">white</td><td class="col-update"><strong>#121212 dark</strong> (high contrast on lime)</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Border colour</td><td class="col-where"><span class="swatch" style="background:#d9d9d9"></span>#d9d9d9 cool grey</td><td class="col-update"><span class="swatch" style="background:#e7e5dc"></span><strong>#e7e5dc warm beige</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Bg-layout</td><td class="col-where"><span class="swatch" style="background:#fafafa"></span>#fafafa</td><td class="col-update"><span class="swatch" style="background:#fbfbf9"></span><strong>#fbfbf9 warm off-white</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Button radius (text)</td><td class="col-where">6px square</td><td class="col-update"><strong>100px PILL</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Input radius</td><td class="col-where">6px</td><td class="col-update"><strong>28px rounded-2xl</strong></td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Card / Modal radius</td><td class="col-where">8px</td><td class="col-update"><strong>16px rounded-card</strong></td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Badge / Tag radius</td><td class="col-where">4px</td><td class="col-update"><strong>100px pill</strong></td></tr>
+      <tr><td class="col-num">9</td><td class="col-what">All font sizes</td><td class="col-where">base 14px</td><td class="col-update"><strong>base 13px (every size −1px)</strong></td></tr>
+      <tr><td class="col-num">10</td><td class="col-what">Heading weight</td><td class="col-where">600</td><td class="col-update"><strong>700</strong></td></tr>
+      <tr><td class="col-num">11</td><td class="col-what">Heading font</td><td class="col-where">system sans-serif</td><td class="col-update"><strong>Geist</strong></td></tr>
+      <tr><td class="col-num">12</td><td class="col-what">Mono font</td><td class="col-where">system mono</td><td class="col-update"><strong>Geist Mono</strong></td></tr>
+      <tr><td class="col-num">13</td><td class="col-what">Mono usage scope</td><td class="col-where">code blocks only</td><td class="col-update"><strong>numbers, descriptions, info, eyebrows, table headers, tooltips, alerts</strong></td></tr>
+      <tr><td class="col-num">14</td><td class="col-what">Focus halo</td><td class="col-where">2px blue ring</td><td class="col-update"><strong>4px lime spread</strong></td></tr>
+      <tr><td class="col-num">15</td><td class="col-what">Modal backdrop</td><td class="col-where">rgba(0,0,0,0.45) no blur</td><td class="col-update"><strong>rgba(0,0,0,0.7) + blur(4px)</strong></td></tr>
+      <tr><td class="col-num">16</td><td class="col-what">Hover lift</td><td class="col-where">none</td><td class="col-update"><strong>translateY(-2px) + shadow upgrade</strong></td></tr>
+      <tr><td class="col-num">17</td><td class="col-what">Shimmer cadence</td><td class="col-where">grey, 1.4s</td><td class="col-update"><strong>lime mid-band, 2.4s</strong></td></tr>
+      <tr><td class="col-num">18</td><td class="col-what">Genie-exclusive patterns</td><td class="col-where">n/a</td><td class="col-update"><strong>15 new patterns (Section 04)</strong></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 02. FOUNDATION TOKENS ───────────────────────────────────── -->
+<section class="major">
+  <h2 class="section"><span class="num">Section 02</span>Foundation tokens</h2>
+  <p class="lead">Replace these values first. Every component below inherits from these tokens — once foundation is correct, components are mostly automatic.</p>
+
+  <h3 class="sub">2.1 Brand colours</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Update to</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Primary</td><td class="col-where">brand/primary · token.colorPrimary</td><td class="col-update"><strong>#c3eb42</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Primary hover</td><td class="col-where">brand/primary-hover · token.colorPrimaryHover</td><td class="col-update"><strong>#d4f267</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Primary active</td><td class="col-where">brand/primary-active · token.colorPrimaryActive</td><td class="col-update"><strong>#9cc42d</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Primary bg (tint)</td><td class="col-where">brand/primary-bg · CSS --primary-bg</td><td class="col-update"><strong>#f9ffe2</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Primary border (tint)</td><td class="col-where">brand/primary-border · CSS --primary-border</td><td class="col-update"><strong>#e6f4a3</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Text on primary</td><td class="col-where">brand/primary-on · Button.primaryColor</td><td class="col-update"><strong>#121212</strong> (NOT white)</td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Primary bg (dark)</td><td class="col-where">brand/primary-dark/bg · [data-theme=dark] --primary-bg</td><td class="col-update"><strong>#232915</strong></td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Primary border (dark)</td><td class="col-where">brand/primary-dark/border · [data-theme=dark] --primary-border</td><td class="col-update"><strong>#495522</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.2 Surface colours</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Old → New (light) · (dark)</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Bg-base</td><td class="col-where">surface/bg-base · token.colorBgBase</td><td class="col-update">#fff → <strong>#fbfbf9</strong> · #000 → <strong>#0d0d0d</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Bg-container</td><td class="col-where">surface/bg-container · token.colorBgContainer</td><td class="col-update">#fff (same) · #1f1f1f → <strong>#161616</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Bg-elevated</td><td class="col-where">surface/bg-elevated · token.colorBgElevated</td><td class="col-update">#fff (same) · #1f1f1f → <strong>#1e1e1e</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Bg-spotlight (NEW)</td><td class="col-where">surface/bg-spotlight · token.colorBgSpotlight</td><td class="col-update"><strong>#f4f4f0</strong> · <strong>#2a2a2a</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Bg-layout</td><td class="col-where">surface/bg-layout · token.colorBgLayout</td><td class="col-update">#fafafa → <strong>#fbfbf9</strong> · #000 → <strong>#0d0d0d</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.3 Border colours</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Old → New (light) · (dark)</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Border primary</td><td class="col-where">border/primary · token.colorBorder</td><td class="col-update">#d9d9d9 → <strong>#e7e5dc</strong> · #424242 → <strong>#2a2a2a</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Border secondary</td><td class="col-where">border/secondary · token.colorBorderSecondary</td><td class="col-update">#f0f0f0 → <strong>#efeee7</strong> · #303030 → <strong>#1f1f1f</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.4 Text colours (alpha-channel warm blacks)</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Text primary</td><td class="col-where">text/primary · token.colorText</td><td class="col-update">rgba(0,0,0,<strong>0.88</strong>) → rgba(<strong>15,15,12</strong>,0.92)</td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Text secondary</td><td class="col-where">text/secondary · token.colorTextSecondary</td><td class="col-update">rgba(0,0,0,0.65) → rgba(15,15,12,<strong>0.62</strong>)</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Text tertiary</td><td class="col-where">text/tertiary · token.colorTextTertiary</td><td class="col-update">rgba(0,0,0,0.45) → rgba(15,15,12,<strong>0.42</strong>)</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Text disabled</td><td class="col-where">text/disabled · token.colorTextQuaternary</td><td class="col-update">rgba(0,0,0,0.25) → rgba(15,15,12,<strong>0.22</strong>)</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.5 Status colours</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Light · Dark</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Success</td><td class="col-where">status/success · token.colorSuccess</td><td class="col-update">#52c41a (same) · <strong>#49aa19</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Warning</td><td class="col-where">status/warning · token.colorWarning</td><td class="col-update">#faad14 (same) · <strong>#d89614</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Error</td><td class="col-where">status/error · token.colorError</td><td class="col-update">#ff4d4f (same) · <strong>#dc4446</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Info</td><td class="col-where">status/info · token.colorInfo</td><td class="col-update">#1677ff (same)</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.6 Typography — Geist family + ALL sizes −1px</h3>
+  <div class="callout"><strong>Font swap:</strong> replace Inter/system with <strong>Geist</strong> (sans) + <strong>Geist Mono</strong>. Install via <code>@fontsource/geist</code> in code, link in Figma DS.</div>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Old → New (−1px)</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Font size — xs</td><td class="col-where">font/size/xs · (alias)</td><td class="col-update">11px → <strong>10px</strong> / 15px lh</td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Font size — sm</td><td class="col-where">font/size/sm · token.fontSizeSM</td><td class="col-update">12px → <strong>11px</strong> / 19px</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Font size — base</td><td class="col-where">font/size/base · token.fontSize</td><td class="col-update">14px → <strong>13px</strong> / 21px</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Font size — lg</td><td class="col-where">font/size/lg · token.fontSizeLG</td><td class="col-update">16px → <strong>15px</strong> / 23px</td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Font size — xl</td><td class="col-where">font/size/xl · token.fontSizeXL</td><td class="col-update">20px → <strong>19px</strong> / 27px</td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Heading 5</td><td class="col-where">font/size/h5 · token.fontSizeHeading5</td><td class="col-update">16 → <strong>15px</strong> / 23px</td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Heading 4</td><td class="col-where">font/size/h4 · token.fontSizeHeading4</td><td class="col-update">20 → <strong>19px</strong> / 27px</td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Heading 3</td><td class="col-where">font/size/h3 · token.fontSizeHeading3</td><td class="col-update">24 → <strong>23px</strong> / 31px</td></tr>
+      <tr><td class="col-num">9</td><td class="col-what">Heading 2</td><td class="col-where">font/size/h2 · token.fontSizeHeading2</td><td class="col-update">30 → <strong>29px</strong> / 37px</td></tr>
+      <tr><td class="col-num">10</td><td class="col-what">Heading 1</td><td class="col-where">font/size/h1 · token.fontSizeHeading1</td><td class="col-update">38 → <strong>37px</strong> / 45px</td></tr>
+      <tr><td class="col-num">11</td><td class="col-what">Display</td><td class="col-where">font/size/display · CSS var</td><td class="col-update">56 → <strong>55px</strong> / 59px</td></tr>
+      <tr><td class="col-num">12</td><td class="col-what">Display large</td><td class="col-where">font/size/display-lg · CSS var</td><td class="col-update">72 → <strong>71px</strong> / 75px</td></tr>
+      <tr><td class="col-num">13</td><td class="col-what">Heading weight</td><td class="col-where">font/weight/heading · token.fontWeightStrong</td><td class="col-update">600 → <strong>700</strong></td></tr>
+      <tr><td class="col-num">14</td><td class="col-what">Heading tracking</td><td class="col-where">font/tracking/display · global CSS on h1..h5</td><td class="col-update">0 → <strong>-0.01em</strong></td></tr>
+      <tr><td class="col-num">15</td><td class="col-what">Font family — sans</td><td class="col-where">font/family/sans · token.fontFamily</td><td class="col-update">system → <strong>Geist</strong></td></tr>
+      <tr><td class="col-num">16</td><td class="col-what">Font family — mono</td><td class="col-where">font/family/mono · global CSS 'Geist Mono'</td><td class="col-update">system mono → <strong>Geist Mono</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.7 Geist Mono — usage rules (NEW)</h3>
+  <p class="lead">Mono is no longer code-only. Apply it as the primary font for these categories. Rule: <strong>secondary info → Mono. Primary content (titles, body, button labels) → Sans.</strong></p>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Category</th><th class="col-where">Figma text style · Code class</th><th class="col-update">Style</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Numbers (counts, prices, IDs, dates)</td><td class="col-where">num · .num</td><td class="col-update">Mono · tabular-nums · weight 500-600</td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Descriptions / captions</td><td class="col-where">meta · .meta</td><td class="col-update">Mono · 11px / 16px · text-tertiary</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Info / helper / tooltip text</td><td class="col-where">info · .info</td><td class="col-update">Mono · 11px · text-secondary</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Eyebrow titles above cards</td><td class="col-where">eyebrow · .eyebrow</td><td class="col-update">Mono · 11px · uppercase · letter-spacing 0.05em · weight 600</td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Metadata chips (v3 · 1024×1280)</td><td class="col-where">meta · .meta</td><td class="col-update">Mono · 10-11px · text-tertiary</td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Alert body text</td><td class="col-where">Alert spec · CSS override</td><td class="col-update">Mono · 12px · text-secondary</td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Table column headers</td><td class="col-where">Table spec · Table.headerColor + CSS</td><td class="col-update">Mono · 11px · uppercase · letter-spacing 0.08em · weight 600</td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Quality / status pills</td><td class="col-where">Quality chip · QualityScoreChip wrapper</td><td class="col-update">Mono · 10-11px · uppercase · weight 700</td></tr>
+      <tr><td class="col-num">9</td><td class="col-what">Domain / URL displays</td><td class="col-where">inline · inline</td><td class="col-update">Mono · base size · text-secondary</td></tr>
+      <tr><td class="col-num">10</td><td class="col-what">Keyboard hints (⌘K)</td><td class="col-where">inline · inline</td><td class="col-update">Mono · 10px · text-tertiary</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.8 Spacing (4pt scale)</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where</th><th class="col-update">Value</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">space/1 → space/20</td><td class="col-where">space/1..20 · tailwind gap-* / Ant default</td><td class="col-update"><strong>4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48 · 64 · 80px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.9 Border radius — expanded scale</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">xs</td><td class="col-where">radius/xs · token.borderRadiusXS</td><td class="col-update">2px (same)</td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">sm</td><td class="col-where">radius/sm · token.borderRadiusSM</td><td class="col-update">4px (same)</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">base</td><td class="col-where">radius/base · token.borderRadius</td><td class="col-update">6px (same)</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">lg</td><td class="col-where">radius/lg · token.borderRadiusLG</td><td class="col-update">8px (same)</td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">card (NEW)</td><td class="col-where">radius/card · CSS --radius-card</td><td class="col-update"><strong>16px</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">xl (NEW)</td><td class="col-where">radius/xl · CSS --radius-xl</td><td class="col-update"><strong>20px</strong></td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">2xl (NEW)</td><td class="col-where">radius/2xl · CSS --radius-2xl</td><td class="col-update"><strong>28px</strong></td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">pill (NEW)</td><td class="col-where">radius/pill · CSS --radius-pill</td><td class="col-update"><strong>100px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.10 Shadows</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Composition</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">sm (light)</td><td class="col-where">shadow/sm · token.boxShadowTertiary</td><td class="col-update">y=1 blur=2 rgba(15,15,12,0.04)</td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">md (light)</td><td class="col-where">shadow/md · token.boxShadow</td><td class="col-update">y=1 blur=3 + y=8 blur=24, stacked</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">lg (light)</td><td class="col-where">shadow/lg · token.boxShadowSecondary</td><td class="col-update">y=2 blur=4 + y=12 blur=40, stacked</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">xl (light)</td><td class="col-where">shadow/xl · CSS var</td><td class="col-update">y=4 blur=8 + y=24 blur=64, stacked</td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">primary-btn (NEW)</td><td class="col-where">shadow/primary-btn · Button.primaryShadow</td><td class="col-update">y=1 blur=2 (0,0,0,0.04) + 0 spread 4 (lime 22%)</td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">input-active (NEW)</td><td class="col-where">shadow/input-active · Input.activeShadow</td><td class="col-update">0 spread 4 rgba(195,235,66,0.18)</td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">glow (NEW)</td><td class="col-where">shadow/glow · CSS --shadow-glow</td><td class="col-update">0 spread 1 (lime 40%) + 0 blur 24 (lime 18%)</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.11 Heights (interactive elements)</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Value</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">xs · sm · base · lg · xl</td><td class="col-where">height/xs..xl · token.controlHeight*</td><td class="col-update"><strong>16 · 24 · 32 · 40 · 52px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">2.12 Motion</h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Token</th><th class="col-where">Where</th><th class="col-update">Value</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">duration/fast · base · slow</td><td class="col-where">Smart Animate presets · token.motionUnitFast / Base</td><td class="col-update"><strong>200 · 300 · 500ms</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">duration/lift</td><td class="col-where">preset · .lift utility class</td><td class="col-update"><strong>220ms</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">duration/pop-in</td><td class="col-where">preset · .pop-in utility class</td><td class="col-update"><strong>320ms</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">easing/standard</td><td class="col-where">preset · CSS --ease-standard</td><td class="col-update">cubic-bezier(0.32, 0.72, 0, 1)</td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">easing/pop</td><td class="col-where">preset · CSS --ease-pop</td><td class="col-update">cubic-bezier(0.2, 0.8, 0.2, 1)</td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">easing/pulse</td><td class="col-where">preset · CSS --ease-pulse</td><td class="col-update">cubic-bezier(0.4, 0, 0.6, 1)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 03. COMPONENT CHANGES ───────────────────────────────────── -->
+<section class="major">
+  <h2 class="section"><span class="num">Section 03</span>Component changes</h2>
+  <p class="lead">17 base Ant components. One row per change inside each. Figma hook + Ant token hook listed together. Once foundation tokens (Section 02) are correct, most of these changes propagate automatically — these are the per-component overrides on top.</p>
+
+  <h3 class="sub">3.1 Button <span class="delta">Pill radius · −1px font · weight 500 · lime ring shadow</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where (Figma · Ant)</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius (text buttons)</td><td class="col-where">Button → radius/pill · Button.borderRadius</td><td class="col-update">6px → <strong>100px (PILL)</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Radius (icon buttons)</td><td class="col-where">Button "icon" variant · .btn-icon-square className</td><td class="col-update">6px (unchanged for icon-only)</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Primary fill</td><td class="col-where">Component prop · token.colorPrimary</td><td class="col-update">blue → <strong>lime</strong> (auto via token)</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Primary text colour</td><td class="col-where">Component prop · Button.primaryColor</td><td class="col-update">white → <strong>#121212</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Primary hover shadow</td><td class="col-where">Effect · Button.primaryShadow</td><td class="col-update">none → <strong>lime ring</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Default shadow</td><td class="col-where">Drop shadow · Button.defaultShadow</td><td class="col-update">subtle → <strong>none</strong></td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Padding inline (default)</td><td class="col-where">Spec · Button.paddingInline</td><td class="col-update">15px → <strong>16px</strong></td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Padding inline (lg)</td><td class="col-where">Spec · Button.paddingInlineLG</td><td class="col-update">15px → <strong>22px</strong></td></tr>
+      <tr><td class="col-num">9</td><td class="col-what">Padding inline (sm)</td><td class="col-where">Spec · Button.paddingInlineSM</td><td class="col-update">7px → <strong>12px</strong></td></tr>
+      <tr><td class="col-num">10</td><td class="col-what">Font size</td><td class="col-where">Type · Button.contentFontSize</td><td class="col-update">14px → <strong>13px</strong></td></tr>
+      <tr><td class="col-num">11</td><td class="col-what">Font weight</td><td class="col-where">Type · Button.fontWeight</td><td class="col-update">400 → <strong>500</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.2 Card <span class="delta">Radius 8→16 · padding tighter · hover lift</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">Card → radius/card · Card.borderRadiusLG</td><td class="col-update">8px → <strong>16px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Padding</td><td class="col-where">Spec · Card.paddingLG</td><td class="col-update">24px → <strong>20px</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Header bg</td><td class="col-where">Prop · Card.headerBg</td><td class="col-update">grey → <strong>transparent</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Hover lift</td><td class="col-where">Smart Animate motion/lift · .lift class</td><td class="col-update">none → <strong>translateY(-2px) + shadow lg</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.3 Input <span class="delta">Pill radius 28 · lime focus halo · height 40</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">Input → radius/2xl · Input.borderRadius</td><td class="col-update">6px → <strong>28px (rounded-2xl)</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Focus border colour</td><td class="col-where">Spec · Input.activeBorderColor</td><td class="col-update">blue → <strong>#e6f4a3 lime tint</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Focus shadow</td><td class="col-where">Effect · Input.activeShadow</td><td class="col-update">2px blue → <strong>4px lime halo</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Hover border</td><td class="col-where">Spec · Input.hoverBorderColor</td><td class="col-update">blue → <strong>#c3eb42 lime</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Padding block</td><td class="col-where">Spec · Input.paddingBlock</td><td class="col-update">4px → <strong>8px</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Padding inline</td><td class="col-where">Spec · Input.paddingInline</td><td class="col-update">11px → <strong>14px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.4 Select / Cascader <span class="delta">Match Input · lime active option</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">radius/2xl · Select.borderRadius</td><td class="col-update">6px → <strong>28px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Active option bg</td><td class="col-where">Spec · Select.optionSelectedBg</td><td class="col-update">blue tint → <strong>#f9ffe2 lime tint</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Active option text</td><td class="col-where">Spec · Select.optionSelectedColor</td><td class="col-update">blue → <strong>#121212 dark</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Active option weight</td><td class="col-where">Type · Select.optionSelectedFontWeight</td><td class="col-update">400 → <strong>600</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.5 Textarea <span class="delta">Same as Input + hero variant</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">radius/2xl · Input.borderRadius</td><td class="col-update">6px → <strong>28px</strong> (matches Input)</td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Hero variant (NEW)</td><td class="col-where">Hero prompt input component · &lt;HeroPromptInput&gt; wrapper</td><td class="col-update">n/a → <strong>radial-gradient lime backdrop on focus + suggestion pill row</strong> (see Section 04.6)</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.6 Checkbox · Radio · Switch <span class="delta">Lime active · thicker border</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Checkbox border-width</td><td class="col-where">Spec · Checkbox.lineWidth</td><td class="col-update">1px → <strong>1.5px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Checkbox checked colour</td><td class="col-where">Prop · Checkbox.colorPrimary</td><td class="col-update">blue → <strong>lime</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Radio active colour</td><td class="col-where">Prop · Radio.colorPrimary</td><td class="col-update">blue → <strong>lime</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Switch on colour</td><td class="col-where">Prop · Switch.colorPrimary</td><td class="col-update">blue → <strong>lime</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Switch height</td><td class="col-where">Spec · Switch.trackHeight</td><td class="col-update">22px → <strong>24px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.7 Modal · Dialog <span class="delta">Radius 8→16 · title bigger · backdrop blur</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">Modal → radius/card · Modal.borderRadiusLG</td><td class="col-update">8px → <strong>16px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Title font size</td><td class="col-where">Spec · Modal.titleFontSize</td><td class="col-update">16px → <strong>17px</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Header bg</td><td class="col-where">Spec · Modal.headerBg</td><td class="col-update">grey → <strong>transparent</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Footer bg</td><td class="col-where">Spec · global CSS .ant-modal-footer</td><td class="col-update">white → <strong>#fbfbf9 warm</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Backdrop</td><td class="col-where">Overlay effect · global CSS .ant-modal-mask</td><td class="col-update">rgba(0,0,0,0.45) no blur → <strong>rgba(0,0,0,0.7) + blur(4px)</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.8 Drawer / Sheet <span class="delta">Wider · inner-edge radius 16</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Default width</td><td class="col-where">Spec · Drawer.width</td><td class="col-update">360px → <strong>400px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Inner-edge radius</td><td class="col-where">Spec · Drawer.borderRadiusLG</td><td class="col-update">0 → <strong>16px</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Header padding</td><td class="col-where">Spec · inline override</td><td class="col-update">16px → <strong>20px 24px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.9 Tag · Badge · Pill <span class="delta">Pill radius · Mono uppercase · status tints softer</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">Tag → radius/pill · Tag.borderRadiusSM + global CSS</td><td class="col-update">4px → <strong>100px (pill)</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Default bg</td><td class="col-where">Spec · Tag.defaultBg</td><td class="col-update">#fafafa → <strong>#f4f4f0</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Padding</td><td class="col-where">Spec · global CSS</td><td class="col-update">0 7px → <strong>0 10px</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Font</td><td class="col-where">Type · Tag.fontFamily</td><td class="col-update">sans → <strong>Geist Mono</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Font weight</td><td class="col-where">Type · global CSS</td><td class="col-update">400 → <strong>600</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Text case</td><td class="col-where">Spec · global CSS</td><td class="col-update">mixed → <strong>UPPERCASE + letter-spacing 0.06em</strong></td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Status variants</td><td class="col-where">Spec · global CSS per status</td><td class="col-update">solid pastel bg → <strong>10% alpha bg + 30% alpha border</strong></td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Count badge font</td><td class="col-where">Type · Badge.fontFamily + fontWeight</td><td class="col-update">sans 400 → <strong>Mono 700</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.10 Tabs <span class="delta">Lime underline · firmer active weight</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Active underline colour</td><td class="col-where">Prop · Tabs.inkBarColor</td><td class="col-update">blue → <strong>lime</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Active text weight</td><td class="col-where">Spec · global CSS .ant-tabs-tab-active</td><td class="col-update">400 → <strong>600</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Item gap</td><td class="col-where">Spec · Tabs.horizontalItemGutter</td><td class="col-update">32px → <strong>24px</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Item font size</td><td class="col-where">Spec · Tabs.titleFontSize</td><td class="col-update">14px → <strong>13px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.11 Segmented control <span class="delta">Pill container · lime active tint</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Container radius</td><td class="col-where">radius/pill · Segmented.borderRadius</td><td class="col-update">6px → <strong>100px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Container bg</td><td class="col-where">Spec · Segmented.trackBg</td><td class="col-update">rgba(0,0,0,0.04) → <strong>#f4f4f0</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Active segment bg</td><td class="col-where">Spec · Segmented.itemSelectedBg</td><td class="col-update">white → <strong>#f9ffe2 lime tint</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Active segment weight</td><td class="col-where">Spec · global CSS override</td><td class="col-update">400 → <strong>600</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.12 Table <span class="delta">Radius 8→16 · header Mono uppercase · warm bg</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Wrapping radius</td><td class="col-where">radius/card · Table.borderRadiusLG</td><td class="col-update">8px → <strong>16px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Header bg</td><td class="col-where">Spec · Table.headerBg</td><td class="col-update">#fafafa → <strong>#f4f4f0 warm</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Header font</td><td class="col-where">Type · global CSS .ant-table-thead th</td><td class="col-update">sans 14px → <strong>Mono 11px uppercase letter-spacing 0.08em weight 600</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Header padding</td><td class="col-where">Spec · global CSS</td><td class="col-update">16px → <strong>12px</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Row padding</td><td class="col-where">Spec · Table.cellPaddingBlock</td><td class="col-update">16px → <strong>14px</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Row font size</td><td class="col-where">Spec · Table.cellFontSize</td><td class="col-update">14px → <strong>13px</strong></td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Row hover bg</td><td class="col-where">Spec · Table.rowHoverBg</td><td class="col-update">grey → <strong>#f7f7f4 warm muted</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.13 Empty state <span class="delta">Lime motif card · stronger hierarchy · dot-grid bg</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Image slot</td><td class="col-where">New variant · &lt;LimeMotifEmpty&gt; wrapper (overrides Empty.image)</td><td class="col-update">Generic line drawing → <strong>64×64 lime motif card</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Title (NEW)</td><td class="col-where">New text style · inline override</td><td class="col-update">n/a → <strong>15px weight 700</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Description</td><td class="col-where">Spec · .meta class via wrapper</td><td class="col-update">sans 14px → <strong>Mono 11px text-secondary</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Optional bg</td><td class="col-where">.dot-grid utility</td><td class="col-update">none → <strong>dot-grid pattern overlay</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.14 Tooltip · Popover <span class="delta">Tooltip Mono 11px · popover compound shadow</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Tooltip font size</td><td class="col-where">Spec · Tooltip.fontSize + global CSS</td><td class="col-update">14px sans → <strong>11px Geist Mono</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Tooltip bg</td><td class="col-where">Spec · Tooltip.colorBgSpotlight</td><td class="col-update">rgba(0,0,0,0.85) → <strong>rgba(15,15,12,0.92)</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Popover radius</td><td class="col-where">radius/lg · Popover.borderRadius</td><td class="col-update">6px → <strong>8px</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Popover shadow</td><td class="col-where">Effect · Popover.boxShadow</td><td class="col-update">single → <strong>compound stacked</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Popover title weight</td><td class="col-where">Type · Popover.titleFontWeight</td><td class="col-update">500 → <strong>600</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Popover body font</td><td class="col-where">Spec · inline overrides</td><td class="col-update">sans → <strong>Geist Mono 11px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.15 Alert · Status banner <span class="delta">Radius 8→16 · softer tints · icon circle</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Radius</td><td class="col-where">radius/card · Alert.borderRadiusLG</td><td class="col-update">8px → <strong>16px</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Bg alpha</td><td class="col-where">Spec · global CSS per-status</td><td class="col-update">solid pastel → <strong>6% alpha</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Border alpha</td><td class="col-where">Spec · global CSS per-status</td><td class="col-update">solid → <strong>25% alpha</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Icon slot</td><td class="col-where">New variant · custom JSX inside Alert</td><td class="col-update">inline outline-icon → <strong>18×18 circle in status colour</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Font</td><td class="col-where">Type · Alert.fontSize + global override</td><td class="col-update">sans 14px → <strong>Mono 12px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.16 Skeleton <span class="delta">Lime mid-band · slower 2.4s · radius 6</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Shimmer cadence</td><td class="col-where">Motion preset · Skeleton custom keyframe</td><td class="col-update">1.4s → <strong>2.4s</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Shimmer mid-band</td><td class="col-where">Spec · Skeleton.gradientToColor</td><td class="col-update">grey → <strong>lime rgba(195,235,66,0.12)</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Block radius</td><td class="col-where">Spec · Skeleton.blockRadius</td><td class="col-update">4px → <strong>6px</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">3.17 Typography <span class="delta">−1px scale · Geist · weight 700 · Mono on metadata</span></h3>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Property</th><th class="col-where">Where</th><th class="col-update">Old → New</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">All sizes</td><td class="col-where">Section 02.6 foundation</td><td class="col-update">14/16/20/24/30/38 → <strong>−1px each: 13/15/19/23/29/37</strong></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Heading weight</td><td class="col-where">font/weight/heading · token.fontWeightStrong</td><td class="col-update">600 → <strong>700</strong></td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Heading tracking</td><td class="col-where">Spec · global CSS</td><td class="col-update">0 → <strong>-0.01em</strong></td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Code bg</td><td class="col-where">Spec · global CSS</td><td class="col-update">grey → <strong>#f4f4f0 warm spotlight</strong></td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Eyebrow style (NEW)</td><td class="col-where">eyebrow text style · .eyebrow class</td><td class="col-update">n/a → <strong>Mono 11px uppercase letter-spacing 0.05em weight 600</strong></td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Number style (NEW)</td><td class="col-where">num text style · .num class</td><td class="col-update">n/a → <strong>Mono tabular-nums weight 500-600</strong></td></tr>
+      <tr><td class="col-num">7</td><td class="col-what">Meta style (NEW)</td><td class="col-where">meta text style · .meta class</td><td class="col-update">n/a → <strong>Mono 11px text-tertiary</strong></td></tr>
+      <tr><td class="col-num">8</td><td class="col-what">Info style (NEW)</td><td class="col-where">info text style · .info class</td><td class="col-update">n/a → <strong>Mono 11px text-secondary</strong></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 04. GENIE-EXCLUSIVE PATTERNS ────────────────────────────── -->
+<section class="major">
+  <h2 class="section"><span class="num">Section 04</span>Genie-exclusive patterns (15 NEW)</h2>
+  <p class="lead">These do NOT exist in Ant Design's library. Add each as a new DS component in Figma + a new React wrapper or CSS utility in code. Refer to design-system-comparison.html for live visual.</p>
+
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Pattern</th><th class="col-where">Figma · Code</th><th class="col-update">Spec</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="col-num">1</td>
+        <td class="col-what">Output card<br>(generation result)</td>
+        <td class="col-where">Output card component · &lt;OutputCard&gt; React component</td>
+        <td class="col-update">radius/xl 20px · 1px border-secondary · shadow-sm · thumbnail aspect 4:5 bg-spotlight · quality chip slot top-right · body padding 12 · title Geist 13/600 · meta Mono 10 · hover motion/lift · selected motion/glow</td>
+      </tr>
+      <tr>
+        <td class="col-num">2</td>
+        <td class="col-what">Quality score chip</td>
+        <td class="col-where">Quality chip component (3 variants) · &lt;QualityScoreChip variant=&gt; React component</td>
+        <td class="col-update">pill 100px · h 20 · padding 2 8 · Mono 10 uppercase 700 letter-spacing 0.06em · bg rgba(255,255,255,0.95) + backdrop-blur(8px) · border 1px status colour 30% alpha · 3 variants success/warning/error</td>
+      </tr>
+      <tr>
+        <td class="col-num">3</td>
+        <td class="col-what">Pulse ring indicator</td>
+        <td class="col-where">Pulse ring component + motion preset · .pulse-ring utility class + optional &lt;PulseDot&gt; wrapper</td>
+        <td class="col-update">12×12 dot bg primary · @keyframes pulse-ring box-shadow 0→8px lime fade · 1.6s easing/pulse infinite</td>
+      </tr>
+      <tr>
+        <td class="col-num">4</td>
+        <td class="col-what">Glass surface</td>
+        <td class="col-where">Glass effect style · .glass utility class</td>
+        <td class="col-update">bg rgba(255,255,255,0.72) light · rgba(22,22,22,0.62) dark · backdrop-filter blur(20px) saturate(140%) · 1px subtle border · radius/lg or /card</td>
+      </tr>
+      <tr>
+        <td class="col-num">5</td>
+        <td class="col-what">Lime glow halo</td>
+        <td class="col-where">Glow halo effect style · .glow utility class</td>
+        <td class="col-update">composite box-shadow 0 0 0 1px rgba(195,235,66,0.4) + 0 0 24px rgba(195,235,66,0.18) · dark mode 32px corona at 0.25 alpha</td>
+      </tr>
+      <tr>
+        <td class="col-num">6</td>
+        <td class="col-what">Hero prompt input</td>
+        <td class="col-where">Hero prompt input component (focused variant) · &lt;HeroPromptInput&gt; wrapper + .hero-prompt CSS class</td>
+        <td class="col-update">radius/2xl 28px · 1px border · padding 16-20 · on focus-within apply shadow/glow + ::before with radial-gradient lime backdrop blur(28px) · suggestion pill row below</td>
+      </tr>
+      <tr>
+        <td class="col-num">7</td>
+        <td class="col-what">Eyebrow text style</td>
+        <td class="col-where">eyebrow Text Style · .eyebrow class</td>
+        <td class="col-update">Mono 11px / 16px · uppercase · letter-spacing 0.05em · weight 600 · text-tertiary</td>
+      </tr>
+      <tr>
+        <td class="col-num">8</td>
+        <td class="col-what">Dot-grid pattern</td>
+        <td class="col-where">Pattern fill 'Dot grid' · .dot-grid utility class</td>
+        <td class="col-update">CSS background-image radial-gradient dots 1px at 32px grid · combined with centered lime radial-gradient · theme-aware opacity</td>
+      </tr>
+      <tr>
+        <td class="col-num">9</td>
+        <td class="col-what">Lift hover utility</td>
+        <td class="col-where">motion/lift Smart Animate preset · .lift utility class</td>
+        <td class="col-update">transition transform + box-shadow 220ms easing/standard · hover translateY(-2px) + shadow-sm → shadow-lg</td>
+      </tr>
+      <tr>
+        <td class="col-num">10</td>
+        <td class="col-what">Sheen animation</td>
+        <td class="col-where">motion/sheen preset · .sheen utility class</td>
+        <td class="col-update">::after pseudo-element with 90deg linear-gradient highlight · translateX(-120% → 220%) + skewX(-20deg) · 1.4s ease-in-out · fires ONCE</td>
+      </tr>
+      <tr>
+        <td class="col-num">11</td>
+        <td class="col-what">Float idle bob</td>
+        <td class="col-where">motion/float preset · .float utility class</td>
+        <td class="col-update">translateY(0 → -2px) loop · 3s ease-in-out infinite</td>
+      </tr>
+      <tr>
+        <td class="col-num">12</td>
+        <td class="col-what">Shimmer (custom skeletons)</td>
+        <td class="col-where">motion/shimmer preset · .shimmer utility class</td>
+        <td class="col-update">bg linear-gradient(90deg, transparent, rgba(195,235,66,0.12), transparent) + background-size 200% 100% · animate background-position -200% → 200% loop 2.4s linear</td>
+      </tr>
+      <tr>
+        <td class="col-num">13</td>
+        <td class="col-what">Fade-up entrance</td>
+        <td class="col-where">motion/fade-up preset · .fade-up utility class</td>
+        <td class="col-update">opacity 0 → 1 + translateY(+8px → 0) · 360ms easing/standard · often staggered (+60ms per child)</td>
+      </tr>
+      <tr>
+        <td class="col-num">14</td>
+        <td class="col-what">Pop-in entrance</td>
+        <td class="col-where">motion/pop-in preset · .pop-in utility class</td>
+        <td class="col-update">opacity 0 → 1 + scale 0.98 → 1 · 320ms easing/pop</td>
+      </tr>
+      <tr>
+        <td class="col-num">15</td>
+        <td class="col-what">MicroMotif icons (per-mode)</td>
+        <td class="col-where">6 icon components in MicroMotif master · &lt;MicroMotif mode=&gt; React component</td>
+        <td class="col-update">32×32 · currentColor inheritance · semantic stroke-width · 6 modes: Brand Ad · Product Ad · Affiliate Ad · UGC Video · Forge · Image-to-Ad</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 05. MIGRATION ORDER ─────────────────────────────────────── -->
+<section class="major">
+  <h2 class="section"><span class="num">Section 05</span>Migration order</h2>
+  <p class="lead">Apply in this sequence — each step builds on the previous.</p>
+  <table class="changes">
+    <thead><tr><th class="col-num">#</th><th class="col-what">Step</th><th class="col-where">Designer (Figma)</th><th class="col-update">Devs (React + Ant)</th></tr></thead>
+    <tbody>
+      <tr><td class="col-num">1</td><td class="col-what">Foundation tokens (Section 2)</td><td class="col-where">Replace Variables (colours, type, spacing, radius, shadows, motion)</td><td class="col-update">Update <code>ConfigProvider</code> <code>theme.token</code> + add CSS vars in <code>genie-tokens.css</code></td></tr>
+      <tr><td class="col-num">2</td><td class="col-what">Install Geist + Geist Mono</td><td class="col-where">Link the font in DS file</td><td class="col-update"><code>@fontsource/geist</code> or Google Fonts link</td></tr>
+      <tr><td class="col-num">3</td><td class="col-what">Component changes (Section 3)</td><td class="col-where">Re-link DS components to updated tokens</td><td class="col-update">Add per-component overrides in <code>theme.components</code> + global CSS where Ant doesn't expose tokens</td></tr>
+      <tr><td class="col-num">4</td><td class="col-what">Genie-exclusive patterns (Section 4)</td><td class="col-where">Build 15 new DS components</td><td class="col-update">5 React wrappers + 11 CSS utility classes + 6 SVG motif components</td></tr>
+      <tr><td class="col-num">5</td><td class="col-what">Dark mode</td><td class="col-where">Apply dark-mode token swaps</td><td class="col-update">Ant <code>theme.darkAlgorithm</code> + <code>[data-theme="dark"]</code> CSS overrides</td></tr>
+      <tr><td class="col-num">6</td><td class="col-what">Cross-check</td><td class="col-where">Compare Figma against design-system-comparison.html right column</td><td class="col-update">Compare shipped app against design-system-comparison.html right column</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="foot">Genie 6.0 design language · Captured from FabAds Claude sandbox · Reference: design-system-comparison.html</div>
+</main>
+</body>
+</html>
