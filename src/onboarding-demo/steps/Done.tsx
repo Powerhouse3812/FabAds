@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { Check, Sparkles, Plus, X, Pencil } from "lucide-react";
+import {
+  Check, Sparkles, Plus, X, Pencil, Palette, Type as TypeIcon,
+  Users, Crosshair, ExternalLink, Target, Tag,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StepNav } from "../components/StepNav";
 import { EditableText } from "../components/EditableText";
@@ -8,6 +11,7 @@ import {
   EditableColorRow,
   type BrandColor,
 } from "../components/EditableColorRow";
+import { cn } from "@/lib/utils";
 
 interface DoneProps {
   mode: "ecom" | "affiliate";
@@ -20,18 +24,24 @@ interface DoneProps {
 
 /* ── Sample / default values ── */
 
-const ECOM_COMPETITORS_INIT = [
+interface Competitor {
+  initial: string;
+  name: string;
+  desc: string;
+}
+
+const ECOM_COMPETITORS_INIT: Competitor[] = [
   { initial: "A", name: "Aritzia", desc: "Apparel · Tracking: Ad creatives, Visual style" },
   { initial: "E", name: "Everlane", desc: "Apparel · Tracking: Messaging, Social posts" },
   { initial: "U", name: "Uniqlo", desc: "Apparel · Tracking: Promotions, Pricing" },
   { initial: "C", name: "COS", desc: "Apparel · Tracking: Visual style, Product launches" },
 ];
 
-const AFFILIATE_COMPETITORS_INIT = [
-  { initial: "P", name: "Progressive", desc: "Insurance · Tracking: Ad creatives, Messaging" },
-  { initial: "G", name: "GEICO", desc: "Insurance · Tracking: Video ads, Humor" },
-  { initial: "L", name: "Lemonade", desc: "Insurance · Tracking: Social posts, UGC" },
-  { initial: "S", name: "State Farm", desc: "Insurance · Tracking: Brand ads" },
+const AFFILIATE_COMPETITORS_INIT: Competitor[] = [
+  { initial: "P", name: "Progressive", desc: "Insurance · Ad creatives, Messaging" },
+  { initial: "G", name: "GEICO", desc: "Insurance · Video ads, Humor" },
+  { initial: "L", name: "Lemonade", desc: "Insurance · Social posts, UGC" },
+  { initial: "S", name: "State Farm", desc: "Insurance · Brand ads" },
 ];
 
 const BRAND_COLORS_INIT: BrandColor[] = [
@@ -45,11 +55,13 @@ const ECOM_DEFAULTS = {
   brand_description:
     "Premium everyday apparel made in small batches. Sustainable materials, modern silhouettes, honest pricing.",
   brand_voice: "Friendly · Confident",
-  typography: "Inter · Inter Mono",
+  typography_display: "Inter",
+  typography_body: "Inter Mono",
   target_audiences: "25–40, Urban · Style-forward",
 };
 
 const AFFILIATE_DEFAULTS = {
+  niche: "Insurance",
   category_description:
     "High-volume affiliate category with rich comparison-shop angles. Regulated content — disclaimers required — but steady CPA payouts and warm-buyer intent.",
   target_audience: "Homeowners, 30–55 · Cost-sensitive",
@@ -85,32 +97,44 @@ function brandNameFromHost(host: string): string {
     .join(" ");
 }
 
-/* ── Field row ── */
-function FieldRow({
-  label,
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "??";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/* ── Guidelines card wrapper — mirrors Catalogue brand detail ── */
+function GuidelinesCard({
+  title,
+  icon: Icon,
   children,
+  className,
 }: {
-  label: string;
+  title: string;
+  icon: React.ElementType;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-x-4 gap-y-1 items-baseline">
-      <p className="text-[11px] font-mono text-muted-foreground tabular-nums shrink-0">
-        {label}:
-      </p>
-      <div className="min-w-0">{children}</div>
+    <div
+      className={cn(
+        "rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm",
+        className,
+      )}
+    >
+      <div className="mb-3 flex items-center gap-1.5">
+        <Icon className="h-3 w-3 text-muted-foreground" aria-hidden />
+        <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
+          {title}
+        </h3>
+      </div>
+      {children}
     </div>
   );
 }
 
 /* ── Editable competitors card ── */
-
-interface Competitor {
-  initial: string;
-  name: string;
-  desc: string;
-}
-
 function CompetitorsCard({
   items,
   onChange,
@@ -158,24 +182,11 @@ function CompetitorsCard({
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 mt-4">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-[11px] font-mono text-muted-foreground">
-          competitors:
-        </p>
-        {!adding && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1 text-[12px] h-7"
-            onClick={() => setAdding(true)}
-          >
-            <Plus className="h-3 w-3" />
-            Add competitor
-          </Button>
-        )}
-      </div>
-
+    <GuidelinesCard
+      title={`Competitors · ${items.length}`}
+      icon={Crosshair}
+      className="col-span-full"
+    >
       {adding && (
         <div className="mb-3 flex items-center gap-2">
           <input
@@ -205,9 +216,9 @@ function CompetitorsCard({
         {items.map((c, i) => (
           <div
             key={`${c.name}-${i}`}
-            className="rounded-xl border border-border bg-background px-3 py-2.5 flex items-center gap-3"
+            className="rounded-lg border border-border/40 bg-background/50 px-3 py-2 flex items-center gap-3"
           >
-            <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-foreground shrink-0">
+            <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-[12px] font-semibold text-foreground shrink-0">
               {c.initial}
             </div>
             <div className="flex-1 min-w-0 space-y-0.5">
@@ -216,7 +227,7 @@ function CompetitorsCard({
                 onChange={(next) => updateName(i, next)}
                 ariaLabel={`Edit ${c.name} name`}
               />
-              <div className="text-[11px] text-muted-foreground truncate">
+              <div className="text-[10px] text-muted-foreground truncate">
                 <EditableText
                   value={c.desc}
                   onChange={(next) => updateDesc(i, next)}
@@ -235,7 +246,21 @@ function CompetitorsCard({
           </div>
         ))}
       </div>
-    </div>
+
+      {!adding && (
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 text-[11px] h-7"
+            onClick={() => setAdding(true)}
+          >
+            <Plus className="h-3 w-3" />
+            Add competitor
+          </Button>
+        </div>
+      )}
+    </GuidelinesCard>
   );
 }
 
@@ -257,16 +282,21 @@ export function Done({
     ECOM_DEFAULTS.brand_description,
   );
   const [brandVoice, setBrandVoice] = useState(ECOM_DEFAULTS.brand_voice);
-  const [brandLogoUrl, setBrandLogoUrl] = useState(`${brandHost}/logo.svg`);
   const [brandUrlValue, setBrandUrlValue] = useState(brandHost);
   const [brandColors, setBrandColors] = useState<BrandColor[]>(BRAND_COLORS_INIT);
-  const [typography, setTypography] = useState(ECOM_DEFAULTS.typography);
+  const [typographyDisplay, setTypographyDisplay] = useState(
+    ECOM_DEFAULTS.typography_display,
+  );
+  const [typographyBody, setTypographyBody] = useState(
+    ECOM_DEFAULTS.typography_body,
+  );
   const [targetAudiences, setTargetAudiences] = useState(
     ECOM_DEFAULTS.target_audiences,
   );
 
   // Affiliate state
   const [categoryValue, setCategoryValue] = useState(category ?? "Auto Insurance");
+  const [niche, setNiche] = useState(AFFILIATE_DEFAULTS.niche);
   const [categoryDescription, setCategoryDescription] = useState(
     AFFILIATE_DEFAULTS.category_description,
   );
@@ -285,26 +315,22 @@ export function Done({
     isEcom ? ECOM_COMPETITORS_INIT : AFFILIATE_COMPETITORS_INIT,
   );
 
-  // If the user navigates back to the input and re-runs with a new brand URL
-  // or category, reset the editable fields so they reflect the fresh analysis.
+  // Reset derived fields when the input URL / category changes upstream.
   useEffect(() => {
     if (isEcom) {
       setBrandName(brandNameFromHost(brandHost));
-      setBrandLogoUrl(`${brandHost}/logo.svg`);
       setBrandUrlValue(brandHost);
     } else {
       setCategoryValue(category ?? "Auto Insurance");
     }
-    // We intentionally do NOT reset the descriptive fields (brand_voice,
-    // brand_description, etc.) since they come from "AI analysis" that
-    // would re-run — but for demo simplicity they stay stable. Edit if
-    // needed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandHost, category, isEcom]);
 
   const editInputsLabel = isEcom
     ? "Start over with a different brand"
     : "Start over with a different category";
+
+  const initials = isEcom ? initialsFromName(brandName) : "";
 
   return (
     <div className="bg-background">
@@ -318,147 +344,243 @@ export function Done({
         onRestart={onRestart}
       />
 
-      <div className="max-w-[640px] mx-auto px-6 pt-2 pb-10">
+      <div className="max-w-[640px] mx-auto px-5 pt-2 pb-10 space-y-4">
         {/* Done header */}
         <div className="text-center mt-2">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Check className="h-6 w-6" strokeWidth={3} />
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Check className="h-5 w-5" strokeWidth={3} />
           </div>
-          <h1 className="text-2xl md:text-[28px] font-semibold tracking-tight mt-4">
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight mt-3">
             {isEcom ? "Brand" : "Category"}{" "}
             <span className="bg-primary/30 px-1.5 rounded">Ready!</span>
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-2">
+          <p className="text-[12px] text-muted-foreground mt-1.5">
             {isEcom
               ? "Your brand has been analyzed and is ready for generation."
               : "Your affiliate category has been analyzed and is ready for generation."}
           </p>
-          <p className="text-[11px] text-muted-foreground/70 mt-2">
+          <p className="text-[10px] text-muted-foreground/70 mt-1">
             Click any value to edit.
           </p>
         </div>
 
-        {/* Summary card — editable per-field */}
-        <div className="rounded-2xl border border-border bg-card p-5 mt-6 space-y-3">
+        {/* HERO CARD — brand / category identity + description */}
+        {isEcom ? (
+          <div className="rounded-2xl border border-border/40 bg-card/60 p-5 backdrop-blur-sm space-y-4">
+            <div className="flex items-start gap-4">
+              {/* Logo placeholder — initials in a rounded box */}
+              <div
+                className="h-14 w-14 rounded-xl border border-border/40 bg-primary/15 inline-flex items-center justify-center text-foreground font-mono text-[16px] font-bold shrink-0"
+                aria-label={`${brandName} logo`}
+              >
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h2 className="text-[20px] font-bold text-foreground leading-tight">
+                    <EditableText
+                      value={brandName}
+                      onChange={setBrandName}
+                      ariaLabel="Edit brand name"
+                    />
+                  </h2>
+                </div>
+                <div className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <ExternalLink className="h-3 w-3" aria-hidden />
+                  <EditableText
+                    value={brandUrlValue}
+                    onChange={setBrandUrlValue}
+                    mono
+                    ariaLabel="Edit brand URL"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* Brand description — below the logo block */}
+            <div className="text-[13px] leading-relaxed text-foreground">
+              <EditableText
+                value={brandDescription}
+                onChange={setBrandDescription}
+                multiline
+                ariaLabel="Edit brand description"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-border/40 bg-card/60 p-5 backdrop-blur-sm space-y-4">
+            <div className="flex items-start gap-4">
+              <div
+                className="h-14 w-14 rounded-xl border border-border/40 bg-primary/15 inline-flex items-center justify-center text-foreground shrink-0"
+                aria-hidden
+              >
+                <Target className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <h2 className="text-[20px] font-bold text-foreground leading-tight">
+                  <EditableText
+                    value={categoryValue}
+                    onChange={setCategoryValue}
+                    ariaLabel="Edit category"
+                  />
+                </h2>
+                <div className="inline-flex items-center gap-1.5">
+                  <span className="rounded-full bg-muted/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Affiliate
+                  </span>
+                  <span className="text-muted-foreground/40 text-[10px]">·</span>
+                  <span className="rounded-full bg-muted/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground">
+                    <EditableText
+                      value={niche}
+                      onChange={setNiche}
+                      mono
+                      ariaLabel="Edit niche"
+                    />
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="text-[13px] leading-relaxed text-foreground">
+              <EditableText
+                value={categoryDescription}
+                onChange={setCategoryDescription}
+                multiline
+                ariaLabel="Edit category description"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* DETAIL CARDS — 2-col grid on wide, 1-col on narrow */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {isEcom ? (
             <>
-              <FieldRow label="brand_name">
-                <EditableText
-                  value={brandName}
-                  onChange={setBrandName}
-                  ariaLabel="Edit brand name"
-                />
-              </FieldRow>
-              <FieldRow label="brand_description">
-                <EditableText
-                  value={brandDescription}
-                  onChange={setBrandDescription}
-                  multiline
-                  ariaLabel="Edit brand description"
-                />
-              </FieldRow>
-              <FieldRow label="brand_voice">
-                <EditableText
-                  value={brandVoice}
-                  onChange={setBrandVoice}
-                  ariaLabel="Edit brand voice"
-                />
-              </FieldRow>
-              <FieldRow label="brand_logo_url">
-                <EditableText
-                  value={brandLogoUrl}
-                  onChange={setBrandLogoUrl}
-                  mono
-                  ariaLabel="Edit brand logo URL"
-                />
-              </FieldRow>
-              <FieldRow label="brand_url">
-                <EditableText
-                  value={brandUrlValue}
-                  onChange={setBrandUrlValue}
-                  mono
-                  ariaLabel="Edit brand URL"
-                />
-              </FieldRow>
-              <FieldRow label="brand_colors">
+              <GuidelinesCard title="Brand voice" icon={Sparkles}>
+                <div className="text-[13px] leading-relaxed text-foreground">
+                  <EditableText
+                    value={brandVoice}
+                    onChange={setBrandVoice}
+                    ariaLabel="Edit brand voice"
+                  />
+                </div>
+              </GuidelinesCard>
+
+              <GuidelinesCard title="Typography" icon={TypeIcon}>
+                <div className="space-y-2">
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                      Display
+                    </p>
+                    <div
+                      className="text-[16px] font-semibold text-foreground"
+                      style={{ fontFamily: `'${typographyDisplay}', system-ui, sans-serif` }}
+                    >
+                      <EditableText
+                        value={typographyDisplay}
+                        onChange={setTypographyDisplay}
+                        ariaLabel="Edit display font"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                      Body
+                    </p>
+                    <div
+                      className="text-[13px] text-foreground"
+                      style={{ fontFamily: `'${typographyBody}', system-ui, sans-serif` }}
+                    >
+                      <EditableText
+                        value={typographyBody}
+                        onChange={setTypographyBody}
+                        ariaLabel="Edit body font"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </GuidelinesCard>
+
+              <GuidelinesCard
+                title="Colors"
+                icon={Palette}
+                className="col-span-full"
+              >
                 <EditableColorRow
                   items={brandColors}
                   onChange={setBrandColors}
                 />
-              </FieldRow>
-              <FieldRow label="typography">
-                <EditableText
-                  value={typography}
-                  onChange={setTypography}
-                  mono
-                  ariaLabel="Edit typography"
-                />
-              </FieldRow>
-              <FieldRow label="target_audiences">
-                <EditableText
-                  value={targetAudiences}
-                  onChange={setTargetAudiences}
-                  ariaLabel="Edit target audiences"
-                />
-              </FieldRow>
+              </GuidelinesCard>
+
+              <GuidelinesCard
+                title="Target audiences"
+                icon={Users}
+                className="col-span-full"
+              >
+                <div className="text-[13px] text-foreground">
+                  <EditableText
+                    value={targetAudiences}
+                    onChange={setTargetAudiences}
+                    ariaLabel="Edit target audiences"
+                  />
+                </div>
+              </GuidelinesCard>
             </>
           ) : (
             <>
-              <FieldRow label="category">
-                <EditableText
-                  value={categoryValue}
-                  onChange={setCategoryValue}
-                  ariaLabel="Edit category"
-                />
-              </FieldRow>
-              <FieldRow label="category_description">
-                <EditableText
-                  value={categoryDescription}
-                  onChange={setCategoryDescription}
-                  multiline
-                  ariaLabel="Edit category description"
-                />
-              </FieldRow>
-              <FieldRow label="target_audience">
-                <EditableText
-                  value={targetAudience}
-                  onChange={setTargetAudience}
-                  ariaLabel="Edit target audience"
-                />
-              </FieldRow>
-              <FieldRow label="suggested_angles">
+              <GuidelinesCard
+                title="Target audience"
+                icon={Users}
+                className="col-span-full"
+              >
+                <div className="text-[13px] text-foreground">
+                  <EditableText
+                    value={targetAudience}
+                    onChange={setTargetAudience}
+                    ariaLabel="Edit target audience"
+                  />
+                </div>
+              </GuidelinesCard>
+
+              <GuidelinesCard
+                title={`Suggested angles · ${suggestedAngles.length}`}
+                icon={Sparkles}
+                className="col-span-full"
+              >
                 <EditablePillRow
                   items={suggestedAngles}
                   onChange={setSuggestedAngles}
                   addPlaceholder="New angle"
                 />
-              </FieldRow>
-              <FieldRow label="target_keywords">
+              </GuidelinesCard>
+
+              <GuidelinesCard
+                title={`Target keywords · ${targetKeywords.length}`}
+                icon={Tag}
+                className="col-span-full"
+              >
                 <EditablePillRow
                   items={targetKeywords}
                   onChange={setTargetKeywords}
                   addPlaceholder="New keyword"
                 />
-              </FieldRow>
+              </GuidelinesCard>
             </>
           )}
-        </div>
 
-        <CompetitorsCard items={competitors} onChange={setCompetitors} />
+          <CompetitorsCard items={competitors} onChange={setCompetitors} />
+        </div>
 
         {/* Primary CTA */}
         <Button
           onClick={onStart}
           size="lg"
-          className="w-full mt-6 gap-2 h-12 text-[15px] font-semibold"
+          className="w-full mt-4 gap-2 h-12 text-[15px] font-semibold"
         >
           <Sparkles className="h-4 w-4" />
           Start Creating
         </Button>
 
-        {/* Secondary action — single link to "start over with a different
-            brand/category". Re-analyze button removed per Maalik. */}
-        <div className="flex justify-center mt-3.5 text-[12px]">
+        {/* Secondary action — single link to "start over with a different brand/category". */}
+        <div className="flex justify-center text-[12px]">
           <button
             onClick={onBack}
             className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
