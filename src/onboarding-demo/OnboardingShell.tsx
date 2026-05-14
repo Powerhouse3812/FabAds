@@ -8,11 +8,14 @@ import { Processing } from "./steps/Processing";
 import { Done } from "./steps/Done";
 
 type Mode = "ecom" | "affiliate";
+type WelcomeVariant = "creative" | "insights";
 /** -1 = Welcome celebration screen (pre-wizard, plays before Choose Mode). */
 type Step = -1 | 0 | 1 | 2 | 3;
 
 interface OnboardingData {
   mode: Mode;
+  /** Welcome screen variant (Creative vs Insights). Only relevant when step === -1. */
+  welcomeVariant: WelcomeVariant;
   /** E-commerce — single input */
   brandUrl?: string;
   /** Affiliate — two inputs */
@@ -32,20 +35,35 @@ interface OnboardingShellProps {
 
 /* ── URL <-> internal state mapping ──────────────────────────────── */
 
-/** Encoded URL step name → internal {step, mode} pair. */
-const URL_TO_STATE: Record<string, { step: Step; mode: Mode }> = {
-  "welcome": { step: -1, mode: "ecom" },
-  "choose-mode": { step: 0, mode: "ecom" },
-  "ecom-input": { step: 1, mode: "ecom" },
-  "ecom-processing": { step: 2, mode: "ecom" },
-  "ecom-done": { step: 3, mode: "ecom" },
-  "affiliate-input": { step: 1, mode: "affiliate" },
-  "affiliate-processing": { step: 2, mode: "affiliate" },
-  "affiliate-done": { step: 3, mode: "affiliate" },
+interface StateTriple {
+  step: Step;
+  mode: Mode;
+  welcomeVariant: WelcomeVariant;
+}
+
+/** Encoded URL step name → internal state. welcomeVariant is only
+    meaningful when step === -1. For non-welcome steps it defaults to
+    "creative" (ignored by the renderers). */
+const URL_TO_STATE: Record<string, StateTriple> = {
+  "welcome": { step: -1, mode: "ecom", welcomeVariant: "creative" },
+  "welcome-insights": { step: -1, mode: "ecom", welcomeVariant: "insights" },
+  "choose-mode": { step: 0, mode: "ecom", welcomeVariant: "creative" },
+  "ecom-input": { step: 1, mode: "ecom", welcomeVariant: "creative" },
+  "ecom-processing": { step: 2, mode: "ecom", welcomeVariant: "creative" },
+  "ecom-done": { step: 3, mode: "ecom", welcomeVariant: "creative" },
+  "affiliate-input": { step: 1, mode: "affiliate", welcomeVariant: "creative" },
+  "affiliate-processing": { step: 2, mode: "affiliate", welcomeVariant: "creative" },
+  "affiliate-done": { step: 3, mode: "affiliate", welcomeVariant: "creative" },
 };
 
-function stateToUrl(step: Step, mode: Mode): string {
-  if (step === -1) return "welcome";
+function stateToUrl(
+  step: Step,
+  mode: Mode,
+  welcomeVariant: WelcomeVariant,
+): string {
+  if (step === -1) {
+    return welcomeVariant === "insights" ? "welcome-insights" : "welcome";
+  }
   if (step === 0) return "choose-mode";
   const prefix = mode;
   if (step === 1) return `${prefix}-input`;
@@ -57,6 +75,8 @@ function stateToUrl(step: Step, mode: Mode): string {
  * Demo first-login onboarding flow ported from the ff.ai marketing site.
  *
  * Flow:
+ *   Step -1 Welcome          (Celebration screen, two variants: creative /
+ *                              insights, toggleable)
  *   Step 0  Choose Mode      (E-commerce | Affiliate)
  *   Step 1  Input            E-com: Brand URL only
  *                            Affiliate: Category name + Reference URLs
@@ -64,14 +84,11 @@ function stateToUrl(step: Step, mode: Mode): string {
  *   Step 3  Done             Brand/category-ready summary using the
  *                            locked field list per mode (see Done.tsx)
  *
- * Step + mode sync to URL as `?onb_step=ecom-input` etc. so the URL
- * reflects the current state and is shareable / deep-linkable. The
- * same step names map to the public `/onboarding-print/:step` routes
- * used by html.to.design export.
- *
- * No backend wiring — Step 2 is purely cosmetic (timed stages), Step 3 shows
- * hardcoded sample data. Drop-in demo for showing prospective users the
- * onboarding UX without needing a real scraping pipeline yet.
+ * Step + mode + welcomeVariant sync to URL as `?onb_step=...`. Same
+ * naming as the public `/onboarding-print/:step` routes used by
+ * html.to.design export. Toggling the welcome variant updates the
+ * URL from `?onb_step=welcome` to `?onb_step=welcome-insights` and
+ * vice versa.
  *
  * Rendered inside a forced-flow OnboardingModal — `onComplete` is invoked
  * to close the modal once the user finishes or skips. Sign-in still
@@ -81,21 +98,25 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Hydrate initial step/mode from `?onb_step=` if present (deep-link).
-  // Default landing: welcome (the celebration screen plays first; users
-  // who want to skip can hit ?onb_step=choose-mode).
+  // Hydrate initial state from `?onb_step=` if present (deep-link).
+  // Default landing: welcome / creative.
   const initialUrlStep = searchParams.get("onb_step");
-  const initialState =
-    (initialUrlStep && URL_TO_STATE[initialUrlStep]) ??
-    { step: -1 as Step, mode: "ecom" as Mode };
+  const initialState: StateTriple =
+    (initialUrlStep && URL_TO_STATE[initialUrlStep]) ?? {
+      step: -1,
+      mode: "ecom",
+      welcomeVariant: "creative",
+    };
 
   const [step, setStep] = useState<Step>(initialState.step);
-  const [data, setData] = useState<OnboardingData>({ mode: initialState.mode });
+  const [data, setData] = useState<OnboardingData>({
+    mode: initialState.mode,
+    welcomeVariant: initialState.welcomeVariant,
+  });
 
-  // Write step/mode back to URL whenever they change (replace history so
-  // the back button isn't spammed).
+  // Write current step/mode/variant back to URL on any change.
   useEffect(() => {
-    const target = stateToUrl(step, data.mode);
+    const target = stateToUrl(step, data.mode, data.welcomeVariant);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -104,7 +125,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
       },
       { replace: true },
     );
-  }, [step, data.mode, setSearchParams]);
+  }, [step, data.mode, data.welcomeVariant, setSearchParams]);
 
   const goto = useCallback((s: Step) => {
     setStep(s);
@@ -132,8 +153,18 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
 
   const goToLogin = useCallback(() => navigate("/auth"), [navigate]);
 
+  const setWelcomeVariant = useCallback((v: WelcomeVariant) => {
+    setData((d) => ({ ...d, welcomeVariant: v }));
+  }, []);
+
   if (step === -1) {
-    return <Welcome onContinue={() => goto(0)} />;
+    return (
+      <Welcome
+        variant={data.welcomeVariant}
+        onVariantChange={setWelcomeVariant}
+        onContinue={() => goto(0)}
+      />
+    );
   }
 
   if (step === 0) {

@@ -32,7 +32,15 @@ type Variant = "creative" | "insights";
 interface WelcomeProps {
   onContinue: () => void;
   printMode?: boolean;
-  /** Initial variant. Defaults to "creative". User can toggle in-app. */
+  /**
+   * Controlled variant (preferred). When provided together with
+   * `onVariantChange`, toggling syncs to the parent (e.g. URL state
+   * in OnboardingShell). Falls back to internal state if omitted —
+   * useful for the print page where there's no parent to wire to.
+   */
+  variant?: Variant;
+  onVariantChange?: (next: Variant) => void;
+  /** Initial variant when uncontrolled. Defaults to "creative". */
   initialVariant?: Variant;
 }
 
@@ -237,9 +245,18 @@ function StatCard({
 export function Welcome({
   onContinue,
   printMode = false,
+  variant: controlledVariant,
+  onVariantChange,
   initialVariant = "creative",
 }: WelcomeProps) {
-  const [variant, setVariant] = useState<Variant>(initialVariant);
+  // Controlled-when-prop / uncontrolled-otherwise.
+  const [internalVariant, setInternalVariant] =
+    useState<Variant>(initialVariant);
+  const variant = controlledVariant ?? internalVariant;
+  const setVariant = (next: Variant) => {
+    if (onVariantChange) onVariantChange(next);
+    else setInternalVariant(next);
+  };
   const [phase, setPhase] = useState(printMode ? 5 : 0);
   const config = CONFIGS[variant];
 
