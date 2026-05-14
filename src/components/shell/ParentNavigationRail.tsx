@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   MODULES,
@@ -16,6 +17,7 @@ import { UserMenu } from "@/components/UserMenu";
 import { useV7Shape } from "@/components/sidebar/useV7Shape";
 import { usePlan } from "@/contexts/PlanContext";
 import { PlanShiftToggle } from "@/components/shell/PlanShiftToggle";
+import { UpsellPopover } from "@/components/shell/UpsellPopover";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
@@ -35,9 +37,13 @@ export function ParentNavigationRail() {
   const isFloating = shape === "floating";
 
   const { plan } = usePlan();
-  const visibleModules = MODULES.filter(
-    (m) => !m.comingSoon && (m.plans?.includes(plan) ?? true),
-  );
+  // All non-coming-soon modules render in the rail. On AI plan, the ones
+  // tagged `plans: ["full"]` (Reports / Launch / Automation) render as
+  // LOCKED — greyed icon + Pro badge + click opens an upsell popover —
+  // rather than being hidden. Upsell-by-visibility per Maalik.
+  const visibleModules = MODULES.filter((m) => !m.comingSoon);
+  const isLocked = (m: ModuleDef) =>
+    !!(m.plans && !m.plans.includes(plan));
   const primary = visibleModules.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
   const tools = visibleModules.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
 
@@ -76,7 +82,13 @@ export function ParentNavigationRail() {
       <div className="relative z-10 flex-1 min-h-0 overflow-y-auto py-1.5 px-1.5">
         <div className="flex flex-col gap-0.5">
           {primary.map((mod) => (
-            <RailItem key={mod.key} mod={mod} isActive={activeKey === mod.key} onClick={() => handleClick(mod)} />
+            <RailItem
+              key={mod.key}
+              mod={mod}
+              isActive={activeKey === mod.key}
+              locked={isLocked(mod)}
+              onClick={() => handleClick(mod)}
+            />
           ))}
         </div>
         {tools.length > 0 && (
@@ -84,7 +96,13 @@ export function ParentNavigationRail() {
             <div className="my-2"><RailDivider /></div>
             <div className="flex flex-col gap-0.5">
               {tools.map((mod) => (
-                <RailItem key={mod.key} mod={mod} isActive={activeKey === mod.key} onClick={() => handleClick(mod)} />
+                <RailItem
+              key={mod.key}
+              mod={mod}
+              isActive={activeKey === mod.key}
+              locked={isLocked(mod)}
+              onClick={() => handleClick(mod)}
+            />
               ))}
             </div>
           </>
@@ -155,47 +173,98 @@ function RailDivider() {
   );
 }
 
-function RailItem({ mod, isActive, onClick }: { mod: ModuleDef; isActive: boolean; onClick: () => void }) {
+function RailItem({
+  mod,
+  isActive,
+  locked = false,
+  onClick,
+}: {
+  mod: ModuleDef;
+  isActive: boolean;
+  locked?: boolean;
+  onClick: () => void;
+}) {
   const Icon = mod.icon;
   const navigate = useNavigate();
+
+  // Locked items show a "PRO" badge in the existing badge slot (overrides
+  // any other badge). Greyed icon + label so the disabled state is clear.
+  const displayBadge = locked ? "PRO" : mod.badge;
 
   const button = (
     <button
       type="button"
-      onClick={onClick}
+      onClick={locked ? undefined : onClick}
       aria-current={isActive ? "page" : undefined}
+      aria-disabled={locked ? true : undefined}
       className={cn(
         "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
         "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
-        isActive ? "" : "hover:bg-white/[0.05]"
+        isActive ? "" : "hover:bg-white/[0.05]",
+        locked && "cursor-pointer",
       )}
     >
       <span
         className={cn(
           "relative flex h-6 w-6 items-center justify-center rounded transition-colors",
-          isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : ""
+          isActive ? "bg-white/[0.12] ring-1 ring-white/[0.18]" : "",
         )}
       >
-        <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-zinc-300")} />
-        {mod.badge ? (
+        <Icon
+          className={cn(
+            "h-4 w-4",
+            locked
+              ? "text-zinc-500"
+              : isActive
+                ? "text-white"
+                : "text-zinc-300",
+          )}
+        />
+        {displayBadge ? (
           <span
-            className="absolute -right-2 -top-1.5 rounded-sm bg-[#c3eb42] px-[3px] py-[1px] font-mono text-[7px] font-bold uppercase tracking-wider leading-none text-[#1a1a17] shadow-[0_0_0_1px_rgba(0,0,0,0.25)]"
+            className={cn(
+              "absolute -right-2 -top-1.5 rounded-sm px-[3px] py-[1px] font-mono text-[7px] font-bold uppercase tracking-wider leading-none shadow-[0_0_0_1px_rgba(0,0,0,0.25)]",
+              locked
+                ? "bg-zinc-200 text-zinc-700"
+                : "bg-[#c3eb42] text-[#1a1a17]",
+            )}
             aria-hidden="true"
           >
-            {mod.badge}
+            {displayBadge}
           </span>
         ) : null}
       </span>
       <span
         className={cn(
           "text-[8.5px] leading-[10px] font-medium tracking-tight text-center line-clamp-1 max-w-full px-0.5 mt-0.5",
-          isActive ? "text-white" : "text-zinc-400"
+          locked
+            ? "text-zinc-500"
+            : isActive
+              ? "text-white"
+              : "text-zinc-400",
         )}
       >
         {mod.label}
       </span>
     </button>
   );
+
+  // 0) Locked → render upsell popover on click. Skips sub-item nav.
+  if (locked) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>{button}</PopoverTrigger>
+        <PopoverContent
+          side="right"
+          align="start"
+          sideOffset={12}
+          className="p-0 w-auto"
+        >
+          <UpsellPopover moduleLabel={mod.label} />
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   // 1) Active module → suppress popover, render bare button (no tooltip noise either —
   //    user is already in this module).
