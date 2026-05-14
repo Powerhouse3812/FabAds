@@ -16,12 +16,15 @@ Sync the real-project codebase from **Default Ant Design v5 defaults** → **Gen
 | Primary text colour | `#fff` on primary | `#121212` on primary | Dark text on lime — high contrast |
 | Border colour | `#d9d9d9` (cool grey) | `#e7e5dc` (warm beige) | Warmer neutrals |
 | Bg-layout | `#fafafa` (cool grey) | `#fbfbf9` (warm off-white) | Warmer neutrals |
-| Input radius | 6px | 28px | **Pill inputs** — distinguishing |
+| **Button radius** | 6px (square-ish) | **100px (PILL)** for text buttons / 6px for icon-only | **Pill buttons** |
+| Input radius | 6px | 28px | Pill inputs |
 | Card radius | 8px | 16px | Bigger |
 | Modal radius | 8px | 16px | Bigger |
 | Badge radius | 4px | 100px | Pill badges |
+| **Typography scale** | base 14px | **base 13px (ALL sizes −1px)** | Tighter scale |
 | Heading weight | 600 | 700 | Bumped |
-| Tooltip font-size | 14px | 11px | Tighter |
+| Tooltip font-size | 14px | 11px (Geist Mono) | Tighter + Mono |
+| **Mono usage** | code only | **numbers + descriptions + info messages + eyebrows + table headers + tooltips** | Mono is everywhere now |
 | Focus halo | 2px blue ring | 4px lime spread | Bigger softer ring |
 | Backdrop blur | none | blur(4px) | New |
 | Heading font | system fallback | Geist | Brand font |
@@ -122,15 +125,27 @@ token: {
   borderRadiusSM: 4,
   borderRadiusXS: 2,
 
-  // ─── Font sizes (match Ant defaults — but enforce explicitly) ─
-  fontSizeLG: 16,
-  fontSizeSM: 12,
-  fontSizeXL: 20,
-  fontSizeHeading1: 38,
-  fontSizeHeading2: 30,
-  fontSizeHeading3: 24,
-  fontSizeHeading4: 20,
-  fontSizeHeading5: 16,
+  // ─── Font sizes — ALL −1px from Ant defaults ─────────────
+  fontSize: 13,                                                    // was 14 — base size −1
+  fontSizeLG: 15,                                                  // was 16
+  fontSizeSM: 11,                                                  // was 12
+  fontSizeXL: 19,                                                  // was 20
+  fontSizeHeading1: 37,                                            // was 38
+  fontSizeHeading2: 29,                                            // was 30
+  fontSizeHeading3: 23,                                            // was 24
+  fontSizeHeading4: 19,                                            // was 20
+  fontSizeHeading5: 15,                                            // was 16
+  // Line heights re-derived from the −1px sizes
+  lineHeight: 21 / 13,                                             // 21 / fontSize ratio
+  lineHeightLG: 23 / 15,
+  lineHeightSM: 19 / 11,
+  lineHeightHeading1: 45 / 37,
+  lineHeightHeading2: 37 / 29,
+  lineHeightHeading3: 31 / 23,
+  lineHeightHeading4: 27 / 19,
+  lineHeightHeading5: 23 / 15,
+  // Heading weight
+  fontWeightStrong: 700,                                           // was 600
 
   // ─── Heights ──────────────────────────────────────────────
   controlHeight:    32,
@@ -156,13 +171,19 @@ components: {
     primaryColor: '#121212',                                       // text ON lime — NOT white
     defaultShadow: 'none',                                          // drop subtle shadow
     primaryShadow: '0 1px 2px rgba(0,0,0,0.04), 0 0 0 4px rgba(195,235,66,0.22)',
-    fontWeight: 500,                                                // was 400
-    paddingInline: 12,                                              // was 15
-    paddingInlineLG: 16,                                            // was 15
-    paddingInlineSM: 10,                                            // was 7
-    contentFontSize: 14,
+    fontWeight: 500,
+    paddingInline: 16,                                              // was 15 — wider for pill
+    paddingInlineLG: 22,                                            // was 15 — wider for pill
+    paddingInlineSM: 12,                                            // was 7  — wider for pill
+    contentFontSize: 13,                                            // was 14 — −1px scale
+    contentFontSizeLG: 13,                                          // was 16
+    contentFontSizeSM: 12,                                          // was 14
     iconGap: 8,
-    borderRadius: 6,
+    borderRadius: 100,                                              // PILL — was 6
+    borderRadiusLG: 100,                                            // PILL — was 8
+    borderRadiusSM: 100,                                            // PILL — was 4
+    // Icon-only buttons need 6px radius — apply via classname override
+    // since Ant doesn't expose a per-shape token. See Section F.6.
   },
 
   Card: {
@@ -315,6 +336,42 @@ components: {
 
 ---
 
+## D.2 Geist Mono — usage rules (NEW)
+
+Geist Mono is no longer code-only. It's the **primary font** for several text categories. Add these helper classes in `genie-tokens.css` (next section) and use them across the app:
+
+| Category | Class / pattern | Style |
+|---|---|---|
+| Numbers (counts, prices, %, IDs, dates, dimensions) | `.num` | Geist Mono · same size as context · tabular-nums · weight 500-600 |
+| Descriptions / captions under titles | `.meta` | Geist Mono · 11px / 16px · text-tertiary |
+| Info / helper / tooltip text | `.info` | Geist Mono · 11px · text-secondary |
+| Eyebrow titles above cards | `.eyebrow` | Geist Mono · 11px · uppercase · letter-spacing 0.05em · weight 600 · text-tertiary |
+| Inline metadata chips (e.g. `v3 · 1024×1280 · 2.3s ago`) | `.meta` | Geist Mono · 10-11px · text-tertiary |
+| Status labels in alerts | inline | Geist Mono · 12px · text-secondary |
+| Table column headers | Ant override | Geist Mono · 11px · uppercase · letter-spacing 0.08em · weight 600 |
+| Quality chips / status pills | custom component | Geist Mono · 10-11px · uppercase · weight 700 |
+| Domain / URL displays | inline | Geist Mono · base size · text-secondary |
+| Search keyboard hints (⌘K) | inline | Geist Mono · 10px · text-tertiary |
+
+**Rule of thumb:** secondary info (metadata, captions, hints, numbers as data) → Mono. Primary content (titles, body, button labels) → Sans.
+
+In React component code, you'll see patterns like:
+```tsx
+<div>
+  <h3 className="text-base font-semibold">Aurora Apparel</h3>
+  <p className="meta">42 ads · last sync 2 hours ago</p>      {/* Mono */}
+</div>
+
+<div className="flex items-center gap-2">
+  <span className="num">$12,847.50</span>                        {/* Mono */}
+  <span className="meta">/ month</span>                          {/* Mono */}
+</div>
+
+<Alert message="Heads up — your trial ends in 5 days." />        {/* Body Mono via Ant override */}
+```
+
+---
+
 ## E. Custom CSS — add `src/styles/genie-tokens.css`
 
 Ant tokens don't cover the full Genie palette (extra radii, lime tints, glass, motion utilities). Add this stylesheet and import it AFTER Ant's CSS:
@@ -389,6 +446,44 @@ Ant tokens don't cover the full Genie palette (extra radii, lime tints, glass, m
   text-transform: uppercase;
   color: rgba(15,15,12,0.42);
   font-weight: 600;
+}
+
+/* Numbers — counts, prices, percentages, IDs, dates */
+.num {
+  font-family: 'Geist Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: rgba(15,15,12,0.92);
+}
+
+/* Descriptions / captions under titles */
+.meta {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  line-height: 16px;
+  color: rgba(15,15,12,0.42);
+}
+
+/* Info / helper / tooltip text */
+.info {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  line-height: 16px;
+  color: rgba(15,15,12,0.62);
+}
+
+/* Dot-grid background pattern */
+.dot-grid {
+  background-image:
+    radial-gradient(circle at center, rgba(195,235,66,0.06) 0%, transparent 60%),
+    radial-gradient(rgba(15,15,12,0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px;
+  background-position: center, center;
+}
+[data-theme="dark"] .dot-grid {
+  background-image:
+    radial-gradient(circle at center, rgba(195,235,66,0.06) 0%, transparent 60%),
+    radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
 }
 
 /* Lime glow halo */
@@ -521,7 +616,32 @@ Ant tokens don't cover the full Genie palette (extra radii, lime tints, glass, m
 
 ---
 
-## F. Custom React wrappers — for patterns Ant doesn't ship
+## F. Custom React wrappers — for patterns Ant doesn't ship (DETAILED)
+
+Below: 15 patterns that DO NOT exist in Ant Design's component library. Devs need to add each one. Each section explains: what's NOT in Ant, what to build, the spec, and the implementation code.
+
+**Inventory:**
+- F.1 ModeBadge — custom Tag variant
+- F.2 QualityScoreChip — new component
+- F.3 HeroPromptInput — new wrapper around Input.TextArea
+- F.4 OutputCard — new component
+- F.5 LimeMotifEmpty — Empty image override
+- F.6 Icon-only button radius override
+- F.7 Pulse ring indicator (CSS-only utility)
+- F.8 Glass surface (CSS-only utility)
+- F.9 Lime glow halo (CSS-only utility)
+- F.10 Dot-grid pattern (CSS-only utility)
+- F.11 Lift hover (CSS-only utility)
+- F.12 Sheen animation (CSS-only utility)
+- F.13 Float idle bob (CSS-only utility)
+- F.14 Shimmer for custom skeletons (CSS-only utility)
+- F.15 Fade-up / Pop-in entrance utilities (CSS-only utilities)
+- F.16 MicroMotif SVG components — 6 per-mode icons
+
+The CSS-only utilities (F.7 – F.15) are already defined in `genie-tokens.css` — see Section E. The components below need React code.
+
+---
+
 
 These need custom components built on top of (or alongside) Ant.
 
@@ -704,6 +824,8 @@ export const OutputCard = ({ thumbnail, title, meta, qualityChip, onClick }: Pro
 
 ### F.5 LimeMotifEmpty — replaces Ant's default Empty image
 
+
+
 ```tsx
 // src/components/LimeMotifEmpty.tsx
 import { Empty } from 'antd';
@@ -740,6 +862,222 @@ export const LimeMotifEmpty = ({ title, description, action, icon = '◎' }: Pro
   </Empty>
 );
 ```
+
+### F.6 Icon-only button radius override
+
+**What's NOT in Ant:** Ant's Button radius applies uniformly. If you set `Button.borderRadius: 100`, text AND icon buttons both go pill. But Genie wants:
+- Text buttons → pill (100px)
+- Icon-only buttons → 6px square
+
+**What to build:** Use a `className` override for icon buttons (or set `shape="default"` and override radius via CSS).
+
+```tsx
+// Use Ant's icon-only buttons with a className override
+<Button icon={<SettingOutlined />} className="btn-icon-square" />
+
+// In genie-tokens.css:
+.btn-icon-square.ant-btn {
+  border-radius: 6px !important;
+  width: 32px;
+  padding: 0;
+}
+```
+
+Alternative — wrap as a custom component:
+
+```tsx
+// src/components/IconButton.tsx
+import { Button, ButtonProps } from 'antd';
+
+export const IconButton = (props: ButtonProps) => (
+  <Button {...props} style={{ borderRadius: 6, width: 32, padding: 0, ...props.style }} />
+);
+```
+
+### F.7 Pulse ring indicator — CSS-only
+
+**What's NOT in Ant:** Ant ships Spin (spinner) — no expanding-ring pulse for ambient "in progress" state.
+
+**Spec:** 12×12 lime dot with `@keyframes pulse-ring` looping box-shadow.
+
+Already defined in `genie-tokens.css` as `.pulse-ring`:
+
+```tsx
+<div className="pulse-ring" style={{ width: 12, height: 12, borderRadius: '50%', background: '#c3eb42' }} />
+<span className="eyebrow">Generating · stage 3 of 4</span>
+```
+
+Or wrap into a component:
+
+```tsx
+// src/components/PulseDot.tsx
+export const PulseDot = ({ size = 12 }: { size?: number }) => (
+  <div
+    className="pulse-ring"
+    style={{ width: size, height: size, borderRadius: '50%', background: '#c3eb42', display: 'inline-block' }}
+  />
+);
+```
+
+### F.8 Glass surface — CSS-only
+
+**What's NOT in Ant:** No backdrop-blur utility, no glass surface pattern.
+
+**Spec:** `backdrop-filter: blur(20px) saturate(140%)` + semi-transparent bg.
+
+Already defined as `.glass` utility in `genie-tokens.css`. Use:
+
+```tsx
+<div className="glass" style={{ padding: '12px 16px', borderRadius: 12 }}>
+  <span className="eyebrow">3 generations queued</span>
+  <Button type="link">View →</Button>
+</div>
+```
+
+### F.9 Lime glow halo — CSS-only
+
+**What's NOT in Ant:** No glow utility. Focus rings are flat box-shadow.
+
+**Spec:** Composite shadow — `0 0 0 1px rgba(195,235,66,0.4), 0 0 24px rgba(195,235,66,0.18)`.
+
+Already defined as `.glow` utility. Use:
+
+```tsx
+<Card className="glow">Selected concept</Card>
+```
+
+### F.10 Dot-grid pattern — CSS-only
+
+**What's NOT in Ant:** No pattern utilities. Empty states use a line-drawing illustration.
+
+**Spec:** CSS background — radial gradient dots at 32px grid, often combined with a lime radial bg.
+
+Already defined as `.dot-grid` utility. Use:
+
+```tsx
+<div className="dot-grid" style={{ padding: '48px 20px', borderRadius: 16, textAlign: 'center' }}>
+  Empty canvas — nothing generated yet
+</div>
+```
+
+### F.11 Lift hover — CSS-only
+
+**What's NOT in Ant:** No lift utility. Hoverable cards just border-colour-change.
+
+**Spec:** `translateY(-2px)` + shadow-sm → shadow-lg over 220ms.
+
+Already defined as `.lift` utility. Use:
+
+```tsx
+<Card className="lift" hoverable={false}>...</Card>
+```
+
+### F.12 Sheen animation — CSS-only
+
+**What's NOT in Ant:** No sheen animation utility.
+
+**Spec:** `::after` pseudo-element with linear-gradient highlight + skewX(-20deg) translateX(-120 → 220) over 1.4s, fires ONCE.
+
+Already defined as `.sheen` utility. Apply sparingly — climactic CTAs only:
+
+```tsx
+<Button type="primary" size="large" className="sheen">✦ Start Creating</Button>
+```
+
+### F.13 Float idle bob — CSS-only
+
+**What's NOT in Ant:** No idle animation utilities.
+
+**Spec:** `translateY(0 → -2px)` loop 3s.
+
+Already defined as `.float` utility. Use on hero icons:
+
+```tsx
+<div className="float">
+  <SparklesIcon size={48} />
+</div>
+```
+
+### F.14 Shimmer for custom skeletons — CSS-only
+
+**What's NOT in Ant:** Ant's Skeleton has shimmer but you can't apply it to custom elements (e.g. a custom thumbnail-shaped skeleton).
+
+**Spec:** `background-position` animation with lime mid-band over 2.4s.
+
+Already defined as `.shimmer` utility:
+
+```tsx
+<div className="shimmer" style={{ height: 80, width: 280, borderRadius: 20 }} />
+```
+
+### F.15 Fade-up + Pop-in entrance — CSS-only
+
+**What's NOT in Ant:** Motion utilities are buried inside `motion` package + tied to specific components. Not exposed as reusable utilities.
+
+**Specs:**
+- `.fade-up` — opacity 0→1 + translateY(+8→0), 360ms.
+- `.pop-in` — opacity 0→1 + scale 0.98→1, 320ms.
+
+Already defined. Use on mount:
+
+```tsx
+<Card className="fade-up">List item appearing</Card>
+<Toast className="pop-in">Generation complete</Toast>
+```
+
+For staggered list reveal:
+```tsx
+{items.map((item, i) => (
+  <Card key={item.id} className="fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+    {item.title}
+  </Card>
+))}
+```
+
+### F.16 MicroMotif SVG components — per-mode icons
+
+**What's NOT in Ant:** Ant ships its own icon set (`@ant-design/icons`) but no per-mode brand motifs.
+
+**What to build:** 6 SVG components, one per Genie generation mode. Each is an abstract glyph using `currentColor` so it inherits the parent's text colour.
+
+```tsx
+// src/components/MicroMotifs.tsx
+
+const motifs = {
+  'brand-ad':       /* SVG path for Brand Ad */,
+  'product-ad':     /* SVG path for Product Ad */,
+  'affiliate-ad':   /* SVG path for Affiliate Ad */,
+  'ugc-video':      /* SVG path for UGC Video */,
+  'forge':          /* SVG path for Forge */,
+  'image-to-ad':    /* SVG path for Image-to-Ad */,
+};
+
+export const MicroMotif = ({
+  mode,
+  size = 32,
+}: {
+  mode: keyof typeof motifs;
+  size?: number;
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 32 32"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.5}
+  >
+    {motifs[mode]}
+  </svg>
+);
+```
+
+Each motif is hand-drawn — designer should produce them in Figma + export as SVG paths. They're abstract (not literal "shopping bag" icons) — semi-geometric, semi-flowing forms that visually distinguish modes without being too literal.
+
+Used in:
+- Mode-picker cards in the Generate surface
+- Hero generation surface (the active mode shown larger)
+- Mode badges in output cards
 
 ---
 

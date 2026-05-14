@@ -71,37 +71,66 @@ Sync the **"Design System - FF"** Figma file to the Genie 6.0 design language. A
 | `status/error` | `#ff4d4f` | `#dc4446` |
 | `status/info` | `#1677ff` | `#1677ff` |
 
-### A.7 Typography — replace Inter with Geist
+### A.7 Typography — replace Inter with Geist + **all sizes −1px**
 
-| Variable | New value |
+Per Maalik: the entire type scale shifts down by 1px. e.g. body `14px → 13px`. Apply the −1px rule to every size variable below.
+
+| Variable | New value (was) |
 |---|---|
 | `font/family/sans` | `Geist` |
 | `font/family/mono` | `Geist Mono` |
-| `font/size/xs` | `11px` |
-| `font/size/sm` | `12px` |
-| `font/size/base` | `14px` |
-| `font/size/lg` | `16px` |
-| `font/size/xl` | `20px` |
-| `font/size/h5` | `16px` |
-| `font/size/h4` | `20px` |
-| `font/size/h3` | `24px` |
-| `font/size/h2` | `30px` |
-| `font/size/h1` | `38px` |
-| `font/size/display` | `56px` |
-| `font/size/display-lg` | `72px` |
-| `font/lineheight/xs` | `16px` |
-| `font/lineheight/sm` | `20px` |
-| `font/lineheight/base` | `22px` |
-| `font/lineheight/lg` | `24px` |
-| `font/lineheight/xl` | `28px` |
-| `font/lineheight/h3` | `32px` |
-| `font/lineheight/h2` | `38px` |
-| `font/lineheight/h1` | `46px` |
-| `font/lineheight/display` | `60px` |
+| `font/size/xs` | `10px` (was 11) |
+| `font/size/sm` | `11px` (was 12) |
+| `font/size/base` | `13px` (was 14) |
+| `font/size/lg` | `15px` (was 16) |
+| `font/size/xl` | `19px` (was 20) |
+| `font/size/h5` | `15px` (was 16) |
+| `font/size/h4` | `19px` (was 20) |
+| `font/size/h3` | `23px` (was 24) |
+| `font/size/h2` | `29px` (was 30) |
+| `font/size/h1` | `37px` (was 38) |
+| `font/size/display` | `55px` (was 56) |
+| `font/size/display-lg` | `71px` (was 72) |
+| `font/lineheight/xs` | `15px` |
+| `font/lineheight/sm` | `19px` |
+| `font/lineheight/base` | `21px` |
+| `font/lineheight/lg` | `23px` |
+| `font/lineheight/xl` | `27px` |
+| `font/lineheight/h3` | `31px` |
+| `font/lineheight/h2` | `37px` |
+| `font/lineheight/h1` | `45px` |
+| `font/lineheight/display` | `59px` |
 | `font/weight/heading` | `700` (was 600) |
 | `font/tracking/display` | `-0.01em` |
 
 **Add an Eyebrow text style:** `Geist Mono · 11px · uppercase · letter-spacing 0.05em · weight 600 · colour text/tertiary`.
+
+### A.7b Geist Mono — usage rules (NEW — important)
+
+Geist Mono is no longer just for code. Apply it as the **primary** font for:
+
+| Where | Style |
+|---|---|
+| All **numbers** — counts, prices, percentages, IDs, dates, timestamps, dimensions | Geist Mono · same size as surrounding context · tabular-nums · weight 500-600 |
+| All **descriptions / captions** under titles | Geist Mono · 11px · 16px line-height · text-secondary or text-tertiary |
+| All **info / helper / tooltip text** | Geist Mono · 10-11px · text-secondary |
+| **Eyebrow titles** above cards / sections | Geist Mono · 11px · uppercase · letter-spacing 0.05em · weight 600 · text-tertiary |
+| **Inline metadata** chips (e.g. `v3 · 1024×1280 · 2.3s ago`) | Geist Mono · 10-11px · text-tertiary |
+| **Status labels** in alerts / tooltips | Geist Mono · 11-12px · text-secondary |
+| **Table column headers** | Geist Mono · 11px · uppercase · letter-spacing 0.08em · weight 600 |
+| **Quality chips / status pills** | Geist Mono · 10-11px · uppercase · weight 700 |
+| **Domain / URL displays** | Geist Mono · base size · text-secondary |
+| **Search keyboard hints** (⌘K) | Geist Mono · 10px · text-tertiary |
+
+Geist (sans) stays for:
+- H1-H5 headlines
+- Body paragraphs (primary text)
+- Button labels
+- Form field input text (the values users type)
+- Card titles + brand names
+- Primary CTAs
+
+**Rule of thumb:** if it's secondary information (metadata, captions, hints, numbers as data) → Mono. If it's primary content (titles, body, button labels) → Sans.
 
 ### A.8 Spacing (4pt scale)
 
@@ -178,15 +207,22 @@ Sync the **"Design System - FF"** Figma file to the Genie 6.0 design language. A
 
 ### B.1 Button
 
-- **Variants**: primary · default · outline · ghost · link · destructive (drop "dashed" as a separate variant if it exists — fold into a property of default).
-- **Sizes**: sm (h 28 · px 12) · default (h 32 · px 12) · lg (h 40 · px 16) · icon (32×32).
-- **Radius**: `radius/base` (6px).
-- **Primary fill**: `brand/primary`. Text: `brand/primary-on` (#121212). DO NOT use white text on lime — too low contrast.
+**Critical change:** text buttons are now **PILL-shaped** (radius 100px), not 6px square. Icon-only buttons keep `radius/base` (6px).
+
+- **Variants**: primary · default · outline · ghost · link · destructive.
+- **Sizes**: sm (h 26 · px 12) · default (h 32 · px 16) · lg (h 40 · px 22) · icon (32×32).
+- **Radius**:
+  - Text buttons (primary / default / outline / ghost / destructive) → `radius/pill` (**100px** — was 6).
+  - Icon-only buttons → `radius/base` (6px).
+  - Link buttons → `radius/base` (6px).
+- **Primary fill**: `brand/primary`. Text: `brand/primary-on` (#121212). **DO NOT use white text on lime — fails contrast.**
 - **Primary hover shadow**: `shadow/primary-btn` (lime ring).
 - **Outline border**: `border/primary`.
-- **Font**: Geist · 14px · weight **500** (was 400).
+- **Font**: Geist · 13px · weight **500** (size −1px from old, was 14 / 400).
 - **Icon gap**: 8px.
 - **Disabled**: opacity 0.5, pointer-events none.
+
+**Padding shift** to accommodate the pill: bumped horizontal padding from 12/15 → 16/22 so pill buttons don't look squished. Vertical padding unchanged.
 
 ### B.2 Card
 
@@ -308,21 +344,158 @@ Sync the **"Design System - FF"** Figma file to the Genie 6.0 design language. A
 
 ---
 
-## C. Genie-exclusive patterns — ADD as new DS components
+## C. Genie-exclusive patterns — ADD as new DS components (DETAILED)
 
-These don't exist in standard Ant; add them as fresh DS components:
+These 15 patterns are **NOT in standard component libraries** (Ant Design, Material, Mantine, etc.). Add each as a new DS component / utility in Figma so frames can apply them by reference.
 
-| Component | Spec |
-|---|---|
-| **Hero prompt input** | Large rounded-2xl textarea with lime focus halo + radial-gradient backdrop. Suggestion pill row below. |
-| **Mode pill** | `radius/pill`, 24px height, lime-tint bg when active, mono 11px uppercase. |
-| **Quality score chip** | `radius/pill`, mono 10px uppercase weight 700, status colours (success/warn/error variants), backdrop-blur(8px), bg rgba(255,255,255,0.95). |
-| **Glass surface** | `backdrop-filter: blur(20px) saturate(140%)`, bg `rgba(255,255,255,0.72)` light / `rgba(22,22,22,0.62)` dark, border 1px subtle, radius `radius/lg`. Used for floating chrome over generation grid. |
-| **Lime glow halo** | Box-shadow `shadow/glow` applied to selected/focused cards. |
-| **Pulse ring animation** | 0 → 8px lime box-shadow loop, 1.6s `easing/pulse`. Used on "in progress" status dots. |
-| **DotGridPattern** | 32px grid lines at `rgba(15,15,12,0.04)` light / `rgba(255,255,255,0.04)` dark. Background overlay for empty states + canvas surfaces. |
-| **Output card** (generation result) | Radius `radius/xl` (20px), 4:5 aspect thumbnail, hover-lift, quality-chip in top-right corner. |
-| **MicroMotif icons** | 6 per-mode SVG icons at 32px, `currentColor` inheritance. Used in mode-picker cards. |
+### C.1 Output card (generation result)
+
+**What it is:** the card that shows a generated ad / image / video output in Genie's grid view.
+**Not in:** standard libraries (Ant's Card is too generic — no thumbnail aspect-ratio convention, no quality-chip slot, no hover-lift behaviour).
+**Spec:**
+- Container — radius `radius/xl` (20px), 1px `border/secondary`, bg `surface/bg-container`, shadow `shadow/sm` base.
+- Thumbnail — aspect-ratio 4:5, bg `surface/bg-spotlight`, fills container width.
+- Quality chip slot — absolutely positioned top-right of thumbnail with 10px offset.
+- Body — padding 12px.
+- Title — Geist sans 13px weight 600.
+- Meta line — Geist Mono 10px text-tertiary (e.g. "v3 · 1024×1280 · 2.3s ago").
+- Hover — `motion/lift` preset (translate-y(-2px) + `shadow/sm → shadow/lg` over 220ms).
+- Selected — `motion/glow` halo (lime ring + corona).
+
+### C.2 Quality score chip
+
+**What it is:** a status pill that floats over output thumbnails showing AI-generated quality score.
+**Not in:** any libraries.
+**Spec:**
+- Pill shape — `radius/pill` (100px). · Height 20px · padding 2px 8px.
+- Font — Geist Mono 10px uppercase weight 700 letter-spacing 0.06em.
+- 3 variants — `success` (winning, green text + border), `warning` (neutral, amber), `error` (weak, red).
+- BG — `rgba(255,255,255,0.95)` (readable over imagery) + `backdrop-blur(8px)`.
+- Border — 1px in status colour at 30% alpha.
+
+### C.3 Pulse ring indicator
+
+**What it is:** ambient "something is happening" indicator. A lime dot that pulses an expanding ring.
+**Not in:** any libraries. Ant has Spin (spinner) but no ring-pulse pattern.
+**Spec:**
+- Dot — 12×12 circle, bg `brand/primary`.
+- Animation — `motion/pulse-ring` preset (`box-shadow: 0 0 0 0 rgba(195,235,66,0.55) → 0 0 0 8px rgba(195,235,66,0)`, 1.6s `easing/pulse` infinite).
+- Used next to status text (eyebrow style) — "Generating · stage 3 of 4".
+- Used during: AI generation, data sync, background fetch.
+
+### C.4 Glass surface
+
+**What it is:** floating chrome element that lets the bg show through with a frosted-glass effect.
+**Not in:** any libraries.
+**Spec:**
+- bg `rgba(255,255,255,0.72)` light · `rgba(22,22,22,0.62)` dark.
+- `backdrop-filter: blur(20px) saturate(140%)`.
+- 1px border `rgba(15,15,12,0.06)` light · `rgba(255,255,255,0.06)` dark.
+- Radius `radius/lg` (8px) or `radius/card` (16px) depending on size.
+- Used for: floating action bars over generation grid, sticky filter chrome over feed, "queued items" toast over canvas.
+
+### C.5 Lime glow halo
+
+**What it is:** visual highlight marking "the active / selected / focused" element.
+**Not in:** any libraries. Ant focus rings are flat 2px box-shadow.
+**Spec:**
+- Composite shadow — `0 0 0 1px rgba(195,235,66,0.4)` (sharp 1px lime ring) + `0 0 24px rgba(195,235,66,0.18)` (soft 24px corona).
+- Dark mode — bumps corona to 32px and increases alpha to 0.25.
+- Applied to: focused hero prompt input, selected mode chip, active output card, "you are here" element in lists.
+
+### C.6 Hero prompt input
+
+**What it is:** the signature large textarea where users type their generation prompt.
+**Not in:** Ant has TextArea but no hero-prompt pattern.
+**Spec:**
+- Container — `radius/2xl` (28px) · 1px border `border/secondary` · padding 16-20px · bg `surface/bg-container`.
+- On `:focus-within` → apply `shadow/glow` + reveal a `::before` pseudo-element with radial-gradient lime backdrop blurred 28px.
+- Inner textarea — no border, transparent bg, 13px sans, auto-resize 2-3 rows.
+- Suggestion pill row below — each pill: `radius/pill`, padding 4px 10px, bg `surface/bg-spotlight` (default) → `brand/primary-bg` on hover, font 11px text-secondary.
+
+### C.7 Eyebrow text style
+
+**What it is:** micro-caption above cards / sections giving a category label.
+**Not in:** Ant Typography has secondary/disabled but no eyebrow variant.
+**Spec:**
+- Text style: `Geist Mono · 11px / 16px line-height · uppercase · letter-spacing 0.05em · weight 600 · colour text/tertiary`.
+- Used as: section title above cards ("Currently generating"), mode label inside cards ("BRAND AD"), status caption near pulse-rings ("STAGE 3 OF 4"), count metadata in toolbars ("12 ITEMS").
+- Pairs with sans h3-h5 underneath (eyebrow + h3 = standard card-header pattern).
+
+### C.8 Dot-grid pattern
+
+**What it is:** background pattern signalling "empty canvas" or "AI workspace."
+**Not in:** any libraries.
+**Spec:**
+- CSS — `background-image: radial-gradient(rgba(15,15,12,0.04) 1px, transparent 1px); background-size: 32px 32px`.
+- Dark mode — `rgba(255,255,255,0.04)`.
+- Often combined with a centered lime radial gradient (`radial-gradient(circle at center, rgba(195,235,66,0.06) 0%, transparent 60%)`).
+- Used on: empty states, canvas mode bg, hero-prompt parent containers.
+
+### C.9 Lift hover utility
+
+**What it is:** hover treatment that lifts cards 2px with a shadow upgrade.
+**Not in:** any libraries.
+**Spec:**
+- Default — `shadow/sm`.
+- Hover — `translateY(-2px)` + `shadow/lg`, over 220ms `easing/standard`.
+- Used on: feed cards, output cards, mode picker cards, brand-detail-page cards. Signals "clickable" without colour change.
+
+### C.10 Sheen animation
+
+**What it is:** one-off shine across a hero CTA when it mounts.
+**Not in:** any libraries.
+**Spec:**
+- `::after` pseudo-element with 90deg linear-gradient highlight: `linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)`.
+- Animation — translateX from -120% to 220% + skewX(-20deg). Duration 1.4s ease-in-out. Fires ONCE.
+- Used sparingly — climactic CTA of a flow (e.g. "Start Creating" at the end of onboarding).
+
+### C.11 Float idle bob
+
+**What it is:** subtle ambient life on idle hero elements.
+**Not in:** any libraries.
+**Spec:**
+- Animation — `translateY(0 → -2px)` loop, 3s ease-in-out infinite.
+- ±2px translation only — never distracting.
+- Used on: hero mode icons in mode-picker, processing-stage icons, brand-logo placeholder during onboarding.
+
+### C.12 Shimmer (custom skeletons)
+
+**What it is:** shimmer animation usable on any element (not just Skeleton component).
+**Not in:** Ant's Skeleton has shimmer but you can't apply it to custom elements.
+**Spec:**
+- bg — `linear-gradient(90deg, transparent, rgba(195,235,66,0.12), transparent)` + `background-size: 200% 100%`.
+- Animation — `background-position` -200% → 200%, 2.4s linear infinite.
+- Slower than Ant's default (2.4s vs 1.4s) — calmer feel.
+- Lime mid-band ties skeletons to the brand.
+
+### C.13 Fade-up entrance
+
+**What it is:** standard mount animation for cards / list items.
+**Not in:** any libraries as a utility.
+**Spec:**
+- Animation — opacity 0→1 + `translateY(+8px → 0)`, 360ms `easing/standard`, both.
+- Often staggered (+60ms delay per child) for list reveals.
+- Used on: feed card mount, output card mount, hero text reveal, drawer-content reveal.
+
+### C.14 Pop-in entrance
+
+**What it is:** standard mount animation for floating elements (toasts, badges, popovers).
+**Not in:** any libraries as a utility.
+**Spec:**
+- Animation — opacity 0→1 + scale 0.98→1, 320ms `easing/pop` (`cubic-bezier(0.2, 0.8, 0.2, 1)`).
+- Used on: toast notifications, hover-revealed quality chips, modal pop-up, popovers opening, badges appearing on selection.
+
+### C.15 MicroMotif icons (per-mode)
+
+**What it is:** 6 abstract glyph SVGs — one per Genie generation mode.
+**Not in:** Ant has standard icons but no per-mode brand motifs.
+**Spec:**
+- Modes: Brand Ad, Product Ad, Affiliate Ad, UGC Video, Forge (variation), Image-to-Ad.
+- Size 32×32.
+- Use `currentColor` — auto-tints to the surrounding text colour.
+- Stays consistent across light/dark.
+- Used on: mode-picker cards in the Generate surface, hero generation surface, mode badges in output cards.
 
 ---
 

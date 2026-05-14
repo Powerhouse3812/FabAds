@@ -555,15 +555,15 @@ main {
   color: var(--text);
 }
 
-/* ─── Genie Button ─── */
+/* ─── Genie Button — text buttons are PILL-shaped (radius 100px) ─── */
 .genie-scope .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  height: 32px; padding: 0 12px;
+  height: 32px; padding: 0 16px;
   background: var(--bg-container);
   border: 1px solid var(--border);
-  border-radius: var(--radius-base);
+  border-radius: var(--radius-pill);
   color: var(--text);
-  font: inherit; font-size: 14px; font-weight: 500; line-height: 1;
+  font: inherit; font-size: 13px; font-weight: 500; line-height: 1;
   cursor: pointer;
   transition: all 220ms var(--ease-standard);
 }
@@ -583,9 +583,14 @@ main {
 .genie-scope .btn-dashed { border-style: dashed; }
 .genie-scope .btn-text { background: transparent; border-color: transparent; }
 .genie-scope .btn-text:hover { background: var(--bg-muted); border-color: transparent; }
-.genie-scope .btn-link { background: transparent; border-color: transparent; color: var(--text); padding: 0 8px; text-decoration: underline; text-underline-offset: 4px; }
-.genie-scope .btn-sm { height: 28px; padding: 0 10px; font-size: 13px; }
-.genie-scope .btn-lg { height: 40px; padding: 0 16px; font-size: 14px; }
+.genie-scope .btn-link { background: transparent; border-color: transparent; color: var(--text); padding: 0 8px; text-decoration: underline; text-underline-offset: 4px; border-radius: var(--radius-base); }
+.genie-scope .btn-sm { height: 26px; padding: 0 12px; font-size: 12px; }
+.genie-scope .btn-lg { height: 40px; padding: 0 22px; font-size: 13px; }
+.genie-scope .btn-icon {
+  width: 32px; height: 32px; padding: 0;
+  border-radius: var(--radius-base);
+  justify-content: center;
+}
 .genie-scope .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
 /* ─── Genie Card ─── */
@@ -603,10 +608,10 @@ main {
 }
 .genie-scope .card-header {
   padding: 20px 20px 0;
-  font-size: 16px; font-weight: 600;
+  font-size: 15px; font-weight: 600;
   display: flex; align-items: center; justify-content: space-between;
 }
-.genie-scope .card-body { padding: 16px 20px 20px; font-size: 14px; color: var(--text-secondary); }
+.genie-scope .card-body { padding: 16px 20px 20px; font-size: 13px; color: var(--text-secondary); }
 
 /* ─── Genie Input ─── */
 .genie-scope .input {
@@ -616,7 +621,7 @@ main {
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-2xl);
   color: var(--text);
-  font: inherit; font-size: 14px;
+  font: inherit; font-size: 13px;
   transition: all 200ms var(--ease-standard);
   outline: none;
 }
@@ -626,16 +631,16 @@ main {
   border-color: var(--primary-border);
   box-shadow: var(--shadow-input-active);
 }
-.genie-scope .input-lg { height: 44px; padding: 10px 16px; font-size: 14px; }
-.genie-scope .input-sm { height: 32px; padding: 6px 12px; font-size: 13px; }
+.genie-scope .input-lg { height: 44px; padding: 10px 16px; font-size: 13px; }
+.genie-scope .input-sm { height: 32px; padding: 6px 12px; font-size: 12px; }
 .genie-scope .input-affix {
   display: flex; align-items: center;
   background: var(--bg-container); border: 1px solid var(--border-secondary); border-radius: var(--radius-2xl); padding: 0 14px;
   transition: all 200ms var(--ease-standard);
 }
 .genie-scope .input-affix:focus-within { border-color: var(--primary-border); box-shadow: var(--shadow-input-active); }
-.genie-scope .input-affix input { border: none; outline: none; flex: 1; height: 38px; font: inherit; background: transparent; }
-.genie-scope .input-affix .prefix, .genie-scope .input-affix .suffix { color: var(--text-tertiary); }
+.genie-scope .input-affix input { border: none; outline: none; flex: 1; height: 38px; font: inherit; font-size: 13px; background: transparent; }
+.genie-scope .input-affix .prefix, .genie-scope .input-affix .suffix { color: var(--text-tertiary); font-family: var(--font-mono); font-size: 11px; }
 
 /* ─── Genie Select trigger ─── */
 .genie-scope .select {
@@ -644,7 +649,7 @@ main {
   background: var(--bg-container);
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-2xl);
-  font-size: 14px; cursor: pointer;
+  font-size: 13px; cursor: pointer;
   transition: all 200ms var(--ease-standard);
 }
 .genie-scope .select:hover { border-color: var(--primary); }
@@ -661,8 +666,8 @@ main {
   overflow: hidden;
 }
 .genie-scope .modal-header { padding: 24px 24px 0; }
-.genie-scope .modal-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
-.genie-scope .modal-body { padding: 16px 24px 24px; color: var(--text-secondary); font-size: 14px; }
+.genie-scope .modal-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.genie-scope .modal-body { padding: 16px 24px 24px; color: var(--text-secondary); font-size: 13px; }
 .genie-scope .modal-footer {
   padding: 16px 24px;
   border-top: 1px solid var(--border-secondary);
@@ -681,8 +686,8 @@ main {
   overflow: hidden;
 }
 .genie-scope .drawer-header { padding: 20px 24px; border-bottom: 1px solid var(--border-secondary); display: flex; justify-content: space-between; align-items: center; }
-.genie-scope .drawer-title { font-size: 16px; font-weight: 600; }
-.genie-scope .drawer-body { padding: 24px; color: var(--text-secondary); font-size: 14px; }
+.genie-scope .drawer-title { font-size: 15px; font-weight: 600; }
+.genie-scope .drawer-body { padding: 24px; color: var(--text-secondary); font-size: 13px; }
 
 /* ─── Genie Tag / Badge ─── */
 .genie-scope .tag {
@@ -718,7 +723,7 @@ main {
 .genie-scope .tabs .tab {
   padding: 12px 0;
   position: relative;
-  font-size: 14px; font-weight: 500; color: var(--text-secondary);
+  font-size: 13px; font-weight: 500; color: var(--text-secondary);
   cursor: pointer;
   transition: color 200ms var(--ease-standard);
 }
@@ -806,8 +811,8 @@ main {
   color: var(--primary-on); font-size: 24px;
   font-weight: 700;
 }
-.genie-scope .empty .empty-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-.genie-scope .empty .empty-desc { font-size: 13px; color: var(--text-secondary); }
+.genie-scope .empty .empty-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.genie-scope .empty .empty-desc { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
 
 /* ─── Genie Tooltip / Popover ─── */
 .genie-scope .tooltip {
@@ -816,8 +821,10 @@ main {
   background: rgba(15, 15, 12, 0.92);
   color: white;
   border-radius: var(--radius-base);
-  font-size: 11px;
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 .genie-scope .popover {
   background: var(--bg-container);
@@ -825,17 +832,18 @@ main {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   padding: 14px 16px;
-  font-size: 13px;
+  font-size: 12px;
   max-width: 280px;
 }
-.genie-scope .popover .popover-title { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
-.genie-scope .popover .popover-body { color: var(--text-secondary); }
+.genie-scope .popover .popover-title { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+.genie-scope .popover .popover-body { color: var(--text-secondary); font-family: var(--font-mono); font-size: 11px; line-height: 16px; }
 
 /* ─── Genie Alert ─── */
 .genie-scope .alert {
   padding: 12px 16px;
   border-radius: var(--radius-card);
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   border: 1px solid;
   display: flex; align-items: flex-start; gap: 10px;
 }
@@ -872,20 +880,36 @@ main {
 .genie-scope .skel-line { height: 14px; margin-bottom: 12px; }
 .genie-scope .skel-line:last-child { margin-bottom: 0; }
 
-/* ─── Genie Typography ─── */
+/* ─── Genie Typography — all sizes reduced by 1px vs Ant baseline ─── */
 .genie-scope h1.t, .genie-scope h2.t, .genie-scope h3.t, .genie-scope h4.t, .genie-scope h5.t {
   font-family: var(--font);
   font-weight: 700; line-height: 1.2; letter-spacing: -0.01em;
   color: var(--text); margin: 0;
 }
-.genie-scope h1.t { font-size: 38px; line-height: 46px; }
-.genie-scope h2.t { font-size: 30px; line-height: 38px; }
-.genie-scope h3.t { font-size: 24px; line-height: 32px; }
-.genie-scope h4.t { font-size: 20px; line-height: 28px; }
-.genie-scope h5.t { font-size: 16px; line-height: 24px; }
-.genie-scope p.t  { font-size: 14px; line-height: 22px; color: var(--text); margin: 8px 0 0; }
+.genie-scope h1.t { font-size: 37px; line-height: 45px; }     /* was 38 */
+.genie-scope h2.t { font-size: 29px; line-height: 37px; }     /* was 30 */
+.genie-scope h3.t { font-size: 23px; line-height: 31px; }     /* was 24 */
+.genie-scope h4.t { font-size: 19px; line-height: 27px; }     /* was 20 */
+.genie-scope h5.t { font-size: 15px; line-height: 23px; }     /* was 16 */
+.genie-scope p.t  { font-size: 13px; line-height: 21px; color: var(--text); margin: 8px 0 0; }   /* was 14 */
+.genie-scope .num {
+  font-family: var(--font-mono);                                /* Mono for numbers */
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+}
+.genie-scope .meta {
+  font-family: var(--font-mono);                                /* Mono for descriptions/captions/info */
+  font-size: 11px; line-height: 16px;
+  color: var(--text-tertiary);
+}
+.genie-scope .info {
+  font-family: var(--font-mono);                                /* Mono for info messages */
+  font-size: 11px; line-height: 16px;
+  color: var(--text-secondary);
+}
 .genie-scope code.t {
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: 11px;
   background: var(--bg-spotlight);
   padding: 2px 6px; border-radius: var(--radius-sm);
   color: var(--text);
@@ -1159,8 +1183,8 @@ main {
   <header class="section-header">
     <span class="number">01 · Action</span>
     <h2 class="title">Button</h2>
-    <p class="desc">Primary changes: lime fill replaces blue. Text on lime is dark (#121212), not white. Slight font-weight bump (500 vs 400). Radius unchanged at 6px. Removed default subtle shadow on outline variant. Hover adds a lime ring glow on primary.</p>
-    <span class="delta">Lime primary · radius 6px (same) · weight 500 · lime-ring shadow</span>
+    <p class="desc">Primary changes: lime fill replaces blue. Text on lime is dark (#121212), not white. <b>Buttons are now PILL-shaped (radius 100px)</b> — was 6px square. Font-size −1px (13px vs 14px). Weight 500. Hover adds a lime ring glow on primary. Icon-only buttons keep `radius-base` (6px) — pill applies to text-buttons only.</p>
+    <span class="delta">Pill radius · lime primary · weight 500 · font −1px · lime-ring shadow</span>
   </header>
   <div class="compare">
     <div class="pane ant-scope">
@@ -1814,8 +1838,8 @@ main {
   <header class="section-header">
     <span class="number">17 · Foundation</span>
     <h2 class="title">Typography</h2>
-    <p class="desc">Font family swaps to Geist (sans) + Geist Mono. Weight bumps to 700 on H1-H5 (was 600). Letter-spacing -0.01em for crisper display. Code uses warm spotlight bg instead of grey. Adds an eyebrow micro-style (mono uppercase 11px).</p>
-    <span class="delta">Inter → Geist · weight 600 → 700 · -0.01em tracking · eyebrow utility</span>
+    <p class="desc">Font family swaps to Geist sans + Geist Mono. <b>All sizes −1px</b> (regular 14 → 13, h1 38 → 37, etc.) Weight bumps to 700 on H1-H5 (was 600). Letter-spacing -0.01em for crisper display.<br><br><b>Geist Mono usage expanded</b> — it's used for: numbers/counts/IDs/timestamps/percentages, descriptions + captions, info / helper / tooltip text, eyebrow uppercase labels, technical info text. Geist sans stays for: H1-H5 headlines, body paragraphs, button text, primary labels.</p>
+    <span class="delta">Inter → Geist · ALL sizes −1px · weight 700 · Mono for numbers/descriptions/info</span>
   </header>
   <div class="compare">
     <div class="pane ant-scope">
@@ -1832,42 +1856,53 @@ main {
     </div>
     <div class="pane genie-scope">
       <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0</div>
+      <div class="row-label">Sans-serif scale (Geist · all −1px)</div>
       <div class="row cols">
-        <span class="eyebrow">Eyebrow · mono uppercase</span>
-        <h1 class="t">Heading 1</h1>
-        <h2 class="t">Heading 2</h2>
-        <h3 class="t">Heading 3</h3>
-        <h4 class="t">Heading 4</h4>
-        <h5 class="t">Heading 5</h5>
-        <p class="t">Body text · 14px / 22px line-height. Used for paragraphs, descriptions, secondary content.</p>
-        <p class="t"><code class="t">code sample</code> with monospace styling on warm spotlight.</p>
+        <span class="eyebrow">Eyebrow · Geist Mono 11px uppercase</span>
+        <h1 class="t">Heading 1 · 37px / 45px</h1>
+        <h2 class="t">Heading 2 · 29px / 37px</h2>
+        <h3 class="t">Heading 3 · 23px / 31px</h3>
+        <h4 class="t">Heading 4 · 19px / 27px</h4>
+        <h5 class="t">Heading 5 · 15px / 23px</h5>
+        <p class="t">Body text · 13px / 21px line-height. Used for paragraphs, primary descriptions, button labels, form-field text.</p>
+      </div>
+      <div class="row-label">Mono — used for numbers, descriptions, info messages, captions, eyebrow titles</div>
+      <div class="row cols">
+        <div>Numbers: <span class="num">$12,847.50</span> · <span class="num">+38%</span> · <span class="num">2,304 ads</span> · <span class="num">3:42 PM</span> · <span class="num">2026-05-14</span></div>
+        <div class="meta">Descriptions / captions · "Generated 2 minutes ago · 1024×1280 · v3 · #AD-42891"</div>
+        <div class="info">Info / helper message · "Press ⌘K to search. Esc to close any dialog."</div>
+        <div><span class="eyebrow">Section eyebrow title · used above cards</span></div>
+        <div>Inline <code class="t">code sample</code> uses warm-spotlight bg + 11px mono.</div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ─────────────────────────────────────────────────────────────────
-     18. GENIE-EXCLUSIVE — Output card + pulse + glass + motifs
+     18. GENIE-EXCLUSIVE — Detailed list of what's NOT in Ant + what Genie ADDS
      ───────────────────────────────────────────────────────────────── -->
 <section class="section">
   <header class="section-header">
-    <span class="number">18 · Patterns (Genie-only)</span>
+    <span class="number">18 · Patterns (Genie-exclusive)</span>
     <h2 class="title">Genie-exclusive patterns</h2>
-    <p class="desc">These are NOT standard Ant components — devs build them as custom wrappers. Show how they sit on top of the base system.</p>
-    <span class="delta">Output card · quality chip · pulse ring · glass · output grid</span>
+    <p class="desc">These patterns are <b>NOT</b> in Ant Design's component library. Each row shows the empty-state on the left (what Ant ships — nothing for these) and the Genie addition on the right with the full spec. Devs add these as custom wrappers / utility CSS / new React components on top of Ant.</p>
+    <span class="delta">15 patterns Ant doesn't ship · devs add as utilities + custom wrappers</span>
   </header>
+
+  <!-- 18.1 Output card -->
   <div class="compare">
     <div class="pane ant-scope">
-      <div class="pane-label"><span class="dot dot-ant"></span> Default Ant — no equivalents</div>
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Generation output card</div>
       <div class="row cols">
-        <div style="padding:40px;text-align:center;color:#999;border:1px dashed #d9d9d9;border-radius:8px">
-          <div style="font-size:13px">Ant doesn't ship these patterns.</div>
-          <div style="font-size:11px;color:#bbb;margin-top:4px">Dev team builds them as custom wrappers — see <code>developer-updates.md § F</code>.</div>
+        <div style="padding:24px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999;text-align:center">
+          Ant doesn't ship a generation/output card. <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">Card</code> is too generic.<br><br>
+          <b>Devs build:</b> custom React component using a 4:5 aspect-ratio thumbnail container, absolute-positioned quality chip in the top-right, hover-lift translate-y(-2px) + shadow upgrade, lime ring on selected state.
         </div>
       </div>
     </div>
     <div class="pane genie-scope">
-      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0</div>
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Output card</div>
       <div class="row-label">Generation output card (with quality chip)</div>
       <div class="row">
         <div class="output-card">
@@ -1891,12 +1926,78 @@ main {
           </div>
         </div>
       </div>
-      <div class="row-label">In-progress indicator (pulse ring)</div>
+      <div class="info" style="margin-top:14px">
+        Container: rounded-xl (20px) · border `border-secondary` · shadow-sm base · hover: translate-y(-2px) + shadow-lg over 220ms. Thumbnail: aspect 4:5, bg `bg-spotlight`. Title: 13px sans weight 600. Meta line: Geist Mono 10px tertiary text.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.2 Quality score chip -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Quality score chip</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">Tag</code> with status colours but no built-in score / rating chip pattern.<br><br>
+          <b>Devs build:</b> custom span with pill radius + status-coloured border + Geist Mono 10px uppercase weight 700 + backdrop-blur(8px) so it can sit over imagery.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Quality chip</div>
+      <div class="row-label">Quality score chip · 3 variants</div>
+      <div class="row">
+        <span class="quality-chip success">★ 92 winning</span>
+        <span class="quality-chip warning">★ 68 neutral</span>
+        <span class="quality-chip error">★ 41 weak</span>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Height 20px · padding 2px 8px · radius pill (100px) · Geist Mono 10px · uppercase · letter-spacing 0.06em · weight 700 · bg rgba(255,255,255,0.95) · backdrop-blur(8px) · border 1px in status colour at 30% alpha · text in full status colour. Placed absolute on output-card thumbnails (top-right corner with 10px offset).
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.3 Pulse ring indicator -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">In-progress indicator</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">Spin</code> (spinning loader) but no expanding-ring pulse pattern for ambient activity.<br><br>
+          <b>Devs build:</b> a 12×12 lime dot with `@keyframes pulse-ring` loop — box-shadow goes from 0 spread → 8px lime fade, 1.6s `cubic-bezier(0.4, 0, 0.6, 1)` infinite.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Pulse ring</div>
+      <div class="row-label">In-progress indicator</div>
       <div class="row" style="align-items:center;gap:14px">
         <span class="pulse-dot"></span>
         <span class="eyebrow">Generating · stage 3 of 4</span>
       </div>
+      <div class="info" style="margin-top:14px">
+        Dot 12×12 · bg `--primary` · animation `pulse-ring 1.6s var(--ease-pulse) infinite` · keyframes `box-shadow 0 0 0 0 rgba(195,235,66,0.55) → 0 0 0 8px rgba(195,235,66,0)`. Used next to status text (Geist Mono eyebrow style) for ambient "something is happening" feedback during generation, sync, fetch.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.4 Glass surface -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
       <div class="row-label">Glass surface (floating chrome)</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has no backdrop-blur utility or glass-style surface. All surfaces are opaque.<br><br>
+          <b>Devs build:</b> a `.glass` utility CSS class. <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">backdrop-filter: blur(20px) saturate(140%)</code> + bg `rgba(255,255,255,0.72)` light / `rgba(22,22,22,0.62)` dark + 1px subtle border.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Glass surface</div>
+      <div class="row-label">Floating chrome over generation grid</div>
       <div class="row">
         <div style="background:linear-gradient(135deg,#fbfbf9,#f4f4f0);padding:20px;border-radius:16px;max-width:420px;width:100%;position:relative">
           <div style="background:rgba(255,255,255,0.72);backdrop-filter:blur(20px) saturate(140%);border:1px solid rgba(15,15,12,0.06);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
@@ -1905,8 +2006,308 @@ main {
           </div>
         </div>
       </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.glass`. Used for: floating status chrome over content, floating action bars over generation grid, sticky filter chrome over feed. Dark mode auto-swaps via `[data-theme="dark"] .glass`.
+      </div>
     </div>
   </div>
+
+  <!-- 18.5 Lime glow halo -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Lime glow halo</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has no glow utility. Focus rings are flat box-shadow.<br><br>
+          <b>Devs build:</b> a `.glow` utility — <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">box-shadow: 0 0 0 1px rgba(195,235,66,0.4), 0 0 24px rgba(195,235,66,0.18)</code>. Applied to focused / selected hero elements.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Lime glow halo</div>
+      <div class="row-label">Selected / focused state</div>
+      <div class="row">
+        <div style="background:white;border:1px solid #e6f4a3;border-radius:16px;padding:16px 20px;box-shadow:0 0 0 1px rgba(195,235,66,0.4),0 0 24px rgba(195,235,66,0.18);max-width:380px">
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px">Selected concept</div>
+          <div class="meta">Selected by user · ready to generate</div>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.glow`. Two-layer composite shadow: 1px lime border-glow + 24px lime corona. Dark-mode bumps to 32px corona. Used on: focused hero prompt, selected mode chip, active generation card, the "you are here" element in any list. Auto-pairs well with the primary lime hover ring on buttons.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.6 Hero prompt input with focus backdrop -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Hero prompt input</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">Input.TextArea</code> but no hero-prompt pattern. No radial-gradient backdrop, no suggestion-pill row.<br><br>
+          <b>Devs build:</b> a `HeroPromptInput` custom React component wrapping Ant's TextArea with: radius-2xl (28px), a `::before` pseudo-element with a radial-gradient lime backdrop that fades in on `:focus-within`, plus a suggestion-pill row below the textarea.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Hero prompt input</div>
+      <div class="row-label">Hero prompt — focused state with lime backdrop</div>
+      <div class="row cols">
+        <div class="hero-prompt" style="max-width:460px;box-shadow:var(--shadow-glow);border-color:var(--primary-border)">
+          <textarea rows="3" placeholder="Describe what you want to generate..." style="background:transparent">A bold social ad for Aurora Apparel's autumn line, focused on cozy minimalism.</textarea>
+          <div class="hero-pills">
+            <span class="hero-pill">Use brand voice</span>
+            <span class="hero-pill">Square 1:1</span>
+            <span class="hero-pill">Add product shot</span>
+          </div>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Outer container: radius-2xl (28px) · 1px border · padding 16-20px. On `:focus-within`, applies `shadow-glow` + reveals a `::before` pseudo-element with radial-gradient lime backdrop blurred 28px. Suggestion pill row uses `radius-pill`, bg `bg-spotlight` → `primary-bg` on hover.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.7 Eyebrow text -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Eyebrow text style</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has <code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">Typography.Text</code> with `secondary` / `disabled` variants but no eyebrow micro-style.<br><br>
+          <b>Devs build:</b> a `.eyebrow` utility class — Geist Mono 11px / 16px line-height · uppercase · letter-spacing 0.05em · weight 600 · text-tertiary colour.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Eyebrow</div>
+      <div class="row-label">Used everywhere as section title / category label / status caption</div>
+      <div class="row cols">
+        <div><span class="eyebrow">Currently generating</span><h3 class="t" style="margin-top:4px">Aurora · Autumn drop</h3></div>
+        <div style="margin-top:12px"><span class="eyebrow">Quality scores · last 24h</span><div style="margin-top:6px;display:flex;gap:6px"><span class="quality-chip success">★ 92</span><span class="quality-chip warning">★ 68</span><span class="quality-chip success">★ 89</span></div></div>
+        <div style="margin-top:12px"><span class="eyebrow">2 brands tracked · 14 ads · stage 3 of 4</span></div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.eyebrow`. Used as: section title above cards, mode label inside cards, status caption near pulse-rings, count metadata in toolbars. Pairs with sans heading underneath (eyebrow + h3 combo = card header pattern).
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.8 Dot-grid pattern -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Dot-grid pattern</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has no pattern utilities. Empty states use a single line-drawing illustration.<br><br>
+          <b>Devs build:</b> CSS background — `background-image: radial-gradient(rgba(15,15,12,0.04) 1px, transparent 1px); background-size: 32px 32px`. Theme-aware via `[data-theme="dark"]` opacity boost.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Dot grid</div>
+      <div class="row-label">Used as canvas bg, empty-state bg</div>
+      <div class="row cols">
+        <div style="padding:48px 20px;border-radius:16px;text-align:center;background-image:radial-gradient(rgba(15,15,12,0.06) 1px,transparent 1px),radial-gradient(circle at center,rgba(195,235,66,0.06) 0%,transparent 60%);background-size:32px 32px,100% 100%">
+          <div style="font-size:13px;color:rgba(15,15,12,0.62)">Empty canvas — nothing generated yet</div>
+          <div class="meta" style="margin-top:6px">Drop a prompt above to start.</div>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.dot-grid` (utility). Used on: empty-state surfaces, canvas mode bg, hero-prompt parent containers. Combined with a centered lime radial gradient for the "this is where AI lives" cue.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.9 Lift hover -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Lift hover</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has no lift utility. Hoverable cards just border-colour-change.<br><br>
+          <b>Devs build:</b> a `.lift` utility — `transition: transform 220ms standard-ease, box-shadow 220ms standard-ease`. Hover: `translateY(-2px)` + shadow upgrades from sm → lg.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Lift hover</div>
+      <div class="row-label">Hover any card to see lift</div>
+      <div class="row">
+        <div class="card hoverable" style="max-width:240px"><div class="card-header">Hover me</div><div class="card-body">Translates up 2px + shadow upgrades.</div></div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.lift`. Used on: cards in feed, output cards in generation grid, mode picker cards, brand-detail-page cards. Subtle but signals "this is clickable" without needing colour or border change.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.10 Sheen on hero CTAs -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Sheen across hero CTA</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant buttons don't ship a sheen animation.<br><br>
+          <b>Devs build:</b> a `.sheen` utility — `::after` pseudo-element with a 90deg linear-gradient highlight + `@keyframes sheen` translating x from -120% to 220% with `skewX(-20deg)`. 1.4s ease-in-out, fires once.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Sheen on hero CTA</div>
+      <div class="row-label">One-off shine — fires on mount of "Start Creating"-style CTAs</div>
+      <div class="row">
+        <button class="btn btn-primary btn-lg" style="position:relative;overflow:hidden">✦ Start Creating</button>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.sheen` to any button or card. One-time animation (no infinite loop), 1.4s, fires when element mounts or comes into view. Used sparingly — only on the climactic CTA of a flow (e.g. "Start Creating" at the end of onboarding).
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.11 Float idle bob -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">Float (idle bob)</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant has no idle animation utilities.<br><br>
+          <b>Devs build:</b> a `.float` utility — `@keyframes float` translating y from 0 to -2px loop, 3s ease-in-out infinite.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Float idle bob</div>
+      <div class="row-label">Subtle life on idle hero icons</div>
+      <div class="row">
+        <div style="display:inline-flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;background:var(--primary-bg);border:1px solid var(--primary-border);border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:20px;animation:float 3s ease-in-out infinite">✦</div>
+          <div><div class="eyebrow">Genie mode</div><div style="font-size:14px;font-weight:600">Brand Ad generator</div></div>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.float`. Used on: hero mode icons in mode-picker, processing-stage icons, the brand-logo placeholder during onboarding. Tiny ±2px translation — adds "ambient life" without being distracting.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.12 Shimmer for skeletons -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — partial</div>
+      <div class="row-label">Shimmer for skeletons</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant ships a `Skeleton` component but its shimmer is grey + 1.4s (fast). No way to apply shimmer to custom non-Skeleton elements.<br><br>
+          <b>Devs build:</b> a `.shimmer` utility — `background: linear-gradient(90deg, transparent, rgba(195,235,66,0.12), transparent)` + `background-size: 200% 100%` + `@keyframes shimmer` translating bg-position over 2.4s linear infinite.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Lime shimmer</div>
+      <div class="row-label">Use on custom skeletons or empty thumbnails</div>
+      <div class="row">
+        <div class="shimmer" style="height:80px;width:280px;border-radius:20px;background:linear-gradient(90deg,#f4f4f0,rgba(195,235,66,0.12),#f4f4f0);background-size:200% 100%"></div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.shimmer`. Slower (2.4s vs Ant's 1.4s) — calmer feel. Lime mid-band ties skeletons to the brand. Used on: output-card thumbnails while AI generates, feed cards while data loads, hero prompt area in "AI is thinking" states.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.13 Fade-up entrance -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — partial</div>
+      <div class="row-label">Fade-up entrance</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant motion is buried inside `motion` package + not exposed as utilities. Each component has its own enter animation but you can't apply it to custom elements.<br><br>
+          <b>Devs build:</b> a `.fade-up` utility — `@keyframes` opacity 0→1 + translateY(+8 → 0). 360ms standard-ease both. Apply to elements when they appear in viewport.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Fade-up</div>
+      <div class="row-label">Apply to list items, cards, hero text on mount</div>
+      <div class="row cols">
+        <div class="fade-up" style="padding:16px;background:white;border:1px solid #efeee7;border-radius:16px;max-width:380px">
+          <span class="eyebrow">Fades up on mount</span>
+          <div style="font-size:14px;font-weight:600;margin-top:4px">Ad #1 · Aurora Apparel</div>
+          <div class="meta">Generated 2 minutes ago · 1024×1280 · v3</div>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.fade-up`. 360ms. Used on: feed card mount, output card mount, hero text reveal, drawer-content reveal. Combined with stagger (each child +60ms delay) for list reveals.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.14 Pop-in entrance -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — partial</div>
+      <div class="row-label">Pop-in entrance</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant's Modal / Popover have built-in pop-in but it's not exposed as a utility for custom elements.<br><br>
+          <b>Devs build:</b> a `.pop-in` utility — `@keyframes` opacity 0→1 + scale 0.98→1. 320ms `cubic-bezier(0.2, 0.8, 0.2, 1)` (pop-ease).
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — Pop-in</div>
+      <div class="row-label">Apply to floating elements like quality chips, toasts, badges appearing on hover</div>
+      <div class="row">
+        <div class="pop-in" style="display:inline-flex;align-items:center;gap:10px;background:white;border:1px solid #efeee7;border-radius:100px;padding:6px 14px;box-shadow:var(--shadow-md)">
+          <span class="pulse-dot" style="width:8px;height:8px"></span>
+          <span class="eyebrow" style="margin:0">Generation complete</span>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Apply class `.pop-in`. 320ms pop-ease. Used on: toast notifications, hover-revealed chips, modal pop-up, popovers opening, badges appearing on selection.
+      </div>
+    </div>
+  </div>
+
+  <!-- 18.15 MicroMotif icons -->
+  <div class="compare" style="border-top:1px solid #efeee7">
+    <div class="pane ant-scope">
+      <div class="pane-label"><span class="dot dot-ant"></span> Ant — not shipped</div>
+      <div class="row-label">MicroMotif icons (per-mode)</div>
+      <div class="row cols">
+        <div style="padding:20px;border:1px dashed #d9d9d9;border-radius:8px;font-size:13px;color:#999">
+          Ant ships its own icon set (<code style="background:#f5f5f5;padding:2px 5px;border-radius:3px;font-size:11px">@ant-design/icons</code>) but no per-mode brand motifs.<br><br>
+          <b>Devs build:</b> 6 custom SVG components — one per Genie mode (Brand Ad, Product Ad, Affiliate Ad, UGC Video, Forge, Image-to-Ad). Each 32×32, `currentColor` inheritance so they tint to the surrounding text colour, semantic stroke-width.
+        </div>
+      </div>
+    </div>
+    <div class="pane genie-scope">
+      <div class="pane-label"><span class="dot dot-genie"></span> Genie 6.0 — MicroMotifs</div>
+      <div class="row-label">6 per-mode SVGs — abstract, not literal</div>
+      <div class="row">
+        <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+          <div style="text-align:center"><div style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:18px">◐</div><div class="meta">Brand Ad</div></div>
+          <div style="text-align:center"><div style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:18px">◫</div><div class="meta">Product Ad</div></div>
+          <div style="text-align:center"><div style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:18px">⌖</div><div class="meta">Affiliate</div></div>
+          <div style="text-align:center"><div style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:18px">▶</div><div class="meta">UGC Video</div></div>
+          <div style="text-align:center"><div style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:18px">↻</div><div class="meta">Forge</div></div>
+          <div style="text-align:center"><div style="width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:18px">⊞</div><div class="meta">Image-to-Ad</div></div>
+        </div>
+      </div>
+      <div class="info" style="margin-top:14px">
+        Each motif is an abstract glyph — not a literal icon. Used in mode-picker cards, hero generation surface, mode badges. Inherits `currentColor` so it adapts to active/inactive states. Stays consistent across light/dark mode.
+      </div>
+    </div>
+  </div>
+
 </section>
 
 </main>
