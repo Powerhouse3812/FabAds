@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChooseMode } from "./steps/ChooseMode";
 import { EcommerceInput } from "./steps/EcommerceInput";
 import { AffiliateInput } from "./steps/AffiliateInput";
@@ -7,6 +7,7 @@ import { Processing } from "./steps/Processing";
 import { Done } from "./steps/Done";
 
 type Mode = "ecom" | "affiliate";
+type Step = 0 | 1 | 2 | 3;
 
 interface OnboardingData {
   mode: Mode;
@@ -27,6 +28,27 @@ interface OnboardingShellProps {
   onComplete?: () => void;
 }
 
+/* ── URL <-> internal state mapping ──────────────────────────────── */
+
+/** Encoded URL step name → internal {step, mode} pair. */
+const URL_TO_STATE: Record<string, { step: Step; mode: Mode }> = {
+  "choose-mode": { step: 0, mode: "ecom" },
+  "ecom-input": { step: 1, mode: "ecom" },
+  "ecom-processing": { step: 2, mode: "ecom" },
+  "ecom-done": { step: 3, mode: "ecom" },
+  "affiliate-input": { step: 1, mode: "affiliate" },
+  "affiliate-processing": { step: 2, mode: "affiliate" },
+  "affiliate-done": { step: 3, mode: "affiliate" },
+};
+
+function stateToUrl(step: Step, mode: Mode): string {
+  if (step === 0) return "choose-mode";
+  const prefix = mode;
+  if (step === 1) return `${prefix}-input`;
+  if (step === 2) return `${prefix}-processing`;
+  return `${prefix}-done`;
+}
+
 /**
  * Demo first-login onboarding flow ported from the ff.ai marketing site.
  *
@@ -38,6 +60,11 @@ interface OnboardingShellProps {
  *   Step 3  Done             Brand/category-ready summary using the
  *                            locked field list per mode (see Done.tsx)
  *
+ * Step + mode sync to URL as `?onb_step=ecom-input` etc. so the URL
+ * reflects the current state and is shareable / deep-linkable. The
+ * same step names map to the public `/onboarding-print/:step` routes
+ * used by html.to.design export.
+ *
  * No backend wiring — Step 2 is purely cosmetic (timed stages), Step 3 shows
  * hardcoded sample data. Drop-in demo for showing prospective users the
  * onboarding UX without needing a real scraping pipeline yet.
@@ -48,10 +75,32 @@ interface OnboardingShellProps {
  */
 export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   const navigate = useNavigate();
-  const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
-  const [data, setData] = useState<OnboardingData>({ mode: "ecom" });
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const goto = useCallback((s: 0 | 1 | 2 | 3) => {
+  // Hydrate initial step/mode from `?onb_step=` if present (deep-link).
+  const initialUrlStep = searchParams.get("onb_step");
+  const initialState =
+    (initialUrlStep && URL_TO_STATE[initialUrlStep]) ??
+    { step: 0 as Step, mode: "ecom" as Mode };
+
+  const [step, setStep] = useState<Step>(initialState.step);
+  const [data, setData] = useState<OnboardingData>({ mode: initialState.mode });
+
+  // Write step/mode back to URL whenever they change (replace history so
+  // the back button isn't spammed).
+  useEffect(() => {
+    const target = stateToUrl(step, data.mode);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (next.get("onb_step") !== target) next.set("onb_step", target);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [step, data.mode, setSearchParams]);
+
+  const goto = useCallback((s: Step) => {
     setStep(s);
     requestAnimationFrame(() =>
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }),
@@ -59,12 +108,21 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   }, []);
 
   const finish = useCallback(() => {
+    // Clear the onboarding URL state on exit
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("onb_step");
+        return next;
+      },
+      { replace: true },
+    );
     if (onComplete) {
       onComplete();
     } else {
       navigate("/insights-v2/feed");
     }
-  }, [onComplete, navigate]);
+  }, [onComplete, navigate, setSearchParams]);
 
   const goToLogin = useCallback(() => navigate("/auth"), [navigate]);
 
