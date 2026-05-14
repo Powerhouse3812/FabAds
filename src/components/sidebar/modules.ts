@@ -7,7 +7,7 @@ import {
   Bookmark, Copy, Tag, Building2, Package, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
-  BookOpen, Sparkles,
+  Sparkles,
   Compass, Eye, Layers, Rss,
 } from "lucide-react";
 
@@ -187,8 +187,10 @@ export const MODULES: ModuleDef[] = [
   { key: "copilot", label: "Copilot", icon: MessageSquare, path: "/iq/copilot" },
   { key: "bg-remover", label: "BG Remover", icon: Eraser, path: "/tools/bg-remover", comingSoon: true },
   { key: "obj-remover", label: "Object Remover", icon: Scissors, path: "/tools/obj-remover", comingSoon: true },
-  // Temporary — FabFunnel Brand Book slideshow. No sub-nav; each slide is its own route.
-  { key: "brand-book", label: "Brand Book", icon: BookOpen, path: "/brand-book", badge: "Temp" },
+  // Brand Book is intentionally NOT in the nav rail. The slideshow itself
+  // (/brand-book/:slug) still works for direct URL access — see
+  // brandBookRoutes in App.tsx. Removed from the rail per Maalik —
+  // "Remove the Brand book from both navigations."
   // Demo — first-login onboarding wizard ported from ff.ai marketing site.
   // Renders as a forced-flow modal over /insights-v2/feed (My Feeds) with
   // a dark backdrop. Presentational only; not auto-launched on real first
@@ -232,7 +234,6 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   copilot: "TOOLS",
   "bg-remover": "TOOLS",
   "obj-remover": "TOOLS",
-  "brand-book": "TOOLS",
   "onboarding-demo": "TOOLS",
 };
 
