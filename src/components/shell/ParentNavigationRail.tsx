@@ -14,6 +14,8 @@ import {
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserMenu } from "@/components/UserMenu";
 import { useV7Shape } from "@/components/sidebar/useV7Shape";
+import { usePlan } from "@/contexts/PlanContext";
+import { PlanShiftToggle } from "@/components/shell/PlanShiftToggle";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
@@ -32,7 +34,10 @@ export function ParentNavigationRail() {
   const { shape, cycle: cycleShape } = useV7Shape();
   const isFloating = shape === "floating";
 
-  const visibleModules = MODULES.filter((m) => !m.comingSoon);
+  const { plan } = usePlan();
+  const visibleModules = MODULES.filter(
+    (m) => !m.comingSoon && (m.plans?.includes(plan) ?? true),
+  );
   const primary = visibleModules.filter((m) => MODULE_GROUPS[m.key] !== "TOOLS");
   const tools = visibleModules.filter((m) => MODULE_GROUPS[m.key] === "TOOLS");
 
@@ -104,6 +109,7 @@ export function ParentNavigationRail() {
           "[&_button]:focus-visible:!ring-2 [&_button]:focus-visible:!ring-[#c3eb42] [&_button]:focus-visible:!ring-offset-2 [&_button]:focus-visible:!ring-offset-[hsl(80_15%_8%)]"
         )}
       >
+        <PlanShiftToggle />
         <NotificationBell compact />
         <UserMenu compact />
       </div>

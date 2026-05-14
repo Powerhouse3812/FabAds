@@ -54,6 +54,7 @@ import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
 import { CatalogueDetailPage } from "@/catalogue/CatalogueDetailPage";
 import { CatalogueFinder } from "@/catalogue/CatalogueFinder";
 import { ComingSoonPage } from "@/components/ComingSoonPage";
+import { PlanProvider } from "@/contexts/PlanContext";
 
 const queryClient = new QueryClient();
 const App = () => (
@@ -63,6 +64,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
+        <PlanProvider>
         <BrowserRouter>
           <Routes>
             <Route path="auth" element={<Auth />} />
@@ -210,6 +212,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        </PlanProvider>
       </AuthProvider>
     </TooltipProvider>
     </ThemeProvider>

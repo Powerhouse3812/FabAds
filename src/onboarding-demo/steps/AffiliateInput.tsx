@@ -86,7 +86,7 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
             </p>
           </div>
 
-          {/* Reference URLs */}
+          {/* Reference URLs — capped internal scroll so modal stays no-scroll */}
           <div>
             <label className="block text-[13px] font-semibold text-foreground mb-2">
               Reference URLs{" "}
@@ -94,7 +94,7 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
                 (optional — competitor pages, your content, offer pages)
               </span>
             </label>
-            <div className="space-y-2">
+            <div className="max-h-[180px] overflow-y-auto pr-1 space-y-2">
               {refUrls.map((u, i) => (
                 <div key={i} className="flex gap-2">
                   <Input
@@ -115,17 +115,17 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
                   </Button>
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={addUrl}
-                className="gap-1 text-[12px] h-7"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add another URL
-              </Button>
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={addUrl}
+              className="gap-1 text-[12px] h-7 mt-2"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add another URL
+            </Button>
           </div>
         </div>
 

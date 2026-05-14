@@ -49,6 +49,13 @@ export interface ModuleDef {
   comingSoon?: boolean;
   /** Optional small chip rendered on the parent rail item (e.g. "Temp", "Beta") */
   badge?: string;
+  /**
+   * Plans this module is visible under. Omit/undefined → visible on both
+   * "full" and "ai" plans. Set to ["full"] to hide on AI plan
+   * (Reports / Launch / Automation — the ad-ops surfaces). AI plan
+   * focuses on AI generation + research + tools.
+   */
+  plans?: ("full" | "ai")[];
 }
 
 /** Shell-level functional groups used by the nav. */
@@ -89,6 +96,7 @@ export const MODULES: ModuleDef[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   {
     key: "reports", label: "Reports", icon: BarChart3,
+    plans: ["full"],
     subItems: [
       { label: "Facebook", path: "/reports/fb", icon: Globe },
       { label: "NB", path: "/reports/nb", icon: BarChart3 },
@@ -111,6 +119,7 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: "launch", label: "Launch", icon: Rocket,
+    plans: ["full"],
     subItems: [
       // A-9.4: "Launches" renamed to "History"; Clones merged inside History
       // (history page filters between launches and clones). Sub-item Clones removed.
@@ -122,7 +131,7 @@ export const MODULES: ModuleDef[] = [
     ],
   },
 
-  { key: "automation", label: "Automation", icon: Workflow, path: "/automation" },
+  { key: "automation", label: "Automation", icon: Workflow, path: "/automation", plans: ["full"] },
 
   /* CREATE */
   {
