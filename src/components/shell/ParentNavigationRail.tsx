@@ -1,4 +1,5 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useCallback } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -32,9 +33,31 @@ import faviconDark from "@/assets/favicon-dark.png";
 export function ParentNavigationRail() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeKey = deriveActiveModule(pathname);
   const { shape, cycle: cycleShape } = useV7Shape();
   const isFloating = shape === "floating";
+
+  // PRO upsell popover open state lives in the URL as `?upsell=<moduleKey>`.
+  // Click a locked rail item → URL gets the param, popover opens.
+  // Closing the popover removes the param. Deep-linking the URL re-opens
+  // the matching popover on load. Also makes the state visible /
+  // shareable for QA + design exports.
+  const upsellKey = searchParams.get("upsell");
+  const setUpsellKey = useCallback(
+    (key: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (key) next.set("upsell", key);
+          else next.delete("upsell");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const { plan } = usePlan();
   // Lock derivation. On AI plan the modules tagged `plans: ["full"]`
@@ -133,6 +156,10 @@ export function ParentNavigationRail() {
                   mod={mod}
                   isActive={activeKey === mod.key}
                   locked
+                  upsellOpen={upsellKey === mod.key}
+                  onUpsellOpenChange={(open) =>
+                    setUpsellKey(open ? mod.key : null)
+                  }
                   onClick={() => handleClick(mod)}
                 />
               ))}
@@ -209,11 +236,18 @@ function RailItem({
   mod,
   isActive,
   locked = false,
+  upsellOpen,
+  onUpsellOpenChange,
   onClick,
 }: {
   mod: ModuleDef;
   isActive: boolean;
   locked?: boolean;
+  /** Controls the upsell Popover open state when `locked` is true. Wired
+      to `?upsell=<key>` URL param in ParentNavigationRail so the open
+      state is shareable / deep-linkable. */
+  upsellOpen?: boolean;
+  onUpsellOpenChange?: (open: boolean) => void;
   onClick: () => void;
 }) {
   const Icon = mod.icon;
@@ -282,9 +316,11 @@ function RailItem({
   );
 
   // 0) Locked → render upsell popover on click. Skips sub-item nav.
+  //    Open state is controlled by `upsellOpen` so it syncs with the
+  //    `?upsell=<key>` URL param.
   if (locked) {
     return (
-      <Popover>
+      <Popover open={upsellOpen} onOpenChange={onUpsellOpenChange}>
         <PopoverTrigger asChild>{button}</PopoverTrigger>
         <PopoverContent
           side="right"

@@ -26,6 +26,7 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
+import { upsellPrintRoutes } from "@/upsell-print/routes";
 
 import InsightsIntelligence from "@/pages/insights/InsightsIntelligence";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
@@ -77,6 +78,12 @@ const App = () => (
                 headless scrapers get clean content instead of an auth
                 spinner. URL: /brand-book-print/:slug */}
             {brandBookPrintRoutes}
+
+            {/* PRO upsell tooltip — PUBLIC print route, same pattern as
+                brand-book-print. Lets html.to.design scrape the
+                upsell card at native dimensions.
+                URL: /upsell-print/:moduleKey (e.g. /upsell-print/reports) */}
+            {upsellPrintRoutes}
 
             <Route element={<ProtectedRoute />}>
               {/* Onboarding Demo — first-login wizard. Mounted OUTSIDE
