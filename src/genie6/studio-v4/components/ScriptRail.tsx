@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Bookmark,
   Check,
@@ -22,7 +23,8 @@ type Tab = "enter" | "upload" | "ai";
 
 interface Generation {
   id: string;
-  text: string;
+  /** Index into MOCK_SCRIPTS — keeps state URL-encodable + deterministic. */
+  scriptIdx: number;
 }
 
 /** Pre-canned mock scripts cycled through on Generate / Regenerate. */
@@ -35,6 +37,33 @@ const MOCK_SCRIPTS = [
 
 const MAX_UPLOAD_BYTES = 50 * 1024; // 50 KB
 
+/* ── URL param keys ─────────────────────────────────────────
+ * Encoded into the parent route's query string so the modal
+ * is hard-refresh / deep-link safe. Pattern matches the rest
+ * of Genie 6.0 (per feedback_sync_discipline).
+ *
+ *   ?scriptTab=ai           → reopen on AI tab
+ *   ?scriptPrompt=<text>    → seed AI prompt input
+ *   ?scriptGen=0,1,2        → reconstruct generation cards from
+ *                             positional indices into MOCK_SCRIPTS
+ * ────────────────────────────────────────────────────────── */
+const URL_KEYS = {
+  tab: "scriptTab",
+  prompt: "scriptPrompt",
+  gen: "scriptGen",
+} as const;
+
+const ALL_KEYS = [URL_KEYS.tab, URL_KEYS.prompt, URL_KEYS.gen] as const;
+
+/** Parse `?scriptGen=0,1,2` → [0,1,2]. Drops out-of-range or non-int. */
+function parseGenIndices(raw: string | null): number[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => Number.parseInt(s, 10))
+    .filter((n) => Number.isInteger(n) && n >= 0 && n < MOCK_SCRIPTS.length);
+}
+
 /**
  * ScriptRail — modal picker for setting `wizard.state.script`.
  *
@@ -46,13 +75,40 @@ const MAX_UPLOAD_BYTES = 50 * 1024; // 50 KB
  *
  * Default state of `script` is null (Auto). Calling `onSave(text)`
  * sets it to a string. Closing without saving leaves it untouched.
+ *
+ * URL state:
+ *   AI tab is the one Maalik flagged for refresh-loss — prompt + generated
+ *   cards now persist via the parent's `?scriptTab/scriptPrompt/scriptGen`
+ *   query params. Hard refresh / share-link returns to the same view.
+ *   Enter + Upload tabs deliberately stay local (textarea content / file
+ *   contents would balloon the URL and aren't share-worthy).
+ *   On close (`onClose` from parent) we strip all three keys.
  */
 export function ScriptRail({
   currentScript,
   onSave,
   onClose,
 }: ScriptRailProps) {
-  const [tab, setTab] = useState<Tab>("enter");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  /* ── URL → initial state ── */
+  const initialTab: Tab = useMemo(() => {
+    const t = searchParams.get(URL_KEYS.tab);
+    return t === "ai" || t === "upload" || t === "enter" ? t : "enter";
+  }, []); // intentional: mount-only hydration; subsequent changes go state → URL
+  const initialPrompt = useMemo(
+    () => searchParams.get(URL_KEYS.prompt) ?? "",
+    [],
+  );
+  const initialGenerations = useMemo<Generation[]>(() => {
+    const idxs = parseGenIndices(searchParams.get(URL_KEYS.gen));
+    return idxs.map((scriptIdx, i) => ({
+      id: `gen-${i}`,
+      scriptIdx,
+    }));
+  }, []);
+
+  const [tab, setTabState] = useState<Tab>(initialTab);
 
   // Enter tab
   const [enteredText, setEnteredText] = useState<string>(currentScript ?? "");
@@ -64,14 +120,61 @@ export function ScriptRail({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // AI tab
-  const [aiPrompt, setAiPrompt] = useState<string>("");
+  const [aiPrompt, setAiPrompt] = useState<string>(initialPrompt);
   const [generating, setGenerating] = useState<boolean>(false);
-  const [generations, setGenerations] = useState<Generation[]>([]);
+  const [generations, setGenerations] =
+    useState<Generation[]>(initialGenerations);
 
   const wordCount = useMemo(
     () => (enteredText.trim() ? enteredText.trim().split(/\s+/).length : 0),
     [enteredText],
   );
+
+  /* ── URL writers ─────────────────────────────────────────── */
+  const writeUrl = useCallback(
+    (
+      patch: Partial<Record<(typeof ALL_KEYS)[number], string | null>>,
+    ) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === "") sp.delete(k);
+            else sp.set(k, v);
+          }
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setTab = useCallback(
+    (next: Tab) => {
+      setTabState(next);
+      // Only persist non-default tabs so back-button history is clean.
+      writeUrl({ [URL_KEYS.tab]: next === "enter" ? null : next });
+    },
+    [writeUrl],
+  );
+
+  /** Serialize the current generations into the URL. */
+  const persistGenerations = useCallback(
+    (next: Generation[]) => {
+      writeUrl({
+        [URL_KEYS.gen]:
+          next.length === 0 ? null : next.map((g) => g.scriptIdx).join(","),
+      });
+    },
+    [writeUrl],
+  );
+
+  /* ── Close paths ──
+        All close paths (X click, backdrop, "Use", browser Back) flow
+        through the parent's `setRailMode(null)`, which strips both
+        `picker` AND the rail-owned URL keys (`scriptTab/Prompt/Gen`).
+        So ScriptRail doesn't need to clean up its own keys here. */
 
   const copyToClipboard = (text: string) => {
     void navigator.clipboard?.writeText(text);
@@ -80,25 +183,33 @@ export function ScriptRail({
   const handleGenerate = () => {
     if (!aiPrompt.trim() || generating) return;
     setGenerating(true);
+    // Persist the prompt at generate-time (not on every keystroke — keeps
+    // browser history clean + avoids URL churn while typing).
+    writeUrl({ [URL_KEYS.prompt]: aiPrompt.trim() });
     window.setTimeout(() => {
-      const next = MOCK_SCRIPTS[generations.length % MOCK_SCRIPTS.length];
-      setGenerations((prev) => [
-        ...prev,
-        { id: `gen-${Date.now()}`, text: next },
-      ]);
+      setGenerations((prev) => {
+        const nextIdx = prev.length % MOCK_SCRIPTS.length;
+        const next: Generation[] = [
+          ...prev,
+          { id: `gen-${Date.now()}`, scriptIdx: nextIdx },
+        ];
+        persistGenerations(next);
+        return next;
+      });
       setGenerating(false);
     }, 800);
   };
 
   const regenerate = (id: string) => {
-    setGenerations((prev) =>
-      prev.map((g) => {
-        if (g.id !== id) return g;
-        const idx = MOCK_SCRIPTS.indexOf(g.text);
-        const nextIdx = (idx + 1) % MOCK_SCRIPTS.length;
-        return { ...g, text: MOCK_SCRIPTS[nextIdx] };
-      }),
-    );
+    setGenerations((prev) => {
+      const next = prev.map((g) =>
+        g.id === id
+          ? { ...g, scriptIdx: (g.scriptIdx + 1) % MOCK_SCRIPTS.length }
+          : g,
+      );
+      persistGenerations(next);
+      return next;
+    });
   };
 
   const saveToLibrary = (id: string) => {
@@ -287,14 +398,14 @@ export function ScriptRail({
                   </span>
                 </div>
                 <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-foreground">
-                  {gen.text}
+                  {MOCK_SCRIPTS[gen.scriptIdx]}
                 </p>
                 {/* Action row */}
                 <div className="mt-3 flex items-center gap-1 border-t border-border/40 pt-2">
                   <ActionBtn
                     icon={Copy}
                     label="Copy"
-                    onClick={() => copyToClipboard(gen.text)}
+                    onClick={() => copyToClipboard(MOCK_SCRIPTS[gen.scriptIdx])}
                   />
                   <ActionBtn
                     icon={RefreshCw}
@@ -308,7 +419,7 @@ export function ScriptRail({
                   />
                   <button
                     type="button"
-                    onClick={() => onSave(gen.text)}
+                    onClick={() => onSave(MOCK_SCRIPTS[gen.scriptIdx])}
                     className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition-opacity hover:opacity-90"
                   >
                     <Check className="h-3 w-3" />

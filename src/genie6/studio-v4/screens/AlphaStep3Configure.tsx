@@ -135,12 +135,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     urlPicker && VALID_PICKERS.includes(urlPicker as Exclude<RailMode, null>)
       ? (urlPicker as RailMode)
       : null;
+  // Rail-specific URL keys that need stripping when the modal closes —
+  // otherwise stale `?scriptPrompt=…&scriptGen=…` lingers after backdrop /
+  // Save / programmatic close. Single source of truth.
+  const RAIL_OWNED_KEYS = ["scriptTab", "scriptPrompt", "scriptGen"] as const;
   const setRailMode = (next: RailMode) => {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        if (next === null) sp.delete("picker");
-        else sp.set("picker", next);
+        if (next === null) {
+          sp.delete("picker");
+          for (const k of RAIL_OWNED_KEYS) sp.delete(k);
+        } else {
+          sp.set("picker", next);
+        }
         return sp;
       },
       { replace: false },
