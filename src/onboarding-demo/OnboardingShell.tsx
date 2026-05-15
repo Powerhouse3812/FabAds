@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Welcome } from "./steps/Welcome";
 import { ProductChooser } from "./steps/ProductChooser";
+import { InsightsQuickSetup } from "./steps/InsightsQuickSetup";
 import { ChooseMode } from "./steps/ChooseMode";
 import { CountrySelection } from "./steps/CountrySelection";
 import { EcommerceInput } from "./steps/EcommerceInput";
@@ -12,15 +13,16 @@ import { Done } from "./steps/Done";
 type Mode = "ecom" | "affiliate";
 type WelcomeVariant = "creative" | "insights";
 /**
- *  -2  Welcome              (pre-wizard celebration, two variants)
- *  -1  Product Chooser      (Genie vs Industry Insights — Insights disabled)
- *   0  Choose Mode          (stepper starts here — E-com / Affiliate)
- *   1  Country              (market)
- *   2  Input                (mode-specific form)
- *   3  Processing           (4 simulated stages)
- *   4  Done                 (Brand / Category Ready)
+ *  -2  Welcome                  (pre-wizard celebration, two variants)
+ *  -1  Product Chooser          (Genie vs Industry Insights)
+ *   0  Choose Mode              (Genie path — stepper starts here)
+ *   1  Country
+ *   2  Input
+ *   3  Processing
+ *   4  Done
+ *   5  Insights Quick Setup     (Insights path — single screen, no wizard)
  */
-type Step = -2 | -1 | 0 | 1 | 2 | 3 | 4;
+type Step = -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5;
 
 interface OnboardingData {
   mode: Mode;
@@ -35,6 +37,8 @@ interface OnboardingData {
   audience?: string;
   refUrls?: string[];
   affLink?: string;
+  /** Set when user picks Industry Insights from ProductChooser. */
+  insightsIndustry?: string;
 }
 
 interface OnboardingShellProps {
@@ -69,6 +73,7 @@ const URL_TO_STATE: Record<string, StateTriple> = {
     mode: "affiliate",
     welcomeVariant: "creative",
   },
+  "insights-setup": { step: 5, mode: "ecom", welcomeVariant: "creative" },
 };
 
 function stateToUrl(
@@ -80,6 +85,7 @@ function stateToUrl(
     return welcomeVariant === "insights" ? "welcome-insights" : "welcome";
   }
   if (step === -1) return "product-chooser";
+  if (step === 5) return "insights-setup";
   if (step === 0) return "choose-mode";
   if (step === 1) return "country";
   const prefix = mode;
@@ -169,7 +175,23 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   }
 
   if (step === -1) {
-    return <ProductChooser onPickGenie={() => goto(0)} />;
+    return (
+      <ProductChooser
+        onPickGenie={() => goto(0)}
+        onPickInsights={() => goto(5)}
+      />
+    );
+  }
+
+  if (step === 5) {
+    return (
+      <InsightsQuickSetup
+        onContinue={(industry) => {
+          setData((d) => ({ ...d, insightsIndustry: industry }));
+          finish();
+        }}
+      />
+    );
   }
 
   if (step === 0) {

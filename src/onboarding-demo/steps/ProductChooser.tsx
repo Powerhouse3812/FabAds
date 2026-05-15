@@ -1,10 +1,11 @@
-import { ArrowRight, Check, Sparkles, Eye, Zap, Lock } from "lucide-react";
+import { ArrowRight, Check, Sparkles, Eye, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface ProductChooserProps {
   onPickGenie: () => void;
-  /** Industry Insights is currently disabled — no callback wired. */
+  /** Pick Industry Insights → goes to InsightsQuickSetup (1 field + chips). */
+  onPickInsights: () => void;
 }
 
 interface ProductOption {
@@ -15,7 +16,6 @@ interface ProductOption {
   desc: string;
   features: string[];
   ctaLabel: string;
-  disabled?: boolean;
 }
 
 const OPTIONS: ProductOption[] = [
@@ -48,25 +48,28 @@ const OPTIONS: ProductOption[] = [
       "Trend detection",
     ],
     ctaLabel: "Setup Insights",
-    disabled: true,
   },
 ];
 
 /**
- * Pre-wizard product chooser. Plays after Welcome and before the
- * 5-step setup wizard (Choose Mode → Country → Input → Processing →
- * Done). Two options:
- *   - Genie (AI Creative Generation) — clickable, starts the wizard
- *   - Industry Insights — disabled per Maalik (coming soon)
+ * Pre-wizard product chooser. Plays after Welcome.
  *
- * Light mode + Fabfunnel tokens. No animation here — straight render
- * so it sits cleanly between the celebratory Welcome and the wizard
- * stepper.
+ * Two paths:
+ *   - Genie (AI Creative Generation) → starts the 5-step wizard
+ *     (Choose Mode → Country → Input → Processing → Done)
+ *   - Industry Insights → goes to InsightsQuickSetup (single screen
+ *     with one industry field + quick chips + edit-later footnote)
+ *
+ * Light mode + Fabfunnel tokens. No animation — sits cleanly between
+ * Welcome and whichever flow the user picks.
  */
-export function ProductChooser({ onPickGenie }: ProductChooserProps) {
+export function ProductChooser({
+  onPickGenie,
+  onPickInsights,
+}: ProductChooserProps) {
   const handleClick = (opt: ProductOption) => {
-    if (opt.disabled) return;
     if (opt.id === "genie") onPickGenie();
+    else if (opt.id === "insights") onPickInsights();
   };
 
   return (
@@ -106,56 +109,23 @@ export function ProductChooser({ onPickGenie }: ProductChooserProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {OPTIONS.map((opt) => {
             const Icon = opt.icon;
-            const disabled = !!opt.disabled;
             return (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => handleClick(opt)}
-                disabled={disabled}
-                aria-disabled={disabled}
-                className={cn(
-                  "group relative text-left rounded-2xl border bg-card transition-all p-6",
-                  "flex flex-col gap-4",
-                  disabled
-                    ? "border-border opacity-60 cursor-not-allowed"
-                    : "border-border hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 cursor-pointer",
-                )}
+                className="group relative text-left rounded-2xl border border-border bg-card p-6 flex flex-col gap-4 transition-all cursor-pointer hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5"
               >
-                {disabled && (
-                  <Badge
-                    variant="outline"
-                    className="absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider bg-muted border-border text-muted-foreground inline-flex items-center gap-1 px-2 py-0.5"
-                  >
-                    <Lock className="h-2.5 w-2.5" />
-                    Coming soon
-                  </Badge>
-                )}
-
                 {/* Icon + title row */}
                 <div className="flex items-center gap-3.5">
-                  <div
-                    className={cn(
-                      "h-12 w-12 rounded-xl inline-flex items-center justify-center shrink-0 border-2",
-                      disabled
-                        ? "border-muted-foreground/30 bg-muted/40 text-muted-foreground"
-                        : "border-primary bg-primary/10 text-foreground",
-                    )}
-                  >
+                  <div className="h-12 w-12 rounded-xl inline-flex items-center justify-center shrink-0 border-2 border-primary bg-primary/10 text-foreground">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-[18px] font-bold tracking-tight text-foreground leading-tight">
                       {opt.title}
                     </h3>
-                    <p
-                      className={cn(
-                        "text-[11.5px] font-semibold tracking-wide mt-0.5",
-                        disabled
-                          ? "text-muted-foreground"
-                          : "text-primary",
-                      )}
-                    >
+                    <p className="text-[11.5px] font-semibold tracking-wide mt-0.5 text-primary">
                       {opt.subtitle}
                     </p>
                   </div>
@@ -174,10 +144,7 @@ export function ProductChooser({ onPickGenie }: ProductChooserProps) {
                       className="flex items-center gap-2 text-[12.5px] text-foreground"
                     >
                       <Check
-                        className={cn(
-                          "h-3 w-3 shrink-0",
-                          disabled ? "text-muted-foreground" : "text-primary",
-                        )}
+                        className="h-3 w-3 shrink-0 text-primary"
                         strokeWidth={3}
                       />
                       <span>{f}</span>
@@ -186,14 +153,7 @@ export function ProductChooser({ onPickGenie }: ProductChooserProps) {
                 </ul>
 
                 {/* CTA */}
-                <div
-                  className={cn(
-                    "mt-auto pt-2 flex items-center gap-1.5 text-[13.5px] font-bold tracking-tight",
-                    disabled
-                      ? "text-muted-foreground"
-                      : "text-foreground group-hover:gap-2.5 transition-all",
-                  )}
-                >
+                <div className="mt-auto pt-2 flex items-center gap-1.5 text-[13.5px] font-bold tracking-tight text-foreground group-hover:gap-2.5 transition-all">
                   {opt.ctaLabel}
                   <ArrowRight className="h-4 w-4" />
                 </div>

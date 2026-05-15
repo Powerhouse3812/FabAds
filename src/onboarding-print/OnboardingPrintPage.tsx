@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Welcome } from "@/onboarding-demo/steps/Welcome";
 import { ProductChooser } from "@/onboarding-demo/steps/ProductChooser";
+import { InsightsQuickSetup } from "@/onboarding-demo/steps/InsightsQuickSetup";
 import { ChooseMode } from "@/onboarding-demo/steps/ChooseMode";
 import { CountrySelection } from "@/onboarding-demo/steps/CountrySelection";
 import { EcommerceInput } from "@/onboarding-demo/steps/EcommerceInput";
@@ -17,9 +18,10 @@ import { Done } from "@/onboarding-demo/steps/Done";
  * Step values:
  *   welcome                 — Pre-stepper celebration (Creative variant)
  *   welcome-insights        — Pre-stepper celebration (Insights variant)
- *   product-chooser         — Pre-stepper product picker (Genie vs Insights;
- *                              Insights disabled — coming soon)
- *   choose-mode             — Step 1 (mode picker)
+ *   product-chooser         — Pre-stepper product picker (Genie vs Insights)
+ *   insights-setup          — Insights single-screen quick setup (1 field
+ *                              + industry chips + edit-later footnote)
+ *   choose-mode             — Step 1 (mode picker — Genie path)
  *   country                 — Step 2 (country / market — both flows)
  *   ecom-input              — Step 3 e-commerce
  *   ecom-processing         — Step 4 e-commerce
@@ -76,7 +78,9 @@ function renderStep(step: string) {
     case "welcome-insights":
       return <Welcome onContinue={noop} printMode initialVariant="insights" />;
     case "product-chooser":
-      return <ProductChooser onPickGenie={noop} />;
+      return <ProductChooser onPickGenie={noop} onPickInsights={noop} />;
+    case "insights-setup":
+      return <InsightsQuickSetup onContinue={noop} />;
     case "choose-mode":
       return <ChooseMode onPick={noop} onSkip={noop} onLogin={noop} />;
     case "country":
