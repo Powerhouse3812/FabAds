@@ -337,7 +337,7 @@ export function Done({
       <div className="h-1.5 bg-primary border-b border-border" />
 
       <StepNav
-        active={3}
+        active={4}
         onBack={onBack}
         backLabel="Back to Input"
         onRestart={onRestart}

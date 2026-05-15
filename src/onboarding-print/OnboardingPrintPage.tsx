@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Welcome } from "@/onboarding-demo/steps/Welcome";
 import { ChooseMode } from "@/onboarding-demo/steps/ChooseMode";
+import { CountrySelection } from "@/onboarding-demo/steps/CountrySelection";
 import { EcommerceInput } from "@/onboarding-demo/steps/EcommerceInput";
 import { AffiliateInput } from "@/onboarding-demo/steps/AffiliateInput";
 import { Processing } from "@/onboarding-demo/steps/Processing";
@@ -13,15 +14,16 @@ import { Done } from "@/onboarding-demo/steps/Done";
  * URL: /onboarding-print/:step
  *
  * Step values:
- *   welcome                 — Creative variant of welcome screen (Step 0).
- *   welcome-insights        — Insights variant of welcome screen (Step 0).
+ *   welcome                 — Pre-stepper celebration (Creative variant)
+ *   welcome-insights        — Pre-stepper celebration (Insights variant)
  *   choose-mode             — Step 1 (mode picker)
- *   ecom-input              — Step 2 e-commerce
- *   ecom-processing         — Step 3 e-commerce
- *   ecom-done               — Step 4 e-commerce (Brand Ready!)
- *   affiliate-input         — Step 2 affiliate
- *   affiliate-processing    — Step 3 affiliate
- *   affiliate-done          — Step 4 affiliate (Category Ready!)
+ *   country                 — Step 2 (country / market — both flows)
+ *   ecom-input              — Step 3 e-commerce
+ *   ecom-processing         — Step 4 e-commerce
+ *   ecom-done               — Step 5 e-commerce (Brand Ready!)
+ *   affiliate-input         — Step 3 affiliate
+ *   affiliate-processing    — Step 4 affiliate
+ *   affiliate-done          — Step 5 affiliate (Category Ready!)
  *
  * Renders the modal composition inline — no DialogPrimitive.Portal —
  * so design-importer tools (html.to.design, Anima, Locofy) can scrape
@@ -72,6 +74,8 @@ function renderStep(step: string) {
       return <Welcome onContinue={noop} printMode initialVariant="insights" />;
     case "choose-mode":
       return <ChooseMode onPick={noop} onSkip={noop} onLogin={noop} />;
+    case "country":
+      return <CountrySelection onBack={noop} onContinue={noop} />;
     case "ecom-input":
       return <EcommerceInput onBack={noop} onContinue={noop} />;
     case "ecom-processing":

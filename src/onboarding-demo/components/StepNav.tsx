@@ -1,10 +1,16 @@
 import { Check, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ONB_STEPS = ["Choose Mode", "Input", "Processing", "Done"] as const;
+const ONB_STEPS = [
+  "Choose Mode",
+  "Country",
+  "Input",
+  "Processing",
+  "Done",
+] as const;
 
 interface StepNavProps {
-  active: number; // 0-3
+  active: number; // 0-4 (5 wizard steps; Welcome is pre-stepper at step -1)
   onBack?: () => void;
   backLabel?: string;
   onRestart?: () => void;

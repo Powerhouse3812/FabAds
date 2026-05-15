@@ -10,16 +10,16 @@ import { OnboardingPrintPage } from "./OnboardingPrintPage";
  * URL pattern: /onboarding-print/:step
  *
  * Step values:
- *   welcome                 (default — Creative variant welcome screen,
- *                            final phase rendered for design export)
- *   welcome-insights        (Insights variant welcome screen)
+ *   welcome                 (default — Creative welcome celebration)
+ *   welcome-insights        (Insights welcome celebration)
  *   choose-mode             (Step 1 mode picker)
- *   ecom-input              (Step 2 e-commerce — Brand URL form)
- *   ecom-processing         (Step 3 e-commerce — animated stages)
- *   ecom-done               (Step 4 e-commerce — Brand Ready)
- *   affiliate-input         (Step 2 affiliate — Category + ref URLs)
- *   affiliate-processing    (Step 3 affiliate — animated stages)
- *   affiliate-done          (Step 4 affiliate — Category Ready)
+ *   country                 (Step 2 country picker — both flows)
+ *   ecom-input              (Step 3 e-commerce — Brand URL form)
+ *   ecom-processing         (Step 4 e-commerce — animated stages)
+ *   ecom-done               (Step 5 e-commerce — Brand Ready)
+ *   affiliate-input         (Step 3 affiliate — full field set)
+ *   affiliate-processing    (Step 4 affiliate — animated stages)
+ *   affiliate-done          (Step 5 affiliate — Category Ready)
  *
  * Visiting /onboarding-print without a slug redirects to welcome.
  */

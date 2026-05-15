@@ -1,24 +1,74 @@
 import { useState } from "react";
-import { ArrowRight, Zap, Plus, X } from "lucide-react";
+import {
+  ArrowRight, Zap, Plus, X, Instagram, Music, Youtube, FileText,
+  Pin, Mail, Twitter,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { StepNav } from "../components/StepNav";
+import { cn } from "@/lib/utils";
 
 interface AffiliateInputProps {
   onBack: () => void;
-  onContinue: (data: { category: string; refUrls: string[] }) => void;
+  onContinue: (data: {
+    category: string;
+    industry: string;
+    platforms: string[];
+    audience: string;
+    refUrls: string[];
+    affLink: string;
+  }) => void;
 }
 
+/* Posting platforms (multi-select). Order + icons match the wireframe. */
+const PLATFORMS: { id: string; icon: typeof Instagram }[] = [
+  { id: "Instagram", icon: Instagram },
+  { id: "TikTok", icon: Music },
+  { id: "YouTube", icon: Youtube },
+  { id: "Blog / Website", icon: FileText },
+  { id: "Pinterest", icon: Pin },
+  { id: "X / Twitter", icon: Twitter },
+  { id: "Email", icon: Mail },
+];
+
+const INDUSTRIES = [
+  "Insurance",
+  "Finance",
+  "Health & Wellness",
+  "Software / SaaS",
+  "Home Services",
+  "Education",
+  "Travel",
+];
+
 /**
- * Step 2 — Affiliate input. Two fields only: Category name + Reference
- * URLs (list). The wizard infers description, target audience,
- * suggested angles, target keywords, and competitors from these in
- * Step 3.
+ * Step 3 — Affiliate input. Required: Category. Optional: Industry,
+ * posting platforms, target audience, reference URLs, affiliate link.
+ * Restored the full field set after Maalik's wireframe cross-check
+ * (A-12.121 had trimmed everything except Category + URLs).
  */
 export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
   const [category, setCategory] = useState("");
+  const [industry, setIndustry] = useState("Insurance");
+  const [platforms, setPlatforms] = useState<Set<string>>(
+    new Set(["Instagram", "TikTok"]),
+  );
+  const [audience, setAudience] = useState("");
   const [refUrls, setRefUrls] = useState<string[]>([""]);
+  const [affLink, setAffLink] = useState("");
+
+  const togglePlat = (p: string) => {
+    setPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
 
   const updateUrl = (idx: number, val: string) => {
     setRefUrls((prev) => prev.map((u, i) => (i === idx ? val : u)));
@@ -35,19 +85,23 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
   const submit = () => {
     onContinue({
       category: category.trim() || "Auto Insurance",
+      industry,
+      platforms: Array.from(platforms),
+      audience: audience.trim(),
       refUrls: refUrls.map((u) => u.trim()).filter(Boolean),
+      affLink: affLink.trim(),
     });
   };
 
   return (
     <div className="bg-background">
-      <StepNav active={1} onBack={onBack} backLabel="Back to Quick Start" />
-      <div className="max-w-[640px] mx-auto px-6 pt-2 pb-10">
+      <StepNav active={2} onBack={onBack} backLabel="Back to Country" />
+      <div className="max-w-[720px] mx-auto px-6 pt-2 pb-10">
         <Badge
           variant="outline"
           className="text-[10px] uppercase tracking-wider font-mono mb-3 bg-primary/10 border-primary/30 text-foreground"
         >
-          Step 2 · Input
+          Step 3 · Input
         </Badge>
         <div className="flex items-start gap-3">
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-foreground shrink-0">
@@ -86,15 +140,86 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
             </p>
           </div>
 
-          {/* Reference URLs — capped internal scroll so modal stays no-scroll */}
+          {/* Industry */}
+          <div>
+            <label className="block text-[13px] font-semibold text-foreground mb-2">
+              Industry
+            </label>
+            <Select value={industry} onValueChange={setIndustry}>
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INDUSTRIES.map((ind) => (
+                  <SelectItem key={ind} value={ind}>
+                    {ind}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Platforms — multi-select pills */}
+          <div>
+            <label className="block text-[13px] font-semibold text-foreground mb-2">
+              Where will you post?{" "}
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (select all that apply)
+              </span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {PLATFORMS.map((p) => {
+                const Icon = p.icon;
+                const active = platforms.has(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => togglePlat(p.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] transition-colors border",
+                      active
+                        ? "bg-primary/20 border-primary/50 text-foreground font-semibold"
+                        : "bg-background border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {p.id}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Target audience */}
+          <div>
+            <label
+              htmlFor="aff-audience"
+              className="block text-[13px] font-semibold text-foreground"
+            >
+              Target audience{" "}
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </label>
+            <Input
+              id="aff-audience"
+              value={audience}
+              onChange={(e) => setAudience(e.target.value)}
+              placeholder="e.g., homeowners 30–55 looking to save on premiums"
+              className="mt-2 h-10"
+            />
+          </div>
+
+          {/* Reference URLs */}
           <div>
             <label className="block text-[13px] font-semibold text-foreground mb-2">
               Reference URLs{" "}
               <span className="text-[11px] font-normal text-muted-foreground">
-                (optional — competitor pages, your content, offer pages)
+                (optional — competitor pages, your content)
               </span>
             </label>
-            <div className="max-h-[180px] overflow-y-auto pr-1 space-y-2">
+            <div className="space-y-2">
               {refUrls.map((u, i) => (
                 <div key={i} className="flex gap-2">
                   <Input
@@ -115,17 +240,37 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
                   </Button>
                 </div>
               ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={addUrl}
+                className="gap-1 text-[12px] h-7"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add another URL
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={addUrl}
-              className="gap-1 text-[12px] h-7 mt-2"
+          </div>
+
+          {/* Affiliate link */}
+          <div>
+            <label
+              htmlFor="aff-link"
+              className="block text-[13px] font-semibold text-foreground"
             >
-              <Plus className="h-3.5 w-3.5" />
-              Add another URL
-            </Button>
+              Affiliate link{" "}
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (optional — drives the final CTA)
+              </span>
+            </label>
+            <Input
+              id="aff-link"
+              value={affLink}
+              onChange={(e) => setAffLink(e.target.value)}
+              placeholder="https://aff.example.com/..."
+              className="mt-2 h-10"
+            />
           </div>
         </div>
 
