@@ -7,7 +7,7 @@ import {
   Bookmark, Copy, Tag, Building2, Package, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
-  Sparkles,
+  Sparkles, Receipt,
   Compass, Eye, Layers, Rss,
 } from "lucide-react";
 
@@ -196,6 +196,9 @@ export const MODULES: ModuleDef[] = [
   // a dark backdrop. Presentational only; not auto-launched on real first
   // login.
   { key: "onboarding-demo", label: "Onboarding", icon: Sparkles, path: "/insights-v2/feed?onboarding=true", badge: "Demo" },
+  // Pricing / plan-picker page. Full-page route inside AppLayout (like
+  // Brand Book). URL search params drive tier × view × billing state.
+  { key: "planning", label: "Plans", icon: Receipt, path: "/planning" },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.
@@ -235,6 +238,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   "bg-remover": "TOOLS",
   "obj-remover": "TOOLS",
   "onboarding-demo": "TOOLS",
+  "planning": "TOOLS",
 };
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];

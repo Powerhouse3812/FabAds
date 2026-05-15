@@ -28,6 +28,8 @@ import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
 import { upsellPrintRoutes } from "@/upsell-print/routes";
 import { onboardingPrintRoutes } from "@/onboarding-print/routes";
+import { planningRoutes } from "@/planning/routes";
+import { planningPrintRoutes } from "@/planning-print/routes";
 
 import InsightsIntelligence from "@/pages/insights/InsightsIntelligence";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
@@ -94,6 +96,13 @@ const App = () => (
                  affiliate-input | affiliate-processing | affiliate-done) */}
             {onboardingPrintRoutes}
 
+            {/* Pricing / plan-picker — PUBLIC print routes for each
+                tier × view × billing combo. Same export pattern.
+                URL: /planning-print/:slug
+                (ai-direct-monthly | ai-direct-annual | ai-trial-monthly |
+                 ai-trial-annual | growth-monthly | growth-annual) */}
+            {planningPrintRoutes}
+
             <Route element={<ProtectedRoute />}>
               {/* Onboarding Demo — first-login wizard. Mounted OUTSIDE
                   AppLayout so the FabAds nav rail / chrome doesn't render —
@@ -147,6 +156,11 @@ const App = () => (
 
                 {/* Brand Book — temporary FabFunnel slideshow; URL changes per slide */}
                 {brandBookRoutes}
+
+                {/* Planning / pricing page — full-page route. Toggles
+                    encoded in URL search params (?tier=…&view=…&bill=…).
+                    Public print variants live at /planning-print/:slug. */}
+                {planningRoutes}
 
                 <Route path="insights" element={<Navigate to="/insights/discover" replace />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
