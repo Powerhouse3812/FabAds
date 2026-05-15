@@ -157,19 +157,19 @@ export function PlanModalV2({
         aria-label="Pick a plan"
         className={cn(
           "relative bg-card border border-border rounded-3xl shadow-2xl",
-          "w-[min(1120px,calc(100vw-32px))]",
+          "w-[min(1180px,calc(100vw-32px))]",
           "max-h-[calc(100vh-32px)]",
-          "p-7",
-          "flex flex-col gap-5",
+          "p-5",
+          "flex flex-col gap-3.5",
         )}
       >
-        {/* Header — title + close */}
+        {/* Header — title + close (compressed to keep more room for cards) */}
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-[22px] font-bold tracking-tight text-foreground leading-tight">
+            <h2 className="text-[19px] font-bold tracking-tight text-foreground leading-tight">
               Pick a plan
             </h2>
-            <p className="text-[13px] text-muted-foreground mt-1 leading-snug">
+            <p className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
               {tier === "ai"
                 ? "Start solo or roll out across the team. Powered by Genie."
                 : "Real ad ops — bulk launch, automation, multi-account reporting."}
@@ -179,7 +179,7 @@ export function PlanModalV2({
             <button
               type="button"
               onClick={handleClose}
-              className="shrink-0 h-9 w-9 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors"
+              className="shrink-0 h-8 w-8 rounded-full border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors"
               aria-label="Close"
             >
               <X className="h-4 w-4" />
@@ -288,10 +288,11 @@ export function PlanModalV2({
           </div>
         </div>
 
-        {/* Plan grid */}
+        {/* Plan grid — flex-1 so cards fill remaining vertical space; min-h-0
+            lets children shrink if a small viewport forces it. */}
         <div
           className={cn(
-            "grid gap-3.5",
+            "grid gap-3 flex-1 min-h-0",
             tier === "ai"
               ? "grid-cols-1 md:grid-cols-2"
               : "grid-cols-1 md:grid-cols-3",
@@ -310,7 +311,7 @@ export function PlanModalV2({
         </div>
 
         {/* Footer cross-link */}
-        <p className="text-center text-[12px] text-muted-foreground">
+        <p className="text-center text-[11.5px] text-muted-foreground">
           {tier === "ai" ? (
             <>
               Need full ad ops, automation, and multi platform?{" "}
