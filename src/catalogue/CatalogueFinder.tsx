@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
   Layers, FileText, Globe, Settings as SettingsIcon, Wand2, Sparkles,
@@ -18,6 +19,9 @@ import type {
 } from "@/genie6/types/entities";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { BrandDetail, CategoryDetail, ProductDetail } from "./CatalogueDetailPage";
+import { AddBrandModal } from "./AddBrandModal";
+import { AddProductModal } from "./AddProductModal";
+import { AddCategoryModal } from "./AddCategoryModal";
 
 type CatalogueType =
   | "categories"
@@ -124,6 +128,18 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
   });
   const [section, setSection] = useState<string>("overview");
   const [childId, setChildId] = useState<string | null>(null);
+  // Add modal — single state, the type drives which modal renders.
+  const [addOpen, setAddOpen] = useState(false);
+
+  const handleAddClick = () => {
+    if (type === "brands" || type === "products" || type === "categories") {
+      setAddOpen(true);
+      return;
+    }
+    toast.info(`Add ${cfg.singular} flow not built yet`, {
+      description: "Brand, Product and Category come first.",
+    });
+  };
 
   // Pane 1 list — search field varies per entity type.
   // brands/categories/products: name
@@ -235,6 +251,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         </div>
         <button
           type="button"
+          onClick={handleAddClick}
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] active:scale-[0.99] transition-transform"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -316,6 +333,18 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
           )}
         </main>
       </div>
+
+      {/* Add modals — only mounted when their type is active. Single state
+          drives whichever modal corresponds to the current entity type. */}
+      {type === "brands" && (
+        <AddBrandModal open={addOpen} onOpenChange={setAddOpen} />
+      )}
+      {type === "products" && (
+        <AddProductModal open={addOpen} onOpenChange={setAddOpen} />
+      )}
+      {type === "categories" && (
+        <AddCategoryModal open={addOpen} onOpenChange={setAddOpen} />
+      )}
     </div>
   );
 }

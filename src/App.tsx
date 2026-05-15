@@ -30,6 +30,7 @@ import { upsellPrintRoutes } from "@/upsell-print/routes";
 import { onboardingPrintRoutes } from "@/onboarding-print/routes";
 import { planningRoutes } from "@/planning/routes";
 import { planningPrintRoutes } from "@/planning-print/routes";
+import { planningV2Routes } from "@/planning-v2/routes";
 
 import InsightsIntelligence from "@/pages/insights/InsightsIntelligence";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
@@ -161,6 +162,12 @@ const App = () => (
                     encoded in URL search params (?tier=…&view=…&bill=…).
                     Public print variants live at /planning-print/:slug. */}
                 {planningRoutes}
+
+                {/* Planning V2 — modal-based plan picker for new users.
+                    Same URL state (?tier=…&view=…&bill=…), but renders as
+                    a centered modal with X close instead of a full page.
+                    Minimal — no hero, no add-ons, 4 features per card. */}
+                {planningV2Routes}
 
                 <Route path="insights" element={<Navigate to="/insights/discover" replace />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />

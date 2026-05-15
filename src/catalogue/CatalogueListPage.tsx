@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Plus, Tag, Building2, Package, Search, ArrowUpRight, Users,
   Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic, Volume2,
@@ -12,6 +13,9 @@ import type {
   Brand, Category, Product, Audience,
   Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
+import { AddBrandModal } from "./AddBrandModal";
+import { AddProductModal } from "./AddProductModal";
+import { AddCategoryModal } from "./AddCategoryModal";
 
 type CatalogueType =
   | "categories"
@@ -175,6 +179,18 @@ export function CatalogueListPage({ type }: { type: CatalogueType }) {
 
   const onCardClick = (id: string) => navigate(`/catalogue/${type}/${id}`);
 
+  // Add modal — single state, type drives which modal renders.
+  const [addOpen, setAddOpen] = useState(false);
+  const handleAddClick = () => {
+    if (type === "brands" || type === "products" || type === "categories") {
+      setAddOpen(true);
+      return;
+    }
+    toast.info(`Add ${cfg.singular} flow not built yet`, {
+      description: "Brand, Product and Category come first.",
+    });
+  };
+
   return (
     <div className="v3-page-mesh flex h-full flex-col p-6">
       {/* Header */}
@@ -191,6 +207,7 @@ export function CatalogueListPage({ type }: { type: CatalogueType }) {
           </div>
           <button
             type="button"
+            onClick={handleAddClick}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.99]"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -259,6 +276,17 @@ export function CatalogueListPage({ type }: { type: CatalogueType }) {
             <VoiceCard key={v.id} voice={v} onClick={() => onCardClick(v.id)} />
           ))}
         </div>
+      )}
+
+      {/* Add modals — only mounted when their type is active. */}
+      {type === "brands" && (
+        <AddBrandModal open={addOpen} onOpenChange={setAddOpen} />
+      )}
+      {type === "products" && (
+        <AddProductModal open={addOpen} onOpenChange={setAddOpen} />
+      )}
+      {type === "categories" && (
+        <AddCategoryModal open={addOpen} onOpenChange={setAddOpen} />
       )}
     </div>
   );

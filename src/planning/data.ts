@@ -48,6 +48,12 @@ export interface PlanDef {
   trustText: (monthly: number) => string;
   /** Direct-purchase value points (3 highlighted feature cards). Only meaningful when tier=ai. */
   valuePoints?: PlanValuePoint[];
+  /**
+   * Top 4 bullets shown by default in the compressed (modal) view.
+   * Designed to be the most decision-driving features. Bucket lists
+   * are tucked behind a "See all features" expand.
+   */
+  keyFeatures: string[];
   buckets: PlanFeatureBucket[];
   mutedNote?: string;
 }
@@ -86,6 +92,12 @@ export const AI_INDIVIDUAL: PlanDef = {
       title: "Competitor intelligence",
       desc: "Track 5 competitors. Surface winning angles before they go mainstream.",
     },
+  ],
+  keyFeatures: [
+    "100 AI credits per month",
+    "Creative Studio + Library",
+    "Video Sage analysis",
+    "5 competitors tracked",
   ],
   buckets: [
     { heading: "Account", items: ["1 user"] },
@@ -137,6 +149,12 @@ export const AI_TEAM: PlanDef = {
       desc: "100 GB storage, unlimited brands, team usage reporting included.",
     },
   ],
+  keyFeatures: [
+    "450 shared credits / month",
+    "3, 8, or 15 seat bundles",
+    "15 competitors tracked",
+    "100 GB + team reporting",
+  ],
   buckets: [
     {
       heading: "Account",
@@ -175,6 +193,12 @@ export const GROWTH_STARTER: PlanDef = {
   creditsPill: "[TBD] Genie credits per month",
   ctaLabel: "Start free trial",
   trustText: (m) => `Then $${m}/month. Cancel any time before day 14.`,
+  keyFeatures: [
+    "Up to 5 ad accounts",
+    "Bulk Launcher (manual)",
+    "AI Co-pilot always on",
+    "Multi-account reporting",
+  ],
   buckets: [
     {
       heading: "Account",
@@ -213,6 +237,12 @@ export const GROWTH_PRO: PlanDef = {
   creditsPill: "[TBD] Genie credits per month",
   ctaLabel: "Start free trial",
   trustText: (m) => `Then $${m}/month. Cancel any time before day 14.`,
+  keyFeatures: [
+    "Up to 15 ad accounts",
+    "Bulk Launcher (automated)",
+    "Campaign cloning + advanced rules",
+    "Cross-platform reporting",
+  ],
   buckets: [
     {
       heading: "Account",
@@ -253,6 +283,12 @@ export const GROWTH_ENTERPRISE: PlanDef = {
   ctaLabel: "Book a call",
   trustText: () =>
     "We'll set up a tailored trial based on your scale.",
+  keyFeatures: [
+    "Unlimited ad accounts",
+    "Everything in Pro",
+    "API access + custom dashboards",
+    "Dedicated CSM + SLA support",
+  ],
   buckets: [
     {
       heading: "Account",

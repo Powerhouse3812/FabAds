@@ -196,9 +196,11 @@ export const MODULES: ModuleDef[] = [
   // a dark backdrop. Presentational only; not auto-launched on real first
   // login.
   { key: "onboarding-demo", label: "Onboarding", icon: Sparkles, path: "/insights-v2/feed?onboarding=true", badge: "Demo" },
-  // Pricing / plan-picker page. Full-page route inside AppLayout (like
-  // Brand Book). URL search params drive tier × view × billing state.
-  { key: "planning", label: "Plans", icon: Receipt, path: "/planning" },
+  // Pricing / plan-picker — modal-based (V2). Lives at /plans-v2, opens as
+  // a centered modal with X close. URL search params drive tier × view ×
+  // billing state. The old full-page version (/planning) still works as a
+  // legacy route + powers the print exports at /planning-print/:slug.
+  { key: "planning", label: "Plans", icon: Receipt, path: "/plans-v2" },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.
