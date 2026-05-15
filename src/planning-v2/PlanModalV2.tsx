@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import { X, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
 import { PlanCardV2 } from "./PlanCardV2";
@@ -118,6 +118,14 @@ export function PlanModalV2({
     },
     [setPlan, navigate, printMode],
   );
+
+  /* ── Compare-plans CTA (dummy — wires to marketing site later) ── */
+  const onCompareClick = useCallback(() => {
+    if (printMode) return;
+    toast.success("Demo: compare-plans page would open.", {
+      description: "Wire to marketing-site /pricing comparison later.",
+    });
+  }, [printMode]);
 
   /* ── Esc to close ── */
   useEffect(() => {
@@ -310,32 +318,48 @@ export function PlanModalV2({
           ))}
         </div>
 
-        {/* Footer cross-link */}
-        <p className="text-center text-[11.5px] text-muted-foreground">
-          {tier === "ai" ? (
-            <>
-              Need full ad ops, automation, and multi platform?{" "}
-              <button
-                type="button"
-                onClick={() => setTier("growth")}
-                className="text-primary font-medium hover:underline"
-              >
-                See Growth plans →
-              </button>
-            </>
-          ) : (
-            <>
-              Just need creative generation?{" "}
-              <button
-                type="button"
-                onClick={() => setTier("ai")}
-                className="text-primary font-medium hover:underline"
-              >
-                See AI plans →
-              </button>
-            </>
-          )}
-        </p>
+        {/* Footer — Compare CTA + tier cross-link in a single row.
+            "Compare all plans" is the dummy outbound — would redirect to
+            marketing-site /pricing where the full side-by-side table
+            lives. Cards in the modal stay summarised; comparison lives
+            outside. */}
+        <div className="flex items-center justify-between gap-4 pt-1">
+          <p className="text-[11.5px] text-muted-foreground">
+            {tier === "ai" ? (
+              <>
+                Need full ad ops?{" "}
+                <button
+                  type="button"
+                  onClick={() => setTier("growth")}
+                  className="text-primary font-medium hover:underline"
+                >
+                  See Growth plans →
+                </button>
+              </>
+            ) : (
+              <>
+                Just need creative generation?{" "}
+                <button
+                  type="button"
+                  onClick={() => setTier("ai")}
+                  className="text-primary font-medium hover:underline"
+                >
+                  See AI plans →
+                </button>
+              </>
+            )}
+          </p>
+
+          <button
+            type="button"
+            onClick={onCompareClick}
+            className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full border border-border bg-card hover:bg-muted hover:border-foreground/30 text-[12px] font-semibold text-foreground transition-colors"
+            aria-label="Compare all plans (opens marketing site)"
+          >
+            Compare all plans
+            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.25} />
+          </button>
+        </div>
       </div>
     </div>
   );

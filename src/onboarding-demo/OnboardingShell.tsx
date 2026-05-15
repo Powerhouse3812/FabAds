@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Welcome } from "./steps/Welcome";
+import { ProductChooser } from "./steps/ProductChooser";
 import { ChooseMode } from "./steps/ChooseMode";
 import { CountrySelection } from "./steps/CountrySelection";
 import { EcommerceInput } from "./steps/EcommerceInput";
@@ -10,19 +11,24 @@ import { Done } from "./steps/Done";
 
 type Mode = "ecom" | "affiliate";
 type WelcomeVariant = "creative" | "insights";
-/** -1 Welcome  ·  0 ChooseMode  ·  1 Country  ·  2 Input  ·  3 Processing  ·  4 Done */
-type Step = -1 | 0 | 1 | 2 | 3 | 4;
+/**
+ *  -2  Welcome              (pre-wizard celebration, two variants)
+ *  -1  Product Chooser      (Genie vs Industry Insights — Insights disabled)
+ *   0  Choose Mode          (stepper starts here — E-com / Affiliate)
+ *   1  Country              (market)
+ *   2  Input                (mode-specific form)
+ *   3  Processing           (4 simulated stages)
+ *   4  Done                 (Brand / Category Ready)
+ */
+type Step = -2 | -1 | 0 | 1 | 2 | 3 | 4;
 
 interface OnboardingData {
   mode: Mode;
   welcomeVariant: WelcomeVariant;
-  /** Country selection (Step 1 — both flows). */
   countryCode?: string;
   countryName?: string;
   countryFlag?: string;
-  /* E-com — single input */
   brandUrl?: string;
-  /* Affiliate — full field set */
   category?: string;
   industry?: string;
   platforms?: string[];
@@ -44,8 +50,9 @@ interface StateTriple {
 }
 
 const URL_TO_STATE: Record<string, StateTriple> = {
-  welcome: { step: -1, mode: "ecom", welcomeVariant: "creative" },
-  "welcome-insights": { step: -1, mode: "ecom", welcomeVariant: "insights" },
+  welcome: { step: -2, mode: "ecom", welcomeVariant: "creative" },
+  "welcome-insights": { step: -2, mode: "ecom", welcomeVariant: "insights" },
+  "product-chooser": { step: -1, mode: "ecom", welcomeVariant: "creative" },
   "choose-mode": { step: 0, mode: "ecom", welcomeVariant: "creative" },
   country: { step: 1, mode: "ecom", welcomeVariant: "creative" },
   "ecom-input": { step: 2, mode: "ecom", welcomeVariant: "creative" },
@@ -69,9 +76,10 @@ function stateToUrl(
   mode: Mode,
   welcomeVariant: WelcomeVariant,
 ): string {
-  if (step === -1) {
+  if (step === -2) {
     return welcomeVariant === "insights" ? "welcome-insights" : "welcome";
   }
+  if (step === -1) return "product-chooser";
   if (step === 0) return "choose-mode";
   if (step === 1) return "country";
   const prefix = mode;
@@ -83,18 +91,16 @@ function stateToUrl(
 /**
  * Demo first-login onboarding flow.
  *
- * Steps:
- *   -1  Welcome           (pre-stepper celebration screen, two variants)
- *    0  Choose Mode       (E-commerce | Affiliate)
- *    1  Country           (where you're based — tailors ad formats /
- *                          compliance / platform recs)
- *    2  Input             E-com: Brand URL  ·  Affiliate: Category + full
- *                          field set (Industry, Platforms, Audience,
- *                          Reference URLs, Affiliate link)
- *    3  Processing        (4 simulated stages)
- *    4  Done              (Brand/Category Ready! summary)
+ * 7-screen sequence (pre-stepper + 5-step wizard):
+ *   Welcome → Product Chooser → Choose Mode → Country → Input →
+ *   Processing → Done
  *
- * URL state: ?onb_step=<slug> with slugs matching the print routes.
+ * The Welcome + Product Chooser screens are pre-stepper (no step
+ * dots visible). The stepper appears from Choose Mode onwards with
+ * 5 labels.
+ *
+ * URL state: ?onb_step=<slug>. Slugs match the public
+ * /onboarding-print/:step routes 1:1 for design-tool export.
  */
 export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   const navigate = useNavigate();
@@ -103,7 +109,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   const initialUrlStep = searchParams.get("onb_step");
   const initialState: StateTriple =
     (initialUrlStep && URL_TO_STATE[initialUrlStep]) ?? {
-      step: -1,
+      step: -2,
       mode: "ecom",
       welcomeVariant: "creative",
     };
@@ -152,14 +158,18 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
     setData((d) => ({ ...d, welcomeVariant: v }));
   }, []);
 
-  if (step === -1) {
+  if (step === -2) {
     return (
       <Welcome
         variant={data.welcomeVariant}
         onVariantChange={setWelcomeVariant}
-        onContinue={() => goto(0)}
+        onContinue={() => goto(-1)}
       />
     );
+  }
+
+  if (step === -1) {
+    return <ProductChooser onPickGenie={() => goto(0)} />;
   }
 
   if (step === 0) {
@@ -230,7 +240,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
       category={data.category}
       onBack={() => goto(2)}
       onStart={finish}
-      onRestart={() => goto(0)}
+      onRestart={() => goto(-2)}
     />
   );
 }

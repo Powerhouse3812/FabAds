@@ -6,6 +6,8 @@ import {
   type PlanDef,
   type View,
   priceFor,
+  BASE_PLAN,
+  getDeltaBuckets,
 } from "./data";
 
 interface PlanCardV2Props {
@@ -18,9 +20,11 @@ interface PlanCardV2Props {
 }
 
 /**
- * Plan card for the V2 modal. Shows EVERY pointer / feature for the plan —
- * Maalik's call after seeing v1 of this card with only 4 highlights — but
- * keeps the modal scroll-free by tightening typography and spacing.
+ * Plan card for the V2 modal. Shows a SUMMARISED view of each plan —
+ * one line per bucket (items joined with `·` so the bucket heading
+ * becomes implicit). Maalik's call: cards should be a quick scan, with
+ * full detail / comparison sitting behind the "Compare all plans" CTA
+ * at the modal footer.
  *
  * Layout per card:
  *   1. Optional badge ("Best for teams" / "Most popular")
@@ -29,14 +33,13 @@ interface PlanCardV2Props {
  *   4. Price + cycle
  *   5. Trial / credits one-liner (NOT a boxed banner — saves vertical)
  *   6. CTA + trust microcopy
- *   7. Full bucket list (every heading, every item — no expand toggle)
+ *   7. Summary list — ONE bullet per bucket (items joined inline)
  *   8. mutedNote (italic, when present)
  *
  * Density:
- *   - wide   → AI tier, 2-up grid, ~520-560px wide; can render buckets in
- *              a 2-column inner grid to use horizontal real estate
- *   - compact → Growth tier, 3-up grid, ~340px wide; single column for
- *               buckets (no horizontal room to split)
+ *   - wide   → AI tier, 2-up grid, ~520-560px wide
+ *   - compact → Growth tier, 3-up grid, ~340px wide
+ *   Both densities use single-column summary now (no nested grid).
  */
 export function PlanCardV2({
   plan,
@@ -49,6 +52,12 @@ export function PlanCardV2({
   const isTrial = view === "trial" && plan.tier === "ai";
   const showTrialLine =
     (isTrial && plan.trialDays) || (plan.tier === "growth" && plan.trialDays);
+
+  // Cumulative pricing: if this plan inherits from a base (Growth Pro
+  // from Starter, Enterprise from Pro), render only the delta + an
+  // "Everything in {base.label}, plus:" intro line.
+  const base = BASE_PLAN[plan.id];
+  const displayBuckets = base ? getDeltaBuckets(plan) : plan.buckets;
 
   return (
     <div
@@ -153,39 +162,41 @@ export function PlanCardV2({
       {/* ── Divider ── */}
       <div className="relative z-10 h-px bg-border/60 mb-3" />
 
-      {/* ── Full bucket list — every heading + every item ── */}
-      <div
-        className={cn(
-          "relative z-10 flex-1",
-          // AI cards (wide) split into 2-column inner grid to use horizontal
-          // space. Growth cards (compact) stay single-column.
-          density === "wide"
-            ? "grid grid-cols-2 gap-x-3 gap-y-2.5"
-            : "flex flex-col gap-2.5",
-        )}
-      >
-        {plan.buckets.map((bucket, i) => (
-          <div key={i} className="min-w-0">
-            <p className="text-[9.5px] font-semibold tracking-[0.1em] uppercase text-muted-foreground/80 mb-1">
-              {bucket.heading}
-            </p>
-            <ul className="flex flex-col gap-1 list-none">
-              {bucket.items.map((item, j) => (
-                <li
-                  key={j}
-                  className="flex items-start gap-1.5 text-[11.5px] text-foreground leading-snug"
-                >
-                  <Check
-                    className="shrink-0 mt-[3px] h-2.5 w-2.5 text-primary"
-                    strokeWidth={3}
-                  />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+      {/* ── Summary list — ONE bullet per bucket (items joined inline) ──
+          We drop the bucket heading and concat items with `·` so each
+          bucket reads as a single descriptor. e.g. instead of:
+              CREATIVE
+              ✓ Creative Studio
+              ✓ Creative Library
+          we render:
+              ✓ Creative Studio · Creative Library
+          This collapses ~15 lines of nested list into ~6 flat lines.
+
+          Upgrade plans (Growth Pro, Enterprise) get the cumulative
+          treatment: a bold "Everything in {base}, plus:" anchor line,
+          then only the delta items below — the previous tier's items
+          are inherited and not re-listed.
+
+          Full per-item detail lives behind "Compare all plans →" CTA. */}
+      {base && (
+        <p className="relative z-10 text-[11.5px] font-semibold text-foreground leading-snug mb-2">
+          Everything in {base.label}, plus:
+        </p>
+      )}
+      <ul className="relative z-10 flex-1 flex flex-col gap-1.5 list-none">
+        {displayBuckets.map((bucket, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-1.5 text-[11.5px] text-foreground leading-snug"
+          >
+            <Check
+              className="shrink-0 mt-[3px] h-2.5 w-2.5 text-primary"
+              strokeWidth={3}
+            />
+            <span>{bucket.items.join(" · ")}</span>
+          </li>
         ))}
-      </div>
+      </ul>
 
       {/* ── mutedNote ── */}
       {plan.mutedNote && (

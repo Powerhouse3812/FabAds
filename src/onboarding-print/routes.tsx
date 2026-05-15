@@ -12,6 +12,7 @@ import { OnboardingPrintPage } from "./OnboardingPrintPage";
  * Step values:
  *   welcome                 (default — Creative welcome celebration)
  *   welcome-insights        (Insights welcome celebration)
+ *   product-chooser         (Pre-wizard Genie vs Insights picker)
  *   choose-mode             (Step 1 mode picker)
  *   country                 (Step 2 country picker — both flows)
  *   ecom-input              (Step 3 e-commerce — Brand URL form)
