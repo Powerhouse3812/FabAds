@@ -291,6 +291,14 @@ export function Welcome({
 
   useEffect(() => {
     if (printMode) return;
+    // Reset + re-run phases whenever the variant changes — Maalik flagged:
+    // direct-URL loads of the Common variant rendered only the check ring
+    // (phase 0) with no headline / stats / CTA. Root cause: the original
+    // `[printMode]` dep array meant the effect ran only at mount, and any
+    // remount caused by URL changes or variant switches left phase stuck
+    // at its initial value. Including `variant` re-arms the timers and the
+    // explicit setPhase(0) covers the variant-switch case.
+    setPhase(0);
     const timers = [
       setTimeout(() => setPhase(1), 350),
       setTimeout(() => setPhase(2), 900),
@@ -299,7 +307,7 @@ export function Welcome({
       setTimeout(() => setPhase(5), 2900),
     ];
     return () => timers.forEach(clearTimeout);
-  }, [printMode]);
+  }, [printMode, variant]);
 
   const tickStart = phase >= 3;
 
