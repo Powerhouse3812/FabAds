@@ -22,6 +22,7 @@ import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
+import { AiPlanDashboardV2 } from "@/components/dashboard/ai-plan/v2/AiPlanDashboardV2";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
@@ -38,7 +39,14 @@ import { aggregateKpis } from "@/lib/dashboard-selectors";
  */
 export default function Dashboard() {
   const { plan } = usePlan();
-  if (plan === "ai") return <AiPlanDashboard />;
+  // V2 preview toggle: ?v=2 on /dashboard renders the bento-grid
+  // "Operator Briefing" variant of the AI-plan dashboard. Easy A/B
+  // for Maalik — no new route, no sidebar change.
+  const [searchParams] = useSearchParams();
+  const useV2 = searchParams.get("v") === "2";
+  if (plan === "ai") {
+    return useV2 ? <AiPlanDashboardV2 /> : <AiPlanDashboard />;
+  }
   return <FullPlanDashboard />;
 }
 

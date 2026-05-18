@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
@@ -121,15 +121,25 @@ export function AiPlanDashboard() {
           </p>
         </div>
         {!isNewUser && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            className="gap-1.5"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/dashboard?v=2"
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/[0.06] px-3 py-2 text-[12px] font-medium text-primary hover:bg-primary/10 transition-colors"
+              title="Preview V2 bento dashboard"
+            >
+              Try V2
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              className="gap-1.5"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+          </div>
         )}
       </header>
 
