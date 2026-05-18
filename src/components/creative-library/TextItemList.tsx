@@ -70,9 +70,17 @@ function SegmentedControl<T extends string>({
 interface Props {
   type: TextItemType;
   isReadOnly: boolean;
+  /**
+   * Cross-tab brand filter from the parent's URL state.
+   *   null      → show all
+   *   "orphan"  → show only items without a brand attribution
+   *   <id>      → show only items for that brand
+   * Items whose `brand_id` is missing are treated as orphan.
+   */
+  brandFilter?: string | null;
 }
 
-export function TextItemList({ type, isReadOnly }: Props) {
+export function TextItemList({ type, isReadOnly, brandFilter = null }: Props) {
   const { user } = useAuth();
   const { data: items, isLoading } = useTextItems(type);
   const addItem = useAddTextItem(type);
@@ -101,6 +109,14 @@ export function TextItemList({ type, isReadOnly }: Props) {
         }));
 
     let filtered = list;
+    // Cross-tab brand filter (Maalik: "filter persistence across tabs")
+    if (brandFilter) {
+      filtered = filtered.filter((i) => {
+        const bid = (i as ClTextItem & { brand_id?: string | null }).brand_id ?? null;
+        if (brandFilter === "orphan") return bid == null;
+        return bid === brandFilter;
+      });
+    }
     if (ownerFilter === "mine" && user) filtered = filtered.filter((i) => i.created_by === user.id);
     if (ownerFilter === "favourites") filtered = filtered.filter((i) => i.is_favourite);
     if (search) {
@@ -112,7 +128,7 @@ export function TextItemList({ type, isReadOnly }: Props) {
       }
     }
     return filtered;
-  }, [items, type, ownerFilter, search, searchMode, user]);
+  }, [items, type, ownerFilter, search, searchMode, user, brandFilter]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {

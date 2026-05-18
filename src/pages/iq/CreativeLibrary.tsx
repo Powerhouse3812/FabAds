@@ -24,6 +24,16 @@ import {
 } from "@/hooks/use-creative-assets";
 import { useClAdgroups, useDeleteAdgroup, useUpdateAdgroup, type ClAdgroup } from "@/hooks/use-cl-adgroups";
 import { useTextItems } from "@/hooks/use-cl-text-items";
+import {
+  LIBRARY_MEDIA,
+  LIBRARY_ADGROUPS,
+  LIBRARY_HEADLINES,
+  LIBRARY_PRIMARY_TEXTS,
+  LIBRARY_DESCRIPTIONS,
+  LIBRARY_BRANDS,
+  type LibraryAsset,
+  type LibraryAdgroup,
+} from "@/mocks/shared/library-items";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -33,6 +43,9 @@ import {
   BookmarkCheck, Copy, Trash, Package,
 } from "lucide-react";
 import { TextItemList } from "@/components/creative-library/TextItemList";
+import { BrandFilterBar } from "@/components/creative-library/BrandFilterBar";
+import { filterByBrand } from "@/mocks/shared/library-items";
+import { useSearchParams } from "react-router-dom";
 import { CreateAdgroupModal } from "@/components/creative-library/CreateAdgroupModal";
 import { AdgroupPropertiesModal } from "@/components/creative-library/AdgroupPropertiesModal";
 import { useClFolders, useCreateClFolder, useUpdateClFolder, useReorderClFolders } from "@/hooks/use-cl-folders";
@@ -49,48 +62,18 @@ import type { AdgroupLaunchItem } from "@/hooks/use-adgroup-launch";
 
 // ─── Dummy Data ─────────────────────────────────────────────────────────────────
 
-interface DummyAsset extends CreativeAsset {
-  isDummy: true;
-  tags: string[];
-}
-
-const DUMMY_ASSETS: DummyAsset[] = [
-  { id: "dummy-1", workspace_id: "", folder_id: null, file_name: "mountain-landscape.jpg", file_type: "image", file_size: 2400000, width: 400, height: 600, storage_path: "", url: "https://picsum.photos/seed/mountain1/400/600", thumbnail_url: null, uploaded_by: "", created_at: "2024-11-15T10:30:00Z", isDummy: true, tags: ["Mountains", "Ice", "Cold"] },
-  { id: "dummy-2", workspace_id: "", folder_id: null, file_name: "sunset-beach.jpg", file_type: "image", file_size: 1800000, width: 600, height: 400, storage_path: "", url: "https://picsum.photos/seed/sunset2/600/400", thumbnail_url: null, uploaded_by: "", created_at: "2024-11-10T08:15:00Z", isDummy: true, tags: ["Beach", "Sunset", "Warm"] },
-  { id: "dummy-3", workspace_id: "", folder_id: null, file_name: "product-shot-01.jpg", file_type: "image", file_size: 980000, width: 500, height: 500, storage_path: "", url: "https://picsum.photos/seed/product3/500/500", thumbnail_url: null, uploaded_by: "", created_at: "2024-11-08T14:00:00Z", isDummy: true, tags: ["Product", "Studio"] },
-  { id: "dummy-4", workspace_id: "", folder_id: null, file_name: "urban-cityscape.jpg", file_type: "image", file_size: 3200000, width: 800, height: 450, storage_path: "", url: "https://picsum.photos/seed/city4/800/450", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-28T09:45:00Z", isDummy: true, tags: ["City", "Urban", "Night"] },
-  { id: "dummy-5", workspace_id: "", folder_id: null, file_name: "spring-flowers.jpg", file_type: "image", file_size: 1500000, width: 400, height: 550, storage_path: "", url: "https://picsum.photos/seed/flowers5/400/550", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-25T16:20:00Z", isDummy: true, tags: ["Flowers", "Spring", "Red"] },
-  { id: "dummy-6", workspace_id: "", folder_id: null, file_name: "promo-video-01.mp4", file_type: "video", file_size: 15000000, width: 1920, height: 1080, storage_path: "", url: "https://picsum.photos/seed/video6/600/340", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-20T11:00:00Z", isDummy: true, tags: ["Promo", "Ad"] },
-  { id: "dummy-7", workspace_id: "", folder_id: null, file_name: "forest-aerial.jpg", file_type: "image", file_size: 2800000, width: 700, height: 500, storage_path: "", url: "https://picsum.photos/seed/forest7/700/500", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-18T13:30:00Z", isDummy: true, tags: ["Forest", "Aerial", "Green"] },
-  { id: "dummy-8", workspace_id: "", folder_id: null, file_name: "food-photography.jpg", file_type: "image", file_size: 1100000, width: 450, height: 600, storage_path: "", url: "https://picsum.photos/seed/food8/450/600", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-15T07:00:00Z", isDummy: true, tags: ["Food", "Close-up"] },
-  { id: "dummy-9", workspace_id: "", folder_id: null, file_name: "behind-the-scenes.mp4", file_type: "video", file_size: 22000000, width: 1080, height: 1920, storage_path: "", url: "https://picsum.photos/seed/bts9/400/700", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-12T10:00:00Z", isDummy: true, tags: ["BTS", "Team"] },
-  { id: "dummy-10", workspace_id: "", folder_id: null, file_name: "ocean-waves.jpg", file_type: "image", file_size: 1900000, width: 800, height: 530, storage_path: "", url: "https://picsum.photos/seed/ocean10/800/530", thumbnail_url: null, uploaded_by: "", created_at: "2024-10-05T15:45:00Z", isDummy: true, tags: ["Ocean", "Waves", "Blue"] },
-  { id: "dummy-11", workspace_id: "", folder_id: null, file_name: "minimalist-desk.jpg", file_type: "image", file_size: 750000, width: 500, height: 400, storage_path: "", url: "https://picsum.photos/seed/desk11/500/400", thumbnail_url: null, uploaded_by: "", created_at: "2024-09-30T12:00:00Z", isDummy: true, tags: ["Minimal", "Workspace"] },
-  { id: "dummy-12", workspace_id: "", folder_id: null, file_name: "testimonial-reel.mp4", file_type: "video", file_size: 18000000, width: 1080, height: 1080, storage_path: "", url: "https://picsum.photos/seed/reel12/500/500", thumbnail_url: null, uploaded_by: "", created_at: "2024-09-25T09:30:00Z", isDummy: true, tags: ["Testimonial", "UGC"] },
-];
+// Media dummy data comes from the central shared mock at
+// /src/mocks/shared/library-items.ts so other surfaces (Genie library,
+// Industry Insights, Reports) can read from the same pool.
+type DummyAsset = LibraryAsset;
+const DUMMY_ASSETS: DummyAsset[] = LIBRARY_MEDIA;
 
 // ─── Adgroup Dummy Data ─────────────────────────────────────────────────────────
 
-interface DummyAdgroup {
-  id: string;
-  pageName: string;
-  pageAvatar: string;
-  type: "Static";
-  primaryText: string;
-  media: { url: string; type: "image" | "video" };
-  secondaryText: string;
-}
-
-const DUMMY_ADGROUPS: DummyAdgroup[] = [
-  { id: "ag-1", pageName: "FitLife Supplements", pageAvatar: "https://picsum.photos/seed/face1/80/80", type: "Static", primaryText: "💪 Get 20% off our premium whey protein! Limited time offer for new customers. Build muscle faster with clean ingredients.", media: { url: "https://picsum.photos/seed/ad1/500/500", type: "image" }, secondaryText: "Shop now and save big on your fitness journey. Free shipping on orders over $50." },
-  { id: "ag-2", pageName: "Urban Style Co.", pageAvatar: "https://picsum.photos/seed/face2/80/80", type: "Static", primaryText: "🔥 New arrivals just dropped! Check out our latest streetwear collection. Stand out from the crowd.", media: { url: "https://picsum.photos/seed/ad2/600/400", type: "image" }, secondaryText: "Express your unique style with our exclusive designs. Available in all sizes." },
-  { id: "ag-3", pageName: "TechGadget Pro", pageAvatar: "https://picsum.photos/seed/face3/80/80", type: "Static", primaryText: "📱 The all-new SmartWatch X5 is here. Track your health, stay connected, look great.", media: { url: "https://picsum.photos/seed/ad3/500/700", type: "image" }, secondaryText: "Pre-order now and get a free charging dock. Limited stock available." },
-  { id: "ag-4", pageName: "Green Earth Organics", pageAvatar: "https://picsum.photos/seed/face4/80/80", type: "Static", primaryText: "🌿 100% organic, farm-to-table goodness. Subscribe to our weekly veggie box and eat fresh every day.", media: { url: "https://picsum.photos/seed/ad4/600/600", type: "video" }, secondaryText: "Join 10,000+ families eating healthier. Cancel anytime, no commitment." },
-  { id: "ag-5", pageName: "DreamHome Realty", pageAvatar: "https://picsum.photos/seed/face5/80/80", type: "Static", primaryText: "🏠 Find your dream home today! Browse 500+ listings in your area. Virtual tours available.", media: { url: "https://picsum.photos/seed/ad5/700/450", type: "image" }, secondaryText: "Get pre-approved in minutes. Our agents are ready to help you move." },
-  { id: "ag-6", pageName: "PetPaws Plus", pageAvatar: "https://picsum.photos/seed/face6/80/80", type: "Static", primaryText: "🐾 Your pets deserve the best! Premium pet food made with real ingredients, no fillers.", media: { url: "https://picsum.photos/seed/ad6/500/500", type: "image" }, secondaryText: "Free sample pack with your first order. Vet recommended formula." },
-  { id: "ag-7", pageName: "LearnCode Academy", pageAvatar: "https://picsum.photos/seed/face7/80/80", type: "Static", primaryText: "👨‍💻 Master coding in 90 days. Our bootcamp has a 95% job placement rate. Start your tech career now.", media: { url: "https://picsum.photos/seed/ad7/500/600", type: "video" }, secondaryText: "Flexible online schedule. Mentorship included. Payment plans available." },
-  { id: "ag-8", pageName: "SunGlow Skincare", pageAvatar: "https://picsum.photos/seed/face8/80/80", type: "Static", primaryText: "✨ Glow up with our new vitamin C serum. Dermatologist tested, visible results in 2 weeks.", media: { url: "https://picsum.photos/seed/ad8/450/550", type: "image" }, secondaryText: "Cruelty-free and vegan. Use code GLOW25 for 25% off." },
-];
+// Adgroup dummy data also comes from the central shared mock — so a
+// Mamaearth adgroup here matches Mamaearth media on the Media tab.
+type DummyAdgroup = LibraryAdgroup;
+const DUMMY_ADGROUPS: DummyAdgroup[] = LIBRARY_ADGROUPS;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -105,7 +88,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-type DisplayAsset = (CreativeAsset & { isDummy?: false; tags?: string[] }) | DummyAsset;
+type DisplayAsset = (CreativeAsset & { is_dummy?: false; tags?: string[] }) | DummyAsset;
 
 // ─── Segmented Control Component ────────────────────────────────────────────────
 
@@ -144,6 +127,23 @@ function SegmentedControl<T extends string>({
 export default function CreativeLibrary() {
   const { user, role } = useAuth();
   const isReadOnly = role === "member";
+
+  // URL-backed cross-tab brand filter (Maalik: "filter persistence across
+  // tab switches"). `?brand=<id>` sticks across Tab changes; `?brand=orphan`
+  // shows library/no-brand items.
+  const [searchParams] = useSearchParams();
+  const urlBrand = searchParams.get("brand");
+  const brandFilter: string | null = urlBrand && urlBrand.length > 0 ? urlBrand : null;
+  const applyBrandFilter = useCallback(
+    <T extends { brand_id?: string | null }>(items: T[]): T[] => {
+      if (!brandFilter) return items;
+      if (brandFilter === "orphan") {
+        return items.filter((it) => it.brand_id == null);
+      }
+      return items.filter((it) => it.brand_id === brandFilter);
+    },
+    [brandFilter],
+  );
 
   // Shared state
   const [activeTab, setActiveTab] = useState("media");
@@ -255,12 +255,17 @@ export default function CreativeLibrary() {
   const deleteAdgroup = useDeleteAdgroup();
   const updateAdgroup = useUpdateAdgroup();
 
-  // Merge dummy data when no real assets
+  // Merge dummy data when no real assets, then apply cross-tab brand filter.
   const allAssets: DisplayAsset[] = useMemo(() => {
-    const real = (assets || []).map((a) => ({ ...a, isDummy: false as const, tags: [] as string[] }));
-    if (real.length > 0) return real;
-    return DUMMY_ASSETS;
-  }, [assets]);
+    const real = (assets || []).map((a) => ({
+      ...a,
+      is_dummy: false as const,
+      tags: [] as string[],
+      brand_id: null as string | null, // real items currently have no brand attribution
+    }));
+    const merged = real.length > 0 ? real : DUMMY_ASSETS;
+    return applyBrandFilter(merged) as DisplayAsset[];
+  }, [assets, applyBrandFilter]);
 
   // Filtered list for media tab
   const filtered = useMemo(() => {
@@ -308,12 +313,39 @@ export default function CreativeLibrary() {
         };
       });
     }
-    return DUMMY_ADGROUPS.map((ag) => ({ ...ag, headline: undefined as string | undefined, destinationUrl: undefined as string | undefined, displayLink: undefined as string | undefined, cta: undefined as string | undefined, isReal: false }));
+    // Dummy adgroups now follow the same ClAdgroup shape (refs into the
+    // shared mock pool) — resolve refs the same way as the real branch.
+    return DUMMY_ADGROUPS.map((ag) => {
+      const headline = LIBRARY_HEADLINES.find((h) => h.id === ag.headline_id);
+      const primaryText = LIBRARY_PRIMARY_TEXTS.find((p) => p.id === ag.primary_text_id);
+      const desc = LIBRARY_DESCRIPTIONS.find((d) => d.id === ag.description_id);
+      const firstMediaId = ag.media_ids?.[0];
+      const mediaAsset = LIBRARY_MEDIA.find((m) => m.id === firstMediaId);
+      return {
+        id: ag.id,
+        pageName: ag.page_name || "My Page",
+        pageAvatar: ag.page_avatar_url || "",
+        type: ag.ad_type as "Static",
+        primaryText: primaryText?.text || "",
+        media: {
+          url: mediaAsset?.url || "https://picsum.photos/seed/placeholder/500/500",
+          type: (mediaAsset?.file_type === "video" ? "video" : "image") as "image" | "video",
+        },
+        secondaryText: desc?.text || "",
+        headline: headline?.text,
+        destinationUrl: ag.destination_url ?? undefined,
+        displayLink: ag.display_link ?? undefined,
+        cta: ag.cta ?? undefined,
+        isReal: false,
+      };
+    });
   }, [realAdgroups, realHeadlines, realPrimaryTexts, realDescs, realMediaAssets]);
 
-  // Filtered adgroups
+  // Filtered adgroups — includes cross-tab brand filter.
   const filteredAdgroups = useMemo(() => {
     let list = displayAdgroups;
+    // Cross-tab brand filter (must run BEFORE other filters so the count is right)
+    list = applyBrandFilter(list);
     if (ownerFilter === "favourites") {
       list = list.filter((ag) => adgroupBookmarks.has(ag.id));
     }
@@ -328,7 +360,7 @@ export default function CreativeLibrary() {
       list = list.filter((ag) => allowedItemIds.has(ag.id));
     }
     return list;
-  }, [displayAdgroups, search, searchMode, ownerFilter, adgroupBookmarks, selectedFolderFilters, allowedItemIds]);
+  }, [displayAdgroups, search, searchMode, ownerFilter, adgroupBookmarks, selectedFolderFilters, allowedItemIds, applyBrandFilter]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -353,7 +385,7 @@ export default function CreativeLibrary() {
   };
 
   const handleDeleteSingle = async () => {
-    if (!deleteTarget || deleteTarget.isDummy) return;
+    if (!deleteTarget || deleteTarget.is_dummy) return;
     try {
       await deleteAsset.mutateAsync({ id: deleteTarget.id, storage_path: deleteTarget.storage_path });
       toast({ title: "Asset deleted" });
@@ -365,7 +397,7 @@ export default function CreativeLibrary() {
   };
 
   const handleBulkDelete = async () => {
-    const toDelete = allAssets.filter((a) => selected.has(a.id) && !a.isDummy);
+    const toDelete = allAssets.filter((a) => selected.has(a.id) && !a.is_dummy);
     let success = 0;
     for (const asset of toDelete) {
       try {
@@ -527,7 +559,11 @@ export default function CreativeLibrary() {
         />
       ) : (
       <div className="flex-1 flex flex-col overflow-hidden">
-      <Tabs value={activeTab} className="flex flex-col flex-1 overflow-hidden" onValueChange={handleTabChange}>
+      {/* Cross-tab brand filter — URL-backed, persists across tab switches. */}
+      <div className="px-4 pt-3">
+        <BrandFilterBar />
+      </div>
+      <Tabs value={activeTab} className="flex flex-col flex-1 overflow-hidden mt-2" onValueChange={handleTabChange}>
         <div className="px-4 border-b border-border">
           <TabsList className="bg-transparent h-auto p-0 gap-0">
             <TabsTrigger value="media" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold px-3 py-2 text-xs">
@@ -707,7 +743,7 @@ export default function CreativeLibrary() {
                               <DropdownMenuItem onClick={() => setMoveToFolderItem({ id: asset.id, type: "media" })}>
                                 <FolderPlus className="h-4 w-4 mr-2" /> Add to folder
                               </DropdownMenuItem>
-                              {!asset.isDummy && (
+                              {!asset.is_dummy && (
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(asset)}>
                                   <Trash2 className="h-4 w-4 mr-2" /> Delete
                                 </DropdownMenuItem>
@@ -954,13 +990,13 @@ export default function CreativeLibrary() {
 
         {/* ═══════════ TEXT TABS ═══════════ */}
         <TabsContent value="headline" className="mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-1 data-[state=active]:flex-col">
-          <TextItemList type="headline" isReadOnly={isReadOnly} />
+          <TextItemList type="headline" isReadOnly={isReadOnly} brandFilter={brandFilter} />
         </TabsContent>
         <TabsContent value="primary-text" className="mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-1 data-[state=active]:flex-col">
-          <TextItemList type="primary_text" isReadOnly={isReadOnly} />
+          <TextItemList type="primary_text" isReadOnly={isReadOnly} brandFilter={brandFilter} />
         </TabsContent>
         <TabsContent value="description" className="mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-1 data-[state=active]:flex-col">
-          <TextItemList type="description" isReadOnly={isReadOnly} />
+          <TextItemList type="description" isReadOnly={isReadOnly} brandFilter={brandFilter} />
         </TabsContent>
         <TabsContent value="audio" className="mt-0">
           <ComingSoonPlaceholder icon={Music} title="Audio" description="Manage your audio creatives in one place." />

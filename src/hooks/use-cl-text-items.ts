@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "./use-workspace";
+import {
+  LIBRARY_HEADLINES,
+  LIBRARY_PRIMARY_TEXTS,
+  LIBRARY_DESCRIPTIONS,
+  type LibraryTextItem,
+} from "@/mocks/shared/library-items";
 
 export type TextItemType = "headline" | "primary_text" | "description";
 
@@ -8,6 +14,12 @@ const TABLE_MAP: Record<TextItemType, string> = {
   headline: "cl_headlines",
   primary_text: "cl_primary_texts",
   description: "cl_descriptions",
+};
+
+const FALLBACK_BY_TYPE: Record<TextItemType, LibraryTextItem[]> = {
+  headline: LIBRARY_HEADLINES,
+  primary_text: LIBRARY_PRIMARY_TEXTS,
+  description: LIBRARY_DESCRIPTIONS,
 };
 
 export interface ClTextItem {
@@ -36,7 +48,10 @@ export function useTextItems(type: TextItemType) {
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as ClTextItem[];
+      const real = (data ?? []) as ClTextItem[];
+      if (real.length > 0) return real;
+      // Dev / demo fallback — real items take priority when present
+      return FALLBACK_BY_TYPE[type] as ClTextItem[];
     },
   });
 }
