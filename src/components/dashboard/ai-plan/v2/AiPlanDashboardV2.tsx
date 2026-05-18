@@ -7,60 +7,60 @@ import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
 import { DashboardVariantToggle } from "../DashboardVariantToggle";
 
-// V2-specific components (this folder)
-import { TopPerformerHero } from "./TopPerformerHero";
-import { StatusGrid } from "./StatusGrid";
-import { SignalTile } from "./SignalTile";
+// V2-specific (this folder)
 import { CommandPaletteButton } from "./CommandPaletteButton";
-import { CompactUpsell } from "./CompactUpsell";
+import { MicroAnalyticsCard } from "./MicroAnalyticsCard";
+import { TopPerformerStrip } from "./TopPerformerStrip";
+import { SignalsAndCoachList } from "./SignalsAndCoachList";
 
-// Reused from V1 (still appropriate for V2's bento)
-import { AnalyticsHero } from "../AnalyticsHero";
+// Reused from V1 — already compact, fit the V2 density target
+import { NowStatusStrip } from "../NowStatusStrip";
 import { ModeLauncherBar } from "../ModeLauncherBar";
-import { RecentWorkStrip } from "../RecentWorkStrip";
-import { AiSuggestionsCoach } from "../AiSuggestionsCoach";
+import { UpsellRow } from "../UpsellRow";
 import { ZeroStateSetupTakeover } from "../ZeroStateSetupTakeover";
 
 /**
- * AI-plan Dashboard — V2 ("Operator Briefing").
+ * AI-plan Dashboard — V2 "Operator HUD" (iter 2).
  *
- * Design judgment-call (made without re-asking, per Maalik):
- *   V1 = vertical linear stack, analytics-led, Vercel-style. Works but
- *   feels generic.
- *   V2 = bento grid, emotion-led hero, operator-class density. Influenced
- *   by UXPin/UXStudio dashboard principles (essential at-a-glance,
- *   single-screen ambition, hierarchical chunking) + bento-grid trend
- *   (Apple keynotes, Arc browser) + operator tools (Linear, Raycast,
- *   Plausible).
+ * Maalik's iter-1 V2 critique (verbatim):
+ *   "too much big cards, and too much space wastage. No UX skills used.
+ *    UI is very vague and beginner and generic."
  *
- * Differentiators from V1:
- *   1. Bento grid (variable cell widths) instead of linear rows
- *   2. TopPerformerHero as the emotional anchor (Spotify Wrapped /
- *      Suno top-track pattern) instead of analytics-led
- *   3. 2×2 StatusGrid replaces V1's horizontal chip strip — denser
- *   4. Single SignalTile (one market signal hero) replaces V1's
- *      SpotlightRow with 4 competitor cards
- *   5. CommandPaletteButton in header (⌘K affordance, Linear/Raycast
- *      pattern) — operator-class shortcut surface
- *   6. CompactUpsell as a vertical 3-stack (right column) instead of
- *      V1's horizontal 3-up row
+ * The fix wasn't to compact the big hero cards — it was to DELETE them.
+ * Each old V2 component was designed as a focal point. Six focal points
+ * on one page = no rhythm, just space-eaters.
  *
- * Composition (all rows are multi-column bento, none are linear stack):
+ * Operator-class references baked in (UXPin's "essential at-a-glance" +
+ * UXStudio's "single-screen, hierarchical chunking"):
+ *   - Linear's status bar + issue rows
+ *   - Plausible Analytics dense single-screen
+ *   - Vercel deployment-row density
+ *   - Sublime / Raycast command palette result rows
  *
- *   ROW 0  Header  (greeting · ⌘K palette button · refresh)
- *   ROW 1  Bento hero — 7/5 split
- *     LEFT  (7/12)  TopPerformerHero
- *     RIGHT (5/12)  StatusGrid + SignalTile stacked
- *   ROW 2  Analytics + Upsell — 8/4 split
- *     LEFT  (8/12)  AnalyticsHero  (V1's, reused)
- *     RIGHT (4/12)  CompactUpsell  (V2's vertical 3-stack)
- *   ROW 3  Action band — 8/4 split
- *     LEFT  (8/12)  ModeLauncherBar
- *     RIGHT (4/12)  AiSuggestionsCoach
- *   ROW 4  Recent work strip (full-width)
+ * Cuts from V2 iter 1 (all deleted):
+ *   - TopPerformerHero (340px hero card) → TopPerformerStrip (88px row)
+ *   - SignalTile (340px market signal hero) → folded into SignalsAndCoachList
+ *   - StatusGrid 2×2 (160px) → reused V1's NowStatusStrip (50px chips)
+ *   - CompactUpsell vertical 3-stack (480px) → reused V1's horizontal UpsellRow
  *
- * Zero-state takeover (unchanged from V1) when activation threshold
- * not met.
+ * Composition (4 rows, ~660px above-the-fold target on 1080p):
+ *
+ *   ROW 0  Header              (~44px)  greeting + ⌘K palette + V1/V2 + Refresh
+ *   ROW 1  Status chips        (~50px)  reused NowStatusStrip
+ *   ROW 2  Bento body          (~240px) 12-col:
+ *            LEFT col-span-5 ─ MicroAnalyticsCard + TopPerformerStrip stacked
+ *            RIGHT col-span-7 ─ SignalsAndCoachList (fills full row height)
+ *   ROW 3  ModeLauncherBar     (~120px) reused
+ *   ROW 4  UpsellRow           (~160px) reused
+ *
+ * Differentiators from V1 that REMAIN:
+ *   - ⌘K CommandPaletteButton in header (Linear/Raycast pattern)
+ *   - SignalsAndCoachList — flat-list unified signals+coach (no separate
+ *     SpotlightRow + Coach tiles)
+ *   - TopPerformerStrip — single horizontal row, not a hero card
+ *   - MicroAnalyticsCard — slim analytics in a narrow column slot
+ *
+ * Zero-state takeover (unchanged) when activation threshold not met.
  */
 export function AiPlanDashboardV2() {
   const { user } = useAuth();
@@ -103,20 +103,19 @@ export function AiPlanDashboardV2() {
     hidden: { opacity: 1 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.07, delayChildren: 0.05 },
+      transition: { staggerChildren: 0.05, delayChildren: 0.04 },
     },
   } as const;
 
   const rowVariants = {
-    hidden: { opacity: 0, y: 14 },
+    hidden: { opacity: 0, y: 8 },
     show: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5, ease: [0.32, 0.72, 0, 1] },
+      transition: { duration: 0.35, ease: [0.32, 0.72, 0, 1] },
     },
   } as const;
 
-  /** Today's date in operator-class format: "Wed · May 15" */
   const todayLabel = useMemo(() => {
     const d = new Date();
     return d.toLocaleDateString("en-US", {
@@ -127,20 +126,16 @@ export function AiPlanDashboardV2() {
   }, []);
 
   return (
-    <div className="pb-6">
-      {/* ── ROW 0 — Operator briefing header ──
-            Different from V1: a flat horizontal bar with greeting
-            on the left, command-palette search button in the middle,
-            and refresh on the right. The palette button is the
-            biggest UX difference vs V1 — operator-class affordance. */}
-      <header className="flex items-center justify-between gap-3 flex-wrap mb-3">
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-0.5">
-            {todayLabel} · V2 Preview
-          </p>
-          <h1 className="text-[20px] font-bold tracking-tight text-foreground leading-none">
+    <div className="pb-4">
+      {/* ── ROW 0 — Slim operator header ── */}
+      <header className="flex items-center justify-between gap-3 flex-wrap mb-2.5">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="text-[18px] font-bold tracking-tight text-foreground leading-none">
             {isNewUser ? `Welcome, ${firstName}` : `Hi, ${firstName}`}
           </h1>
+          <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            {todayLabel}
+          </span>
         </div>
 
         <div className="flex items-center gap-2 ml-auto flex-wrap">
@@ -168,60 +163,37 @@ export function AiPlanDashboardV2() {
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="space-y-3"
+          className="space-y-2.5"
         >
-          {/* ── ROW 1 — Bento hero (7/5 split) ──
-                LEFT  TopPerformerHero — emotional anchor
-                RIGHT StatusGrid + SignalTile stacked
-
-                The two children's natural heights are different:
-                TopPerformerHero ~340px, StatusGrid ~150px, SignalTile
-                ~340px. The right column's vertical flex stack lets each
-                breathe at its natural height. CSS grid items-start
-                prevents left column from stretching to match right
-                column total. */}
-          <motion.section
-            variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start"
-          >
-            <div className="lg:col-span-7">
-              <TopPerformerHero />
-            </div>
-            <div className="lg:col-span-5 flex flex-col gap-3">
-              <StatusGrid />
-              <SignalTile />
-            </div>
-          </motion.section>
-
-          {/* ── ROW 2 — Analytics (left) + Upsell stack (right) ── */}
-          <motion.section
-            variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start"
-          >
-            <div className="lg:col-span-8">
-              <AnalyticsHero />
-            </div>
-            <div className="lg:col-span-4">
-              <CompactUpsell />
-            </div>
-          </motion.section>
-
-          {/* ── ROW 3 — Mode launcher (left) + Coach (right) ── */}
-          <motion.section
-            variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start"
-          >
-            <div className="lg:col-span-8">
-              <ModeLauncherBar />
-            </div>
-            <div className="lg:col-span-4">
-              <AiSuggestionsCoach />
-            </div>
-          </motion.section>
-
-          {/* ── ROW 4 — Recent work (full-width) ── */}
+          {/* ── ROW 1 — Status chips ── */}
           <motion.section variants={rowVariants}>
-            <RecentWorkStrip />
+            <NowStatusStrip />
+          </motion.section>
+
+          {/* ── ROW 2 — Bento body
+                LEFT (col 1-5)  MicroAnalyticsCard + TopPerformerStrip stacked
+                RIGHT (col 6-12) SignalsAndCoachList — flat list, fills row ── */}
+          <motion.section
+            variants={rowVariants}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch"
+          >
+            <div className="lg:col-span-5 flex flex-col gap-2.5">
+              <MicroAnalyticsCard />
+              <TopPerformerStrip />
+            </div>
+            <div className="lg:col-span-7">
+              <SignalsAndCoachList />
+            </div>
+          </motion.section>
+
+          {/* ── ROW 3 — Mode launcher (reused, already compact) ── */}
+          <motion.section variants={rowVariants}>
+            <ModeLauncherBar />
+          </motion.section>
+
+          {/* ── ROW 4 — Upsell (reused horizontal, already tight) ── */}
+          <motion.section variants={rowVariants}>
+            <UpsellRow />
           </motion.section>
         </motion.div>
       )}
