@@ -136,7 +136,7 @@ export function AiPlanDashboard() {
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="space-y-4"
+          className="space-y-3"
         >
           {/* ── ROW 1 — Now status chips ── */}
           <motion.section variants={rowVariants}>
@@ -176,7 +176,7 @@ export function AiPlanDashboard() {
           {/* ── ROW 8 — Coach + Video Sage (60/40) ── */}
           <motion.section
             variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start"
+            className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start"
           >
             <div className="lg:col-span-3">
               <AiSuggestionsCoach />

@@ -282,28 +282,28 @@ function KpiTile({
       transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -2 }}
       className={cn(
-        "group relative flex w-full flex-col gap-1.5 rounded-2xl border border-border bg-card p-4 text-left transition-colors",
+        "group relative flex w-full flex-col gap-1 rounded-xl border border-border bg-card p-3 text-left transition-colors",
         "hover:border-foreground/20 cursor-pointer"
       )}
     >
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground">
           {eyebrow}
         </span>
-        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        <ArrowUpRight className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <div className="flex items-baseline gap-1">
+      <div className="flex items-end justify-between gap-1.5">
+        <div className="flex items-baseline gap-0.5">
           <CountUp
             value={value}
             duration={1}
             delay={delay + 0.1}
-            className="text-[26px] leading-none text-foreground"
+            className="text-[19px] leading-none text-foreground"
           />
           {valueSuffix ? (
             <span
-              className="font-mono text-[14px] font-semibold text-muted-foreground"
+              className="font-mono text-[11px] font-semibold text-muted-foreground"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
               {valueSuffix}
@@ -323,21 +323,21 @@ function KpiTile({
 
       {/* Sparkline OR brand dots */}
       {brandDots && brandDots.length ? (
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
           {brandDots.map((c, i) => (
             <span
               key={i}
-              className="block h-2 w-2 rounded-full ring-1 ring-border"
+              className="block h-1.5 w-1.5 rounded-full ring-1 ring-border"
               style={{ backgroundColor: c }}
             />
           ))}
         </div>
       ) : spark && spark.length ? (
-        <div className="mt-0.5 h-7 w-full">
+        <div className="h-4 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={spark}
-              margin={{ top: 2, right: 0, left: 0, bottom: 2 }}
+              margin={{ top: 1, right: 0, left: 0, bottom: 1 }}
             >
               <Line
                 type="monotone"
@@ -347,7 +347,7 @@ function KpiTile({
                     ? "hsl(var(--primary))"
                     : "hsl(var(--destructive))"
                 }
-                strokeWidth={1.75}
+                strokeWidth={1.5}
                 dot={false}
                 isAnimationActive
                 animationDuration={900}
@@ -391,7 +391,7 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
   return (
     <section
       className={cn(
-        "grid grid-cols-12 gap-4",
+        "grid grid-cols-12 gap-3",
         className
       )}
     >
@@ -400,20 +400,20 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="col-span-12 lg:col-span-8 rounded-2xl border border-border bg-card p-5"
+        className="col-span-12 lg:col-span-8 rounded-2xl border border-border bg-card p-4"
       >
         {/* Header row */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               GENERATIONS · {rangeLabel}
             </span>
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-baseline gap-2.5">
               <CountUp
                 value={total}
                 duration={1.1}
                 delay={0.1}
-                className="text-[32px] leading-none text-foreground"
+                className="text-[24px] leading-none text-foreground"
               />
               <DeltaChip
                 value={delta}
@@ -426,7 +426,7 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         </div>
 
         {/* Chart */}
-        <div className="mt-5 h-[200px] w-full">
+        <div className="mt-3 h-[120px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               key={range}
@@ -473,7 +473,7 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
       </motion.div>
 
       {/* ── RIGHT 35% — 4 stacked KPI tiles ───────────────────────────────── */}
-      <div className="col-span-12 lg:col-span-4 grid grid-cols-1 gap-3">
+      <div className="col-span-12 lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-2">
         <KpiTile
           eyebrow="CREDITS USED"
           value={73}
