@@ -4,6 +4,7 @@ import { RefreshCw, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlan } from "@/contexts/PlanContext";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { KpiRow } from "@/components/dashboard/KpiRow";
 import { PerformanceTrend } from "@/components/dashboard/PerformanceTrend";
@@ -20,9 +21,28 @@ import { LaunchSummaryCard } from "@/components/dashboard/LaunchSummaryCard";
 import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
+import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
+/**
+ * Dashboard — plan-aware top-level page.
+ *
+ *   AI plan   → AiPlanDashboard (Genie / Insights / Video Sage / Catalogue
+ *               / AI Suggestions / Profile Completion / Activity strip)
+ *   Full plan → existing ad-ops dashboard (KPI row, performance trend,
+ *               ad accounts, RRM, risk heatmap, launches, automation)
+ *
+ * Maalik: on AI plan, locked modules have NO DATA — pulling ad-performance
+ * tiles would render empty/noisy. So the AI-plan path forks entirely into
+ * its own composition. Growth-plan path stays exactly as before.
+ */
 export default function Dashboard() {
+  const { plan } = usePlan();
+  if (plan === "ai") return <AiPlanDashboard />;
+  return <FullPlanDashboard />;
+}
+
+function FullPlanDashboard() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [showGraph, setShowGraph] = useState(true);
