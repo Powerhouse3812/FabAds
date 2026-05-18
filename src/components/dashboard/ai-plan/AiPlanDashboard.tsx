@@ -14,6 +14,7 @@ import { CursorFollowGlow } from "./CursorFollowGlow";
 import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
 import { AiSuggestionsCoach } from "./AiSuggestionsCoach";
 import { VideoSageRecentTile } from "./VideoSageRecentTile";
+import { NowStatusStrip } from "./NowStatusStrip";
 
 /**
  * AI-plan Dashboard — redesigned (iter 2).
@@ -115,19 +116,21 @@ export function AiPlanDashboard() {
 
   return (
     <div className="pb-6">
-      {/* ── Header (no stagger — it's the first thing the user sees) ── */}
-      <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
+      {/* ── Header — utility, not marketing copy.
+            Critique iter (ui-ux-pro-max P0): the previous "X's canvas /
+            Where your work, signals, and next moves live" hid the
+            operational signal behind poetry. Operators want their name
+            + a one-line tally of what's going on. The NowStatusStrip
+            does the heavy lifting underneath. ── */}
+      <header className="flex items-end justify-between flex-wrap gap-3 mb-3">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
-            AI plan · workspace
-          </p>
-          <h1 className="text-[26px] font-bold tracking-tight text-foreground leading-none">
-            {isNewUser ? `Welcome, ${firstName}` : `${firstName}'s canvas`}
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground leading-none">
+            {isNewUser ? `Welcome, ${firstName}` : `Hi, ${firstName}`}
           </h1>
-          <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
+          <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-snug">
             {isNewUser
               ? "Three quick steps before you start generating."
-              : "Where your work, signals, and next moves live."}
+              : "Here's what's on your plate today."}
           </p>
         </div>
         {!isNewUser && (
@@ -154,6 +157,14 @@ export function AiPlanDashboard() {
           animate="show"
           className="space-y-4"
         >
+          {/* ── ROW 0: Now status strip — the operational anchor.
+                Added in iter 3 (ui-ux-pro-max P0). Glance-readable chips
+                for credits / new-since-last-visit / needs-attention so
+                the user knows "am I OK today, what needs me?" in <1s. ── */}
+          <motion.section variants={rowVariants}>
+            <NowStatusStrip />
+          </motion.section>
+
           {/* ── ROW 1: Hero — Mosaic (70%) + ActionPod (30%) ── */}
           <motion.section
             variants={rowVariants}

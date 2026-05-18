@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Wand2, Video, Telescope, Building2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,8 @@ interface TickerEvent {
   id: number;
   mode: Mode;
   copy: string;
-  time: string;
+  /** Minutes ago at component load. Used to compute display age live. */
+  minutesAgo: number;
 }
 
 const MODE_ICON: Record<Mode, LucideIcon> = {
@@ -23,31 +25,75 @@ const MODE_ICON: Record<Mode, LucideIcon> = {
   CATALOGUE: Building2,
 };
 
+const MODE_TINT: Record<Mode, string> = {
+  GENIE: "text-primary",
+  SAGE: "text-foreground/70",
+  INSIGHTS: "text-foreground/70",
+  CATALOGUE: "text-foreground/70",
+};
+
+/* ── Source events ──
+   minutesAgo is what makes "live" credible — we compute the display
+   string from it each render so refreshes never show 2m forever. */
 const EVENTS: TickerEvent[] = [
-  { id: 1, mode: "GENIE",     copy: "Boat · 4 UGC scripts generated",                    time: "2m" },
-  { id: 2, mode: "INSIGHTS",  copy: "New competitor ad surfaced · Sleepyhead",            time: "8m" },
-  { id: 3, mode: "SAGE",      copy: "Mamaearth hook analyzed · 23% completion",           time: "17m" },
-  { id: 4, mode: "CATALOGUE", copy: "Brand voice updated · Boat",                          time: "32m" },
-  { id: 5, mode: "GENIE",     copy: "Forged 10 variants · Mamaearth hero ad",              time: "1h" },
-  { id: 6, mode: "INSIGHTS",  copy: "Pinned competitor hook · Sleepyhead lifestyle 0.7s", time: "2h" },
-  { id: 7, mode: "GENIE",     copy: "Used generation · UGC Video v3 for Mamaearth",       time: "3h" },
-  { id: 8, mode: "SAGE",      copy: "Saved insight · Hook lands at 0.7s",                  time: "4h" },
+  { id: 1, mode: "GENIE",     copy: "Boat · 4 UGC scripts generated",                       minutesAgo: 2 },
+  { id: 2, mode: "INSIGHTS",  copy: "New competitor ad surfaced · Sleepyhead",               minutesAgo: 8 },
+  { id: 3, mode: "SAGE",      copy: "Mamaearth hook analyzed · 23% completion lift",         minutesAgo: 17 },
+  { id: 4, mode: "CATALOGUE", copy: "Brand voice updated · Boat",                             minutesAgo: 32 },
+  { id: 5, mode: "GENIE",     copy: "Forged 10 variants · Mamaearth hero ad",                 minutesAgo: 60 },
+  { id: 6, mode: "INSIGHTS",  copy: "Pinned competitor hook · Sleepyhead lifestyle 0.7s",    minutesAgo: 120 },
+  { id: 7, mode: "GENIE",     copy: "Used generation · UGC Video v3 for Mamaearth",          minutesAgo: 180 },
+  { id: 8, mode: "SAGE",      copy: "Saved insight · Hook lands at 0.7s",                     minutesAgo: 240 },
 ];
 
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-};
+const ROTATE_MS = 4500;
 
-const itemVariants = {
-  hidden: { opacity: 0, x: -10 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.35, ease: "easeOut" as const } },
-};
+function ageLabel(minutesAgo: number, sessionStart: number): string {
+  const elapsed = Math.floor((Date.now() - sessionStart) / 60000);
+  const m = minutesAgo + elapsed;
+  if (m < 1) return "just now";
+  if (m === 1) return "1 min ago";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h === 1) return "1 hour ago";
+  if (h < 24) return `${h} hours ago`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? "1 day ago" : `${d} days ago`;
+}
 
+/**
+ * LivePulseTicker — calmer iter (post ui-ux-pro-max critique).
+ *
+ * Prior version auto-scrolled horizontally — unreadable (items
+ * passed faster than the eye could parse). Pause-on-hover was a
+ * recovery, not a feature.
+ *
+ * This iter: a STATIONARY single-event display that crossfades to
+ * the next event every ~4.5s. One event visible at a time, fully
+ * readable. Pause on hover still respected (operator can land on
+ * an event without it disappearing). Ages computed dynamically from
+ * session-start offset so they slide forward as the user dwells on
+ * the dashboard.
+ *
+ * Reference: Apple Stock ticker on macOS (stationary swap), Linear's
+ * bottom-status-bar live indicator (anchored pulse + readable text).
+ */
 export function LivePulseTicker({ className }: LivePulseTickerProps) {
-  const loop = [...EVENTS, ...EVENTS];
+  const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const sessionStart = useMemo(() => Date.now(), []);
+
+  /* Auto-advance unless paused */
+  useEffect(() => {
+    if (paused) return;
+    const id = window.setInterval(() => {
+      setIdx((i) => (i + 1) % EVENTS.length);
+    }, ROTATE_MS);
+    return () => window.clearInterval(id);
+  }, [paused]);
+
+  const event = EVENTS[idx];
+  const Icon = MODE_ICON[event.mode];
 
   return (
     <div
@@ -55,90 +101,88 @@ export function LivePulseTicker({ className }: LivePulseTickerProps) {
         "group relative h-[68px] w-full overflow-hidden rounded-2xl border border-border bg-card",
         className,
       )}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      role="status"
+      aria-live="polite"
     >
-      {/* Left fixed LIVE indicator */}
-      <div className="absolute inset-y-0 left-0 z-20 flex items-center gap-3 bg-card pl-4 pr-4">
-        <div className="relative flex h-2.5 w-2.5 items-center justify-center">
-          <span className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-          <motion.span
-            aria-hidden
-            className="absolute inline-flex h-2.5 w-2.5 rounded-full border-2 border-primary"
-            initial={{ scale: 1, opacity: 0.6 }}
-            animate={{ scale: 2.4, opacity: 0 }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
-          />
+      <div className="absolute inset-0 flex items-center px-5 gap-4">
+        {/* LIVE indicator — pulse-ring anchor */}
+        <div className="shrink-0 flex items-center gap-2.5">
+          <span className="relative flex h-2 w-2 items-center justify-center">
+            <span className="absolute inline-flex h-2 w-2 rounded-full bg-primary" />
+            <motion.span
+              aria-hidden
+              className="absolute inline-flex h-2 w-2 rounded-full border-2 border-primary"
+              initial={{ scale: 1, opacity: 0.7 }}
+              animate={{ scale: 2.6, opacity: 0 }}
+              transition={{
+                duration: 1.8,
+                repeat: Infinity,
+                ease: "easeOut",
+              }}
+            />
+          </span>
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+            Live
+          </span>
+          <span className="h-4 w-px bg-border" />
         </div>
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
-          Live
-        </span>
-        <span className="h-1/2 w-px bg-muted-foreground/20" />
-      </div>
 
-      {/* Gradient edge masks */}
-      <div className="pointer-events-none absolute inset-y-0 left-[88px] z-10 w-12 bg-gradient-to-r from-card to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-card to-transparent" />
-
-      {/* Scrolling track */}
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="absolute inset-y-0 left-[100px] right-0 flex items-center overflow-hidden"
-      >
-        <div className="ticker-scroll flex w-max items-center gap-6 group-hover:[animation-play-state:paused]">
-          {loop.map((event, idx) => {
-            const Icon = MODE_ICON[event.mode];
-            const isLatest = idx % EVENTS.length === 0;
-            return (
-              <motion.div
-                key={`${event.id}-${idx}`}
-                variants={itemVariants}
+        {/* Rotating event slot */}
+        <div className="relative flex-1 min-h-[40px] flex items-center">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={event.id}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+              className="absolute inset-0 flex items-center gap-3"
+            >
+              {/* Mode chip */}
+              <span
                 className={cn(
-                  "flex h-12 w-[300px] shrink-0 items-center gap-3 rounded-xl border bg-card/50 pl-3 pr-3.5",
-                  isLatest ? "border-l-2 border-l-primary border-border" : "border-border",
+                  "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5",
+                  "font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground",
                 )}
               >
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-1.5 py-0.5">
-                  <Icon
-                    className={cn(
-                      "h-3.5 w-3.5",
-                      event.mode === "GENIE" ? "text-primary" : "text-muted-foreground",
-                    )}
-                  />
-                  <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {event.mode}
-                  </span>
-                </span>
-                <p className="flex-1 truncate text-[12.5px] text-foreground">
-                  {event.copy}
-                </p>
-                <span
-                  className={cn(
-                    "shrink-0 font-mono text-[10px] tabular-nums",
-                    isLatest ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {event.time}
-                </span>
-              </motion.div>
-            );
-          })}
-        </div>
-      </motion.div>
+                <Icon
+                  className={cn("h-3 w-3", MODE_TINT[event.mode])}
+                  strokeWidth={2.2}
+                />
+                {event.mode}
+              </span>
 
-      {/* Continuous scroll keyframes (scoped via style tag — CSS-only animation for perf) */}
-      <style>{`
-        @keyframes lp-ticker-scroll {
-          0%   { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-50%, 0, 0); }
-        }
-        .ticker-scroll {
-          animation: lp-ticker-scroll 32s linear infinite;
-          will-change: transform;
-        }
-      `}</style>
+              {/* Copy */}
+              <p className="flex-1 truncate text-[12.5px] text-foreground">
+                {event.copy}
+              </p>
+
+              {/* Age */}
+              <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground tabular-nums">
+                {ageLabel(event.minutesAgo, sessionStart)}
+              </span>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Position dots — operator's way of seeing N-of-M without reading */}
+        <div className="shrink-0 flex items-center gap-1">
+          {EVENTS.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setIdx(i)}
+              aria-label={`Jump to event ${i + 1} of ${EVENTS.length}`}
+              className={cn(
+                "h-1 rounded-full transition-all",
+                i === idx ? "w-4 bg-primary" : "w-1 bg-border hover:bg-foreground/30",
+              )}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
-
-export default LivePulseTicker;

@@ -143,10 +143,29 @@ function CreditGauge() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2 · Primary CTA — lime button with recurring sheen sweep
+// 2 · Primary CTA — lime button with a one-shot sheen sweep (per session)
+// ui-ux-pro-max P1: previously swept every 8s, infinite. Awwwards on first
+// visit, motion-noise by visit 5. Now: runs ONCE per session (sessionStorage
+// flag), then settles. The button stays useful, the page calms down.
 // ─────────────────────────────────────────────────────────────────────────────
+const SHEEN_SESSION_KEY = "dashboard.ai.sheen.played";
+
 function PrimaryCta() {
   const navigate = useNavigate();
+  const [shouldSheen, setShouldSheen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (window.sessionStorage.getItem(SHEEN_SESSION_KEY) === "1") return;
+      setShouldSheen(true);
+      window.sessionStorage.setItem(SHEEN_SESSION_KEY, "1");
+    } catch {
+      // Storage blocked — play it anyway, harmless either way.
+      setShouldSheen(true);
+    }
+  }, []);
+
   return (
     <motion.button
       type="button"
@@ -162,25 +181,31 @@ function PrimaryCta() {
         "transition-shadow duration-300"
       )}
     >
-      {/* Sheen sweep — recurring every 8s */}
-      <motion.span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 w-1/2"
-        style={{
-          background:
-            "linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%)",
-        }}
-        initial={{ x: "-120%" }}
-        animate={{ x: "240%" }}
-        transition={{
-          duration: 1.1,
-          ease: "easeInOut",
-          repeat: Infinity,
-          repeatDelay: 8,
-        }}
-      />
+      {/* One-shot sheen sweep — only when shouldSheen flag is set */}
+      {shouldSheen && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 w-1/2"
+          style={{
+            background:
+              "linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%)",
+          }}
+          initial={{ x: "-120%" }}
+          animate={{ x: "240%" }}
+          transition={{
+            duration: 1.1,
+            ease: "easeInOut",
+            delay: 0.6,
+          }}
+        />
+      )}
       <Sparkles className="relative h-4 w-4" strokeWidth={2.25} />
-      <span className="relative">Start a generation</span>
+      <span className="relative flex flex-col items-center leading-none">
+        <span>Start a generation</span>
+        <span className="font-mono text-[9px] uppercase tracking-[0.14em] opacity-70 mt-1">
+          Picks from 7 modes
+        </span>
+      </span>
       <ChevronRight
         className="relative h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
         strokeWidth={2.25}

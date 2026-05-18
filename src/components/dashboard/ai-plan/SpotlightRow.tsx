@@ -107,7 +107,10 @@ const DIAL_RADIUS = (DIAL_SIZE - DIAL_STROKE) / 2;
 const DIAL_CIRC   = 2 * Math.PI * DIAL_RADIUS;
 
 function RadialDial({ value, delay = 0 }: RadialDialProps) {
-  const isHealthy = value >= 70;
+  // ui-ux-pro-max P0: amber threshold lowered from 70% to 50%. At 70%,
+  // most healthy users saw amber on at least one dial each visit —
+  // manufactured anxiety. <50% is a fair "needs work" cut.
+  const isHealthy = value >= 50;
   const stroke    = isHealthy ? "rgb(195 235 66)" : "rgb(245 158 11)"; // primary lime / amber-500
   const target    = DIAL_CIRC * (1 - value / 100);
 
@@ -166,7 +169,7 @@ function HealthRow({ label, value, delay }: HealthRowProps) {
       <div className="min-w-0 flex-1">
         <div className="truncate text-[12px] font-medium text-foreground">{label}</div>
         <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {value >= 70 ? "Healthy" : "Needs work"}
+          {value >= 50 ? "Healthy" : "Needs work"}
         </div>
       </div>
       <div className="font-mono text-[15px] font-semibold tabular-nums text-foreground">
