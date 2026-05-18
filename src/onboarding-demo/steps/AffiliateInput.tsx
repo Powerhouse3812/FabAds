@@ -21,8 +21,33 @@ interface AffiliateInputProps {
     audience: string;
     refUrls: string[];
     affLink: string;
+    country?: string;
   }) => void;
 }
+
+/* Reused from CountrySelection — keep the two lists in sync if either changes. */
+const COUNTRIES: { code: string; name: string; flag: string }[] = [
+  { code: "US", name: "United States", flag: "🇺🇸" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "IN", name: "India", flag: "🇮🇳" },
+  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "AU", name: "Australia", flag: "🇦🇺" },
+  { code: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "FR", name: "France", flag: "🇫🇷" },
+  { code: "AE", name: "UAE", flag: "🇦🇪" },
+  { code: "SG", name: "Singapore", flag: "🇸🇬" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷" },
+  { code: "JP", name: "Japan", flag: "🇯🇵" },
+  { code: "KR", name: "South Korea", flag: "🇰🇷" },
+  { code: "NL", name: "Netherlands", flag: "🇳🇱" },
+  { code: "ES", name: "Spain", flag: "🇪🇸" },
+  { code: "IT", name: "Italy", flag: "🇮🇹" },
+  { code: "MX", name: "Mexico", flag: "🇲🇽" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩" },
+  { code: "SA", name: "Saudi Arabia", flag: "🇸🇦" },
+  { code: "PH", name: "Philippines", flag: "🇵🇭" },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬" },
+];
 
 /* Posting platforms (multi-select). Order + icons match the wireframe. */
 const PLATFORMS: { id: string; icon: typeof Instagram }[] = [
@@ -54,6 +79,7 @@ const INDUSTRIES = [
 export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
   const [category, setCategory] = useState("");
   const [industry, setIndustry] = useState("Insurance");
+  const [country, setCountry] = useState<string>("");
   const [platforms, setPlatforms] = useState<Set<string>>(
     new Set(["Instagram", "TikTok"]),
   );
@@ -90,12 +116,13 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
       audience: audience.trim(),
       refUrls: refUrls.map((u) => u.trim()).filter(Boolean),
       affLink: affLink.trim(),
+      country: country || undefined,
     });
   };
 
   return (
     <div className="bg-background">
-      <StepNav active={2} onBack={onBack} backLabel="Back to Country" />
+      <StepNav active={2} mode="affiliate" onBack={onBack} backLabel="Back to Mode" />
       <div className="max-w-[720px] mx-auto px-6 pt-2 pb-10">
         <Badge
           variant="outline"
@@ -120,6 +147,38 @@ export function AffiliateInput({ onBack, onContinue }: AffiliateInputProps) {
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-7 mt-7 space-y-6">
+          {/* Country (optional) — affiliate offers may run globally, so skip is fine */}
+          <div>
+            <label
+              htmlFor="aff-country"
+              className="block text-[13px] font-semibold text-foreground mb-2"
+            >
+              Country{" "}
+              <span className="text-[11px] font-normal text-muted-foreground">
+                (optional)
+              </span>
+            </label>
+            <Select
+              value={country || "__none__"}
+              onValueChange={(v) => setCountry(v === "__none__" ? "" : v)}
+            >
+              <SelectTrigger id="aff-country" className="h-10">
+                <SelectValue placeholder="Select a country…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No specific country</SelectItem>
+                {COUNTRIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Leave blank if your offer runs globally.
+            </p>
+          </div>
+
           {/* Category */}
           <div>
             <label

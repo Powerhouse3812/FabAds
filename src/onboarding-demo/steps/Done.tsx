@@ -338,6 +338,7 @@ export function Done({
 
       <StepNav
         active={4}
+        mode={mode}
         onBack={onBack}
         backLabel="Back to Input"
         onRestart={onRestart}

@@ -46,7 +46,7 @@ export function Processing({ onBack, onDone, mode }: ProcessingProps) {
 
   return (
     <div className="min-h-full bg-background">
-      <StepNav active={3} onBack={onBack} backLabel="Back to Input" />
+      <StepNav active={3} mode={mode} onBack={onBack} backLabel="Back to Input" />
       <div className="max-w-[640px] mx-auto px-6 py-14 text-center">
         {/* Spinner */}
         <div className="inline-flex h-16 w-16 items-center justify-center">

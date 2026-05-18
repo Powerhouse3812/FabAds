@@ -72,7 +72,7 @@ export function CountrySelection({
 
   return (
     <div className="bg-background">
-      <StepNav active={1} onBack={onBack} backLabel="Back to Quick Start" />
+      <StepNav active={1} mode="ecom" onBack={onBack} backLabel="Back to Quick Start" />
       <div className="max-w-[720px] mx-auto px-6 pt-2 pb-10">
         <Badge
           variant="outline"

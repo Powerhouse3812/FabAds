@@ -204,7 +204,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
       <ChooseMode
         onPick={(mode) => {
           setData((d) => ({ ...d, mode }));
-          goto(1);
+          goto(mode === "affiliate" ? 2 : 1);
         }}
         onSkip={finish}
         onLogin={goToLogin}
@@ -233,7 +233,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   if (step === 2) {
     return data.mode === "affiliate" ? (
       <AffiliateInput
-        onBack={() => goto(1)}
+        onBack={() => goto(0)}
         onContinue={(input) => {
           setData((d) => ({ ...d, ...input }));
           goto(3);
