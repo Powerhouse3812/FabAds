@@ -11,7 +11,7 @@ import { Processing } from "./steps/Processing";
 import { Done } from "./steps/Done";
 
 type Mode = "ecom" | "affiliate";
-type WelcomeVariant = "creative" | "insights";
+type WelcomeVariant = "creative" | "insights" | "common";
 /**
  *  -2  Welcome                  (pre-wizard celebration, two variants)
  *  -1  Product Chooser          (Genie vs Industry Insights)
@@ -56,6 +56,9 @@ interface StateTriple {
 const URL_TO_STATE: Record<string, StateTriple> = {
   welcome: { step: -2, mode: "ecom", welcomeVariant: "creative" },
   "welcome-insights": { step: -2, mode: "ecom", welcomeVariant: "insights" },
+  // "Common" variant — generic celebrate, ported from
+  // wireframes/wf-onboarding.jsx → WelcomeCelebrateGeneric.
+  "welcome-celebrate": { step: -2, mode: "ecom", welcomeVariant: "common" },
   "product-chooser": { step: -1, mode: "ecom", welcomeVariant: "creative" },
   "choose-mode": { step: 0, mode: "ecom", welcomeVariant: "creative" },
   country: { step: 1, mode: "ecom", welcomeVariant: "creative" },
@@ -82,7 +85,9 @@ function stateToUrl(
   welcomeVariant: WelcomeVariant,
 ): string {
   if (step === -2) {
-    return welcomeVariant === "insights" ? "welcome-insights" : "welcome";
+    if (welcomeVariant === "insights") return "welcome-insights";
+    if (welcomeVariant === "common") return "welcome-celebrate";
+    return "welcome";
   }
   if (step === -1) return "product-chooser";
   if (step === 5) return "insights-setup";

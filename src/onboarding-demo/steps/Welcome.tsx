@@ -8,13 +8,16 @@ import { cn } from "@/lib/utils";
 /**
  * Welcome / Celebration screen — plays before Step 1 (Choose Mode).
  *
- * Two variants (toggleable in-app):
+ * Three variants (toggleable in-app):
  *   - "creative"  — Genie / Creative Generation framing
  *   - "insights"  — Industry Intelligence framing
+ *   - "common"    — Product-agnostic celebrate (post-upgrade / generic).
+ *                   Ported from the ff.ai wireframe `WelcomeCelebrateGeneric`
+ *                   at /wireframes/#welcome-celebrate. Shown when no specific
+ *                   product was pre-selected (e.g. dashboard-driven upgrade).
  *
- * Both ported from the ff.ai wireframe `WelcomeCelebrate` /
- * `InsightsCelebrate` components but converted to LIGHT mode with
- * restrained lime accent — only on the highlighted word in the
+ * All three ported from the ff.ai wireframes but converted to LIGHT mode
+ * with restrained lime accent — only on the highlighted word in the
  * headline, the check ring, and the primary CTA. Stat numbers and
  * icons stay in foreground/muted colors so the page reads as a
  * professional SaaS welcome, not a lime poster.
@@ -27,7 +30,7 @@ import { cn } from "@/lib/utils";
  * captures the full composition for html.to.design.
  */
 
-type Variant = "creative" | "insights";
+type Variant = "creative" | "insights" | "common";
 
 interface WelcomeProps {
   onContinue: () => void;
@@ -97,6 +100,31 @@ const CONFIGS: Record<Variant, VariantConfig> = {
     ],
     ctaLabel: "Set up your tracking",
     footnote: "Takes under 2 minutes",
+  },
+  common: {
+    // Ported from wireframes/wf-onboarding.jsx → WelcomeCelebrateGeneric.
+    // Product-agnostic celebrate moment — used when no specific product
+    // was pre-selected (e.g. user upgraded from dashboard, or signup
+    // didn't go through the product chooser first). Surfaces the full
+    // platform value prop instead of a Genie- or Insights-specific frame.
+    headlineLead: "Your unfair ",
+    headlineHighlight: "advantage",
+    headlineTrail: " starts now.",
+    sub: "You just unlocked the full FabFunnel platform — creative generation, competitor intelligence, and everything in between.",
+    stats: [
+      { icon: Telescope, target: 50, format: (v) => `${Math.round(v)}M+`, label: "Ads analyzed" },
+      { icon: Star, target: 12, format: (v) => `${Math.round(v)}K+`, label: "Marketers trust us" },
+      { icon: TrendingUp, target: 4.2, format: (v) => `${v.toFixed(1)}×`, label: "Avg. ROAS lift" },
+      { icon: Zap, target: 60, format: (v) => `<${Math.round(v)}s`, label: "First creative ready" },
+    ],
+    features: [
+      { icon: Sparkles, label: "Genie Creative Generation" },
+      { icon: Telescope, label: "Industry Insights" },
+      { icon: Play, label: "Video Sage Analysis" },
+      { icon: ImageIcon, label: "Creative Library" },
+    ],
+    ctaLabel: "Let's get started",
+    footnote: "Choose your path · Takes under 2 minutes",
   },
 };
 
@@ -196,8 +224,9 @@ function VariantToggle({
 }) {
   return (
     <div className="inline-flex items-center gap-1 rounded-full border border-border bg-card/80 backdrop-blur p-1 shadow-sm">
-      {(["creative", "insights"] as const).map((v) => {
+      {(["creative", "insights", "common"] as const).map((v) => {
         const active = v === variant;
+        const label = v === "creative" ? "Creative" : v === "insights" ? "Insights" : "Common";
         return (
           <button
             key={v}
@@ -211,7 +240,7 @@ function VariantToggle({
             )}
             aria-pressed={active}
           >
-            {v === "creative" ? "Creative" : "Insights"}
+            {label}
           </button>
         );
       })}

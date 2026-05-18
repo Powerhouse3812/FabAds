@@ -77,6 +77,8 @@ function renderStep(step: string) {
       return <Welcome onContinue={noop} printMode initialVariant="creative" />;
     case "welcome-insights":
       return <Welcome onContinue={noop} printMode initialVariant="insights" />;
+    case "welcome-celebrate":
+      return <Welcome onContinue={noop} printMode initialVariant="common" />;
     case "product-chooser":
       return <ProductChooser onPickGenie={noop} onPickInsights={noop} />;
     case "insights-setup":
