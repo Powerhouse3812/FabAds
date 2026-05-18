@@ -28,8 +28,8 @@ const SUGGESTIONS: Suggestion[] = [
     id: "forge-ready",
     gap: "5 saved ads ready for Forge",
     action: "Generate 10 variants of each to test angles",
-    cta: "Forge now",
-    href: "/iq/genie6/forge",
+    cta: "Open Studio Alpha",
+    href: "/iq/genie6/studio-alpha?mode=forge",
   },
   {
     id: "sleepyhead-no-comp",

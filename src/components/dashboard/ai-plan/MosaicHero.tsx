@@ -93,7 +93,7 @@ export function MosaicHero({ className }: MosaicHeroProps) {
   const gens = buildMockGens();
 
   if (gens.length === 0) {
-    return <EmptyMosaic className={className} onCta={() => navigate("/iq/genie6/generate")} />;
+    return <EmptyMosaic className={className} onCta={() => navigate("/iq/genie6/studio-alpha")} />;
   }
 
   const [featured, ...rest] = gens;
@@ -265,7 +265,7 @@ function FeaturedCard({
             className="h-8 bg-white/90 hover:bg-white text-foreground"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/iq/genie6/generate?forgeFrom=${gen.id}`);
+              navigate(`/iq/genie6/studio-alpha?forgeFrom=${gen.id}`);
             }}
           >
             <Layers className="mr-1 h-3.5 w-3.5" />
@@ -367,7 +367,7 @@ function MosaicCard({
           className="h-7 px-2.5 text-xs bg-white/95 hover:bg-white text-foreground"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/iq/genie6/generate?forgeFrom=${gen.id}`);
+            navigate(`/iq/genie6/studio-alpha?forgeFrom=${gen.id}`);
           }}
         >
           <Layers className="mr-1 h-3 w-3" />

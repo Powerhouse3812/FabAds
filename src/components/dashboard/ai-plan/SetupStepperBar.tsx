@@ -67,7 +67,7 @@ export function SetupStepperBar({ className }: SetupStepperBarProps) {
       {
         id: "first-gen",
         label: "First generation",
-        href: "/iq/genie6/generate",
+        href: "/iq/genie6/studio-alpha",
         done: firstGenOk,
       },
     ];

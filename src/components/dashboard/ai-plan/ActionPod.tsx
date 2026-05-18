@@ -169,7 +169,7 @@ function PrimaryCta() {
   return (
     <motion.button
       type="button"
-      onClick={() => navigate("/iq/genie6/generate")}
+      onClick={() => navigate("/iq/genie6/studio-alpha")}
       whileHover={{ y: -2 }}
       whileTap={{ y: 0, scale: 0.99 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -203,7 +203,7 @@ function PrimaryCta() {
       <span className="relative flex flex-col items-center leading-none">
         <span>Start a generation</span>
         <span className="font-mono text-[9px] uppercase tracking-[0.14em] opacity-70 mt-1">
-          Picks from 7 modes
+          Opens Studio Alpha
         </span>
       </span>
       <ChevronRight
@@ -343,7 +343,7 @@ export function ActionPod({ className }: ActionPodProps) {
           <MicroCard
             eyebrow="Saved & ready"
             title="5 ads ready for Forge"
-            onClick={() => navigate("/iq/genie6/forge")}
+            onClick={() => navigate("/iq/genie6/studio-alpha?mode=forge")}
           />
         </motion.div>
       </motion.div>
