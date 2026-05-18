@@ -5,52 +5,46 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
-import { MosaicHero } from "./MosaicHero";
-import { ActionPod } from "./ActionPod";
+import { NowStatusStrip } from "./NowStatusStrip";
+import { AnalyticsHero } from "./AnalyticsHero";
+import { ModeLauncherBar } from "./ModeLauncherBar";
+import { RecentWorkStrip } from "./RecentWorkStrip";
 import { LivePulseTicker } from "./LivePulseTicker";
 import { SetupStepperBar } from "./SetupStepperBar";
 import { SpotlightRow } from "./SpotlightRow";
-import { CursorFollowGlow } from "./CursorFollowGlow";
-import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
 import { AiSuggestionsCoach } from "./AiSuggestionsCoach";
 import { VideoSageRecentTile } from "./VideoSageRecentTile";
-import { NowStatusStrip } from "./NowStatusStrip";
+import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
 
 /**
- * AI-plan Dashboard — redesigned (iter 2).
+ * AI-plan Dashboard — iter 4 (analytics-led).
  *
- * Iter 1 was generic Stripe-style stat tiles — Maalik called it boring,
- * reading-heavy, "have to process before knowing what to do." This iter
- * inverts the priority: the user's WORK is the dashboard. Visual mosaic
- * leads. Action surfaces as motif, not copy.
+ * Strategic pivot (Maalik, locked):
+ *   Iter 3 mosaic-as-hero was Suno-style but answered "what did I make?"
+ *   not "what should I do?". Brands as hero → no action emerges.
+ *   This iter inverts: ANALYTICS becomes the hero, with embedded
+ *   drill-throughs from each metric. Mode launcher sits directly under
+ *   the chart so action is one click away. The past-work mosaic
+ *   demotes to a smaller strip below.
  *
- * Composition (top → bottom, asymmetric throughout):
+ * Composition (top → bottom):
  *
- *   ROW 1   Hero  (70/30 split, ~520px)
- *     LEFT  MosaicHero        Pinterest masonry of recent generations
- *     RIGHT ActionPod         Credit gauge + dominant CTA + 2 micro-cards
- *     +     CursorFollowGlow  Lime spotlight that tracks the cursor
- *
- *   ROW 2   LivePulseTicker (~64px, full)
- *     Horizontal scrolling event ticker. Continuous loop, pulse-ring
- *     anchor, lime accent on most-recent. Pause on hover.
- *
- *   ROW 3   SetupStepperBar (~44px, full, auto-hides ≥75% done)
- *     Slim horizontal stepper. Current step pulses subtly.
- *
- *   ROW 4   SpotlightRow (60/40 split, ~360px)
- *     LEFT  Trending today     4 competitor ad cards as visual blocks
- *     RIGHT Catalogue health   3 radial donut indicators
+ *   ROW 0  Header
+ *   ROW 1  NowStatusStrip       Glance chips (credits, new, attention)
+ *   ROW 2  AnalyticsHero        DOMINANT — chart + 4 KPI tiles with
+ *                               deltas + sparklines. Each tile drills
+ *                               into its source surface.
+ *   ROW 3  ModeLauncherBar      6 mode cards, one-click → Studio Alpha
+ *                               with mode pre-selected.
+ *   ROW 4  RecentWorkStrip      4-card uniform grid (replaces broken
+ *                               MosaicHero — masonry-in-CSS fixed).
+ *   ROW 5  LivePulseTicker      Rotating single-event display.
+ *   ROW 6  SetupStepperBar      Auto-hides ≥75% done.
+ *   ROW 7  SpotlightRow         Trending today + Catalogue health.
+ *   ROW 8  Coach + Video Sage   AI suggestions + recent video analyses.
  *
  * Zero-state takeover (when activation threshold not met) replaces
- * everything below Row 0 with the 3-step setup card. Same as before.
- *
- * Motion design:
- *   - Page-level stagger: each row reveals with 80ms cascade on mount
- *   - Within each row, tile-level stagger handled by the section itself
- *   - Hero gets cursor-follow lime glow (Awwwards touch)
- *   - All hover transitions use Fabfunnel spring physics (stiffness 100,
- *     damping 20) per the design-system spec
+ * everything below ROW 0 with the 3-step setup card. Same as before.
  */
 export function AiPlanDashboard() {
   const { user } = useAuth();
@@ -62,10 +56,6 @@ export function AiPlanDashboard() {
 
   const userSkippedSetup = searchParams.get("setup") === "skip";
 
-  /* ── Activation threshold ─────────────────────────────────
-        Same logic as iter 1. Treats a session as "new" until the user
-        has done the minimum work to give the populated dashboard
-        real signal. */
   const isNewUser = useMemo(() => {
     if (userSkippedSetup) return false;
     const first = brands[0];
@@ -93,35 +83,27 @@ export function AiPlanDashboard() {
 
   const handleRefresh = () => setRefreshKey((k) => k + 1);
 
-  /* ── Stagger variants for page-level row reveal ── */
+  /* ── Page-level stagger ── */
   const containerVariants = {
     hidden: { opacity: 1 },
     show: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.05,
-      },
+      transition: { staggerChildren: 0.07, delayChildren: 0.05 },
     },
   } as const;
 
   const rowVariants = {
-    hidden: { opacity: 0, y: 14 },
+    hidden: { opacity: 0, y: 12 },
     show: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5, ease: [0.32, 0.72, 0, 1] },
+      transition: { duration: 0.45, ease: [0.32, 0.72, 0, 1] },
     },
   } as const;
 
   return (
     <div className="pb-6">
-      {/* ── Header — utility, not marketing copy.
-            Critique iter (ui-ux-pro-max P0): the previous "X's canvas /
-            Where your work, signals, and next moves live" hid the
-            operational signal behind poetry. Operators want their name
-            + a one-line tally of what's going on. The NowStatusStrip
-            does the heavy lifting underneath. ── */}
+      {/* ── ROW 0 — Header ── */}
       <header className="flex items-end justify-between flex-wrap gap-3 mb-3">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight text-foreground leading-none">
@@ -146,7 +128,6 @@ export function AiPlanDashboard() {
         )}
       </header>
 
-      {/* ── Zero-state path ─────────────────────────────────────── */}
       {isNewUser ? (
         <ZeroStateSetupTakeover onSkip={handleSkipSetup} />
       ) : (
@@ -157,52 +138,42 @@ export function AiPlanDashboard() {
           animate="show"
           className="space-y-4"
         >
-          {/* ── ROW 0: Now status strip — the operational anchor.
-                Added in iter 3 (ui-ux-pro-max P0). Glance-readable chips
-                for credits / new-since-last-visit / needs-attention so
-                the user knows "am I OK today, what needs me?" in <1s. ── */}
+          {/* ── ROW 1 — Now status chips ── */}
           <motion.section variants={rowVariants}>
             <NowStatusStrip />
           </motion.section>
 
-          {/* ── ROW 1: Hero — Mosaic (70%) + ActionPod (30%) ── */}
-          <motion.section
-            variants={rowVariants}
-            className="relative overflow-hidden rounded-3xl"
-          >
-            {/* Cursor-follow lime spotlight backdrop. Pure polish, pointer-events:none. */}
-            <CursorFollowGlow size={520} color="rgba(195,235,66,0.08)" />
-
-            <div className="relative grid grid-cols-1 lg:grid-cols-10 gap-4 items-start">
-              <div className="lg:col-span-7">
-                <MosaicHero />
-              </div>
-              <div className="lg:col-span-3">
-                <ActionPod />
-              </div>
-            </div>
+          {/* ── ROW 2 — Analytics hero (DOMINANT) ── */}
+          <motion.section variants={rowVariants}>
+            <AnalyticsHero />
           </motion.section>
 
-          {/* ── ROW 2: Live ticker ── */}
+          {/* ── ROW 3 — Mode launcher ── */}
+          <motion.section variants={rowVariants}>
+            <ModeLauncherBar />
+          </motion.section>
+
+          {/* ── ROW 4 — Recent work (smaller mosaic) ── */}
+          <motion.section variants={rowVariants}>
+            <RecentWorkStrip />
+          </motion.section>
+
+          {/* ── ROW 5 — Live ticker ── */}
           <motion.section variants={rowVariants}>
             <LivePulseTicker />
           </motion.section>
 
-          {/* ── ROW 3: Setup stepper (only renders when applicable) ── */}
+          {/* ── ROW 6 — Setup stepper (auto-hides ≥75% done) ── */}
           <motion.section variants={rowVariants}>
             <SetupStepperBar />
           </motion.section>
 
-          {/* ── ROW 4: Spotlight — Trending + Health ── */}
+          {/* ── ROW 7 — Spotlight: Trending + Catalogue health ── */}
           <motion.section variants={rowVariants}>
             <SpotlightRow />
           </motion.section>
 
-          {/* ── ROW 5: Coach + Video Sage (60/40) ──
-              These two tiles are holdovers from iter 1. Coach mode was
-              an explicit Maalik pick; Video Sage rounds out the "what
-              you've researched recently" axis. Both still read text-led
-              — flagged for a visual redesign in the next iter. */}
+          {/* ── ROW 8 — Coach + Video Sage (60/40) ── */}
           <motion.section
             variants={rowVariants}
             className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start"
