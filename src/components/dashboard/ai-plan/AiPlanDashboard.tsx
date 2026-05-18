@@ -109,7 +109,9 @@ export function AiPlanDashboard() {
 
   return (
     <div className="pb-6">
-      {/* ── ROW 0 — Header ── */}
+      {/* ── ROW 0 — Header ──
+            Variant toggle (V1 ↔ V2) always visible so users can flip
+            without hunting for a tiny link. */}
       <header className="flex items-end justify-between flex-wrap gap-3 mb-3">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight text-foreground leading-none">
@@ -121,16 +123,9 @@ export function AiPlanDashboard() {
               : "Here's what's on your plate today."}
           </p>
         </div>
-        {!isNewUser && (
-          <div className="flex items-center gap-2">
-            <Link
-              to="/dashboard?v=2"
-              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/[0.06] px-3 py-2 text-[12px] font-medium text-primary hover:bg-primary/10 transition-colors"
-              title="Preview V2 bento dashboard"
-            >
-              Try V2
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <DashboardVariantToggle active="v1" />
+          {!isNewUser && (
             <Button
               variant="outline"
               size="sm"
@@ -140,8 +135,8 @@ export function AiPlanDashboard() {
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
       {isNewUser ? (

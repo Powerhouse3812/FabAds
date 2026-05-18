@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { RefreshCw, ArrowLeft } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
+import { DashboardVariantToggle } from "../DashboardVariantToggle";
 
 // V2-specific components (this folder)
 import { TopPerformerHero } from "./TopPerformerHero";
@@ -144,14 +145,7 @@ export function AiPlanDashboardV2() {
 
         <div className="flex items-center gap-2 ml-auto flex-wrap">
           <CommandPaletteButton />
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-[12px] text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
-            title="Back to V1 dashboard"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            V1
-          </Link>
+          <DashboardVariantToggle active="v2" />
           {!isNewUser && (
             <Button
               variant="outline"
