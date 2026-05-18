@@ -191,16 +191,6 @@ export const MODULES: ModuleDef[] = [
   // (/brand-book/:slug) still works for direct URL access — see
   // brandBookRoutes in App.tsx. Removed from the rail per Maalik —
   // "Remove the Brand book from both navigations."
-  // Demo — first-login onboarding wizard ported from ff.ai marketing site.
-  // Renders as a forced-flow modal over /insights-v2/feed (My Feeds) with
-  // a dark backdrop. Presentational only; not auto-launched on real first
-  // login.
-  { key: "onboarding-demo", label: "Onboarding", icon: Sparkles, path: "/insights-v2/feed?onboarding=true", badge: "Demo" },
-  // Pricing / plan-picker — modal-based (V2). Lives at /plans-v2, opens as
-  // a centered modal with X close. URL search params drive tier × view ×
-  // billing state. The old full-page version (/planning) still works as a
-  // legacy route + powers the print exports at /planning-print/:slug.
-  { key: "planning", label: "Plans", icon: Receipt, path: "/plans-v2" },
 ];
 
 // System modules moved to Profile popover (UserMenu). Rail is clean.
@@ -239,8 +229,6 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   copilot: "TOOLS",
   "bg-remover": "TOOLS",
   "obj-remover": "TOOLS",
-  "onboarding-demo": "TOOLS",
-  "planning": "TOOLS",
 };
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];

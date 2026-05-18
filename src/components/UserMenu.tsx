@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
-  Settings, Plug, Users, UserPlus, Check,
+  Settings, Plug, Users, UserPlus, Check, Sparkles, Receipt,
 } from "lucide-react";
 
 /**
@@ -125,6 +125,14 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
         <DropdownMenuItem onClick={() => navigate("/settings")}>
           <Settings className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/insights-v2/feed?onboarding=true")}>
+          <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Onboarding
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/plans-v2")}>
+          <Receipt className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Plans
         </DropdownMenuItem>
         {!isAiPlan && (
           <DropdownMenuItem onClick={() => navigate("/integrations")}>
