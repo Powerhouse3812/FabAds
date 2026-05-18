@@ -1,46 +1,55 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
-import { HeroTopPerformer } from "./HeroTopPerformer";
-import { QuickStatsColumn } from "./QuickStatsColumn";
-import { InsightsTrendingTile } from "./InsightsTrendingTile";
-import { VideoSageRecentTile } from "./VideoSageRecentTile";
-import { CatalogueHealthTile } from "./CatalogueHealthTile";
-import { AiSuggestionsCoach } from "./AiSuggestionsCoach";
-import { ProfileCompletionStrip } from "./ProfileCompletionStrip";
-import { CrossModeActivityStrip } from "./CrossModeActivityStrip";
+import { MosaicHero } from "./MosaicHero";
+import { ActionPod } from "./ActionPod";
+import { LivePulseTicker } from "./LivePulseTicker";
+import { SetupStepperBar } from "./SetupStepperBar";
+import { SpotlightRow } from "./SpotlightRow";
+import { CursorFollowGlow } from "./CursorFollowGlow";
 import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
+import { AiSuggestionsCoach } from "./AiSuggestionsCoach";
+import { VideoSageRecentTile } from "./VideoSageRecentTile";
 
 /**
- * AI-plan Dashboard — umbrella above Genie 6 Home.
+ * AI-plan Dashboard — redesigned (iter 2).
  *
- * Scoping decision (Maalik, locked):
- *   Option 2 + 3 — Same dashboard chassis as Growth plan (header / row
- *   grid / refresh control) but tile selection is AI-plan-aware. Pulls
- *   from Genie + Industry Insights + Video Sage + Catalogue + new
- *   AI suggestions coach + profile-completion gamification. Genie 6.0
- *   Home stays focused only on creative generation.
+ * Iter 1 was generic Stripe-style stat tiles — Maalik called it boring,
+ * reading-heavy, "have to process before knowing what to do." This iter
+ * inverts the priority: the user's WORK is the dashboard. Visual mosaic
+ * leads. Action surfaces as motif, not copy.
  *
- * Layout:
- *   Row 0  Header (greet + refresh)
- *   Row 1  Hero (60%) Top Performer + QuickStats column (40%)
- *   Row 2  Industry Insights + Video Sage  (2-up)
- *   Row 3  Catalogue Health + AI Suggestions Coach  (2-up)
- *   Row 4  Profile Completion strip (auto-hides ≥90% done)
- *   Row 5  Cross-mode Activity strip (horizontal scroll)
+ * Composition (top → bottom, asymmetric throughout):
+ *
+ *   ROW 1   Hero  (70/30 split, ~520px)
+ *     LEFT  MosaicHero        Pinterest masonry of recent generations
+ *     RIGHT ActionPod         Credit gauge + dominant CTA + 2 micro-cards
+ *     +     CursorFollowGlow  Lime spotlight that tracks the cursor
+ *
+ *   ROW 2   LivePulseTicker (~64px, full)
+ *     Horizontal scrolling event ticker. Continuous loop, pulse-ring
+ *     anchor, lime accent on most-recent. Pause on hover.
+ *
+ *   ROW 3   SetupStepperBar (~44px, full, auto-hides ≥75% done)
+ *     Slim horizontal stepper. Current step pulses subtly.
+ *
+ *   ROW 4   SpotlightRow (60/40 split, ~360px)
+ *     LEFT  Trending today     4 competitor ad cards as visual blocks
+ *     RIGHT Catalogue health   3 radial donut indicators
  *
  * Zero-state takeover (when activation threshold not met) replaces
- * everything below Row 0 with a 3-step setup card. Activation =
- *   - ≥1 brand has voice + colors + usps fully filled
- *   - ≥3 competitors tracked on the primary brand
- *   - ≥1 generation completed (currently hard-coded false; real
- *     wiring lands when there's a global generations counter)
- * Escape hatch: "Skip setup" → state flips, populated dashboard
- * renders with 0-state tile copy. URL preserves via ?setup=skip so
- * hard refresh respects the user's choice.
+ * everything below Row 0 with the 3-step setup card. Same as before.
+ *
+ * Motion design:
+ *   - Page-level stagger: each row reveals with 80ms cascade on mount
+ *   - Within each row, tile-level stagger handled by the section itself
+ *   - Hero gets cursor-follow lime glow (Awwwards touch)
+ *   - All hover transitions use Fabfunnel spring physics (stiffness 100,
+ *     damping 20) per the design-system spec
  */
 export function AiPlanDashboard() {
   const { user } = useAuth();
@@ -53,8 +62,9 @@ export function AiPlanDashboard() {
   const userSkippedSetup = searchParams.get("setup") === "skip";
 
   /* ── Activation threshold ─────────────────────────────────
-        Treats a session as "new" until the user has done the
-        minimum work to give the populated dashboard real signal. */
+        Same logic as iter 1. Treats a session as "new" until the user
+        has done the minimum work to give the populated dashboard
+        real signal. */
   const isNewUser = useMemo(() => {
     if (userSkippedSetup) return false;
     const first = brands[0];
@@ -64,8 +74,6 @@ export function AiPlanDashboard() {
       first.colors.length >= 2 &&
       first.usps.length >= 2;
     const competitorsReady = first.competitors.length >= 3;
-    // Step 3 (first-gen) — no live counter; treat as not-done for now.
-    // Bumping `?newuser=true` in URL forces the takeover for demos.
     const forceFlag = searchParams.get("newuser") === "true";
     if (forceFlag) return true;
     return !(brandReady && competitorsReady);
@@ -84,18 +92,42 @@ export function AiPlanDashboard() {
 
   const handleRefresh = () => setRefreshKey((k) => k + 1);
 
+  /* ── Stagger variants for page-level row reveal ── */
+  const containerVariants = {
+    hidden: { opacity: 1 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.05,
+      },
+    },
+  } as const;
+
+  const rowVariants = {
+    hidden: { opacity: 0, y: 14 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.5, ease: [0.32, 0.72, 0, 1] },
+    },
+  } as const;
+
   return (
-    <div className="space-y-4 pb-6">
-      {/* ── Row 0 — Header ─────────────────────────────────── */}
-      <header className="flex items-center justify-between flex-wrap gap-3">
+    <div className="pb-6">
+      {/* ── Header (no stagger — it's the first thing the user sees) ── */}
+      <header className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Welcome, {firstName}
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-1">
+            AI plan · workspace
+          </p>
+          <h1 className="text-[26px] font-bold tracking-tight text-foreground leading-none">
+            {isNewUser ? `Welcome, ${firstName}` : `${firstName}'s canvas`}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-[13px] text-muted-foreground mt-1.5 leading-snug">
             {isNewUser
               ? "Three quick steps before you start generating."
-              : "Your AI ad-creative command center."}
+              : "Where your work, signals, and next moves live."}
           </p>
         </div>
         {!isNewUser && (
@@ -111,39 +143,67 @@ export function AiPlanDashboard() {
         )}
       </header>
 
-      {/* ── Zero-state takeover ──────────────────────────────── */}
+      {/* ── Zero-state path ─────────────────────────────────────── */}
       {isNewUser ? (
         <ZeroStateSetupTakeover onSkip={handleSkipSetup} />
       ) : (
-        <div key={refreshKey} className="space-y-3">
-          {/* ── Row 1 — Hero + QuickStats (60/40) ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
+        <motion.div
+          key={refreshKey}
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="space-y-4"
+        >
+          {/* ── ROW 1: Hero — Mosaic (70%) + ActionPod (30%) ── */}
+          <motion.section
+            variants={rowVariants}
+            className="relative overflow-hidden rounded-3xl"
+          >
+            {/* Cursor-follow lime spotlight backdrop. Pure polish, pointer-events:none. */}
+            <CursorFollowGlow size={520} color="rgba(195,235,66,0.08)" />
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-10 gap-4 items-start">
+              <div className="lg:col-span-7">
+                <MosaicHero />
+              </div>
+              <div className="lg:col-span-3">
+                <ActionPod />
+              </div>
+            </div>
+          </motion.section>
+
+          {/* ── ROW 2: Live ticker ── */}
+          <motion.section variants={rowVariants}>
+            <LivePulseTicker />
+          </motion.section>
+
+          {/* ── ROW 3: Setup stepper (only renders when applicable) ── */}
+          <motion.section variants={rowVariants}>
+            <SetupStepperBar />
+          </motion.section>
+
+          {/* ── ROW 4: Spotlight — Trending + Health ── */}
+          <motion.section variants={rowVariants}>
+            <SpotlightRow />
+          </motion.section>
+
+          {/* ── ROW 5: Coach + Video Sage (60/40) ──
+              These two tiles are holdovers from iter 1. Coach mode was
+              an explicit Maalik pick; Video Sage rounds out the "what
+              you've researched recently" axis. Both still read text-led
+              — flagged for a visual redesign in the next iter. */}
+          <motion.section
+            variants={rowVariants}
+            className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start"
+          >
             <div className="lg:col-span-3">
-              <HeroTopPerformer />
+              <AiSuggestionsCoach />
             </div>
             <div className="lg:col-span-2">
-              <QuickStatsColumn />
+              <VideoSageRecentTile />
             </div>
-          </div>
-
-          {/* ── Row 2 — Insights + Video Sage ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-            <InsightsTrendingTile />
-            <VideoSageRecentTile />
-          </div>
-
-          {/* ── Row 3 — Catalogue Health + AI Suggestions Coach ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-            <CatalogueHealthTile />
-            <AiSuggestionsCoach />
-          </div>
-
-          {/* ── Row 4 — Profile Completion (auto-hides) ── */}
-          <ProfileCompletionStrip />
-
-          {/* ── Row 5 — Activity strip ── */}
-          <CrossModeActivityStrip />
-        </div>
+          </motion.section>
+        </motion.div>
       )}
     </div>
   );
