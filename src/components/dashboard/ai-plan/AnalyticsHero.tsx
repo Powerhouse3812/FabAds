@@ -402,31 +402,29 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         className="col-span-12 lg:col-span-8 rounded-2xl border border-border bg-card p-4"
       >
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-1.5">
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              GENERATIONS · {rangeLabel}
+        {/* Header row — number + eyebrow + delta inline, toggle right */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-baseline gap-2.5 min-w-0">
+            <CountUp
+              value={total}
+              duration={1.1}
+              delay={0.1}
+              className="text-[22px] leading-none text-foreground"
+            />
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
+              gens · {rangeLabel.toLowerCase()}
             </span>
-            <div className="flex items-baseline gap-2.5">
-              <CountUp
-                value={total}
-                duration={1.1}
-                delay={0.1}
-                className="text-[24px] leading-none text-foreground"
-              />
-              <DeltaChip
-                value={delta}
-                size="md"
-                suffix={`% vs prev ${range}`}
-              />
-            </div>
+            <DeltaChip
+              value={delta}
+              size="sm"
+              suffix="%"
+            />
           </div>
           <RangeToggle value={range} onChange={setRange} />
         </div>
 
         {/* Chart */}
-        <div className="mt-3 h-[120px] w-full">
+        <div className="mt-2 h-[96px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               key={range}
