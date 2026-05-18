@@ -389,89 +389,15 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         : "LAST 90 DAYS";
 
   return (
-    <section
-      className={cn(
-        "grid grid-cols-12 gap-3",
-        className
-      )}
-    >
-      {/* ── LEFT 65% — area chart card ────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="col-span-12 lg:col-span-8 rounded-2xl border border-border bg-card p-4"
-      >
-        {/* Header row — number + eyebrow + delta inline, toggle right */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-baseline gap-2.5 min-w-0">
-            <CountUp
-              value={total}
-              duration={1.1}
-              delay={0.1}
-              className="text-[22px] leading-none text-foreground"
-            />
-            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
-              gens · {rangeLabel.toLowerCase()}
-            </span>
-            <DeltaChip
-              value={delta}
-              size="sm"
-              suffix="%"
-            />
-          </div>
-          <RangeToggle value={range} onChange={setRange} />
-        </div>
-
-        {/* Chart */}
-        <div className="mt-2 h-[96px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              key={range}
-              data={chartData}
-              margin={{ top: 8, right: 4, left: 4, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="genArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="0%"
-                    stopColor="hsl(var(--primary))"
-                    stopOpacity={0.28}
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor="hsl(var(--primary))"
-                    stopOpacity={0.04}
-                  />
-                </linearGradient>
-              </defs>
-              {/* Midpoint horizontal gridline only — Vercel-style minimal */}
-              <Tooltip
-                content={<ChartTooltip />}
-                cursor={{
-                  stroke: "hsl(var(--border))",
-                  strokeWidth: 1,
-                  strokeDasharray: "3 3",
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="gens"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                fill="url(#genArea)"
-                fillOpacity={1}
-                isAnimationActive
-                animationDuration={800}
-                animationEasing="ease-out"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </motion.div>
-
-      {/* ── RIGHT 35% — 4 stacked KPI tiles ───────────────────────────────── */}
-      <div className="col-span-12 lg:col-span-4 grid grid-cols-2 lg:grid-cols-1 gap-2">
+    <section className={cn("flex flex-col gap-3", className)}>
+      {/* ── TOP — KPI strip (4 tiles horizontal, full-width) ──
+            Restructured from side-column stack (iter 5 compaction pass):
+            previously the 4 KPI tiles stacked vertically beside a 65%-
+            width chart, leaving ~180px of dead space below the chart
+            because CSS grid equalized the row heights. Vercel-style
+            strip-on-top fixes that — chart gets full horizontal canvas,
+            KPI tiles compact horizontally with no wasted vertical. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <KpiTile
           eyebrow="CREDITS USED"
           value={73}
@@ -507,6 +433,76 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
           delay={0.32}
         />
       </div>
+
+      {/* ── BOTTOM — full-width chart card ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        className="rounded-2xl border border-border bg-card p-4"
+      >
+        {/* Header row — number + eyebrow + delta inline, toggle right */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-baseline gap-2.5 min-w-0">
+            <CountUp
+              value={total}
+              duration={1.1}
+              delay={0.1}
+              className="text-[22px] leading-none text-foreground"
+            />
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground whitespace-nowrap">
+              gens · {rangeLabel.toLowerCase()}
+            </span>
+            <DeltaChip value={delta} size="sm" suffix="%" />
+          </div>
+          <RangeToggle value={range} onChange={setRange} />
+        </div>
+
+        {/* Chart — gets full horizontal canvas now */}
+        <div className="mt-2 h-[120px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              key={range}
+              data={chartData}
+              margin={{ top: 8, right: 4, left: 4, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="genArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    stopColor="hsl(var(--primary))"
+                    stopOpacity={0.28}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="hsl(var(--primary))"
+                    stopOpacity={0.04}
+                  />
+                </linearGradient>
+              </defs>
+              <Tooltip
+                content={<ChartTooltip />}
+                cursor={{
+                  stroke: "hsl(var(--border))",
+                  strokeWidth: 1,
+                  strokeDasharray: "3 3",
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="gens"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                fill="url(#genArea)"
+                fillOpacity={1}
+                isAnimationActive
+                animationDuration={800}
+                animationEasing="ease-out"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </motion.div>
     </section>
   );
 }
