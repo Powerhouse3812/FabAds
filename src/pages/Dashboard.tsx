@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
-import { RefreshCw, Eye, EyeOff } from "lucide-react";
+import { Component, useState, useEffect, useMemo, type ReactNode } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { AlertTriangle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,9 +45,104 @@ export default function Dashboard() {
   const [searchParams] = useSearchParams();
   const useV2 = searchParams.get("v") === "2";
   if (plan === "ai") {
-    return useV2 ? <AiPlanDashboardV2 /> : <AiPlanDashboard />;
+    // ErrorBoundary catches any runtime crash in V2 so the user sees
+    // a clear message instead of a blank page. V1 wrapped the same
+    // way for symmetry.
+    return (
+      <DashboardErrorBoundary variant={useV2 ? "v2" : "v1"}>
+        {useV2 ? <AiPlanDashboardV2 /> : <AiPlanDashboard />}
+      </DashboardErrorBoundary>
+    );
   }
   return <FullPlanDashboard />;
+}
+
+/* ── Error boundary around AI-plan dashboard variants ──
+      If something inside V1 or V2 throws on render, this catches it
+      and shows a recovery card instead of a blank page. The fallback
+      includes a "Back to V1" link so the user is never stuck. */
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  variant: "v1" | "v2";
+}
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+class DashboardErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[Dashboard ${this.props.variant.toUpperCase()}] crashed:`,
+      error,
+      info.componentStack,
+    );
+  }
+  render() {
+    if (this.state.hasError) {
+      return <DashboardCrashFallback variant={this.props.variant} error={this.state.error} />;
+    }
+    return this.props.children;
+  }
+}
+
+function DashboardCrashFallback({
+  variant,
+  error,
+}: {
+  variant: "v1" | "v2";
+  error: Error | null;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center p-6">
+      <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/[0.04] p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="h-4 w-4 text-destructive" strokeWidth={2.25} />
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-destructive">
+            {variant === "v2" ? "V2 · Operator" : "V1 · Vercel"} crashed
+          </p>
+        </div>
+        <h2 className="text-[18px] font-bold text-foreground tracking-tight leading-tight">
+          Couldn't render the {variant.toUpperCase()} dashboard.
+        </h2>
+        <p className="text-[12.5px] text-muted-foreground mt-2 leading-snug">
+          A component inside this variant threw an error. The console has the
+          stack trace. {variant === "v2" ? "Falling back to V1 is one click away." : ""}
+        </p>
+        {error?.message && (
+          <pre className="mt-3 p-2 rounded-md bg-muted/40 font-mono text-[10.5px] text-muted-foreground overflow-x-auto">
+            {error.message}
+          </pre>
+        )}
+        <div className="mt-4 flex items-center gap-2">
+          {variant === "v2" && (
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard")}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Back to V1
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-[12px] text-foreground hover:border-foreground/20 transition-colors"
+          >
+            Reload
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function FullPlanDashboard() {

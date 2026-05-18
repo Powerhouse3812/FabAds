@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface DashboardVariantToggleProps {
@@ -9,23 +9,38 @@ interface DashboardVariantToggleProps {
 
 /**
  * DashboardVariantToggle — tab-style switcher between V1 and V2 of the
- * AI-plan dashboard. Used in both AiPlanDashboard and AiPlanDashboardV2
- * headers so the user can flip without hunting for a tiny link.
+ * AI-plan dashboard.
  *
- * Each pill is a Link — clicking the inactive pill navigates with
- * `?v=2` (V2) or no flag (V1, default). State is URL-driven so it
- * survives reloads + can be deep-linked.
+ * Previously used `<Link>` which had a path-resolution quirk on
+ * same-pathname-different-search transitions. Switched to explicit
+ * `useNavigate` + button onClick so the URL update is direct + the
+ * search-param mutation is unambiguous.
+ *
+ * URL state:
+ *   /dashboard          → V1
+ *   /dashboard?v=2      → V2
  *
  * V1 label: "Vercel" (analytics-led linear stack)
  * V2 label: "Operator" (bento "Operator Briefing" grid)
- *
- * Active pill = lime fill + dark text. Inactive = transparent, muted
- * text, hover lifts opacity.
  */
 export function DashboardVariantToggle({
   active,
   className,
 }: DashboardVariantToggleProps) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const goToVariant = (target: "v1" | "v2") => {
+    if (target === active) return; // no-op nav
+    // Preserve all OTHER search params (setup=skip, newuser=true, etc.)
+    // and only mutate the `v` param.
+    const sp = new URLSearchParams(searchParams);
+    if (target === "v2") sp.set("v", "2");
+    else sp.delete("v");
+    const search = sp.toString();
+    navigate(`/dashboard${search ? `?${search}` : ""}`, { replace: false });
+  };
+
   return (
     <div
       role="tablist"
@@ -35,30 +50,35 @@ export function DashboardVariantToggle({
         className,
       )}
     >
-      <Pill to="/dashboard" label="V1 · Vercel" isActive={active === "v1"} />
       <Pill
-        to="/dashboard?v=2"
+        label="V1 · Vercel"
+        isActive={active === "v1"}
+        onClick={() => goToVariant("v1")}
+      />
+      <Pill
         label="V2 · Operator"
         isActive={active === "v2"}
         badge="New"
+        onClick={() => goToVariant("v2")}
       />
     </div>
   );
 }
 
 interface PillProps {
-  to: string;
   label: string;
   isActive: boolean;
   badge?: string;
+  onClick: () => void;
 }
 
-function Pill({ to, label, isActive, badge }: PillProps) {
+function Pill({ label, isActive, badge, onClick }: PillProps) {
   return (
-    <Link
-      to={to}
+    <button
+      type="button"
       role="tab"
       aria-selected={isActive}
+      onClick={onClick}
       className={cn(
         "relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition-colors whitespace-nowrap",
         isActive
@@ -72,6 +92,6 @@ function Pill({ to, label, isActive, badge }: PillProps) {
           {badge}
         </span>
       )}
-    </Link>
+    </button>
   );
 }
