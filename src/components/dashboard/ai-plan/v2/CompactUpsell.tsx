@@ -183,7 +183,7 @@ const TILES: Tile[] = [
 
 /* ── Component ──────────────────────────────────────────────────────── */
 
-export default function CompactUpsell({ className }: CompactUpsellProps) {
+export function CompactUpsell({ className }: CompactUpsellProps) {
   const navigate = useNavigate();
 
   const handleCta = (eyebrow: string) => {

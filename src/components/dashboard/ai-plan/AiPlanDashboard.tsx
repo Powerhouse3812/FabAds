@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DashboardVariantToggle } from "./DashboardVariantToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
 import { NowStatusStrip } from "./NowStatusStrip";

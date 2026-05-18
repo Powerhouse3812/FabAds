@@ -186,7 +186,7 @@ const TILES: Tile[] = [
 
 /* ── Component ──────────────────────────────────────────────────────── */
 
-export default function UpsellRow({ className }: UpsellRowProps) {
+export function UpsellRow({ className }: UpsellRowProps) {
   const navigate = useNavigate();
 
   const handleCta = () => {
