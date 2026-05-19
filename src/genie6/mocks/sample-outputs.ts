@@ -158,3 +158,75 @@ export const sampleOutputs: OutputData[] = [
   // Edge case — zero-data fallback test
   o("var_zerocase",   216,  "image", "product-ad",   "",          undefined,             "",                                               "",                                                                            "",           undefined, undefined),
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Backfill — angleId + priorConfig
+// ─────────────────────────────────────────────────────────────────────────────
+// Schema additions for the Library redesign: every output gets an `angleId`
+// (so Group-by-Angle view has a non-empty pool per angle) and a `priorConfig`
+// snapshot (so Variant B of the AdDetailDrawer has data to render).
+//
+// Deterministic round-robin so output ordering, counts, and the "first card
+// in row gets featured" treatment are stable across refreshes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 8 representative angle IDs taken from `src/mocks/shared/angles.ts`. */
+const ANGLE_ROTATION = [
+  "ang-asp-lifestyle",   // Aspirational lifestyle
+  "ang-social-proof",    // Social proof
+  "ang-before-after",    // Before-after
+  "ang-urgency",         // Urgency
+  "ang-comparison",      // Comparison
+  "ang-expert-led",      // Expert-led
+  "ang-emotional-story", // Emotional storytelling
+  "ang-empowerment",     // Empowerment
+] as const;
+
+const BRAND_SLUG: Record<string, string> = {
+  Mamaearth: "mamaearth",
+  Noise: "noise",
+  Boat: "boat",
+  Sleepyhead: "sleepyhead",
+  "WOW Skin Science": "wow-skin",
+  Plum: "plum",
+  mCaffeine: "mcaffeine",
+  "The Derma Co.": "the-derma-co",
+  Minimalist: "minimalist",
+  Foxtale: "foxtale",
+  Pepperfry: "pepperfry",
+  "Urban Ladder": "urban-ladder",
+  DaMensch: "damensch",
+};
+
+// In-place decoration — keeps the `sampleOutputs` array reference intact for
+// the 15+ consumers that import it.
+sampleOutputs.forEach((out, idx) => {
+  // Skip the zero-data edge-case row.
+  if (!out.brand?.name) return;
+
+  const angleId = ANGLE_ROTATION[idx % ANGLE_ROTATION.length];
+  const brandId = BRAND_SLUG[out.brand.name];
+
+  out.angleId = angleId;
+  out.priorConfig = {
+    mode: out.mode,
+    angleId,
+    ...(brandId ? { brandId } : {}),
+    ...(out.product?.name
+      ? { productId: `prod-${brandId ?? "x"}-${out.product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` }
+      : {}),
+    // Deterministic conceptId derived from mode + angle position.
+    conceptId: `concept-${out.mode}-${idx % 12}`,
+    // Deterministic hook pick — 70% of outputs carry a hook, 30% don't.
+    ...(idx % 10 < 7 ? { hookId: `hook-${idx % 18}` } : {}),
+    // Prompt snippet — derived from headline + body (first ~110 chars).
+    ...(out.headline
+      ? { promptSnippet: `${out.headline} — ${out.body ?? ""}`.slice(0, 110).trim() }
+      : {}),
+    // Every 4th output was "from a template" — gives Variant B a state to render.
+    ...(idx % 4 === 0
+      ? { generatedFromTemplate: `${out.brand.name} · ${out.mode.replace("-", " ")} template` }
+      : {}),
+    generatedAt: out.generatedAt,
+  };
+});

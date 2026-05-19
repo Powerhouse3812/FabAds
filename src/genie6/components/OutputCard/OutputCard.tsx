@@ -21,6 +21,21 @@ export interface OutputCardProps extends OutputData {
   selected?: boolean;
   kanbanColumn?: KanbanColumn;
 
+  /**
+   * Display size — independent of `variant`.
+   *   "full"    (default) — masonry / grid card, ~272px wide, full thumbnail.
+   *   "compact"            — group-by-angle row card, ~208px × 331px; thumbnail
+   *                          stays visible (unlike `variant="compact"` which
+   *                          drops the thumbnail for sidebar list contexts).
+   */
+  size?: "full" | "compact";
+  /**
+   * "Featured" treatment for the first / active card in a Group-by-Angle row:
+   * lime border + lime-tinted background. Visual cue only; doesn't change
+   * behaviour.
+   */
+  featured?: boolean;
+
   onSave?: () => void;
   onLaunch?: () => void;
   onDownload?: () => void;
@@ -60,6 +75,8 @@ export function OutputCard({
   variant = "grid",
   selectable = true,
   selected = false,
+  size = "full",
+  featured = false,
   onSave,
   onLaunch,
   onDownload,
@@ -68,8 +85,12 @@ export function OutputCard({
   onClick,
 }: OutputCardProps) {
   const [hovered, setHovered] = useState(false);
-  const isCompact = variant === "compact";
-  const showThumbnail = !isCompact;
+  const isVariantCompact = variant === "compact";
+  const isSizeCompact = size === "compact";
+  // The "compact variant" (used in side rails) hides the thumbnail entirely.
+  // The new "compact size" (used in Group-by-Angle rows) keeps it.
+  const showThumbnail = !isVariantCompact;
+  const isCompact = isVariantCompact || isSizeCompact;
 
   const handleCardClick = () => {
     onClick?.();
@@ -85,12 +106,20 @@ export function OutputCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       data-state={selected ? "selected" : undefined}
+      data-featured={featured ? "" : undefined}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-g6-xl border border-g6-border-secondary bg-g6-bg-container text-left shadow-g6-sm transition-all duration-200",
-        "hover:-translate-y-0.5 hover:border-g6-border hover:shadow-g6-lg",
+        "group relative flex flex-col overflow-hidden rounded-g6-xl border bg-g6-bg-container text-left shadow-g6-sm transition-all duration-200",
+        // Default border + hover
+        !featured && "border-g6-border-secondary hover:border-g6-border",
+        // Featured (first card in a Group-by-Angle row) — lime border + lime tint surface
+        featured && "border-g6-primary",
+        featured && "bg-[#FEFFF0]",
+        "hover:-translate-y-0.5 hover:shadow-g6-lg",
         selected && "ring-2 ring-g6-primary ring-offset-2 ring-offset-g6-bg-base",
         onClick && "cursor-pointer",
-        isCompact ? "max-w-xs" : ""
+        // Width treatment
+        isVariantCompact && "max-w-xs",
+        isSizeCompact && "w-[208px]",
       )}
     >
       {/* Thumbnail area */}

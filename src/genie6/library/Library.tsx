@@ -38,9 +38,16 @@ export function Library() {
     return <Navigate to={`/iq/genie6/workspace/${assetType}`} replace />;
   }
 
-  // Redirect /library/outputs → /library (no longer needed in URL since outputs is the only thing).
+  // Backward-compat: the previous click-to-preview path was
+  // `/library/outputs/:id`. The redesign opens the AdDetailDrawer via
+  // `?ad=<id>` instead, so any deep-link to the legacy path gets rewritten
+  // (the `outputs/:id` form was also responsible for the previous bug
+  // where clicks didn't open anything — it redirected back to /library
+  // before the preview pane could mount).
   if (assetType === "outputs") {
-    return <Navigate to="/iq/genie6/library" replace />;
+    const id = window.location.pathname.split("/outputs/")[1];
+    const redirectTo = id ? `/iq/genie6/library?ad=${encodeURIComponent(id)}` : "/iq/genie6/library";
+    return <Navigate to={redirectTo} replace />;
   }
 
   // Demo flags for stakeholder walkthroughs

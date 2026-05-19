@@ -46,6 +46,29 @@ export type KanbanColumn = "winner" | "maybe" | "reject";
 
 export type OutputCardVariant = "grid" | "kanban" | "compact";
 
+/**
+ * Snapshot of the configuration that produced a generation.
+ *
+ * Surfaced in the AdDetailDrawer Variant B (workflow-first) at the top of
+ * the drawer so the user can see *why* this output looks the way it does
+ * and one-click into the source entities. All fields are optional because
+ * not every generation carries the full trail (older outputs, ad-hoc
+ * regenerations, image-to-ad flows that skipped concept/hook).
+ */
+export interface PriorConfig {
+  mode: ModeId;
+  angleId?: string;
+  conceptId?: string;
+  brandId?: string;
+  productId?: string;
+  hookId?: string;
+  /** First ~120 chars of the user's prompt that triggered the generation. */
+  promptSnippet?: string;
+  /** If this was started from a saved template, its label. */
+  generatedFromTemplate?: string;
+  generatedAt: Date;
+}
+
 export interface OutputData {
   id: string;
   mediaType: MediaType;
@@ -60,6 +83,15 @@ export interface OutputData {
   qualityScore?: number;
   /** Lineage — if this variant was forged from a parent winner, its ID is here. */
   parentWinnerId?: string;
+  /**
+   * Selling angle attribution. Backfilled deterministically on the mock pool;
+   * real generations should populate from the wizard state on save. Used by
+   * the Library's Group-by-Angle view + Variant A's "related from same angle"
+   * + Variant B's prior-config snapshot.
+   */
+  angleId?: string;
+  /** Snapshot of the wizard config that produced this output (see PriorConfig). */
+  priorConfig?: PriorConfig;
 }
 
 /** Mode → human label (for badges, chips, picker tooltips, breadcrumbs). */

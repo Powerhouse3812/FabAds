@@ -78,6 +78,7 @@ export function CommandLibrary() {
               brandFilter={brandFilter === "all" ? "all" : brands.find((b) => b.id === brandFilter)?.name ?? "all"}
               perfFilter={perfFilter}
               search={search}
+              showToolbar={false}
             />
           </div>
         </main>

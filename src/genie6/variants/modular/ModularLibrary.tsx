@@ -83,6 +83,7 @@ export function ModularLibrary() {
               brandFilter={brandFilter === "all" ? "all" : brands.find((b) => b.id === brandFilter)?.name ?? "all"}
               perfFilter={perfFilter}
               search={search}
+              showToolbar={false}
             />
           </div>
         </div>
