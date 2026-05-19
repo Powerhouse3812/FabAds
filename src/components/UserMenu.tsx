@@ -127,7 +127,7 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
             visually splits the "real tools" pair (Brand Book + Settings) from
             the "demos" cluster (Onboarding + Plans). */}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate("/brand-book/cover")}>
+        <DropdownMenuItem onClick={() => navigate("/brand-book/tokens-primary")}>
           <BookOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Brand Book
         </DropdownMenuItem>

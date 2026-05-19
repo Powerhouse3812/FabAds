@@ -3,8 +3,8 @@ import { C } from "../tokens";
 import { Mono, Eyebrow, H2, Body } from "../components/TextPrimitives";
 
 // ============================================================
-// TOKEN MIGRATION — v2.0
-// 25 token updates across 7 sections + 6 usage rules
+// TOKEN MIGRATION — 3 of 3 · Status, components, rules
+// §6 (3 tokens) + §7 (2 tokens) = 5 token rows + §8 (6 rules)
 // ============================================================
 
 type ColorState = { new: string; old: string | null };
@@ -20,36 +20,6 @@ type Tok = {
 };
 
 const TOKENS: Tok[] = [
-  // §1 — PRIMARY PALETTE (10 updates)
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/1",  path: "Colors/Base/fab-funnel/1",  light: { new: "#F5FBE2", old: "#fefff0" }, dark: { new: "#1D2A09", old: "#232915" }, use: "Lime-tinted surface bg / selected item bg" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/2",  path: "Colors/Base/fab-funnel/2",  light: { new: "#EBF6BF", old: "#fdffeb" }, dark: { new: "#2C3F10", old: "#36401a" }, use: "Selected item hover bg" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/3",  path: "Colors/Base/fab-funnel/3",  light: { new: "#DAED90", old: "#f7ffc2" }, dark: { new: "#3F5519", old: "#495522" }, use: "No longer aliased to colorPrimaryBorder" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/4",  path: "Colors/Base/fab-funnel/4",  light: { new: "#C5E25A", old: "#eeff99" }, dark: { new: "#577222", old: "#637529" }, use: "colorPrimaryBorderHover (slider only)" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/5",  path: "Colors/Base/fab-funnel/5",  light: { new: "#AACF32", old: "#dcf76d" }, dark: { new: "#75932D", old: "#86a032" }, use: "colorPrimaryHover light / Active dark" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/6",  path: "Colors/Base/fab-funnel/6",  light: { new: "#8FB821", old: "#c3eb42" }, dark: { new: "#90BA24", old: "#a9cb3b" }, use: "THE brand color — primary button fill", isNew: false },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/7",  path: "Colors/Base/fab-funnel/7",  light: { new: "#749818", old: "#9cc42d" }, dark: { new: "#AACF38", old: "#c8e064" }, use: "colorPrimaryBorder light / Hover dark" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/8",  path: "Colors/Base/fab-funnel/8",  light: { new: "#5B7611", old: "#779e1c" }, dark: { new: "#C3E165", old: "#e3f392" }, use: "colorPrimaryActive light / Border + Text dark" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/9",  path: "Colors/Base/fab-funnel/9",  light: { new: "#3F530A", old: "#557810" }, dark: { new: "#D9EF92", old: "#f0f8bd" }, use: "Reserved (extra-dark)" },
-  { section: "§1 · PRIMARY PALETTE", name: "fab-funnel/10", path: "Colors/Base/fab-funnel/10", light: { new: "#283506", old: "#37520a" }, dark: { new: "#EAFACE", old: "#fafee7" }, use: "Reserved (extra-dark)" },
-
-  // §2 — BRAND CONTROL (1)
-  { section: "§2 · BRAND CONTROL", name: "controlOutline", path: "Colors/Brand/Control/controlOutline", light: { new: "#8FB821 @10%", old: "#c3eb42 @10%" }, dark: { new: "#1D2A09", old: "#232915" }, use: "Input focus outline glow" },
-
-  // §3 — BACKGROUND TOKENS (5, incl. 1 new)
-  { section: "§3 · BACKGROUND TOKENS", name: "colorBgLayout",    path: "Colors/Neutral/Bg/colorBgLayout",    light: { new: "#f4f4f5", old: "#f5f5f5" }, dark: { new: "#141416", old: "#181818" }, use: "App shell / page background" },
-  { section: "§3 · BACKGROUND TOKENS", name: "colorBgBase",      path: "Colors/Neutral/Bg/colorBgBase",      light: { new: "#FAFAF7", old: "#ffffff" }, dark: { new: "#18181b", old: "#121212" }, use: "Main content surfaces (cards, panels)" },
-  { section: "§3 · BACKGROUND TOKENS", name: "colorBgElevated",  path: "Colors/Neutral/Bg/colorBgElevated",  light: { new: "#ffffff", old: null },      dark: { new: "#1e1e23", old: "#1f1f1f" }, use: "Modals, dropdowns, floating UI" },
-  { section: "§3 · BACKGROUND TOKENS", name: "colorBgSubtle",    path: "Colors/Neutral/Bg/colorBgSubtle",    light: { new: "#F0F0EC", old: null },      dark: { new: "#1B1B1F", old: null },      use: "Subdued sub-surfaces — table headers, wells", isNew: true },
-  { section: "§3 · BACKGROUND TOKENS", name: "colorBgSpotlight", path: "Colors/Neutral/Bg/colorBgSpotlight", light: { new: "#000 @85%", old: null },    dark: { new: "#2c2c34", old: "#424242" }, use: "Tooltips, spotlight overlays" },
-
-  // §4 — TEXT ALPHA (1)
-  { section: "§4 · TEXT ALPHA", name: "colorTextTertiary", path: "Colors/Neutral/Text/colorTextTertiary", light: { new: "#000 @55%", old: "#000 @45%" }, dark: { new: "#fff @55%", old: "#fff @45%" }, use: "Now passes AA body in light mode (4.55:1)" },
-
-  // §5 — PRIMARY SEMANTIC (3 re-aliases + 1 new)
-  { section: "§5 · PRIMARY SEMANTIC", name: "colorPrimaryBorder", path: "Colors/Brand/Primary/colorPrimaryBorder", light: { new: "#749818 (→ fab-funnel/7)", old: "(→ fab-funnel/3)" }, dark: { new: "#C3E165 (→ fab-funnel/8)", old: "(→ fab-funnel/3)" }, use: "Default primary border — passes 3:1" },
-  { section: "§5 · PRIMARY SEMANTIC", name: "colorPrimaryActive", path: "Colors/Brand/Primary/colorPrimaryActive", light: { new: "#5B7611 (→ fab-funnel/8)", old: "(→ fab-funnel/7)" }, dark: { new: "#75932D (→ fab-funnel/5)", old: null }, use: "Shifted to /8 to avoid border clash" },
-  { section: "§5 · PRIMARY SEMANTIC", name: "colorPrimaryText",   path: "Colors/Brand/Primary/colorPrimaryText",   light: { new: "#5B7611 (→ fab-funnel/8)", old: null }, dark: { new: "#C3E165 (→ fab-funnel/8)", old: null }, use: "Lime as text/border — passes AA at 4.97:1", isNew: true },
-
   // §6 — STATUS TEXT (3 re-aliases)
   { section: "§6 · STATUS TEXT", name: "colorErrorText",   path: "Colors/Brand/Error/colorErrorText",     light: { new: "#cf1322 (→ Red/7)",   old: "(→ Red/6)" }, dark: { new: "#f37370 (→ Red/8 dark)",   old: "(→ Red/6)" }, use: "Error text — passes AA body" },
   { section: "§6 · STATUS TEXT", name: "colorWarningText", path: "Colors/Brand/Warning/colorWarningText", light: { new: "#874d00 (→ Gold/9)",  old: "(→ Gold/6)" }, dark: { new: "#d89614 (→ Gold/6)",       old: null },         use: "Warning text — passes AA body" },
@@ -60,7 +30,7 @@ const TOKENS: Tok[] = [
   { section: "§7 · COMPONENT OVERRIDES", name: "Table.footerBg", path: "Components/Table/footerBg", light: { new: "#fafafa", old: null }, dark: { new: "#1e1e23", old: "#1d1d1d" }, use: "Align dark to new colorBgElevated" },
 ];
 
-// §8 — USAGE RULES (rendered as a separate aside, not as token rows)
+// §8 — USAGE RULES
 type Rule = { id: string; title: string; detail: string };
 const RULES: Rule[] = [
   { id: "R1", title: "Lime button text",          detail: "Primary fill buttons MUST use dark text (#121212). Never white on lime — fails 2.32:1; dark passes 8.07:1." },
@@ -75,15 +45,11 @@ const RULES: Rule[] = [
 // Helpers
 // ------------------------------------------------------------
 
-// Extract a renderable backgroundColor from a value string.
-// Handles: "#8FB821 (→ fab-funnel/8)", "#000 @85%", "#fff @55%", plain hex.
 function swatchFill(raw: string): string {
-  // Plain hex prefix
   const hexMatch = raw.match(/^#[0-9A-Fa-f]{3,8}/);
   if (!hexMatch) return "#cccccc";
   const hex = hexMatch[0];
 
-  // Alpha annotation like "#000 @55%" or "#fff @85%"
   const alphaMatch = raw.match(/@\s*(\d+(?:\.\d+)?)\s*%/);
   if (alphaMatch) {
     const a = Math.max(0, Math.min(100, parseFloat(alphaMatch[1]))) / 100;
@@ -104,7 +70,6 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   return { r, g, b };
 }
 
-// Group tokens by section while preserving insertion order.
 function groupBySection(toks: Tok[]): { section: string; rows: Tok[] }[] {
   const order: string[] = [];
   const map = new Map<string, Tok[]>();
@@ -119,7 +84,7 @@ function groupBySection(toks: Tok[]): { section: string; rows: Tok[] }[] {
 }
 
 // ------------------------------------------------------------
-// Sub-components (inline-style, matching brand-book convention)
+// Sub-components
 // ------------------------------------------------------------
 
 const monoFamily = `'Geist Mono', ui-monospace, monospace`;
@@ -236,10 +201,64 @@ const rowGrid: CSSProperties = {
 };
 
 // ------------------------------------------------------------
+// Pager footer
+// ------------------------------------------------------------
+
+function Pager({ active }: { active: 1 | 2 | 3 }) {
+  const items: { n: 1 | 2 | 3; label: string }[] = [
+    { n: 1, label: "primary" },
+    { n: 2, label: "surfaces" },
+    { n: 3, label: "status" },
+  ];
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 24,
+        marginTop: "auto",
+        paddingTop: 8,
+      }}
+    >
+      {items.map((it) => {
+        const isActive = it.n === active;
+        return (
+          <Mono
+            key={it.n}
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: isActive ? C.rich : "rgba(0,0,0,0.40)",
+              fontWeight: isActive ? 700 : 500,
+              borderBottom: isActive ? `2px solid ${C.lime}` : "2px solid transparent",
+              paddingBottom: 2,
+            }}
+          >
+            {it.n} · {it.label}
+          </Mono>
+        );
+      })}
+      <Mono
+        style={{
+          fontSize: 10,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "rgba(0,0,0,0.40)",
+          marginLeft: "auto",
+        }}
+      >
+        End of migration · v2.0
+      </Mono>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
 // Slide
 // ------------------------------------------------------------
 
-export function TokensSlide() {
+export function TokensStatus() {
   const groups = groupBySection(TOKENS);
 
   return (
@@ -251,17 +270,17 @@ export function TokensSlide() {
         padding: 56,
         display: "flex",
         flexDirection: "column",
-        gap: 22,
+        gap: 18,
       }}
     >
       {/* Header */}
       <div>
-        <Eyebrow>06 · Tokens</Eyebrow>
+        <Eyebrow>06 · TOKENS</Eyebrow>
         <div style={{ height: 12 }} />
-        <H2>Token migration · v2.0</H2>
+        <H2>Token Migration · 3 of 3</H2>
         <div style={{ height: 8 }} />
         <Body max={820}>
-          Primary <Mono style={{ fontSize: 13, color: C.ink }}>#c3eb42 → #8FB821</Mono> · 25 token updates across 7 sections, plus 6 usage rules. Each row shows the new value with the prior value struck through. Light and Dark are tracked independently.
+          Status text (§6), component overrides (§7), and 6 usage rules (§8). 5 tokens + rules.
         </Body>
       </div>
 
@@ -269,7 +288,6 @@ export function TokensSlide() {
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {groups.map((grp, gIdx) => (
           <div key={grp.section} style={{ marginTop: gIdx === 0 ? 0 : 14 }}>
-            {/* Section header */}
             <div
               style={{
                 display: "flex",
@@ -296,7 +314,6 @@ export function TokensSlide() {
               </Mono>
             </div>
 
-            {/* Column header row */}
             <div
               style={{
                 ...rowGrid,
@@ -312,7 +329,6 @@ export function TokensSlide() {
               <div style={colHeaderStyle}>Usage</div>
             </div>
 
-            {/* Token rows */}
             <div
               style={{
                 background: C.paper,
@@ -330,7 +346,6 @@ export function TokensSlide() {
                     borderTop: rIdx === 0 ? "none" : `1px solid ${C.line}`,
                   }}
                 >
-                  {/* Token name + path */}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
                       <Mono
@@ -359,13 +374,9 @@ export function TokensSlide() {
                     </Mono>
                   </div>
 
-                  {/* Light */}
                   <SwatchCell mode="light" color={tok.light} />
-
-                  {/* Dark */}
                   <SwatchCell mode="dark" color={tok.dark} />
 
-                  {/* Usage */}
                   <div
                     style={{
                       fontFamily: sansFamily,
@@ -386,14 +397,14 @@ export function TokensSlide() {
       {/* §8 — USAGE RULES (aside) */}
       <aside
         style={{
-          marginTop: 8,
+          marginTop: 4,
           background: C.paper,
           border: `1px solid ${C.line}`,
           borderRadius: 10,
-          padding: 22,
+          padding: 20,
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
           <Mono
             style={{
               fontSize: 11,
@@ -413,7 +424,7 @@ export function TokensSlide() {
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             columnGap: 24,
-            rowGap: 14,
+            rowGap: 12,
           }}
         >
           {RULES.map((rule) => (
@@ -442,7 +453,7 @@ export function TokensSlide() {
                 <div
                   style={{
                     fontFamily: sansFamily,
-                    fontSize: 13,
+                    fontSize: 12.5,
                     fontWeight: 600,
                     color: C.ink,
                     lineHeight: 1.3,
@@ -453,9 +464,9 @@ export function TokensSlide() {
                 <div
                   style={{
                     fontFamily: sansFamily,
-                    fontSize: 11.5,
+                    fontSize: 11,
                     color: "rgba(0,0,0,0.6)",
-                    lineHeight: 1.45,
+                    lineHeight: 1.4,
                     marginTop: 3,
                   }}
                 >
@@ -466,8 +477,10 @@ export function TokensSlide() {
           ))}
         </div>
       </aside>
+
+      <Pager active={3} />
     </div>
   );
 }
 
-export default TokensSlide;
+export default TokensStatus;
