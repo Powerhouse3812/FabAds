@@ -68,6 +68,16 @@ const PROFILE_OPTIONS: {
   },
 ];
 
+/**
+ * Section B options — phrased as ACTIONS (Brand setup / Category setup),
+ * deliberately different vocabulary from Section A's identity question
+ * (Ecom / Affiliate / Both). Maalik flagged the original Ecom/Affiliate
+ * repetition as reading like "the same question twice."
+ *
+ * Internal mapping (id stays unchanged so wizard routing is unaffected):
+ *   "ecom"      → "Brand setup"      (you own a brand, set up its voice + catalog)
+ *   "affiliate" → "Category setup"   (you work a niche, set up category + angles)
+ */
 const START_OPTIONS: {
   id: Mode;
   icon: typeof ShoppingBag;
@@ -78,26 +88,34 @@ const START_OPTIONS: {
   {
     id: "ecom",
     icon: ShoppingBag,
-    title: "E-commerce first",
-    hook: "Paste your store URL — we'll pull everything.",
+    title: "Brand setup",
+    hook: "Build out your brand — voice, products, visuals.",
     bullets: [
-      "Auto-detect products, branding, style",
-      "Build creative for your catalog",
-      "Add affiliate later",
+      "Auto-detect products + branding from your store URL",
+      "Lock in tone, colors, and messaging",
+      "You can add category work later",
     ],
   },
   {
     id: "affiliate",
     icon: Zap,
-    title: "Affiliate first",
-    hook: "Pick a niche — we'll seed angles.",
+    title: "Category setup",
+    hook: "Pick a niche — we'll seed competitors and angles.",
     bullets: [
-      "Choose posting platforms",
-      "Seed top-performing angles",
-      "Add ecom later",
+      "Define your category and posting platforms",
+      "Surface top-performing competitor ads",
+      "You can add brand work later",
     ],
   },
 ];
+
+/** What the next setup screen will be, given the user's chosen mode.
+ *  Used in the "Up next: …" context line for single-type pickers and
+ *  in the Continue button label on Combined variant. */
+const NEXT_SETUP_LABEL: Record<Mode, string> = {
+  ecom: "Brand setup",
+  affiliate: "Category setup",
+};
 
 /* ── Forked-path SVG (V1 Stage 2) ────────────────────────────────────── */
 function ForkedPathIllustration() {
@@ -415,15 +433,15 @@ function TwoStageChooser({
           <ForkedPathIllustration />
 
           <h1 className="text-[28px] md:text-[34px] font-semibold tracking-tight text-center">
-            Where do you want to{" "}
+            What do you want to{" "}
             <span className="text-foreground bg-primary/30 px-1.5 rounded">
-              start
-            </span>
-            ?
+              set up
+            </span>{" "}
+            first?
           </h1>
           <p className="text-[14px] text-muted-foreground mt-2 text-center max-w-[480px] mx-auto">
-            You can switch between flows any time later — this just picks
-            your first trail.
+            Brand sets up your voice and catalog. Category sets up your
+            niche and angles. You can do the other any time later.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
@@ -477,7 +495,7 @@ function TwoStageChooser({
                     </ul>
 
                     <span className="inline-flex items-center gap-1 text-[13px] font-semibold mt-4 text-primary group-hover:gap-2 transition-all">
-                      Start with {opt.title.split(" ")[0]}
+                      Set up {opt.title.split(" ")[0].toLowerCase()} first
                       <ArrowRight className="h-3.5 w-3.5" />
                     </span>
                   </div>
@@ -585,9 +603,9 @@ function CombinedChooser({
         Two quick picks and we'll tailor your workspace.
       </p>
 
-      {/* ── Section A — profile ─────────────────────────────────────── */}
+      {/* ── Section A — profile (identity) ──────────────────────────── */}
       <section className="mt-8">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
           <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
             A
           </div>
@@ -597,6 +615,21 @@ function CombinedChooser({
           {profile && (
             <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
               ✓ {PROFILE_OPTIONS.find((p) => p.id === profile)?.title}
+            </span>
+          )}
+          {/* Single-type "Up next" context line — communicates what setup
+              flow comes next so the user understands they're picking a
+              path, not just an identity label. Maalik's call: single-type
+              pickers must also see the brand/category context. */}
+          {(profile === "ecom" || profile === "affiliate") && (
+            <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/30 px-2.5 py-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Up next
+              </span>
+              <span className="text-[11.5px] font-semibold text-foreground">
+                {NEXT_SETUP_LABEL[profile]}
+              </span>
+              <ArrowRight className="h-3 w-3 text-primary" strokeWidth={2.5} />
             </span>
           )}
         </div>
@@ -652,7 +685,11 @@ function CombinedChooser({
         </div>
       </section>
 
-      {/* ── Section B — start (only for "both") ─────────────────────── */}
+      {/* ── Section B — first setup (action-led, only for "both") ───
+          Vocabulary deliberately shifts from Section A's identity question
+          (Ecom/Affiliate/Both) to an action question (Brand setup /
+          Category setup) so the two sections don't feel like the same
+          question repeated. */}
       <AnimatePresence initial={false}>
         {showStartSection && (
           <motion.section
@@ -662,16 +699,16 @@ function CombinedChooser({
             transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
             style={{ overflow: "hidden" }}
           >
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
               <div className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
                 B
               </div>
               <h2 className="text-[15px] font-semibold text-foreground">
-                Where do you want to start?
+                What do you want to set up first?
               </h2>
               {start && (
                 <span className="font-mono text-[10px] uppercase tracking-wider text-primary">
-                  ✓ {start === "ecom" ? "E-commerce" : "Affiliate"}
+                  ✓ {NEXT_SETUP_LABEL[start]}
                 </span>
               )}
               <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -744,7 +781,28 @@ function CombinedChooser({
           disabled={!canContinue}
           className="inline-flex items-center gap-2 px-6 py-2.5 text-[14px] font-semibold"
         >
-          Continue
+          {/* Context-aware Continue label: tells the user what setup flow
+              they're about to land on. Empty string when no choice yet so
+              the button reads "Continue →" alone (disabled state). */}
+          {(() => {
+            // Resolve the destination setup name (Brand / Category) from
+            // the user's pick — single-type uses profile, Both uses start.
+            const nextMode: Mode | null =
+              profile === "ecom" || profile === "affiliate"
+                ? profile
+                : profile === "both" && start
+                  ? start
+                  : null;
+            return nextMode ? (
+              <>
+                Continue
+                <span className="opacity-75 mx-0.5">·</span>
+                <span>{NEXT_SETUP_LABEL[nextMode]}</span>
+              </>
+            ) : (
+              "Continue"
+            );
+          })()}
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
