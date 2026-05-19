@@ -3,17 +3,23 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 /**
- * Visible steps. Processing was deliberately removed — it's a STATE, not
- * a STEP. While processing runs, the Input dot stays active and shows a
- * loader (`processing` flag below). Maalik's call: "remove the Processing
- * step from middle, it's a state, not a step."
+ * Visible step labels — conversational, not admin-shaped. Maalik's call:
+ *  "make it more conversational or story kind of language, for more user
+ *   friendly experience."
+ *
+ * The Input label is MODE-AWARE: "Brand setup" for ecom, "Category setup"
+ * for affiliate. Same vocabulary the user picks at ChooseMode Stage B —
+ * so the story carries through: about you → your market → brand setup →
+ * all set (or → category setup → all set on affiliate).
+ *
+ * Processing is deliberately NOT one of the labels — it's a STATE, not a
+ * STEP. While processing runs, the Input dot stays active with a loader
+ * (handled below).
  */
-const ONB_STEPS = [
-  "Choose Mode",
-  "Country",
-  "Input",
-  "Done",
-] as const;
+function getOnbSteps(mode?: "ecom" | "affiliate"): readonly string[] {
+  const inputLabel = mode === "affiliate" ? "Category setup" : "Brand setup";
+  return ["About you", "Your market", inputLabel, "All set"] as const;
+}
 
 // Canonical step indices (the values callers pass via `active`):
 //   0 = Choose Mode
@@ -62,6 +68,9 @@ interface StepNavProps {
 export function StepNav({ active, onBack, backLabel, onRestart, mode }: StepNavProps) {
   const isAffiliate = mode === "affiliate";
   const SPRING = { type: "spring" as const, stiffness: 220, damping: 26 };
+
+  // Resolve mode-aware step labels once per render.
+  const ONB_STEPS = getOnbSteps(mode);
 
   // Canonical active → "what's the equivalent canonical step on the
   // visible stepper?" Processing renders as Input (with loader); Done
