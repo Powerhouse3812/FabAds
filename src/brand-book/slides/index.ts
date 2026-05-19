@@ -15,6 +15,7 @@ import { PrintApps } from "./PrintApps";
 import { Swag } from "./Swag";
 import { Social } from "./Social";
 import { FileInventory } from "./FileInventory";
+import { TokensSlide } from "./TokensSlide";
 
 export interface Slide {
   slug: string;
@@ -42,6 +43,10 @@ export const SLIDES: Slide[] = [
   { slug: "swag",        section: "04 · In context",   label: "Swag",              w: 1280, h: 620, Component: Swag },
   { slug: "social",      section: "04 · In context",   label: "Social & OG",       w: 1280, h: 620, Component: Social },
   { slug: "files",       section: "05 · Files",        label: "File inventory",    w: 1280, h: 780, Component: FileInventory },
+  // 06 · Tokens — last slide. Full migration table (25 tokens across 7
+  // sections) with NEW + OLD strikethrough per token, side-by-side
+  // Light/Dark swatches. Reference-grade for designer/dev handoff.
+  { slug: "tokens",      section: "06 · Tokens",       label: "Token migration",   w: 1280, h: 1180, Component: TokensSlide },
 ];
 
 export const SLIDE_BY_SLUG: Record<string, number> = Object.fromEntries(

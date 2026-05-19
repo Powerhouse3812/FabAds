@@ -15,6 +15,7 @@ import {
 import {
   LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
   Settings, Plug, Users, UserPlus, Check, Sparkles, Receipt,
+  BookOpen,
 } from "lucide-react";
 
 /**
@@ -120,12 +121,21 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           );
         })}
 
-        {/* Account & system settings */}
+        {/* Reference & system settings.
+            Brand Book sits at the TOP of this cluster (per Maalik) since it's
+            reference material — the natural first stop. Separator below
+            visually splits the "real tools" pair (Brand Book + Settings) from
+            the "demos" cluster (Onboarding + Plans). */}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/brand-book/cover")}>
+          <BookOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Brand Book
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/settings")}>
           <Settings className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Settings
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate("/insights-v2/feed?onboarding=true")}>
           <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Onboarding
