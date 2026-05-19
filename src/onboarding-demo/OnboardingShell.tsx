@@ -66,10 +66,21 @@ interface OnboardingShellProps {
 
 /* ── URL <-> internal state mapping ──────────────────────────────── */
 
+/**
+ * Sub-stage within Step 0 (ChooseMode). Both variants (Two-stage / Combined)
+ * share this state so refresh + share-link work consistently across them.
+ *   undefined → user is on the profile-picking screen (default)
+ *   "start"   → user has picked "Both" and is on the start-trail screen
+ *               (V1 Stage 2 OR V2 with Section B revealed)
+ */
+type ChooseModeSubStage = "start" | undefined;
+
 interface StateTriple {
   step: Step;
   mode: Mode;
   welcomeVariant: WelcomeVariant;
+  /** Only meaningful when step === 0. */
+  chooseModeSubStage?: ChooseModeSubStage;
 }
 
 const URL_TO_STATE: Record<string, StateTriple> = {
@@ -80,6 +91,15 @@ const URL_TO_STATE: Record<string, StateTriple> = {
   "welcome-celebrate": { step: -2, mode: "ecom", welcomeVariant: "common" },
   "product-chooser": { step: -1, mode: "ecom", welcomeVariant: "creative" },
   "choose-mode": { step: 0, mode: "ecom", welcomeVariant: "creative" },
+  // Sub-stage of ChooseMode — the "where to start" picker (only relevant
+  // when profile=both). Maalik's call: URL must change between the two
+  // screens of Step 1 so refresh + share-link work for either variant.
+  "choose-mode-start": {
+    step: 0,
+    mode: "ecom",
+    welcomeVariant: "creative",
+    chooseModeSubStage: "start",
+  },
   country: { step: 1, mode: "ecom", welcomeVariant: "creative" },
   "ecom-input": { step: 2, mode: "ecom", welcomeVariant: "creative" },
   "ecom-processing": { step: 3, mode: "ecom", welcomeVariant: "creative" },
@@ -102,6 +122,7 @@ function stateToUrl(
   step: Step,
   mode: Mode,
   welcomeVariant: WelcomeVariant,
+  chooseModeSubStage?: ChooseModeSubStage,
 ): string {
   if (step === -2) {
     if (welcomeVariant === "insights") return "welcome-insights";
@@ -110,7 +131,9 @@ function stateToUrl(
   }
   if (step === -1) return "product-chooser";
   if (step === 5) return "insights-setup";
-  if (step === 0) return "choose-mode";
+  if (step === 0) {
+    return chooseModeSubStage === "start" ? "choose-mode-start" : "choose-mode";
+  }
   if (step === 1) return "country";
   const prefix = mode;
   if (step === 2) return `${prefix}-input`;
@@ -149,9 +172,20 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
     mode: initialState.mode,
     welcomeVariant: initialState.welcomeVariant,
   });
+  // Sub-stage within Step 0 — separate state because it's a screen-level
+  // micro-flip that doesn't change the canonical step number. Hydrated
+  // from URL on mount so refresh of ?onb_step=choose-mode-start lands
+  // the user back on the start-trail screen with profile=both implicit.
+  const [chooseModeSubStage, setChooseModeSubStage] =
+    useState<ChooseModeSubStage>(initialState.chooseModeSubStage);
 
   useEffect(() => {
-    const target = stateToUrl(step, data.mode, data.welcomeVariant);
+    const target = stateToUrl(
+      step,
+      data.mode,
+      data.welcomeVariant,
+      chooseModeSubStage,
+    );
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -160,7 +194,13 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
       },
       { replace: true },
     );
-  }, [step, data.mode, data.welcomeVariant, setSearchParams]);
+  }, [
+    step,
+    data.mode,
+    data.welcomeVariant,
+    chooseModeSubStage,
+    setSearchParams,
+  ]);
 
   const goto = useCallback((s: Step) => {
     setStep(s);
@@ -221,8 +261,13 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   if (step === 0) {
     return (
       <ChooseMode
+        subStage={chooseModeSubStage}
+        onSubStageChange={setChooseModeSubStage}
         onPick={(mode, profileType) => {
           setData((d) => ({ ...d, mode, profileType }));
+          // Reset sub-stage on advance so a future back-nav to Step 0
+          // returns to the profile picker, not the start picker.
+          setChooseModeSubStage(undefined);
           goto(mode === "affiliate" ? 2 : 1);
         }}
         onSkip={finish}

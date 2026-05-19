@@ -18,11 +18,23 @@ import { cn } from "@/lib/utils";
 type Mode = "ecom" | "affiliate";
 type ProfileType = "ecom" | "affiliate" | "both";
 type ChooseModeVariant = "stages" | "combined";
+/**
+ * Sub-stage within Step 1. Controlled by the parent OnboardingShell so the
+ * URL slug flips between `choose-mode` and `choose-mode-start` as the user
+ * progresses inside this step (Maalik's call: URL must change between the
+ * two screens regardless of variant).
+ *   undefined → profile picker (default)
+ *   "start"   → start-trail picker (only meaningful when profile === "both")
+ */
+type SubStage = "start" | undefined;
 
 interface ChooseModeProps {
   onPick: (mode: Mode, profileType: ProfileType) => void;
   onSkip: () => void;
   onLogin?: () => void;
+  /** Sub-stage from URL state; sync with onSubStageChange. */
+  subStage?: SubStage;
+  onSubStageChange?: (next: SubStage) => void;
 }
 
 /* ── Shared option data ──────────────────────────────────────────────── */
@@ -186,7 +198,13 @@ function VariantToggle({
  * Same `onPick(mode, profileType)` contract for both variants — the wizard
  * routing downstream doesn't care which variant the user chose.
  */
-export function ChooseMode({ onPick, onSkip, onLogin }: ChooseModeProps) {
+export function ChooseMode({
+  onPick,
+  onSkip,
+  onLogin,
+  subStage,
+  onSubStageChange,
+}: ChooseModeProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlVariant = searchParams.get("cm");
   const variant: ChooseModeVariant =
@@ -204,14 +222,29 @@ export function ChooseMode({ onPick, onSkip, onLogin }: ChooseModeProps) {
     );
   };
 
+  // Fall-back when shell isn't wiring sub-stage (e.g. print page).
+  const handleSubStageChange = onSubStageChange ?? (() => {});
+
   return (
     <div className="relative min-h-full bg-background">
       <StepNav active={0} />
       <VariantToggle variant={variant} onChange={setVariant} />
       {variant === "combined" ? (
-        <CombinedChooser onPick={onPick} onSkip={onSkip} onLogin={onLogin} />
+        <CombinedChooser
+          onPick={onPick}
+          onSkip={onSkip}
+          onLogin={onLogin}
+          subStage={subStage}
+          onSubStageChange={handleSubStageChange}
+        />
       ) : (
-        <TwoStageChooser onPick={onPick} onSkip={onSkip} onLogin={onLogin} />
+        <TwoStageChooser
+          onPick={onPick}
+          onSkip={onSkip}
+          onLogin={onLogin}
+          subStage={subStage}
+          onSubStageChange={handleSubStageChange}
+        />
       )}
     </div>
   );
@@ -221,14 +254,25 @@ export function ChooseMode({ onPick, onSkip, onLogin }: ChooseModeProps) {
  *  V1 — TWO-STAGE CHOOSER (existing behaviour)
  * ═══════════════════════════════════════════════════════════════════════ */
 
-function TwoStageChooser({ onPick, onSkip, onLogin }: ChooseModeProps) {
-  const [stage, setStage] = useState<"profile" | "start">("profile");
-  const [profile, setProfile] = useState<ProfileType | null>(null);
+function TwoStageChooser({
+  onPick,
+  onSkip,
+  onLogin,
+  subStage,
+  onSubStageChange,
+}: ChooseModeProps) {
+  // Stage derives from the parent-controlled subStage. When subStage is
+  // "start" the user is on Stage 2; otherwise they're on Stage 1. The
+  // URL slug flips alongside (choose-mode / choose-mode-start).
+  const stage: "profile" | "start" = subStage === "start" ? "start" : "profile";
+  const [profile, setProfile] = useState<ProfileType | null>(
+    subStage === "start" ? "both" : null,
+  );
 
   const handleProfilePick = (p: ProfileType) => {
     if (p === "both") {
       setProfile(p);
-      setStage("start");
+      onSubStageChange?.("start");
       return;
     }
     onPick(p, p);
@@ -240,7 +284,7 @@ function TwoStageChooser({ onPick, onSkip, onLogin }: ChooseModeProps) {
 
   const goBackToProfile = () => {
     setProfile(null);
-    setStage("profile");
+    onSubStageChange?.(undefined);
   };
 
   return (
@@ -476,17 +520,31 @@ function CombinedChooser({
   onPick,
   onSkip,
   onLogin,
+  subStage,
+  onSubStageChange,
 }: ChooseModeProps) {
-  const [profile, setProfile] = useState<ProfileType | null>(null);
+  // Hydrate from subStage on mount — refresh of choose-mode-start in
+  // Combined variant lands the user with profile already set to "both"
+  // and Section B revealed.
+  const [profile, setProfile] = useState<ProfileType | null>(
+    subStage === "start" ? "both" : null,
+  );
   const [start, setStart] = useState<Mode | null>(null);
 
   const showStartSection = profile === "both";
 
   // Reset the start pick if the user changes their profile choice away
-  // from "both" (avoids leaving stale state behind).
+  // from "both" (avoids leaving stale state behind). Also flip the URL
+  // sub-stage so refresh + share-link stay accurate (Maalik's call:
+  // URL must change on both screens of Step 1).
   const handleProfilePick = (p: ProfileType) => {
     setProfile(p);
-    if (p !== "both") setStart(null);
+    if (p !== "both") {
+      setStart(null);
+      onSubStageChange?.(undefined);
+    } else {
+      onSubStageChange?.("start");
+    }
   };
 
   const canContinue =

@@ -85,6 +85,15 @@ function renderStep(step: string) {
       return <InsightsQuickSetup onContinue={noop} />;
     case "choose-mode":
       return <ChooseMode onPick={noop} onSkip={noop} onLogin={noop} />;
+    case "choose-mode-start":
+      return (
+        <ChooseMode
+          onPick={noop}
+          onSkip={noop}
+          onLogin={noop}
+          subStage="start"
+        />
+      );
     case "country":
       return <CountrySelection onBack={noop} onContinue={noop} />;
     case "ecom-input":
