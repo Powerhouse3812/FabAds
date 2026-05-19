@@ -13,6 +13,15 @@ import { Done } from "./steps/Done";
 type Mode = "ecom" | "affiliate";
 type WelcomeVariant = "creative" | "insights" | "common";
 /**
+ * What kind of marketer the user IS (captured at ChooseMode for internal
+ * segmentation). Distinct from `Mode`, which is what the user wants to
+ * START with — relevant for the wizard routing. For a single-type user
+ * both values match; for a "both" user, profileType="both" + mode=their
+ * chosen starting path. Stored in OnboardingData for analytics + later
+ * UX tailoring; does NOT affect the wizard's structural flow.
+ */
+type ProfileType = "ecom" | "affiliate" | "both";
+/**
  *  -2  Welcome                  (pre-wizard celebration, two variants)
  *  -1  Product Chooser          (Genie vs Industry Insights)
  *   0  Choose Mode              (Genie path — stepper starts here)
@@ -27,6 +36,16 @@ type Step = -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5;
 interface OnboardingData {
   mode: Mode;
   welcomeVariant: WelcomeVariant;
+  /**
+   * Profile-type segmentation captured at ChooseMode (Step 0):
+   *   "ecom"      single-type ecom marketer
+   *   "affiliate" single-type affiliate marketer
+   *   "both"      user does a mix — their starting `mode` is decided
+   *               via a second-stage picker on the same ChooseMode page
+   * Internal-only — no impact on wizard routing or downstream UI.
+   * Captured for analytics + future personalization.
+   */
+  profileType?: ProfileType;
   countryCode?: string;
   countryName?: string;
   countryFlag?: string;
@@ -202,8 +221,8 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   if (step === 0) {
     return (
       <ChooseMode
-        onPick={(mode) => {
-          setData((d) => ({ ...d, mode }));
+        onPick={(mode, profileType) => {
+          setData((d) => ({ ...d, mode, profileType }));
           goto(mode === "affiliate" ? 2 : 1);
         }}
         onSkip={finish}
