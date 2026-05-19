@@ -1,51 +1,74 @@
-import { Check, RotateCcw, ArrowLeft } from "lucide-react";
+import { Check, RotateCcw, ArrowLeft, Loader2 } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+/**
+ * Visible steps. Processing was deliberately removed — it's a STATE, not
+ * a STEP. While processing runs, the Input dot stays active and shows a
+ * loader (`processing` flag below). Maalik's call: "remove the Processing
+ * step from middle, it's a state, not a step."
+ */
 const ONB_STEPS = [
   "Choose Mode",
   "Country",
   "Input",
-  "Processing",
   "Done",
 ] as const;
 
-// Canonical index of the Country step in ONB_STEPS. In affiliate mode this
-// dot is hidden and the surrounding row reflows.
+// Canonical step indices (the values callers pass via `active`):
+//   0 = Choose Mode
+//   1 = Country
+//   2 = Input
+//   3 = Processing  → maps onto the Input visible dot with a loader
+//   4 = Done
 const COUNTRY_CANONICAL_INDEX = 1;
+const PROCESSING_CANONICAL_INDEX = 3;
+const INPUT_CANONICAL_INDEX = 2;
+const DONE_CANONICAL_INDEX = 4;
 
 interface StepNavProps {
-  active: number; // canonical 0-4 (5 wizard steps; Welcome is pre-stepper at step -1)
+  /**
+   * Canonical step number 0-4. Each step component continues to pass its
+   * own canonical index (Processing passes 3, Done passes 4) — StepNav
+   * maps these onto its 4-step visible row internally.
+   */
+  active: number;
   onBack?: () => void;
   backLabel?: string;
   onRestart?: () => void;
   /**
    * When `"affiliate"`, the Country dot is removed from the stepper and the
    * remaining dots smoothly slide left to fill the gap. Defaults to ecom /
-   * all 5 dots when undefined so existing callers are unaffected.
+   * all dots when undefined so existing callers are unaffected.
    */
   mode?: "ecom" | "affiliate";
 }
 
 /**
- * Variable-length stepper (5 dots for ecom, 4 for affiliate). The Country
- * dot animates in/out via framer-motion + LayoutGroup so the count change
- * feels intentional rather than glitchy.
+ * Variable-length stepper (4 dots ecom, 3 dots affiliate). Processing is
+ * NOT one of the dots — when canonical active===3, the Input dot stays
+ * lit with a small Loader2 spinner overlaid so the user sees "still
+ * working on Input" rather than "fictional Processing step." Maalik's
+ * call: states don't earn dots.
  *
- * Approach: LayoutGroup wraps the row so every motion child shares the same
- * layout context. AnimatePresence wraps the mapped list so removing the
- * Country dot (and its trailing connector) plays an `exit` animation that
- * collapses width to 0 and fades opacity to 0; sibling dots ride a `layout`
- * spring leftward to fill the gap. Spring tuned to settle inside ~400ms.
+ * The mapping in this file is the single source of truth:
+ *   ecom:        0→Choose 1→Country 2→Input 3→Input+loader 4→Done
+ *   affiliate:   0→Choose       —    2→Input 3→Input+loader 4→Done
  *
- * Callers continue to pass canonical `active` indices (0=Choose, 1=Country,
- * 2=Input, 3=Processing, 4=Done). In affiliate mode `active === 1` should
- * never be passed; any active >= 2 still works because we filter by key,
- * not by visible position.
+ * Visible dot count: ecom 4, affiliate 3. Choose Mode is shared, so the
+ * stepper never visually expands as the user moves between profile
+ * stages — that all happens within the Choose Mode page.
  */
 export function StepNav({ active, onBack, backLabel, onRestart, mode }: StepNavProps) {
   const isAffiliate = mode === "affiliate";
   const SPRING = { type: "spring" as const, stiffness: 220, damping: 26 };
+
+  // Canonical active → "what's the equivalent canonical step on the
+  // visible stepper?" Processing renders as Input (with loader); Done
+  // renders as Done. Everything else passes through.
+  const renderActive =
+    active === PROCESSING_CANONICAL_INDEX ? INPUT_CANONICAL_INDEX : active;
+  const isProcessing = active === PROCESSING_CANONICAL_INDEX;
 
   return (
     <div className="w-full px-5 pt-5 pb-2">
@@ -76,18 +99,33 @@ export function StepNav({ active, onBack, backLabel, onRestart, mode }: StepNavP
       <LayoutGroup id="onb-stepnav">
         <div className="flex items-center justify-center gap-y-2 flex-wrap">
           <AnimatePresence initial={false}>
-            {ONB_STEPS.map((label, i) => {
-              // In affiliate mode skip Country — AnimatePresence runs the
-              // exit animation defined on the motion.div below.
-              if (isAffiliate && i === COUNTRY_CANONICAL_INDEX) return null;
+            {ONB_STEPS.map((label, visibleIdx) => {
+              // Map visible label index → canonical step. Choose Mode=0,
+              // Country=1, Input=2, Done=4 (NOT 3 — Processing is hidden).
+              const canonical =
+                visibleIdx === 3 ? DONE_CANONICAL_INDEX : visibleIdx;
 
-              const isActive = i === active;
-              const isDone = i < active;
-              const isLast = i === ONB_STEPS.length - 1;
-              // The connector "done" color tracks canonical active index so
-              // Choose→Input lights up the moment Input becomes active in
-              // affiliate mode.
-              const connectorDone = i < active;
+              // Affiliate hides the Country dot — drives AnimatePresence
+              // exit animation.
+              if (isAffiliate && canonical === COUNTRY_CANONICAL_INDEX) {
+                return null;
+              }
+
+              const isActive = canonical === renderActive;
+              const isDone = canonical < renderActive ||
+                // Special case: when on Done, all prior dots count as done.
+                (active === DONE_CANONICAL_INDEX && canonical < DONE_CANONICAL_INDEX);
+              const isInputProcessing =
+                isProcessing && canonical === INPUT_CANONICAL_INDEX;
+              const isLast = visibleIdx === ONB_STEPS.length - 1;
+              const connectorDone = canonical < renderActive;
+
+              // Visible step number (1-indexed display): count the dots
+              // that come BEFORE this one in the current mode.
+              const displayNumber =
+                visibleIdx -
+                (isAffiliate && visibleIdx > COUNTRY_CANONICAL_INDEX ? 1 : 0) +
+                1;
 
               return (
                 <motion.div
@@ -103,7 +141,7 @@ export function StepNav({ active, onBack, backLabel, onRestart, mode }: StepNavP
                   <div className="flex items-center gap-2">
                     <div
                       className={cn(
-                        "h-7 w-7 rounded-full inline-flex items-center justify-center text-[12px] font-semibold border-2 transition-[background-color,border-color,color] shrink-0",
+                        "relative h-7 w-7 rounded-full inline-flex items-center justify-center text-[12px] font-semibold border-2 transition-[background-color,border-color,color] shrink-0",
                         isDone &&
                           "bg-primary text-primary-foreground border-primary",
                         isActive &&
@@ -112,7 +150,13 @@ export function StepNav({ active, onBack, backLabel, onRestart, mode }: StepNavP
                           "bg-background text-muted-foreground border-border",
                       )}
                     >
-                      {isDone ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                      {isInputProcessing ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isDone ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        displayNumber
+                      )}
                     </div>
                     <span
                       className={cn(
@@ -124,7 +168,7 @@ export function StepNav({ active, onBack, backLabel, onRestart, mode }: StepNavP
                             : "text-muted-foreground",
                       )}
                     >
-                      {label}
+                      {isInputProcessing ? `${label} · processing…` : label}
                     </span>
                   </div>
                   {!isLast && (
