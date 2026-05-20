@@ -17,6 +17,8 @@ import { SignalsAndCoachList } from "./SignalsAndCoachList";
 import { NowStatusStrip } from "../NowStatusStrip";
 import { ModeLauncherBar } from "../ModeLauncherBar";
 import { UpsellRow } from "../UpsellRow";
+import { AiDashboardUpsellHero } from "../AiDashboardUpsellHero";
+import { AiDashboardUpsellSide } from "../AiDashboardUpsellSide";
 import { ZeroStateSetupTakeover } from "../ZeroStateSetupTakeover";
 
 /**
@@ -165,6 +167,11 @@ export function AiPlanDashboardV2() {
           animate="show"
           className="space-y-2.5"
         >
+          {/* ── ROW 0.5 — Dual-lane upsell hero. AI plan only, closable. ── */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellHero />
+          </motion.section>
+
           {/* ── ROW 1 — Status chips ── */}
           <motion.section variants={rowVariants}>
             <NowStatusStrip />
@@ -189,6 +196,13 @@ export function AiPlanDashboardV2() {
           {/* ── ROW 3 — Mode launcher (reused, already compact) ── */}
           <motion.section variants={rowVariants}>
             <ModeLauncherBar />
+          </motion.section>
+
+          {/* ── ROW 3.5 — ROI-led side card (closable, AI only). Quieter
+                companion to the hero — different angle (ROI stat vs social
+                proof) so the two units don't read as duplicates. ── */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellSide />
           </motion.section>
 
           {/* ── ROW 4 — Upsell (reused horizontal, already tight) ── */}

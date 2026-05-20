@@ -12,6 +12,8 @@ import { ModeLauncherBar } from "./ModeLauncherBar";
 import { RecentWorkStrip } from "./RecentWorkStrip";
 import { SpotlightRow } from "./SpotlightRow";
 import { UpsellRow } from "./UpsellRow";
+import { AiDashboardUpsellHero } from "./AiDashboardUpsellHero";
+import { AiDashboardUpsellSide } from "./AiDashboardUpsellSide";
 import { AiSuggestionsCoach } from "./AiSuggestionsCoach";
 import { VideoSageRecentTile } from "./VideoSageRecentTile";
 import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
@@ -149,6 +151,14 @@ export function AiPlanDashboard() {
           animate="show"
           className="space-y-3"
         >
+          {/* ROW 0.5 — Dual-lane upsell hero (social proof + AI Team /
+              Growth CTAs). Closable per-browser; hidden for Growth users.
+              Sits above status chips so it greets every AI dashboard mount
+              without being below-the-fold. */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellHero />
+          </motion.section>
+
           {/* ROW 1 — Status chips */}
           <motion.section variants={rowVariants}>
             <NowStatusStrip />
@@ -172,6 +182,13 @@ export function AiPlanDashboard() {
           {/* ROW 5 — Spotlight: Trending + Catalogue health */}
           <motion.section variants={rowVariants}>
             <SpotlightRow />
+          </motion.section>
+
+          {/* ROW 5.5 — ROI-led mid-page upsell card. Quieter than the hero,
+              ROI-focused (4 hrs/week stat) — different angle than the hero's
+              social-proof play so they don't read as duplicates. */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellSide />
           </motion.section>
 
           {/* ROW 6 — Upsell row (Full plan promotion) */}
