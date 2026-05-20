@@ -11,10 +11,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Folder, MoreVertical, Pencil, Trash2, Search, Image } from "lucide-react";
+import { Plus, Folder, MoreVertical, Pencil, Trash2, Search, Image, Pin, PinOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
+import {
+  MAX_PINNED_BOARDS,
+  usePinnedInsightBoards,
+} from "@/components/insights/use-pinned-insight-boards";
+import { cn } from "@/lib/utils";
 
 type SortKey = "recent" | "items" | "az";
 
@@ -26,6 +31,19 @@ export default function InsightsBoards() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const navigate = useNavigate();
+  const { isPinned, togglePin } = usePinnedInsightBoards();
+
+  // Pin/Unpin handler — toast the cap-rejection so users learn the limit
+  // without losing their click. "pinned" / "unpinned" results are silent;
+  // the visual state on the card communicates success.
+  const handleTogglePin = (boardId: string, boardName: string) => {
+    const result = togglePin(boardId);
+    if (result === "cap") {
+      toast(`Max ${MAX_PINNED_BOARDS} pinned · unpin one first`);
+    } else if (result === "pinned") {
+      toast.success(`Pinned ${boardName}`);
+    }
+  };
 
   const filtered = useMemo(() => {
     let list = boards as any[];
@@ -98,11 +116,15 @@ export default function InsightsBoards() {
               const thumbs: string[] = board._thumbStrip ?? [];
               const itemCount = board.insight_board_items?.[0]?.count ?? 0;
               const createdAt = board.created_at ? new Date(board.created_at) : null;
+              const pinned = isPinned(board.id);
 
               return (
                 <Card
                   key={board.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden group"
+                  className={cn(
+                    "cursor-pointer hover:shadow-md transition-shadow overflow-hidden group",
+                    pinned && "border-primary/40 bg-primary/[0.02]",
+                  )}
                   onClick={() => navigate(`/insights/boards/${board.id}`)}
                 >
                   <div className="p-3 space-y-2.5">
@@ -128,7 +150,15 @@ export default function InsightsBoards() {
 
                     {/* Name + kebab */}
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-semibold truncate flex-1">{board.name}</h3>
+                      <h3 className="text-sm font-semibold truncate flex-1 inline-flex items-center gap-1.5">
+                        {pinned && (
+                          <Pin
+                            className="h-3 w-3 shrink-0 text-primary fill-primary/30"
+                            aria-label="Pinned"
+                          />
+                        )}
+                        <span className="truncate">{board.name}</span>
+                      </h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                           {/* Phase D P1-I4: kebab was opacity-0 unless hovered —
@@ -146,6 +176,19 @@ export default function InsightsBoards() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem
+                            onClick={() => handleTogglePin(board.id, board.name)}
+                          >
+                            {pinned ? (
+                              <>
+                                <PinOff className="h-3.5 w-3.5 mr-2" /> Unpin from sidebar
+                              </>
+                            ) : (
+                              <>
+                                <Pin className="h-3.5 w-3.5 mr-2" /> Pin to sidebar
+                              </>
+                            )}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setEditBoard(board)}>
                             <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                           </DropdownMenuItem>

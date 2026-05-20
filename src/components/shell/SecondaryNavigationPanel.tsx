@@ -20,6 +20,7 @@ import {
 import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme";
 import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
+import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
 
 /**
  * SecondaryNavigationPanel — V7 ClickUp Strict (iter-6 A-10.3 update).
@@ -47,24 +48,30 @@ export function SecondaryNavigationPanel() {
   const siblingPaths = allSubPaths(activeMod);
   const onNavigate = (path: string) => navigate(path);
   const isGenie = activeMod.key === "genie";
+  const isInsights = activeMod.key === "insights";
+  // A-12.41: Industry Insights sub-nav shares Genie's v3-page-mesh backdrop
+  // so the lime/amber/sky wash reads identically when switching modules.
+  // Page-level Insights views already use v3-page-mesh; lifting it to the
+  // sub-nav closes the consistency gap Maalik flagged.
+  const useMesh = isGenie || isInsights;
 
   return (
     <aside
       data-fabads-nav-panel="secondary"
       className={cn(
         // A-12.38 redesign: 200px wide, hairline right divider, plain bg.
-        // Genie pages get v3-page-mesh through-bleed for the warm gradient
-        // ambiance; other modules render on plain background.
+        // Genie + Industry Insights get v3-page-mesh through-bleed for the
+        // warm gradient ambiance; other modules render on plain background.
         "relative flex w-[200px] shrink-0 flex-col overflow-hidden text-foreground",
         "border-r border-foreground/[0.06]",
-        isGenie ? "v3-page-mesh bg-transparent" : "bg-background",
+        useMesh ? "v3-page-mesh bg-transparent" : "bg-background",
       )}
     >
       {/* HEADER — fixed 52px height with bottom hairline divider */}
       <header
         className={cn(
           "sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-foreground/[0.06] px-4",
-          isGenie ? "bg-transparent" : "bg-background",
+          useMesh ? "bg-transparent" : "bg-background",
         )}
       >
         <h2 className="flex-1 truncate font-mono text-[13px] font-medium leading-4 tracking-tight text-foreground/65">
@@ -126,6 +133,12 @@ export function SecondaryNavigationPanel() {
             ))}
           </div>
         )}
+
+        {/* Module addons — small surface for module-specific dynamic content
+            below the static sub-items. Industry Insights gets the pinned-
+            boards quick-access strip (max 5, localStorage-backed). Hidden
+            entirely when nothing is pinned. */}
+        {isInsights && <InsightsPinnedBoardsAddon />}
       </div>
     </aside>
   );
