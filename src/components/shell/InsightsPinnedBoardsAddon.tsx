@@ -39,13 +39,16 @@ export function InsightsPinnedBoardsAddon() {
 
   useEffect(() => {
     if (seedAttemptedRef.current) return;
-    // Wait until the boards query has resolved. If we ran while
-    // `isLoading` is true we'd write the seeded flag with zero pins
-    // and miss the chance forever.
+    // Wait until the boards query has resolved AND returned at least
+    // one board. The prior version flipped the ref to true BEFORE the
+    // empty-boards check, so if `isLoading` briefly went false while
+    // boards was still empty, we'd lock the ref and never seed once
+    // boards actually arrived. Now the ref only flips on a real seed
+    // attempt path.
     if (isLoading) return;
+    if (boards.length === 0) return;
     seedAttemptedRef.current = true;
     if (hasSeeded()) return;
-    if (boards.length === 0) return;
     seedDefaultPins(boards.slice(0, DEFAULT_SEED_COUNT).map((b) => b.id));
   }, [isLoading, boards, seedDefaultPins]);
 
