@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutGrid, MoreHorizontal, PinOff } from "lucide-react";
+import { MoreHorizontal, Pin, PinOff } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,22 +10,30 @@ import { cn } from "@/lib/utils";
 import { usePinnedInsightBoards } from "./use-pinned-insight-boards";
 
 /**
- * PinnedBoardsSection — quick-access row of up to 5 pinned boards.
+ * PinnedBoardsSection — pinned boards rendered as INDENTED CHILDREN of the
+ * "Board" sub-nav item, not as a separate labeled section.
  *
- * Lives directly below the Boards sub-menu in the Industry Insights left rail.
- * Sources its IDs from the `usePinnedInsightBoards` localStorage-backed hook
- * and looks up the live board data from the caller's `boards` prop (so we
- * inherit fresh names/counts without a second Supabase query).
+ * A-12.43 redesign: the old version had a "PINNED BOARDS" caps header +
+ * count badge above the rows, which read as a second sibling category to
+ * the main sub-items and ate vertical real estate. Maalik flagged the
+ * weight — the rows should feel like a tree branch off "Board", same
+ * grammar as how the rest of the sub-nav handles nested children.
  *
- * Empty-state policy: when there are zero pins (or all pinned IDs are stale
- * because the boards were deleted), the entire section — header included —
- * is hidden. A "Pin your first board" CTA would have wasted vertical space
- * in an already-dense sub-nav.
+ * The depth-1 indent (`pl-[26px]`) + vertical guide line (`left: 20px`)
+ * mirror `SecondaryNavigationItem` exactly:
+ *   parent  paddingLeft = 12 + (0 × 14) = 12px
+ *   child   paddingLeft = 12 + (1 × 14) = 26px
+ *   guide   left        = parentPL + 8  = 20px
+ * That keeps the visual rhythm identical to any other nested sub-nav row,
+ * so users read the pinned items as "these belong to Board" without
+ * needing a label to explain it.
  *
- * v1 deferred: drag-to-reorder. The current order is insertion order. Users
- * can unpin/repin to nudge things to the end of the list. A future iteration
- * could wire @dnd-kit here, but that pulls a new dependency for what is, in
- * practice, a 5-item list — easier to revisit after seeing usage.
+ * Empty state: render null. The "Board" parent row above stands on its
+ * own without children attached, which is the correct empty grammar.
+ *
+ * v1 deferred: drag-to-reorder. Pin order = insertion order. A future
+ * iteration could wire @dnd-kit for ≤5 items, but the cost of a new
+ * dependency outweighs the upside until usage data justifies it.
  */
 
 interface BoardLike {
@@ -35,7 +43,6 @@ interface BoardLike {
 }
 
 interface PinnedBoardsSectionProps {
-  /** All boards available — used to resolve pinned IDs to live data. */
   boards: BoardLike[];
 }
 
@@ -50,88 +57,93 @@ export function PinnedBoardsSection({ boards }: PinnedBoardsSectionProps) {
     .map((id) => boards.find((b) => b.id === id))
     .filter((b): b is BoardLike => Boolean(b));
 
-  // Empty state: hide the whole section. See policy note above.
   if (resolved.length === 0) return null;
 
   const activeBoardId = pathname.match(/^\/insights\/boards\/(.+)/)?.[1];
 
   return (
-    <div className="flex flex-col">
-      {/* Section header — mono uppercase caps + count badge, matches the
-          sub-nav's "Boards" header tone so the two read as a pair. The
-          Boards header above uses `text-muted-foreground` at 11px; we mirror
-          that to avoid an accidental new visual style. */}
-      <div className="flex items-center justify-between px-3 pt-2 pb-1">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Pinned boards
-        </span>
-        <span className="inline-flex items-center justify-center rounded-full bg-foreground/[0.08] px-1.5 font-mono text-[9px] font-bold text-foreground/70">
-          {resolved.length}
-        </span>
-      </div>
+    <div className="relative">
+      {/* Vertical tree guide — mirrors SecondaryNavigationItem.tsx line 116-118.
+          Sits at left:20px so it aligns directly under the parent "Board"
+          row's icon. */}
+      <span
+        aria-hidden
+        className="absolute bottom-0 top-0 w-px bg-foreground/[0.08]"
+        style={{ left: "20px" }}
+      />
 
-      <div className="flex flex-col gap-0.5 px-2 pb-2">
-        {resolved.map((board) => {
-          const count = board.insight_board_items?.[0]?.count ?? 0;
-          const isActive = activeBoardId === board.id;
-          return (
-            <div
-              key={board.id}
-              className={cn(
-                "group/pinned relative flex items-center gap-2 rounded-md text-xs transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              )}
+      {resolved.map((board) => {
+        const count = board.insight_board_items?.[0]?.count ?? 0;
+        const isActive = activeBoardId === board.id;
+        return (
+          <div
+            key={board.id}
+            className={cn(
+              // Match SecondaryNavigationItem chrome exactly: h-8, rounded-2xl,
+              // pl-[26px] (depth-1 indent), pr-2, gap-2. Slightly muted at rest
+              // so the row reads as a child of "Board" rather than competing
+              // with the static sub-items above.
+              "group/pinned relative flex h-8 items-center gap-2 rounded-2xl pr-2 transition-colors",
+              isActive
+                ? "bg-foreground/[0.04] text-foreground font-medium"
+                : "text-foreground/65 hover:bg-foreground/[0.04] hover:text-foreground",
+            )}
+            style={{ paddingLeft: "26px" }}
+          >
+            <button
+              type="button"
+              onClick={() => navigate(`/insights/boards/${board.id}`)}
+              className="flex flex-1 items-center gap-2 truncate text-left"
             >
-              <button
-                type="button"
-                onClick={() => navigate(`/insights/boards/${board.id}`)}
-                className="flex flex-1 items-center gap-2 px-2 py-1.5 text-left min-w-0"
-              >
-                <LayoutGrid
-                  className="h-3 w-3 shrink-0 opacity-60"
-                  aria-hidden
-                />
-                <span className="truncate flex-1">{board.name}</span>
-                {count > 0 && (
-                  <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-foreground/[0.06] px-1.5 font-mono text-[9px] font-bold text-foreground/70">
-                    {count}
-                  </span>
+              {/* Small pin glyph instead of LayoutGrid — same icon position
+                  as parent rows, but the icon itself signals "this is a
+                  pinned shortcut" without needing a category label. */}
+              <Pin
+                className={cn(
+                  "h-3 w-3 shrink-0",
+                  isActive ? "text-foreground/70" : "text-foreground/35",
                 )}
-              </button>
+                aria-hidden
+              />
+              <span className="flex-1 truncate text-[12.5px] leading-4">
+                {board.name}
+              </span>
+              {count > 0 && (
+                <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-foreground/[0.06] px-1.5 font-mono text-[9px] text-foreground/55">
+                  {count}
+                </span>
+              )}
+            </button>
 
-              {/* Ellipsis menu — visible only on hover/focus to keep rows
-                  visually quiet at rest. Always reachable by keyboard via
-                  Tab into the row (the DropdownMenuTrigger button is in the
-                  tab order regardless of opacity). */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={`Actions for pinned board ${board.name}`}
-                    className={cn(
-                      "mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-opacity",
-                      "opacity-0 group-hover/pinned:opacity-100 focus-visible:opacity-100 hover:bg-foreground/[0.06] hover:text-foreground",
-                    )}
-                  >
-                    <MoreHorizontal className="h-3 w-3" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[120px]">
-                  <DropdownMenuItem
-                    onClick={() => unpin(board.id)}
-                    className="text-xs"
-                  >
-                    <PinOff className="mr-2 h-3 w-3" aria-hidden />
-                    Unpin
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
-        })}
-      </div>
+            {/* Ellipsis menu — hidden at rest, opacity-60 on group hover,
+                100% on self-hover/focus-visible. Always tab-reachable. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={`Actions for pinned board ${board.name}`}
+                  className={cn(
+                    "ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-opacity",
+                    "opacity-0 group-hover/pinned:opacity-60 focus-visible:opacity-100 hover:!opacity-100",
+                    "hover:bg-foreground/[0.06] hover:text-foreground",
+                  )}
+                >
+                  <MoreHorizontal className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[120px]">
+                <DropdownMenuItem
+                  onClick={() => unpin(board.id)}
+                  className="text-xs"
+                >
+                  <PinOff className="mr-2 h-3 w-3" aria-hidden />
+                  Unpin
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      })}
     </div>
   );
 }
