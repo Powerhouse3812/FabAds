@@ -29,22 +29,34 @@ interface DateRangeWithPresetsProps {
   onChange: (range: DateRange | undefined) => void;
   /** Trigger height — defaults to h-9 (IdentityRow), can be h-8 (Toolbar). */
   size?: "sm" | "md";
+  /**
+   * Optional controlled popover state. When both `open` and `onOpenChange`
+   * are supplied, the Popover runs in controlled mode so the parent can
+   * URL-back the open/close — e.g. `?calendar=open` so copy/paste of the
+   * URL while the popover is open reconstructs that state. When omitted,
+   * the Popover stays uncontrolled (Radix manages its own state).
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
  * Date-range picker with quick presets (Today / 3d / 7d / 15d / 30d) merged
- * into the popover. Default: Last 7 days from elsewhere via the parent. Used
- * in Row 1 IdentityRow at h-9 and in Row 2 Toolbar at h-8 when scrolled.
+ * into the popover. Used in Row 1 IdentityRow at h-9 and in Row 2 Toolbar
+ * at h-8 when scrolled. Optional controlled `open`/`onOpenChange` so the
+ * parent can URL-back the open/closed state.
  */
 export function DateRangeWithPresets({
   value,
   onChange,
   size = "md",
+  open,
+  onOpenChange,
 }: DateRangeWithPresetsProps) {
   const triggerHeight = size === "sm" ? "h-8" : "h-9";
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

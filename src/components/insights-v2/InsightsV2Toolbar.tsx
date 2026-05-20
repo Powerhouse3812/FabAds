@@ -106,6 +106,9 @@ interface InsightsV2ToolbarProps {
       the date picker renders in the toolbar (alongside Filters/Sort/Settings)
       since the IdentityRow has collapsed on scroll. */
   onDateRangeChange?: (range: import("react-day-picker").DateRange | undefined) => void;
+  /** Optional controlled date-picker popover state (URL-backed in feed). */
+  dateRangeOpen?: boolean;
+  onDateRangeOpenChange?: (open: boolean) => void;
   /** Opens the industries / interests / brands preference modal manually.
       Wired into the Settings popover as a menu item. */
   onEditPreferences?: () => void;
@@ -196,6 +199,8 @@ export function InsightsV2Toolbar({
   onSearchFocus,
   onApplySearchHere,
   onDateRangeChange,
+  dateRangeOpen,
+  onDateRangeOpenChange,
   onEditPreferences,
 }: InsightsV2ToolbarProps) {
   const [addFilterOpen, setAddFilterOpen] = useState(false);
@@ -343,6 +348,8 @@ export function InsightsV2Toolbar({
               value={filters.dateRange}
               onChange={onDateRangeChange}
               size="sm"
+              open={dateRangeOpen}
+              onOpenChange={onDateRangeOpenChange}
             />
           )}
           {/* Add Filter — moved here from the left section. Consolidates

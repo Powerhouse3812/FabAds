@@ -27,7 +27,6 @@ import {
   InsightsV2Toolbar,
   DEFAULT_INSIGHTS_V2_FILTERS,
   DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
-  defaultDateRangeLast7,
   type InsightsV2Filters,
   type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
@@ -61,13 +60,34 @@ function readFiltersFromSearch(sp: URLSearchParams): {
     status: sp.get("status") ?? "all",
     adType: sp.get("adType") ?? "",
     runningDays: sp.get("running") ?? "",
-    // Default to Last 7 days when no URL state exists. The date range isn't
-    // currently serialised to URL (calendar ranges are awkward in query
-    // params); a future iteration can add explicit `from`/`to` params.
-    dateRange: defaultDateRangeLast7(),
+    // A-12.180: default is "All time" (undefined) per Maalik. Date range is
+    // serialised as ?from=YYYY-MM-DD&to=YYYY-MM-DD so copying the URL
+    // captures the user's exact window; reload reconstructs it.
+    dateRange: parseDateRange(sp.get("from"), sp.get("to")),
     sort,
   };
   return { filters, selectedTag: sp.get("tag") ?? undefined };
+}
+
+function parseDateRange(
+  from: string | null,
+  to: string | null,
+): DateRange | undefined {
+  if (!from) return undefined;
+  const fromDate = new Date(from);
+  if (Number.isNaN(fromDate.getTime())) return undefined;
+  if (!to) return { from: fromDate };
+  const toDate = new Date(to);
+  if (Number.isNaN(toDate.getTime())) return { from: fromDate };
+  return { from: fromDate, to: toDate };
+}
+
+function formatDateForUrl(d: Date): string {
+  // ISO date (YYYY-MM-DD) — URL-safe, sortable, locale-independent.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function writeFiltersToSearch(
@@ -86,6 +106,18 @@ function writeFiltersToSearch(
   setOrDel("adType", filters.adType);
   setOrDel("running", filters.runningDays);
   setOrDel("tag", selectedTag);
+  // Date range — serialise as ISO from/to. Omit when undefined (All time).
+  if (filters.dateRange?.from) {
+    next.set("from", formatDateForUrl(filters.dateRange.from));
+    if (filters.dateRange.to) {
+      next.set("to", formatDateForUrl(filters.dateRange.to));
+    } else {
+      next.delete("to");
+    }
+  } else {
+    next.delete("from");
+    next.delete("to");
+  }
   // sort defaults to "newest" — only serialise when not the default
   if (filters.sort && filters.sort !== "newest") next.set("sort", filters.sort);
   else next.delete("sort");
@@ -270,6 +302,27 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   }, [urlModal, urlModalTarget]);
 
   const prefsModalOpen = urlModal === "settings";
+
+  // A-12.180: Calendar popover open/close is URL-backed too. Copying a URL
+  // while the date picker is open reconstructs that exact view on paste.
+  // Shared between the IdentityRow date picker and the Toolbar date picker
+  // (only one is mounted at a time depending on scroll state, so no
+  // conflict). `?calendar=open` is the contract.
+  const calendarOpen = searchParams.get("calendar") === "open";
+  const setCalendarOpen = useCallback(
+    (open: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (open) sp.set("calendar", "open");
+          else sp.delete("calendar");
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
 
   // Deep-link safety: if `?ad=<id>` or save-to-board's modal-target points
   // at a missing ad, silently strip the param. DUMMY_ADS is sync; once
@@ -581,6 +634,8 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
             onToggleBrand={(brand) => toggleFollowBrand.mutate(brand)}
             dateRange={filters.dateRange}
             onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
+            dateRangeOpen={calendarOpen}
+            onDateRangeOpenChange={setCalendarOpen}
           />
         </div>
       </div>
@@ -601,6 +656,8 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         onSearchFocus={handleSearchFocus}
         onApplySearchHere={handleApplySearchHere}
         onDateRangeChange={(r) => setFilters((prev) => ({ ...prev, dateRange: r }))}
+        dateRangeOpen={calendarOpen}
+        onDateRangeOpenChange={setCalendarOpen}
         onEditPreferences={() => setPrefsModalOpen(true)}
       />
       <div

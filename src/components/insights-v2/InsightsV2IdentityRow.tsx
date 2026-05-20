@@ -15,6 +15,9 @@ interface InsightsV2IdentityRowProps {
   onToggleBrand: (brand: string) => void;
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
+  /** Optional controlled date-picker popover state (URL-backed in feed). */
+  dateRangeOpen?: boolean;
+  onDateRangeOpenChange?: (open: boolean) => void;
   className?: string;
 }
 
@@ -35,6 +38,8 @@ export function InsightsV2IdentityRow({
   onToggleBrand,
   dateRange,
   onDateRangeChange,
+  dateRangeOpen,
+  onDateRangeOpenChange,
   className,
 }: InsightsV2IdentityRowProps) {
   return (
@@ -79,6 +84,8 @@ export function InsightsV2IdentityRow({
         value={dateRange}
         onChange={onDateRangeChange}
         size="md"
+        open={dateRangeOpen}
+        onOpenChange={onDateRangeOpenChange}
       />
     </div>
   );
