@@ -26,6 +26,7 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
+import { PaymentVerificationPage } from "@/payment-verification/PaymentVerificationPage";
 import { upsellPrintRoutes } from "@/upsell-print/routes";
 import { onboardingPrintRoutes } from "@/onboarding-print/routes";
 import { planningRoutes } from "@/planning/routes";
@@ -109,6 +110,15 @@ const App = () => (
                   AppLayout so the FabAds nav rail / chrome doesn't render —
                   matches the wireframe's full-page takeover experience. */}
               {onboardingDemoRoutes}
+
+              {/* Payment verification — standalone screen with 3 states
+                  (waiting / success / failed) toggled via ?state=...
+                  Mounted OUTSIDE AppLayout for full-screen focus, same
+                  pattern as onboarding-demo. */}
+              <Route
+                path="payment-verification"
+                element={<PaymentVerificationPage />}
+              />
 
               <Route element={<AppLayout />}>
                 <Route index element={<Navigate to="/dashboard" replace />} />

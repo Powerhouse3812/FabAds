@@ -426,7 +426,7 @@ export function Welcome({
               <ArrowRight className="h-4 w-4" />
             </button>
             <a
-              href="/onboarding-demo/payment-preview"
+              href="/payment-verification"
               target="_blank"
               rel="noopener"
               className={cn(
