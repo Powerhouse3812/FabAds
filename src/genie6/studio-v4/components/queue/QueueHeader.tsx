@@ -9,7 +9,8 @@ interface QueueHeaderProps {
   activeBatchId: string | null;
   onSelectBatch: (id: string) => void;
   onBack?: () => void;
-  onSwitchVariant: () => void;
+  /** Direct-jump variant setter — VariantToggle calls this with the target. */
+  onSwitchVariant: (next: QueueVariant) => void;
   showVariantToggle: boolean;
 }
 

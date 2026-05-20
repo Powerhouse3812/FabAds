@@ -19,6 +19,13 @@ interface ResultsConceptsProps {
   onEdit: (output: OutputData) => void;
   /** Re-run this batch's whole concept row (stub). */
   onRegenerateConcept?: (conceptId: string) => void;
+  /**
+   * Controlled selection (V3 uses this so the parent can render BulkToolbar
+   * on 2+ selected). When ommitted, the component falls back to internal
+   * state — keeps V1 / V2 working without a refactor.
+   */
+  selected?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 /**
@@ -39,8 +46,14 @@ export function ResultsConcepts({
   batch,
   onEdit,
   onRegenerateConcept,
+  selected: controlledSelected,
+  onToggleSelect: controlledToggle,
 }: ResultsConceptsProps) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Controlled vs uncontrolled. V3 supplies both props (parent owns the
+  // selection set so it can render BulkToolbar); V1/V2 omit them and we
+  // manage state locally.
+  const [internalSelected, setInternalSelected] = useState<Set<string>>(new Set());
+  const selected = controlledSelected ?? internalSelected;
 
   if (!batch.outputs || !batch.concepts || batch.outputs.length === 0) {
     return (
@@ -67,13 +80,18 @@ export function ResultsConcepts({
     };
   });
 
-  const toggleSelect = (id: string) =>
-    setSelected((prev) => {
+  const toggleSelect = (id: string) => {
+    if (controlledToggle) {
+      controlledToggle(id);
+      return;
+    }
+    setInternalSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
 
   return (
     <div className="flex flex-col gap-6">
