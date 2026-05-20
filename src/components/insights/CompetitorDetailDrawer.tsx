@@ -94,7 +94,11 @@ export function CompetitorDetailDrawer({ competitor, open, onClose }: Props) {
                   variant="ghost"
                   size="sm"
                   className="ml-auto"
-                  onClick={() => following ? unfollow.mutate(competitor.id) : follow.mutate(competitor.id)}
+                  onClick={() =>
+                    following
+                      ? unfollow.mutate({ id: competitor.id, name: competitor.name })
+                      : follow.mutate({ id: competitor.id, name: competitor.name })
+                  }
                 >
                   {following ? <><UserMinus className="h-3.5 w-3.5 mr-1" /> Unfollow</> : <><UserPlus className="h-3.5 w-3.5 mr-1" /> Follow</>}
                 </Button>

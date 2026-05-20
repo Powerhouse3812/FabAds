@@ -60,8 +60,13 @@ export function DateRangeWithPresets({
           <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
           {(() => {
             const r = value;
+            // Empty state: explicitly label "All-time" so the user knows
+            // they're seeing the full window. Maalik's spec — never let
+            // the trigger feel ambiguous or "broken" when no range is
+            // picked. The data layer already short-circuits the filter
+            // when r?.from is falsy (see InsightsV2Feed line 174).
             if (!r?.from)
-              return <span className="text-muted-foreground">Date range</span>;
+              return <span className="text-muted-foreground">All-time</span>;
             const today = startOfDay(new Date());
             const from = startOfDay(r.from);
             const diffDays =
@@ -120,6 +125,23 @@ export function DateRangeWithPresets({
           </div>
         )}
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 p-3">
+          {/* "All-time" preset — explicit way to clear the filter to the
+              full window. Sits first so it reads as the baseline before
+              the user narrows. Active when no range is set (mirrors the
+              trigger placeholder). */}
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              !value?.from
+                ? "bg-primary text-primary-foreground border-primary font-semibold"
+                : "border-transparent bg-muted text-muted-foreground hover:bg-muted/80",
+            )}
+            aria-pressed={!value?.from}
+          >
+            All-time
+          </button>
           {DATE_PRESETS.map((p) => {
             const r = value;
             let active = false;

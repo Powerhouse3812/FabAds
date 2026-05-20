@@ -78,7 +78,10 @@ export function InsightsV2PageHeader({
             ) : dateRange?.from ? (
               <span>{format(dateRange.from, "yyyy-MM-dd")}</span>
             ) : (
-              <span className="text-muted-foreground">Date range</span>
+              // Empty state: explicit "All-time" label so the trigger
+              // never reads as a placeholder waiting for input. Pairs
+              // with the All-time preset chip in DateRangeWithPresets.
+              <span className="text-muted-foreground">All-time</span>
             )}
             {hasDateRange && (
               <span
