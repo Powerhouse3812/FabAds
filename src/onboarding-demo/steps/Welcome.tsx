@@ -403,22 +403,43 @@ export function Welcome({
           </div>
         )}
 
-        {/* Phase 5 : CTA + footnote */}
+        {/* Phase 5 : CTA + footnote.
+            Maalik's iter-add: a secondary action button BESIDES the primary
+            CTA on this (first) screen that opens the payment-verification
+            preview in a new tab. Currently lands on the vibe-comparison
+            page; once Maalik picks a vibe it'll point to the real
+            verification flow. */}
         <div style={phaseStyle(phase, 5)}>
-          <button
-            onClick={onContinue}
-            type="button"
-            className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-6 py-3",
-              "bg-primary text-primary-foreground font-semibold text-[14px]",
-              "hover:bg-primary/90 active:translate-y-px transition-all",
-              "shadow-[0_6px_20px_-8px_rgba(195,235,66,0.45)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            )}
-          >
-            {config.ctaLabel}
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          <div className="inline-flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={onContinue}
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-6 py-3",
+                "bg-primary text-primary-foreground font-semibold text-[14px]",
+                "hover:bg-primary/90 active:translate-y-px transition-all",
+                "shadow-[0_6px_20px_-8px_rgba(195,235,66,0.45)]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              )}
+            >
+              {config.ctaLabel}
+              <ArrowRight className="h-4 w-4" />
+            </button>
+            <a
+              href="/onboarding-demo/payment-preview"
+              target="_blank"
+              rel="noopener"
+              className={cn(
+                "inline-flex items-center gap-2 rounded-xl px-5 py-3",
+                "bg-card border border-border text-foreground font-medium text-[13.5px]",
+                "hover:border-primary/50 hover:bg-primary/[0.04] active:translate-y-px transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              )}
+            >
+              Preview payment screen
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </a>
+          </div>
           <p className="text-[11px] text-muted-foreground mt-3">
             {config.footnote}
           </p>
