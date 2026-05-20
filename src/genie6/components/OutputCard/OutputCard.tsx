@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Download, Play, Rocket, Save } from "lucide-react";
+import { Bookmark, Check, Play, RefreshCw, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   EllipsisAction,
@@ -7,13 +7,10 @@ import type {
   OutputCardVariant,
   OutputData,
 } from "../../types/output";
-import { BrandChip } from "./BrandChip";
+import { MODE_LABELS } from "../../types/output";
 import { QualityScoreChip } from "./QualityScoreChip";
-import { ModeBadge } from "./ModeBadge";
 import { TextOnlyMotif } from "./TextOnlyMotif";
 import { EllipsisMenu } from "./EllipsisMenu";
-import { LineageChip } from "./LineageChip";
-import { DisclosureStamp } from "../DisclosureStamp";
 
 export interface OutputCardProps extends OutputData {
   variant?: OutputCardVariant;
@@ -23,15 +20,15 @@ export interface OutputCardProps extends OutputData {
 
   /**
    * Display size — independent of `variant`.
-   *   "full"    (default) — masonry / grid card, ~272px wide, full thumbnail.
-   *   "compact"            — group-by-angle row card, ~208px × 331px; thumbnail
-   *                          stays visible (unlike `variant="compact"` which
-   *                          drops the thumbnail for sidebar list contexts).
+   *   "full"    (default) — masonry card, 272px wide × variable height per
+   *                          thumbnail aspect (1:1 letterboxed, 4:5 / 9:16 /
+   *                          16:9 full-bleed).
+   *   "compact"            — group-by-angle row card, 208 × 331 fixed.
    */
   size?: "full" | "compact";
   /**
    * "Featured" treatment for the first / active card in a Group-by-Angle row:
-   * lime border + lime-tinted background. Visual cue only; doesn't change
+   * lime border + #FEFFF0 background. Visual cue only; doesn't change
    * behaviour.
    */
   featured?: boolean;
@@ -39,39 +36,63 @@ export interface OutputCardProps extends OutputData {
   onSave?: () => void;
   onLaunch?: () => void;
   onDownload?: () => void;
+  onRegenerate?: () => void;
   onEllipsisAction?: (action: EllipsisAction) => void;
   onSelect?: () => void;
   onClick?: () => void;
   onKanbanMove?: (col: KanbanColumn) => void;
 }
 
-function formatTime(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(d);
-}
-
-function shortId(id: string) {
-  return id.length > 8 ? id.slice(0, 4).toUpperCase() + id.slice(-4).toUpperCase() : id.toUpperCase();
-}
-
+/**
+ * OutputCard — generation card for the Genie 6.0 Library.
+ *
+ * Locked to the Figma final design (`bJzB8m8Xa4WwLAweyJHWf1`). Layout
+ * inverts the conventional image-first card: brand row and headline sit
+ * ABOVE the thumbnail, with the CTA hook line + body description below
+ * and a 4-icon footer (Launch / Save / Regenerate / More).
+ *
+ * Composition contract:
+ *   ┌───────────────────────────┐
+ *   │ ⬤ Brand name              │  Brand row — 32px avatar + name
+ *   │ Headline that may         │  Headline 2-line clamp
+ *   │ wrap to a second line     │
+ *   │ ┌───────────────────────┐ │  Media zone — aspect-aware
+ *   │ │      thumbnail        │ │     • 1:1 letterboxed
+ *   │ │                       │ │     • 4:5 / 9:16 full-bleed
+ *   │ │ [Q 87]      [Brand]   │ │  Quality (BL) + Mode (BR) chips
+ *   │ └───────────────────────┘ │
+ *   │ CTA hook line             │  Secondary row 1 (text-secondary)
+ *   │ Body description text     │  Secondary row 2 (text-tertiary)
+ *   ├───────────────────────────┤
+ *   │ ✈ │ ☆ │ ⟳ │           ⋮ │  Footer — 4 icons + ellipsis
+ *   └───────────────────────────┘
+ *
+ * The COMPACT variant (208×331) collapses brand+headline into a single
+ * 92px block and uses a fixed 208×151 thumbnail; selection checkbox lives
+ * top-left ON the image (compact only per Figma; on FULL we hover-reveal
+ * it to preserve multi-select on the masonry browse surface). The
+ * FEATURED variant adds a lime border + #FEFFF0 background — visual
+ * anchor for the active card in a group-by-angle row.
+ *
+ * Hover state: subtle 1px upward translate + border darkens from
+ * `g6-border-secondary` (hairline) to `g6-border`. No shadow — keeps the
+ * flat aesthetic.
+ *
+ * Dropped from the old card per Figma lock: BrandChip overlay (brand is
+ * in the header row now), LineageChip, DisclosureStamp, metadata strip
+ * (mode/timestamp/short-id row), CTA pill — all removed. ModeBadge text
+ * helper is preserved on disk for PreviewPane reuse but the card now
+ * inlines a styled chip in the bottom-right of the thumbnail.
+ */
 export function OutputCard({
-  id,
   thumbnail,
   mediaType,
   headline,
   body,
   cta,
   brand,
-  product,
   mode,
   qualityScore,
-  generatedAt,
-  parentWinnerId,
   variant = "grid",
   selectable = true,
   selected = false,
@@ -79,7 +100,7 @@ export function OutputCard({
   featured = false,
   onSave,
   onLaunch,
-  onDownload,
+  onRegenerate,
   onEllipsisAction,
   onSelect,
   onClick,
@@ -88,17 +109,20 @@ export function OutputCard({
   const isVariantCompact = variant === "compact";
   const isSizeCompact = size === "compact";
   // The "compact variant" (used in side rails) hides the thumbnail entirely.
-  // The new "compact size" (used in Group-by-Angle rows) keeps it.
+  // The new "compact size" (Group-by-Angle row) keeps it.
   const showThumbnail = !isVariantCompact;
-  const isCompact = isVariantCompact || isSizeCompact;
 
-  const handleCardClick = () => {
-    onClick?.();
-  };
-
+  const handleCardClick = () => onClick?.();
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
-  const hasHeadline = Boolean(headline);
+  // Selection checkbox visibility per Figma:
+  //   - COMPACT card: always show checkbox on image (top-left)
+  //   - FULL card: no checkbox in Figma; we keep a hover-revealed one to
+  //     preserve multi-select parity on the masonry browse surface
+  const showCheckbox =
+    selectable && showThumbnail && (isSizeCompact || hovered || selected);
+
+  const headlineText = headline?.trim() ? headline : null;
 
   return (
     <article
@@ -108,63 +132,95 @@ export function OutputCard({
       data-state={selected ? "selected" : undefined}
       data-featured={featured ? "" : undefined}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-g6-xl border bg-g6-bg-container text-left shadow-g6-sm transition-all duration-200",
-        // Default border + hover
-        !featured && "border-g6-border-secondary hover:border-g6-border",
-        // Featured (first card in a Group-by-Angle row) — lime border + lime tint surface
-        featured && "border-g6-primary",
-        featured && "bg-[#FEFFF0]",
-        "hover:-translate-y-0.5 hover:shadow-g6-lg",
-        selected && "ring-2 ring-g6-primary ring-offset-2 ring-offset-g6-bg-base",
+        "group relative flex flex-col overflow-hidden rounded-g6-lg border bg-g6-bg-container text-left transition-all duration-150",
+        // Default border + subtle hover (1px lift + border darkens)
+        !featured &&
+          "border-g6-border-secondary hover:-translate-y-px hover:border-g6-border",
+        // Featured — lime border + lime tint surface
+        featured && "border-g6-primary bg-[#FEFFF0]",
+        // Selected ring
+        selected &&
+          "ring-2 ring-g6-primary ring-offset-2 ring-offset-g6-bg-base",
         onClick && "cursor-pointer",
-        // Width treatment
+        // Width / height treatment
         isVariantCompact && "max-w-xs",
-        isSizeCompact && "w-[208px]",
+        isSizeCompact && "h-[331px] w-[208px]",
       )}
     >
-      {/* Thumbnail area */}
+      {/* ── Header (brand row + headline) ────────────────────────────── */}
+      {isSizeCompact ? (
+        /* Compact: single 92px block combining brand + headline */
+        <div className="flex h-[92px] flex-col gap-1 px-3 pt-2">
+          <BrandRow brand={brand} />
+          <h3 className="line-clamp-2 font-g6-sans text-[12px] leading-[20px] text-g6-text">
+            {headlineText ?? "Untitled"}
+          </h3>
+        </div>
+      ) : (
+        <>
+          <div className="h-10 px-3 pt-2">
+            <BrandRow brand={brand} />
+          </div>
+          <h3 className="line-clamp-2 px-3 pb-3 pt-1 font-g6-sans text-[12px] leading-[20px] text-g6-text">
+            {headlineText ?? "Untitled"}
+          </h3>
+        </>
+      )}
+
+      {/* ── Media zone ───────────────────────────────────────────────── */}
       {showThumbnail && (
-        <div className="relative aspect-[4/5] w-full bg-g6-bg-spotlight">
+        <div
+          className={cn(
+            "relative w-full bg-g6-bg-spotlight",
+            // Compact card: fixed 208×151 — image centered & cropped
+            isSizeCompact && "h-[151px]",
+            // Full card: aspect-aware. Default 4:5; video tall = 9:16.
+            !isSizeCompact && mediaType === "video" && "aspect-[9/16]",
+            !isSizeCompact && mediaType !== "video" && "aspect-[4/5]",
+          )}
+        >
           {mediaType === "text-only" ? (
             <TextOnlyMotif />
           ) : thumbnail ? (
             <img
               src={thumbnail}
-              alt={headline ?? product?.name ?? "Generated output"}
+              alt={headlineText ?? "Generated output"}
               loading="lazy"
               className="h-full w-full object-cover"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
-              <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">no preview</span>
+              <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">
+                no preview
+              </span>
             </div>
           )}
 
+          {/* Video play overlay — 40px circle, dark glass */}
           {mediaType === "video" && thumbnail && (
             <span
               aria-hidden
               className="absolute inset-0 flex items-center justify-center"
             >
-              <span className="rounded-full bg-g6-bg-base/80 p-2 backdrop-blur-sm">
-                <Play className="h-5 w-5 fill-g6-text text-g6-text" />
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm">
+                <Play className="h-5 w-5 fill-white text-white" />
               </span>
             </span>
           )}
 
-          {/* Bottom-corner chips */}
-          {brand && (
-            <span className="absolute bottom-2 left-2">
-              <BrandChip name={brand.name} logo={brand.logo} />
-            </span>
-          )}
+          {/* On-image chips — Quality (BL) + Mode (BR) */}
           {qualityScore !== undefined && (
-            <span className="absolute bottom-2 right-2">
+            <span className="absolute bottom-2 left-2">
               <QualityScoreChip score={qualityScore} />
             </span>
           )}
+          <span className="absolute bottom-2 right-2">
+            <ModeChip label={MODE_LABELS[mode]} />
+          </span>
 
-          {/* Selection checkbox — visible on hover or when selected */}
-          {selectable && (hovered || selected) && (
+          {/* Selection checkbox — top-LEFT on compact (always); on full,
+              hover-revealed for multi-select parity. */}
+          {showCheckbox && (
             <button
               type="button"
               aria-label={selected ? "Deselect" : "Select"}
@@ -173,91 +229,130 @@ export function OutputCard({
                 onSelect?.();
               }}
               className={cn(
-                "absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-g6-sm border-2 transition-colors",
+                "absolute left-3 top-2.5 inline-flex h-4 w-4 items-center justify-center rounded-g6-sm border-2 transition-colors",
                 selected
                   ? "border-g6-primary bg-g6-primary text-g6-text-on-accent"
-                  : "border-g6-border bg-g6-bg-elevated/95 text-transparent backdrop-blur-sm hover:border-g6-primary"
+                  : "border-g6-border bg-g6-bg-elevated/95 backdrop-blur-sm hover:border-g6-primary",
               )}
             >
-              <Check className="h-3.5 w-3.5" strokeWidth={3} />
+              <Check
+                className={cn(
+                  "h-2.5 w-2.5 transition-opacity",
+                  selected ? "opacity-100" : "opacity-0",
+                )}
+                strokeWidth={3}
+              />
             </button>
           )}
         </div>
       )}
 
-      {/* Body */}
-      <div className={cn("flex flex-col gap-2", isCompact ? "p-3" : "p-4")}>
-        {hasHeadline ? (
-          <h3 className="font-g6-sans text-g6-lg font-semibold leading-tight text-g6-text">
-            {headline}
-          </h3>
-        ) : (
-          <h3 className="font-g6-sans text-g6-lg font-semibold italic text-g6-text-tertiary">
-            Untitled
-          </h3>
-        )}
-        {body && (
-          <p className="font-g6-sans text-g6-base text-g6-text-secondary line-clamp-2">{body}</p>
-        )}
-        {cta && (
-          <span className="inline-flex w-fit items-center rounded-g6-pill border border-g6-border bg-g6-bg-base px-2.5 py-0.5 text-g6-sm font-medium text-g6-text">
-            {cta}
-          </span>
-        )}
-
-        {/* Footer — meta + actions */}
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2 truncate">
-            <ModeBadge mode={mode} />
-            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">·</span>
-            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">{formatTime(generatedAt)}</span>
-            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">·</span>
-            <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">#{shortId(id)}</span>
-          </div>
+      {/* ── Secondary text (CTA hook line + body description) ────────── */}
+      {(cta || body) && (
+        <div
+          className={cn(
+            "flex flex-col px-3",
+            isSizeCompact ? "h-[48px] py-1" : "py-2",
+          )}
+        >
+          {cta && (
+            <p className="truncate font-g6-sans text-[12px] leading-[20px] text-g6-text-secondary">
+              {cta}
+            </p>
+          )}
+          {body && (
+            <p
+              className={cn(
+                "font-g6-sans text-[12px] leading-[20px] text-g6-text-tertiary",
+                isSizeCompact ? "truncate" : "line-clamp-2",
+              )}
+            >
+              {body}
+            </p>
+          )}
         </div>
+      )}
 
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          {parentWinnerId && <LineageChip parentWinnerId={parentWinnerId} />}
-          <DisclosureStamp />
-        </div>
-
-        {!isCompact && (
-          <div className="mt-2 flex items-center gap-1 border-t border-g6-border-secondary pt-2">
-            <CardActionBtn label="Save" Icon={Save} onClick={onSave} stopPropagation={stop} />
-            <CardActionBtn label="Launch" Icon={Rocket} onClick={onLaunch} stopPropagation={stop} />
-            <CardActionBtn label="Download" Icon={Download} onClick={onDownload} stopPropagation={stop} />
-            <span className="ml-auto" onClick={stop}>
-              <EllipsisMenu onAction={onEllipsisAction} />
-            </span>
-          </div>
-        )}
+      {/* ── Footer — 4-icon action row (top hairline divider) ────────── */}
+      <div className="mt-auto flex h-10 items-center justify-between border-t border-g6-border-secondary px-3">
+        <FooterIconBtn label="Launch" Icon={Send} onClick={onLaunch} stop={stop} />
+        <FooterIconBtn label="Save" Icon={Bookmark} onClick={onSave} stop={stop} />
+        <FooterIconBtn
+          label="Regenerate"
+          Icon={RefreshCw}
+          onClick={onRegenerate}
+          stop={stop}
+        />
+        <span onClick={stop}>
+          <EllipsisMenu onAction={onEllipsisAction} />
+        </span>
       </div>
     </article>
   );
 }
 
-function CardActionBtn({
+/* ── Internal pieces ──────────────────────────────────────────────── */
+
+function BrandRow({ brand }: { brand?: { name?: string; logo?: string } }) {
+  const initial = brand?.name?.trim()?.[0]?.toUpperCase() ?? "—";
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-g6-bg-spotlight">
+        {brand?.logo ? (
+          <img
+            src={brand.logo}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center font-g6-sans text-[11px] font-semibold text-g6-text">
+            {initial}
+          </div>
+        )}
+      </div>
+      <span className="min-w-0 truncate font-g6-sans text-[12px] font-semibold leading-[22px] text-g6-text">
+        {brand?.name ?? "Unattributed"}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Bottom-right on-image chip showing the generation mode (Brand Ad,
+ * UGC Video, etc.). Pill style with backdrop blur so it reads on any
+ * thumbnail brightness. Sits next to the QualityScoreChip on the BL.
+ */
+function ModeChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center rounded-g6-pill border border-g6-border/40 bg-g6-bg-elevated/95 px-2 py-0.5 font-g6-mono text-g6-xs font-semibold uppercase tracking-wide text-g6-text-secondary backdrop-blur-sm">
+      {label}
+    </span>
+  );
+}
+
+function FooterIconBtn({
   label,
   Icon,
   onClick,
-  stopPropagation,
+  stop,
 }: {
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
   onClick?: () => void;
-  stopPropagation: (e: React.MouseEvent) => void;
+  stop: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
       type="button"
+      aria-label={label}
+      title={label}
       onClick={(e) => {
-        stopPropagation(e);
+        stop(e);
         onClick?.();
       }}
-      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-g6-base px-2 py-1.5 text-g6-sm font-medium text-g6-text-secondary transition-colors hover:bg-g6-bg-spotlight hover:text-g6-text"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-g6-base text-g6-text-secondary transition-colors hover:bg-g6-bg-spotlight hover:text-g6-text"
     >
       <Icon className="h-3.5 w-3.5" />
-      {label}
     </button>
   );
 }

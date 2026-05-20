@@ -97,7 +97,7 @@ export function AngleRow({
       {/* Horizontal scroll body */}
       <div
         className="
-          -mx-1 flex gap-3 overflow-x-auto px-1 pb-2
+          -mx-1 flex gap-3 overflow-x-auto px-1 pb-4
           [scrollbar-width:thin]
           [&::-webkit-scrollbar]:h-1.5
           [&::-webkit-scrollbar-track]:rounded-full
@@ -107,21 +107,34 @@ export function AngleRow({
           hover:[&::-webkit-scrollbar-thumb]:bg-g6-text-tertiary/60
         "
       >
-        {visible.map((o) => (
-          <div key={o.id} className="shrink-0">
-            <OutputCard
-              {...o}
-              size="compact"
-              featured={featuredId === o.id}
-              selected={selected.has(o.id)}
-              onSelect={() => onSelect(o.id)}
-              onClick={() => {
-                setFeaturedId(o.id);
-                onCardClick(o);
-              }}
-            />
-          </div>
-        ))}
+        {visible.map((o) => {
+          const isFeatured = featuredId === o.id;
+          return (
+            <div key={o.id} className="relative shrink-0">
+              <OutputCard
+                {...o}
+                size="compact"
+                featured={isFeatured}
+                selected={selected.has(o.id)}
+                onSelect={() => onSelect(o.id)}
+                onClick={() => {
+                  setFeaturedId(o.id);
+                  onCardClick(o);
+                }}
+              />
+              {/* Row-chrome accent — lime strip just below the featured card
+                  anchors it to the row label (Figma: ~252×6, lime). Absolute
+                  positioning so non-featured cards stay aligned at the same
+                  baseline. */}
+              {isFeatured && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-1/2 top-full mt-1.5 h-1.5 w-[80%] -translate-x-1/2 rounded-full bg-g6-primary"
+                />
+              )}
+            </div>
+          );
+        })}
 
         {overflow > 0 && (
           <button
