@@ -22,6 +22,9 @@ import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
 import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
 import { InsightsExtensionCard } from "./InsightsExtensionCard";
+import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
+import { LaunchAutopilotCard } from "./LaunchAutopilotCard";
+import { ReportsInsightsCrossCard } from "./ReportsInsightsCrossCard";
 
 /**
  * SecondaryNavigationPanel — V7 ClickUp Strict (iter-6 A-10.3 update).
@@ -50,6 +53,8 @@ export function SecondaryNavigationPanel() {
   const onNavigate = (path: string) => navigate(path);
   const isGenie = activeMod.key === "genie";
   const isInsights = activeMod.key === "insights";
+  const isLaunch = activeMod.key === "launch";
+  const isReports = activeMod.key === "reports";
   // A-12.41: Industry Insights sub-nav shares Genie's v3-page-mesh backdrop
   // so the lime/amber/sky wash reads identically when switching modules.
   // Page-level Insights views already use v3-page-mesh; lifting it to the
@@ -142,20 +147,32 @@ export function SecondaryNavigationPanel() {
         {isInsights && <InsightsPinnedBoardsAddon />}
       </div>
 
-      {/* Insights footer addon — Chrome extension install nudge pinned
-          to the bottom of the aside. Sits OUTSIDE the scrollable body
-          so it stays visible while the sub-nav items scroll above. A
-          hairline divider above mirrors the header's bottom divider for
-          symmetry. Hidden entirely when the user has dismissed it. */}
-      {isInsights && (
-        <>
-          <div
-            aria-hidden
-            className="h-px shrink-0 border-t border-foreground/[0.06]"
-          />
-          <InsightsExtensionCard />
-        </>
+      {/* Module footer addons — pinned outside the scrollable body so
+          they stay visible while sub-nav items scroll above. Hairline
+          divider above mirrors the header's bottom divider for symmetry.
+          Hidden entirely when the user has dismissed them OR when the
+          plan gating (AI-only) hides them at the component level.
+
+          - Insights:   Chrome extension install nudge (always on,
+                        not plan-gated)
+          - Genie:      AI-plan add-on for credit top-up
+          - Launch:     AI-plan tier-up to Growth Pro for Autopilot
+          - Reports:    AI-plan cross-sell to Industry Insights Pro
+                        (with 30% OFF limited-time pill — sole orange
+                        accent in the app)
+
+          Only ONE card renders per sub-nav since each `is*` flag is
+          mutually exclusive (the active module is one module). */}
+      {(isInsights || isGenie || isLaunch || isReports) && (
+        <div
+          aria-hidden
+          className="h-px shrink-0 border-t border-foreground/[0.06]"
+        />
       )}
+      {isInsights && <InsightsExtensionCard />}
+      {isGenie && <GenieCreditsAddonCard />}
+      {isLaunch && <LaunchAutopilotCard />}
+      {isReports && <ReportsInsightsCrossCard />}
     </aside>
   );
 }
