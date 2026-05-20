@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   MODULES,
@@ -18,7 +17,10 @@ import { UserMenu } from "@/components/UserMenu";
 import { useV7Shape } from "@/components/sidebar/useV7Shape";
 import { usePlan } from "@/contexts/PlanContext";
 import { PlanShiftToggle } from "@/components/shell/PlanShiftToggle";
-import { UpsellPopover } from "@/components/shell/UpsellPopover";
+import {
+  FEATURE_PRESETS,
+  LockedFeatureSellModal,
+} from "@/components/shell/LockedFeatureSellModal";
 import faviconDark from "@/assets/favicon-dark.png";
 
 /**
@@ -190,6 +192,16 @@ export function ParentNavigationRail() {
         <NotificationBell compact />
         <UserMenu compact />
       </div>
+
+      {/* Locked-feature sell modal — URL-driven via ?upsell=<moduleKey>.
+          Single mount at the rail level. Replaces the in-RailItem Popover
+          (which was too small for a real sell pitch). Modal stays
+          dismissible via X / Esc / backdrop / "Stay on AI plan" link;
+          all four call setUpsellKey(null) to strip the URL param. */}
+      <LockedFeatureSellModal
+        presetKey={upsellKey && FEATURE_PRESETS[upsellKey] ? upsellKey : null}
+        onClose={() => setUpsellKey(null)}
+      />
     </aside>
   );
 }
@@ -257,12 +269,18 @@ function RailItem({
   // any other badge). Greyed icon + label so the disabled state is clear.
   const displayBadge = locked ? "PRO" : mod.badge;
 
+  // Locked items: click → open the sell modal via URL param.
+  // Unlocked: standard nav.
+  const handleClick = locked
+    ? () => onUpsellOpenChange?.(true)
+    : onClick;
+
   const button = (
     <button
       type="button"
-      onClick={locked ? undefined : onClick}
+      onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
-      aria-disabled={locked ? true : undefined}
+      aria-haspopup={locked ? "dialog" : undefined}
       className={cn(
         "group relative flex w-full flex-col items-center gap-0.5 rounded-md px-0.5 py-1 transition-colors",
         "outline-none focus-visible:ring-2 focus-visible:ring-[#c3eb42] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(80_15%_8%)]",
@@ -315,22 +333,20 @@ function RailItem({
     </button>
   );
 
-  // 0) Locked → render upsell popover on click. Skips sub-item nav.
-  //    Open state is controlled by `upsellOpen` so it syncs with the
-  //    `?upsell=<key>` URL param.
+  // 0) Locked → click opens LockedFeatureSellModal at the rail root
+  //    (controlled via ?upsell=<key>). Hover shows a quiet tooltip with
+  //    the module name + Growth tag — the rich pitch lives in the modal,
+  //    not the tooltip, so we don't double up on sell content.
   if (locked) {
+    void upsellOpen; // open state lives at rail level — modal reads URL
     return (
-      <Popover open={upsellOpen} onOpenChange={onUpsellOpenChange}>
-        <PopoverTrigger asChild>{button}</PopoverTrigger>
-        <PopoverContent
-          side="right"
-          align="start"
-          sideOffset={12}
-          className="p-0 w-auto"
-        >
-          <UpsellPopover />
-        </PopoverContent>
-      </Popover>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="right" className="text-xs">
+          <span className="font-medium">{mod.label}</span>
+          <span className="ml-1.5 text-muted-foreground">Growth</span>
+        </TooltipContent>
+      </Tooltip>
     );
   }
 
