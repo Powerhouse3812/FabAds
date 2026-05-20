@@ -21,6 +21,7 @@ import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme
 import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
 import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
+import { InsightsExtensionCard } from "./InsightsExtensionCard";
 
 /**
  * SecondaryNavigationPanel — V7 ClickUp Strict (iter-6 A-10.3 update).
@@ -140,6 +141,21 @@ export function SecondaryNavigationPanel() {
             entirely when nothing is pinned. */}
         {isInsights && <InsightsPinnedBoardsAddon />}
       </div>
+
+      {/* Insights footer addon — Chrome extension install nudge pinned
+          to the bottom of the aside. Sits OUTSIDE the scrollable body
+          so it stays visible while the sub-nav items scroll above. A
+          hairline divider above mirrors the header's bottom divider for
+          symmetry. Hidden entirely when the user has dismissed it. */}
+      {isInsights && (
+        <>
+          <div
+            aria-hidden
+            className="h-px shrink-0 border-t border-foreground/[0.06]"
+          />
+          <InsightsExtensionCard />
+        </>
+      )}
     </aside>
   );
 }

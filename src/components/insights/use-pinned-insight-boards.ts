@@ -21,7 +21,9 @@ import { useCallback, useEffect, useState } from "react";
  */
 
 export const PINNED_BOARDS_STORAGE_KEY = "genie6:insights:pinned-boards";
+export const PINNED_BOARDS_SEEDED_KEY = "genie6:insights:pinned-boards-seeded";
 export const MAX_PINNED_BOARDS = 5;
+export const DEFAULT_SEED_COUNT = 4;
 
 function readPins(): string[] {
   if (typeof window === "undefined") return [];
@@ -50,6 +52,32 @@ function writePins(ids: string[]) {
   }
 }
 
+/**
+ * Has the default-pin seed already run on this browser? Used by the
+ * shell-layer addon to avoid re-seeding after the user has explicitly
+ * unpinned the defaults — once seeded, the user is in control.
+ */
+export function hasSeeded(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(PINNED_BOARDS_SEEDED_KEY) === "1";
+  } catch {
+    // If localStorage is unreadable we conservatively report "already
+    // seeded" so the caller doesn't churn trying to write a flag that
+    // will never persist.
+    return true;
+  }
+}
+
+function writeSeededFlag() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PINNED_BOARDS_SEEDED_KEY, "1");
+  } catch {
+    // Silent fail — same rationale as writePins.
+  }
+}
+
 export interface UsePinnedInsightBoards {
   /** Ordered list of pinned board IDs. */
   pinnedIds: string[];
@@ -68,6 +96,17 @@ export interface UsePinnedInsightBoards {
   count: number;
   /** True when at cap (used to disable pin buttons proactively). */
   isAtCap: boolean;
+  /**
+   * Seed the pinned list with the given board IDs (first-time only).
+   *
+   * No-ops if the seeded flag is already set, so re-seeding never
+   * stomps on a user who explicitly unpinned the defaults. Caller is
+   * responsible for trimming the input to <= MAX_PINNED_BOARDS; we
+   * defensively slice anyway. Writes both the pin list and the seeded
+   * flag in the same call so we never end up with a flag-without-pins
+   * or pins-without-flag mismatch.
+   */
+  seedDefaultPins: (boardIds: string[]) => void;
 }
 
 export function usePinnedInsightBoards(): UsePinnedInsightBoards {
@@ -124,6 +163,18 @@ export function usePinnedInsightBoards(): UsePinnedInsightBoards {
     });
   }, []);
 
+  const seedDefaultPins = useCallback((boardIds: string[]) => {
+    // Hard guard: if the seeded flag is already written, never run again.
+    // This is the contract that lets the user unpin defaults without
+    // them springing back on the next refresh.
+    if (hasSeeded()) return;
+    if (boardIds.length === 0) return;
+    const next = boardIds.slice(0, MAX_PINNED_BOARDS);
+    writePins(next);
+    writeSeededFlag();
+    setPinnedIds(next);
+  }, []);
+
   return {
     pinnedIds,
     isPinned,
@@ -131,5 +182,6 @@ export function usePinnedInsightBoards(): UsePinnedInsightBoards {
     unpin,
     count: pinnedIds.length,
     isAtCap: pinnedIds.length >= MAX_PINNED_BOARDS,
+    seedDefaultPins,
   };
 }
