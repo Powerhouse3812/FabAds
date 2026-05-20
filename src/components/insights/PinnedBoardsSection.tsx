@@ -28,14 +28,15 @@ import { usePinnedInsightBoards } from "./use-pinned-insight-boards";
  * so users read the pinned items as "these belong to Board" without
  * needing a label to explain it.
  *
- * Empty state (A-12.176): when nothing is pinned — REGARDLESS of why —
- * render a minimal two-line hint at the same depth-1 indent so the tree
- * branch stays visible and the user always knows where pins live. Copy
- * spells out the cap ("up to 5") per Maalik's spec. Not interactive —
- * pinning happens from the boards-page kebab; the empty state just
- * reserves the slot. Previous version conditioned on seed state and
- * board count, which hid the hint on fresh workspaces and confused
- * users who hadn't pinned anything yet.
+ * Empty state (A-12.177): when nothing is pinned, render a tiny
+ * Fabfunnel-signature mono caps indicator — "PIN BOARDS · 0 / 5" — at
+ * the depth-1 indent. The prior italic sentence ("Pin up to 5 boards
+ * here for quick access") read as a generic third-party empty state;
+ * the mono caps grammar matches SectionHeader.tsx and the rest of the
+ * design system, so the row reads as a native status indicator rather
+ * than helper copy. The counter delivers the "up to 5" info without
+ * preaching. Not interactive — pinning happens from the boards-page
+ * kebab; the empty state just reserves the slot under "Board".
  *
  * v1 deferred: drag-to-reorder. Pin order = insertion order. A future
  * iteration could wire @dnd-kit for ≤5 items, but the cost of a new
@@ -65,8 +66,9 @@ export function PinnedBoardsSection({ boards }: PinnedBoardsSectionProps) {
 
   const activeBoardId = pathname.match(/^\/insights\/boards\/(.+)/)?.[1];
 
-  // Empty state — render the hint row whenever nothing is pinned. The
-  // tree branch stays visible so users always know this slot exists.
+  // Empty state — tiny mono caps indicator under the tree guide. No
+  // icon, no sentence; just the signature Fabfunnel caps + tabular-nums
+  // counter grammar so it reads as native chrome rather than helper copy.
   if (resolved.length === 0) {
     return (
       <div className="relative">
@@ -76,15 +78,17 @@ export function PinnedBoardsSection({ boards }: PinnedBoardsSectionProps) {
           style={{ left: "20px" }}
         />
         <div
-          className="flex min-h-8 items-start gap-2 py-1.5 pr-2"
+          className="flex items-center py-2 pr-2"
           style={{ paddingLeft: "26px" }}
         >
-          <Pin
-            className="mt-[3px] h-3 w-3 shrink-0 text-foreground/30"
-            aria-hidden
-          />
-          <span className="text-[11.5px] italic leading-snug text-foreground/45">
-            Pin up to 5 boards here for quick access
+          <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-foreground/40">
+            Pin boards
+          </span>
+          <span aria-hidden className="mx-1.5 text-foreground/25">
+            ·
+          </span>
+          <span className="font-mono text-[9px] tabular-nums text-foreground/35">
+            0 / 5
           </span>
         </div>
       </div>
