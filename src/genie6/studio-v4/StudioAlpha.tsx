@@ -6,7 +6,12 @@ import { AlphaStep1Format } from "./screens/AlphaStep1Format";
 import { Step2Product } from "./screens/Step2Product";
 import { Step3Approach } from "./screens/Step3Approach";
 import { AlphaStep3Configure } from "./screens/AlphaStep3Configure";
-import { Step5Results } from "./screens/Step5Results";
+// A-12.181: StudioAlpha now lands on the new Step5ResultsQueue surface —
+// the dual-variant queue redesign (V1 dense, V2 centered) Maalik shipped
+// the queue components for but never wired through this entry. The
+// legacy Step5Results stays on disk in case the concept-rows-only layout
+// needs to be revived as a fallback.
+import { Step5ResultsQueue } from "./screens/Step5ResultsQueue";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
 import { useWizard, type WizardState, type Format, type Mode } from "./state/useWizard";
@@ -305,14 +310,15 @@ export function StudioAlpha() {
                 <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} onBack={handleBack} />
               )}
               {renderStep === 5 && (
-                <Step5Results
+                // Step5ResultsQueue owns its own chrome — BreadcrumbStepper
+                // at top, dual-variant queue strip (V1 dense / V2 centered
+                // via ?queue=v1|v2), and the PromptDock pinned to the bottom.
+                // The legacy done/regenKey/onGenerateAgain/onSaveBatch/onBack
+                // props collapse into the dock's submit flow + the
+                // BreadcrumbStepper's nav.
+                <Step5ResultsQueue
                   wizard={wizard}
-                  done={step5Done}
-                  regenKey={step5Key}
-                  onGenerateAgain={handleGenerateAgain}
-                  onSaveBatch={handleSaveBatch}
                   onStartOver={exitToHome}
-                  onBack={handleBack}
                 />
               )}
             </main>
