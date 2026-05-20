@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { usePinnedInsightBoards } from "./use-pinned-insight-boards";
+import { hasSeeded, usePinnedInsightBoards } from "./use-pinned-insight-boards";
 
 /**
  * PinnedBoardsSection — pinned boards rendered as INDENTED CHILDREN of the
@@ -28,8 +28,18 @@ import { usePinnedInsightBoards } from "./use-pinned-insight-boards";
  * so users read the pinned items as "these belong to Board" without
  * needing a label to explain it.
  *
- * Empty state: render null. The "Board" parent row above stands on its
- * own without children attached, which is the correct empty grammar.
+ * Empty state: there are three "no pins" cases:
+ *   1. No boards exist in the workspace at all → render null.
+ *      The "Board" parent row stands on its own; suggesting "pin boards
+ *      here" would be a dead end with nothing to pin.
+ *   2. Boards exist but the seed has not run yet (brief window between
+ *      first mount and the seed effect firing) → render null to avoid
+ *      flashing an empty hint before the defaults appear.
+ *   3. Boards exist AND the seed has run AND the user has unpinned
+ *      everything → render a single-line minimal hint at the same
+ *      depth-1 indent so the tree branch stays visible. Copy is
+ *      informational, not a CTA — pinning happens from the boards-page
+ *      kebab; the empty state just reserves the slot.
  *
  * v1 deferred: drag-to-reorder. Pin order = insertion order. A future
  * iteration could wire @dnd-kit for ≤5 items, but the cost of a new
@@ -57,9 +67,40 @@ export function PinnedBoardsSection({ boards }: PinnedBoardsSectionProps) {
     .map((id) => boards.find((b) => b.id === id))
     .filter((b): b is BoardLike => Boolean(b));
 
-  if (resolved.length === 0) return null;
+  // Case 1: no boards to pin in this workspace.
+  if (boards.length === 0) return null;
+  // Case 2: seed hasn't run yet — avoid flashing the empty hint before
+  // defaults appear on first mount.
+  const seeded = hasSeeded();
+  if (resolved.length === 0 && !seeded) return null;
 
   const activeBoardId = pathname.match(/^\/insights\/boards\/(.+)/)?.[1];
+
+  // Case 3: user has unpinned everything. Render the minimal hint row,
+  // styled to slot under the tree guide just like a pinned row would.
+  if (resolved.length === 0) {
+    return (
+      <div className="relative">
+        <span
+          aria-hidden
+          className="absolute bottom-0 top-0 w-px bg-foreground/[0.08]"
+          style={{ left: "20px" }}
+        />
+        <div
+          className="flex h-8 items-center gap-2 pr-2"
+          style={{ paddingLeft: "26px" }}
+        >
+          <Pin
+            className="h-3 w-3 shrink-0 text-foreground/25"
+            aria-hidden
+          />
+          <span className="truncate text-[11.5px] italic leading-4 text-foreground/45">
+            Pin boards here for quick access
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
