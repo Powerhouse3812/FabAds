@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Welcome } from "./steps/Welcome";
+import { WelcomeFailed } from "./steps/WelcomeFailed";
+import { WelcomeStuckWaiting } from "./steps/WelcomeStuckWaiting";
 import { ProductChooser } from "./steps/ProductChooser";
 import { InsightsQuickSetup } from "./steps/InsightsQuickSetup";
 import { ChooseMode } from "./steps/ChooseMode";
@@ -12,6 +14,18 @@ import { Done } from "./steps/Done";
 
 type Mode = "ecom" | "affiliate";
 type WelcomeVariant = "creative" | "insights" | "common";
+/**
+ * Welcome-screen payment status. Drives WHICH component renders at step
+ * -2: the celebrate Welcome (success), the cracked-padlock WelcomeFailed,
+ * or the patient-hourglass WelcomeStuckWaiting. Default "success".
+ *   "success"       → Welcome.tsx (post-payment celebrate)
+ *   "failed"        → WelcomeFailed.tsx (cracked padlock + amber)
+ *   "stuck-waiting" → WelcomeStuckWaiting.tsx (hourglass + patience)
+ *
+ * URL slugs map 1:1: welcome / welcome-failed / welcome-stuck-waiting.
+ * A small "Demo status" pill at top-right lets reviewers flip live.
+ */
+type WelcomeStatus = "success" | "failed" | "stuck-waiting";
 /**
  * What kind of marketer the user IS (captured at ChooseMode for internal
  * segmentation). Distinct from `Mode`, which is what the user wants to
@@ -81,6 +95,8 @@ interface StateTriple {
   welcomeVariant: WelcomeVariant;
   /** Only meaningful when step === 0. */
   chooseModeSubStage?: ChooseModeSubStage;
+  /** Only meaningful when step === -2. */
+  welcomeStatus?: WelcomeStatus;
 }
 
 const URL_TO_STATE: Record<string, StateTriple> = {
@@ -89,6 +105,21 @@ const URL_TO_STATE: Record<string, StateTriple> = {
   // "Common" variant — generic celebrate, ported from
   // wireframes/wf-onboarding.jsx → WelcomeCelebrateGeneric.
   "welcome-celebrate": { step: -2, mode: "ecom", welcomeVariant: "common" },
+  // Payment-status variants of the Welcome screen — separate from the
+  // content variants (creative/insights/common). Render distinct
+  // context-rich components (WelcomeFailed / WelcomeStuckWaiting).
+  "welcome-failed": {
+    step: -2,
+    mode: "ecom",
+    welcomeVariant: "creative",
+    welcomeStatus: "failed",
+  },
+  "welcome-stuck-waiting": {
+    step: -2,
+    mode: "ecom",
+    welcomeVariant: "creative",
+    welcomeStatus: "stuck-waiting",
+  },
   "product-chooser": { step: -1, mode: "ecom", welcomeVariant: "creative" },
   "choose-mode": { step: 0, mode: "ecom", welcomeVariant: "creative" },
   // Sub-stage of ChooseMode — the "where to start" picker (only relevant
@@ -123,8 +154,13 @@ function stateToUrl(
   mode: Mode,
   welcomeVariant: WelcomeVariant,
   chooseModeSubStage?: ChooseModeSubStage,
+  welcomeStatus?: WelcomeStatus,
 ): string {
   if (step === -2) {
+    // Status variants win over content variants — they're distinct
+    // components, not variants of Welcome.
+    if (welcomeStatus === "failed") return "welcome-failed";
+    if (welcomeStatus === "stuck-waiting") return "welcome-stuck-waiting";
     if (welcomeVariant === "insights") return "welcome-insights";
     if (welcomeVariant === "common") return "welcome-celebrate";
     return "welcome";
@@ -178,6 +214,13 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
   // the user back on the start-trail screen with profile=both implicit.
   const [chooseModeSubStage, setChooseModeSubStage] =
     useState<ChooseModeSubStage>(initialState.chooseModeSubStage);
+  // Payment status for the Welcome screen — controls WHICH sibling
+  // renders (Welcome / WelcomeFailed / WelcomeStuckWaiting). Hydrated
+  // from URL so deep-link to welcome-failed / welcome-stuck-waiting
+  // lands the user on the right screen.
+  const [welcomeStatus, setWelcomeStatus] = useState<WelcomeStatus>(
+    initialState.welcomeStatus ?? "success",
+  );
 
   useEffect(() => {
     const target = stateToUrl(
@@ -185,6 +228,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
       data.mode,
       data.welcomeVariant,
       chooseModeSubStage,
+      welcomeStatus,
     );
     setSearchParams(
       (prev) => {
@@ -199,6 +243,7 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
     data.mode,
     data.welcomeVariant,
     chooseModeSubStage,
+    welcomeStatus,
     setSearchParams,
   ]);
 
@@ -230,11 +275,22 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
 
   if (step === -2) {
     return (
-      <Welcome
-        variant={data.welcomeVariant}
-        onVariantChange={setWelcomeVariant}
-        onContinue={() => goto(-1)}
-      />
+      <WelcomeStatusShell
+        status={welcomeStatus}
+        onStatusChange={setWelcomeStatus}
+      >
+        {welcomeStatus === "failed" ? (
+          <WelcomeFailed />
+        ) : welcomeStatus === "stuck-waiting" ? (
+          <WelcomeStuckWaiting />
+        ) : (
+          <Welcome
+            variant={data.welcomeVariant}
+            onVariantChange={setWelcomeVariant}
+            onContinue={() => goto(-1)}
+          />
+        )}
+      </WelcomeStatusShell>
     );
   }
 
@@ -333,5 +389,63 @@ export function OnboardingShell({ onComplete }: OnboardingShellProps = {}) {
       onStart={finish}
       onRestart={() => goto(-2)}
     />
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  WelcomeStatusShell — wraps the step -2 screens with a top-right "Demo
+ *  status" toggle pill that flips between success / failed / stuck-waiting
+ *  variants. Demo-only — removed when real payment status wires in via a
+ *  backend signal. URL persistence is handled by the parent (welcomeStatus
+ *  state + URL_TO_STATE map).
+ * ═══════════════════════════════════════════════════════════════════════ */
+interface WelcomeStatusShellProps {
+  status: WelcomeStatus;
+  onStatusChange: (next: WelcomeStatus) => void;
+  children: React.ReactNode;
+}
+
+function WelcomeStatusShell({
+  status,
+  onStatusChange,
+  children,
+}: WelcomeStatusShellProps) {
+  return (
+    <div className="relative">
+      <div className="absolute top-4 right-6 z-30">
+        <div className="inline-flex items-center gap-1 rounded-full border border-border bg-card/90 backdrop-blur p-1 shadow-sm">
+          <span
+            className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground px-2 select-none"
+            aria-hidden
+          >
+            Demo status
+          </span>
+          {(["success", "failed", "stuck-waiting"] as const).map((s) => {
+            const active = s === status;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onStatusChange(s)}
+                className={
+                  "px-3 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap " +
+                  (active
+                    ? s === "failed"
+                      ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                      : s === "stuck-waiting"
+                        ? "bg-foreground text-background"
+                        : "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+                aria-pressed={active}
+              >
+                {s === "stuck-waiting" ? "Stuck waiting" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {children}
+    </div>
   );
 }

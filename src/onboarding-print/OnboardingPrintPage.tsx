@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Welcome } from "@/onboarding-demo/steps/Welcome";
+import { WelcomeFailed } from "@/onboarding-demo/steps/WelcomeFailed";
+import { WelcomeStuckWaiting } from "@/onboarding-demo/steps/WelcomeStuckWaiting";
 import { ProductChooser } from "@/onboarding-demo/steps/ProductChooser";
 import { InsightsQuickSetup } from "@/onboarding-demo/steps/InsightsQuickSetup";
 import { ChooseMode } from "@/onboarding-demo/steps/ChooseMode";
@@ -79,6 +81,10 @@ function renderStep(step: string) {
       return <Welcome onContinue={noop} printMode initialVariant="insights" />;
     case "welcome-celebrate":
       return <Welcome onContinue={noop} printMode initialVariant="common" />;
+    case "welcome-failed":
+      return <WelcomeFailed printMode />;
+    case "welcome-stuck-waiting":
+      return <WelcomeStuckWaiting printMode />;
     case "product-chooser":
       return <ProductChooser onPickGenie={noop} onPickInsights={noop} />;
     case "insights-setup":
