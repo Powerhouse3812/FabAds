@@ -12,8 +12,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePlan } from "@/contexts/PlanContext";
+import { UpsellEmptyState } from "@/components/upsell/UpsellEmptyState";
 
 export default function LaunchHistory() {
+  const { plan } = usePlan();
+  // AI plan: managed launches sit on Growth. Page-takeover upsell so the
+  // user never sees a half-broken table querying mutations they can't run.
+  if (plan === "ai") {
+    return (
+      <UpsellEmptyState
+        featureName="Managed ad launches"
+        valueProp="Push 50+ ads at once with proven Round Robin distribution."
+        targetTier="growth"
+        bullets={[
+          "Bulk-launch with per-account naming + dedupe",
+          "Schedule + warm-up windows baked in",
+          "Relaunch any winner from history with one click",
+        ]}
+      />
+    );
+  }
+
   const navigate = useNavigate();
   const { data: launches, isLoading } = useLaunches();
   const relaunch = useRelaunchDraft();

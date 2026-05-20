@@ -8,6 +8,8 @@ import type { LaunchStrategy } from "@/components/autopilot/AutoPilotConfigTab";
 import type { WarmupConfig } from "@/components/autopilot/AutoPilotWarmupConfigTab";
 import type { AccountState } from "@/components/autopilot/AutoPilotAccountsTab";
 import { Rocket } from "lucide-react";
+import { usePlan } from "@/contexts/PlanContext";
+import { UpsellEmptyState } from "@/components/upsell/UpsellEmptyState";
 
 let nextStrategyId = 3;
 let nextWarmupId = 3;
@@ -120,6 +122,25 @@ function computeWarmupAssignedCounts(
 }
 
 export default function AutoPilotLaunch() {
+  const { plan } = usePlan();
+  // AI plan: Autopilot is a Growth Pro feature. Page-takeover upsell —
+  // matches the LaunchAutopilotCard sub-nav nudge with the same headline
+  // claim so the user can connect the two surfaces.
+  if (plan === "ai") {
+    return (
+      <UpsellEmptyState
+        featureName="Autopilot launches"
+        valueProp="Auto-launch your top creatives across 15 accounts."
+        targetTier="growth"
+        bullets={[
+          "Per-account launch strategies + nomenclature",
+          "Warm-up windows + cooldown between launches",
+          "Pause on rejection % thresholds",
+        ]}
+      />
+    );
+  }
+
   // Launch strategies
   const [strategies, setStrategies] = useState<LaunchStrategy[]>(INITIAL_STRATEGIES);
   const [selectedId, setSelectedId] = useState<string>(INITIAL_STRATEGIES[0].id);

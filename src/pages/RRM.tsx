@@ -17,8 +17,29 @@ import { RRMEventLog } from "@/components/rrm/RRMEventLog";
 import { RRMConfigDrawer } from "@/components/rrm/RRMConfigDrawer";
 import { RRMPagesTab } from "@/components/rrm/RRMPagesTab";
 import { RRMToolsTab } from "@/components/rrm/RRMToolsTab";
+import { usePlan } from "@/contexts/PlanContext";
+import { UpsellEmptyState } from "@/components/upsell/UpsellEmptyState";
 
 export default function RRM() {
+  const { plan } = usePlan();
+  // AI plan: RRM is the Growth flagship feature. Page-takeover upsell
+  // with the 1:1:250 recovery framing — it's the term Maalik uses across
+  // sales decks, so users see consistent language across surfaces.
+  if (plan === "ai") {
+    return (
+      <UpsellEmptyState
+        featureName="Recovery & Retention Manager"
+        valueProp="Recover 1:1:250 retention patterns automatically."
+        targetTier="growth"
+        bullets={[
+          "Auto-detect ad fatigue + spend dilution",
+          "Per-account health scores with rollback triggers",
+          "Multi-account view in one drill-down",
+        ]}
+      />
+    );
+  }
+
   const { role } = useAuth();
   const workspaceId = useWorkspace();
   const { adAccounts, dataLoading } = useFbConnection();
