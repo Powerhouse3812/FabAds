@@ -245,15 +245,115 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [searchPopoverOpen, setSearchPopoverOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [drawerAd, setDrawerAd] = useState<InsightAd | null>(null);
-  const [saveModalAd, setSaveModalAd] = useState<InsightAd | null>(null);
   const [optimisticBookmarked, setOptimisticBookmarked] = useState<Set<string>>(
     () => new Set(),
   );
-  // Industry/interest/brand preference modal — opened manually from the
-  // Settings popover in the toolbar. NO LONGER auto-opens on first visit
-  // (per Maalik: the auto-popup was annoying on every navigation to feed).
-  const [prefsModalOpen, setPrefsModalOpen] = useState(false);
+
+  // A-12.179: URL-backed drawer / modal state so deep-link / refresh / back-
+  // forward reconstruct the exact open view. `?ad=<id>` for the detail
+  // drawer, `?modal=save-to-board&modal-target=<id>` for the SaveToBoard
+  // modal, `?modal=settings` for the preferences modal. Drawer/modal
+  // writes use { replace: false } so the browser back-button naturally
+  // closes them.
+  const urlAdId = searchParams.get("ad");
+  const urlModal = searchParams.get("modal");
+  const urlModalTarget = searchParams.get("modal-target");
+
+  const drawerAd = useMemo<InsightAd | null>(() => {
+    if (!urlAdId) return null;
+    return DUMMY_ADS.find((a) => a.id === urlAdId) ?? null;
+  }, [urlAdId]);
+
+  const saveModalAd = useMemo<InsightAd | null>(() => {
+    if (urlModal !== "save-to-board" || !urlModalTarget) return null;
+    return DUMMY_ADS.find((a) => a.id === urlModalTarget) ?? null;
+  }, [urlModal, urlModalTarget]);
+
+  const prefsModalOpen = urlModal === "settings";
+
+  // Deep-link safety: if `?ad=<id>` or save-to-board's modal-target points
+  // at a missing ad, silently strip the param. DUMMY_ADS is sync; once
+  // this hits a real fetch, gate on a loading flag.
+  useEffect(() => {
+    if (urlAdId && !DUMMY_ADS.some((a) => a.id === urlAdId)) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.delete("ad");
+          return sp;
+        },
+        { replace: true },
+      );
+    }
+  }, [urlAdId, setSearchParams]);
+
+  useEffect(() => {
+    if (
+      urlModal === "save-to-board" &&
+      urlModalTarget &&
+      !DUMMY_ADS.some((a) => a.id === urlModalTarget)
+    ) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.delete("modal");
+          sp.delete("modal-target");
+          return sp;
+        },
+        { replace: true },
+      );
+    }
+  }, [urlModal, urlModalTarget, setSearchParams]);
+
+  const setDrawerAd = useCallback(
+    (ad: InsightAd | null) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (ad) sp.set("ad", ad.id);
+          else sp.delete("ad");
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setSaveModalAd = useCallback(
+    (ad: InsightAd | null) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (ad) {
+            sp.set("modal", "save-to-board");
+            sp.set("modal-target", ad.id);
+          } else if (sp.get("modal") === "save-to-board") {
+            sp.delete("modal");
+            sp.delete("modal-target");
+          }
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setPrefsModalOpen = useCallback(
+    (open: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (open) sp.set("modal", "settings");
+          else if (sp.get("modal") === "settings") sp.delete("modal");
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
 
   // Sync filter/tag state -> URL (replace so back-button isn't spammed)
   useEffect(() => {

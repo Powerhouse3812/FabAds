@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useInsightBoards } from "@/hooks/use-insight-boards";
 import { CreateBoardModal } from "@/components/insights/CreateBoardModal";
 import { EditBoardModal } from "@/components/insights/EditBoardModal";
@@ -12,7 +13,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Folder, MoreVertical, Pencil, Trash2, Search, Image, Pin, PinOff } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -25,13 +25,105 @@ type SortKey = "recent" | "items" | "az";
 
 export default function InsightsBoards() {
   const { boards, isLoading, deleteBoard } = useInsightBoards();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editBoard, setEditBoard] = useState<any>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortKey>("recent");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isPinned, togglePin } = usePinnedInsightBoards();
+
+  // A-12.179: URL-backed state. `?q=`, `?sort=items|az` (omit "recent"),
+  // `?modal=create-board|edit-board|delete-board` + `?modal-target=<id>`.
+  // Deep-link / refresh / back-forward all reconstruct the open state.
+  const search = searchParams.get("q") ?? "";
+  const sort = (searchParams.get("sort") as SortKey | null) ?? "recent";
+  const modal = searchParams.get("modal");
+  const modalTarget = searchParams.get("modal-target");
+
+  const createOpen = modal === "create-board";
+  const editTargetId = modal === "edit-board" ? modalTarget : null;
+  const deleteConfirm = modal === "delete-board" ? modalTarget : null;
+
+  const setSearch = useCallback(
+    (next: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (!next) sp.delete("q");
+          else sp.set("q", next);
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setSort = useCallback(
+    (next: SortKey) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === "recent") sp.delete("sort");
+          else sp.set("sort", next);
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const openCreate = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("modal", "create-board");
+        sp.delete("modal-target");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  const openEdit = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("modal", "edit-board");
+          sp.set("modal-target", id);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const openDelete = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("modal", "delete-board");
+          sp.set("modal-target", id);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeModal = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("modal");
+        sp.delete("modal-target");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
 
   // Pin/Unpin handler — toast the cap-rejection so users learn the limit
   // without losing their click. "pinned" / "unpinned" results are silent;
@@ -56,9 +148,36 @@ export default function InsightsBoards() {
     return list;
   }, [boards, search, sort]);
 
+  // Resolve the edit-target board object from the URL id each render.
+  const editBoard = useMemo(() => {
+    if (!editTargetId) return null;
+    return (boards as any[]).find((b) => b.id === editTargetId) ?? null;
+  }, [boards, editTargetId]);
+
+  // Deep-link safety: if `?modal=edit-board` or `?modal=delete-board`
+  // references a board that has been deleted (or never existed), silently
+  // strip the modal params after the boards query has resolved.
+  useEffect(() => {
+    if (isLoading) return;
+    if (!modal || !modalTarget) return;
+    if (modal !== "edit-board" && modal !== "delete-board") return;
+    const exists = (boards as any[]).some((b) => b.id === modalTarget);
+    if (!exists) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.delete("modal");
+          sp.delete("modal-target");
+          return sp;
+        },
+        { replace: true },
+      );
+    }
+  }, [isLoading, modal, modalTarget, boards, setSearchParams]);
+
   const handleDelete = () => {
     if (!deleteConfirm) return;
-    deleteBoard.mutate(deleteConfirm, { onSuccess: () => { toast.success("Board deleted"); setDeleteConfirm(null); } });
+    deleteBoard.mutate(deleteConfirm, { onSuccess: () => { toast.success("Board deleted"); closeModal(); } });
   };
 
   return (
@@ -66,7 +185,7 @@ export default function InsightsBoards() {
       <div className="v3-page-mesh space-y-4 p-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Boards</h1>
-          <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" /> Create Board</Button>
+          <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" /> Create Board</Button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -105,7 +224,7 @@ export default function InsightsBoards() {
             <Folder className="h-12 w-12 mx-auto opacity-30" />
             <p>{search ? "No boards match your search." : "No boards yet."}</p>
             {!search && (
-              <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
+              <Button variant="outline" size="sm" onClick={openCreate}>
                 <Plus className="h-4 w-4 mr-1" /> Create your first board
               </Button>
             )}
@@ -189,10 +308,10 @@ export default function InsightsBoards() {
                               </>
                             )}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setEditBoard(board)}>
+                          <DropdownMenuItem onClick={() => openEdit(board.id)}>
                             <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(board.id)}>
+                          <DropdownMenuItem className="text-destructive" onClick={() => openDelete(board.id)}>
                             <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -233,10 +352,10 @@ export default function InsightsBoards() {
           </div>
         )}
 
-        <CreateBoardModal open={createOpen} onClose={() => setCreateOpen(false)} />
-        <EditBoardModal open={!!editBoard} onClose={() => setEditBoard(null)} board={editBoard} />
+        <CreateBoardModal open={createOpen} onClose={closeModal} />
+        <EditBoardModal open={!!editBoard} onClose={closeModal} board={editBoard} />
 
-        <AlertDialog open={!!deleteConfirm} onOpenChange={(o) => !o && setDeleteConfirm(null)}>
+        <AlertDialog open={!!deleteConfirm} onOpenChange={(o) => !o && closeModal()}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete board?</AlertDialogTitle>

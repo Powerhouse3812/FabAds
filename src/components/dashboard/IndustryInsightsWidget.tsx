@@ -59,7 +59,7 @@ export function IndustryInsightsWidget() {
         </div>
 
         <Link
-          to="/insights/intelligence"
+          to="/insights-v2/feed"
           className="text-xs font-medium text-foreground hover:underline inline-flex items-center gap-1"
         >
           Explore Insights <ArrowRight className="h-3 w-3" />

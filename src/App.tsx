@@ -33,7 +33,6 @@ import { planningRoutes } from "@/planning/routes";
 import { planningPrintRoutes } from "@/planning-print/routes";
 import { planningV2Routes } from "@/planning-v2/routes";
 
-import InsightsIntelligence from "@/pages/insights/InsightsIntelligence";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
 import InsightsBoards from "@/pages/insights/InsightsBoards";
 import InsightsBoardDetail from "@/pages/insights/InsightsBoardDetail";
@@ -179,9 +178,12 @@ const App = () => (
                     Minimal — no hero, no add-ons, 4 features per card. */}
                 {planningV2Routes}
 
-                <Route path="insights" element={<Navigate to="/insights/discover" replace />} />
+                {/* A-12.179: v1 feed deleted. /insights and the old
+                    /insights/intelligence both redirect to the v2 feed
+                    so existing inbound links / bookmarks don't 404. */}
+                <Route path="insights" element={<Navigate to="/insights-v2/feed" replace />} />
+                <Route path="insights/intelligence" element={<Navigate to="/insights-v2/feed" replace />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
-                <Route path="insights/intelligence" element={<InsightsIntelligence />} />
                 <Route path="insights/boards" element={<InsightsBoards />} />
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />
                 <Route path="insights/competitors" element={<InsightsCompetitors />} />

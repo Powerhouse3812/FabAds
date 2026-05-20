@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useInsightCompetitors, useCompetitorCounts } from "@/hooks/use-insight-competitors";
 import { AddCompetitorModal } from "@/components/insights/AddCompetitorModal";
 import { CompetitorDetailDrawer } from "@/components/insights/CompetitorDetailDrawer";
@@ -22,9 +23,77 @@ const FALLBACK_PAGE_COUNTS: Record<string, number> = { "fb-1": 1, "fb-2": 2, "fb
 
 export default function InsightsCompetitors() {
   const { competitors: dbCompetitors, isLoading } = useInsightCompetitors();
-  const [addOpen, setAddOpen] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // A-12.179: URL-backed state. `?type=domain|page` (omit on "all"),
+  // `?modal=add-competitor`, `?competitor=<id>`. Reloads/deep-links/back-
+  // forward all preserve the exact open state — mirrors Genie 6.0 pattern.
+  const typeFilter = searchParams.get("type") ?? "all";
+  const modal = searchParams.get("modal");
+  const competitorId = searchParams.get("competitor");
+  const addOpen = modal === "add-competitor";
+
+  const setTypeFilter = useCallback(
+    (next: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (!next || next === "all") sp.delete("type");
+          else sp.set("type", next);
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const openAdd = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("modal", "add-competitor");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  const closeAdd = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (sp.get("modal") === "add-competitor") sp.delete("modal");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  const openCompetitor = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("competitor", id);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeCompetitor = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("competitor");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
 
   const useDB = dbCompetitors.length > 0;
   const competitors = useDB ? dbCompetitors : FALLBACK_COMPETITORS;
@@ -50,6 +119,29 @@ export default function InsightsCompetitors() {
     return counts;
   }, [competitors]);
 
+  // Resolve the selected competitor object from the URL id. If the id
+  // refers to a deleted/unknown competitor, silently strip the param so
+  // the drawer doesn't get stuck open with no data.
+  const selected = useMemo(() => {
+    if (!competitorId) return null;
+    return competitors.find((c: any) => c.id === competitorId) ?? null;
+  }, [competitors, competitorId]);
+
+  useEffect(() => {
+    if (!competitorId || isLoading) return;
+    const exists = competitors.some((c: any) => c.id === competitorId);
+    if (!exists) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.delete("competitor");
+          return sp;
+        },
+        { replace: true },
+      );
+    }
+  }, [competitorId, competitors, isLoading, setSearchParams]);
+
   return (
     <div className="v3-page-mesh space-y-3 p-3">
       {/* Header */}
@@ -61,7 +153,7 @@ export default function InsightsCompetitors() {
             <ToggleGroupItem value="domain">Domain</ToggleGroupItem>
             <ToggleGroupItem value="page">Page</ToggleGroupItem>
           </ToggleGroup>
-          <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Button size="sm" onClick={openAdd}>
             <Plus className="h-4 w-4 mr-1" /> Add Competitor
           </Button>
         </div>
@@ -112,7 +204,7 @@ export default function InsightsCompetitors() {
               <Card
                 key={c.id}
                 className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-                onClick={() => setSelected(c)}
+                onClick={() => openCompetitor(c.id)}
               >
                 <CardContent className="p-4 space-y-3">
                   {/* Name + badges */}
@@ -158,8 +250,8 @@ export default function InsightsCompetitors() {
         </div>
       )}
 
-      <AddCompetitorModal open={addOpen} onClose={() => setAddOpen(false)} />
-      <CompetitorDetailDrawer competitor={selected} open={!!selected} onClose={() => setSelected(null)} />
+      <AddCompetitorModal open={addOpen} onClose={closeAdd} />
+      <CompetitorDetailDrawer competitor={selected} open={!!selected} onClose={closeCompetitor} />
     </div>
   );
 }

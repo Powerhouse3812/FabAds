@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useInsightBoardItems, useInsightBoards } from "@/hooks/use-insight-boards";
 import { useInsightQueue } from "@/hooks/use-insight-queue";
 import { Button } from "@/components/ui/button";
@@ -20,15 +20,106 @@ export default function InsightsBoardDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const wsId = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { items, isLoading, removeItem, bulkRemove, bulkAddToQueue, updateItemNote } = useInsightBoardItems(id);
   const { boards } = useInsightBoards();
   const { addToQueue } = useInsightQueue();
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [editOpen, setEditOpen] = useState(false);
-  const [moveOpen, setMoveOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<string | null>(null);
+  // A-12.179: URL-backed interactive state.
+  //   ?selected=id1,id2,...           bulk-select Set (omit when empty)
+  //   ?modal=edit-board               edit modal open (board = :id route param)
+  //   ?modal=move-to-board            move modal open — inherits ?selected=
+  //   ?note=<itemId>                  inline note editor open for this item
+  // `noteText` (typed content) stays local — only the open-state goes in URL.
+  const selected = useMemo<Set<string>>(() => {
+    const raw = searchParams.get("selected");
+    if (!raw) return new Set();
+    return new Set(raw.split(",").filter(Boolean));
+  }, [searchParams]);
+
+  const modal = searchParams.get("modal");
+  const editOpen = modal === "edit-board";
+  const moveOpen = modal === "move-to-board";
+  const editingNote = searchParams.get("note");
+
   const [noteText, setNoteText] = useState("");
+
+  // Seed `noteText` when the note editor opens for an item that already
+  // has a saved note — otherwise the textarea would start empty even when
+  // the user clicked the existing note to edit it.
+  useEffect(() => {
+    if (!editingNote) {
+      setNoteText("");
+      return;
+    }
+    const item = items.find((i: any) => i.id === editingNote);
+    setNoteText(item?.note ?? "");
+  }, [editingNote, items]);
+
+  const writeSelected = useCallback(
+    (next: Set<string>) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next.size === 0) sp.delete("selected");
+          else sp.set("selected", Array.from(next).join(","));
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const openModal = useCallback(
+    (which: "edit-board" | "move-to-board") => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("modal", which);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeModal = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("modal");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  const openNote = useCallback(
+    (itemId: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("note", itemId);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeNote = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("note");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
 
   const board = boards.find((b: any) => b.id === id) as any;
 
@@ -44,15 +135,14 @@ export default function InsightsBoardDetail() {
   const queuedIds = queueQuery.data ?? new Set<string>();
 
   const toggleSelect = (itemId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
-      return next;
-    });
+    const next = new Set(selected);
+    if (next.has(itemId)) next.delete(itemId);
+    else next.add(itemId);
+    writeSelected(next);
   };
 
-  const selectAll = () => setSelected(new Set(items.map((i: any) => i.id)));
-  const deselectAll = () => setSelected(new Set());
+  const selectAll = () => writeSelected(new Set(items.map((i: any) => i.id)));
+  const deselectAll = () => writeSelected(new Set());
 
   const handleBulkRemove = () => {
     bulkRemove.mutate([...selected], { onSuccess: () => { toast.success(`Removed ${selected.size} item(s)`); deselectAll(); } });
@@ -64,21 +154,21 @@ export default function InsightsBoardDetail() {
   };
 
   const handleSaveNote = (itemId: string) => {
-    updateItemNote.mutate({ itemId, note: noteText }, { onSuccess: () => { setEditingNote(null); setNoteText(""); } });
+    updateItemNote.mutate({ itemId, note: noteText }, { onSuccess: () => { closeNote(); setNoteText(""); } });
   };
 
   return (
     <div className="v3-page-mesh space-y-4 p-3">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/insights/intelligence")}><ArrowLeft className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate("/insights-v2/feed")}><ArrowLeft className="h-4 w-4" /></Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-semibold truncate">{board?.name ?? "Board Detail"}</h1>
           {board?.description && <p className="text-xs text-muted-foreground truncate">{board.description}</p>}
         </div>
         <div className="flex items-center gap-1">
           {board?.tags?.map((t: string) => <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>)}
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Button>
+          <Button variant="outline" size="sm" onClick={() => openModal("edit-board")}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Button>
         </div>
       </div>
 
@@ -106,7 +196,7 @@ export default function InsightsBoardDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setMoveOpen(true)}
+            onClick={() => openModal("move-to-board")}
             disabled={bulkRemove.isPending || bulkAddToQueue.isPending}
           >
             <FolderInput className="h-3.5 w-3.5 mr-1" />
@@ -173,19 +263,19 @@ export default function InsightsBoardDetail() {
                   <div className="space-y-1">
                     <Textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={2} placeholder="Why did you save this?" className="text-xs" />
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => setEditingNote(null)}>Cancel</Button>
+                      <Button size="sm" variant="outline" onClick={closeNote}>Cancel</Button>
                       <Button size="sm" onClick={() => handleSaveNote(item.id)}>Save</Button>
                     </div>
                   </div>
                 ) : item.note ? (
-                  <p className="text-[10px] text-muted-foreground italic cursor-pointer inline-flex items-center gap-1" onClick={() => { setEditingNote(item.id); setNoteText(item.note ?? ""); }}>
+                  <p className="text-[10px] text-muted-foreground italic cursor-pointer inline-flex items-center gap-1" onClick={() => openNote(item.id)}>
                     <StickyNote className="h-3 w-3" strokeWidth={2} aria-hidden /> {item.note}
                   </p>
                 ) : null}
 
                 <div className="flex gap-1">
                   {!item.note && editingNote !== item.id && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingNote(item.id); setNoteText(""); }} title="Add note">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openNote(item.id)} title="Add note">
                       <StickyNote className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -202,8 +292,8 @@ export default function InsightsBoardDetail() {
         </div>
       )}
 
-      <EditBoardModal open={editOpen} onClose={() => setEditOpen(false)} board={board ?? null} />
-      {id && <MoveToInsightBoardModal open={moveOpen} onClose={() => { setMoveOpen(false); deselectAll(); }} currentBoardId={id} selectedItemIds={[...selected]} />}
+      <EditBoardModal open={editOpen} onClose={closeModal} board={board ?? null} />
+      {id && <MoveToInsightBoardModal open={moveOpen} onClose={() => { closeModal(); deselectAll(); }} currentBoardId={id} selectedItemIds={[...selected]} />}
     </div>
   );
 }

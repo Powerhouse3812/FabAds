@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 import { InsightAdCard } from "@/components/insights/InsightAdCard";
@@ -17,22 +17,231 @@ import type { InsightAd } from "@/lib/insights-dummy-data";
 /**
  * InsightsDiscover — paginated grid of all ads, filterable + searchable.
  *
- * Phase C P1-I1: `?loading=1` URL flag forces the InsightAdGridSkeleton so
- * stakeholder demos can preview the loading state. When DUMMY_ADS is replaced
- * by an async fetch, this same skeleton becomes the natural loading state.
+ * A-12.179: all interactive state is URL-backed so deep-link / refresh /
+ * back-forward all reconstruct the exact view.
+ *
+ *   ?tab=trending|industry|platform     (omit on "all")
+ *   ?page=<n>                            (omit on 1)
+ *   ?perPage=<n>                         (omit on 12)
+ *   ?q=<text>                            (filter: search)
+ *   ?industry=<key>                      (filter: industry)
+ *   ?platform=<key>                      (filter: platform)
+ *   ?status=<key>                        (filter: status)
+ *   ?country=<key>                       (filter: country)
+ *   ?ad=<id>                             (opens InsightAdDetailDrawer)
+ *   ?modal=save-to-board&modal-target=<id>  (opens SaveToBoardModal)
+ *   ?loading=1                           (demo flag — forces skeleton)
+ *
+ * Filter / tab / pagination writes use { replace: true } so back-button
+ * isn't polluted by rapid changes. Drawer / modal writes use { replace:
+ * false } so back-button naturally closes them. Closing a drawer or
+ * modal strips ONLY its own params and preserves all others. Deep-link
+ * safety: if `?ad=<id>` references a missing ad, the drawer silently
+ * doesn't open and the param is stripped.
  */
+const DEFAULT_PER_PAGE = 12;
+
 export default function InsightsDiscover() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isLoading = searchParams.get("loading") === "1";
   const { data: savedAdIds } = useSavedAdIds();
   const { addBrandToCompetitors, addPageToCompetitors } = useInsightCompetitors();
-  const [filters, setFilters] = useState<InsightsFilters>(DEFAULT_FILTERS);
-  const [tab, setTab] = useState("all");
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(12);
-  const [detailAd, setDetailAd] = useState<InsightAd | null>(null);
-  const [saveBoardAd, setSaveBoardAd] = useState<InsightAd | null>(null);
 
+  // ── Derived URL state ──────────────────────────────────────────────
+  const tab = searchParams.get("tab") ?? "all";
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const perPage =
+    Math.max(1, parseInt(searchParams.get("perPage") ?? `${DEFAULT_PER_PAGE}`, 10) || DEFAULT_PER_PAGE);
+
+  const filters: InsightsFilters = useMemo(
+    () => ({
+      search: searchParams.get("q") ?? "",
+      industry: searchParams.get("industry") ?? "",
+      platform: searchParams.get("platform") ?? "",
+      status: searchParams.get("status") ?? "",
+      country: searchParams.get("country") ?? "",
+    }),
+    [searchParams],
+  );
+
+  const adId = searchParams.get("ad");
+  const modal = searchParams.get("modal");
+  const modalTarget = searchParams.get("modal-target");
+  const saveTargetId = modal === "save-to-board" ? modalTarget : null;
+
+  // ── Writers ────────────────────────────────────────────────────────
+  const setTab = useCallback(
+    (next: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === "all") sp.delete("tab");
+          else sp.set("tab", next);
+          // Tab change resets pagination — same behavior as before.
+          sp.delete("page");
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setPage = useCallback(
+    (next: number) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next <= 1) sp.delete("page");
+          else sp.set("page", String(next));
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setPerPage = useCallback(
+    (next: number) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === DEFAULT_PER_PAGE) sp.delete("perPage");
+          else sp.set("perPage", String(next));
+          sp.delete("page"); // changing perPage resets to page 1
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const setFilters = useCallback(
+    (next: InsightsFilters) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          // Map InsightsFilters fields → URL params, omitting empties.
+          if (next.search) sp.set("q", next.search);
+          else sp.delete("q");
+          if (next.industry) sp.set("industry", next.industry);
+          else sp.delete("industry");
+          if (next.platform) sp.set("platform", next.platform);
+          else sp.delete("platform");
+          if (next.status) sp.set("status", next.status);
+          else sp.delete("status");
+          if (next.country) sp.set("country", next.country);
+          else sp.delete("country");
+          // Filter changes reset pagination.
+          sp.delete("page");
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const openAd = useCallback(
+    (ad: InsightAd) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("ad", ad.id);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeAd = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("ad");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  const openSaveModal = useCallback(
+    (ad: InsightAd) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("modal", "save-to-board");
+          sp.set("modal-target", ad.id);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const closeSaveModal = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (sp.get("modal") === "save-to-board") {
+          sp.delete("modal");
+          sp.delete("modal-target");
+        }
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  // ── Resolve current ad / save target from URL ──────────────────────
+  const detailAd = useMemo<InsightAd | null>(() => {
+    if (!adId) return null;
+    return DUMMY_ADS.find((a) => a.id === adId) ?? null;
+  }, [adId]);
+
+  const saveBoardAd = useMemo<InsightAd | null>(() => {
+    if (!saveTargetId) return null;
+    return DUMMY_ADS.find((a) => a.id === saveTargetId) ?? null;
+  }, [saveTargetId]);
+
+  // Deep-link safety: if `?ad=` or `?modal-target=` references an
+  // unknown ad, strip silently. DUMMY_ADS is sync so we can check
+  // immediately — once this hits a real fetch, gate on `isLoading`.
+  useEffect(() => {
+    if (adId && !DUMMY_ADS.some((a) => a.id === adId)) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.delete("ad");
+          return sp;
+        },
+        { replace: true },
+      );
+    }
+  }, [adId, setSearchParams]);
+
+  useEffect(() => {
+    if (saveTargetId && !DUMMY_ADS.some((a) => a.id === saveTargetId)) {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (sp.get("modal") === "save-to-board") {
+            sp.delete("modal");
+            sp.delete("modal-target");
+          }
+          return sp;
+        },
+        { replace: true },
+      );
+    }
+  }, [saveTargetId, setSearchParams]);
+
+  // ── Filter pipeline (unchanged) ────────────────────────────────────
   let ads = DUMMY_ADS;
   if (tab === "trending") ads = ads.filter((_, i) => i % 3 === 0);
   if (tab === "industry" && filters.industry) ads = ads.filter((a) => a.industry === filters.industry);
@@ -55,7 +264,7 @@ export default function InsightsDiscover() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Discover</h1>
       </div>
-      <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(1); }}>
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="trending">Trending</TabsTrigger>
@@ -76,14 +285,14 @@ export default function InsightsDiscover() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
             {paginated.map((ad) => (
-              <InsightAdCard key={ad.id} ad={ad} savedCount={(savedAdIds instanceof Map ? savedAdIds.get(ad.id) : 0) ?? 0} onViewDetail={setDetailAd} onSaveToBoard={setSaveBoardAd} onAddBrandToCompetitors={(a) => addBrandToCompetitors.mutate({ name: a.brand, identifier: a.domain })} onAddPageToCompetitors={(a) => addPageToCompetitors.mutate({ name: a.pageName, pageId: a.pageId })} />
+              <InsightAdCard key={ad.id} ad={ad} savedCount={(savedAdIds instanceof Map ? savedAdIds.get(ad.id) : 0) ?? 0} onViewDetail={openAd} onSaveToBoard={openSaveModal} onAddBrandToCompetitors={(a) => addBrandToCompetitors.mutate({ name: a.brand, identifier: a.domain })} onAddPageToCompetitors={(a) => addPageToCompetitors.mutate({ name: a.pageName, pageId: a.pageId })} />
             ))}
           </div>
         )}
       </div>
       <InsightsPagination total={total} page={page} perPage={perPage} onPageChange={setPage} onPerPageChange={setPerPage} activeCount={activeCount} inactiveCount={inactiveCount} />
-      <InsightAdDetailDrawer ad={detailAd} open={!!detailAd} onClose={() => setDetailAd(null)} onSaveToBoard={setSaveBoardAd} />
-      <SaveToBoardModal open={!!saveBoardAd} onClose={() => setSaveBoardAd(null)} ad={saveBoardAd} />
+      <InsightAdDetailDrawer ad={detailAd} open={!!detailAd} onClose={closeAd} onSaveToBoard={openSaveModal} />
+      <SaveToBoardModal open={!!saveBoardAd} onClose={closeSaveModal} ad={saveBoardAd} />
     </div>
   );
 }
