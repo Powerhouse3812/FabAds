@@ -323,9 +323,17 @@ export function StudioAlpha() {
               )}
             </main>
 
-            {/* Global ContextRail — visible across all wizard steps. Container
-                is transparent so the glass rail card sits over the page mesh. */}
-            {railOpen && (
+            {/* Global ContextRail — visible across wizard steps 1-4 ONLY.
+                Hidden on step 5 (Results Queue) per Maalik A-12.183: the
+                queue surface owns its own chrome (queue list on left in V3,
+                strip on top in V1/V2) and the context rail collides with
+                that, eating horizontal space the results grid needs. The
+                expander button is also suppressed so the user can't pop
+                the rail back open mid-triage.
+
+                If the user navigates back to steps 1-4, the rail honors
+                their last open/closed preference from ?rail= URL state. */}
+            {renderStep !== 5 && railOpen && (
               <aside className="hidden shrink-0 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
                 <div className="flex-1 overflow-y-auto p-3">
                   <ContextRail
@@ -336,7 +344,7 @@ export function StudioAlpha() {
                 </div>
               </aside>
             )}
-            {!railOpen && (
+            {renderStep !== 5 && !railOpen && (
               <button
                 type="button"
                 onClick={() => setRailOpen(true)}
