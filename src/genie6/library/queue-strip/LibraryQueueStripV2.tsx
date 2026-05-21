@@ -1,99 +1,108 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { QueueBatch } from "@/genie6/studio-v4/types/queue";
-import { QueueProgressBar } from "@/genie6/studio-v4/components/queue/QueueProgressBar";
+import { resolveCompleted, type QueueBatch } from "@/genie6/studio-v4/types/queue";
 
 interface LibraryQueueStripV2Props {
   batches: QueueBatch[];
 }
 
-function formatTime(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
-    .format(d)
-    .toLowerCase()
-    .replace(/\s/g, "");
-}
-
 /**
- * LibraryQueueStripV2 — vertical compact list, one row per active batch.
+ * LibraryQueueStripV2 — "Pills" variant. Inline horizontal pills, one
+ * per active batch, all visible at once, single line, ~28px tall.
  *
- * Lives at the top of the Library / Generations page. Each row is a
- * single line (32px tall) with all signals inline:
+ * Maalik A-12.187 brief: ultra-minimal — no progress bar, just the
+ * numeric "N/M" and a tiny status dot. Overflow scrolls horizontally
+ * with a hairline scrollbar so the strip never wraps to multiple rows.
  *
- *   ┌──────────────────────────────────────────────────────────────┐
- *   │ Festive bundle   Awareness · Image Ad   ▓▓▓░░ 5/8 ⟳   2:35pm│
- *   └──────────────────────────────────────────────────────────────┘
- *   ┌──────────────────────────────────────────────────────────────┐
- *   │ Winter skincare  Performance · UGC     ░░░░░ 0/10    2:38pm│
- *   └──────────────────────────────────────────────────────────────┘
+ *   ┌────────────────────────────────────────────────────────────────────┐
+ *   │ IN QUEUE   • Festive 5/8  • Republic Day 18/50  • Winter 0/10  →  │
+ *   └────────────────────────────────────────────────────────────────────┘
  *
- * Why a separate variant: V1's tile shape works when you have 3-6 batches
- * and a wide screen. V2's row shape scales to 20+ active batches without
- * horizontal scroll AND reads as more "ops dashboard" than "marketing
- * banner." Both ship; toggle lets the user pick.
+ * Best for 1-5 active batches (all visible without scroll). Beyond
+ * that the horizontal scroll handles it gracefully. Each pill click
+ * deep-links into V3 with that batch selected.
  *
- * Clicking a row deep-links into V3 with the batch selected.
+ * No rotation, no auto-cycle — every batch is glanceable simultaneously.
+ * Use V1 (Marquee) when the queue is bigger and you want focus.
  */
 export function LibraryQueueStripV2({ batches }: LibraryQueueStripV2Props) {
   const navigate = useNavigate();
 
   return (
     <div
-      className="flex shrink-0 flex-col gap-1"
-      role="list"
-      aria-label="Generation queue (vertical rows)"
+      data-fabads-queue-pills
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-2 overflow-x-auto rounded-full border border-border bg-card pl-3 pr-2",
+        // Custom thin scrollbar so overflow doesn't add visual weight.
+        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+      )}
     >
-      {batches.map((batch) => (
-        <button
-          key={batch.id}
-          type="button"
-          onClick={() =>
-            navigate(
-              `/iq/genie6/studio-alpha/configure?queue=v3&batch=${batch.id}`,
-            )
-          }
-          role="listitem"
-          className={cn(
-            "group relative flex items-center gap-4 rounded-lg border border-border bg-card",
-            "px-3 py-2 text-left transition-all",
-            "hover:border-primary/40 hover:bg-card/80",
-          )}
-        >
-          {/* Name — flex 0, min-width caps so progress bar always has room */}
-          <h3 className="min-w-[120px] max-w-[200px] shrink-0 truncate font-sans text-[12.5px] font-semibold leading-tight text-foreground">
-            {batch.title}
-          </h3>
+      {/* Eyebrow — fixed-left, mono caps */}
+      <span className="shrink-0 font-mono text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+        In queue
+      </span>
+      <span aria-hidden className="h-3 w-px shrink-0 bg-border" />
 
-          {/* Tag chips — second column, also fixed-width-ish */}
-          {batch.tags.length > 0 && (
-            <p className="hidden min-w-[140px] shrink-0 truncate font-mono text-[9.5px] uppercase tracking-wider text-muted-foreground sm:block">
-              {batch.tags.slice(0, 2).join(" · ")}
-            </p>
-          )}
+      {batches.map((batch) => {
+        const completed = resolveCompleted(batch);
+        const total = batch.generationCount;
+        const isGenerating = batch.status === "generating";
+        const isQueued = batch.status === "queued";
+        const isFailed = batch.status === "failed";
 
-          {/* Progress bar — flex-1, takes remaining horizontal space */}
-          <div className="min-w-0 flex-1">
-            <QueueProgressBar batch={batch} size="inline" />
-          </div>
-
-          {/* Time + open hint */}
-          <time
-            dateTime={batch.submittedAt.toISOString()}
-            className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
+        return (
+          <button
+            key={batch.id}
+            type="button"
+            onClick={() =>
+              navigate(
+                `/iq/genie6/studio-alpha/configure?queue=v3&batch=${batch.id}`,
+              )
+            }
+            aria-label={`Open ${batch.title} (${completed}/${total})`}
+            title={`${batch.title} · ${completed}/${total}`}
+            className={cn(
+              "group flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2 text-[11px]",
+              "border border-transparent text-foreground/85 transition-colors",
+              "hover:border-primary/30 hover:bg-primary/[0.06] hover:text-foreground",
+              isFailed && "text-destructive",
+              isQueued && "text-muted-foreground",
+            )}
           >
-            {formatTime(batch.submittedAt)}
-          </time>
-          <ArrowUpRight
-            className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-            aria-hidden
-          />
-        </button>
-      ))}
+            {/* Status dot — color-coded, animated for generating */}
+            <span aria-hidden className="relative inline-flex h-1.5 w-1.5 shrink-0">
+              {isGenerating && (
+                <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
+              )}
+              <span
+                className={cn(
+                  "relative inline-block h-1.5 w-1.5 rounded-full",
+                  isGenerating && "bg-primary",
+                  isQueued && "bg-muted-foreground/60",
+                  isFailed && "bg-destructive",
+                  !isGenerating && !isQueued && !isFailed && "bg-primary/60",
+                )}
+              />
+            </span>
+
+            <span className="max-w-[140px] truncate font-sans font-medium">
+              {batch.title}
+            </span>
+
+            <span className="shrink-0 font-mono tabular-nums">
+              {completed}/{total}
+            </span>
+
+            {isGenerating && (
+              <Loader2
+                className="h-2.5 w-2.5 shrink-0 animate-spin text-primary"
+                aria-hidden
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

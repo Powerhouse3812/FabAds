@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LayoutGrid, List } from "lucide-react";
+import { Play, Rows3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { queueBatches } from "@/genie6/studio-v4/mocks/queue-batches";
 import type { QueueBatch } from "@/genie6/studio-v4/types/queue";
@@ -15,13 +15,18 @@ type LibraryQueueVariant = "v1" | "v2";
  * failed); ready batches are already in the grid below so they don't
  * need a duplicate progress row.
  *
- * Two layouts, switchable via URL `?qstrip=v1|v2`:
- *   - V1 (Tiles)  — horizontal compact tiles, 240×64. Best at 3-6 batches.
- *   - V2 (Rows)   — vertical compact rows, single-line each. Scales to 20+.
+ * Two ultra-minimal layouts (Maalik A-12.187 — "minimal space, no
+ * progress bar, just the number"), switchable via URL `?qstrip=v1|v2`:
+ *   - V1 (Marquee) — single batch visible, auto-cycles every 4s,
+ *                    hover pauses, ~28px tall pill row.
+ *   - V2 (Pills)   — all batches as numeric pills inline, single-row,
+ *                    horizontal scroll on overflow, ~28px tall.
  *
- * Toggle pill matches the Studio Step 5 VariantToggle pattern. The whole
- * strip is hidden entirely when there are zero active batches — never
- * eats space when not useful.
+ * Both pull rotation / count math from the same QueueBatch type. The
+ * toggle pill is inline-right of the strip so the entire surface fits
+ * in one 32px row — no separate header eating vertical space.
+ *
+ * Hidden entirely when zero active batches — never eats space for nothing.
  */
 export function LibraryQueueStrip() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,26 +68,21 @@ export function LibraryQueueStrip() {
   return (
     <section
       data-fabads-library-queue-strip={variant}
-      className="flex flex-col gap-2"
+      className="flex shrink-0 items-center gap-2"
       aria-label="Generation queue"
     >
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            In the queue
-          </h2>
-          <span className="font-mono text-[10px] tabular-nums text-muted-foreground/70">
-            {active.length} active
-          </span>
-        </div>
-        <StripVariantToggle active={variant} onSwitch={setVariant} />
-      </header>
-
-      {variant === "v1" ? (
-        <LibraryQueueStripV1 batches={active} />
-      ) : (
-        <LibraryQueueStripV2 batches={active} />
-      )}
+      {/* Variant component owns the visible chrome (eyebrow, count
+          chip, etc.) — wrapper just lays the toggle pill next to it
+          so the entire surface is one ~32px row. No separate header
+          eating vertical space. */}
+      <div className="min-w-0 flex-1">
+        {variant === "v1" ? (
+          <LibraryQueueStripV1 batches={active} />
+        ) : (
+          <LibraryQueueStripV2 batches={active} />
+        )}
+      </div>
+      <StripVariantToggle active={variant} onSwitch={setVariant} />
     </section>
   );
 }
@@ -108,15 +108,15 @@ function StripVariantToggle({
       <StripTab
         target="v1"
         active={active}
-        Icon={LayoutGrid}
-        label="Tiles"
+        Icon={Play}
+        label="Marquee"
         onSwitch={onSwitch}
       />
       <StripTab
         target="v2"
         active={active}
-        Icon={List}
-        label="Rows"
+        Icon={Rows3}
+        label="Pills"
         onSwitch={onSwitch}
       />
     </div>
