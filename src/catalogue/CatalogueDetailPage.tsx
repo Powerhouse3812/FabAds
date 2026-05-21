@@ -60,7 +60,6 @@ import {
   type ActivityKind,
 } from "@/mocks/shared";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
-import { KnowledgeBaseEmptyState } from "./KnowledgeBaseEmptyState";
 import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
 import { AnglePlaybookPanel, CATEGORIES as ANGLE_CATEGORIES } from "./AnglePlaybookPanel";
 import {
@@ -514,49 +513,15 @@ function KnowledgeBaseSection({
     setCreateKind(null);
   };
 
-  // A-12.190: KB state toggle — flips between the populated KB view
-  // (real instructions / winners / refs) and the interactive empty
-  // state. URL-backed via ?kb-state=empty so the toggle survives
-  // refresh + can be linked for design review. Default: populated.
-  const kbState = searchParams.get("kb-state") === "empty" ? "empty" : "filled";
-  const setKbState = (next: "empty" | "filled") => {
-    setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
-        if (next === "filled") sp.delete("kb-state");
-        else sp.set("kb-state", "empty");
-        return sp;
-      },
-      { replace: false },
-    );
-  };
-
   return (
     <section className="space-y-5 border-t border-border/40 pt-6">
       <SectionHeader
         title="Knowledge Base"
         icon={BookOpen}
         hint="For Genie generations"
-        trailing={
-          <KbStateToggle active={kbState} onSwitch={setKbState} />
-        }
       />
 
-      {/* A-12.190: when toggle is "empty" the section renders the
-          interactive empty state (4 action cards + hero) instead of
-          the normal panels. Each card wires into the same create
-          modals via setCreateKind, so the user can populate KB without
-          ever leaving the empty state. */}
-      {kbState === "empty" ? (
-        <KnowledgeBaseEmptyState
-          entityLabel={entityLabel}
-          onAddInstruction={() => setCreateKind("instruction")}
-          onAddWinnerAd={() => setCreateKind("winner-ad")}
-          onAddConcept={() => setCreateKind("concept")}
-        />
-      ) : (
-
-      /* A-12.42 (Maalik): tabs removed — vertical sections, scroll OK. */
+      {/* A-12.42 (Maalik): tabs removed — vertical sections, scroll OK. */}
       <div className="space-y-5">
         <KbTabPanel
           title="Main instruction"
@@ -623,7 +588,6 @@ function KnowledgeBaseSection({
           entityId={entityId}
         />
       </div>
-      )}
 
       {/* Creation modal — shared chassis for instruction / winner-ad / concept */}
       {createKind && (
@@ -637,63 +601,6 @@ function KnowledgeBaseSection({
         />
       )}
     </section>
-  );
-}
-
-/* ─── KB state toggle ─── */
-// A-12.190: tiny tablist next to the "Knowledge Base" section header that
-// flips between the populated KB view and the interactive empty state.
-// URL-backed via ?kb-state=empty so design reviews can deep-link.
-function KbStateToggle({
-  active,
-  onSwitch,
-}: {
-  active: "empty" | "filled";
-  onSwitch: (next: "empty" | "filled") => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Knowledge Base state"
-      className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5"
-    >
-      <KbStateTab target="filled" active={active} label="Filled" onSwitch={onSwitch} />
-      <KbStateTab target="empty" active={active} label="Empty" onSwitch={onSwitch} />
-    </div>
-  );
-}
-
-function KbStateTab({
-  target,
-  active,
-  label,
-  onSwitch,
-}: {
-  target: "empty" | "filled";
-  active: "empty" | "filled";
-  label: string;
-  onSwitch: (next: "empty" | "filled") => void;
-}) {
-  const isActive = active === target;
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onSwitch(target);
-      }}
-      aria-pressed={isActive}
-      title={`Knowledge Base · ${label}`}
-      className={
-        "inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider transition-colors " +
-        (isActive
-          ? "bg-primary text-primary-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground")
-      }
-    >
-      {label}
-    </button>
   );
 }
 
