@@ -527,7 +527,9 @@ function KnowledgeBaseSection({
           title="Main instruction"
           count={main ? 1 : 0}
           hint={`The default writing rules Genie follows for this ${entityLabel}.`}
-          emptyMessage={`No main instruction yet — Genie will use a generic fallback for this ${entityLabel}.`}
+          emptyMessage="No main instruction yet"
+          emptyInstructions={`Define how Genie should write for ${entityLabel} — voice, tone, must-include and must-avoid phrases. Without this, Genie falls back to a generic style.`}
+          emptyIcon={Sparkles}
           createLabel={main ? "Replace" : "Create instruction"}
           onCreate={() => setCreateKind("instruction")}
           isEmpty={!main}
@@ -543,7 +545,9 @@ function KnowledgeBaseSection({
           title="Custom instructions"
           count={custom.length}
           hint="Optional rule sets — used for campaigns, festivals, or specific product lines."
-          emptyMessage="No custom instructions yet."
+          emptyMessage="No custom instructions yet"
+          emptyInstructions="Add narrower rule sets Genie applies on top of the main instruction — Diwali tone, festive bundle copy, premium SKU voice. Stack as many as you need."
+          emptyIcon={Lightbulb}
           createLabel="Add instruction"
           onCreate={() => setCreateKind("instruction")}
           isEmpty={custom.length === 0}
@@ -567,7 +571,9 @@ function KnowledgeBaseSection({
           title="References"
           count={refs.length}
           hint="Reference URLs — landing pages, brand assets, inspiration links."
-          emptyMessage="No reference URLs saved."
+          emptyMessage="No reference URLs saved"
+          emptyInstructions="Paste landing pages, brand asset URLs, or competitor links Genie can pull style + claims from. Anything you'd point a copywriter to."
+          emptyIcon={Link2}
           createLabel="Add URL"
           onCreate={() => alert("Add reference URL — coming soon")}
           isEmpty={refs.length === 0}
@@ -609,6 +615,8 @@ function KbTabPanel({
   count,
   hint,
   emptyMessage,
+  emptyInstructions,
+  emptyIcon: EmptyIcon,
   createLabel,
   onCreate,
   isEmpty,
@@ -620,6 +628,10 @@ function KbTabPanel({
   count: number;
   hint: string;
   emptyMessage: string;
+  /** A-12.191: longer instruction paragraph shown under the empty headline. */
+  emptyInstructions?: string;
+  /** A-12.191: section-specific lucide icon for the empty state. */
+  emptyIcon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   createLabel: string;
   onCreate: () => void;
   isEmpty: boolean;
@@ -658,9 +670,41 @@ function KbTabPanel({
         </button>
       </header>
       {isEmpty ? (
-        <p className="rounded-lg border border-dashed border-border/40 px-3 py-6 text-center text-[11px] italic text-muted-foreground">
-          {emptyMessage}
-        </p>
+        /* A-12.191: section-wise empty state — icon + headline +
+            instructions + CTA. Minimal, elegant, centered. Replaces the
+            old single-line italic dashed-border placeholder which read
+            as "broken" rather than "ready to fill". */
+        <div className="flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-border/50 bg-background/40 px-4 py-5 text-center">
+          {EmptyIcon && (
+            <span
+              aria-hidden
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-foreground/[0.04] ring-1 ring-inset ring-border"
+            >
+              <EmptyIcon className="h-4 w-4 text-foreground/55" strokeWidth={1.75} />
+            </span>
+          )}
+          <p className="text-[12.5px] font-medium leading-snug text-foreground">
+            {emptyMessage}
+          </p>
+          {emptyInstructions && (
+            <p className="max-w-[420px] text-[11.5px] leading-relaxed text-muted-foreground">
+              {emptyInstructions}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onCreate}
+            className={cn(
+              "mt-1 inline-flex items-center gap-1 rounded-full px-3 py-1",
+              "bg-primary text-[11px] font-semibold text-primary-foreground shadow-sm",
+              "transition-colors hover:bg-primary/90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+            )}
+          >
+            <Plus className="h-3 w-3" strokeWidth={2.25} />
+            {createLabel}
+          </button>
+        </div>
       ) : (
         children
       )}
