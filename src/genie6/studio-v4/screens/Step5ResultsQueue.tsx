@@ -216,7 +216,11 @@ export function Step5ResultsQueue({
     setPromptText("");
   }, [promptText, atCapacity, concurrentGenerating, editingLabel, setSearchParams]);
 
-  const showVariantToggle = import.meta.env.DEV;
+  // A-12.184: variant toggle now visible in production too — Maalik is
+  // still iterating on V1/V2/V3 and needs to switch between them on the
+  // deployed URL without rebuilding. When a winner is picked, we'll
+  // either remove the toggle entirely or re-gate behind a URL param.
+  const showVariantToggle = true;
 
   // ── V3 layout ────────────────────────────────────────────────────────
   if (variant === "v3") {
