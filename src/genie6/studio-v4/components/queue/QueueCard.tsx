@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { QueueBatch } from "../../types/queue";
 import { QueueStatusPill } from "./QueueStatusPill";
+import { QueueProgressBar } from "./QueueProgressBar";
 
 interface QueueCardProps {
   batch: QueueBatch;
@@ -72,7 +73,7 @@ export function QueueCard({ batch, active, density = "compact", onClick }: Queue
         </time>
       </header>
 
-      {/* Bottom row — chips */}
+      {/* Chips row — tags + status pill (count moved into progress bar) */}
       <div className="flex flex-wrap items-center gap-1">
         {visibleTags.map((t) => (
           <span
@@ -82,13 +83,15 @@ export function QueueCard({ batch, active, density = "compact", onClick }: Queue
             {t}
           </span>
         ))}
-        <span className="inline-flex h-[18px] items-center rounded-full bg-muted/60 px-2 font-mono text-[10px] tabular-nums text-muted-foreground">
-          {batch.generationCount} generations
-        </span>
         <span className="ml-auto">
           <QueueStatusPill status={batch.status} />
         </span>
       </div>
+
+      {/* Progress bar — Maalik A-12.185: replaces the "12 generations"
+          chip with a live "N/M" count + lime fill. Inline density for
+          the strip card so it doesn't add height. */}
+      <QueueProgressBar batch={batch} size="inline" hideSpinner />
     </button>
   );
 }

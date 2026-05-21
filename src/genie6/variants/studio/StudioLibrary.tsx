@@ -1,6 +1,7 @@
 import { GeneratedOutputsTab } from "../../library/tabs/GeneratedOutputsTab";
 import { AdDetailDrawer } from "../../components/AdDetailDrawer";
 import { AngleViewMoreDrawer } from "../../components/AngleViewMoreDrawer";
+import { LibraryQueueStrip } from "../../library/queue-strip/LibraryQueueStrip";
 
 /**
  * Studio variant — Library.
@@ -23,7 +24,13 @@ export function StudioLibrary() {
             <h1 className="text-g6-h4 font-bold text-g6-text">Generations</h1>
             <p className="text-g6-xs text-g6-text-tertiary">142 outputs across all batches</p>
           </header>
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+            {/* A-12.185: live queue strip — active batches (generating /
+                queued / failed). Two layouts, toggleable via ?qstrip=v1|v2.
+                Hidden when nothing is in the queue so the grid below
+                isn't pushed down for no reason. */}
+            <LibraryQueueStrip />
+
             <GeneratedOutputsTab />
           </div>
         </div>

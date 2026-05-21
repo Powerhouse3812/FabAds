@@ -3,6 +3,7 @@ import { ChevronDown, Clock, Layers, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QueueBatch } from "../../types/queue";
 import { QueueStatusPill } from "./QueueStatusPill";
+import { QueueProgressBar } from "./QueueProgressBar";
 
 interface BatchDetailsAccordionProps {
   batch: QueueBatch;
@@ -70,23 +71,30 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
             </h2>
             <QueueStatusPill status={batch.status} />
           </div>
-          {/* At-rest meta row: chip-count + concept-count + time. Stays
-              compact so closed state is the cheap default. */}
+          {/* At-rest meta row: concept count + time. The generation count
+              moved into the progress bar below — keeps the meta row from
+              competing with the live N/M signal. */}
           <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] tabular-nums text-muted-foreground">
-            <span>{batch.generationCount} generations</span>
             {batch.concepts && batch.concepts.length > 0 && (
               <>
-                <span aria-hidden>·</span>
                 <span>{batch.concepts.length} concepts</span>
+                <span aria-hidden>·</span>
               </>
             )}
-            <span aria-hidden>·</span>
             <span>{submittedLabel}</span>
           </div>
         </div>
-        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {open ? "Hide" : "Show"} details
-        </span>
+        <div className="flex shrink-0 items-center gap-3">
+          {/* Inline progress bar in the closed header — gives the user
+              an at-a-glance N/M signal without expanding. Hide-count
+              false so the "10/50"-style chip is the primary visual. */}
+          <div className="w-[140px]">
+            <QueueProgressBar batch={batch} size="inline" hideSpinner />
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {open ? "Hide" : "Show"} details
+          </span>
+        </div>
       </button>
 
       {/* Expanded body — config grid */}

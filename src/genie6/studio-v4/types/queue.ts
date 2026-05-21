@@ -35,6 +35,21 @@ export interface QueueBatch {
   tags: string[];
   /** Total variation count — the third chip ("12 generations"). */
   generationCount: number;
+  /**
+   * How many variations have finished computing so far. Powers the
+   * progress bar + "10/50" count chip across the Studio queue strip,
+   * V3 list rows, BatchDetailsAccordion, and the new LibraryQueueStrip.
+   *
+   * Conventions:
+   *   - queued    → 0
+   *   - generating → 0..generationCount-1 (partial)
+   *   - ready     → equals generationCount (100%)
+   *   - failed    → whatever was reached when it broke
+   *
+   * Falls back to deriving from `outputs.length || (status === "ready" ?
+   * generationCount : 0)` when missing, so legacy batches stay correct.
+   */
+  completedCount?: number;
   /** The brand this batch is for (drives the small thumbnail on the card). */
   brandId?: string;
   /**
@@ -58,3 +73,17 @@ export interface QueueBatch {
 }
 
 export const MAX_CONCURRENT_GENERATING = 10;
+
+/**
+ * Resolve "how many variations done" for a batch in a way that's robust
+ * to legacy mock data missing `completedCount`. Used by every surface
+ * that renders the progress bar.
+ */
+export function resolveCompleted(batch: QueueBatch): number {
+  if (typeof batch.completedCount === "number") {
+    return Math.min(batch.completedCount, batch.generationCount);
+  }
+  if (batch.outputs && batch.outputs.length > 0) return batch.outputs.length;
+  if (batch.status === "ready") return batch.generationCount;
+  return 0;
+}

@@ -39,6 +39,7 @@ export const queueBatches: QueueBatch[] = [
     status: "ready",
     tags: ["Performance", "Story Ad"],
     generationCount: 12,
+    completedCount: 12,
     brandId: "brand-mamaearth",
     outputs: activeOutputs,
     concepts: activeConcepts,
@@ -52,6 +53,7 @@ export const queueBatches: QueueBatch[] = [
     status: "ready",
     tags: ["Performance", "Story Ad"],
     generationCount: 12,
+    completedCount: 12,
     brandId: "brand-mamaearth",
     outputs: sampleOutputs.slice(12, 24),
     concepts: [
@@ -68,6 +70,7 @@ export const queueBatches: QueueBatch[] = [
     status: "ready",
     tags: ["Performance", "Story Ad"],
     generationCount: 12,
+    completedCount: 12,
     brandId: "brand-mamaearth",
     outputs: sampleOutputs.slice(24, 36),
     concepts: [
@@ -84,6 +87,7 @@ export const queueBatches: QueueBatch[] = [
     status: "generating",
     tags: ["Awareness", "Image Ad"],
     generationCount: 8,
+    completedCount: 5,
     brandId: "brand-boat",
     prompt: "Festive Diwali bundle — gifting angle, warm tones, 1:1 image ads.",
   },
@@ -94,9 +98,24 @@ export const queueBatches: QueueBatch[] = [
     status: "queued",
     tags: ["Performance", "UGC"],
     generationCount: 10,
+    completedCount: 0,
     brandId: "brand-mamaearth",
     prompt:
       "UGC-style winter skincare push — 10 testimonial-led variations across 2 angles.",
+  },
+  // A-12.185: bigger-scale generating batch so the "10/50"-style progress
+  // chip Maalik specced actually appears in the demo at meaningful numbers.
+  {
+    id: "batch-006",
+    title: "Republic Day campaign",
+    submittedAt: at(15, 12),
+    status: "generating",
+    tags: ["Awareness", "Multi-format"],
+    generationCount: 50,
+    completedCount: 18,
+    brandId: "brand-mamaearth",
+    prompt:
+      "Republic Day patriotism push — multi-format burst, 50 variations across 5 concepts × 10 hooks.",
   },
 ];
 

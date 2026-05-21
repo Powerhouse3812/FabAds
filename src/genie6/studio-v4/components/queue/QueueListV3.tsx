@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QueueBatch } from "../../types/queue";
 import { QueueStatusPill } from "./QueueStatusPill";
+import { QueueProgressBar } from "./QueueProgressBar";
 
 interface QueueListV3Props {
   batches: QueueBatch[];
@@ -126,8 +127,8 @@ export function QueueListV3({
                       </span>
                     </div>
 
-                    {/* Bottom row — chips + time. Chips wrap if needed but
-                        the row stays single-line at common widths. */}
+                    {/* Tag chips + time. The numeric count moved into the
+                        progress bar row below. */}
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="flex min-w-0 items-center gap-1">
                         {visibleTags.map((t) => (
@@ -144,17 +145,6 @@ export function QueueListV3({
                             {t}
                           </span>
                         ))}
-                        <span
-                          className={cn(
-                            "inline-flex h-[15px] items-center rounded-full px-1.5",
-                            "font-mono text-[9.5px] tabular-nums",
-                            isActive
-                              ? "bg-primary/15 text-primary/80"
-                              : "bg-muted/60 text-muted-foreground",
-                          )}
-                        >
-                          {batch.generationCount}
-                        </span>
                       </div>
                       <time
                         dateTime={batch.submittedAt.toISOString()}
@@ -163,6 +153,11 @@ export function QueueListV3({
                         {formatTime(batch.submittedAt)}
                       </time>
                     </div>
+
+                    {/* Progress bar — replaces the bare "12" chip with a
+                        live N/M fill. Hides spinner since the row already
+                        has a status pill carrying the generating state. */}
+                    <QueueProgressBar batch={batch} size="inline" hideSpinner />
                   </button>
                 </li>
               );
