@@ -4,6 +4,7 @@ import { Search, Grid3X3, List as ListIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GeneratedOutputsTab } from "../../library/tabs/GeneratedOutputsTab";
 import { PreviewPane } from "../../components/PreviewPane";
+import { LibraryQueueStrip } from "../../library/queue-strip/LibraryQueueStrip";
 import { brands } from "../../mocks/brands";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 
@@ -96,6 +97,13 @@ export function CanvasLibrary() {
             <ListIcon className="h-3.5 w-3.5" />
           </button>
         </div>
+      </div>
+
+      {/* A-12.188: queue marquee — mounted in all 4 variants now (was
+          previously Studio-only, so Canvas/Command/Modular users never
+          saw the strip). */}
+      <div className="relative z-10 px-5 pt-1 pb-2">
+        <LibraryQueueStrip />
       </div>
 
       <div className="relative z-10 flex flex-1 overflow-hidden">

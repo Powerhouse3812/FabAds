@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Search, Plus } from "lucide-react";
 import { GeneratedOutputsTab } from "../../library/tabs/GeneratedOutputsTab";
 import { PreviewPane } from "../../components/PreviewPane";
+import { LibraryQueueStrip } from "../../library/queue-strip/LibraryQueueStrip";
 import { brands } from "../../mocks/brands";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 
@@ -76,6 +77,12 @@ export function ModularLibrary() {
               <option value="winner">winners</option>
               <option value="paused">paused</option>
             </select>
+          </div>
+
+          {/* A-12.188: queue marquee — same minimal one-row treatment
+              as the other 3 variants. */}
+          <div className="mb-3">
+            <LibraryQueueStrip />
           </div>
 
           <div className="flex-1 overflow-y-auto">

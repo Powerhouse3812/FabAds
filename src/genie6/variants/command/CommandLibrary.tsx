@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Search, Plus, Database } from "lucide-react";
 import { GeneratedOutputsTab } from "../../library/tabs/GeneratedOutputsTab";
 import { PreviewPane } from "../../components/PreviewPane";
+import { LibraryQueueStrip } from "../../library/queue-strip/LibraryQueueStrip";
 import { brands } from "../../mocks/brands";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 
@@ -71,6 +72,12 @@ export function CommandLibrary() {
               <option value="paused">Paused</option>
             </select>
             <span className="ml-auto font-g6-mono text-g6-xs text-g6-text-tertiary">142 results</span>
+          </div>
+
+          {/* A-12.188: queue marquee — same one-row treatment as the
+              other 3 variants; sits between the toolbar and the grid. */}
+          <div className="px-5 pt-3">
+            <LibraryQueueStrip />
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
