@@ -31,6 +31,13 @@ interface SavedStore {
   /** A-12.42: products added via Brand-Detail "Add product". Surface in
    *  global /catalogue/products grid + on the brand's Products tab. */
   products: Product[];
+  /**
+   * A-12.192: IDs the user has explicitly dismissed (soft-deleted). Works
+   * for BOTH seed-mock items (which can't be mutated in place) and
+   * session-saved items — filtering at the consumer's render time hides
+   * them uniformly. Persistence is in-memory; refresh restores them.
+   */
+  dismissedIds: string[];
 }
 
 let state: SavedStore = {
@@ -38,6 +45,7 @@ let state: SavedStore = {
   concepts: [],
   instructions: [],
   products: [],
+  dismissedIds: [],
 };
 const listeners = new Set<() => void>();
 
@@ -104,9 +112,66 @@ export function addProduct(product: Product) {
   emit();
 }
 
+/**
+ * A-12.192: soft-delete by id. Works on both seed-mock items (where we
+ * can't mutate the source) and session-saved items. The corresponding
+ * remove* helpers below also strip the item from its in-memory list so
+ * a re-add with the same id surfaces freshly. Idempotent — repeated
+ * calls with the same id no-op.
+ */
+export function dismissItem(id: string) {
+  if (state.dismissedIds.includes(id)) return;
+  state = { ...state, dismissedIds: [...state.dismissedIds, id] };
+  emit();
+}
+
+/** Undo a dismissal. Used by future "Restore" affordance or testing. */
+export function restoreItem(id: string) {
+  if (!state.dismissedIds.includes(id)) return;
+  state = {
+    ...state,
+    dismissedIds: state.dismissedIds.filter((x) => x !== id),
+  };
+  emit();
+}
+
+/** Remove a user-saved instruction outright from the saved list. Pair
+ *  with dismissItem(id) to also hide any seed-mock instruction sharing
+ *  the same id (none should, but the dismissal is cheap insurance). */
+export function removeInstruction(id: string) {
+  state = {
+    ...state,
+    instructions: state.instructions.filter((i) => i.id !== id),
+  };
+  emit();
+}
+
+/** Same shape for winners + concepts so the saved-store carries the
+ *  full delete API surface, not just instructions. */
+export function removeWinnerAd(id: string) {
+  state = {
+    ...state,
+    winners: state.winners.filter((w) => w.id !== id),
+    // Also drop any auto-derived concept that referenced this winner.
+    concepts: state.concepts.filter((c) => c.winnerAdId !== id),
+  };
+  emit();
+}
+
+export function removeConcept(id: string) {
+  state = { ...state, concepts: state.concepts.filter((c) => c.id !== id) };
+  emit();
+}
+
 /** Reset the store (for tests or "clear session" UI). */
 export function resetSavedStore() {
-  state = { winners: [], concepts: [], instructions: [], products: [] };
+  state = {
+    winners: [],
+    concepts: [],
+    instructions: [],
+    products: [],
+    dismissedIds: [],
+  };
   emit();
 }
 
@@ -157,4 +222,12 @@ export function useSavedProducts(): Product[] {
 export function useSavedProductsForBrand(brandId: BrandId): Product[] {
   const { products } = useSavedStore();
   return products.filter((p) => p.brandId === brandId);
+}
+
+/**
+ * A-12.192: live set of dismissed ids. Consumers filter their seed +
+ * saved lists through this so the user's deletes take effect uniformly.
+ */
+export function useDismissedIds(): string[] {
+  return useSavedStore().dismissedIds;
 }

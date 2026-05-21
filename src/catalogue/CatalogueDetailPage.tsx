@@ -66,6 +66,9 @@ import {
   addInstruction as savedAddInstruction,
   addWinnerAd as savedAddWinnerAd,
   addConcept as savedAddConcept,
+  dismissItem,
+  removeInstruction as savedRemoveInstruction,
+  useDismissedIds,
   useSavedProductsForBrand,
   useSavedInstructionsForEntity,
   useSavedWinnersForEntity,
@@ -495,11 +498,38 @@ function KnowledgeBaseSection({
   // A-12.61 (Maalik): concepts derivation dropped — KB no longer renders
   // a Concepts sub-section. Concepts are an output of KB, not an input.
   const savedInstr = useSavedInstructionsForEntity(entityType, entityId);
+  // A-12.192: dismissedIds live in the global saved-store. We filter
+  // seed + saved instructions + references through this set so the user
+  // can soft-delete any KB row and watch the empty states render.
+  const dismissedIds = useDismissedIds();
+  const isDismissed = (id: string) => dismissedIds.includes(id);
 
   const seedInstr = getInstructionsForEntity(entityType, entityId);
-  const main = seedInstr.main;
-  const custom = [...seedInstr.custom, ...savedInstr];
-  const refs = getReferenceUrlsForEntity(entityType, entityId);
+  // Main is a single item, not a list — null it out when dismissed so
+  // KbTabPanel falls into its empty branch.
+  const main = seedInstr.main && !isDismissed(seedInstr.main.id) ? seedInstr.main : undefined;
+  const custom = [...seedInstr.custom, ...savedInstr].filter(
+    (i) => !isDismissed(i.id),
+  );
+  const refs = getReferenceUrlsForEntity(entityType, entityId).filter(
+    (r) => !isDismissed(r.id),
+  );
+
+  /**
+   * Delete a KB row. Soft-dismisses the id for seed items (so the mock
+   * stays intact across refreshes for other entities), and additionally
+   * strips user-saved instructions from the saved-store list — they
+   * weren't seed, so dismissal alone would leak the row through the
+   * session-lifecycle. Order matters: remove first (no-op if not saved),
+   * then dismiss for the seed-fallback path.
+   */
+  const deleteInstruction = (id: string) => {
+    savedRemoveInstruction(id);
+    dismissItem(id);
+  };
+  const deleteReference = (id: string) => {
+    dismissItem(id);
+  };
 
   const handleSaved = (
     saved:
@@ -536,7 +566,7 @@ function KnowledgeBaseSection({
         >
           {main && (
             <ul className="space-y-2">
-              <InstructionRow item={main} />
+              <InstructionRow item={main} onDelete={deleteInstruction} />
             </ul>
           )}
         </KbTabPanel>
@@ -554,7 +584,7 @@ function KnowledgeBaseSection({
         >
           <ul className="space-y-2">
             {custom.map((it) => (
-              <InstructionRow key={it.id} item={it} />
+              <InstructionRow key={it.id} item={it} onDelete={deleteInstruction} />
             ))}
           </ul>
         </KbTabPanel>
@@ -580,7 +610,7 @@ function KnowledgeBaseSection({
         >
           <ul className="space-y-1.5">
             {refs.map((r) => (
-              <RefRow key={r.id} item={r} />
+              <RefRow key={r.id} item={r} onDelete={deleteReference} />
             ))}
           </ul>
         </KbTabPanel>
@@ -943,14 +973,20 @@ function UsedElsewhereCards({
   );
 }
 
-function RefRow({ item: r }: { item: ReferenceUrl }) {
+function RefRow({
+  item: r,
+  onDelete,
+}: {
+  item: ReferenceUrl;
+  onDelete?: (id: string) => void;
+}) {
   return (
-    <li>
+    <li className="group/refrow relative">
       <a
         href={r.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2 text-[11px] transition-colors hover:border-foreground/20 hover:bg-background"
+        className="flex items-center gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2 pr-9 text-[11px] transition-colors hover:border-foreground/20 hover:bg-background"
       >
         <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium text-foreground">{r.label}</span>
@@ -959,11 +995,35 @@ function RefRow({ item: r }: { item: ReferenceUrl }) {
         </span>
         <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
       </a>
+      {/* A-12.192: delete button overlays the row at top-right. Lives
+          OUTSIDE the <a> so its click doesn't trigger navigation. Only
+          visible on hover/focus to keep the row clean at rest. */}
+      {onDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(r.id);
+          }}
+          aria-label={`Delete reference ${r.label}`}
+          title={`Delete ${r.label}`}
+          className="absolute right-1.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover/refrow:opacity-100"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      )}
     </li>
   );
 }
 
-function InstructionRow({ item }: { item: KbInstruction }) {
+function InstructionRow({
+  item,
+  onDelete,
+}: {
+  item: KbInstruction;
+  onDelete?: (id: string) => void;
+}) {
   return (
     <li className="flex items-start gap-3 rounded-lg border border-border/40 bg-background px-3 py-2">
       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -978,7 +1038,13 @@ function InstructionRow({ item }: { item: KbInstruction }) {
       </div>
       <div className="flex items-center gap-1">
         <IconBtn label="Edit" icon={Pencil} onClick={() => alert(`Edit "${item.name}" — coming soon`)} />
-        <IconBtn label="Delete" icon={Trash2} onClick={() => alert(`Delete "${item.name}" — coming soon`)} />
+        {/* A-12.192: delete is wired live. Edit stays as a "coming soon"
+            stub until the edit modal lands. */}
+        <IconBtn
+          label="Delete"
+          icon={Trash2}
+          onClick={() => onDelete?.(item.id)}
+        />
       </div>
     </li>
   );
