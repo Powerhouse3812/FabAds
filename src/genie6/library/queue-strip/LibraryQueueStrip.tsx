@@ -35,15 +35,17 @@ export function LibraryQueueStrip() {
 
   const setVariant = useCallback(
     (next: LibraryQueueVariant) => {
-      setSearchParams(
-        (prev) => {
-          const sp = new URLSearchParams(prev);
-          if (next === "v1") sp.delete("qstrip");
-          else sp.set("qstrip", next);
-          return sp;
-        },
-        { replace: true },
-      );
+      // A-12.189: switched from replace:true to push (default) — the
+      // previous replace was making the variant change invisible in the
+      // address bar AND skipping a re-render in some Vercel SPA setups.
+      // Push: URL changes visibly, back-button restores the previous
+      // variant (acceptable since the toggle is meaningful UI state).
+      setSearchParams((prev) => {
+        const sp = new URLSearchParams(prev);
+        if (next === "v1") sp.delete("qstrip");
+        else sp.set("qstrip", next);
+        return sp;
+      });
     },
     [setSearchParams],
   );
@@ -140,13 +142,23 @@ function StripTab({
   return (
     <button
       type="button"
-      onClick={() => {
-        if (!isActive) onSwitch(target);
+      // A-12.189: always fire onSwitch on click — the previous
+      // `if (!isActive) onSwitch(target)` guard was harmless logically
+      // but defensive enough that if `active` was ever stale (e.g. from
+      // a parent memo / context that hadn't re-derived), the click
+      // silently became a no-op. The parent's setVariant already
+      // short-circuits the URL write when target === current, so this
+      // is safe to call unconditionally.
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onSwitch(target);
       }}
       aria-pressed={isActive}
       title={`Queue strip · ${label}`}
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-1 font-mono text-[9.5px] uppercase tracking-wider transition-colors",
+        "cursor-pointer", // explicit pointer for the tablist
         isActive
           ? "bg-primary text-primary-foreground shadow-sm"
           : "text-muted-foreground hover:text-foreground",
