@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ChevronDown, Clock, Layers, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QueueBatch } from "../../types/queue";
@@ -11,9 +12,9 @@ interface BatchDetailsAccordionProps {
 
 /**
  * BatchDetailsAccordion — collapsible config strip pinned ABOVE the results
- * in the V3 right pane. Closed-by-default (Maalik A-12.182): chevron toggle
- * + title + status pill + tiny meta row visible at rest; expanded reveals
- * prompt + per-concept breakdown + tag chips + submission timestamp.
+ * in the V3 right pane. Closed-by-default: chevron toggle + title + status
+ * pill + tiny meta row visible at rest; expanded reveals prompt + per-concept
+ * breakdown + tag chips + submission timestamp.
  *
  * Why an accordion vs. a sticky strip:
  *   - Per-batch config differs (different prompts, concept counts, status).
@@ -21,16 +22,29 @@ interface BatchDetailsAccordionProps {
  *     just wants to triage results.
  *   - Closed state keeps the right pane breathing-room-rich while preserving
  *     the most important signals (title + status).
- *   - Expanded state surfaces everything the user might need to remember
- *     what this batch is: prompt snippet, concepts, count, tags, time.
  *
- * State is local to this component — opening one batch's accordion doesn't
- * persist across selection changes. Each batch has its own remembered state
- * in this iter; could be promoted to URL (?details=open) if Maalik requests
- * shareable links to the expanded view.
+ * State (A-12.186): open/closed lives in the URL as `?details=open` so
+ * refresh, deep-links, and back/forward all preserve the expanded view.
+ * Single global flag — only one accordion renders at a time (the active
+ * batch's), so when the user switches batches the state carries over.
+ * Toggle uses `{ replace: true }` so back-button doesn't unwind through
+ * every open/close.
  */
 export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
-  const [open, setOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const open = searchParams.get("details") === "open";
+
+  const toggleOpen = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (open) sp.delete("details");
+        else sp.set("details", "open");
+        return sp;
+      },
+      { replace: true },
+    );
+  }, [open, setSearchParams]);
 
   const submitted = batch.submittedAt;
   const submittedLabel = new Intl.DateTimeFormat(undefined, {
@@ -49,7 +63,7 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
       {/* Header row — always visible. Click anywhere on the row toggles. */}
       <button
         type="button"
-        onClick={() => setOpen((p) => !p)}
+        onClick={toggleOpen}
         aria-expanded={open}
         aria-controls="batch-details-body"
         className={cn(
