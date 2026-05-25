@@ -1,31 +1,31 @@
 /**
- * ManageSubscriptionModal — A-12.182 redesign.
+ * ManageSubscriptionModal — A-12.183 URL-state pass.
  *
- * Previous version (A-12.181) stacked 4 identical bordered cards which
- * read as a flat "list of boxes" with no hierarchy — Maalik flagged it
- * as generic SaaS chrome. This pass redesigns the visual layer (the
- * state, URL contract, and confirmation flow are unchanged):
+ * Every interactive state in this modal is now URL-backed so deep-link /
+ * refresh / back-forward all reconstruct the exact view. Matches the
+ * maximalist URL-state pattern Maalik shipped across Industry Insights
+ * (A-12.179).
  *
- *   1. Sections with mono caps eyebrows split "Your plan" (one row,
- *      visually prominent) from "Add-ons & trials" (open list, no per-
- *      row borders — just hairline dividers between rows). Like Stripe
- *      billing portal and Linear settings — quiet on the list, loud on
- *      the summary.
+ * URL contract:
+ *   ?manage=open                  — modal open at step 1 (edit subscriptions)
+ *   ?manage=confirm               — modal open at step 2 (confirm AlertDialog
+ *                                   stacked over the editor; back button
+ *                                   returns to step 1)
+ *   ?cancel=id1,id2,id3           — staged cancellations (Set serialised as
+ *                                   comma-separated IDs; omit when empty)
+ *   ?autorenew=off                — IQ Credits auto-renew explicit off
+ *                                   (omit when "on" = the default)
  *
- *   2. Total is the HERO. Lime-tinted gradient block, mono caps
- *      eyebrow + 30px Geist Mono display number + lime delta chip when
- *      amount drops. Reads as a conclusion, not just another row.
+ * Writes use { replace: false } so the back button:
+ *   - from confirm → editor (Save → Go back)
+ *   - from editor → modal closed (X / Esc / backdrop / Cancel)
+ *   - from a staged Cancel → restored state
+ * all step naturally through history.
  *
- *   3. Action footer is pure — selected count + Cancel + Save. No
- *      heading-level chrome competing with the total above it.
- *
- * URL-driven via `?manage=open`. Staged cancellations + auto-renew
- * state live in local useState; closing without Save discards them
- * (matches Maalik's "Cancel = discard" rule). Save opens a nested
- * shadcn AlertDialog confirming the exact cancels + new total +
- * effective date.
+ * Visual layer (sections + hero total + hover-revealed cancel buttons)
+ * unchanged from A-12.182 — that hierarchy redesign stays.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowRight, Info, Lock, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -74,7 +74,6 @@ function formatUsd(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
-/** Right-column price string per line. Trials read as a chip; the plan + add-ons get $/mo or one-time. */
 function formatLinePrice(line: SubscriptionLine): string {
   if (line.kind === "trial") return "Free";
   if (line.billingLabel === "one-time") return "one-time";
@@ -104,49 +103,110 @@ function SectionEyebrow({
   );
 }
 
+const INITIAL_AUTORENEW =
+  SUBSCRIPTION_LINES.find((l) => l.id === "addon-iq-credits")?.autoRenew ??
+  true;
+
 export function ManageSubscriptionModal() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const isOpen = searchParams.get("manage") === "open";
 
-  // Local editing state — transient, not URL-backed.
-  const [stagedCancels, setStagedCancels] = useState<Set<string>>(new Set());
-  const [autoRenewCredits, setAutoRenewCredits] = useState<boolean>(
-    SUBSCRIPTION_LINES.find((l) => l.id === "addon-iq-credits")?.autoRenew ??
-      true,
-  );
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  /* ── Derive every piece of state from the URL ────────────────────── */
 
-  const resetStaged = useCallback(() => {
-    setStagedCancels(new Set());
-    setAutoRenewCredits(
-      SUBSCRIPTION_LINES.find((l) => l.id === "addon-iq-credits")?.autoRenew ??
-        true,
-    );
-  }, []);
+  const manageState = searchParams.get("manage"); // "open" | "confirm" | null
+  const isOpen = manageState === "open" || manageState === "confirm";
+  const isConfirmStep = manageState === "confirm";
 
+  // `?cancel=id1,id2,id3` → Set<string>. Filter to known IDs so a typo
+  // in the URL can't accidentally "cancel" something that doesn't exist.
+  const stagedCancels = useMemo<Set<string>>(() => {
+    const raw = searchParams.get("cancel");
+    if (!raw) return new Set();
+    const known = new Set(SUBSCRIPTION_LINES.map((l) => l.id));
+    return new Set(raw.split(",").filter((id) => known.has(id)));
+  }, [searchParams]);
+
+  // Auto-renew is "off" only when the URL explicitly says so. Default = on.
+  const autoRenewParam = searchParams.get("autorenew");
+  const autoRenewCredits = autoRenewParam === "off" ? false : true;
+  const autoRenewChanged = autoRenewCredits !== INITIAL_AUTORENEW;
+
+  /* ── Writers ─────────────────────────────────────────────────────── */
+
+  /** Strip every modal-related param at once — used on close + commit. */
   const close = useCallback(() => {
-    resetStaged();
-    setConfirmOpen(false);
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
         sp.delete("manage");
+        sp.delete("cancel");
+        sp.delete("autorenew");
         return sp;
       },
       { replace: false },
     );
-  }, [resetStaged, setSearchParams]);
+  }, [setSearchParams]);
 
-  const toggleCancel = useCallback((id: string) => {
-    setStagedCancels((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  /** Toggle a line's staged-cancel state. Writes the new Set to ?cancel=. */
+  const toggleCancel = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          const raw = sp.get("cancel");
+          const set = new Set(raw ? raw.split(",").filter(Boolean) : []);
+          if (set.has(id)) set.delete(id);
+          else set.add(id);
+          if (set.size === 0) sp.delete("cancel");
+          else sp.set("cancel", Array.from(set).join(","));
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
 
-  /* ── Derived ───────────────────────────────────────────────────── */
+  /** Flip auto-renew. "off" goes into URL; "on" (default) clears the param. */
+  const setAutoRenew = useCallback(
+    (next: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === INITIAL_AUTORENEW) sp.delete("autorenew");
+          else sp.set("autorenew", next ? "on" : "off");
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  /** Transition to confirm step — keeps cancel + autorenew params, swaps manage value. */
+  const openConfirm = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("manage", "confirm");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  /** Confirm dialog → back to editor. Reverses the openConfirm transition. */
+  const closeConfirm = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("manage", "open");
+        return sp;
+      },
+      { replace: false },
+    );
+  }, [setSearchParams]);
+
+  /* ── Derived totals ─────────────────────────────────────────────── */
 
   const planLine = useMemo(
     () => SUBSCRIPTION_LINES.find((l) => l.kind === "plan"),
@@ -178,11 +238,6 @@ export function ManageSubscriptionModal() {
 
   const delta = previousMonthlyTotal - newMonthlyTotal;
   const hasDelta = delta > 0.0001;
-
-  const initialAutoRenew =
-    SUBSCRIPTION_LINES.find((l) => l.id === "addon-iq-credits")?.autoRenew ??
-    true;
-  const autoRenewChanged = autoRenewCredits !== initialAutoRenew;
   const hasStagedChanges = stagedCancels.size > 0 || autoRenewChanged;
 
   /* ── Confirmation copy ─────────────────────────────────────────── */
@@ -225,7 +280,6 @@ export function ManageSubscriptionModal() {
       }}
     >
       <DialogContent className="max-w-2xl gap-0 p-0 font-sans">
-        {/* HEADER */}
         <DialogHeader className="space-y-1.5 border-b border-border/60 px-6 py-5">
           <DialogTitle className="text-[17px] font-semibold tracking-tight">
             Manage subscription
@@ -238,12 +292,11 @@ export function ManageSubscriptionModal() {
 
         {/* BODY */}
         <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
-          {/* ── Your plan section ─────────────────────────────────── */}
+          {/* Your plan */}
           {planLine && (
             <section>
               <SectionEyebrow label="Your plan" />
               <div className="flex items-center gap-3 py-2">
-                {/* Lime icon tile */}
                 <span
                   aria-hidden
                   className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary"
@@ -253,7 +306,6 @@ export function ManageSubscriptionModal() {
                     strokeWidth={2.25}
                   />
                 </span>
-                {/* Name + sub */}
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold text-foreground">
                     {planLine.name}
@@ -262,7 +314,6 @@ export function ManageSubscriptionModal() {
                     {planLine.description}
                   </p>
                 </div>
-                {/* Price */}
                 <div className="shrink-0 text-right">
                   <p className="font-mono text-[15px] font-semibold tabular-nums text-foreground">
                     {formatUsd(planLine.monthlyContributionUsd)}
@@ -271,7 +322,6 @@ export function ManageSubscriptionModal() {
                     per month
                   </p>
                 </div>
-                {/* Manage link (replaces disabled Cancel) */}
                 <div className="shrink-0 self-center pl-1">
                   {planLine.lockedReason ? (
                     <Tooltip>
@@ -305,10 +355,9 @@ export function ManageSubscriptionModal() {
             </section>
           )}
 
-          {/* Divider between sections */}
           <div className="my-5 h-px bg-border/60" />
 
-          {/* ── Add-ons & trials section ──────────────────────────── */}
+          {/* Add-ons & trials */}
           <section>
             <SectionEyebrow
               label="Add-ons & trials"
@@ -328,14 +377,9 @@ export function ManageSubscriptionModal() {
                       isStaged && "opacity-50",
                     )}
                   >
-                    {/* LEFT — name + meta + autorenew sub-row */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/45",
-                          )}
-                        >
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
                           {KIND_LABEL[line.kind]}
                         </span>
                         {line.kind === "trial" && (
@@ -371,7 +415,7 @@ export function ManageSubscriptionModal() {
                           <Switch
                             id="autorenew-iq-credits"
                             checked={autoRenewCredits}
-                            onCheckedChange={setAutoRenewCredits}
+                            onCheckedChange={setAutoRenew}
                             disabled={isStaged}
                             className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-3"
                           />
@@ -385,7 +429,6 @@ export function ManageSubscriptionModal() {
                       )}
                     </div>
 
-                    {/* MIDDLE — price column */}
                     <div className="shrink-0 self-start pt-4 text-right">
                       <p
                         className={cn(
@@ -397,7 +440,6 @@ export function ManageSubscriptionModal() {
                       </p>
                     </div>
 
-                    {/* RIGHT — cancel control */}
                     <div className="shrink-0 self-center pt-2">
                       <button
                         type="button"
@@ -416,8 +458,6 @@ export function ManageSubscriptionModal() {
                 );
               })}
 
-              {/* Locked plan reminder — collapsed at end so it's discoverable
-                  without competing with active rows. */}
               {planLine?.lockedReason && (
                 <li className="flex items-center gap-2 pt-3 text-[11px] text-muted-foreground">
                   <Lock className="h-3 w-3 shrink-0" aria-hidden />
@@ -434,7 +474,6 @@ export function ManageSubscriptionModal() {
             </ul>
           </section>
 
-          {/* ── Heads-up — single line, subtle ────────────────────── */}
           <div className="mt-5 flex items-start gap-2 rounded-md bg-primary/[0.07] px-3 py-2 text-[12px] text-foreground/75">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground/55" />
             <span>
@@ -447,9 +486,8 @@ export function ManageSubscriptionModal() {
           </div>
         </div>
 
-        {/* ── HERO TOTAL + ACTION FOOTER ──────────────────────────── */}
+        {/* HERO TOTAL + ACTION FOOTER */}
         <div className="border-t border-border/60 bg-gradient-to-r from-primary/[0.06] to-transparent">
-          {/* Total — display number, lime delta chip if amount drops */}
           <div className="flex items-end justify-between gap-3 px-6 pt-5">
             <div>
               <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground/55">
@@ -479,7 +517,6 @@ export function ManageSubscriptionModal() {
             </div>
           </div>
 
-          {/* Action bar */}
           <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 px-6 py-3.5">
             <span className="text-[12px] text-muted-foreground">
               {stagedCancels.size > 0
@@ -497,7 +534,7 @@ export function ManageSubscriptionModal() {
               <Button
                 size="sm"
                 disabled={!hasStagedChanges}
-                onClick={() => setConfirmOpen(true)}
+                onClick={openConfirm}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Save changes
@@ -507,10 +544,17 @@ export function ManageSubscriptionModal() {
         </div>
 
         {/*
-         * Nested confirmation — Radix handles portal stacking so the
-         * AlertDialog renders above the parent Dialog without z-index war.
+         * Confirmation step — also URL-backed. `?manage=confirm` shows
+         * this AlertDialog stacked on the editor; the back button (or
+         * the "Go back" button) returns to `?manage=open` so the editor
+         * is preserved with all staged params intact.
          */}
-        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialog
+          open={isConfirmStep}
+          onOpenChange={(open) => {
+            if (!open) closeConfirm();
+          }}
+        >
           <AlertDialogContent className="font-sans">
             <AlertDialogHeader>
               <AlertDialogTitle>Confirm subscription changes?</AlertDialogTitle>
@@ -519,7 +563,9 @@ export function ManageSubscriptionModal() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Go back</AlertDialogCancel>
+              <AlertDialogCancel onClick={closeConfirm}>
+                Go back
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirm}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
