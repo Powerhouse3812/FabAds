@@ -48,6 +48,7 @@ import RRMSettings from "@/pages/RRMSettings";
 import NotFound from "@/pages/NotFound";
 import ResetPassword from "@/pages/ResetPassword";
 import ClientManagement from "@/pages/ClientManagement";
+import WorkspaceSettings from "@/pages/WorkspaceSettings";
 import AdAccountsReport from "@/pages/reports/AdAccountsReport";
 import CampaignsReport from "@/pages/reports/CampaignsReport";
 import AdSetsReport from "@/pages/reports/AdSetsReport";
@@ -200,6 +201,11 @@ const App = () => (
                 <Route path="rrm/settings" element={<RRMSettings />} />
                 <Route path="ums" element={<UMS />} />
                 <Route path="settings/clients" element={<ClientManagement />} />
+                {/* A-12.181: Workspace Settings — Plans & Payment tab.
+                    Tab state URL-backed via ?tab=plans-payment (default),
+                    members/workspace/notifications/activity/logs all stub
+                    "coming soon" — demo scope. */}
+                <Route path="settings" element={<WorkspaceSettings />} />
                 <Route path="dashboard" element={<Dashboard />} />
 
                 {/* Catalogue — new FabAds-wide module */}
