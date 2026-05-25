@@ -18,45 +18,56 @@
    ============================================================ */
 
 [data-theme="light"] {
-  /* Brand */
-  --g6-color-primary: #c3eb42;
-  --g6-color-primary-hover: #d4f267;
-  --g6-color-primary-active: #9cc42d;
-  --g6-color-primary-bg: #f9ffe2;
-  --g6-color-primary-bg-hover: #f3ffce;
-  --g6-color-primary-border: #e6f4a3;
+  /* Brand — Fabfunnel DS v1.2 (May 2026 migration)
+     Primary lime moved from #c3eb42 → #8FB821 for AA accessibility.
+     fab-funnel/6 = primary fill, /7 = border, /8 = active + text-on-light. */
+  --g6-color-primary: #8FB821;          /* fab-funnel/6 */
+  --g6-color-primary-hover: #AACF32;    /* fab-funnel/5 */
+  --g6-color-primary-active: #5B7611;   /* fab-funnel/8 — re-aliased per R6 */
+  --g6-color-primary-bg: #F5FBE2;       /* fab-funnel/1 — soft tint */
+  --g6-color-primary-bg-hover: #EBF6BF; /* fab-funnel/2 — NEW v1.2 */
+  --g6-color-primary-border: #749818;   /* fab-funnel/7 — was #e6f4a3 (failed 1.22:1) */
+  --g6-color-primary-text: #5B7611;     /* NEW v1.2 — lime as TEXT, passes AA 4.97:1 (see R3) */
 
-  /* Surfaces */
-  --g6-color-bg-base: #fbfbf9;
-  --g6-color-bg-container: #ffffff;
-  --g6-color-bg-elevated: #ffffff;
-  --g6-color-bg-spotlight: #f4f4f0;
+  /* Surfaces — off-white bgBase, not pure white (R7) */
+  --g6-color-bg-base: #FAFAF7;          /* warm off-white */
+  --g6-color-bg-container: #FAFAF7;     /* aliases bg-base */
+  --g6-color-bg-elevated: #FFFFFF;      /* pure white floats above content */
+  --g6-color-bg-spotlight: #F0F0EC;     /* light surface tier — tables, wells (R8) */
   --g6-color-bg-muted: #f7f7f4;
 
-  /* Text */
+  /* Text — tertiary bumped 0.42 → 0.55 per R9 (AA body compliant) */
   --g6-color-text: rgba(15, 15, 12, 0.92);
   --g6-color-text-secondary: rgba(15, 15, 12, 0.62);
-  --g6-color-text-tertiary: rgba(15, 15, 12, 0.42);
+  --g6-color-text-tertiary: rgba(15, 15, 12, 0.55);   /* was 0.42 */
   --g6-color-text-disabled: rgba(15, 15, 12, 0.22);
-  --g6-color-text-on-accent: #121212;
+  --g6-color-text-on-accent: #121212;   /* R1 — dark on lime, never white */
 
-  /* Borders */
+  /* Borders — warm-beige system */
   --g6-color-border: #e7e5dc;
   --g6-color-border-secondary: #efeee7;
 
-  /* Status */
+  /* Status — FILLS only. For TEXT use *-text variants below (R2). */
   --g6-color-error: #ff4d4f;
   --g6-color-warning: #faad14;
   --g6-color-success: #52c41a;
+  --g6-color-info: #1677ff;
+
+  /* Status text variants — NEW v1.2 (R2). AA-compliant on light bg.
+     Use these when rendering status as inline text or labels, never
+     the base fill colors above (success base fails 2.17:1). */
+  --g6-color-error-text: #cf1322;       /* 5.07:1 on bg-base */
+  --g6-color-warning-text: #874d00;     /* 6.36:1 on bg-base */
+  --g6-color-success-text: #237804;     /* 4.85:1 on bg-base */
 
   /* Shadows */
   --g6-shadow-sm: 0 1px 2px rgba(15, 15, 12, 0.04);
   --g6-shadow-md: 0 1px 3px rgba(15, 15, 12, 0.04), 0 8px 24px rgba(15, 15, 12, 0.06);
   --g6-shadow-lg: 0 2px 4px rgba(15, 15, 12, 0.04), 0 12px 40px rgba(15, 15, 12, 0.08);
   --g6-shadow-xl: 0 4px 8px rgba(15, 15, 12, 0.04), 0 24px 64px rgba(15, 15, 12, 0.10);
-  --g6-shadow-primary-btn: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 4px rgba(195, 235, 66, 0.22);
-  --g6-shadow-input-active: 0 0 0 4px rgba(195, 235, 66, 0.18);
-  --g6-shadow-glow: 0 0 0 1px rgba(195, 235, 66, 0.4), 0 0 24px rgba(195, 235, 66, 0.18);
+  --g6-shadow-primary-btn: 0 1px 2px rgba(0, 0, 0, 0.04), 0 0 0 4px rgba(143, 184, 33, 0.22);
+  --g6-shadow-input-active: 0 0 0 4px rgba(143, 184, 33, 0.18);
+  --g6-shadow-glow: 0 0 0 1px rgba(143, 184, 33, 0.4), 0 0 24px rgba(143, 184, 33, 0.18);
 
   /* Glass */
   --g6-glass-bg: rgba(255, 255, 255, 0.72);
@@ -65,22 +76,24 @@
 }
 
 [data-theme="dark"] {
-  --g6-color-primary: #c3eb42;
-  --g6-color-primary-hover: #c8e064;
-  --g6-color-primary-active: #86a032;
-  --g6-color-primary-bg: #232915;
-  --g6-color-primary-bg-hover: #36401a;
-  --g6-color-primary-border: #495522;
+  /* Brand — v1.2 dark cascade */
+  --g6-color-primary: #90BA24;          /* fab-funnel/6 dark */
+  --g6-color-primary-hover: #AACF38;    /* fab-funnel/7 dark */
+  --g6-color-primary-active: #75932D;   /* fab-funnel/5 dark */
+  --g6-color-primary-bg: #1D2A09;       /* fab-funnel/1 dark */
+  --g6-color-primary-bg-hover: #2C3F10; /* fab-funnel/2 dark */
+  --g6-color-primary-border: #C3E165;   /* fab-funnel/8 dark — collides with primary-text per R6 */
+  --g6-color-primary-text: #C3E165;     /* NEW v1.2 — passes AA 11.29:1 on dark base */
 
-  --g6-color-bg-base: #0d0d0d;
-  --g6-color-bg-container: #161616;
-  --g6-color-bg-elevated: #1e1e1e;
-  --g6-color-bg-spotlight: #2a2a2a;
+  --g6-color-bg-base: #18181B;          /* v1.2 */
+  --g6-color-bg-container: #18181B;
+  --g6-color-bg-elevated: #1E1E23;      /* raised tier */
+  --g6-color-bg-spotlight: #1B1B1F;     /* light-surface-tier equivalent */
   --g6-color-bg-muted: #1a1a1a;
 
   --g6-color-text: rgba(255, 255, 255, 0.92);
   --g6-color-text-secondary: rgba(255, 255, 255, 0.62);
-  --g6-color-text-tertiary: rgba(255, 255, 255, 0.42);
+  --g6-color-text-tertiary: rgba(255, 255, 255, 0.55);   /* R9 — was 0.42 */
   --g6-color-text-disabled: rgba(255, 255, 255, 0.22);
   --g6-color-text-on-accent: #121212;
 
@@ -90,14 +103,20 @@
   --g6-color-error: #dc4446;
   --g6-color-warning: #d89614;
   --g6-color-success: #49aa19;
+  --g6-color-info: #1677ff;
+
+  /* Status text variants — dark mode (R2) */
+  --g6-color-error-text: #f37370;       /* 5.34:1 on dark base */
+  --g6-color-warning-text: #d89614;     /* 5.47:1 on dark base */
+  --g6-color-success-text: #49aa19;     /* 4.65:1 on dark base */
 
   --g6-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --g6-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
   --g6-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.5), 0 12px 40px rgba(0, 0, 0, 0.5);
   --g6-shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.5), 0 24px 64px rgba(0, 0, 0, 0.6);
-  --g6-shadow-primary-btn: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(195, 235, 66, 0.22);
-  --g6-shadow-input-active: 0 0 0 4px rgba(195, 235, 66, 0.22);
-  --g6-shadow-glow: 0 0 0 1px rgba(195, 235, 66, 0.5), 0 0 32px rgba(195, 235, 66, 0.25);
+  --g6-shadow-primary-btn: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(143, 184, 33, 0.22);
+  --g6-shadow-input-active: 0 0 0 4px rgba(143, 184, 33, 0.22);
+  --g6-shadow-glow: 0 0 0 1px rgba(143, 184, 33, 0.5), 0 0 32px rgba(143, 184, 33, 0.25);
 
   --g6-glass-bg: rgba(22, 22, 22, 0.62);
   --g6-glass-border: rgba(255, 255, 255, 0.06);

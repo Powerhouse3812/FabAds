@@ -55,8 +55,8 @@ const ECOM_DEFAULTS = {
   brand_description:
     "Premium everyday apparel made in small batches. Sustainable materials, modern silhouettes, honest pricing.",
   brand_voice: "Friendly · Confident",
-  typography_display: "Inter",
-  typography_body: "Inter Mono",
+  typography_display: "Geist",
+  typography_body: "Geist Mono",
   target_audiences: "25–40, Urban · Style-forward",
 };
 

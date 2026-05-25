@@ -37,7 +37,7 @@ const b = (
   category,
   categoryIds,
   tone: voice,
-  fonts: { display: "Inter", body: "Inter" },
+  fonts: { display: "Geist", body: "Geist" },
   colors,
   voice,
   usps,

@@ -130,7 +130,7 @@ export function BrandFetchModal({ open, onOpenChange, initialUrl, onSaved }: Bra
       category,
       tone,
       voice: tone,
-      fonts: { display: "Inter", body: "Inter" },
+      fonts: { display: "Geist", body: "Geist" },
       colors,
       usps: [],
       competitors: [],

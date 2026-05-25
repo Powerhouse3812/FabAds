@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter&display=swap");
+/* A-12.184: Inter removed per Fabfunnel design system v1.2 (May 2026).
+   Geist + Geist Mono are the ONLY allowed type families. The Inter
+   Google Fonts import was the last bridge keeping it loaded — now gone. */
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap");
 @import "./genie6/styles/tokens.css";
@@ -21,8 +23,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 265 4% 12.9%;
 
-    --primary: 74 81% 59%;
+    /* A-12.184: Primary lime migrated #c3eb42 → #8FB821 per Fabfunnel DS
+       v1.2 (May 2026 accessibility audit). HSL 75° 71% 43% passes WCAG
+       on the new dark-on-lime button surface (8.07:1, AAA). The old
+       value failed at 2.32:1 for white-on-lime. Foreground stays dark
+       (#121212) per Rule R1. */
+    --primary: 75 71% 43%;
     --primary-foreground: 0 0% 7%;
+
+    /* NEW v1.2 — lime as text/border in body copy (Rule R3). Use this
+       instead of --primary when rendering lime as a text colour or thin
+       border. #5B7611 → HSL 75° 84% 25%, passes AA 4.97:1 on bg-base. */
+    --primary-text: 75 84% 25%;
 
     --secondary: 248 0.7% 96.8%;
     --secondary-foreground: 266 4% 20.8%;
@@ -30,11 +42,18 @@ All colors MUST be HSL.
     --muted: 248 0.7% 96.8%;
     --muted-foreground: 257 4.6% 55.4%;
 
-    --accent: 74 81% 59%;
+    --accent: 75 71% 43%;
     --accent-foreground: 0 0% 7%;
 
     --destructive: 27 24.5% 57.7%;
     --destructive-foreground: 0 0% 100%;
+
+    /* NEW v1.2 — status text variants (Rule R2). The base status fills
+       above fail AA as standalone text on light backgrounds. Use these
+       *-text variants for messages, inline validation, error labels. */
+    --error-text: 354 84% 44%;          /* #cf1322 → 5.07:1 */
+    --warning-text: 34 100% 26%;        /* #874d00 → 6.36:1 */
+    --success-text: 105 95% 24%;        /* #237804 → 4.85:1 */
 
     --border: 256 1.3% 92.9%;
     --input: 256 1.3% 92.9%;
@@ -44,21 +63,25 @@ All colors MUST be HSL.
 
     --sidebar-background: 0 0% 97%;
     --sidebar-foreground: 265 4% 12.9%;
-    --sidebar-primary: 74 81% 45%;
+    --sidebar-primary: 75 84% 30%;        /* v1.2 — fab-funnel/7 ish */
     --sidebar-primary-foreground: 0 0% 7%;
-    --sidebar-accent: 74 81% 59% / 12%;
+    --sidebar-accent: 75 71% 43% / 12%;   /* v1.2 lime tint */
     --sidebar-accent-foreground: 265 4% 12.9%;
     --sidebar-border: 0 0% 0% / 8%;
-    --sidebar-ring: 74 81% 59%;
+    --sidebar-ring: 75 71% 43%;           /* v1.2 lime ring */
     --chart-1: 41 22.2% 64.6%;
     --chart-2: 185 11.8% 60%;
     --chart-3: 227 7% 39.8%;
     --chart-4: 84 18.9% 82.8%;
     --chart-5: 70 18.8% 76.9%;
     --sidebar: 248 0.3% 98.4%;
-    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    /* A-12.184: font stack per Fabfunnel DS v1.2 — Geist (sans) + Geist Mono.
+       Inter is BANNED per §1 of the design system; the previous --font-sans
+       value still listed Inter as the first family, so every `font-sans`
+       Tailwind utility was resolving to Inter despite Geist being loaded. */
+    --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
     --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
@@ -91,8 +114,15 @@ All colors MUST be HSL.
     --popover: 0 0% 11%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 74 81% 59%;              /* lime stays lime in dark mode */
-    --primary-foreground: 0 0% 7%;      /* dark text on lime fill */
+    /* A-12.184: v1.2 dark — primary lime #90BA24 (HSL 75° 67% 44%).
+       Slightly less saturated than the light-mode value for retina comfort
+       on dark surface. Foreground stays dark per R1 (8.07:1 AAA contrast). */
+    --primary: 75 67% 44%;
+    --primary-foreground: 0 0% 7%;
+
+    /* v1.2 — lime as text/border in dark body copy (R3). #C3E165 → HSL
+       73° 68% 64%, passes AA 11.29:1 on dark base. */
+    --primary-text: 73 68% 64%;
 
     --secondary: 0 0% 16%;              /* neutral grey, no purple tint */
     --secondary-foreground: 0 0% 98%;
@@ -100,8 +130,13 @@ All colors MUST be HSL.
     --muted: 0 0% 14%;                  /* neutral muted — was dark purple */
     --muted-foreground: 0 0% 65%;
 
-    --accent: 74 81% 59%;
+    --accent: 75 67% 44%;
     --accent-foreground: 0 0% 7%;
+
+    /* v1.2 — dark-mode status text variants (R2) */
+    --error-text: 1 86% 70%;            /* #f37370 → 5.34:1 on dark */
+    --warning-text: 38 83% 46%;         /* #d89614 → 5.47:1 */
+    --success-text: 100 73% 38%;        /* #49aa19 → 4.65:1 */
 
     --destructive: 0 84% 65%;           /* readable red on dark */
     --destructive-foreground: 0 0% 98%;

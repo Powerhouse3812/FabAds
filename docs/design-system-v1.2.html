@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Design System Updates — Genie 6.0 sync</title>
+<style>
+@page {
+  size: A4;
+  margin: 22mm 18mm 18mm 18mm;
+  @bottom-left {
+    content: "14/05/2026, 18:09  Design System Updates — Genie 6.0 sync";
+    font-family: 'Helvetica', sans-serif;
+    font-size: 8pt;
+    color: #888;
+  }
+  @bottom-right {
+    content: "file:///Users/powerhouse/Downloads/FabAds/comparison/design-system-updates-print.html  " counter(page) "/" counter(pages);
+    font-family: 'Helvetica', sans-serif;
+    font-size: 8pt;
+    color: #888;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 9pt;
+  line-height: 1.5;
+  color: rgba(15, 15, 12, 0.92);
+  background: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+h1.cover-title {
+  font-size: 22pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 8mm 0;
+  color: rgba(15, 15, 12, 0.92);
+}
+
+.cover-sub {
+  font-size: 11pt;
+  font-weight: 400;
+  color: rgba(15, 15, 12, 0.62);
+  margin-bottom: 6mm;
+}
+
+.cover-meta {
+  font-size: 8pt;
+  font-family: 'Courier', monospace;
+  color: rgba(15, 15, 12, 0.42);
+  letter-spacing: 0.04em;
+  margin-bottom: 2mm;
+}
+
+.cover-meta strong {
+  color: rgba(15, 15, 12, 0.62);
+  font-weight: 600;
+}
+
+.toc {
+  margin-top: 14mm;
+  font-size: 9pt;
+}
+
+.toc-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dotted #ccc;
+  padding: 3mm 0;
+}
+
+.toc-row .title {
+  color: rgba(15, 15, 12, 0.92);
+  font-weight: 500;
+}
+
+.toc-row .page {
+  color: rgba(15, 15, 12, 0.62);
+  font-family: 'Courier', monospace;
+}
+
+.section-eyebrow {
+  font-family: 'Courier', monospace;
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(15, 15, 12, 0.42);
+  text-transform: uppercase;
+  margin-bottom: 2mm;
+}
+
+h2.section-title {
+  font-size: 18pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 4mm 0;
+  color: rgba(15, 15, 12, 0.92);
+}
+
+p.section-intro {
+  font-size: 9.5pt;
+  color: rgba(15, 15, 12, 0.62);
+  max-width: 165mm;
+  margin: 0 0 8mm 0;
+  line-height: 1.55;
+}
+
+h3.subsection {
+  font-size: 11pt;
+  font-weight: 700;
+  margin: 8mm 0 2mm 0;
+  color: rgba(15, 15, 12, 0.92);
+}
+
+h3.subsection .subtitle {
+  font-weight: 400;
+  font-size: 9.5pt;
+  color: rgba(15, 15, 12, 0.62);
+  margin-left: 8px;
+}
+
+p.subsection-note {
+  font-size: 8.5pt;
+  color: rgba(15, 15, 12, 0.62);
+  margin: 0 0 3mm 0;
+  line-height: 1.5;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+  margin-bottom: 5mm;
+}
+
+table th {
+  text-align: left;
+  padding: 2.5mm 2mm;
+  border-bottom: 1px solid rgba(15, 15, 12, 0.92);
+  font-weight: 700;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(15, 15, 12, 0.92);
+  vertical-align: bottom;
+}
+
+table td {
+  padding: 2.2mm 2mm;
+  border-bottom: 1px solid #efeee7;
+  vertical-align: top;
+  font-size: 8pt;
+  line-height: 1.45;
+}
+
+table td.num {
+  font-family: 'Courier', monospace;
+  font-weight: 500;
+  width: 14mm;
+  color: rgba(15, 15, 12, 0.62);
+}
+
+table td.token {
+  font-weight: 600;
+  color: rgba(15, 15, 12, 0.92);
+}
+
+table td.where {
+  font-family: 'Courier', monospace;
+  font-size: 7.5pt;
+  color: rgba(15, 15, 12, 0.62);
+}
+
+table td.value {
+  font-family: 'Courier', monospace;
+  font-size: 7.5pt;
+  color: rgba(15, 15, 12, 0.92);
+}
+
+td.value .old { color: rgba(15, 15, 12, 0.42); text-decoration: line-through; }
+td.value .arrow { color: rgba(15, 15, 12, 0.42); margin: 0 4px; }
+td.value .new { color: #5B7611; font-weight: 700; }
+td.value .same { color: rgba(15, 15, 12, 0.42); font-style: italic; }
+td.value .new-token { background: #F5FBE2; padding: 0 4px; border-radius: 2px; color: #5B7611; font-weight: 700; }
+
+.may-note {
+  display: inline-block;
+  background: #F5FBE2;
+  color: #5B7611;
+  font-family: 'Courier', monospace;
+  font-size: 7pt;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-left: 4px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.footnote-row {
+  background: #fbfaf6;
+}
+
+.footnote-row td {
+  font-size: 7.5pt;
+  color: rgba(15, 15, 12, 0.62);
+  padding: 1.8mm 2mm;
+  font-style: italic;
+  border-bottom: 1px solid #efeee7;
+}
+
+.footnote-row td::before {
+  content: "↳ ";
+  font-style: normal;
+  color: #5B7611;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid rgba(15, 15, 12, 0.22);
+  vertical-align: middle;
+  margin-right: 3px;
+}
+
+.section-break {
+  page-break-before: always;
+}
+
+.rules-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rules-list li {
+  padding: 3mm 0;
+  border-bottom: 1px solid #efeee7;
+  font-size: 8.5pt;
+  line-height: 1.55;
+}
+
+.rules-list li:last-child {
+  border-bottom: none;
+}
+
+.rules-list .rule-id {
+  font-family: 'Courier', monospace;
+  font-size: 7.5pt;
+  font-weight: 700;
+  color: #5B7611;
+  display: inline-block;
+  width: 8mm;
+}
+
+.rules-list .rule-title {
+  font-weight: 700;
+  color: rgba(15, 15, 12, 0.92);
+}
+
+.rules-list .rule-body {
+  color: rgba(15, 15, 12, 0.62);
+  margin-left: 8mm;
+  margin-top: 1mm;
+}
+
+.callout {
+  background: #fbfaf6;
+  border-left: 3px solid #5B7611;
+  padding: 3mm 4mm;
+  margin: 4mm 0 6mm 0;
+  font-size: 8.5pt;
+  color: rgba(15, 15, 12, 0.62);
+  line-height: 1.55;
+}
+
+.callout strong {
+  color: rgba(15, 15, 12, 0.92);
+  font-weight: 700;
+}
+
+.dual-mode {
+  display: inline-block;
+  font-size: 7.5pt;
+  color: rgba(15, 15, 12, 0.42);
+  margin-right: 4px;
+}
+
+.dual-mode.light::before { content: "L "; color: #aaa; }
+.dual-mode.dark::before { content: "D "; color: #aaa; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER PAGE ═══════════════ -->
+<div>
+  <h1 class="cover-title">Design System Updates</h1>
+  <p class="cover-sub">Sync Figma DS + Real Project (React + Ant Design) to Genie 6.0</p>
+  <p class="cover-meta"><strong>SOURCE OF TRUTH</strong> &middot; src/genie6/styles/tokens.css + tailwind.config.ts</p>
+  <p class="cover-meta"><strong>VISUAL REFERENCE</strong> &middot; design-system-comparison.html (open in browser)</p>
+  <p class="cover-meta"><strong>FORMAT</strong> &middot; One row per change &middot; Figma hook + Ant hook + new value</p>
+  <p class="cover-meta"><strong>VERSION</strong> &middot; v1.2 (May 2026) &mdash; primary migrated #c3eb42 &rarr; #8FB821, full accessibility audit applied</p>
+
+  <div class="toc">
+    <div class="toc-row"><span class="title">01 &nbsp; Headline summary &mdash; 18 highest-impact changes</span><span class="page">p. 2</span></div>
+    <div class="toc-row"><span class="title">02 &nbsp; Foundation tokens &mdash; colours &middot; type &middot; spacing &middot; radius &middot; shadows &middot; motion</span><span class="page">p. 3</span></div>
+    <div class="toc-row"><span class="title">03 &nbsp; Component changes &mdash; Button &middot; Card &middot; Input &middot; Modal &middot; Tag &middot; Table &middot; etc.</span><span class="page">p. 9</span></div>
+    <div class="toc-row"><span class="title">04 &nbsp; Genie-exclusive patterns &mdash; 15 new patterns Ant doesn&rsquo;t ship</span><span class="page">p. 15</span></div>
+    <div class="toc-row"><span class="title">05 &nbsp; Migration order</span><span class="page">p. 18</span></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ SECTION 01: HEADLINE SUMMARY ═══════════════ -->
+<div class="section-break"></div>
+<div class="section-eyebrow">Section 01</div>
+<h2 class="section-title">Headline summary</h2>
+<p class="section-intro">The 18 highest-impact changes at a glance. Every row below is detailed further in Sections 02&ndash;04. <strong>Row 1 was updated May 2026</strong> &mdash; the primary lime shifted from <code>#c3eb42</code> to <code>#8FB821</code> as part of a full accessibility migration; the earlier value is now superseded.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:6%">#</th>
+      <th style="width:30%">WHAT CHANGED</th>
+      <th style="width:25%">ANT DEFAULT</th>
+      <th style="width:39%">GENIE 6.0 (TARGET)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Primary colour</td><td class="value">#1677ff blue</td><td class="value">#8FB821 lime <span class="may-note">May 2026: superseded #c3eb42</span></td></tr>
+    <tr><td class="num">2</td><td class="token">Text on primary</td><td class="value">white</td><td class="value">#121212 dark (high contrast on lime)</td></tr>
+    <tr><td class="num">3</td><td class="token">Border colour</td><td class="value">#d9d9d9 cool grey</td><td class="value">#e7e5dc warm beige</td></tr>
+    <tr><td class="num">4</td><td class="token">Bg-layout</td><td class="value">#fafafa</td><td class="value">#fbfbf9 warm off-white</td></tr>
+    <tr><td class="num">5</td><td class="token">Button radius (text)</td><td class="value">6px square</td><td class="value">100px PILL</td></tr>
+    <tr><td class="num">6</td><td class="token">Input radius</td><td class="value">6px</td><td class="value">28px rounded-2xl</td></tr>
+    <tr><td class="num">7</td><td class="token">Card / Modal radius</td><td class="value">8px</td><td class="value">16px rounded-card</td></tr>
+    <tr><td class="num">8</td><td class="token">Badge / Tag radius</td><td class="value">4px</td><td class="value">100px pill</td></tr>
+    <tr><td class="num">9</td><td class="token">All font sizes</td><td class="value">base 14px</td><td class="value">base 13px (every size &minus;1px)</td></tr>
+    <tr><td class="num">10</td><td class="token">Heading weight</td><td class="value">600</td><td class="value">700</td></tr>
+    <tr><td class="num">11</td><td class="token">Heading font</td><td class="value">system sans-serif</td><td class="value">Geist</td></tr>
+    <tr><td class="num">12</td><td class="token">Mono font</td><td class="value">system mono</td><td class="value">Geist Mono</td></tr>
+    <tr><td class="num">13</td><td class="token">Mono usage scope</td><td class="value">code blocks only</td><td class="value">numbers, descriptions, info, eyebrows, table headers, tooltips, alerts</td></tr>
+    <tr><td class="num">14</td><td class="token">Focus halo</td><td class="value">2px blue ring</td><td class="value">4px lime spread</td></tr>
+    <tr><td class="num">15</td><td class="token">Modal backdrop</td><td class="value">rgba(0,0,0,0.45) no blur</td><td class="value">rgba(0,0,0,0.7) + blur(4px)</td></tr>
+    <tr><td class="num">16</td><td class="token">Hover lift</td><td class="value">none</td><td class="value">translateY(&minus;2px) + shadow upgrade</td></tr>
+    <tr><td class="num">17</td><td class="token">Shimmer cadence</td><td class="value">grey, 1.4s</td><td class="value">lime mid-band, 2.4s</td></tr>
+    <tr><td class="num">18</td><td class="token">Genie-exclusive patterns</td><td class="value">n/a</td><td class="value">15 new patterns (Section 04)</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════ SECTION 02: FOUNDATION TOKENS ═══════════════ -->
+<div class="section-break"></div>
+<div class="section-eyebrow">Section 02</div>
+<h2 class="section-title">Foundation tokens</h2>
+<p class="section-intro">Replace these values first. Every component below inherits from these tokens &mdash; once foundation is correct, components are mostly automatic. <strong>Major changes (May 2026):</strong> new primary <code>#8FB821</code>, off-white <code>colorBgBase</code>, new <code>colorPrimaryText</code> token, status text/fill split, tertiary opacity bumped to 0.55 for AA body compliance. See &sect;2.13 for the complete usage-rules consolidation.</p>
+
+
+<!-- §2.1.0 PRIMITIVES (NEW) -->
+<h3 class="subsection">2.1.0 Primitives <span class="subtitle">fab-funnel/1&ndash;10 cascade root <span class="may-note">NEW May 2026</span></span></h3>
+<p class="subsection-note">These are the ten primitive steps the entire lime palette is built from. Edit one of these and every semantic alias below (&sect;2.1) plus ~930 component tokens auto-update via Figma variable cascade. Listed here for transparency &mdash; designers normally work with the semantic tokens in &sect;2.1.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:6%">#</th>
+      <th style="width:18%">PRIMITIVE</th>
+      <th style="width:26%">WHERE (FIGMA)</th>
+      <th style="width:25%">LIGHT</th>
+      <th style="width:25%">DARK</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">fab-funnel/1</td><td class="where">Colors/Base/fab-funnel/1</td><td class="value"><span class="swatch" style="background:#F5FBE2"></span>#F5FBE2</td><td class="value"><span class="swatch" style="background:#1D2A09"></span>#1D2A09</td></tr>
+    <tr><td class="num">2</td><td class="token">fab-funnel/2</td><td class="where">Colors/Base/fab-funnel/2</td><td class="value"><span class="swatch" style="background:#EBF6BF"></span>#EBF6BF</td><td class="value"><span class="swatch" style="background:#2C3F10"></span>#2C3F10</td></tr>
+    <tr><td class="num">3</td><td class="token">fab-funnel/3</td><td class="where">Colors/Base/fab-funnel/3</td><td class="value"><span class="swatch" style="background:#DAED90"></span>#DAED90</td><td class="value"><span class="swatch" style="background:#3F5519"></span>#3F5519</td></tr>
+    <tr><td class="num">4</td><td class="token">fab-funnel/4</td><td class="where">Colors/Base/fab-funnel/4</td><td class="value"><span class="swatch" style="background:#C5E25A"></span>#C5E25A</td><td class="value"><span class="swatch" style="background:#577222"></span>#577222</td></tr>
+    <tr><td class="num">5</td><td class="token">fab-funnel/5</td><td class="where">Colors/Base/fab-funnel/5</td><td class="value"><span class="swatch" style="background:#AACF32"></span>#AACF32</td><td class="value"><span class="swatch" style="background:#75932D"></span>#75932D</td></tr>
+    <tr><td class="num">6</td><td class="token">fab-funnel/6 &nbsp;★PRIMARY</td><td class="where">Colors/Base/fab-funnel/6</td><td class="value"><span class="swatch" style="background:#8FB821"></span>#8FB821</td><td class="value"><span class="swatch" style="background:#90BA24"></span>#90BA24</td></tr>
+    <tr><td class="num">7</td><td class="token">fab-funnel/7</td><td class="where">Colors/Base/fab-funnel/7</td><td class="value"><span class="swatch" style="background:#749818"></span>#749818</td><td class="value"><span class="swatch" style="background:#AACF38"></span>#AACF38</td></tr>
+    <tr><td class="num">8</td><td class="token">fab-funnel/8</td><td class="where">Colors/Base/fab-funnel/8</td><td class="value"><span class="swatch" style="background:#5B7611"></span>#5B7611</td><td class="value"><span class="swatch" style="background:#C3E165"></span>#C3E165</td></tr>
+    <tr><td class="num">9</td><td class="token">fab-funnel/9</td><td class="where">Colors/Base/fab-funnel/9</td><td class="value"><span class="swatch" style="background:#3F530A"></span>#3F530A</td><td class="value"><span class="swatch" style="background:#D9EF92"></span>#D9EF92</td></tr>
+    <tr><td class="num">10</td><td class="token">fab-funnel/10</td><td class="where">Colors/Base/fab-funnel/10</td><td class="value"><span class="swatch" style="background:#283506"></span>#283506</td><td class="value"><span class="swatch" style="background:#EAFACE"></span>#EAFACE</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.1 BRAND COLOURS -->
+<h3 class="subsection">2.1 Brand colours <span class="subtitle">semantic aliases (update May 2026)</span></h3>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>UPDATE TO</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Primary</td><td class="where">brand/primary &middot; token.colorPrimary</td><td class="value"><span class="swatch" style="background:#8FB821"></span><span class="new">#8FB821</span> <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">2</td><td class="token">Primary hover</td><td class="where">brand/primary-hover &middot; token.colorPrimaryHover</td><td class="value"><span class="swatch" style="background:#AACF32"></span><span class="new">#AACF32</span> <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Primary active</td><td class="where">brand/primary-active &middot; token.colorPrimaryActive</td><td class="value"><span class="swatch" style="background:#5B7611"></span><span class="new">#5B7611</span> <span class="may-note">May 2026 &mdash; re-aliased to fab-funnel/8 to avoid border collision</span></td></tr>
+    <tr><td class="num">4</td><td class="token">Primary bg (tint)</td><td class="where">brand/primary-bg &middot; CSS --primary-bg</td><td class="value"><span class="swatch" style="background:#F5FBE2"></span><span class="new">#F5FBE2</span> <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">5</td><td class="token">Primary bg-hover (tint)</td><td class="where">brand/primary-bg-hover &middot; CSS --primary-bg-hover</td><td class="value"><span class="swatch" style="background:#EBF6BF"></span><span class="new-token">#EBF6BF</span> <span class="may-note">NEW May 2026</span></td></tr>
+    <tr><td class="num">6</td><td class="token">Primary border</td><td class="where">brand/primary-border &middot; CSS --primary-border</td><td class="value"><span class="swatch" style="background:#749818"></span><span class="new">#749818</span> <span class="may-note">May 2026 &mdash; re-aliased to fab-funnel/7 (old #e6f4a3 failed 1.22:1 UI contrast)</span></td></tr>
+    <tr><td class="num">7</td><td class="token">Primary text <span style="font-family:Courier;font-size:7.5pt;color:#5B7611;font-weight:700">NEW</span></td><td class="where">brand/primary-text &middot; CSS --primary-text</td><td class="value"><span class="swatch" style="background:#5B7611"></span><span class="new-token">#5B7611</span> &mdash; passes AA at 4.97:1 on off-white bg. Use this instead of colorPrimary when rendering lime as text or border in body copy.</td></tr>
+    <tr><td class="num">8</td><td class="token">Text on primary</td><td class="where">brand/primary-on &middot; Button.primaryColor</td><td class="value">#121212 (NOT white)</td></tr>
+    <tr><td class="num">9</td><td class="token">Primary bg (dark)</td><td class="where">brand/primary-dark/bg &middot; [data-theme=dark] --primary-bg</td><td class="value"><span class="swatch" style="background:#1D2A09"></span><span class="new">#1D2A09</span> <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">10</td><td class="token">Primary border (dark)</td><td class="where">brand/primary-dark/border &middot; [data-theme=dark] --primary-border</td><td class="value"><span class="swatch" style="background:#C3E165"></span><span class="new">#C3E165</span> <span class="may-note">May 2026 &mdash; re-aliased to fab-funnel/8 dark; collides intentionally with primary-text dark, see R6</span></td></tr>
+    <tr class="footnote-row"><td colspan="4">See &sect;2.13 rules R1, R3, R6 &mdash; lime button text rule, primary-as-text rule, and intentional hex collisions.</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.2 SURFACES -->
+<h3 class="subsection">2.2 Surface colours <span class="subtitle">off-white foundation in light, depth hierarchy in dark</span></h3>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>OLD &rarr; NEW (LIGHT) &middot; (DARK)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Bg-layout</td><td class="where">surface/bg-layout &middot; token.colorBgLayout</td><td class="value"><span class="old">#f5f5f5</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#f4f4f5"></span><span class="new">#f4f4f5</span> &middot; <span class="old">#181818</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#141416"></span><span class="new">#141416</span> <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">2</td><td class="token">Bg-base</td><td class="where">surface/bg-base &middot; token.colorBgBase</td><td class="value"><span class="old">#ffffff</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#FAFAF7"></span><span class="new">#FAFAF7</span> (warm off-white) &middot; <span class="old">#121212</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#18181b"></span><span class="new">#18181b</span> <span class="may-note">May 2026 &mdash; off-white for content, never pure white</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Bg-container</td><td class="where">surface/bg-container &middot; token.colorBgContainer</td><td class="value">aliases to bg-base &mdash; off-white in light, raised dark in dark mode</td></tr>
+    <tr><td class="num">4</td><td class="token">Bg-elevated</td><td class="where">surface/bg-elevated &middot; token.colorBgElevated</td><td class="value"><span class="swatch" style="background:#FFFFFF"></span>#FFFFFF (pure white floats above off-white) &middot; <span class="old">#1f1f1f</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#1e1e23"></span><span class="new">#1e1e23</span> <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">5</td><td class="token">Bg-spotlight</td><td class="where">surface/bg-spotlight &middot; token.colorBgSpotlight</td><td class="value"><span class="swatch" style="background:#F0F0EC"></span><span class="new">#F0F0EC</span> (was #f4f4f0) &middot; <span class="swatch" style="background:#1B1B1F"></span><span class="new">#1B1B1F</span> (was #2a2a2a) <span class="may-note">May 2026 &mdash; light surface tier for table headers, wells, alt rows</span></td></tr>
+    <tr class="footnote-row"><td colspan="4">See &sect;2.13 rules R5, R7, R8 &mdash; off-white bgBase rationale, surface hierarchy intentionally subtle, spotlight is light-surface tier not overlay.</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.3 BORDERS -->
+<h3 class="subsection">2.3 Border colours <span class="subtitle">warm-beige system</span></h3>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>OLD &rarr; NEW (LIGHT) &middot; (DARK)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Border primary</td><td class="where">border/primary &middot; token.colorBorder</td><td class="value"><span class="old">#d9d9d9</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#e7e5dc"></span><span class="new">#e7e5dc</span> &middot; <span class="old">#424242</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#2a2a2a"></span><span class="new">#2a2a2a</span></td></tr>
+    <tr><td class="num">2</td><td class="token">Border secondary</td><td class="where">border/secondary &middot; token.colorBorderSecondary</td><td class="value"><span class="old">#f0f0f0</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#efeee7"></span><span class="new">#efeee7</span> &middot; <span class="old">#303030</span><span class="arrow">&rarr;</span><span class="swatch" style="background:#1f1f1f"></span><span class="new">#1f1f1f</span></td></tr>
+    <tr class="footnote-row"><td colspan="4">See &sect;2.13 rule R4 &mdash; borders kept intentionally subtle (~1.4&ndash;1.8:1) per the Ant philosophy; state communication relies on label + fill + focus, not border alone.</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.4 TEXT -->
+<h3 class="subsection">2.4 Text colours <span class="subtitle">alpha-channel warm blacks &middot; tertiary bumped to 0.55 for AA body</span></h3>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>OLD &rarr; NEW</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Text primary</td><td class="where">text/primary &middot; token.colorText</td><td class="value"><span class="old">rgba(0,0,0,0.88)</span><span class="arrow">&rarr;</span><span class="new">rgba(15,15,12, 0.92)</span></td></tr>
+    <tr><td class="num">2</td><td class="token">Text secondary</td><td class="where">text/secondary &middot; token.colorTextSecondary</td><td class="value"><span class="old">rgba(0,0,0,0.65)</span><span class="arrow">&rarr;</span><span class="new">rgba(15,15,12, 0.62)</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Text tertiary</td><td class="where">text/tertiary &middot; token.colorTextTertiary</td><td class="value"><span class="old">rgba(15,15,12, 0.42)</span><span class="arrow">&rarr;</span><span class="new">rgba(15,15,12, 0.55)</span> <span class="may-note">May 2026 &mdash; bumped from 0.45 to pass AA body (4.55:1 on bg-base)</span></td></tr>
+    <tr><td class="num">4</td><td class="token">Text disabled</td><td class="where">text/disabled &middot; token.colorTextQuaternary</td><td class="value"><span class="old">rgba(0,0,0,0.25)</span><span class="arrow">&rarr;</span><span class="new">rgba(15,15,12, 0.22)</span></td></tr>
+    <tr class="footnote-row"><td colspan="4">See &sect;2.13 rule R9 &mdash; text-tertiary now usable for body, paragraph copy, metadata, hints. Still maintains 1.55:1 distinctness from text-secondary.</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.5 STATUS -->
+<h3 class="subsection">2.5 Status colours <span class="subtitle">FILLS only &mdash; never use as text on light bg, see &sect;2.5b</span></h3>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>LIGHT &middot; DARK</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Success</td><td class="where">status/success &middot; token.colorSuccess</td><td class="value"><span class="swatch" style="background:#52c41a"></span>#52c41a (same) &middot; <span class="swatch" style="background:#49aa19"></span>#49aa19</td></tr>
+    <tr><td class="num">2</td><td class="token">Warning</td><td class="where">status/warning &middot; token.colorWarning</td><td class="value"><span class="swatch" style="background:#faad14"></span>#faad14 (same) &middot; <span class="swatch" style="background:#d89614"></span>#d89614</td></tr>
+    <tr><td class="num">3</td><td class="token">Error</td><td class="where">status/error &middot; token.colorError</td><td class="value"><span class="swatch" style="background:#ff4d4f"></span>#ff4d4f (same) &middot; <span class="swatch" style="background:#dc4446"></span>#dc4446</td></tr>
+    <tr><td class="num">4</td><td class="token">Info</td><td class="where">status/info &middot; token.colorInfo</td><td class="value"><span class="swatch" style="background:#1677ff"></span>#1677ff (same)</td></tr>
+    <tr class="footnote-row"><td colspan="4">See &sect;2.13 rule R2 &mdash; base status colours are FILLS only. For text use the status-text variants in &sect;2.5b.</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.5b STATUS TEXT (NEW) -->
+<h3 class="subsection">2.5b Status text variants <span class="subtitle">TEXT only &mdash; messages, inline validation, labels <span class="may-note">NEW May 2026</span></span></h3>
+<p class="subsection-note">Base status colours in &sect;2.5 fail AA body contrast as standalone text on light backgrounds (success 2.17:1, warning 1.82:1). The three text variants below alias to darker palette positions so they pass.</p>
+<table>
+  <thead>
+    <tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>LIGHT &middot; DARK</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Error text</td><td class="where">status/error-text &middot; token.colorErrorText</td><td class="value"><span class="swatch" style="background:#cf1322"></span><span class="new-token">#cf1322</span> (5.07:1) &middot; <span class="swatch" style="background:#f37370"></span><span class="new-token">#f37370</span> (5.34:1)</td></tr>
+    <tr><td class="num">2</td><td class="token">Warning text</td><td class="where">status/warning-text &middot; token.colorWarningText</td><td class="value"><span class="swatch" style="background:#874d00"></span><span class="new-token">#874d00</span> (6.36:1) &middot; <span class="swatch" style="background:#d89614"></span>#d89614 (5.47:1)</td></tr>
+    <tr><td class="num">3</td><td class="token">Success text</td><td class="where">status/success-text &middot; token.colorSuccessText</td><td class="value"><span class="swatch" style="background:#237804"></span><span class="new-token">#237804</span> (4.85:1) &middot; <span class="swatch" style="background:#49aa19"></span>#49aa19 (4.65:1)</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.6 TYPOGRAPHY (unchanged from original) -->
+<div class="section-break"></div>
+<h3 class="subsection">2.6 Typography <span class="subtitle">Geist family + ALL sizes &minus;1px</span></h3>
+<p class="subsection-note">Font swap: replace Inter/system with Geist (sans) + Geist Mono. Install via <code>@fontsource/geist</code> in code, link in Figma DS.</p>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>OLD &rarr; NEW (&minus;1PX)</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Font size &mdash; xs</td><td class="where">font/size/xs &middot; (alias)</td><td class="value">11px &rarr; 10px / 15px lh</td></tr>
+    <tr><td class="num">2</td><td class="token">Font size &mdash; sm</td><td class="where">font/size/sm &middot; token.fontSizeSM</td><td class="value">12px &rarr; 11px / 19px</td></tr>
+    <tr><td class="num">3</td><td class="token">Font size &mdash; base</td><td class="where">font/size/base &middot; token.fontSize</td><td class="value">14px &rarr; 13px / 21px</td></tr>
+    <tr><td class="num">4</td><td class="token">Font size &mdash; lg</td><td class="where">font/size/lg &middot; token.fontSizeLG</td><td class="value">16px &rarr; 15px / 23px</td></tr>
+    <tr><td class="num">5</td><td class="token">Font size &mdash; xl</td><td class="where">font/size/xl &middot; token.fontSizeXL</td><td class="value">20px &rarr; 19px / 27px</td></tr>
+    <tr><td class="num">6</td><td class="token">Heading 5</td><td class="where">font/size/h5 &middot; token.fontSizeHeading5</td><td class="value">16 &rarr; 15px / 23px</td></tr>
+    <tr><td class="num">7</td><td class="token">Heading 4</td><td class="where">font/size/h4 &middot; token.fontSizeHeading4</td><td class="value">20 &rarr; 19px / 27px</td></tr>
+    <tr><td class="num">8</td><td class="token">Heading 3</td><td class="where">font/size/h3 &middot; token.fontSizeHeading3</td><td class="value">24 &rarr; 23px / 31px</td></tr>
+    <tr><td class="num">9</td><td class="token">Heading 2</td><td class="where">font/size/h2 &middot; token.fontSizeHeading2</td><td class="value">30 &rarr; 29px / 37px</td></tr>
+    <tr><td class="num">10</td><td class="token">Heading 1</td><td class="where">font/size/h1 &middot; token.fontSizeHeading1</td><td class="value">38 &rarr; 37px / 45px</td></tr>
+    <tr><td class="num">11</td><td class="token">Display</td><td class="where">font/size/display &middot; CSS var</td><td class="value">56 &rarr; 55px / 59px</td></tr>
+    <tr><td class="num">12</td><td class="token">Display large</td><td class="where">font/size/display-lg &middot; CSS var</td><td class="value">72 &rarr; 71px / 75px</td></tr>
+    <tr><td class="num">13</td><td class="token">Heading weight</td><td class="where">font/weight/heading &middot; token.fontWeightStrong</td><td class="value">600 &rarr; 700</td></tr>
+    <tr><td class="num">14</td><td class="token">Heading tracking</td><td class="where">font/tracking/display &middot; global CSS on h1..h5</td><td class="value">0 &rarr; &minus;0.01em</td></tr>
+    <tr><td class="num">15</td><td class="token">Font family &mdash; sans</td><td class="where">font/family/sans &middot; token.fontFamily</td><td class="value">system &rarr; Geist</td></tr>
+    <tr><td class="num">16</td><td class="token">Font family &mdash; mono</td><td class="where">font/family/mono &middot; global CSS 'Geist Mono'</td><td class="value">system mono &rarr; Geist Mono</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.7 MONO USAGE (unchanged) -->
+<h3 class="subsection">2.7 Geist Mono &mdash; usage rules <span class="subtitle">NEW</span></h3>
+<p class="subsection-note">Mono is no longer code-only. Apply it as the primary font for these categories. Rule: secondary info &rarr; Mono. Primary content (titles, body, button labels) &rarr; Sans.</p>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">CATEGORY</th><th style="width:32%">FIGMA TEXT STYLE &middot; CODE CLASS</th><th>STYLE</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Numbers</td><td class="where">num &middot; .num</td><td class="value">Mono &middot; tabular-nums &middot; weight 500-600</td></tr>
+    <tr><td class="num">2</td><td class="token">Descriptions / captions</td><td class="where">meta &middot; .meta</td><td class="value">Mono &middot; 11px / 16px &middot; text-tertiary</td></tr>
+    <tr><td class="num">3</td><td class="token">Info / helper / tooltip text</td><td class="where">info &middot; .info</td><td class="value">Mono &middot; 11px &middot; text-secondary</td></tr>
+    <tr><td class="num">4</td><td class="token">Eyebrow titles above cards</td><td class="where">eyebrow &middot; .eyebrow</td><td class="value">Mono &middot; 11px &middot; uppercase &middot; letter-spacing 0.05em &middot; weight 600</td></tr>
+    <tr><td class="num">5</td><td class="token">Metadata chips (v3 &middot; 1024&times;1280)</td><td class="where">meta &middot; .meta</td><td class="value">Mono &middot; 10-11px &middot; text-tertiary</td></tr>
+    <tr><td class="num">6</td><td class="token">Alert body text</td><td class="where">Alert spec &middot; CSS override</td><td class="value">Mono &middot; 12px &middot; text-secondary</td></tr>
+    <tr><td class="num">7</td><td class="token">Table column headers</td><td class="where">Table spec &middot; Table.headerColor + CSS</td><td class="value">Mono &middot; 11px &middot; uppercase &middot; letter-spacing 0.08em &middot; weight 600</td></tr>
+    <tr><td class="num">8</td><td class="token">Quality / status pills</td><td class="where">Quality chip &middot; QualityScoreChip wrapper</td><td class="value">Mono &middot; 10-11px &middot; uppercase &middot; weight 700</td></tr>
+    <tr><td class="num">9</td><td class="token">Domain / URL displays</td><td class="where">inline &middot; inline</td><td class="value">Mono &middot; base size &middot; text-secondary</td></tr>
+    <tr><td class="num">10</td><td class="token">Keyboard hints (&#8984;K)</td><td class="where">inline &middot; inline</td><td class="value">Mono &middot; 10px &middot; text-tertiary</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.8 SPACING (unchanged) -->
+<h3 class="subsection">2.8 Spacing <span class="subtitle">4pt scale</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE</th><th>VALUE</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">space/1 &rarr; space/20</td><td class="where">space/1..20 &middot; tailwind gap-* / Ant default</td><td class="value">4 &middot; 8 &middot; 12 &middot; 16 &middot; 20 &middot; 24 &middot; 32 &middot; 40 &middot; 48 &middot; 64 &middot; 80px</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.9 RADIUS (unchanged) -->
+<h3 class="subsection">2.9 Border radius <span class="subtitle">expanded scale</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">xs</td><td class="where">radius/xs &middot; token.borderRadiusXS</td><td class="value">2px (same)</td></tr>
+    <tr><td class="num">2</td><td class="token">sm</td><td class="where">radius/sm &middot; token.borderRadiusSM</td><td class="value">4px (same)</td></tr>
+    <tr><td class="num">3</td><td class="token">base</td><td class="where">radius/base &middot; token.borderRadius</td><td class="value">6px (same)</td></tr>
+    <tr><td class="num">4</td><td class="token">lg</td><td class="where">radius/lg &middot; token.borderRadiusLG</td><td class="value">8px (same)</td></tr>
+    <tr><td class="num">5</td><td class="token">card &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">radius/card &middot; CSS --radius-card</td><td class="value">16px</td></tr>
+    <tr><td class="num">6</td><td class="token">xl &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">radius/xl &middot; CSS --radius-xl</td><td class="value">20px</td></tr>
+    <tr><td class="num">7</td><td class="token">2xl &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">radius/2xl &middot; CSS --radius-2xl</td><td class="value">28px</td></tr>
+    <tr><td class="num">8</td><td class="token">pill &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">radius/pill &middot; CSS --radius-pill</td><td class="value">100px</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.10 SHADOWS (unchanged) -->
+<h3 class="subsection">2.10 Shadows</h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>COMPOSITION</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">sm (light)</td><td class="where">shadow/sm &middot; token.boxShadowTertiary</td><td class="value">y=1 blur=2 rgba(15,15,12,0.04)</td></tr>
+    <tr><td class="num">2</td><td class="token">md (light)</td><td class="where">shadow/md &middot; token.boxShadow</td><td class="value">y=1 blur=3 + y=8 blur=24, stacked</td></tr>
+    <tr><td class="num">3</td><td class="token">lg (light)</td><td class="where">shadow/lg &middot; token.boxShadowSecondary</td><td class="value">y=2 blur=4 + y=12 blur=40, stacked</td></tr>
+    <tr><td class="num">4</td><td class="token">xl (light)</td><td class="where">shadow/xl &middot; CSS var</td><td class="value">y=4 blur=8 + y=24 blur=64, stacked</td></tr>
+    <tr><td class="num">5</td><td class="token">primary-btn &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">shadow/primary-btn &middot; Button.primaryShadow</td><td class="value">y=1 blur=2 (0,0,0,0.04) + 0 spread 4 (lime 22%)</td></tr>
+    <tr><td class="num">6</td><td class="token">input-active &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">shadow/input-active &middot; Input.activeShadow</td><td class="value">0 spread 4 rgba(143,184,33,0.18) <span class="may-note">May 2026 &mdash; uses new primary</span></td></tr>
+    <tr><td class="num">7</td><td class="token">glow &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">shadow/glow &middot; CSS --shadow-glow</td><td class="value">0 spread 1 (lime 40%) + 0 blur 24 (lime 18%)</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.11 HEIGHTS (unchanged) -->
+<h3 class="subsection">2.11 Heights <span class="subtitle">interactive elements</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>VALUE</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">xs &middot; sm &middot; base &middot; lg &middot; xl</td><td class="where">height/xs..xl &middot; token.controlHeight*</td><td class="value">16 &middot; 24 &middot; 32 &middot; 40 &middot; 52px</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.12 MOTION (unchanged) -->
+<h3 class="subsection">2.12 Motion</h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">TOKEN</th><th style="width:32%">WHERE</th><th>VALUE</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">duration/fast &middot; base &middot; slow</td><td class="where">Smart Animate presets &middot; token.motionUnitFast / Base</td><td class="value">200 &middot; 300 &middot; 500ms</td></tr>
+    <tr><td class="num">2</td><td class="token">duration/lift</td><td class="where">preset &middot; .lift utility class</td><td class="value">220ms</td></tr>
+    <tr><td class="num">3</td><td class="token">duration/pop-in</td><td class="where">preset &middot; .pop-in utility class</td><td class="value">320ms</td></tr>
+    <tr><td class="num">4</td><td class="token">easing/standard</td><td class="where">preset &middot; CSS --ease-standard</td><td class="value">cubic-bezier(0.32, 0.72, 0, 1)</td></tr>
+    <tr><td class="num">5</td><td class="token">easing/pop</td><td class="where">preset &middot; CSS --ease-pop</td><td class="value">cubic-bezier(0.2, 0.8, 0.2, 1)</td></tr>
+    <tr><td class="num">6</td><td class="token">easing/pulse</td><td class="where">preset &middot; CSS --ease-pulse</td><td class="value">cubic-bezier(0.4, 0, 0.6, 1)</td></tr>
+  </tbody>
+</table>
+
+
+<!-- §2.13 USAGE RULES (NEW CONSOLIDATED) -->
+<div class="section-break"></div>
+<h3 class="subsection">2.13 Usage rules <span class="subtitle">consolidated from May 2026 audit <span class="may-note">NEW</span></span></h3>
+<p class="subsection-note">Inline footnotes throughout &sect;2.1&ndash;&sect;2.5 reference these by ID (R1, R2&hellip;). Designers and devs should read these once to understand the &ldquo;why&rdquo; behind the token values and how to use them correctly.</p>
+
+<ul class="rules-list">
+  <li>
+    <span class="rule-id">R1</span><span class="rule-title">Lime button text</span>
+    <div class="rule-body">Primary fill buttons MUST use dark text <code>#121212</code> (token: <code>colorTextBase</code>). Never white on lime &mdash; fails contrast at 2.32:1. Dark on lime passes 8.07:1 (AAA).</div>
+  </li>
+  <li>
+    <span class="rule-id">R2</span><span class="rule-title">Status FILL vs TEXT split</span>
+    <div class="rule-body"><code>colorError</code> / <code>colorWarning</code> / <code>colorSuccess</code> are FILL only (badges, banners, status pills). For text use <code>colorErrorText</code> / <code>colorWarningText</code> / <code>colorSuccessText</code>. Never use base status as standalone text on light bg &mdash; success fails 2.17:1, warning fails 1.82:1.</div>
+  </li>
+  <li>
+    <span class="rule-id">R3</span><span class="rule-title">Lime as text or border</span>
+    <div class="rule-body">Use <code>colorPrimaryText</code> (#5B7611 light / #C3E165 dark), NOT <code>colorPrimary</code> (#8FB821). Base lime as text fails AA at 2.22:1. <code>colorPrimaryText</code> passes 4.97:1 in light, 11.29:1 in dark.</div>
+  </li>
+  <li>
+    <span class="rule-id">R4</span><span class="rule-title">Border philosophy (kept Ant-subtle)</span>
+    <div class="rule-body">Default <code>border-primary</code> is intentionally subtle (~1.4&ndash;1.8:1 against surfaces). State communication relies on label + fill + focus state, not border alone. When 3:1 UI contrast is critical (active selection, focus ring), use <code>colorPrimaryBorder</code> instead.</div>
+  </li>
+  <li>
+    <span class="rule-id">R5</span><span class="rule-title">Surface hierarchy intentionally subtle</span>
+    <div class="rule-body">Adjacent surface layers in light mode sit at 1.04&ndash;1.09:1 luminance ratios. Depth comes from luminance shift, not heavy contrast. Don&rsquo;t add borders or shadows trying to force more separation.</div>
+  </li>
+  <li>
+    <span class="rule-id">R6</span><span class="rule-title">Intentional hex collisions</span>
+    <div class="rule-body">Light: <code>colorPrimaryActive</code> = <code>colorPrimaryText</code> (both #5B7611). Dark: <code>colorPrimaryBorder</code> = <code>colorPrimaryText</code> (both #C3E165). Different properties on different elements &mdash; no visual conflict possible. Documented here so they&rsquo;re not flagged as bugs.</div>
+  </li>
+  <li>
+    <span class="rule-id">R7</span><span class="rule-title">Off-white bgBase, not pure white</span>
+    <div class="rule-body">Main content surfaces use <code>#FAFAF7</code> (warm off-white), never <code>#ffffff</code>. Pure white is reserved for elevated surfaces (modals, dropdowns) so they visibly float above the content layer. Studio Alpha aesthetic.</div>
+  </li>
+  <li>
+    <span class="rule-id">R8</span><span class="rule-title">Bg-spotlight is a light surface tier</span>
+    <div class="rule-body"><code>colorBgSpotlight</code> = <code>#F0F0EC</code> light / <code>#1B1B1F</code> dark. It&rsquo;s for table headers, wells, alt rows, secondary panels &mdash; NOT for tooltip overlays. For tooltip dark overlays use inline <code>rgba(0,0,0,0.85)</code>.</div>
+  </li>
+  <li>
+    <span class="rule-id">R9</span><span class="rule-title">Text-tertiary now passes AA body</span>
+    <div class="rule-body">May 2026 bumped <code>text-tertiary</code> opacity from 0.45 to 0.55. Now usable for body text, paragraph copy, metadata, hints. Maintains 1.55:1 distinctness from <code>text-secondary</code> &mdash; clearly perceivable gap, no hierarchy collapse.</div>
+  </li>
+</ul>
+
+
+<!-- ═══════════════ SECTION 03: COMPONENT CHANGES ═══════════════ -->
+<div class="section-break"></div>
+<div class="section-eyebrow">Section 03</div>
+<h2 class="section-title">Component changes</h2>
+<p class="section-intro">17 base Ant components. One row per change inside each. Figma hook + Ant token hook listed together. Once foundation tokens (Section 02) are correct, most of these changes propagate automatically &mdash; these are the per-component overrides on top.</p>
+
+<h3 class="subsection">3.1 Button <span class="subtitle">Pill radius &middot; &minus;1px font &middot; weight 500 &middot; lime ring shadow</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE (FIGMA &middot; ANT)</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius (text buttons)</td><td class="where">Button &rarr; radius/pill &middot; Button.borderRadius</td><td class="value">6px &rarr; 100px (PILL)</td></tr>
+    <tr><td class="num">2</td><td class="token">Radius (icon buttons)</td><td class="where">Button "icon" variant &middot; .btn-icon-square className</td><td class="value">6px (unchanged for icon-only)</td></tr>
+    <tr><td class="num">3</td><td class="token">Primary fill</td><td class="where">Component prop &middot; token.colorPrimary</td><td class="value">blue &rarr; lime <span class="may-note">May 2026: now #8FB821</span></td></tr>
+    <tr><td class="num">4</td><td class="token">Primary text colour</td><td class="where">Component prop &middot; Button.primaryColor</td><td class="value">white &rarr; #121212</td></tr>
+    <tr><td class="num">5</td><td class="token">Primary hover shadow</td><td class="where">Effect &middot; Button.primaryShadow</td><td class="value">none &rarr; lime ring</td></tr>
+    <tr><td class="num">6</td><td class="token">Default shadow</td><td class="where">Drop shadow &middot; Button.defaultShadow</td><td class="value">subtle &rarr; none</td></tr>
+    <tr><td class="num">7</td><td class="token">Padding inline (default)</td><td class="where">Spec &middot; Button.paddingInline</td><td class="value">15px &rarr; 16px</td></tr>
+    <tr><td class="num">8</td><td class="token">Padding inline (lg)</td><td class="where">Spec &middot; Button.paddingInlineLG</td><td class="value">15px &rarr; 22px</td></tr>
+    <tr><td class="num">9</td><td class="token">Padding inline (sm)</td><td class="where">Spec &middot; Button.paddingInlineSM</td><td class="value">7px &rarr; 12px</td></tr>
+    <tr><td class="num">10</td><td class="token">Font size</td><td class="where">Type &middot; Button.contentFontSize</td><td class="value">14px &rarr; 13px</td></tr>
+    <tr><td class="num">11</td><td class="token">Font weight</td><td class="where">Type &middot; Button.fontWeight</td><td class="value">400 &rarr; 500</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.2 Card <span class="subtitle">Radius 8&rarr;16 &middot; padding tighter &middot; hover lift</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">Card &rarr; radius/card &middot; Card.borderRadiusLG</td><td class="value">8px &rarr; 16px</td></tr>
+    <tr><td class="num">2</td><td class="token">Padding</td><td class="where">Spec &middot; Card.paddingLG</td><td class="value">24px &rarr; 20px</td></tr>
+    <tr><td class="num">3</td><td class="token">Header bg</td><td class="where">Prop &middot; Card.headerBg</td><td class="value">grey &rarr; transparent</td></tr>
+    <tr><td class="num">4</td><td class="token">Hover lift</td><td class="where">Smart Animate motion/lift &middot; .lift class</td><td class="value">none &rarr; translateY(&minus;2px) + shadow lg</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.3 Input <span class="subtitle">Pill radius 28 &middot; lime focus halo &middot; height 40</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">Input &rarr; radius/2xl &middot; Input.borderRadius</td><td class="value">6px &rarr; 28px (rounded-2xl)</td></tr>
+    <tr><td class="num">2</td><td class="token">Focus border colour</td><td class="where">Spec &middot; Input.activeBorderColor</td><td class="value">blue &rarr; #749818 lime <span class="may-note">May 2026 &mdash; was #e6f4a3</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Focus shadow</td><td class="where">Effect &middot; Input.activeShadow</td><td class="value">2px blue &rarr; 4px lime halo</td></tr>
+    <tr><td class="num">4</td><td class="token">Hover border</td><td class="where">Spec &middot; Input.hoverBorderColor</td><td class="value">blue &rarr; #8FB821 lime <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">5</td><td class="token">Padding block</td><td class="where">Spec &middot; Input.paddingBlock</td><td class="value">4px &rarr; 8px</td></tr>
+    <tr><td class="num">6</td><td class="token">Padding inline</td><td class="where">Spec &middot; Input.paddingInline</td><td class="value">11px &rarr; 14px</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.4 Select / Cascader <span class="subtitle">Match Input &middot; lime active option</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">radius/2xl &middot; Select.borderRadius</td><td class="value">6px &rarr; 28px</td></tr>
+    <tr><td class="num">2</td><td class="token">Active option bg</td><td class="where">Spec &middot; Select.optionSelectedBg</td><td class="value">blue tint &rarr; #F5FBE2 lime tint <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Active option text</td><td class="where">Spec &middot; Select.optionSelectedColor</td><td class="value">blue &rarr; #121212 dark</td></tr>
+    <tr><td class="num">4</td><td class="token">Active option weight</td><td class="where">Type &middot; Select.optionSelectedFontWeight</td><td class="value">400 &rarr; 600</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.5 Textarea <span class="subtitle">Same as Input + hero variant</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">radius/2xl &middot; Input.borderRadius</td><td class="value">6px &rarr; 28px (matches Input)</td></tr>
+    <tr><td class="num">2</td><td class="token">Hero variant &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">Hero prompt input component &middot; &lt;HeroPromptInput&gt; wrapper</td><td class="value">n/a &rarr; radial-gradient lime backdrop on focus + suggestion pill row (see Section 04.6)</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.6 Checkbox &middot; Radio &middot; Switch <span class="subtitle">Lime active &middot; thicker border</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Checkbox border-width</td><td class="where">Spec &middot; Checkbox.lineWidth</td><td class="value">1px &rarr; 1.5px</td></tr>
+    <tr><td class="num">2</td><td class="token">Checkbox checked colour</td><td class="where">Prop &middot; Checkbox.colorPrimary</td><td class="value">blue &rarr; lime</td></tr>
+    <tr><td class="num">3</td><td class="token">Radio active colour</td><td class="where">Prop &middot; Radio.colorPrimary</td><td class="value">blue &rarr; lime</td></tr>
+    <tr><td class="num">4</td><td class="token">Switch on colour</td><td class="where">Prop &middot; Switch.colorPrimary</td><td class="value">blue &rarr; lime</td></tr>
+    <tr><td class="num">5</td><td class="token">Switch height</td><td class="where">Spec &middot; Switch.trackHeight</td><td class="value">22px &rarr; 24px</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.7 Modal &middot; Dialog <span class="subtitle">Radius 8&rarr;16 &middot; title bigger &middot; backdrop blur</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">Modal &rarr; radius/card &middot; Modal.borderRadiusLG</td><td class="value">8px &rarr; 16px</td></tr>
+    <tr><td class="num">2</td><td class="token">Title font size</td><td class="where">Spec &middot; Modal.titleFontSize</td><td class="value">16px &rarr; 17px</td></tr>
+    <tr><td class="num">3</td><td class="token">Header bg</td><td class="where">Spec &middot; Modal.headerBg</td><td class="value">grey &rarr; transparent</td></tr>
+    <tr><td class="num">4</td><td class="token">Footer bg</td><td class="where">Spec &middot; global CSS .ant-modal-footer</td><td class="value">white &rarr; #fbfbf9 warm</td></tr>
+    <tr><td class="num">5</td><td class="token">Backdrop</td><td class="where">Overlay effect &middot; global CSS .ant-modal-mask</td><td class="value">rgba(0,0,0,0.45) no blur &rarr; rgba(0,0,0,0.7) + blur(4px)</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.8 Drawer / Sheet <span class="subtitle">Wider &middot; inner-edge radius 16</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Default width</td><td class="where">Spec &middot; Drawer.width</td><td class="value">360px &rarr; 400px</td></tr>
+    <tr><td class="num">2</td><td class="token">Inner-edge radius</td><td class="where">Spec &middot; Drawer.borderRadiusLG</td><td class="value">0 &rarr; 16px</td></tr>
+    <tr><td class="num">3</td><td class="token">Header padding</td><td class="where">Spec &middot; inline override</td><td class="value">16px &rarr; 20px 24px</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.9 Tag &middot; Badge &middot; Pill <span class="subtitle">Pill radius &middot; Mono uppercase &middot; status tints softer</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">Tag &rarr; radius/pill &middot; Tag.borderRadiusSM + global CSS</td><td class="value">4px &rarr; 100px (pill)</td></tr>
+    <tr><td class="num">2</td><td class="token">Default bg</td><td class="where">Spec &middot; Tag.defaultBg</td><td class="value">#fafafa &rarr; #F0F0EC</td></tr>
+    <tr><td class="num">3</td><td class="token">Padding</td><td class="where">Spec &middot; global CSS</td><td class="value">0 7px &rarr; 0 10px</td></tr>
+    <tr><td class="num">4</td><td class="token">Font</td><td class="where">Type &middot; Tag.fontFamily</td><td class="value">sans &rarr; Geist Mono</td></tr>
+    <tr><td class="num">5</td><td class="token">Font weight</td><td class="where">Type &middot; global CSS</td><td class="value">400 &rarr; 600</td></tr>
+    <tr><td class="num">6</td><td class="token">Text case</td><td class="where">Spec &middot; global CSS</td><td class="value">mixed &rarr; UPPERCASE + letter-spacing 0.06em</td></tr>
+    <tr><td class="num">7</td><td class="token">Status variants</td><td class="where">Spec &middot; global CSS per status</td><td class="value">solid pastel bg &rarr; 10% alpha bg + 30% alpha border</td></tr>
+    <tr><td class="num">8</td><td class="token">Count badge font</td><td class="where">Type &middot; Badge.fontFamily + fontWeight</td><td class="value">sans 400 &rarr; Mono 700</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.10 Tabs <span class="subtitle">Lime underline &middot; firmer active weight</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Active underline colour</td><td class="where">Prop &middot; Tabs.inkBarColor</td><td class="value">blue &rarr; lime</td></tr>
+    <tr><td class="num">2</td><td class="token">Active text weight</td><td class="where">Spec &middot; global CSS .ant-tabs-tab-active</td><td class="value">400 &rarr; 600</td></tr>
+    <tr><td class="num">3</td><td class="token">Item gap</td><td class="where">Spec &middot; Tabs.horizontalItemGutter</td><td class="value">32px &rarr; 24px</td></tr>
+    <tr><td class="num">4</td><td class="token">Item font size</td><td class="where">Spec &middot; Tabs.titleFontSize</td><td class="value">14px &rarr; 13px</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.11 Segmented control <span class="subtitle">Pill container &middot; lime active tint</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Container radius</td><td class="where">radius/pill &middot; Segmented.borderRadius</td><td class="value">6px &rarr; 100px</td></tr>
+    <tr><td class="num">2</td><td class="token">Container bg</td><td class="where">Spec &middot; Segmented.trackBg</td><td class="value">rgba(0,0,0,0.04) &rarr; #F0F0EC</td></tr>
+    <tr><td class="num">3</td><td class="token">Active segment bg</td><td class="where">Spec &middot; Segmented.itemSelectedBg</td><td class="value">white &rarr; #F5FBE2 lime tint <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">4</td><td class="token">Active segment weight</td><td class="where">Spec &middot; global CSS override</td><td class="value">400 &rarr; 600</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.12 Table <span class="subtitle">Radius 8&rarr;16 &middot; header Mono uppercase &middot; warm bg</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Wrapping radius</td><td class="where">radius/card &middot; Table.borderRadiusLG</td><td class="value">8px &rarr; 16px</td></tr>
+    <tr><td class="num">2</td><td class="token">Header bg</td><td class="where">Spec &middot; Table.headerBg</td><td class="value">#fafafa &rarr; #F0F0EC <span class="may-note">May 2026 &mdash; bg-spotlight token</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Header font</td><td class="where">Type &middot; global CSS .ant-table-thead th</td><td class="value">sans 14px &rarr; Mono 11px uppercase letter-spacing 0.08em weight 600</td></tr>
+    <tr><td class="num">4</td><td class="token">Header padding</td><td class="where">Spec &middot; global CSS</td><td class="value">16px &rarr; 12px</td></tr>
+    <tr><td class="num">5</td><td class="token">Row padding</td><td class="where">Spec &middot; Table.cellPaddingBlock</td><td class="value">16px &rarr; 14px</td></tr>
+    <tr><td class="num">6</td><td class="token">Row font size</td><td class="where">Spec &middot; Table.cellFontSize</td><td class="value">14px &rarr; 13px</td></tr>
+    <tr><td class="num">7</td><td class="token">Row hover bg</td><td class="where">Spec &middot; Table.rowHoverBg</td><td class="value">grey &rarr; #f7f7f4 warm muted</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.13 Empty state <span class="subtitle">Lime motif card &middot; stronger hierarchy &middot; dot-grid bg</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Image slot</td><td class="where">New variant &middot; &lt;LimeMotifEmpty&gt; wrapper (overrides Empty.image)</td><td class="value">Generic line drawing &rarr; 64&times;64 lime motif card</td></tr>
+    <tr><td class="num">2</td><td class="token">Title &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">New text style &middot; inline override</td><td class="value">n/a &rarr; 15px weight 700</td></tr>
+    <tr><td class="num">3</td><td class="token">Description</td><td class="where">Spec &middot; .meta class via wrapper</td><td class="value">sans 14px &rarr; Mono 11px text-secondary</td></tr>
+    <tr><td class="num">4</td><td class="token">Optional bg</td><td class="where">.dot-grid utility</td><td class="value">none &rarr; dot-grid pattern overlay</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.14 Tooltip &middot; Popover <span class="subtitle">Tooltip Mono 11px &middot; popover compound shadow</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Tooltip font size</td><td class="where">Spec &middot; Tooltip.fontSize + global CSS</td><td class="value">14px sans &rarr; 11px Geist Mono</td></tr>
+    <tr><td class="num">2</td><td class="token">Tooltip bg</td><td class="where">Spec &middot; inline rgba override (NOT a token)</td><td class="value">rgba(0,0,0,0.85) &rarr; rgba(15,15,12,0.92) <span class="may-note">May 2026 &mdash; inline value, not Bg-spotlight (see R8)</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Popover radius</td><td class="where">radius/lg &middot; Popover.borderRadius</td><td class="value">6px &rarr; 8px</td></tr>
+    <tr><td class="num">4</td><td class="token">Popover shadow</td><td class="where">Effect &middot; Popover.boxShadow</td><td class="value">single &rarr; compound stacked</td></tr>
+    <tr><td class="num">5</td><td class="token">Popover title weight</td><td class="where">Type &middot; Popover.titleFontWeight</td><td class="value">500 &rarr; 600</td></tr>
+    <tr><td class="num">6</td><td class="token">Popover body font</td><td class="where">Spec &middot; inline overrides</td><td class="value">sans &rarr; Geist Mono 11px</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.15 Alert &middot; Status banner <span class="subtitle">Radius 8&rarr;16 &middot; softer tints &middot; icon circle</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Radius</td><td class="where">radius/card &middot; Alert.borderRadiusLG</td><td class="value">8px &rarr; 16px</td></tr>
+    <tr><td class="num">2</td><td class="token">Bg alpha</td><td class="where">Spec &middot; global CSS per-status</td><td class="value">solid pastel &rarr; 6% alpha</td></tr>
+    <tr><td class="num">3</td><td class="token">Border alpha</td><td class="where">Spec &middot; global CSS per-status</td><td class="value">solid &rarr; 25% alpha</td></tr>
+    <tr><td class="num">4</td><td class="token">Icon slot</td><td class="where">New variant &middot; custom JSX inside Alert</td><td class="value">inline outline-icon &rarr; 18&times;18 circle in status colour</td></tr>
+    <tr><td class="num">5</td><td class="token">Font</td><td class="where">Type &middot; Alert.fontSize + global override</td><td class="value">sans 14px &rarr; Mono 12px</td></tr>
+    <tr><td class="num">6</td><td class="token">Message text colour</td><td class="where">Spec &middot; per-status text token</td><td class="value">base status colour &rarr; colorErrorText / colorWarningText / colorSuccessText <span class="may-note">May 2026 &mdash; per R2 fill/text split</span></td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.16 Skeleton <span class="subtitle">Lime mid-band &middot; slower 2.4s &middot; radius 6</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Shimmer cadence</td><td class="where">Motion preset &middot; Skeleton custom keyframe</td><td class="value">1.4s &rarr; 2.4s</td></tr>
+    <tr><td class="num">2</td><td class="token">Shimmer mid-band</td><td class="where">Spec &middot; Skeleton.gradientToColor</td><td class="value">grey &rarr; lime rgba(143,184,33,0.12) <span class="may-note">May 2026</span></td></tr>
+    <tr><td class="num">3</td><td class="token">Block radius</td><td class="where">Spec &middot; Skeleton.blockRadius</td><td class="value">4px &rarr; 6px</td></tr>
+  </tbody>
+</table>
+
+<h3 class="subsection">3.17 Typography <span class="subtitle">&minus;1px scale &middot; Geist &middot; weight 700 &middot; Mono on metadata</span></h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">PROPERTY</th><th style="width:32%">WHERE</th><th>OLD &rarr; NEW</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">All sizes</td><td class="where">Section 02.6 foundation</td><td class="value">14/16/20/24/30/38 &rarr; &minus;1px each: 13/15/19/23/29/37</td></tr>
+    <tr><td class="num">2</td><td class="token">Heading weight</td><td class="where">font/weight/heading &middot; token.fontWeightStrong</td><td class="value">600 &rarr; 700</td></tr>
+    <tr><td class="num">3</td><td class="token">Heading tracking</td><td class="where">Spec &middot; global CSS</td><td class="value">0 &rarr; &minus;0.01em</td></tr>
+    <tr><td class="num">4</td><td class="token">Code bg</td><td class="where">Spec &middot; global CSS</td><td class="value">grey &rarr; #F0F0EC warm spotlight</td></tr>
+    <tr><td class="num">5</td><td class="token">Eyebrow style &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">eyebrow text style &middot; .eyebrow class</td><td class="value">n/a &rarr; Mono 11px uppercase letter-spacing 0.05em weight 600</td></tr>
+    <tr><td class="num">6</td><td class="token">Number style &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">num text style &middot; .num class</td><td class="value">n/a &rarr; Mono tabular-nums weight 500-600</td></tr>
+    <tr><td class="num">7</td><td class="token">Meta style &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">meta text style &middot; .meta class</td><td class="value">n/a &rarr; Mono 11px text-tertiary</td></tr>
+    <tr><td class="num">8</td><td class="token">Info style &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW</span></td><td class="where">info text style &middot; .info class</td><td class="value">n/a &rarr; Mono 11px text-secondary</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════ SECTION 04: GENIE-EXCLUSIVE PATTERNS ═══════════════ -->
+<div class="section-break"></div>
+<div class="section-eyebrow">Section 04</div>
+<h2 class="section-title">Genie-exclusive patterns (15 NEW)</h2>
+<p class="section-intro">These do NOT exist in Ant Design&rsquo;s library. Add each as a new DS component in Figma + a new React wrapper or CSS utility in code. Refer to <code>design-system-comparison.html</code> for live visual.</p>
+
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:18%">PATTERN</th><th style="width:32%">FIGMA &middot; CODE</th><th>SPEC</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td class="token">Output card (generation result)</td><td class="where">Output card component &middot; &lt;OutputCard&gt; React component</td><td class="value">radius/xl 20px &middot; 1px border-secondary &middot; shadow-sm &middot; thumbnail aspect 4:5 bg-spotlight &middot; quality chip slot top-right &middot; body padding 12 &middot; title Geist 13/600 &middot; meta Mono 10 &middot; hover motion/lift &middot; selected motion/glow</td></tr>
+    <tr><td class="num">2</td><td class="token">Quality score chip</td><td class="where">Quality chip component (3 variants) &middot; &lt;QualityScoreChip variant=&gt; React component</td><td class="value">pill 100px &middot; h 20 &middot; padding 2 8 &middot; Mono 10 uppercase 700 letter-spacing 0.06em &middot; bg rgba(255,255,255,0.95) + backdrop-blur(8px) &middot; border 1px status colour 30% alpha &middot; 3 variants success/warning/error</td></tr>
+    <tr><td class="num">3</td><td class="token">Pulse ring indicator</td><td class="where">Pulse ring component + motion preset &middot; .pulse-ring utility class + optional &lt;PulseDot&gt; wrapper</td><td class="value">12&times;12 dot bg primary &middot; @keyframes pulse-ring box-shadow 0&rarr;8px lime fade &middot; 1.6s easing/pulse infinite</td></tr>
+    <tr><td class="num">4</td><td class="token">Glass surface</td><td class="where">Glass effect style &middot; .glass utility class</td><td class="value">bg rgba(255,255,255,0.72) light &middot; rgba(22,22,22,0.62) dark &middot; backdrop-filter blur(20px) saturate(140%) &middot; 1px subtle border &middot; radius/lg or /card</td></tr>
+    <tr><td class="num">5</td><td class="token">Lime glow halo</td><td class="where">Glow halo effect style &middot; .glow utility class</td><td class="value">composite box-shadow 0 0 0 1px rgba(143,184,33,0.4) + 0 0 24px rgba(143,184,33,0.18) &middot; dark mode 32px corona at 0.25 alpha <span class="may-note">May 2026 &mdash; uses new primary</span></td></tr>
+    <tr><td class="num">6</td><td class="token">Hero prompt input</td><td class="where">Hero prompt input component (focused variant) &middot; &lt;HeroPromptInput&gt; wrapper + .hero-prompt CSS class</td><td class="value">radius/2xl 28px &middot; 1px border &middot; padding 16-20 &middot; on focus-within apply shadow/glow + ::before with radial-gradient lime backdrop blur(28px) &middot; suggestion pill row below</td></tr>
+    <tr><td class="num">7</td><td class="token">Eyebrow text style</td><td class="where">eyebrow Text Style &middot; .eyebrow class</td><td class="value">Mono 11px / 16px &middot; uppercase &middot; letter-spacing 0.05em &middot; weight 600 &middot; text-tertiary</td></tr>
+    <tr><td class="num">8</td><td class="token">Dot-grid pattern</td><td class="where">Pattern fill 'Dot grid' &middot; .dot-grid utility class</td><td class="value">CSS background-image radial-gradient dots 1px at 32px grid &middot; combined with centered lime radial-gradient &middot; theme-aware opacity</td></tr>
+    <tr><td class="num">9</td><td class="token">Lift hover utility</td><td class="where">motion/lift Smart Animate preset &middot; .lift utility class</td><td class="value">transition transform + box-shadow 220ms easing/standard &middot; hover translateY(&minus;2px) + shadow-sm &rarr; shadow-lg</td></tr>
+    <tr><td class="num">10</td><td class="token">Sheen animation</td><td class="where">motion/sheen preset &middot; .sheen utility class</td><td class="value">::after pseudo-element with 90deg linear-gradient highlight &middot; translateX(&minus;120% &rarr; 220%) + skewX(&minus;20deg) &middot; 1.4s ease-in-out &middot; fires ONCE</td></tr>
+    <tr><td class="num">11</td><td class="token">Float idle bob</td><td class="where">motion/float preset &middot; .float utility class</td><td class="value">translateY(0 &rarr; &minus;2px) loop &middot; 3s ease-in-out infinite</td></tr>
+    <tr><td class="num">12</td><td class="token">Shimmer (custom skeletons)</td><td class="where">motion/shimmer preset &middot; .shimmer utility class</td><td class="value">bg linear-gradient(90deg, transparent, rgba(143,184,33,0.12), transparent) + background-size 200% 100% &middot; animate background-position &minus;200% &rarr; 200% loop 2.4s linear <span class="may-note">May 2026 &mdash; uses new primary</span></td></tr>
+    <tr><td class="num">13</td><td class="token">Fade-up entrance</td><td class="where">motion/fade-up preset &middot; .fade-up utility class</td><td class="value">opacity 0 &rarr; 1 + translateY(+8px &rarr; 0) &middot; 360ms easing/standard &middot; often staggered (+60ms per child)</td></tr>
+    <tr><td class="num">14</td><td class="token">Pop-in entrance</td><td class="where">motion/pop-in preset &middot; .pop-in utility class</td><td class="value">opacity 0 &rarr; 1 + scale 0.98 &rarr; 1 &middot; 320ms easing/pop</td></tr>
+    <tr><td class="num">15</td><td class="token">MicroMotif icons (per-mode)</td><td class="where">6 icon components in MicroMotif master &middot; &lt;MicroMotif mode=&gt; React component</td><td class="value">32&times;32 &middot; currentColor inheritance &middot; semantic stroke-width &middot; 6 modes: Brand Ad &middot; Product Ad &middot; Affiliate Ad &middot; UGC Video &middot; Forge &middot; Image-to-Ad</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════ SECTION 05: MIGRATION ORDER ═══════════════ -->
+<div class="section-break"></div>
+<div class="section-eyebrow">Section 05</div>
+<h2 class="section-title">Migration order</h2>
+<p class="section-intro">Apply in this sequence &mdash; each step builds on the previous. <strong>May 2026 update:</strong> if migrating from the April 2026 baseline, Step 1 now includes the &sect;2.1.0 primitives layer and the new accessibility tokens (&sect;2.1 colorPrimaryText, &sect;2.5b status text variants). All cascade through the existing token system &mdash; no architectural changes needed.</p>
+
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:22%">STEP</th><th style="width:36%">DESIGNER (FIGMA)</th><th>DEVS (REACT + ANT)</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="num">1</td>
+      <td class="token">Foundation tokens (Section 02)</td>
+      <td class="value">Replace Variables (colours, type, spacing, radius, shadows, motion). May 2026: includes &sect;2.1.0 primitives + &sect;2.1.7 colorPrimaryText + &sect;2.5b status text variants + &sect;2.13 rules added to DS documentation.</td>
+      <td class="value">Update ConfigProvider theme.token + add CSS vars in genie-tokens.css. May 2026: add new primaryText alias + status-text tokens + bump text-tertiary alpha to 0.55.</td>
+    </tr>
+    <tr>
+      <td class="num">2</td>
+      <td class="token">Install Geist + Geist Mono</td>
+      <td class="value">Link the font in DS file</td>
+      <td class="value">@fontsource/geist or Google Fonts link</td>
+    </tr>
+    <tr>
+      <td class="num">3</td>
+      <td class="token">Component changes (Section 3)</td>
+      <td class="value">Re-link DS components to updated tokens</td>
+      <td class="value">Add per-component overrides in theme.components + global CSS where Ant doesn&rsquo;t expose tokens</td>
+    </tr>
+    <tr>
+      <td class="num">4</td>
+      <td class="token">Genie-exclusive patterns (Section 4)</td>
+      <td class="value">Build 15 new DS components</td>
+      <td class="value">5 React wrappers + 11 CSS utility classes + 6 SVG motif components</td>
+    </tr>
+    <tr>
+      <td class="num">5</td>
+      <td class="token">Dark mode</td>
+      <td class="value">Apply dark-mode token swaps</td>
+      <td class="value">Ant theme.darkAlgorithm + [data-theme="dark"] CSS overrides</td>
+    </tr>
+    <tr>
+      <td class="num">6</td>
+      <td class="token">Accessibility verification &nbsp;<span style="color:#5B7611;font-family:Courier;font-size:7.5pt;font-weight:700">NEW May 2026</span></td>
+      <td class="value">Run WCAG contrast pass against each surface tier (use &sect;2.13 R5 ratios as baseline). Verify R1&ndash;R9 rules are followed in every screen.</td>
+      <td class="value">axe-core or Lighthouse pass on dev environment. Flag any base-status text usage (should be text-variant per R2). Flag any lime as body text (should be primaryText per R3).</td>
+    </tr>
+    <tr>
+      <td class="num">7</td>
+      <td class="token">Cross-check</td>
+      <td class="value">Compare Figma against design-system-comparison.html right column</td>
+      <td class="value">Compare shipped app against design-system-comparison.html right column</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="cover-meta" style="margin-top:14mm; text-align:center">Genie 6.0 design language &middot; v1.2 May 2026 &middot; Captured from FabAds Claude sandbox &middot; Reference: <code>design-system-comparison.html</code></p>
+
+</body>
+</html>
