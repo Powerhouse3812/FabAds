@@ -1,5 +1,5 @@
 import { Component, useState, useEffect, useMemo, type ReactNode } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -22,48 +22,45 @@ import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
-import { AiPlanDashboardV2 } from "@/components/dashboard/ai-plan/v2/AiPlanDashboardV2";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
  * Dashboard — plan-aware top-level page.
  *
- *   AI plan   → AiPlanDashboard (Genie / Insights / Video Sage / Catalogue
- *               / AI Suggestions / Profile Completion / Activity strip)
+ *   AI plan   → AiPlanDashboard (the single best-of-both layout — A-12.185
+ *               consolidated V1 + V2 into one composition with 3 net-new
+ *               tiles: NewAdsFetchedTile, CreditUsageCard, IndustryInsightsTile)
  *   Full plan → existing ad-ops dashboard (KPI row, performance trend,
  *               ad accounts, RRM, risk heatmap, launches, automation)
  *
  * Maalik: on AI plan, locked modules have NO DATA — pulling ad-performance
  * tiles would render empty/noisy. So the AI-plan path forks entirely into
  * its own composition. Growth-plan path stays exactly as before.
+ *
+ * A-12.185: V1/V2 toggle removed. AiPlanDashboardV2 + DashboardVariantToggle
+ * deleted along with the dropped subcomponents (SpotlightRow,
+ * AiSuggestionsCoach, VideoSageRecentTile, MicroAnalyticsCard,
+ * CommandPaletteButton, SignalsAndCoachList).
  */
 export default function Dashboard() {
   const { plan } = usePlan();
-  // V2 preview toggle: ?v=2 on /dashboard renders the bento-grid
-  // "Operator Briefing" variant of the AI-plan dashboard. Easy A/B
-  // for Maalik — no new route, no sidebar change.
-  const [searchParams] = useSearchParams();
-  const useV2 = searchParams.get("v") === "2";
   if (plan === "ai") {
-    // ErrorBoundary catches any runtime crash in V2 so the user sees
-    // a clear message instead of a blank page. V1 wrapped the same
-    // way for symmetry.
+    // ErrorBoundary catches any runtime crash on the AI-plan dashboard so
+    // the user sees a recovery card instead of a blank page.
     return (
-      <DashboardErrorBoundary variant={useV2 ? "v2" : "v1"}>
-        {useV2 ? <AiPlanDashboardV2 /> : <AiPlanDashboard />}
+      <DashboardErrorBoundary>
+        <AiPlanDashboard />
       </DashboardErrorBoundary>
     );
   }
   return <FullPlanDashboard />;
 }
 
-/* ── Error boundary around AI-plan dashboard variants ──
-      If something inside V1 or V2 throws on render, this catches it
-      and shows a recovery card instead of a blank page. The fallback
-      includes a "Back to V1" link so the user is never stuck. */
+/* ── Error boundary around the AI-plan dashboard ──
+      If something inside the dashboard throws on render, this catches it
+      and shows a recovery card with a reload button. */
 interface ErrorBoundaryProps {
   children: ReactNode;
-  variant: "v1" | "v2";
 }
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -80,58 +77,41 @@ class DashboardErrorBoundary extends Component<
   componentDidCatch(error: Error, info: { componentStack: string }) {
     // eslint-disable-next-line no-console
     console.error(
-      `[Dashboard ${this.props.variant.toUpperCase()}] crashed:`,
+      `[Dashboard AI-plan] crashed:`,
       error,
       info.componentStack,
     );
   }
   render() {
     if (this.state.hasError) {
-      return <DashboardCrashFallback variant={this.props.variant} error={this.state.error} />;
+      return <DashboardCrashFallback error={this.state.error} />;
     }
     return this.props.children;
   }
 }
 
-function DashboardCrashFallback({
-  variant,
-  error,
-}: {
-  variant: "v1" | "v2";
-  error: Error | null;
-}) {
-  const navigate = useNavigate();
+function DashboardCrashFallback({ error }: { error: Error | null }) {
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-6">
       <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/[0.04] p-6">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="h-4 w-4 text-destructive" strokeWidth={2.25} />
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-destructive">
-            {variant === "v2" ? "V2 · Operator" : "V1 · Vercel"} crashed
+            Dashboard crashed
           </p>
         </div>
         <h2 className="text-[18px] font-bold text-foreground tracking-tight leading-tight">
-          Couldn't render the {variant.toUpperCase()} dashboard.
+          Couldn't render the dashboard.
         </h2>
         <p className="text-[12.5px] text-muted-foreground mt-2 leading-snug">
-          A component inside this variant threw an error. The console has the
-          stack trace. {variant === "v2" ? "Falling back to V1 is one click away." : ""}
+          A component threw an error. The console has the stack trace.
         </p>
         {error?.message && (
           <pre className="mt-3 p-2 rounded-md bg-muted/40 font-mono text-[10.5px] text-muted-foreground overflow-x-auto">
             {error.message}
           </pre>
         )}
-        <div className="mt-4 flex items-center gap-2">
-          {variant === "v2" && (
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
-            >
-              Back to V1
-            </button>
-          )}
+        <div className="mt-4">
           <button
             type="button"
             onClick={() => window.location.reload()}

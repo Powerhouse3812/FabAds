@@ -3,57 +3,61 @@ import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DashboardVariantToggle } from "./DashboardVariantToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
 import { NowStatusStrip } from "./NowStatusStrip";
 import { AnalyticsHero } from "./AnalyticsHero";
 import { ModeLauncherBar } from "./ModeLauncherBar";
 import { RecentWorkStrip } from "./RecentWorkStrip";
-import { SpotlightRow } from "./SpotlightRow";
 import { UpsellRow } from "./UpsellRow";
 import { AiDashboardUpsellHero } from "./AiDashboardUpsellHero";
 import { AiDashboardUpsellSide } from "./AiDashboardUpsellSide";
-import { AiSuggestionsCoach } from "./AiSuggestionsCoach";
-import { VideoSageRecentTile } from "./VideoSageRecentTile";
 import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
+import { TopPerformerStrip } from "./TopPerformerStrip";
+import { CreditUsageCard } from "./CreditUsageCard";
+import { IndustryInsightsTile } from "./IndustryInsightsTile";
+import { NewAdsFetchedTile } from "./NewAdsFetchedTile";
 
 /**
- * AI-plan Dashboard — iter 5 (designer-critic pass).
+ * AI-plan Dashboard — v1.2 (consolidated single-dashboard pass).
  *
- * Pass-through critique applied this iter:
+ * The V1/V2 toggle is gone. Maalik compared both iterations side-by-side
+ * and locked a best-of-both content list — the V2 file (and its private
+ * sub-components) have been deleted entirely. This file is now THE
+ * dashboard. Composition pulls TopPerformerStrip up from the V2 folder,
+ * adds three new tiles owned by parallel agents (CreditUsageCard,
+ * IndustryInsightsTile, NewAdsFetchedTile), and reshuffles the row order
+ * so the most action-driving surface — NewAdsFetchedTile, fresh ads
+ * pulled in via the Industry Insights extension — sits prominently
+ * above the bento fold.
  *
- *   - LivePulseTicker CUT — claimed "LIVE" but was 8 hardcoded events on
- *     a 4.5s rotation. Faking liveness creates trust debt. No action
- *     emerged from any event. Surfaced one row of dashboard noise.
+ * What got cut from the prior iter:
  *
- *   - SetupStepperBar CUT — folded into NowStatusStrip as a single
- *     "Setup 2/4" chip. The standalone 44px row was vestigial — users
- *     don't re-complete setup steps after onboarding; it just hung
- *     around showing the same partial state.
- *
- *   - RecentWorkStrip thumbnails REDESIGNED — looked like paint chips
- *     (gradient + brand initial). Now mode-aware mini ad-creative mocks
- *     (UGC frame / Brand Ad / Product Ad / Variation grid).
- *
- *   - AnalyticsHero CHART COMPACTED — header reshaped to put the big
- *     number + delta inline, chart dropped 120→96px.
- *
- *   - UpsellRow ADDED — 3 visual upsell tiles (Launch / Reports /
- *     Automation) promoting the Full plan in-context. Each click →
- *     /plans-v2?tier=growth. Replaces invisible "discover features by
- *     hitting a wall" pattern.
+ *   - SpotlightRow CUT — content (Trending + Catalogue health) felt
+ *     redundant once IndustryInsightsTile + NewAdsFetchedTile carry the
+ *     "what's happening in your market" story with sharper specificity.
+ *   - AiSuggestionsCoach CUT — copy-heavy bottom row that nobody acted
+ *     on. NowStatusStrip already surfaces the same chips with intent.
+ *   - VideoSageRecentTile CUT — single-mode tile in a multi-mode shell;
+ *     RecentWorkStrip already covers recent work across all modes.
+ *   - DashboardVariantToggle CUT — no V2 to flip to anymore.
  *
  * Composition (top → bottom):
  *
- *   ROW 0  Header
- *   ROW 1  NowStatusStrip   (chips: credits, new, attention, setup)
- *   ROW 2  AnalyticsHero    (compacted — chart + 4 KPI tiles)
- *   ROW 3  ModeLauncherBar  (6 compact mode rows)
- *   ROW 4  RecentWorkStrip  (4 ad-mockup thumbnails)
- *   ROW 5  SpotlightRow     (Trending + Catalogue health)
- *   ROW 6  UpsellRow        (3 Full-plan upsell tiles)
- *   ROW 7  Coach + VideoSage (60/40 — flagged for visual redesign)
+ *   ROW 0  Header (greeting + Refresh — no variant toggle)
+ *   ROW 1  NowStatusStrip       (chips: credits, new, attention, setup)
+ *   ROW 2  AnalyticsHero        (compacted chart + KPI tiles)
+ *   ROW 3  NewAdsFetchedTile    ★ priority placement — fresh ads in
+ *   ROW 4  Bento 2-col (lg:grid-cols-12, gap-4):
+ *            LEFT  col-span-7 : TopPerformerStrip + RecentWorkStrip
+ *            RIGHT col-span-5 : CreditUsageCard + IndustryInsightsTile
+ *          Below 1080px the columns stack single (default grid-cols-1).
+ *   ROW 5  ModeLauncherBar      (6 compact mode rows)
+ *   ROW 6  UpsellRow            (3 Full-plan upsell tiles)
+ *   ROW 7  AiDashboardUpsellHero
+ *   ROW 8  AiDashboardUpsellSide
+ *
+ * ZeroStateSetupTakeover still gates the whole composition on isNewUser.
  */
 export function AiPlanDashboard() {
   const { user } = useAuth();
@@ -111,9 +115,7 @@ export function AiPlanDashboard() {
 
   return (
     <div className="pb-6">
-      {/* ── ROW 0 — Header ──
-            Variant toggle (V1 ↔ V2) always visible so users can flip
-            without hunting for a tiny link. */}
+      {/* ── ROW 0 — Header ── */}
       <header className="flex items-end justify-between flex-wrap gap-3 mb-3">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight text-foreground leading-none">
@@ -126,7 +128,6 @@ export function AiPlanDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <DashboardVariantToggle active="v1" />
           {!isNewUser && (
             <Button
               variant="outline"
@@ -151,14 +152,6 @@ export function AiPlanDashboard() {
           animate="show"
           className="space-y-3"
         >
-          {/* ROW 0.5 — Dual-lane upsell hero (social proof + AI Team /
-              Growth CTAs). Closable per-browser; hidden for Growth users.
-              Sits above status chips so it greets every AI dashboard mount
-              without being below-the-fold. */}
-          <motion.section variants={rowVariants}>
-            <AiDashboardUpsellHero />
-          </motion.section>
-
           {/* ROW 1 — Status chips */}
           <motion.section variants={rowVariants}>
             <NowStatusStrip />
@@ -169,26 +162,34 @@ export function AiPlanDashboard() {
             <AnalyticsHero />
           </motion.section>
 
-          {/* ROW 3 — Mode launcher */}
+          {/* ROW 3 — New ads fetched (priority placement — the most
+              action-driving surface on the dashboard; fresh ads pulled
+              in via the Industry Insights extension). */}
+          <motion.section variants={rowVariants}>
+            <NewAdsFetchedTile />
+          </motion.section>
+
+          {/* ROW 4 — Bento 2-col.
+                LEFT  (7/12) : TopPerformerStrip + RecentWorkStrip
+                RIGHT (5/12) : CreditUsageCard + IndustryInsightsTile
+              Stacks single-column below the lg breakpoint. */}
+          <motion.section
+            variants={rowVariants}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start"
+          >
+            <div className="lg:col-span-7 space-y-3">
+              <TopPerformerStrip />
+              <RecentWorkStrip />
+            </div>
+            <div className="lg:col-span-5 space-y-3">
+              <CreditUsageCard />
+              <IndustryInsightsTile />
+            </div>
+          </motion.section>
+
+          {/* ROW 5 — Mode launcher */}
           <motion.section variants={rowVariants}>
             <ModeLauncherBar />
-          </motion.section>
-
-          {/* ROW 4 — Recent work (mode-aware ad mockups) */}
-          <motion.section variants={rowVariants}>
-            <RecentWorkStrip />
-          </motion.section>
-
-          {/* ROW 5 — Spotlight: Trending + Catalogue health */}
-          <motion.section variants={rowVariants}>
-            <SpotlightRow />
-          </motion.section>
-
-          {/* ROW 5.5 — ROI-led mid-page upsell card. Quieter than the hero,
-              ROI-focused (4 hrs/week stat) — different angle than the hero's
-              social-proof play so they don't read as duplicates. */}
-          <motion.section variants={rowVariants}>
-            <AiDashboardUpsellSide />
           </motion.section>
 
           {/* ROW 6 — Upsell row (Full plan promotion) */}
@@ -196,17 +197,14 @@ export function AiPlanDashboard() {
             <UpsellRow />
           </motion.section>
 
-          {/* ROW 7 — Coach + Video Sage (60/40) */}
-          <motion.section
-            variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start"
-          >
-            <div className="lg:col-span-3">
-              <AiSuggestionsCoach />
-            </div>
-            <div className="lg:col-span-2">
-              <VideoSageRecentTile />
-            </div>
+          {/* ROW 7 — Dual-lane upsell hero (social proof + Growth CTA) */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellHero />
+          </motion.section>
+
+          {/* ROW 8 — ROI-led mid-page upsell card */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellSide />
           </motion.section>
         </motion.div>
       )}
