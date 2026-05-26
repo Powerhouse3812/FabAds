@@ -389,57 +389,20 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         : "LAST 90 DAYS";
 
   return (
-    <section className={cn("flex flex-col gap-3", className)}>
-      {/* ── TOP — KPI strip (4 tiles horizontal, full-width) ──
-            Restructured from side-column stack (iter 5 compaction pass):
-            previously the 4 KPI tiles stacked vertically beside a 65%-
-            width chart, leaving ~180px of dead space below the chart
-            because CSS grid equalized the row heights. Vercel-style
-            strip-on-top fixes that — chart gets full horizontal canvas,
-            KPI tiles compact horizontally with no wasted vertical. */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <KpiTile
-          eyebrow="CREDITS USED"
-          value={73}
-          valueSuffix="/100"
-          delta={{ v: 12, suffix: " vs last mo", prefix: "" }}
-          spark={CREDITS_SPARK}
-          onClick={() => navigate("/plans-v2")}
-          delay={0.08}
-        />
-        <KpiTile
-          eyebrow="INSIGHTS PINNED"
-          value={14}
-          delta={{ v: 5, suffix: " vs prev 30d", prefix: "" }}
-          spark={INSIGHTS_SPARK}
-          onClick={() => navigate("/insights-v2/feed")}
-          delay={0.16}
-        />
-        <KpiTile
-          eyebrow="AVG QUALITY"
-          value={84}
-          delta={{ v: 3, suffix: " pts", prefix: "" }}
-          spark={QUALITY_SPARK}
-          onClick={() => navigate("/iq/genie6/library")}
-          delay={0.24}
-        />
-        <KpiTile
-          eyebrow="BRANDS ACTIVE"
-          value={4}
-          delta={null}
-          spark={BRANDS_SPARK}
-          brandDots={brandDots}
-          onClick={() => navigate("/catalogue/brands")}
-          delay={0.32}
-        />
-      </div>
+    <section className={cn("grid grid-cols-1 lg:grid-cols-12 gap-3", className)}>
+      {/* A-12.187: single-row layout — chart left, 2×2 KPI grid right.
+            Was: KPI strip on top + full-width chart below (two rows).
+            Maalik flagged that the screen real estate was wasted; one
+            horizontal row gives the chart a tighter canvas and clusters
+            the metrics into a scannable corner block. Stacks to single
+            column below `lg`. */}
 
-      {/* ── BOTTOM — full-width chart card ── */}
+      {/* ── LEFT — chart card (60%) ── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="rounded-2xl border border-border bg-card p-4"
+        className="rounded-2xl border border-border bg-card p-4 lg:col-span-7"
       >
         {/* Header row — number + eyebrow + delta inline, toggle right */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -503,6 +466,44 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
           </ResponsiveContainer>
         </div>
       </motion.div>
+
+      {/* ── RIGHT — 2×2 KPI grid (40%) ── */}
+      <div className="grid grid-cols-2 gap-2 lg:col-span-5">
+        <KpiTile
+          eyebrow="CREDITS USED"
+          value={73}
+          valueSuffix="/100"
+          delta={{ v: 12, suffix: " vs last mo", prefix: "" }}
+          spark={CREDITS_SPARK}
+          onClick={() => navigate("/plans-v2")}
+          delay={0.08}
+        />
+        <KpiTile
+          eyebrow="INSIGHTS PINNED"
+          value={14}
+          delta={{ v: 5, suffix: " vs prev 30d", prefix: "" }}
+          spark={INSIGHTS_SPARK}
+          onClick={() => navigate("/insights-v2/feed")}
+          delay={0.16}
+        />
+        <KpiTile
+          eyebrow="AVG QUALITY"
+          value={84}
+          delta={{ v: 3, suffix: " pts", prefix: "" }}
+          spark={QUALITY_SPARK}
+          onClick={() => navigate("/iq/genie6/library")}
+          delay={0.24}
+        />
+        <KpiTile
+          eyebrow="BRANDS ACTIVE"
+          value={4}
+          delta={null}
+          spark={BRANDS_SPARK}
+          brandDots={brandDots}
+          onClick={() => navigate("/catalogue/brands")}
+          delay={0.32}
+        />
+      </div>
     </section>
   );
 }
