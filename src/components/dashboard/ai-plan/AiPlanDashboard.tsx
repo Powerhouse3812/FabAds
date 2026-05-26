@@ -9,9 +9,7 @@ import { NowStatusStrip } from "./NowStatusStrip";
 import { AnalyticsHero } from "./AnalyticsHero";
 import { ModeLauncherBar } from "./ModeLauncherBar";
 import { RecentWorkStrip } from "./RecentWorkStrip";
-import { UpsellRow } from "./UpsellRow";
-import { AiDashboardUpsellHero } from "./AiDashboardUpsellHero";
-import { AiDashboardUpsellSide } from "./AiDashboardUpsellSide";
+import { UpsellCornerPill } from "./UpsellCornerPill";
 import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
 import { TopPerformerStrip } from "./TopPerformerStrip";
 import { CreditUsageCard } from "./CreditUsageCard";
@@ -44,7 +42,7 @@ import { NewAdsFetchedTile } from "./NewAdsFetchedTile";
  *
  * Composition (top → bottom):
  *
- *   ROW 0  Header (greeting + Refresh — no variant toggle)
+ *   ROW 0  Header (greeting + UpsellCornerPill + Refresh)
  *   ROW 1  NowStatusStrip       (chips: credits, new, attention, setup)
  *   ROW 2  AnalyticsHero        (compacted chart + KPI tiles)
  *   ROW 3  NewAdsFetchedTile    ★ priority placement — fresh ads in
@@ -53,9 +51,11 @@ import { NewAdsFetchedTile } from "./NewAdsFetchedTile";
  *            RIGHT col-span-5 : CreditUsageCard + IndustryInsightsTile
  *          Below 1080px the columns stack single (default grid-cols-1).
  *   ROW 5  ModeLauncherBar      (6 compact mode rows)
- *   ROW 6  UpsellRow            (3 Full-plan upsell tiles)
- *   ROW 7  AiDashboardUpsellHero
- *   ROW 8  AiDashboardUpsellSide
+ *
+ * A-12.186: upsell content consolidated to a single header pill — was 3
+ * dedicated rows (UpsellRow + AiDashboardUpsellHero + AiDashboardUpsellSide),
+ * Maalik flagged as too sales-y. Rows 6/7/8 removed; the right cluster of
+ * Row 0 now carries the UpsellCornerPill inline next to Refresh.
  *
  * ZeroStateSetupTakeover still gates the whole composition on isNewUser.
  */
@@ -129,15 +129,18 @@ export function AiPlanDashboard() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {!isNewUser && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              className="gap-1.5"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </Button>
+            <>
+              <UpsellCornerPill />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                className="gap-1.5"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </Button>
+            </>
           )}
         </div>
       </header>
@@ -190,21 +193,6 @@ export function AiPlanDashboard() {
           {/* ROW 5 — Mode launcher */}
           <motion.section variants={rowVariants}>
             <ModeLauncherBar />
-          </motion.section>
-
-          {/* ROW 6 — Upsell row (Full plan promotion) */}
-          <motion.section variants={rowVariants}>
-            <UpsellRow />
-          </motion.section>
-
-          {/* ROW 7 — Dual-lane upsell hero (social proof + Growth CTA) */}
-          <motion.section variants={rowVariants}>
-            <AiDashboardUpsellHero />
-          </motion.section>
-
-          {/* ROW 8 — ROI-led mid-page upsell card */}
-          <motion.section variants={rowVariants}>
-            <AiDashboardUpsellSide />
           </motion.section>
         </motion.div>
       )}
