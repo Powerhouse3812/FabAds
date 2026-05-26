@@ -78,25 +78,10 @@ function formatRelativeTime(input: Date | string): string {
   });
 }
 
-/**
- * hydrateRecIcon — translates the serialized icon hint on a recommendation
- * record into a concrete lucide component, since CoachRow expects a
- * `LucideIcon` reference (not a string).
- */
-const REC_ICONS: Record<string, LucideIcon> = {
-  sparkles: Sparkles,
-  beaker: Beaker,
-  "refresh-cw": RefreshCw,
-};
-
-// Loose-typed input: Agent 1 owns the canonical Recommendation shape; we
-// only need to read `icon` and return a hydrated copy.
-function hydrateRecIcon<T extends { icon?: string | LucideIcon }>(rec: T): T & { icon: LucideIcon } {
-  const raw = rec.icon;
-  const resolved: LucideIcon =
-    typeof raw === "string" ? (REC_ICONS[raw] ?? Sparkles) : (raw ?? Sparkles);
-  return { ...rec, icon: resolved };
-}
+/* `hydrateRecIcon` previously sat here to wrap recommendation icons into
+   `LucideIcon` refs. CoachRow now does that mapping internally via its own
+   `iconFor()` switch, so wrapping here double-hydrated and crashed at runtime
+   (string → component → undefined inside the switch). Dropped. */
 
 /**
  * AdDetailDrawerVariantA — refined "creative-first" bento layout.
@@ -141,14 +126,7 @@ export function AdDetailDrawerVariantA({
 
   const created = output.generatedAt instanceof Date ? output.generatedAt : new Date(output.generatedAt);
 
-  // `aiVerdict`, `comparison`, `recommendations` are Agent-1 extensions —
-  // typed loosely here so this file compiles ahead of the type update.
-  const ext = output as OutputData & {
-    aiVerdict?: { quality: number };
-    comparison?: { topInAngle: number; your10Avg: number; categoryAvg: number };
-    recommendations?: Array<{ id: string; icon?: string | LucideIcon }>;
-  };
-  const currentQ = ext.aiVerdict?.quality ?? 0;
+  const currentQ = output.aiVerdict?.quality ?? 0;
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -161,9 +139,9 @@ export function AdDetailDrawerVariantA({
             <SheetTitle className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
               Ad detail · {output.id}
             </SheetTitle>
-            {ext.aiVerdict && (
+            {output.aiVerdict && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary">
-                Quality · <span className="tabular-nums">{ext.aiVerdict.quality}</span>
+                Quality · <span className="tabular-nums">{output.aiVerdict.quality}</span>
               </span>
             )}
             <span className="text-[11px] text-muted-foreground">
@@ -295,10 +273,10 @@ export function AdDetailDrawerVariantA({
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   AI verdict
                 </h3>
-                {ext.aiVerdict ? (
+                {output.aiVerdict ? (
                   <div className="grid grid-cols-[auto_1fr] gap-5 items-center">
-                    <QualityRing score={ext.aiVerdict.quality} label="QUALITY" />
-                    <AiVerdictCells verdict={ext.aiVerdict} layout="grid" />
+                    <QualityRing score={output.aiVerdict.quality} label="QUALITY" />
+                    <AiVerdictCells verdict={output.aiVerdict} layout="grid" />
                   </div>
                 ) : (
                   <p className="text-[12px] text-muted-foreground italic">
@@ -343,26 +321,26 @@ export function AdDetailDrawerVariantA({
                   <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
                     Peer comparison · {angle?.label ?? "this angle"}
                   </h3>
-                  {ext.aiVerdict && ext.comparison && (
+                  {output.aiVerdict && output.comparison && (
                     <CompareBars
                       bars={[
-                        { label: "This ad", value: ext.aiVerdict.quality, isCurrent: true },
-                        { label: "Top in angle", value: ext.comparison.topInAngle },
-                        { label: "Your last 10 avg", value: ext.comparison.your10Avg },
-                        { label: "Category avg", value: ext.comparison.categoryAvg },
+                        { label: "This ad", value: output.aiVerdict.quality, isCurrent: true },
+                        { label: "Top in angle", value: output.comparison.topInAngle },
+                        { label: "Your last 10 avg", value: output.comparison.your10Avg },
+                        { label: "Category avg", value: output.comparison.categoryAvg },
                       ]}
                     />
                   )}
                 </div>
 
-                {ext.recommendations && ext.recommendations.length > 0 && (
+                {output.recommendations && output.recommendations.length > 0 && (
                   <div>
                     <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
                       What to do next
                     </h3>
                     <div>
-                      {ext.recommendations.map((rec) => (
-                        <CoachRow key={rec.id} rec={hydrateRecIcon(rec)} />
+                      {output.recommendations.map((rec) => (
+                        <CoachRow key={rec.id} rec={rec} />
                       ))}
                     </div>
                   </div>
