@@ -126,13 +126,11 @@ export function AdDetailDrawerVariantA({
   );
 
   const siblings = useMemo(() => {
-    // `siblings` is a new field on OutputData (Agent 1 extends the type);
-    // until then, optional-chain it so this compiles cleanly.
-    const ids = (output as OutputData & { siblings?: string[] }).siblings;
+    const ids = output.siblings;
     if (!ids || ids.length === 0) return [];
     const idSet = new Set(ids);
     return sampleOutputs.filter((o) => idSet.has(o.id));
-  }, [output]);
+  }, [output.siblings]);
 
   const related = useMemo(() => {
     if (!output.angleId) return [];
