@@ -15,47 +15,53 @@ import { TopPerformerStrip } from "./TopPerformerStrip";
 import { CreditUsageCard } from "./CreditUsageCard";
 import { IndustryInsightsTile } from "./IndustryInsightsTile";
 import { NewAdsFetchedTile } from "./NewAdsFetchedTile";
+import { UpsellRow } from "./UpsellRow";
+import { AiDashboardUpsellHero } from "./AiDashboardUpsellHero";
+import { AiDashboardUpsellSide } from "./AiDashboardUpsellSide";
 
 /**
- * AI-plan Dashboard — v1.2 (consolidated single-dashboard pass).
+ * AI-plan Dashboard — v1.3 (Maalik reorder + restored upsell trio).
  *
- * The V1/V2 toggle is gone. Maalik compared both iterations side-by-side
- * and locked a best-of-both content list — the V2 file (and its private
- * sub-components) have been deleted entirely. This file is now THE
- * dashboard. Composition pulls TopPerformerStrip up from the V2 folder,
- * adds three new tiles owned by parallel agents (CreditUsageCard,
- * IndustryInsightsTile, NewAdsFetchedTile), and reshuffles the row order
- * so the most action-driving surface — NewAdsFetchedTile, fresh ads
- * pulled in via the Industry Insights extension — sits prominently
- * above the bento fold.
+ * A-12.188: Maalik did a sit-down review of the v1.2 layout and asked for
+ * two changes that together dismantle the Row 4 bento body:
  *
- * What got cut from the prior iter:
+ *   1. The Credit + Industry Insights pair moves UP — promoted from the
+ *      right column of the bento to its own flat 2-col row above the mode
+ *      launcher.
+ *   2. The TopPerformer + RecentWork pair moves DOWN — demoted from the
+ *      left column of the bento to its own flat 2-col row below the mode
+ *      launcher.
  *
- *   - SpotlightRow CUT — content (Trending + Catalogue health) felt
- *     redundant once IndustryInsightsTile + NewAdsFetchedTile carry the
- *     "what's happening in your market" story with sharper specificity.
- *   - AiSuggestionsCoach CUT — copy-heavy bottom row that nobody acted
- *     on. NowStatusStrip already surfaces the same chips with intent.
- *   - VideoSageRecentTile CUT — single-mode tile in a multi-mode shell;
- *     RecentWorkStrip already covers recent work across all modes.
- *   - DashboardVariantToggle CUT — no V2 to flip to anymore.
+ * ModeLauncherBar ("generate mode wala") stays sandwiched between them,
+ * which gives the dashboard a clearer cadence: hero strip → analytics →
+ * fresh ads → spend/market context → action launcher → recent results →
+ * upsell tail.
+ *
+ * Plus the 3 upsell components deleted in A-12.186 (UpsellRow,
+ * AiDashboardUpsellHero, AiDashboardUpsellSide) are back. That deletion
+ * was a misread of Maalik's intent — only the header-area upsell was meant
+ * to be replaced by UpsellCornerPill, the 3 body-row upsells were never
+ * supposed to go. A parallel git-restore agent is bringing the component
+ * files back; this file re-imports them and mounts them at the bottom as
+ * Rows 7/8/9. UpsellCornerPill stays in the header.
  *
  * Composition (top → bottom):
  *
  *   ROW 0  Header (greeting + UpsellCornerPill + Refresh)
  *   ROW 1  NowStatusStrip       (chips: credits, new, attention, setup)
  *   ROW 2  AnalyticsHero        (compacted chart + KPI tiles)
- *   ROW 3  NewAdsFetchedTile    ★ priority placement — fresh ads in
- *   ROW 4  Bento 2-col (lg:grid-cols-12, gap-4):
- *            LEFT  col-span-7 : TopPerformerStrip + RecentWorkStrip
- *            RIGHT col-span-5 : CreditUsageCard + IndustryInsightsTile
- *          Below 1080px the columns stack single (default grid-cols-1).
+ *   ROW 3  NewAdsFetchedTile    ★ fresh ads pulled via Industry Insights
+ *   ROW 4  Pair row (lg:grid-cols-2, gap-3):
+ *            CreditUsageCard | IndustryInsightsTile
  *   ROW 5  ModeLauncherBar      (6 compact mode rows)
+ *   ROW 6  Pair row (lg:grid-cols-2, gap-3):
+ *            TopPerformerStrip | RecentWorkStrip
+ *   ROW 7  UpsellRow            (RESTORED — 3-tile horizontal upsell)
+ *   ROW 8  AiDashboardUpsellHero (RESTORED — dual-lane upsell hero)
+ *   ROW 9  AiDashboardUpsellSide (RESTORED — ROI side card)
  *
- * A-12.186: upsell content consolidated to a single header pill — was 3
- * dedicated rows (UpsellRow + AiDashboardUpsellHero + AiDashboardUpsellSide),
- * Maalik flagged as too sales-y. Rows 6/7/8 removed; the right cluster of
- * Row 0 now carries the UpsellCornerPill inline next to Refresh.
+ * Both pair rows collapse to single-column below the lg breakpoint so
+ * mobile stacks cleanly.
  *
  * ZeroStateSetupTakeover still gates the whole composition on isNewUser.
  */
@@ -172,27 +178,54 @@ export function AiPlanDashboard() {
             <NewAdsFetchedTile />
           </motion.section>
 
-          {/* ROW 4 — Bento 2-col.
-                LEFT  (7/12) : TopPerformerStrip + RecentWorkStrip
-                RIGHT (5/12) : CreditUsageCard + IndustryInsightsTile
+          {/* ROW 4 — Pair row: Credit | Industry Insights.
+              Was the right column of the v1.2 bento; promoted UP per
+              Maalik so spend/market context lands before the launcher.
               Stacks single-column below the lg breakpoint. */}
           <motion.section
             variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-3"
           >
-            <div className="lg:col-span-7 space-y-3">
-              <TopPerformerStrip />
-              <RecentWorkStrip />
-            </div>
-            <div className="lg:col-span-5 space-y-3">
-              <CreditUsageCard />
-              <IndustryInsightsTile />
-            </div>
+            <CreditUsageCard />
+            <IndustryInsightsTile />
           </motion.section>
 
-          {/* ROW 5 — Mode launcher */}
+          {/* ROW 5 — Mode launcher (stays sandwiched between the two
+              pair rows — Maalik's "generate mode wala", middle of the
+              dashboard). */}
           <motion.section variants={rowVariants}>
             <ModeLauncherBar />
+          </motion.section>
+
+          {/* ROW 6 — Pair row: TopPerformer | RecentWork.
+              Was the left column of the v1.2 bento; demoted DOWN per
+              Maalik so recent results sit after the action launcher.
+              Stacks single-column below the lg breakpoint. */}
+          <motion.section
+            variants={rowVariants}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-3"
+          >
+            <TopPerformerStrip />
+            <RecentWorkStrip />
+          </motion.section>
+
+          {/* ROW 7 — Upsell row (RESTORED in A-12.188).
+              3-tile horizontal upsell — the A-12.186 deletion was a
+              misread, this comes back unchanged. */}
+          <motion.section variants={rowVariants}>
+            <UpsellRow />
+          </motion.section>
+
+          {/* ROW 8 — Upsell hero (RESTORED in A-12.188).
+              Dual-lane upsell hero — same misread-deletion story. */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellHero />
+          </motion.section>
+
+          {/* ROW 9 — Upsell side (RESTORED in A-12.188).
+              ROI side card — final restored upsell. */}
+          <motion.section variants={rowVariants}>
+            <AiDashboardUpsellSide />
           </motion.section>
         </motion.div>
       )}
