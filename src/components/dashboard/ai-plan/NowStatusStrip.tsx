@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
-  Compass,
   Eye,
   MessageSquare,
   Sparkles,
@@ -63,27 +62,9 @@ export function NowStatusStrip({ className }: NowStatusStripProps) {
     // In-flight generation — mock false for now; flip via URL ?gen=active for demo
     const inFlight = false;
 
-    // Setup chip — absorbs the standalone SetupStepperBar (iter 5).
-    // Computed from real mocks. Done count maxes at 4 steps.
-    const first = brands[0];
-    const brandOk = first
-      ? first.voice.length > 20 &&
-        first.colors.length >= 2 &&
-        first.usps.length >= 2
-      : false;
-    const competitorsOk = first ? first.competitors.length >= 3 : false;
-    // Concept + first-gen: no live counters yet — hard-coded false until
-    // there's a real session store.
-    const conceptOk = false;
-    const firstGenOk = false;
-    const setupDoneCount = [
-      brandOk,
-      competitorsOk,
-      conceptOk,
-      firstGenOk,
-    ].filter(Boolean).length;
-    const setupTotal = 4;
-    const showSetupChip = setupDoneCount < setupTotal;
+    // NOTE (iter A-12.189): Setup-chip block was removed. Onboarding state
+    // is now a dedicated card inside AnalyticsHero (OnboardingProgressCard)
+    // — the chip was redundant and too small for the most important state.
 
     return {
       credits,
@@ -96,9 +77,6 @@ export function NowStatusStrip({ className }: NowStatusStripProps) {
       newInsights,
       newCount,
       inFlight,
-      setupDoneCount,
-      setupTotal,
-      showSetupChip,
     };
   }, []);
 
@@ -173,24 +151,6 @@ export function NowStatusStrip({ className }: NowStatusStripProps) {
           }
           detail={`${status.unsavedVariants} unsaved · ${status.brandsMissingVoice} brand setup`}
           href="/iq/genie6/library?filter=unsaved"
-        />
-      )}
-
-      {/* Setup progress (iter 5 — absorbed from SetupStepperBar) */}
-      {status.showSetupChip && (
-        <Chip
-          variant="info"
-          icon={Compass}
-          label={
-            <>
-              Setup{" "}
-              <span className="font-mono tabular-nums">
-                {status.setupDoneCount}/{status.setupTotal}
-              </span>
-            </>
-          }
-          detail="finish to unlock better outputs"
-          href="/insights-v2/feed?onboarding=true"
         />
       )}
 
