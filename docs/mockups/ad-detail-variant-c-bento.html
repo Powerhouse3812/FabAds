@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440, initial-scale=1" />
+<title>Ad detail · Variant C · Bento · Genie 6.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --lime:#8FB821;
+    --lime-12:rgba(143,184,33,0.12);
+    --lime-20:rgba(143,184,33,0.20);
+    --lime-30:rgba(143,184,33,0.30);
+    --fg:#0a0a0a;
+    --muted:#737373;
+    --muted-2:#a3a3a3;
+    --bg:#FFFFFF;
+    --card:#FAFAF7;
+    --border:#e5e5e5;
+    --hair:rgba(229,229,229,0.6);
+    --green:#2f7a35;
+    --red:#b3261e;
+    --shadow-soft: 0 1px 0 rgba(10,10,10,0.02);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#F4F4EF;color:var(--fg);
+    font-family:'Geist',system-ui,-apple-system,sans-serif;
+    font-feature-settings:"ss01","cv11";
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+  .num{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums}
+  .eyebrow{
+    font-family:'Geist Mono',ui-monospace,monospace;
+    font-size:10px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:rgba(0,0,0,0.55);
+    font-weight:500;
+  }
+
+  /* Canvas */
+  .canvas{
+    width:1376px;
+    margin:24px auto;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:20px;
+    overflow:hidden;
+  }
+
+  /* Header */
+  .header{
+    height:60px;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+    background:#FFFFFFE6;
+    backdrop-filter: blur(6px);
+    position:sticky;top:0;z-index:10;
+  }
+  .hdr-left{display:flex;align-items:center;gap:12px;min-width:0}
+  .icon-btn{
+    width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+    background:#fff;display:inline-flex;align-items:center;justify-content:center;
+    color:var(--fg);
+    transition:background .15s;
+  }
+  .icon-btn:hover{background:#f6f6f3}
+  .crumb{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);min-width:0}
+  .crumb .sep{color:var(--muted-2)}
+  .crumb .cur{color:var(--fg);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+
+  .toggle{
+    display:inline-flex;align-items:center;
+    background:#F0F0EB; border:1px solid var(--border);
+    border-radius:999px; padding:3px;
+  }
+  .toggle button{
+    border:0;background:transparent;cursor:pointer;
+    font-family:'Geist',sans-serif;font-size:12px;font-weight:500;
+    padding:6px 14px;border-radius:999px;color:var(--muted);
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .toggle button.active{
+    background:var(--lime);color:#0a0a0a;
+    box-shadow:0 1px 0 rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .toggle .dot{
+    width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.4
+  }
+  .toggle button.active .dot{opacity:.85}
+
+  .hdr-right{display:flex;align-items:center;gap:8px}
+  .kbd{
+    font-family:'Geist Mono',monospace;font-size:11px;
+    border:1px solid var(--border);border-radius:6px;padding:3px 7px;
+    color:var(--muted);background:#fff;
+  }
+
+  /* Grid */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(12, 1fr);
+    gap:16px;
+    padding:20px;
+  }
+  .col-8{grid-column:span 8}
+  .col-4{grid-column:span 4}
+  .col-12{grid-column:span 12}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px;
+    box-shadow:var(--shadow-soft);
+  }
+  .card.white{background:#fff}
+
+  /* HERO */
+  .hero{display:flex;gap:24px;height:410px}
+  .hero-text{flex:1;min-width:0;display:flex;flex-direction:column}
+  .brand-row{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .brand-avatar{
+    width:32px;height:32px;border-radius:10px;
+    background:linear-gradient(135deg,#D9E5A8,#8FB821);
+    display:flex;align-items:center;justify-content:center;
+    color:#0a0a0a;font-weight:600;font-size:13px;
+    border:1px solid rgba(0,0,0,0.06);
+  }
+  .brand-name{font-weight:600;font-size:14px}
+  .brand-prod{color:var(--muted);font-size:13px}
+  .brand-prod::before{content:"·";margin:0 6px;color:var(--muted-2)}
+
+  .headline{
+    font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-0.012em;
+    color:var(--fg);margin:0 0 14px 0;max-width:430px;
+  }
+  .body{
+    font-size:14px;line-height:1.55;color:var(--muted);margin:0 0 22px 0;max-width:430px;
+  }
+  .cta{
+    align-self:flex-start;
+    display:inline-flex;align-items:center;gap:8px;
+    padding:9px 18px;border:1px solid var(--border);
+    border-radius:999px;font-size:13px;font-weight:500;background:#fff;color:var(--fg);
+    margin-top:auto;
+  }
+
+  .hero-media{
+    width:280px;flex-shrink:0;
+    aspect-ratio:4/5;
+    border-radius:14px;
+    background:
+      radial-gradient(120% 80% at 20% 10%, rgba(255,255,255,0.55), transparent 60%),
+      linear-gradient(160deg,#D9E5A8 0%, #8FB821 65%, #6E9119 100%);
+    position:relative;overflow:hidden;
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  .hero-media::after{
+    content:"";position:absolute;inset:0;
+    background:
+      radial-gradient(60% 40% at 70% 80%, rgba(0,0,0,0.18), transparent 60%);
+  }
+  .media-tag{
+    position:absolute;top:14px;left:14px;z-index:2;
+    font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.18em;
+    text-transform:uppercase;color:rgba(0,0,0,0.7);
+    background:rgba(255,255,255,0.55);backdrop-filter:blur(4px);
+    border:1px solid rgba(0,0,0,0.06);
+    padding:4px 8px;border-radius:6px;
+  }
+  .media-product{
+    position:absolute;bottom:18px;left:18px;right:18px;z-index:2;
+    color:#0a0a0a;
+  }
+  .media-product .p-title{font-weight:600;font-size:13px;margin-bottom:2px}
+  .media-product .p-sub{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(0,0,0,0.7)}
+
+  /* Action lane */
+  .action-lane{display:flex;flex-direction:column;gap:14px;height:100%}
+  .btn-primary{
+    width:100%;height:48px;border-radius:12px;border:1px solid #7a9e1c;
+    background:linear-gradient(180deg,#9bc628 0%, #8FB821 100%);
+    color:#0a0a0a;font-weight:600;font-size:14px;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    cursor:pointer;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 1px 0 rgba(0,0,0,0.04);
+  }
+  .lock-note{
+    font-size:12px;color:var(--muted);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .lock-note .accent{color:var(--lime);font-weight:500}
+  .lock-note .accent:hover{text-decoration:underline}
+  .sep{height:1px;background:var(--hair);margin:2px 0}
+  .btn-ghost{
+    width:100%;height:42px;border-radius:10px;
+    border:1px solid var(--border);background:#fff;
+    display:flex;align-items:center;gap:10px;padding:0 14px;
+    font-size:13px;font-weight:500;color:var(--fg);cursor:pointer;
+  }
+  .btn-ghost .chev{margin-left:auto;color:var(--muted-2)}
+  .btn-ghost:hover{background:#fafaf7;border-color:#d6d6d2}
+  .tertiary-row{display:flex;gap:8px}
+  .tertiary-row .t-btn{
+    flex:1;height:40px;border-radius:10px;border:1px solid var(--border);
+    background:#fff;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);
+    cursor:pointer;
+  }
+  .tertiary-row .t-btn:hover{color:var(--fg);background:#fafaf7}
+
+  /* AI Verdict strip */
+  .verdict{
+    height:180px;display:flex;flex-direction:column;
+  }
+  .verdict-cells{
+    display:grid;grid-template-columns:repeat(5,1fr);
+    flex:1;margin-top:14px;
+  }
+  .v-cell{
+    padding:0 22px;display:flex;flex-direction:column;justify-content:center;gap:8px;
+    border-right:1px solid var(--hair);
+    position:relative;
+  }
+  .v-cell:last-child{border-right:0}
+  .v-cell.center{align-items:center;text-align:center}
+  .v-label{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(0,0,0,0.55)}
+  .v-big{font-size:28px;font-weight:600;letter-spacing:-0.015em;line-height:1;color:var(--fg)}
+  .v-delta{display:inline-flex;align-items:center;gap:4px;font-family:'Geist Mono',monospace;font-size:11px;font-variant-numeric:tabular-nums;font-weight:500}
+  .v-delta.up{color:var(--green)}
+  .v-delta.down{color:var(--red)}
+  .v-qual{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--lime);font-weight:500}
+  .v-qual.match{color:#5c7c14}
+
+  .ring-wrap{position:relative;width:84px;height:84px}
+  .ring-wrap svg{transform:rotate(-90deg)}
+  .ring-num{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:600;font-family:'Geist Mono',monospace;font-variant-numeric:tabular-nums;
+    color:var(--fg);
+  }
+
+  /* Provenance */
+  .prov-head{display:flex;align-items:center;justify-content:space-between}
+  .lineage{
+    margin-top:16px;
+    position:relative;
+    display:flex;align-items:center;gap:0;
+    padding:6px 2px 2px 2px;
+  }
+  .node{
+    flex:1;
+    display:flex;flex-direction:column;align-items:flex-start;gap:6px;
+    padding:10px 12px;
+    border:1px solid var(--border);background:#fff;border-radius:12px;
+    min-height:62px;position:relative;z-index:2;
+    max-width:158px;
+  }
+  .node.current{
+    border-color:var(--lime);
+    background:linear-gradient(180deg,#fff,#F6FAEC);
+    box-shadow:0 0 0 4px var(--lime-12);
+  }
+  .node .n-row{display:flex;align-items:center;gap:6px}
+  .node .n-kind{font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(0,0,0,0.45)}
+  .node .n-label{font-size:12px;font-weight:600;color:var(--fg);line-height:1.25;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;
+  }
+  .node.current .n-kind{color:#5c7c14}
+  .connector{
+    flex:0 0 18px;height:1px;
+    background:var(--border);
+    position:relative;
+  }
+  .connector.lime{background:var(--lime)}
+  .connector::after{
+    content:"";position:absolute;right:-1px;top:-3px;
+    width:0;height:0;border-left:5px solid var(--border);
+    border-top:3.5px solid transparent;border-bottom:3.5px solid transparent;
+  }
+  .connector.lime::after{border-left-color:var(--lime)}
+
+  .prompt-snip{
+    margin-top:16px;
+    background:#F1F1EC;border:1px solid var(--border);border-radius:10px;
+    padding:11px 14px;font-family:'Geist Mono',monospace;font-size:12px;font-style:italic;
+    color:#333;line-height:1.55;
+  }
+  .prompt-snip .qq{color:var(--muted-2)}
+  .meta-strip{
+    margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 14px;
+    font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);
+  }
+  .meta-strip .k{color:rgba(0,0,0,0.45)}
+  .meta-strip .v{color:var(--fg);font-weight:500}
+
+  /* Compare + Coach */
+  .compare-bars{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+  .cmp{display:grid;grid-template-columns:96px 1fr 32px;align-items:center;gap:10px;font-size:12px}
+  .cmp .lbl{color:var(--muted);font-size:11px}
+  .cmp .lbl.this{color:var(--fg);font-weight:600}
+  .cmp .track{
+    height:8px;background:#EFEFE9;border-radius:999px;overflow:hidden;border:1px solid #E5E5E0;
+  }
+  .cmp .fill{
+    height:100%;background:#cdd6b6;border-radius:999px;
+  }
+  .cmp .fill.lime{background:linear-gradient(90deg,#a6c83a,#8FB821)}
+  .cmp .val{
+    font-family:'Geist Mono',monospace;font-variant-numeric:tabular-nums;
+    font-size:12px;color:var(--fg);text-align:right;font-weight:500;
+  }
+  .cmp .val.muted{color:var(--muted)}
+
+  .coach{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+  .coach-row{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 12px;border-radius:10px;
+    background:#fff;border:1px solid var(--border);
+    font-size:12.5px;color:var(--fg);cursor:pointer;
+  }
+  .coach-row:hover{border-color:var(--lime);background:#FAFCEF}
+  .coach-row .ic{
+    width:24px;height:24px;border-radius:7px;background:var(--lime-12);color:#5c7c14;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  .coach-row .arr{margin-left:auto;color:var(--muted-2)}
+
+  /* Siblings + Related */
+  .row-block{display:flex;flex-direction:column;gap:8px}
+  .row-block + .row-block{margin-top:18px}
+  .sib-row{display:flex;gap:14px;margin-top:8px}
+  .sib-card{
+    width:160px;height:180px;border-radius:14px;
+    background:
+      radial-gradient(120% 80% at 20% 10%, rgba(255,255,255,0.55), transparent 60%),
+      linear-gradient(160deg,#D9E5A8 0%, #8FB821 70%, #6E9119 100%);
+    position:relative;overflow:hidden;border:1px solid rgba(0,0,0,0.08);
+    flex-shrink:0;
+  }
+  .sib-card.alt-2{
+    background:
+      radial-gradient(120% 80% at 30% 10%, rgba(255,255,255,0.45), transparent 60%),
+      linear-gradient(165deg,#FFE2B5 0%, #E8C77C 60%, #B58A3C 100%);
+  }
+  .sib-card.alt-3{
+    background:
+      radial-gradient(120% 80% at 25% 10%, rgba(255,255,255,0.5), transparent 60%),
+      linear-gradient(160deg,#C7DCFF 0%, #91B5F0 60%, #4F75B8 100%);
+  }
+  .sib-card.current{
+    box-shadow:0 0 0 2px var(--lime), 0 0 0 5px var(--lime-20);
+  }
+  .sib-card .ini{
+    position:absolute;top:10px;left:10px;
+    width:24px;height:24px;border-radius:7px;
+    background:rgba(255,255,255,0.7);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:600;color:#0a0a0a;
+    border:1px solid rgba(0,0,0,0.06);
+  }
+  .sib-card .angle{
+    position:absolute;bottom:10px;left:10px;right:10px;
+    font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;
+    color:rgba(0,0,0,0.85);
+    background:rgba(255,255,255,0.7);backdrop-filter:blur(4px);
+    border-radius:6px;padding:4px 7px;text-align:center;
+    border:1px solid rgba(0,0,0,0.06);
+  }
+  .sib-card .curr-tag{
+    position:absolute;top:10px;right:10px;
+    background:var(--lime);color:#0a0a0a;
+    font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;
+    padding:3px 6px;border-radius:5px;font-weight:600;
+  }
+
+  .rel-strip{
+    display:flex;gap:10px;margin-top:8px;overflow-x:auto;padding-bottom:4px;
+    scrollbar-width:thin;
+  }
+  .rel-strip::-webkit-scrollbar{height:6px}
+  .rel-strip::-webkit-scrollbar-thumb{background:#d4d4d0;border-radius:3px}
+  .rel-card{
+    width:120px;height:150px;border-radius:12px;
+    background:linear-gradient(160deg,#D9E5A8 0%, #8FB821 70%, #6E9119 100%);
+    flex-shrink:0;position:relative;overflow:hidden;border:1px solid rgba(0,0,0,0.08);
+  }
+  .rel-card.v2{background:linear-gradient(160deg,#FFE2B5,#E8C77C 60%,#B58A3C)}
+  .rel-card.v3{background:linear-gradient(160deg,#C7DCFF,#91B5F0 60%,#4F75B8)}
+  .rel-card.v4{background:linear-gradient(160deg,#F5C2D7,#D88BAF 60%,#9C4773)}
+  .rel-card.v5{background:linear-gradient(160deg,#D9E5A8,#8FB821 65%,#6E9119)}
+  .rel-card.v6{background:linear-gradient(160deg,#E8D8FF,#B093EA 60%,#6E4DB3)}
+  .rel-card.v7{background:linear-gradient(160deg,#FFD3C2,#E89878 60%,#A8552F)}
+  .rel-card.v8{background:linear-gradient(160deg,#C8F2DC,#82CCA6 60%,#3A8C66)}
+  .delta-chip{
+    position:absolute;top:8px;right:8px;
+    font-family:'Geist Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.06em;
+    padding:3px 6px;border-radius:5px;
+    background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);
+    border:1px solid rgba(0,0,0,0.06);
+  }
+  .delta-chip.up{color:#2f7a35}
+  .delta-chip.dn{color:#b3261e}
+
+  /* Row labels */
+  .row-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .row-head .right-link{font-size:11px;color:var(--muted);font-family:'Geist Mono',monospace;letter-spacing:0.16em;text-transform:uppercase}
+  .row-head .right-link:hover{color:var(--lime)}
+
+  /* small bits */
+  .sub-tab{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;
+    color:var(--muted);
+  }
+  .sub-tab .dot{width:5px;height:5px;border-radius:50%;background:var(--lime)}
+
+  .arrow{color:var(--muted-2);font-family:'Geist Mono',monospace;font-size:11px;margin-left:6px}
+</style>
+</head>
+<body>
+
+<div class="canvas">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="hdr-left">
+      <button class="icon-btn" aria-label="Back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+      </button>
+      <div class="crumb">
+        <span>Library</span>
+        <span class="sep">/</span>
+        <span>Aspirational</span>
+        <span class="sep">/</span>
+        <span class="cur">Mamaearth — Vitamin C glow up</span>
+      </div>
+    </div>
+
+    <div class="toggle" role="tablist" aria-label="Layout variant">
+      <button role="tab" aria-selected="false"><span class="dot"></span>A · Drawer</button>
+      <button role="tab" aria-selected="true" class="active"><span class="dot"></span>C · Bento</button>
+    </div>
+
+    <div class="hdr-right">
+      <span class="kbd">⌘K</span>
+      <button class="icon-btn" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- BODY GRID -->
+  <div class="grid">
+
+    <!-- ROW 1 — HERO -->
+    <section class="card col-8">
+      <div class="hero">
+        <div class="hero-text">
+          <div class="brand-row">
+            <div class="brand-avatar">M</div>
+            <span class="brand-name">Mamaearth</span>
+            <span class="brand-prod">Vitamin C Serum</span>
+          </div>
+
+          <h1 class="headline">Glow up in 7 days — Mamaearth Vitamin C Serum, 80% off this week</h1>
+
+          <p class="body">A clean-beauty serum routine framed as the morning ritual that lifts dullness fast. Sun-warmed product still life, soft aspirational vibe, urgency stamp on the corner so the offer feels limited without screaming.</p>
+
+          <button class="cta">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+            Shop now
+          </button>
+        </div>
+
+        <div class="hero-media" aria-label="Creative preview">
+          <div class="media-tag">Image / 1080×1350</div>
+          <div class="media-product">
+            <div class="p-title">Vitamin C Serum · 30 ml</div>
+            <div class="p-sub">Spring Routine Edit</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card col-4">
+      <div class="action-lane">
+        <button class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+            Launch this ad
+        </button>
+        <div class="lock-note">
+          Locked on <span class="accent">AI plan · 7-day trial</span>
+        </div>
+
+        <div class="sep"></div>
+
+        <button class="btn-ghost">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+          Forge 10 more
+          <span class="chev">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </button>
+        <button class="btn-ghost">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          Edit
+          <span class="chev">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </button>
+        <button class="btn-ghost">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          Regenerate
+          <span class="chev">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </button>
+
+        <div class="sep"></div>
+
+        <div class="tertiary-row">
+          <button class="t-btn" aria-label="Save">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="t-btn" aria-label="Download">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          </button>
+          <button class="t-btn" aria-label="More">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROW 2 — AI VERDICT STRIP -->
+    <section class="card white col-12 verdict">
+      <div class="prov-head">
+        <div class="eyebrow">AI Verdict · Quality 87</div>
+        <div class="sub-tab"><span class="dot"></span>Model v3.2 · Computed 14:32 IST</div>
+      </div>
+
+      <div class="verdict-cells">
+        <!-- Quality ring -->
+        <div class="v-cell center">
+          <div class="ring-wrap">
+            <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+              <circle cx="42" cy="42" r="36" stroke="#EDEDE7" stroke-width="8" fill="none"/>
+              <!-- 87/100 of circumference, circumference = 2*pi*36 ≈ 226.19 -->
+              <circle cx="42" cy="42" r="36" stroke="#8FB821" stroke-width="8" fill="none"
+                stroke-linecap="round"
+                stroke-dasharray="196.79 226.19"/>
+            </svg>
+            <div class="ring-num">87</div>
+          </div>
+          <div class="v-label">Quality</div>
+        </div>
+
+        <!-- Predicted CTR -->
+        <div class="v-cell">
+          <div class="v-label">Predicted CTR</div>
+          <div class="v-big">3.2%</div>
+          <div class="v-delta up">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6-6 6 6"/><path d="M12 3v18"/></svg>
+            +0.8 vs angle
+          </div>
+        </div>
+
+        <!-- Predicted CVR -->
+        <div class="v-cell">
+          <div class="v-label">Predicted CVR</div>
+          <div class="v-big">1.4%</div>
+          <div class="v-delta down">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m18 15-6 6-6-6"/></svg>
+            -0.2 vs angle
+          </div>
+        </div>
+
+        <!-- Audience fit -->
+        <div class="v-cell">
+          <div class="v-label">Audience fit</div>
+          <div class="v-big">82</div>
+          <div class="v-qual">Strong match</div>
+        </div>
+
+        <!-- Brand voice -->
+        <div class="v-cell">
+          <div class="v-label">Brand-voice match</div>
+          <div class="v-big">94</div>
+          <div class="v-qual match">On-tone</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROW 3 — PROVENANCE + COMPARE/COACH -->
+    <section class="card col-8">
+      <div class="prov-head">
+        <div class="eyebrow">How this was made</div>
+        <div class="sub-tab"><span class="dot"></span>Lineage · 5 steps</div>
+      </div>
+
+      <div class="lineage" aria-label="Lineage tree">
+        <div class="node">
+          <div class="n-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 12 2l9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <div class="n-kind">Brand</div>
+          </div>
+          <div class="n-label">Mamaearth</div>
+        </div>
+        <div class="connector"></div>
+
+        <div class="node">
+          <div class="n-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673"/><path d="M12 3v1"/><path d="M5.6 5.6l.7.7"/><path d="M3 12h1"/><path d="M20 12h1"/><path d="m17.7 6.3.7-.7"/><circle cx="12" cy="12" r="5"/><path d="M9 21h6"/></svg>
+            <div class="n-kind">Concept</div>
+          </div>
+          <div class="n-label">Spring Glow v3</div>
+        </div>
+        <div class="connector"></div>
+
+        <div class="node">
+          <div class="n-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/><path d="M12 7v5l3 2"/></svg>
+            <div class="n-kind">Angle</div>
+          </div>
+          <div class="n-label">Aspirational</div>
+        </div>
+        <div class="connector"></div>
+
+        <div class="node">
+          <div class="n-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3-3 6-3 9-3s6 0 9 3"/><path d="M14 7a2 2 0 1 0-4 0c0 1.5.5 2 1 3l1 2 1-2c.5-1 1-1.5 1-3z"/><path d="M9 11h6"/></svg>
+            <div class="n-kind">Hook</div>
+          </div>
+          <div class="n-label">Glow up in 7 days</div>
+        </div>
+        <div class="connector lime"></div>
+
+        <div class="node current">
+          <div class="n-row">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5c7c14" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+            <div class="n-kind">This ad</div>
+          </div>
+          <div class="n-label">Vitamin C glow up</div>
+        </div>
+      </div>
+
+      <div class="prompt-snip">
+        <span class="qq">&ldquo;</span>Show Mamaearth Vitamin C as the spring routine glow staple, with morning sun aesthetic and 80% off urgency stamp.<span class="qq">&rdquo;</span>
+      </div>
+
+      <div class="meta-strip">
+        <span><span class="k">Created</span> <span class="v">May 26, 14:32</span></span>
+        <span><span class="k">Mode</span> <span class="v">Brand Ad</span></span>
+        <span><span class="k">Template</span> <span class="v">Spring Glow v3</span></span>
+        <span><span class="k">Seed</span> <span class="v">#A4F1·2C</span></span>
+      </div>
+    </section>
+
+    <section class="card col-4">
+      <div class="eyebrow">Compare · Aspirational angle</div>
+      <div class="compare-bars">
+        <div class="cmp">
+          <div class="lbl this">This ad</div>
+          <div class="track"><div class="fill lime" style="width:87%"></div></div>
+          <div class="val">87</div>
+        </div>
+        <div class="cmp">
+          <div class="lbl">Top in angle</div>
+          <div class="track"><div class="fill" style="width:93%"></div></div>
+          <div class="val muted">93</div>
+        </div>
+        <div class="cmp">
+          <div class="lbl">Your last 10</div>
+          <div class="track"><div class="fill" style="width:79%"></div></div>
+          <div class="val muted">79</div>
+        </div>
+        <div class="cmp">
+          <div class="lbl">Category avg</div>
+          <div class="track"><div class="fill" style="width:71%"></div></div>
+          <div class="val muted">71</div>
+        </div>
+      </div>
+
+      <div class="eyebrow" style="margin-top:18px">Coach</div>
+      <div class="coach">
+        <div class="coach-row">
+          <span class="ic">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+          </span>
+          Forge 10 more in this angle
+          <span class="arr">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </span>
+        </div>
+        <div class="coach-row">
+          <span class="ic">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/></svg>
+          </span>
+          A/B test vs sibling
+          <span class="arr">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </span>
+        </div>
+        <div class="coach-row">
+          <span class="ic">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          </span>
+          Refresh the hook
+          <span class="arr">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROW 4 — SIBLINGS + RELATED -->
+    <section class="card col-12">
+      <div class="row-block">
+        <div class="row-head">
+          <div class="eyebrow">Siblings · same batch (3)</div>
+          <a class="right-link" href="#">View batch →</a>
+        </div>
+        <div class="sib-row">
+          <div class="sib-card current">
+            <div class="curr-tag">This</div>
+            <div class="ini">M</div>
+            <div class="angle">Aspirational · Glow up</div>
+          </div>
+          <div class="sib-card alt-2">
+            <div class="ini">M</div>
+            <div class="angle">Problem-solve · Dull skin</div>
+          </div>
+          <div class="sib-card alt-3">
+            <div class="ini">M</div>
+            <div class="angle">Social proof · 12k reviews</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-block">
+        <div class="row-head">
+          <div class="eyebrow">Related · from Aspirational angle</div>
+          <a class="right-link" href="#">See all 247 →</a>
+        </div>
+        <div class="rel-strip">
+          <div class="rel-card v1"><div class="delta-chip up">+12 Q</div></div>
+          <div class="rel-card v2"><div class="delta-chip up">+7 Q</div></div>
+          <div class="rel-card v3"><div class="delta-chip dn">-3 Q</div></div>
+          <div class="rel-card v4"><div class="delta-chip up">+9 Q</div></div>
+          <div class="rel-card v5"><div class="delta-chip up">+4 Q</div></div>
+          <div class="rel-card v6"><div class="delta-chip dn">-6 Q</div></div>
+          <div class="rel-card v7"><div class="delta-chip up">+11 Q</div></div>
+          <div class="rel-card v8"><div class="delta-chip up">+2 Q</div></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+</body>
+</html>

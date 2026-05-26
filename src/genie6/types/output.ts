@@ -69,6 +69,61 @@ export interface PriorConfig {
   generatedAt: Date;
 }
 
+/**
+ * AI verdict — every metric the model can hand-grade about the generation
+ * itself, BEFORE the ad has any real-world performance data. Populates the
+ * "AI Verdict" zone in both AdDetail drawer variants.
+ *
+ * Mock for now; real wiring lands when the scoring pipeline exists.
+ */
+export interface AiVerdict {
+  /** Headline quality score 0–100. */
+  quality: number;
+  /** Estimated click-through rate as a percentage (e.g. 3.2 = 3.2%). */
+  ctr: number;
+  /** Delta vs angle average, in percentage points. Can be negative. */
+  ctrDelta: number;
+  /** Estimated conversion rate as a percentage. */
+  cvr: number;
+  cvrDelta: number;
+  /** Audience-fit score 0–100. */
+  audienceFit: number;
+  /** Qualitative label e.g. "Strong match" / "Decent match" / "Weak match". */
+  audienceFitLabel: string;
+  /** Brand-voice / on-brand match score 0–100. */
+  brandVoice: number;
+  brandVoiceLabel: string;
+}
+
+/**
+ * Comparison scores — quality scores of peer cohorts so the user can
+ * place this generation against benchmarks.
+ */
+export interface ComparisonScores {
+  /** Quality score of the top-performing ad in the same angle. */
+  topInAngle: number;
+  /** Avg quality of your last 10 generations across all angles. */
+  your10Avg: number;
+  /** Avg quality in the category (industry insights benchmark). */
+  categoryAvg: number;
+}
+
+/**
+ * AI-coach recommendation. Each rec is a concrete next-step the user can
+ * take based on signals from this generation + their portfolio.
+ *
+ * The `icon` field is serialised as a string so this can be JSON-safe;
+ * the rendering components map it to the actual lucide icon.
+ */
+export interface CoachRecommendation {
+  id: string;
+  icon: "sparkles" | "beaker" | "refresh-cw";
+  title: string;
+  sub: string;
+  ctaLabel: string;
+  ctaHref: string;
+}
+
 export interface OutputData {
   id: string;
   mediaType: MediaType;
@@ -92,6 +147,15 @@ export interface OutputData {
   angleId?: string;
   /** Snapshot of the wizard config that produced this output (see PriorConfig). */
   priorConfig?: PriorConfig;
+
+  /* ── AI-native surfaces (A-12.192) ──
+       Populates the AdDetail drawer's AI Verdict / Peer Comparison / Coach
+       zones. All optional — older outputs may lack these fields. */
+  aiVerdict?: AiVerdict;
+  comparison?: ComparisonScores;
+  recommendations?: CoachRecommendation[];
+  /** IDs of sibling outputs generated in the same batch. */
+  siblings?: string[];
 }
 
 /** Mode → human label (for badges, chips, picker tooltips, breadcrumbs). */

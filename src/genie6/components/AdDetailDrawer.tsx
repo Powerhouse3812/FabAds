@@ -2,27 +2,26 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { sampleOutputs } from "../mocks/sample-outputs";
 import { AdDetailDrawerVariantA } from "./AdDetailDrawerVariantA";
-import { AdDetailDrawerVariantB } from "./AdDetailDrawerVariantB";
+import { AdDetailDrawerVariantC } from "./AdDetailDrawerVariantC";
 
 /**
- * AdDetailDrawer — URL-driven wrapper that picks the right variant.
+ * AdDetailDrawer — URL-driven wrapper for the ad-detail Sheet.
  *
  * URL contract:
- *   ?ad=<output-id>   → opens the drawer for that output
- *   ?drawer=a|b       → which variant renders (defaults to "a")
+ *   ?ad=<output-id>       → opens the drawer for that output
+ *   ?drawer=a|c           → variant selector (defaults to "a")
  *
- * Closing the drawer (X / Esc / backdrop) strips both params from the URL
- * so back-button history is clean.
+ * Variant A (Reference) and Variant C (Asymmetric Bento) are the two
+ * supported drawers. Variant B (Workflow-first) was deleted in A-12.192.
  *
- * Mount this once at the StudioLibrary page level. The Sheet primitive
- * portals to <body>, so it overlays the rest of the page (including any
- * AngleViewMoreDrawer already open — stacks naturally via z-index from
- * Radix Portal).
+ * Closing the drawer (X / Esc / backdrop) strips both `?ad` and `?drawer`
+ * params from the URL. Switching variant flips `?drawer` in place
+ * (replace navigation, so back-button still closes the sheet cleanly).
  */
 export function AdDetailDrawer() {
   const [searchParams, setSearchParams] = useSearchParams();
   const adId = searchParams.get("ad");
-  const variant: "a" | "b" = searchParams.get("drawer") === "b" ? "b" : "a";
+  const variant: "a" | "c" = searchParams.get("drawer") === "c" ? "c" : "a";
 
   const output = useMemo(
     () => (adId ? sampleOutputs.find((o) => o.id === adId) ?? null : null),
@@ -45,7 +44,7 @@ export function AdDetailDrawer() {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        sp.set("drawer", variant === "a" ? "b" : "a");
+        sp.set("drawer", variant === "a" ? "c" : "a");
         return sp;
       },
       { replace: true },
@@ -62,7 +61,7 @@ export function AdDetailDrawer() {
       onSwitchVariant={switchVariant}
     />
   ) : (
-    <AdDetailDrawerVariantB
+    <AdDetailDrawerVariantC
       output={output}
       open={true}
       onClose={close}

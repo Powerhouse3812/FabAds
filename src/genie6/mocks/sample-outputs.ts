@@ -230,3 +230,72 @@ sampleOutputs.forEach((out, idx) => {
     generatedAt: out.generatedAt,
   };
 });
+
+/* ── AI-native surfaces backfill (A-12.192) ─────────────────────────────
+   Adds aiVerdict / comparison / recommendations / siblings to a deterministic
+   subset of outputs so the AdDetail drawer (both Variant A refined + Variant
+   C bento) has populated state to demo against. Subset chosen: every output
+   whose qualityScore is defined gets a verdict; the first 5 outputs per brand
+   get full coach + comparison data.
+*/
+sampleOutputs.forEach((out, idx) => {
+  if (out.qualityScore === undefined) return;
+  const q = out.qualityScore;
+  // Verdict — vary realistically around the quality score.
+  out.aiVerdict = {
+    quality: q,
+    ctr: Number(((q / 30) + (idx % 3) * 0.3).toFixed(1)),       // 2.0–4.0%
+    ctrDelta: Number(((q - 75) / 12).toFixed(1)),                // +/- vs angle
+    cvr: Number((0.9 + (q / 80)).toFixed(1)),                    // 1.0–2.1%
+    cvrDelta: Number(((q - 80) / 20).toFixed(1)),
+    audienceFit: Math.min(99, q + (idx % 4) - 5),
+    audienceFitLabel: q >= 85 ? "Strong match" : q >= 70 ? "Decent match" : "Weak match",
+    brandVoice: Math.min(99, q + (idx % 5)),
+    brandVoiceLabel: q >= 85 ? "On-tone" : q >= 70 ? "Mostly on-tone" : "Off-tone",
+  };
+  // Comparison — top in angle is always above this ad, your-10 + category drift.
+  out.comparison = {
+    topInAngle: Math.min(99, q + 6),
+    your10Avg: Math.max(45, q - 8),
+    categoryAvg: Math.max(40, q - 16),
+  };
+  // Siblings — pick up to 3 other outputs from the same brand for a cohesive batch.
+  out.siblings = sampleOutputs
+    .filter((o) => o.brand?.name === out.brand?.name && o.id !== out.id)
+    .slice(0, 3)
+    .map((o) => o.id);
+  // Recommendations — 3 deterministic coach lines per output.
+  const angleLabel = out.priorConfig?.angleId ?? "this angle";
+  const hookLabel =
+    out.headline && out.headline.length > 0
+      ? out.headline.split(/[.!?]/)[0].slice(0, 28).trim()
+      : "this hook";
+  out.recommendations = [
+    {
+      id: `${out.id}-forge`,
+      icon: "sparkles",
+      title: `Forge 10 more in ${angleLabel}`,
+      sub: q >= 85
+        ? `${angleLabel} is your strongest angle this week — riding the win`
+        : `${angleLabel} is trending in your category — worth doubling up`,
+      ctaLabel: "Run",
+      ctaHref: `/iq/genie6/studio-alpha?mode=${out.mode}&angle=${angleLabel}`,
+    },
+    {
+      id: `${out.id}-ab`,
+      icon: "beaker",
+      title: "Pit against a sibling variant",
+      sub: "Same brand, opposite angle — clean A/B",
+      ctaLabel: "Compare",
+      ctaHref: `/iq/genie6/library?compare=${out.id}`,
+    },
+    {
+      id: `${out.id}-refresh`,
+      icon: "refresh-cw",
+      title: "Refresh the hook",
+      sub: `"${hookLabel}" fatigue — 4 ads in 30 days`,
+      ctaLabel: "Regenerate",
+      ctaHref: `/iq/genie6/studio-alpha?mode=${out.mode}&regen=true`,
+    },
+  ];
+});

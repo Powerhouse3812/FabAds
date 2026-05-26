@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Ad Detail Drawer — Variant A Refined</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --lime: #8FB821;
+    --lime-soft: rgba(143, 184, 33, 0.10);
+    --lime-tint: rgba(143, 184, 33, 0.18);
+    --fg: #0a0a0a;
+    --muted: #737373;
+    --eyebrow: rgba(0, 0, 0, 0.55);
+    --card: #FAFAF7;
+    --body: #FFFFFF;
+    --border: #e5e5e5;
+    --border-strong: #d4d4d4;
+    --green: #16a34a;
+    --green-soft: rgba(22, 163, 74, 0.10);
+    --red: #dc2626;
+    --red-soft: rgba(220, 38, 38, 0.10);
+    --track: #ececec;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #f4f4f0;
+    font-family: 'Geist', system-ui, sans-serif;
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  .stage {
+    padding: 32px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  .sheet {
+    width: 1280px;
+    background: var(--body);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,0.18), 0 4px 12px -4px rgba(0,0,0,0.06);
+  }
+
+  /* ---------- HEADER ---------- */
+  .sheet-header {
+    height: 60px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: var(--body);
+  }
+  .h-left, .h-right { display: flex; align-items: center; gap: 12px; }
+  .eyebrow-mono {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--eyebrow);
+    font-weight: 500;
+  }
+  .ad-id {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    font-feature-settings: "tnum";
+  }
+  .quality-pill {
+    background: var(--lime);
+    color: #0a0a0a;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .quality-pill .dot {
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: #0a0a0a;
+  }
+  .h-right .meta {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .kbd {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 3px 7px;
+    border-radius: 6px;
+  }
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--body);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--card); }
+
+  /* ---------- CHASSIS ---------- */
+  .chassis {
+    display: grid;
+    grid-template-columns: 36% 64%;
+  }
+
+  /* ---------- LEFT COL (sticky-feel) ---------- */
+  .left-col {
+    padding: 16px;
+    border-right: 1px solid var(--border);
+    background: var(--body);
+  }
+  .creative-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #b9d748 0%, #8FB821 100%);
+    color: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+  .brand-text { display: flex; flex-direction: column; }
+  .brand-name { font-size: 13px; font-weight: 600; line-height: 1.1; }
+  .brand-product { font-size: 11.5px; color: var(--muted); line-height: 1.2; margin-top: 2px; }
+  .ad-headline {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 8px 0 8px;
+    color: var(--fg);
+  }
+  .ad-body {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0 0 14px;
+  }
+  .media-frame {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #fff7c2 0%, #d8e88a 35%, #8FB821 100%);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .media-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 70% 30%, rgba(255,255,255,0.5) 0%, transparent 40%),
+      radial-gradient(circle at 25% 75%, rgba(255,255,255,0.2) 0%, transparent 50%);
+  }
+  .media-tag {
+    position: absolute;
+    top: 10px; left: 10px;
+    z-index: 2;
+    background: rgba(10,10,10,0.55);
+    color: #fff;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    padding: 4px 8px;
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+  }
+  .media-bottle {
+    position: absolute;
+    z-index: 2;
+    bottom: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 38%;
+    aspect-ratio: 1/2;
+    border-radius: 50% / 12%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0.5) 100%);
+    box-shadow: 0 12px 30px -10px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.6);
+  }
+  .media-burst {
+    position: absolute;
+    z-index: 2;
+    top: 10%; right: 8%;
+    background: var(--lime);
+    color: #0a0a0a;
+    font-family: 'Geist Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    transform: rotate(-8deg);
+    box-shadow: 0 4px 14px -2px rgba(143,184,33,0.45);
+    text-align: center;
+    line-height: 1.05;
+  }
+  .media-burst .pct { font-size: 16px; display: block; }
+  .media-burst .lbl {
+    font-size: 8.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    opacity: 0.8;
+  }
+  .cta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--fg);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--fg);
+    background: var(--body);
+  }
+
+  /* Provenance breadcrumb */
+  .provenance {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .prov-dot {
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: var(--lime);
+  }
+  .prov-link {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--fg);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .prov-link.current {
+    color: var(--lime);
+    font-weight: 600;
+  }
+  .prov-chevron {
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* ---------- RIGHT COL ---------- */
+  .right-col {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--body);
+  }
+  .zone {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+  }
+  .zone-eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--eyebrow);
+    font-weight: 500;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Zone 1 — Action lane */
+  .launch-btn {
+    width: 100%;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--lime);
+    color: #0a0a0a;
+    font-family: 'Geist', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px -4px rgba(143,184,33,0.45);
+  }
+  .launch-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .launch-meta .trial {
+    color: var(--lime);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .action-row {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .segmented {
+    display: flex;
+    flex: 1;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--body);
+  }
+  .segmented .seg {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--fg);
+    border-right: 1px solid var(--border);
+    background: var(--body);
+    cursor: pointer;
+  }
+  .segmented .seg:last-child { border-right: none; }
+  .segmented .seg:hover { background: var(--lime-soft); }
+  .action-icons { display: flex; gap: 6px; }
+  .action-icons .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
+
+  /* Zone 2 — AI Verdict */
+  .verdict-grid {
+    display: grid;
+    grid-template-columns: 40% 60%;
+    gap: 18px;
+    align-items: center;
+  }
+  .ring-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .ring-svg {
+    position: relative;
+    width: 120px;
+    height: 120px;
+  }
+  .ring-svg .num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    font-family: 'Geist', sans-serif;
+    font-weight: 600;
+    font-size: 28px;
+    color: var(--fg);
+    font-feature-settings: "tnum";
+  }
+  .ring-svg .num .sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+  .perf-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .perf-cell {
+    background: var(--body);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .perf-cell .lbl {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .perf-cell .val {
+    font-family: 'Geist Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--fg);
+    margin-top: 6px;
+    font-feature-settings: "tnum";
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .delta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-feature-settings: "tnum";
+  }
+  .delta.pos { background: var(--green-soft); color: var(--green); }
+  .delta.neg { background: var(--red-soft); color: var(--red); }
+  .delta.tag {
+    background: var(--lime-soft);
+    color: #5a7714;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 9.5px;
+  }
+
+  /* Zone 3 — How this was made */
+  .made-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .made-cell {
+    background: var(--body);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .made-cell .lbl {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .made-cell .val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+    margin-top: 4px;
+  }
+  .made-cell .val.mono {
+    font-family: 'Geist Mono', monospace;
+    font-weight: 500;
+    font-size: 12.5px;
+    font-feature-settings: "tnum";
+  }
+  .prompt-box {
+    background: var(--body);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .prompt-box .quote-bar {
+    width: 3px;
+    align-self: stretch;
+    background: var(--lime);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .prompt-text {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--fg);
+    opacity: 0.78;
+  }
+
+  /* Zone 4 — Compare + Coach */
+  .compare-block { margin-bottom: 22px; }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 46px;
+    gap: 12px;
+    align-items: center;
+    padding: 7px 0;
+  }
+  .bar-label {
+    font-size: 12.5px;
+    color: var(--fg);
+  }
+  .bar-label.muted { color: var(--muted); }
+  .bar-track {
+    height: 8px;
+    background: var(--track);
+    border-radius: 999px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+  }
+  .bar-fill.lime { background: var(--lime); }
+  .bar-fill.neutral { background: #c4c4c4; }
+  .bar-fill.muted { background: #d8d8d8; }
+  .bar-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--fg);
+    text-align: right;
+    font-feature-settings: "tnum";
+  }
+  .bar-num.muted { color: var(--muted); font-weight: 500; }
+  .compare-eyebrow-inline {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    color: var(--lime);
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-left: 6px;
+  }
+  .coach-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+  }
+  .coach-row:first-of-type { border-top: none; padding-top: 4px; }
+  .coach-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--lime-soft);
+    color: var(--lime);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .coach-text { flex: 1; }
+  .coach-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+    line-height: 1.3;
+  }
+  .coach-sub {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.45;
+  }
+  .coach-cta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--lime);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    align-self: center;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  /* Zone 5 — Siblings + Related */
+  .siblings-strip {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .sibling-card {
+    width: 80px;
+    flex-shrink: 0;
+  }
+  .sibling-thumb {
+    width: 80px;
+    aspect-ratio: 4 / 5;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sibling-thumb.current {
+    border: 2px solid var(--lime);
+    box-shadow: 0 0 0 3px var(--lime-soft);
+  }
+  .sibling-thumb .init {
+    font-family: 'Geist', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: #0a0a0a;
+    z-index: 2;
+  }
+  .sibling-cap {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.2;
+    text-align: left;
+  }
+  .sibling-cap.current { color: var(--fg); font-weight: 600; }
+
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+  }
+  .related-card {
+    aspect-ratio: 4 / 5;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .related-card .init {
+    font-family: 'Geist', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: #0a0a0a;
+    z-index: 2;
+  }
+  .delta-chip {
+    position: absolute;
+    top: 6px; right: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 999px;
+    z-index: 3;
+    font-feature-settings: "tnum";
+    backdrop-filter: blur(4px);
+  }
+  .delta-chip.pos { background: rgba(22,163,74,0.92); color: #fff; }
+  .delta-chip.neg { background: rgba(220,38,38,0.92); color: #fff; }
+
+  /* Gradient thumbs */
+  .g-mama { background: linear-gradient(160deg, #fff7c2 0%, #8FB821 100%); }
+  .g-boat { background: linear-gradient(160deg, #1a1a2e 0%, #16213e 100%); }
+  .g-boat .init { color: #fff; }
+  .g-noise { background: linear-gradient(160deg, #ff6b6b 0%, #c44569 100%); }
+  .g-noise .init { color: #fff; }
+  .g-sleepy { background: linear-gradient(160deg, #a8e6cf 0%, #56c596 100%); }
+  .g-sleepy .init { color: #0a0a0a; }
+  .g-mama-2 { background: linear-gradient(200deg, #fdfd96 0%, #b7d24a 100%); }
+  .g-mama-3 { background: linear-gradient(200deg, #ffe8a3 0%, #d8e88a 100%); }
+  .g-pip { background: linear-gradient(160deg, #ffb6b6 0%, #ff7b7b 100%); .init {color:#fff} }
+  .g-pip .init { color: #fff; }
+
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="sheet">
+
+  <!-- HEADER -->
+  <div class="sheet-header">
+    <div class="h-left">
+      <span class="eyebrow-mono">Ad Detail</span>
+      <span class="ad-id">gen-mamaearth-001</span>
+    </div>
+    <div class="quality-pill">
+      <span class="dot"></span>
+      Quality · 87
+    </div>
+    <div class="h-right">
+      <span class="meta">Generated 2h ago</span>
+      <span class="kbd">⌘K</span>
+      <button class="icon-btn" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- CHASSIS -->
+  <div class="chassis">
+
+    <!-- LEFT COL -->
+    <div class="left-col">
+      <div class="creative-card">
+        <div class="brand-row">
+          <div class="avatar">M</div>
+          <div class="brand-text">
+            <span class="brand-name">Mamaearth</span>
+            <span class="brand-product">Vitamin C Serum</span>
+          </div>
+        </div>
+        <div class="ad-headline">Glow up in 7 days — Mamaearth Vitamin C Serum, 80% off this week</div>
+        <p class="ad-body">Brighten your skin with our natural Vitamin C formula. Visible glow in 7 days. Limited offer — 80% off ends Sunday.</p>
+
+        <div class="media-frame">
+          <span class="media-tag">Image 1080×1350</span>
+          <div class="media-bottle"></div>
+          <div class="media-burst">
+            <span class="pct">80%</span>
+            <span class="lbl">Off</span>
+          </div>
+        </div>
+
+        <div class="cta-chip">
+          Shop now
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+
+        <!-- Provenance breadcrumb -->
+        <div class="provenance">
+          <span class="prov-dot"></span>
+          <a class="prov-link">Mamaearth</a>
+          <span class="prov-chevron"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <a class="prov-link">Aspirational</a>
+          <span class="prov-chevron"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <a class="prov-link">Lifestyle</a>
+          <span class="prov-chevron"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+          <a class="prov-link current">"Glow up" Hook</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COL -->
+    <div class="right-col">
+
+      <!-- ZONE 1 — ACTION LANE -->
+      <div class="zone">
+        <div class="zone-eyebrow">Action</div>
+        <button class="launch-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+          Launch this ad
+        </button>
+        <div class="launch-meta">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Locked on AI plan ·
+          <span class="trial">Click to start 7-day trial</span>
+        </div>
+        <div class="action-row">
+          <div class="segmented">
+            <div class="seg">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              Forge 10 more
+            </div>
+            <div class="seg">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"/></svg>
+              Edit
+            </div>
+            <div class="seg">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              Regenerate
+            </div>
+          </div>
+          <div class="action-icons">
+            <button class="icon-btn" aria-label="Save">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+            </button>
+            <button class="icon-btn" aria-label="Download">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="icon-btn" aria-label="More">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZONE 2 — AI VERDICT -->
+      <div class="zone">
+        <div class="zone-eyebrow">AI Verdict</div>
+        <div class="verdict-grid">
+          <div class="ring-wrap">
+            <div class="ring-svg">
+              <svg width="120" height="120" viewBox="0 0 120 120">
+                <!-- track -->
+                <circle cx="60" cy="60" r="52" fill="none" stroke="#ececec" stroke-width="8"/>
+                <!-- progress: 87% of full circle, dasharray = circumference (~326.7) -->
+                <circle cx="60" cy="60" r="52"
+                  fill="none"
+                  stroke="#8FB821"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                  stroke-dasharray="284.2 326.7"
+                  stroke-dashoffset="0"
+                  transform="rotate(-90 60 60)"/>
+              </svg>
+              <div class="num">
+                87
+                <span class="sub">Quality Score</span>
+              </div>
+            </div>
+          </div>
+          <div class="perf-grid">
+            <div class="perf-cell">
+              <div class="lbl">Predicted CTR</div>
+              <div class="val">3.2% <span class="delta pos">+0.8 vs angle</span></div>
+            </div>
+            <div class="perf-cell">
+              <div class="lbl">Predicted CVR</div>
+              <div class="val">1.4% <span class="delta neg">-0.2 vs angle</span></div>
+            </div>
+            <div class="perf-cell">
+              <div class="lbl">Audience-fit</div>
+              <div class="val">82 <span class="delta tag">Strong match</span></div>
+            </div>
+            <div class="perf-cell">
+              <div class="lbl">Brand-voice</div>
+              <div class="val">94 <span class="delta tag">On-tone</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZONE 3 — HOW THIS WAS MADE -->
+      <div class="zone">
+        <div class="zone-eyebrow">How this was made</div>
+        <div class="made-grid">
+          <div class="made-cell">
+            <div class="lbl">Mode</div>
+            <div class="val">Brand Ad</div>
+          </div>
+          <div class="made-cell">
+            <div class="lbl">Created</div>
+            <div class="val mono">May 26, 14:32</div>
+          </div>
+          <div class="made-cell">
+            <div class="lbl">Template</div>
+            <div class="val">Spring Glow v3</div>
+          </div>
+        </div>
+        <div class="prompt-box">
+          <div class="quote-bar"></div>
+          <p class="prompt-text">"Show Mamaearth Vitamin C as the spring routine glow staple, with morning sun aesthetic and 80% off urgency stamp."</p>
+        </div>
+      </div>
+
+      <!-- ZONE 4 — COMPARE + COACH -->
+      <div class="zone">
+        <div class="zone-eyebrow">
+          Compare
+          <span class="compare-eyebrow-inline">· In Aspirational angle</span>
+        </div>
+        <div class="compare-block">
+          <div class="bar-row">
+            <div class="bar-label" style="font-weight:600;">This ad</div>
+            <div class="bar-track"><div class="bar-fill lime" style="width: 93.5%;"></div></div>
+            <div class="bar-num">87</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label muted">Top in angle</div>
+            <div class="bar-track"><div class="bar-fill neutral" style="width: 100%;"></div></div>
+            <div class="bar-num muted">93</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label muted">Your last 10 avg</div>
+            <div class="bar-track"><div class="bar-fill neutral" style="width: 85%;"></div></div>
+            <div class="bar-num muted">79</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label muted">Category avg</div>
+            <div class="bar-track"><div class="bar-fill muted" style="width: 76.3%;"></div></div>
+            <div class="bar-num muted">71</div>
+          </div>
+        </div>
+
+        <div class="zone-eyebrow" style="margin-bottom: 8px; margin-top: 4px;">Coach · Suggested next steps</div>
+
+        <div class="coach-row">
+          <div class="coach-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+          </div>
+          <div class="coach-text">
+            <div class="coach-title">Forge 10 more in this angle</div>
+            <div class="coach-sub">Aspirational is your strongest angle this week</div>
+          </div>
+          <a class="coach-cta">Do it →</a>
+        </div>
+
+        <div class="coach-row">
+          <div class="coach-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/></svg>
+          </div>
+          <div class="coach-text">
+            <div class="coach-title">A/B test vs sibling "Vitamin C — Pain Point variant"</div>
+            <div class="coach-sub">Same brand, different angle, posted 2h apart</div>
+          </div>
+          <a class="coach-cta">Compare →</a>
+        </div>
+
+        <div class="coach-row">
+          <div class="coach-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          </div>
+          <div class="coach-text">
+            <div class="coach-title">Refresh the hook</div>
+            <div class="coach-sub">"Glow up" has fatigue signal — 4 ads in 30 days</div>
+          </div>
+          <a class="coach-cta">Regenerate →</a>
+        </div>
+      </div>
+
+      <!-- ZONE 5 — SIBLINGS + RELATED -->
+      <div class="zone">
+        <div class="zone-eyebrow">Siblings · Same batch (3)</div>
+        <div class="siblings-strip">
+          <div class="sibling-card">
+            <div class="sibling-thumb current g-mama"><span class="init">M</span></div>
+            <div class="sibling-cap current">Glow up · current</div>
+          </div>
+          <div class="sibling-card">
+            <div class="sibling-thumb g-mama-2"><span class="init">M</span></div>
+            <div class="sibling-cap">Pain Point</div>
+          </div>
+          <div class="sibling-card">
+            <div class="sibling-thumb g-mama-3"><span class="init">M</span></div>
+            <div class="sibling-cap">Routine</div>
+          </div>
+        </div>
+
+        <div class="zone-eyebrow">Related · From Aspirational angle</div>
+        <div class="related-grid">
+          <div class="related-card g-boat">
+            <span class="delta-chip pos">+12 Q</span>
+            <span class="init">B</span>
+          </div>
+          <div class="related-card g-noise">
+            <span class="delta-chip pos">+8 Q</span>
+            <span class="init">N</span>
+          </div>
+          <div class="related-card g-sleepy">
+            <span class="delta-chip neg">-3 Q</span>
+            <span class="init">S</span>
+          </div>
+          <div class="related-card g-mama-2">
+            <span class="delta-chip pos">+5 Q</span>
+            <span class="init">M</span>
+          </div>
+          <div class="related-card g-pip">
+            <span class="delta-chip neg">-2 Q</span>
+            <span class="init">P</span>
+          </div>
+          <div class="related-card g-mama-3">
+            <span class="delta-chip pos">+4 Q</span>
+            <span class="init">M</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>
