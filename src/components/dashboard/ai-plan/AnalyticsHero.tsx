@@ -35,10 +35,6 @@ import {
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brands } from "@/mocks/shared/brands";
-import {
-  OnboardingProgressCard,
-  ONBOARDING_COMPLETE,
-} from "./OnboardingProgressCard";
 
 interface AnalyticsHeroProps {
   className?: string;
@@ -401,18 +397,12 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
             the metrics into a scannable corner block. Stacks to single
             column below `lg`. */}
 
-      {/* ── LEFT — chart card ──
-            Span shifts based on onboarding state:
-              • In-progress  → col-6 (chart) + col-3 (KPIs) + col-3 (onboarding)
-              • Complete     → col-7 (chart) + col-5 (KPIs)   [card hidden] */}
+      {/* ── LEFT — chart card (col-span-7) ── */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className={cn(
-          "rounded-2xl border border-border bg-card p-4",
-          ONBOARDING_COMPLETE ? "lg:col-span-7" : "lg:col-span-6",
-        )}
+        className="rounded-2xl border border-border bg-card p-4 lg:col-span-7"
       >
         {/* Header row — number + eyebrow + delta inline, toggle right */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -477,13 +467,8 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         </div>
       </motion.div>
 
-      {/* ── MIDDLE — 2×2 KPI grid ── */}
-      <div
-        className={cn(
-          "grid grid-cols-2 gap-2",
-          ONBOARDING_COMPLETE ? "lg:col-span-5" : "lg:col-span-3",
-        )}
-      >
+      {/* ── RIGHT — 2×2 KPI grid (col-span-5) ── */}
+      <div className="grid grid-cols-2 gap-2 lg:col-span-5">
         <KpiTile
           eyebrow="CREDITS USED"
           value={73}
@@ -520,12 +505,6 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
         />
       </div>
 
-      {/* ── RIGHT — Onboarding progress card (only while in-progress) ── */}
-      {!ONBOARDING_COMPLETE && (
-        <div className="lg:col-span-3">
-          <OnboardingProgressCard />
-        </div>
-      )}
     </section>
   );
 }

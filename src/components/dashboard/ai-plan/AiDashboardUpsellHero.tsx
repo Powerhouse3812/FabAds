@@ -1,28 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Sparkles, X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
 
 /**
- * AiDashboardUpsellHero — full-width social-proof banner at the TOP of
- * the AI-plan dashboard, dual-lane upsell.
+ * AiDashboardUpsellHero — dual-lane plan-limits banner at the TOP of the
+ * AI-plan dashboard.
  *
- * Design grammar (Maalik A-12.173 — "industry, professional, sales touch"):
- *  - Full-width card, ~92px tall, lime-tinted left rail + neutral surface
- *  - Eyebrow (Geist Mono caps) "Outgrow your AI plan"
- *  - Headline (Geist Sans 18px semibold) — one line
- *  - Social proof: "12,000+ agencies" + 5 monogram circles (no third-party
- *    logos — sidesteps licensing + visual noise; reads as credibility)
- *  - Dual CTA: Primary lime "Upgrade to AI Team →" + ghost "Talk to Sales"
- *  - Dismiss X top-right, reveals on hover · localStorage persistence
- *  - Cross-tab sync via storage event
+ * Operator-class grammar:
+ *  - Two lanes side-by-side, each with ONE primary CTA
+ *  - Lane A: AI Team plan (same-tier upgrade)
+ *  - Lane B: Growth Pro (cross-tier upgrade)
+ *  - No fabricated social proof (no "12,000+ agencies"), no logos
+ *  - Specific feature copy, not marketing slogans
+ *  - Dismiss X reveals on hover · localStorage persistence · cross-tab sync
  *
- * Gating: only renders for AI-plan users. Growth users hide this entirely.
- *
- * Reference points: Linear pricing banner, Mercury feature-launch hero.
- * NOT: AdCreative.ai purple/pink gradient banners.
+ * Gating: AI-plan users only. Growth users hide this entirely.
  */
 
 const STORAGE_KEY = "genie6:dashboard:upsell-hero-dismissed";
@@ -60,12 +55,43 @@ function useDismissed(): [boolean, () => void] {
   return [dismissed, dismiss];
 }
 
-const SOCIAL_MONOGRAMS = [
-  { initials: "M", label: "Mamaearth" },
-  { initials: "N", label: "Noise" },
-  { initials: "b", label: "boAt" },
-  { initials: "S", label: "Sleepyhead" },
-  { initials: "MB", label: "Mensa Brands" },
+interface Lane {
+  eyebrow: string;
+  title: string;
+  bullets: string[];
+  primaryLabel: string;
+  primaryHref: string;
+  secondaryLabel: string;
+  secondaryHref: string;
+}
+
+const LANES: Lane[] = [
+  {
+    eyebrow: "AI TEAM",
+    title: "More seats, same AI surface",
+    bullets: [
+      "5 seats · 200 generations/month",
+      "Genie API access",
+      "Shared brand kits",
+    ],
+    primaryLabel: "See AI Team plan",
+    primaryHref: "/plans-v2?tier=ai&view=direct",
+    secondaryLabel: "Compare AI Team vs AI Solo",
+    secondaryHref: "/plans-v2?tier=ai&view=compare",
+  },
+  {
+    eyebrow: "GROWTH PRO",
+    title: "Full launch + reporting stack",
+    bullets: [
+      "One-click launch to Meta + Google",
+      "Hierarchical reports drill-down",
+      "Rule-based automation",
+    ],
+    primaryLabel: "See Growth Pro",
+    primaryHref: "/plans-v2?tier=growth&view=trial",
+    secondaryLabel: "Or schedule a Growth Pro walkthrough",
+    secondaryHref: "/plans-v2?tier=growth&view=walkthrough",
+  },
 ];
 
 export function AiDashboardUpsellHero() {
@@ -73,36 +99,24 @@ export function AiDashboardUpsellHero() {
   const navigate = useNavigate();
   const [dismissed, dismiss] = useDismissed();
 
-  // Gate to AI plan only — Growth users are already on the upper tier,
-  // showing them an upgrade banner would read as a bug.
   if (plan !== "ai" || dismissed) return null;
 
   return (
     <div
       className={cn(
         "group relative overflow-hidden rounded-2xl",
-        "border border-primary/25 bg-foreground/[0.03]",
-        "transition-[border-color,background-color] duration-200",
-        "hover:border-primary/40",
+        "border border-border/60 bg-card",
+        "transition-[border-color] duration-200",
       )}
     >
-      {/* Lime accent rail — left edge identity, signals "growth path" without
-          flooding the card. 3px solid bar; never thicker (don't look like a
-          status banner). */}
-      <span
-        aria-hidden
-        className="absolute left-0 top-0 h-full w-[3px] bg-primary"
-      />
-
-      {/* Dismiss X — opacity-0 at rest, reveals on hover. Sits in tab order
-          so keyboard users can dismiss without the mouse. */}
+      {/* Dismiss X — opacity-0 at rest, reveals on hover or keyboard focus. */}
       <button
         type="button"
         onClick={dismiss}
         aria-label="Dismiss upgrade banner"
         title="Dismiss"
         className={cn(
-          "absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full",
+          "absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full",
           "text-foreground/45 opacity-0 transition-opacity duration-150",
           "group-hover:opacity-60 hover:!opacity-100 focus-visible:opacity-100",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
@@ -111,63 +125,71 @@ export function AiDashboardUpsellHero() {
         <X className="h-3.5 w-3.5" strokeWidth={2.25} />
       </button>
 
-      <div className="flex flex-col gap-3 px-5 py-3.5 pl-6 md:flex-row md:items-center md:gap-5">
-        {/* Left column — eyebrow + headline + social proof */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/55">
-              Outgrow your AI plan
-            </span>
-          </div>
-          <h2 className="mt-1 text-[16px] font-semibold leading-snug text-foreground">
-            More seats, or the full Growth stack — pick the lane that fits.
-          </h2>
-          {/* Social proof — agency count + monogram circles. No third-party
-              logos (licensing-clean) but reads as trust-anchored credibility. */}
-          <div className="mt-2 flex items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-foreground/55">
-              Trusted by 12,000+ agencies
-            </span>
-            <span className="h-3 w-px bg-foreground/[0.10]" aria-hidden />
-            <div className="flex -space-x-1.5">
-              {SOCIAL_MONOGRAMS.map((m) => (
-                <span
-                  key={m.initials}
-                  title={m.label}
-                  aria-label={m.label}
-                  className={cn(
-                    "inline-flex h-5 w-5 items-center justify-center rounded-full",
-                    "bg-foreground/[0.06] ring-1 ring-background",
-                    "font-mono text-[9px] font-semibold text-foreground/70",
-                  )}
-                >
-                  {m.initials}
-                </span>
-              ))}
-            </div>
-          </div>
+      <div className="px-5 py-4">
+        {/* Header row — eyebrow + qualitative positioning (no fabricated count). */}
+        <div className="mb-4">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/55">
+            Plan limits
+          </span>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Built for performance agencies operating at scale.
+          </p>
         </div>
 
-        {/* Right column — dual CTA. Primary = same-lane upgrade, secondary =
-            cross-lane (Growth). Parallel, not a ladder. */}
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => navigate("/plans-v2?tier=ai&view=direct")}
-          >
-            Upgrade to AI Team
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-foreground/65 hover:text-foreground"
-            onClick={() => navigate("/plans-v2?tier=growth&view=trial")}
-          >
-            Talk to Sales (Growth)
-          </Button>
+        {/* Dual lanes — each gets ONE primary CTA + ONE text-link footer. */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {LANES.map((lane) => (
+            <div
+              key={lane.eyebrow}
+              className={cn(
+                "flex flex-col rounded-xl border border-border/60 bg-background/40 p-4",
+                "transition-[border-color] duration-200 hover:border-border",
+              )}
+            >
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/55">
+                {lane.eyebrow}
+              </span>
+              <h3 className="mt-1 text-[14px] font-semibold leading-snug text-foreground">
+                {lane.title}
+              </h3>
+              <ul className="mt-2 space-y-1">
+                {lane.bullets.map((b) => (
+                  <li
+                    key={b}
+                    className="flex items-start gap-2 text-[12.5px] leading-snug text-muted-foreground"
+                  >
+                    <span
+                      aria-hidden
+                      className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-foreground/40"
+                    />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-auto flex flex-col gap-1.5 pt-3">
+                <Button
+                  size="sm"
+                  className="w-full justify-center gap-1.5"
+                  onClick={() => navigate(lane.primaryHref)}
+                >
+                  {lane.primaryLabel}
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => navigate(lane.secondaryHref)}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1 text-[11.5px] text-foreground/55",
+                    "transition-colors hover:text-foreground/80",
+                    "focus-visible:outline-none focus-visible:underline",
+                  )}
+                >
+                  {lane.secondaryLabel}
+                  <ArrowRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

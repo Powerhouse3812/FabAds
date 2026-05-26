@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Clock, X } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
 
 /**
- * AiDashboardUpsellSide — ROI-led upsell card placed mid-dashboard.
+ * AiDashboardUpsellSide — neutral "what you unlock on Growth Pro" card.
  *
- * Sits between the Spotlight row and the existing UpsellRow on the AI-plan
- * dashboard. Where the hero leads with social proof + dual CTA, this card
- * leads with a single quantified ROI claim + one Growth CTA. The two units
- * work in concert — same banner family, different angle.
- *
- * Design grammar:
- *  - Compact (~88px tall), neutral surface with quiet lime accents
- *  - Clock icon + tiny eyebrow "ROI · AGENCY CASE"
- *  - One big stat ("4 hrs/week") + one-line benefit
- *  - Single lime CTA chip "See Growth Pro →"
+ * Operator-class grammar:
+ *  - Compact card, neutral surface
+ *  - Eyebrow: "GROWTH PRO · UNLOCKS"
+ *  - 4-row factual checklist of modules added on Growth Pro
+ *  - No fabricated time-savings stats, no unsourced ROI claims
+ *  - Single primary CTA: "See Growth Pro"
  *  - Dismiss X reveals on hover · localStorage persistence
  *
  * Gating: AI plan only. Growth users hide this entirely.
@@ -57,6 +54,25 @@ function useDismissed(): [boolean, () => void] {
   return [dismissed, dismiss];
 }
 
+const UNLOCKS: { label: string; sub: string }[] = [
+  {
+    label: "Launch",
+    sub: "One-click campaign deploy to Meta + Google.",
+  },
+  {
+    label: "Reports",
+    sub: "Hierarchical drill-down: account → campaign → ad set → ad.",
+  },
+  {
+    label: "Automation",
+    sub: "Rule-based pause, boost, and scale workflows.",
+  },
+  {
+    label: "Industry Insights",
+    sub: "Vertical benchmarks and competitor drill-down.",
+  },
+];
+
 export function AiDashboardUpsellSide() {
   const { plan } = usePlan();
   const navigate = useNavigate();
@@ -68,9 +84,8 @@ export function AiDashboardUpsellSide() {
     <div
       className={cn(
         "group relative overflow-hidden rounded-2xl",
-        "border border-foreground/[0.08] bg-foreground/[0.03]",
-        "transition-[border-color,background-color,transform] duration-200",
-        "hover:border-primary/30 hover:bg-foreground/[0.045]",
+        "border border-border/60 bg-card",
+        "transition-[border-color] duration-200 hover:border-border",
       )}
     >
       {/* Dismiss X */}
@@ -80,7 +95,7 @@ export function AiDashboardUpsellSide() {
         aria-label="Dismiss upsell card"
         title="Dismiss"
         className={cn(
-          "absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full",
+          "absolute right-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full",
           "text-foreground/45 opacity-0 transition-opacity duration-150",
           "group-hover:opacity-60 hover:!opacity-100 focus-visible:opacity-100",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
@@ -89,46 +104,49 @@ export function AiDashboardUpsellSide() {
         <X className="h-3.5 w-3.5" strokeWidth={2.25} />
       </button>
 
-      <div className="flex flex-col gap-3 px-5 py-3.5 md:flex-row md:items-center md:gap-6">
-        {/* Eyebrow + Stat — the headline number does the heavy lifting. */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3 w-3 text-foreground/55" aria-hidden />
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/55">
-                ROI · agency case
-              </span>
-            </div>
-            <span className="mt-0.5 font-mono text-[28px] font-bold leading-none text-foreground tabular-nums">
-              4 hrs<span className="text-[16px] text-foreground/55">/week</span>
-            </span>
-          </div>
+      <div className="flex flex-col gap-3 px-5 py-4">
+        {/* Eyebrow + heading */}
+        <div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/55">
+            Growth Pro · Unlocks
+          </span>
+          <h3 className="mt-1 text-[14px] font-semibold leading-snug text-foreground">
+            Four modules added on Growth Pro
+          </h3>
         </div>
 
-        <span aria-hidden className="hidden h-10 w-px bg-foreground/[0.08] md:block" />
+        {/* Neutral factual checklist — no time-savings claims. */}
+        <ul className="space-y-2">
+          {UNLOCKS.map((row) => (
+            <li key={row.label} className="flex items-start gap-2">
+              <span
+                aria-hidden
+                className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
+              >
+                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[12.5px] font-medium leading-snug text-foreground">
+                  {row.label}
+                </p>
+                <p className="text-[11.5px] leading-snug text-muted-foreground">
+                  {row.sub}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
 
-        {/* Benefit + CTA */}
-        <div className="flex flex-1 flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-4">
-          <p className="text-[13px] leading-snug text-foreground/75 max-w-[420px]">
-            Saved per buyer with Auto-Pilot on Growth Pro — multi-account launches,
-            Round Robin distribution, all on one drill-down.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate("/plans-v2?tier=growth&view=trial")}
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1 rounded-md px-3 py-1.5",
-              "bg-primary text-[12px] font-medium text-primary-foreground",
-              "transition-colors duration-150 hover:bg-primary/90",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-            )}
+        {/* Single primary CTA */}
+        <div className="pt-1">
+          <Button
+            size="sm"
+            className="w-full justify-center gap-1.5"
+            onClick={() => navigate("/plans-v2?tier=growth")}
           >
-            <span>See Growth Pro</span>
-            <ArrowRight
-              className="h-3 w-3 transition-transform duration-150 group-hover:translate-x-[1px]"
-              aria-hidden
-            />
-          </button>
+            See Growth Pro
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+          </Button>
         </div>
       </div>
     </div>

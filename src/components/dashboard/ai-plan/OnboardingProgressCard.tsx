@@ -66,7 +66,7 @@ export function OnboardingProgressCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border/60 bg-card p-4 flex flex-col",
+        "rounded-2xl border border-border/60 bg-card p-4 flex flex-col max-w-3xl",
         className,
       )}
     >
@@ -101,8 +101,9 @@ export function OnboardingProgressCard({
         />
       </div>
 
-      {/* Step list */}
-      <ul className="mt-3.5 space-y-2">
+      {/* Step list — 2-col grid at sm+ so the card reads horizontal
+          when mounted as a full-width row (A-12.190). */}
+      <ul className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
         {STEPS.map((step) => (
           <StepRow key={step.id} step={step} />
         ))}
