@@ -1,184 +1,164 @@
 /**
- * UpsellRow — three locked-module discovery tiles on the AI-plan dashboard.
+ * UpsellRow — three locked-module discovery cards on the AI-plan dashboard.
  *
- * Philosophy (Maalik, locked):
- *   On AI plan, Launch / Reports / Automation are gated. Surface what's
- *   locked AS quiet discovery tiles inside the dashboard. The user learns
- *   what they're missing without hitting a wall. Visual hierarchy carries
- *   the weight — not three competing primary CTAs.
- *
- * Layout (operator-class):
- *   ┌────────────────────────┐  ┌──────────────┐
- *   │   LAUNCH (lead tile)   │  │   REPORTS    │
- *   │   lg:col-span-2        │  │   compact    │
- *   │                        │  ├──────────────┤
- *   │                        │  │ AUTOMATION   │
- *   │   [text-link →]        │  │   compact    │
- *   └────────────────────────┘  └──────────────┘
- *                                              ┌──────────────────────┐
- *                                              │ Try Full · 7-day     │ ← single primary CTA
- *                                              │ trial →              │
- *                                              └──────────────────────┘
- *
- * Single-primary-CTA rule: the row owns ONE primary CTA. Per-tile actions
- * are quiet text-links only. No competing lime chips.
+ * Per Maalik's finalised Figma (2026-05-26 override):
+ *   Layout is 3 EQUAL cards in a single row (grid grid-cols-1 lg:grid-cols-3).
+ *   Each card carries its own primary lime-pill CTA — Maalik's explicit
+ *   intent. Per-card middle "preview" visual (platform icons / bar chart /
+ *   sliders) makes the locked module tangible at a glance.
  */
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Facebook,
+  Lock,
+  Music,
+  Newspaper,
+  Sliders,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UpsellRowProps {
   className?: string;
 }
 
-const SPRING = { type: "spring" as const, stiffness: 120, damping: 18 };
+const CTA_HREF = "/plans-v2?tier=growth&view=trial";
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 8 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { ...SPRING, delay: i * 0.08 },
-  }),
-};
-
-interface Tile {
-  eyebrow: string;
-  title: string;
-  sub: string;
-  href: string;
-}
-
-const LEAD_TILE: Tile = {
-  eyebrow: "LAUNCH",
-  title: "One-click campaign launch to Meta + Google",
-  sub: "Currently locked on AI plan.",
-  href: "/plans-v2?tier=growth&module=launch",
-};
-
-const SECONDARY_TILES: Tile[] = [
-  {
-    eyebrow: "REPORTS",
-    title: "Hierarchical drill-down",
-    sub: "Account → campaign → ad set → ad.",
-    href: "/plans-v2?tier=growth&module=reports",
-  },
-  {
-    eyebrow: "AUTOMATION",
-    title: "Rule-based workflows",
-    sub: "Pause, boost, and scale on conditions.",
-    href: "/plans-v2?tier=growth&module=automation",
-  },
-];
-
-function TileEyebrow({ label }: { label: string }) {
+function CardEyebrow({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <Lock className="h-3 w-3 text-foreground/45" strokeWidth={2.25} aria-hidden />
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/55">
+      <Lock
+        className="h-3 w-3 text-muted-foreground/70"
+        strokeWidth={2.25}
+        aria-hidden
+      />
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </span>
     </div>
   );
 }
 
-export function UpsellRow({ className }: UpsellRowProps) {
-  const navigate = useNavigate();
+function CtaPill({ label }: { label: string }) {
+  return (
+    <Link
+      to={CTA_HREF}
+      className={cn(
+        "self-start inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5",
+        "text-[11.5px] font-bold text-foreground transition-colors hover:bg-primary/90",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+      )}
+    >
+      {label}
+      <ChevronRight className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+    </Link>
+  );
+}
 
+export function UpsellRow({ className }: UpsellRowProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/60 bg-card p-4",
+        "grid grid-cols-1 gap-3 lg:grid-cols-3",
         className,
       )}
     >
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-        {/* Lead tile — Launch, takes 2/3 width on lg */}
-        <motion.div
-          custom={0}
-          initial="hidden"
-          animate="visible"
-          variants={cardVariants}
-          className={cn(
-            "group relative flex flex-col rounded-xl border border-border/60 bg-background/40 p-4 lg:col-span-2",
-            "transition-[border-color] duration-200 hover:border-border",
-          )}
-        >
-          <TileEyebrow label={LEAD_TILE.eyebrow} />
-          <h3 className="mt-2 text-[14px] font-semibold leading-snug text-foreground">
-            {LEAD_TILE.title}
-          </h3>
-          <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-            {LEAD_TILE.sub}
-          </p>
-          <div className="mt-auto pt-4">
-            <button
-              type="button"
-              onClick={() => navigate(LEAD_TILE.href)}
-              className={cn(
-                "inline-flex items-center gap-1 text-[12px] font-medium text-foreground/70",
-                "transition-colors hover:text-foreground",
-                "focus-visible:outline-none focus-visible:underline",
-              )}
-            >
-              Launch
-              <ArrowRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-            </button>
-          </div>
-        </motion.div>
+      {/* Card 1 — LAUNCH */}
+      <div
+        className={cn(
+          "flex h-44 flex-col gap-2 rounded-2xl border border-border/60 p-4",
+          "bg-gradient-to-br from-primary/[0.04] to-card",
+        )}
+      >
+        <CardEyebrow label="UPGRADE · LAUNCH" />
+        <h3 className="text-[13px] font-bold leading-snug text-foreground">
+          Launch ads on Meta, TikTok, NewsBreak
+        </h3>
+        <p className="text-[11px] font-normal leading-snug text-muted-foreground">
+          Bulk-launch from this workspace · no platform-hopping
+        </p>
 
-        {/* Two stacked compact tiles — Reports + Automation */}
-        <div className="flex flex-col gap-3 lg:col-span-1">
-          {SECONDARY_TILES.map((tile, i) => (
-            <motion.div
-              key={tile.eyebrow}
-              custom={i + 1}
-              initial="hidden"
-              animate="visible"
-              variants={cardVariants}
-              className={cn(
-                "group relative flex flex-1 flex-col rounded-xl border border-border/60 bg-background/40 p-3.5",
-                "transition-[border-color] duration-200 hover:border-border",
-              )}
-            >
-              <TileEyebrow label={tile.eyebrow} />
-              <h3 className="mt-1.5 text-[13px] font-semibold leading-snug text-foreground">
-                {tile.title}
-              </h3>
-              <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-                {tile.sub}
-              </p>
-              <div className="mt-auto pt-2">
-                <button
-                  type="button"
-                  onClick={() => navigate(tile.href)}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11.5px] font-medium text-foreground/65",
-                    "transition-colors hover:text-foreground",
-                    "focus-visible:outline-none focus-visible:underline",
-                  )}
-                >
-                  {tile.eyebrow === "REPORTS" ? "Reports" : "Automation"}
-                  <ArrowRight className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-                </button>
-              </div>
-            </motion.div>
-          ))}
+        {/* Middle preview: 3 platform circles + chevron + lime highlight */}
+        <div className="mt-2 flex items-center justify-center gap-1.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-card">
+            <Facebook className="h-3.5 w-3.5 text-foreground/70" strokeWidth={2} aria-hidden />
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-card">
+            <Music className="h-3.5 w-3.5 text-foreground/70" strokeWidth={2} aria-hidden />
+          </div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-card">
+            <Newspaper className="h-3.5 w-3.5 text-foreground/70" strokeWidth={2} aria-hidden />
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2.25} aria-hidden />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 ring-1 ring-primary/40">
+            <CheckCircle2 className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} aria-hidden />
+          </div>
+        </div>
+
+        <div className="mt-auto">
+          <CtaPill label="Try Full · 14 day trial" />
         </div>
       </div>
 
-      {/* Row-level single primary CTA — right-aligned */}
-      <div className="mt-4 flex items-center justify-end border-t border-border/40 pt-3">
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={() => navigate("/plans-v2?tier=growth&view=trial")}
-        >
-          Try Full plan · 7-day trial
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-        </Button>
+      {/* Card 2 — REPORTS */}
+      <div
+        className={cn(
+          "flex h-44 flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4",
+        )}
+      >
+        <CardEyebrow label="UPGRADE · REPORTS" />
+        <h3 className="text-[13px] font-bold leading-snug text-foreground">
+          Multi-account performance, one view
+        </h3>
+        <p className="text-[11px] font-normal leading-snug text-muted-foreground">
+          FB · TikTok · NewsBreak · creative reporting in one place
+        </p>
+
+        {/* Middle preview: 4 vertical bars simulating bar chart */}
+        <div className="mt-2 flex items-end justify-center gap-1.5">
+          <span aria-hidden className="h-2 w-3 rounded-full bg-foreground/70" />
+          <span aria-hidden className="h-3 w-3 rounded-full bg-primary" />
+          <span aria-hidden className="h-1.5 w-3 rounded-full bg-foreground/40" />
+          <span aria-hidden className="h-3 w-3 rounded-full bg-foreground/80" />
+        </div>
+
+        <div className="mt-auto">
+          <CtaPill label="See sample report" />
+        </div>
+      </div>
+
+      {/* Card 3 — AUTOMATION */}
+      <div
+        className={cn(
+          "flex h-44 flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4",
+        )}
+      >
+        <CardEyebrow label="UPGRADE · AUTOMATION" />
+        <h3 className="text-[13px] font-bold leading-snug text-foreground">
+          Auto-pause losers · scale winners
+        </h3>
+        <p className="text-[11px] font-normal leading-snug text-muted-foreground">
+          Rule-based optimization while you sleep
+        </p>
+
+        {/* Middle preview: sliders square w/ lime sparkle overlay */}
+        <div className="mt-2 flex justify-center">
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-card">
+            <Sliders className="h-5 w-5 text-foreground/80" strokeWidth={2} aria-hidden />
+            <span
+              aria-hidden
+              className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary"
+            >
+              <Sparkles className="h-2.5 w-2.5 text-foreground" strokeWidth={2.5} />
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-auto">
+          <CtaPill label="Set up rules" />
+        </div>
       </div>
     </div>
   );

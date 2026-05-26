@@ -1,67 +1,64 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { brands } from "@/mocks/shared/brands";
-import { NowStatusStrip } from "./NowStatusStrip";
 import { AnalyticsHero } from "./AnalyticsHero";
 import { ModeLauncherBar } from "./ModeLauncherBar";
 import { RecentWorkStrip } from "./RecentWorkStrip";
 import { UpsellCornerPill } from "./UpsellCornerPill";
 import { ZeroStateSetupTakeover } from "./ZeroStateSetupTakeover";
-import { TopPerformerStrip } from "./TopPerformerStrip";
 import { CreditUsageCard } from "./CreditUsageCard";
 import { IndustryInsightsTile } from "./IndustryInsightsTile";
 import { NewAdsFetchedTile } from "./NewAdsFetchedTile";
+import { ActivityLogsTile } from "./ActivityLogsTile";
 import { UpsellRow } from "./UpsellRow";
 import { AiDashboardUpsellHero } from "./AiDashboardUpsellHero";
 import { AiDashboardUpsellSide } from "./AiDashboardUpsellSide";
-import {
-  OnboardingProgressCard,
-  ONBOARDING_COMPLETE,
-} from "./OnboardingProgressCard";
 
 /**
- * AI-plan Dashboard — v1.4 (OnboardingProgressCard promoted to its own row).
+ * AI-plan Dashboard — v1.6 (Figma full redesign).
  *
- * A-12.190: A-12.189 mounted OnboardingProgressCard as a third column inside
- * AnalyticsHero (chart-6 | KPIs-3 | onboarding-3). Audit P0 flagged that
- * this jammed the chart canvas down to ~360px at lg and cramped the KPI
- * tiles, dismantling the clean chart + KPI single-row hero from A-12.187.
+ * A-12.191: Full composition rewrite to match Maalik's finalised Figma at
+ * node `5794-7194`. The previous v1.5 already collapsed the hero into the
+ * new 4-card row; this iter aligns the rest of the page to the design:
  *
- * Fix: OnboardingProgressCard moved from inside AnalyticsHero (col-3) to
- * its own dedicated Row 1, only renders while setup is in progress (gated
- * via the exported ONBOARDING_COMPLETE flag — when true, the row collapses
- * with no empty space). AnalyticsHero reverts to the A-12.187 layout:
- * chart col-span-7 | KPIs col-span-5.
- *
- * A-12.188 history (kept for context): Credit + Industry Insights pair
- * sits above the mode launcher; TopPerformer + RecentWork pair sits below.
- * ModeLauncherBar ("generate mode wala") stays sandwiched between them.
- * The 3 body-row upsells (UpsellRow, AiDashboardUpsellHero,
- * AiDashboardUpsellSide) are restored at the tail; UpsellCornerPill stays
- * in the header.
+ *   • NowStatusStrip dropped — not present in Figma. Credits + setup status
+ *     already surfaced in the header credits chip + Card 4 of the 4-KPI
+ *     row, so the standalone chip strip becomes redundant.
+ *   • TopPerformerStrip dropped — not present in Figma. Top-performer
+ *     surface moved into Card 3 of the KPI row (Competitor 15/20 with
+ *     "Top performing" platform tags).
+ *   • CreditUsageCard goes wide (col-span-7 on lg); IndustryInsightsTile
+ *     stays narrow (col-span-5 on lg). Both redesigned per Figma — Credit
+ *     gets a 30px Geist Bold "1218 / 1500" hero + 4-col footer strip;
+ *     Industry gets a Recharts donut + Creatives/Videos breakdown +
+ *     Trending Keywords pill footer.
+ *   • ModeLauncherBar rebuilt as a single horizontal row of 6 mode cards.
+ *   • New bento body row: LEFT col-7 stacks NewAdsFetchedTile +
+ *     RecentWorkStrip; RIGHT col-5 mounts the new ActivityLogsTile
+ *     (vertical timeline with dashed tails — Figma-native pattern).
+ *   • Header adds a credits chip beside UpsellCornerPill (compact pill
+ *     showing live credits balance, matches Figma).
+ *   • Upsell trio at the tail unchanged in mount order; internals
+ *     restored to Figma copy ("12,000+ agencies" + "4 hrs/week" stats
+ *     are deliberate per Maalik — Figma overrides DS §6 in this case).
  *
  * Composition (top → bottom):
  *
- *   ROW 0  Header (greeting + UpsellCornerPill + Refresh)
- *   ROW 1  OnboardingProgressCard  ★ NEW — only while !ONBOARDING_COMPLETE
- *   ROW 2  NowStatusStrip       (chips: credits, new, attention, setup)
- *   ROW 3  AnalyticsHero        (clean chart-7 + KPIs-5, A-12.187 layout)
- *   ROW 4  NewAdsFetchedTile    ★ fresh ads pulled via Industry Insights
- *   ROW 5  Pair row (lg:grid-cols-2, gap-3):
- *            CreditUsageCard | IndustryInsightsTile
- *   ROW 6  ModeLauncherBar      (6 compact mode rows)
- *   ROW 7  Pair row (lg:grid-cols-2, gap-3):
- *            TopPerformerStrip | RecentWorkStrip
- *   ROW 8  UpsellRow            (3-tile horizontal upsell)
- *   ROW 9  AiDashboardUpsellHero (dual-lane upsell hero)
- *   ROW 10 AiDashboardUpsellSide (ROI side card)
- *
- * Both pair rows collapse to single-column below the lg breakpoint so
- * mobile stacks cleanly.
+ *   ROW 0  Header (greeting + Trial pill + Credits chip + Refresh)
+ *   ROW 1  AnalyticsHero        (4-card row: Gens / Brands / Competitor / Setup)
+ *   ROW 2  Pair row (12-col grid):
+ *            CreditUsageCard (col-7) | IndustryInsightsTile (col-5)
+ *   ROW 3  ModeLauncherBar      (6 horizontal mode cards)
+ *   ROW 4  Bento body (12-col grid):
+ *            LEFT col-7: NewAdsFetchedTile + RecentWorkStrip stacked
+ *            RIGHT col-5: ActivityLogsTile (timeline)
+ *   ROW 5  UpsellRow            (3-tile horizontal upsell)
+ *   ROW 6  AiDashboardUpsellHero (single-row hero with brand monograms)
+ *   ROW 7  AiDashboardUpsellSide (ROI · agency case strip)
  *
  * ZeroStateSetupTakeover still gates the whole composition on isNewUser.
  */
@@ -137,6 +134,7 @@ export function AiPlanDashboard() {
           {!isNewUser && (
             <>
               <UpsellCornerPill />
+              <HeaderCreditsChip />
               <Button
                 variant="outline"
                 size="sm"
@@ -161,85 +159,95 @@ export function AiPlanDashboard() {
           animate="show"
           className="space-y-3"
         >
-          {/* ROW 1 — Onboarding progress card (A-12.190).
-              Promoted out of AnalyticsHero (was a cramped col-3 slot
-              there) into its own dedicated row. Auto-hides once setup
-              is complete via the ONBOARDING_COMPLETE flag so this row
-              collapses with no empty real-estate. */}
-          {!ONBOARDING_COMPLETE && (
-            <motion.section variants={rowVariants}>
-              <OnboardingProgressCard />
-            </motion.section>
-          )}
-
-          {/* ROW 2 — Status chips */}
-          <motion.section variants={rowVariants}>
-            <NowStatusStrip />
-          </motion.section>
-
-          {/* ROW 3 — Analytics hero (clean chart-7 + KPIs-5, A-12.187 layout) */}
+          {/* ROW 1 — Analytics hero (4-card row).
+              Generations w/ sparkline · Brands active · Competitor ·
+              Setup workspace. A-12.191 absorbs the old onboarding row
+              + standalone chart hero into one balanced 4-up. */}
           <motion.section variants={rowVariants}>
             <AnalyticsHero />
           </motion.section>
 
-          {/* ROW 4 — New ads fetched (priority placement — the most
-              action-driving surface on the dashboard; fresh ads pulled
-              in via the Industry Insights extension). */}
-          <motion.section variants={rowVariants}>
-            <NewAdsFetchedTile />
-          </motion.section>
-
-          {/* ROW 5 — Pair row: Credit | Industry Insights.
-              Was the right column of the v1.2 bento; promoted UP per
-              Maalik so spend/market context lands before the launcher.
-              Stacks single-column below the lg breakpoint. */}
+          {/* ROW 2 — Pair row: Credit (col-7 wide hero) | Industry (col-5).
+              Per Figma the credit usage gets the bulk of the row so the
+              "1218 / 1500" hero number lands at full visual weight; the
+              Industry donut sits compact to the right. */}
           <motion.section
             variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-3"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch"
           >
-            <CreditUsageCard />
-            <IndustryInsightsTile />
+            <div className="lg:col-span-7">
+              <CreditUsageCard />
+            </div>
+            <div className="lg:col-span-5">
+              <IndustryInsightsTile />
+            </div>
           </motion.section>
 
-          {/* ROW 6 — Mode launcher (stays sandwiched between the two
-              pair rows — Maalik's "generate mode wala", middle of the
-              dashboard). */}
+          {/* ROW 3 — Mode launcher (6 horizontal mode cards). */}
           <motion.section variants={rowVariants}>
             <ModeLauncherBar />
           </motion.section>
 
-          {/* ROW 7 — Pair row: TopPerformer | RecentWork.
-              Was the left column of the v1.2 bento; demoted DOWN per
-              Maalik so recent results sit after the action launcher.
-              Stacks single-column below the lg breakpoint. */}
+          {/* ROW 4 — Bento body.
+              LEFT col-7 stacks NewAdsFetchedTile (priority surface) +
+              RecentWorkStrip (status ledger). RIGHT col-5 mounts the
+              new ActivityLogsTile (vertical timeline). Stacks single
+              column below lg. */}
           <motion.section
             variants={rowVariants}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-3"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start"
           >
-            <TopPerformerStrip />
-            <RecentWorkStrip />
+            <div className="lg:col-span-7 space-y-3">
+              <NewAdsFetchedTile />
+              <RecentWorkStrip />
+            </div>
+            <div className="lg:col-span-5">
+              <ActivityLogsTile />
+            </div>
           </motion.section>
 
-          {/* ROW 8 — Upsell row (RESTORED in A-12.188).
-              3-tile horizontal upsell — the A-12.186 deletion was a
-              misread, this comes back unchanged. */}
+          {/* ROW 5 — Upsell row (3 tiles: Launch · Reports · Automation). */}
           <motion.section variants={rowVariants}>
             <UpsellRow />
           </motion.section>
 
-          {/* ROW 9 — Upsell hero (RESTORED in A-12.188).
-              Dual-lane upsell hero — same misread-deletion story. */}
+          {/* ROW 6 — Upsell hero ("Outgrow your AI plan" + brand monograms). */}
           <motion.section variants={rowVariants}>
             <AiDashboardUpsellHero />
           </motion.section>
 
-          {/* ROW 10 — Upsell side (RESTORED in A-12.188).
-              ROI side card — final restored upsell. */}
+          {/* ROW 7 — Upsell side (ROI · agency case · "4 hrs/week"). */}
           <motion.section variants={rowVariants}>
             <AiDashboardUpsellSide />
           </motion.section>
         </motion.div>
       )}
     </div>
+  );
+}
+
+/* ── Header credits chip ──
+   Compact pill per Figma — shows live credits balance beside the
+   trial pill. Routes to the plans page on click. Mock value
+   matches the CreditUsageCard hero (1218 / 1500 → ~73/100 in the
+   simplified header chip). */
+function HeaderCreditsChip() {
+  const credits = 73;
+  const creditsMax = 100;
+  return (
+    <Link
+      to="/plans-v2"
+      className="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-card px-3 py-1.5 text-[12px] transition-colors hover:border-foreground/20"
+      aria-label={`${credits} of ${creditsMax} credits used`}
+    >
+      <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={2.2} aria-hidden />
+      <span className="font-mono tabular-nums text-foreground">{credits}</span>
+      <span className="font-mono tabular-nums text-muted-foreground">
+        /{creditsMax}
+      </span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+        credits
+      </span>
+    </Link>
   );
 }

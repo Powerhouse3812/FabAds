@@ -1,5 +1,5 @@
 /**
- * ModeLauncherBar — one-click mode picker for the dashboard.
+ * ModeLauncherBar — one-click mode picker for the AI-plan dashboard.
  *
  * Why this exists
  * ---------------
@@ -8,6 +8,13 @@
  * dressed as one. Maalik's call was to surface all 6 generation modes as their
  * own clickable cards — the mode IS the entry point. One click → land in
  * Studio Alpha already pre-configured for that mode.
+ *
+ * v3 (May 2026) — Figma redesign
+ * -------------------------------
+ * Flattens the previous "eyebrow + 2-row grid" into a single horizontal row of
+ * 6 mode cards. Header gets a green inline tagline ("Pick a mode · and create")
+ * and a quiet "View all →" link. Each card is a 70px pill with a lime-tinted
+ * icon circle, a bold label, and a chevron that fades in on hover.
  *
  * Motif extraction (don't copy):
  *   - Notion "New page" mode picker — distinct icons, not a dropdown
@@ -26,7 +33,6 @@
  * (`skipGate: true`) appends `&skipGate=1` so Studio Alpha can bypass the
  * gate modal that other modes use to resolve presets.
  */
-import { motion } from "framer-motion";
 import {
   Sparkles,
   ShoppingBag,
@@ -34,10 +40,10 @@ import {
   Camera,
   Video,
   RefreshCw,
-  ArrowUpRight,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { OUTSIDE_CTAS } from "@/genie6/generate-new/types";
 
@@ -58,111 +64,79 @@ const ICON_BY_NAME: Record<string, LucideIcon> = {
   RefreshCw,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Animation tunables
-// ─────────────────────────────────────────────────────────────────────────────
-const STAGGER_DELAY_MS = 60;
-const CARD_SPRING = { type: "spring" as const, stiffness: 120, damping: 18 };
-
 export function ModeLauncherBar({ className }: ModeLauncherBarProps) {
-  const navigate = useNavigate();
-
-  const handleLaunch = (id: string, skipGate?: boolean) => {
-    const dest = `/iq/genie6/studio-alpha?mode=${id}${
-      skipGate ? "&skipGate=1" : ""
-    }`;
-    navigate(dest);
-  };
-
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border bg-card p-4",
+        "rounded-2xl border border-border/60 bg-card p-4 flex flex-col gap-3",
         className,
       )}
       aria-label="Start a new generation"
     >
-      {/* Header row — eyebrow + title left, secondary CTA right */}
-      <div className="flex items-center justify-between gap-3 mb-3">
+      {/* Header row — eyebrow + green tagline left, quiet View all right */}
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Generate
           </span>
-          <span className="h-3 w-px bg-border" aria-hidden />
-          <h2 className="text-[12.5px] font-semibold text-foreground leading-none truncate">
-            Pick a mode · one click
-          </h2>
+          <span aria-hidden className="h-3 w-px bg-border" />
+          <span className="text-[11px] font-medium leading-none text-[#779E1C] truncate">
+            Pick a mode · and create
+          </span>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate("/iq/genie6/studio-alpha")}
-          className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-primary hover:text-primary/80 transition-colors flex items-center gap-1 shrink-0"
+        <Link
+          to="/iq/genie6/studio-alpha"
+          className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-1"
         >
-          Browse all
+          View all
           <span aria-hidden>→</span>
-        </button>
+        </Link>
       </div>
 
-      {/* 6-card grid — short uniform rectangles, icon + label, no description */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {OUTSIDE_CTAS.map((cta, idx) => {
+      {/* Mode card grid — single horizontal row on lg, responsive collapse */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {OUTSIDE_CTAS.map((cta) => {
           const Icon = ICON_BY_NAME[cta.icon] ?? Sparkles;
+          const dest = `/iq/genie6/studio-alpha?mode=${cta.id}${
+            cta.skipGate ? "&skipGate=1" : ""
+          }`;
           return (
-            <motion.button
+            <Link
               key={cta.id}
-              type="button"
-              onClick={() => handleLaunch(cta.id, cta.skipGate)}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                ...CARD_SPRING,
-                delay: (idx * STAGGER_DELAY_MS) / 1000,
-              }}
-              whileHover="hover"
-              whileTap={{ scale: 0.97 }}
-              variants={{
-                hover: { y: -1 },
-              }}
+              to={dest}
               title={cta.description}
+              aria-label={`Start ${cta.label} — ${cta.description}`}
               className={cn(
-                "group relative h-[68px] rounded-lg border border-border bg-background",
-                "hover:bg-card hover:border-primary/40 transition-colors",
-                "px-3 flex items-center gap-2.5 text-left",
+                "group border border-border/60 rounded-2xl px-3 py-3",
+                "flex items-center gap-2.5",
+                "hover:border-foreground/20 hover:bg-muted/[0.4] transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               )}
-              aria-label={`Start ${cta.label} — ${cta.description}`}
+              style={{ minHeight: 70 }}
             >
-              {/* Icon disc */}
+              {/* Icon disc — lime-tinted circle */}
               <span
-                className="shrink-0 h-8 w-8 rounded-full bg-primary/[0.12] group-hover:bg-primary/20 transition-colors flex items-center justify-center"
                 aria-hidden
+                className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
               >
                 <Icon
-                  className="h-3.5 w-3.5 text-primary"
+                  className="h-3.5 w-3.5 text-[#779E1C]"
                   strokeWidth={2.25}
-                  aria-hidden
                 />
               </span>
 
-              {/* Label */}
-              <span className="text-[12px] font-semibold text-foreground leading-tight truncate flex-1">
+              {/* Label — Geist 600 15px */}
+              <span className="text-[15px] font-semibold text-foreground leading-tight truncate flex-1">
                 {cta.label}
               </span>
 
-              {/* Hover arrow — replaces description for compactness */}
-              <motion.span
-                className="shrink-0 text-muted-foreground"
-                initial={{ opacity: 0, x: -4 }}
-                variants={{ hover: { opacity: 1, x: 0 } }}
-                transition={{ duration: 0.15 }}
+              {/* Hover chevron — pushed to end via flex-1 on label */}
+              <ChevronRight
                 aria-hidden
-              >
-                <ArrowUpRight
-                  className="h-3.5 w-3.5 text-primary"
-                  strokeWidth={2.5}
-                />
-              </motion.span>
-            </motion.button>
+                className="h-3.5 w-3.5 text-foreground/35 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                strokeWidth={2}
+              />
+            </Link>
           );
         })}
       </div>
