@@ -70,8 +70,8 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <PlanProvider>
         <BrowserRouter>
+        <PlanProvider>
           <Routes>
             <Route path="auth" element={<Auth />} />
             <Route path="reset-password" element={<ResetPassword />} />
@@ -266,8 +266,8 @@ const App = () => (
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
         </PlanProvider>
+        </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
     </ThemeProvider>
