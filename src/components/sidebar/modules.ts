@@ -74,7 +74,7 @@ export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
  *    Automation          (no Soon badge — first-class run-the-business surface)
  *
  *  CREATE
- *    Genie               (Overview / Generations / Studio / Settings — plus inline
+ *    Genie               (Overview / Library / Studio / Settings — plus inline
  *                          New-Gen CTA when active. Genie variant toggle now
  *                          lives as a small icon next to the Genie label, not
  *                          as a pill in sub-menu.)
@@ -156,7 +156,7 @@ export const MODULES: ModuleDef[] = [
       // A-12.38: Concepts library promoted to primary. Aggregates catalogue +
       // KB-attached + user-saved concepts into one searchable feed.
       { label: "Concepts",    path: "/iq/genie6/concepts",         icon: Lightbulb },
-      { label: "Generations", path: "/iq/genie6/library",          icon: LibraryIcon },
+      { label: "Library",     path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
       // Deprioritized — legacy studios + Assets below divider
       { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2, deprioritized: true },

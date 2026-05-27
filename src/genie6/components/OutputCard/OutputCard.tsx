@@ -127,12 +127,24 @@ export function OutputCard({
   return (
     <article
       onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (!onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={
+        onClick ? `Open ad detail · ${headlineText ?? brand?.name ?? "generation"}` : undefined
+      }
       data-state={selected ? "selected" : undefined}
       data-featured={featured ? "" : undefined}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-g6-lg border bg-g6-bg-container text-left transition-all duration-150",
+        "group relative flex flex-col overflow-hidden rounded-g6-lg border bg-g6-bg-container text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g6-primary focus-visible:ring-offset-2",
         // Default border + subtle hover (1px lift + border darkens)
         !featured &&
           "border-g6-border-secondary hover:-translate-y-px hover:border-g6-border",
@@ -196,11 +208,15 @@ export function OutputCard({
             </div>
           )}
 
-          {/* Video play overlay — 40px circle, dark glass */}
+          {/* Video play overlay — 40px circle, dark glass.
+              pointer-events-none so the overlay never intercepts the
+              article-level onClick (cards open the AdDetailDrawer; the
+              play affordance is purely decorative until the drawer
+              mounts its own player). */}
           {mediaType === "video" && thumbnail && (
             <span
               aria-hidden
-              className="absolute inset-0 flex items-center justify-center"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center"
             >
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm">
                 <Play className="h-5 w-5 fill-white text-white" />
@@ -341,15 +357,24 @@ function FooterIconBtn({
   onClick?: () => void;
   stop: (e: React.MouseEvent) => void;
 }) {
+  // Only intercept the click when a real handler is attached. If the parent
+  // didn't pass onClick (Library masonry / Group-by-Angle row only wire the
+  // card-level open-detail handler), we MUST let the click bubble up to the
+  // <article> so it can open the AdDetailDrawer. Previously the always-on
+  // stop() swallowed every footer-icon click into a dead button — that was
+  // the dead-click bug Maalik reported.
+  const handle = onClick
+    ? (e: React.MouseEvent) => {
+        stop(e);
+        onClick();
+      }
+    : undefined;
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      onClick={(e) => {
-        stop(e);
-        onClick?.();
-      }}
+      onClick={handle}
       className="inline-flex h-8 w-8 items-center justify-center rounded-g6-base text-g6-text-secondary transition-colors hover:bg-g6-bg-spotlight hover:text-g6-text"
     >
       <Icon className="h-3.5 w-3.5" />
