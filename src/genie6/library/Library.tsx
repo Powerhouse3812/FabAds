@@ -11,6 +11,8 @@ import { StudioLibrary } from "../variants/studio/StudioLibrary";
 import { CanvasLibrary } from "../variants/canvas/CanvasLibrary";
 import { CommandLibrary } from "../variants/command/CommandLibrary";
 import { ModularLibrary } from "../variants/modular/ModularLibrary";
+import { AdDetailDrawer } from "../components/AdDetailDrawer";
+import { AngleViewMoreDrawer } from "../components/AngleViewMoreDrawer";
 
 /**
  * Library — variant-aware router.
@@ -71,17 +73,33 @@ export function Library() {
     return <EmptyStateOnboarding {...EMPTY_CONFIGS.library} />;
   }
 
-  switch (variant) {
-    case "canvas":
-      return <CanvasLibrary />;
-    case "command":
-      return <CommandLibrary />;
-    case "modular":
-      return <ModularLibrary />;
-    case "studio":
-    default:
-      return <StudioLibrary />;
-  }
+  /* ── Variant-aware body ──
+        All 4 variants share the same URL-driven drawers (AdDetailDrawer +
+        AngleViewMoreDrawer) — so they mount at THIS level, above the
+        variant switch. A-12.194 hoist: Maalik was on the Modular variant
+        and the drawers only mounted inside StudioLibrary, which silently
+        broke ?ad= deep-links + card clicks across the other 3 variants. */
+  const VariantBody = () => {
+    switch (variant) {
+      case "canvas":
+        return <CanvasLibrary />;
+      case "command":
+        return <CommandLibrary />;
+      case "modular":
+        return <ModularLibrary />;
+      case "studio":
+      default:
+        return <StudioLibrary />;
+    }
+  };
+
+  return (
+    <>
+      <VariantBody />
+      <AngleViewMoreDrawer />
+      <AdDetailDrawer />
+    </>
+  );
 }
 
 /** Legacy zero-data state (kept for direct ?empty=1 callers from outside). */
