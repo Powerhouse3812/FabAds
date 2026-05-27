@@ -7,8 +7,6 @@ import type {
   OutputCardVariant,
   OutputData,
 } from "../../types/output";
-import { MODE_LABELS } from "../../types/output";
-import { QualityScoreChip } from "./QualityScoreChip";
 import { TextOnlyMotif } from "./TextOnlyMotif";
 import { EllipsisMenu } from "./EllipsisMenu";
 
@@ -56,10 +54,10 @@ export interface OutputCardProps extends OutputData {
  *   │ ⬤ Brand name              │  Brand row — 32px avatar + name
  *   │ Headline that may         │  Headline 2-line clamp
  *   │ wrap to a second line     │
- *   │ ┌───────────────────────┐ │  Media zone — aspect-aware
+ *   │ ┌───────────────────────┐ │  Media zone — aspect-aware, clean
  *   │ │      thumbnail        │ │     • 1:1 letterboxed
  *   │ │                       │ │     • 4:5 / 9:16 full-bleed
- *   │ │ [Q 87]      [Brand]   │ │  Quality (BL) + Mode (BR) chips
+ *   │ │                       │ │     (no on-image chips per Figma)
  *   │ └───────────────────────┘ │
  *   │ CTA hook line             │  Secondary row 1 (text-secondary)
  *   │ Body description text     │  Secondary row 2 (text-tertiary)
@@ -80,9 +78,10 @@ export interface OutputCardProps extends OutputData {
  *
  * Dropped from the old card per Figma lock: BrandChip overlay (brand is
  * in the header row now), LineageChip, DisclosureStamp, metadata strip
- * (mode/timestamp/short-id row), CTA pill — all removed. ModeBadge text
- * helper is preserved on disk for PreviewPane reuse but the card now
- * inlines a styled chip in the bottom-right of the thumbnail.
+ * (mode/timestamp/short-id row), CTA pill, and the on-image chips
+ * (QualityScoreChip + ModeChip) — all removed. The thumbnail is now
+ * clean per the final Figma. ModeBadge / QualityScoreChip helpers are
+ * preserved on disk for PreviewPane reuse.
  */
 export function OutputCard({
   thumbnail,
@@ -224,16 +223,6 @@ export function OutputCard({
             </span>
           )}
 
-          {/* On-image chips — Quality (BL) + Mode (BR) */}
-          {qualityScore !== undefined && (
-            <span className="absolute bottom-2 left-2">
-              <QualityScoreChip score={qualityScore} />
-            </span>
-          )}
-          <span className="absolute bottom-2 right-2">
-            <ModeChip label={MODE_LABELS[mode]} />
-          </span>
-
           {/* Selection checkbox — top-LEFT on compact (always); on full,
               hover-revealed for multi-select parity. */}
           {showCheckbox && (
@@ -330,19 +319,6 @@ function BrandRow({ brand }: { brand?: { name?: string; logo?: string } }) {
         {brand?.name ?? "Unattributed"}
       </span>
     </div>
-  );
-}
-
-/**
- * Bottom-right on-image chip showing the generation mode (Brand Ad,
- * UGC Video, etc.). Pill style with backdrop blur so it reads on any
- * thumbnail brightness. Sits next to the QualityScoreChip on the BL.
- */
-function ModeChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center rounded-g6-pill border border-g6-border/40 bg-g6-bg-elevated/95 px-2 py-0.5 font-g6-mono text-g6-xs font-semibold uppercase tracking-wide text-g6-text-secondary backdrop-blur-sm">
-      {label}
-    </span>
   );
 }
 

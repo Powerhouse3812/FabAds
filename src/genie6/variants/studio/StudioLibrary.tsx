@@ -1,5 +1,5 @@
 import { GeneratedOutputsTab } from "../../library/tabs/GeneratedOutputsTab";
-import { LibraryQueueStrip } from "../../library/queue-strip/LibraryQueueStrip";
+import { LibraryTopBar } from "../../components/LibraryTopBar";
 
 /**
  * Studio variant — Library.
@@ -14,25 +14,22 @@ import { LibraryQueueStrip } from "../../library/queue-strip/LibraryQueueStrip";
  *
  * A-12.194: `<AdDetailDrawer />` and `<AngleViewMoreDrawer />` moved UP to
  * Library.tsx so all 4 variants (studio / canvas / command / modular)
- * share them. Previously these were mounted only here, and on the other
- * 3 variants `?ad=` deep-links + card clicks silently no-op'd because
- * the drawer wasn't on the page. The variant body now renders ONLY the
- * page structure; URL-driven overlays live one level up.
+ * share them.
+ *
+ * A-12.197 (Library Figma final): replaced the title/subtitle header AND
+ * the standalone `<LibraryQueueStrip />` row with the canonical
+ * `<LibraryTopBar />` — single 52px-tall bar that collapses breadcrumb +
+ * view toggle + inline queue strip + select-days control. The view toggle
+ * lives ONLY in the top bar now (the duplicate that used to sit inside
+ * `GeneratedOutputsTab` next to the CSV-export button has been removed).
  */
 export function StudioLibrary() {
   return (
     <div className="v3-page-mesh flex h-full p-3">
       <main className="flex flex-1 overflow-hidden rounded-g6-card border border-g6-border-secondary bg-g6-bg-container">
         <div className="flex flex-1 flex-col overflow-hidden">
-          <header className="border-b border-g6-border-secondary bg-g6-bg-base px-5 py-3">
-            <h1 className="text-g6-h4 font-bold text-g6-text">Library</h1>
-            <p className="text-g6-xs text-g6-text-tertiary">142 outputs across all batches</p>
-          </header>
+          <LibraryTopBar />
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-            {/* A-12.185: live queue strip — active batches (generating /
-                queued / failed). Hidden when nothing is in the queue. */}
-            <LibraryQueueStrip />
-
             <GeneratedOutputsTab />
           </div>
         </div>

@@ -1,9 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  Component,
   Download,
   FolderPlus,
-  MoreHorizontal,
   RefreshCw,
   Rocket,
   ChevronRight,
@@ -53,6 +53,11 @@ export function AngleRow({
   const [, setSearchParams] = useSearchParams();
   const [featuredId, setFeaturedId] = useState<string>(outputs[0]?.id ?? "");
 
+  const conceptLabel = useMemo(() => {
+    const firstConcept = outputs[0]?.concepts?.[0];
+    return firstConcept?.label ?? "Concept 1";
+  }, [outputs]);
+
   const total = outputs.length;
   const visible = outputs.slice(0, VISIBLE_LIMIT);
   const overflow = Math.max(0, total - VISIBLE_LIMIT);
@@ -74,23 +79,27 @@ export function AngleRow({
       {/* Header */}
       <header className="flex items-center gap-2 py-1.5">
         <span aria-hidden className="h-3.5 w-[2.5px] rounded-full bg-g6-primary" />
-        <span className="font-g6-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-g6-text">
+        <span className="font-g6-mono text-[12px] font-semibold uppercase tracking-[0.05em] text-g6-text">
           {angleLabel}
         </span>
-        <span className="inline-flex h-[18px] items-center justify-center rounded-g6-pill bg-g6-bg-spotlight px-1.5 font-g6-mono text-[9px] font-bold text-g6-text">
+        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-g6-pill bg-g6-primary-bg px-1.5 font-g6-mono text-[10px] font-bold text-g6-text">
           {total}
         </span>
-        <span className="font-g6-mono text-[9px] uppercase tracking-wider text-g6-text-tertiary">
+        <span className="font-g6-mono text-[10px] uppercase tracking-wider text-g6-text-tertiary">
           {total === 1 ? "variation" : "variations"}
+        </span>
+        <span aria-hidden className="mx-1 h-3.5 w-px bg-g6-border-secondary" />
+        <span className="font-g6-mono text-[10px] uppercase tracking-wider text-g6-text-tertiary">
+          {conceptLabel}
         </span>
 
         <span className="ml-auto flex items-center gap-2">
           <RowActionBtn label="Regenerate" Icon={RefreshCw} text="Regenerate" />
-          <span className="h-3.5 w-px bg-g6-border-secondary" />
+          <span aria-hidden className="mx-1 h-3.5 w-px bg-g6-border-secondary" />
           <RowActionBtn label="Launch" Icon={Rocket} />
           <RowActionBtn label="Save to folder" Icon={FolderPlus} />
+          <RowActionBtn label="Compare variations" Icon={Component} />
           <RowActionBtn label="Download" Icon={Download} />
-          <RowActionBtn label="More" Icon={MoreHorizontal} />
         </span>
       </header>
 
@@ -99,12 +108,12 @@ export function AngleRow({
         className="
           -mx-1 flex gap-3 overflow-x-auto px-1 pb-4
           [scrollbar-width:thin]
-          [&::-webkit-scrollbar]:h-1.5
+          [&::-webkit-scrollbar]:h-[3px]
           [&::-webkit-scrollbar-track]:rounded-full
           [&::-webkit-scrollbar-track]:bg-g6-bg-spotlight/40
           [&::-webkit-scrollbar-thumb]:rounded-full
-          [&::-webkit-scrollbar-thumb]:bg-g6-text-tertiary/40
-          hover:[&::-webkit-scrollbar-thumb]:bg-g6-text-tertiary/60
+          [&::-webkit-scrollbar-thumb]:bg-g6-primary/40
+          hover:[&::-webkit-scrollbar-thumb]:bg-g6-primary/60
         "
       >
         {visible.map((o) => {

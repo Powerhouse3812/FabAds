@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { BulkToolbar } from "../../components/BulkToolbar";
 import { CSVExportButton } from "../../components/CSVExportButton";
 import { EmptyState } from "../../components/EmptyState";
-import { MasonryGroupToggle, type LibraryView } from "../../components/MasonryGroupToggle";
+import type { LibraryView } from "../../components/MasonryGroupToggle";
 import { brands } from "../../mocks/brands";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type { ModeId, OutputData } from "../../types/output";
@@ -30,18 +30,17 @@ type Props = {
 /**
  * GeneratedOutputsTab — the body of the Library page.
  *
- * Iter 7 (A-12.x — Library redesign):
- *  - Replaced GridKanbanToggle with MasonryGroupToggle (Masonry / Grouped).
- *    Kanban view is dropped from the toggle (KanbanBoard.tsx preserved on
- *    disk; reachable only by code, not by the user).
- *  - View mode is URL-backed via `?view=masonry|grouped` so refresh,
- *    deep-link, and browser back/forward all preserve the user's choice.
- *  - Card click opens the AdDetailDrawer via `?ad=<id>` instead of
- *    `navigate('/library/outputs/:id')` — the old route segment was
- *    redirected back to /library by Library.tsx and broke clicks.
+ * A-12.197 (Library Figma final):
+ *  - The view toggle (Masonry / Grouped) lives ONLY in `<LibraryTopBar />`
+ *    one level up. This component just READS `?view=` to pick which body
+ *    to render. Writing happens up top — no duplication.
+ *  - The counts + CSV export row remains (left: outputs count, right: CSV).
  *  - LibraryToolbar (Studio mode) writes filters to URL params
  *    (`angleFilter`, `category`, `brand`, `sort`, `q`). Legacy callers
- *    still get the prop-driven path.
+ *    (Canvas/Command/Modular) still get the prop-driven path.
+ *  - Card click opens the AdDetailDrawer via `?ad=<id>`.
+ *  - Kanban view is dropped from the toggle (KanbanBoard.tsx preserved on
+ *    disk; reachable only by code, not by the user).
  */
 export function GeneratedOutputsTab({
   brandFilter,
@@ -50,23 +49,11 @@ export function GeneratedOutputsTab({
   showToolbar = true,
 }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
+  // View mode is owned by <LibraryTopBar /> (A-12.197). This component just
+  // reads `?view=` to decide which body to render. Writing the param happens
+  // up in the top bar — keeps the toggle out of two places.
   const view: LibraryView =
     searchParams.get("view") === "grouped" ? "grouped" : "masonry";
-
-  const setView = useCallback(
-    (next: LibraryView) => {
-      setSearchParams(
-        (prev) => {
-          const sp = new URLSearchParams(prev);
-          if (next === "masonry") sp.delete("view");
-          else sp.set("view", next);
-          return sp;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
 
   const openDrawer = useCallback(
     (output: OutputData) => {
@@ -178,15 +165,13 @@ export function GeneratedOutputsTab({
         />
       ) : (
         <>
-          {/* Toolbar row — counts + view toggle + CSV */}
+          {/* Toolbar row — counts + CSV export (view toggle lives in
+              <LibraryTopBar /> at the page level now). */}
           <div className="flex items-center justify-between gap-2">
             <div className="font-g6-sans text-g6-sm text-g6-text-secondary">
               <span className="font-g6-mono text-g6-text">{filtered.length}</span> outputs
             </div>
-            <div className="flex items-center gap-2">
-              <MasonryGroupToggle value={view} onChange={setView} />
-              <CSVExportButton outputs={filtered} filename="genie6-library.csv" />
-            </div>
+            <CSVExportButton outputs={filtered} filename="genie6-library.csv" />
           </div>
 
           <BulkToolbar
