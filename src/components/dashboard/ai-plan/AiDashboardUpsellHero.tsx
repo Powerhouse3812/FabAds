@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
 
 /**
- * AiDashboardUpsellHero — "Outgrow your AI plan" full-width banner.
+ * AiDashboardUpsellHero — "Why most agencies upgrade" full-width banner.
  *
  * Per Maalik's finalised Figma (2026-05-26 override): single full-width
  * horizontal card (NOT a 2-column hero). Left col carries eyebrow +
@@ -109,19 +109,24 @@ export function AiDashboardUpsellHero() {
           <div className="flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={2.25} aria-hidden />
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Outgrow your AI plan
+              Why most agencies upgrade
             </span>
           </div>
 
           {/* Headline */}
           <h3 className="mt-1 text-[16px] font-bold leading-snug text-foreground">
-            More seats, or the full Growth stack — pick the lane that fits.
+            One plan stops at generation. Growth ships the ads.
           </h3>
+
+          {/* Sub */}
+          <p className="mt-1 text-[13px] font-normal leading-snug text-muted-foreground">
+            Reports across accounts, multi-account launches, rules-based automation. The work you do after the ad is generated.
+          </p>
 
           {/* Social-proof row: 12,000+ strap + divider + brand monograms */}
           <div className="mt-2 flex items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-[0.5px] text-foreground/55 tabular-nums">
-              Trusted by 12,000+ agencies
+              12,000+ agencies on Growth
             </span>
             <span aria-hidden className="h-3 w-px bg-foreground/10" />
             <div className="flex items-center" aria-hidden>
@@ -146,14 +151,14 @@ export function AiDashboardUpsellHero() {
         {/* RIGHT col — CTAs */}
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            to="/plans-v2?tier=growth-pro"
+            to="/plans-v2?tier=growth-pro&view=trial"
             className={cn(
               "inline-flex items-center gap-1.5 rounded-2xl bg-primary px-3 py-2",
               "text-[14px] font-semibold text-foreground transition-colors hover:bg-primary/90",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
             )}
           >
-            Upgrade to AI Team
+            Start 14-day Growth Pro trial
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
           </Link>
           <Link
@@ -165,7 +170,7 @@ export function AiDashboardUpsellHero() {
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
             )}
           >
-            Talk to Sales (Growth)
+            Talk to sales
           </Link>
         </div>
       </div>

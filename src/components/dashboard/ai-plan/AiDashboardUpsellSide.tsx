@@ -97,7 +97,7 @@ export function AiDashboardUpsellSide() {
               aria-hidden
             />
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              ROI · agency case
+              Saved per buyer
             </span>
           </div>
           <div className="mt-0.5 flex items-baseline gap-1">
@@ -118,21 +118,20 @@ export function AiDashboardUpsellSide() {
 
         {/* CENTER — narrative paragraph */}
         <p className="flex-1 text-[13px] font-normal leading-snug text-foreground/75">
-          Saved per buyer with Auto-Pilot on Growth Pro — multi-account
-          launches, Round Robin distribution, all on one drill-down.
+          Auto-Pilot launches across 12 accounts, rotates spend nightly, and pauses losers before they burn budget. That's 4 hours a week the buyer doesn't spend in Ads Manager.
         </p>
 
         {/* RIGHT — primary CTA */}
         <div className="shrink-0">
           <Link
-            to="/plans-v2?tier=growth-pro"
+            to="/plans-v2?tier=growth-pro&view=trial"
             className={cn(
               "inline-flex items-center gap-1 rounded-2xl bg-primary px-3 py-1.5",
               "text-[12px] font-semibold text-foreground transition-colors hover:bg-primary/90",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
             )}
           >
-            See Growth Pro
+            Try Growth Pro · 14-day trial
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
           </Link>
         </div>

@@ -27,10 +27,10 @@ export function UpsellCornerPill({ className }: UpsellCornerPillProps) {
     >
       <Sparkles className="h-3 w-3 text-primary" aria-hidden="true" />
       <span className="text-foreground/75 transition-colors group-hover:text-foreground">
-        Try Full plan
+        Try Growth
       </span>
       <span className="font-mono text-[9.5px] uppercase tracking-wider text-foreground/45 transition-colors group-hover:text-foreground/65">
-        7-day trial
+        14-day trial
       </span>
       <ArrowRight
         className="h-3 w-3 text-foreground/35 transition-all group-hover:translate-x-[1px] group-hover:text-foreground/75"

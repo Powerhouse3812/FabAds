@@ -3,7 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { RefreshCw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCredits } from "@/hooks/use-credits";
 import { brands } from "@/mocks/shared/brands";
 import { AnalyticsHero } from "./AnalyticsHero";
 import { ModeLauncherBar } from "./ModeLauncherBar";
@@ -17,6 +19,8 @@ import { ActivityLogsTile } from "./ActivityLogsTile";
 import { UpsellRow } from "./UpsellRow";
 import { AiDashboardUpsellHero } from "./AiDashboardUpsellHero";
 import { AiDashboardUpsellSide } from "./AiDashboardUpsellSide";
+import { CreditApproachingBanner } from "@/components/upsell/CreditApproachingBanner";
+import { CreditAtLimitModal } from "@/components/upsell/CreditAtLimitModal";
 
 /**
  * AI-plan Dashboard — v1.6 (Figma full redesign).
@@ -159,6 +163,12 @@ export function AiPlanDashboard() {
           animate="show"
           className="space-y-3"
         >
+          {/* Credit-state surfaces. Banner renders only at >=85% usage;
+              modal opens once per session at >=100%. Both self-gate via
+              useCredits() so mount order is the only knob here. */}
+          <CreditApproachingBanner />
+          <CreditAtLimitModal />
+
           {/* ROW 1 — Analytics hero (4-card row).
               Generations w/ sparkline · Brands active · Competitor ·
               Setup workspace. A-12.191 absorbs the old onboarding row
@@ -227,23 +237,39 @@ export function AiPlanDashboard() {
 }
 
 /* ── Header credits chip ──
-   Compact pill per Figma — shows live credits balance beside the
-   trial pill. Routes to the plans page on click. Mock value
-   matches the CreditUsageCard hero (1218 / 1500 → ~73/100 in the
-   simplified header chip). */
+   Compact pill per Figma — shows live credits balance beside the trial
+   pill. Routes to the plans page on click. Data source unified through
+   `useCredits()`: same values as CreditUsageCard, no more 73/100 vs
+   1218/1500 contradiction. Pill border + icon tint shift to amber at
+   the 85% warning band and red at the 100% at-limit state. */
 function HeaderCreditsChip() {
-  const credits = 73;
-  const creditsMax = 100;
+  const { used, limit, isApproaching, isAtLimit } = useCredits();
+
+  const stateClasses = isAtLimit
+    ? "border-red-500/50 bg-red-500/[0.06] hover:border-red-500/70"
+    : isApproaching
+      ? "border-amber-500/50 bg-amber-500/[0.06] hover:border-amber-500/70"
+      : "border-border bg-card hover:border-foreground/20";
+
+  const iconClasses = isAtLimit
+    ? "text-red-600"
+    : isApproaching
+      ? "text-amber-600"
+      : "text-primary";
+
   return (
     <Link
       to="/plans-v2"
-      className="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-card px-3 py-1.5 text-[12px] transition-colors hover:border-foreground/20"
-      aria-label={`${credits} of ${creditsMax} credits used`}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-[12px] transition-colors",
+        stateClasses,
+      )}
+      aria-label={`${used} of ${limit} credits used`}
     >
-      <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={2.2} aria-hidden />
-      <span className="font-mono tabular-nums text-foreground">{credits}</span>
+      <Zap className={cn("h-3.5 w-3.5", iconClasses)} strokeWidth={2.2} aria-hidden />
+      <span className="font-mono tabular-nums text-foreground">{used}</span>
       <span className="font-mono tabular-nums text-muted-foreground">
-        /{creditsMax}
+        /{limit}
       </span>
       <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
         credits

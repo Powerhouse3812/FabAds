@@ -25,6 +25,7 @@ interface UpsellRowProps {
 }
 
 const CTA_HREF = "/plans-v2?tier=growth&view=trial";
+const REPORTS_CTA_HREF = "/plans-v2?tier=growth&view=trial&featureKey=reports";
 
 function CardEyebrow({ label }: { label: string }) {
   return (
@@ -41,10 +42,10 @@ function CardEyebrow({ label }: { label: string }) {
   );
 }
 
-function CtaPill({ label }: { label: string }) {
+function CtaPill({ label, href = CTA_HREF }: { label: string; href?: string }) {
   return (
     <Link
-      to={CTA_HREF}
+      to={href}
       className={cn(
         "self-start inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5",
         "text-[11.5px] font-bold text-foreground transition-colors hover:bg-primary/90",
@@ -74,10 +75,10 @@ export function UpsellRow({ className }: UpsellRowProps) {
       >
         <CardEyebrow label="UPGRADE · LAUNCH" />
         <h3 className="text-[13px] font-bold leading-snug text-foreground">
-          Launch ads on Meta, TikTok, NewsBreak
+          50 ads, 12 accounts, one click.
         </h3>
         <p className="text-[11px] font-normal leading-snug text-muted-foreground">
-          Bulk-launch from this workspace · no platform-hopping
+          Or 50 separate trips to Ads Manager. You pick.
         </p>
 
         {/* Middle preview: 3 platform circles + chevron + lime highlight */}
@@ -98,7 +99,7 @@ export function UpsellRow({ className }: UpsellRowProps) {
         </div>
 
         <div className="mt-auto">
-          <CtaPill label="Try Full · 14 day trial" />
+          <CtaPill label="Try Growth · 14-day trial" />
         </div>
       </div>
 
@@ -110,10 +111,10 @@ export function UpsellRow({ className }: UpsellRowProps) {
       >
         <CardEyebrow label="UPGRADE · REPORTS" />
         <h3 className="text-[13px] font-bold leading-snug text-foreground">
-          Multi-account performance, one view
+          15 ad accounts, one ROAS row.
         </h3>
         <p className="text-[11px] font-normal leading-snug text-muted-foreground">
-          FB · TikTok · NewsBreak · creative reporting in one place
+          Multi-account totals without a CSV export to Sheets.
         </p>
 
         {/* Middle preview: 4 vertical bars simulating bar chart */}
@@ -125,7 +126,7 @@ export function UpsellRow({ className }: UpsellRowProps) {
         </div>
 
         <div className="mt-auto">
-          <CtaPill label="See sample report" />
+          <CtaPill label="See sample report" href={REPORTS_CTA_HREF} />
         </div>
       </div>
 
@@ -137,10 +138,10 @@ export function UpsellRow({ className }: UpsellRowProps) {
       >
         <CardEyebrow label="UPGRADE · AUTOMATION" />
         <h3 className="text-[13px] font-bold leading-snug text-foreground">
-          Auto-pause losers · scale winners
+          Auto-pause losers. Scale winners.
         </h3>
         <p className="text-[11px] font-normal leading-snug text-muted-foreground">
-          Rule-based optimization while you sleep
+          Rules-based optimization while you sleep — no Excel scripting.
         </p>
 
         {/* Middle preview: sliders square w/ lime sparkle overlay */}

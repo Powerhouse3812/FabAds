@@ -9,6 +9,8 @@ import {
   Rocket,
   Workflow,
   Telescope,
+  Users,
+  Plug,
 } from "lucide-react";
 import {
   Dialog,
@@ -20,27 +22,37 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * LockedFeatureSellModal — rich sell modal shown when an AI-plan user
- * clicks a Growth-only nav item in the parent rail. Replaces the tiny
- * 280px UpsellPopover (which was used as both hover-tooltip and click
- * destination — the popover scale was too small for a sell pitch).
+ * LockedFeatureSellModal — the canonical paywall modal for the entire
+ * FabAds app. Shown when an AI-plan user clicks any Growth-only surface
+ * (nav rail items, UserMenu Team / Integration entries, etc.).
  *
- * Design grammar (Maalik A-12.176 — "industry, professional, sales touch"):
- *   - shadcn Dialog, ~560px wide, rounded-2xl
- *   - Header: lime-tinted lock disc + Geist Mono caps eyebrow + close X
- *   - Title: Geist Sans 20px semibold "Unlock [Feature]"
- *   - Preview region: 4:3 aspect placeholder with feature glyph centered.
- *     Real screenshots can be wired later via previewIllustration prop.
- *   - 3 ROI bullets with lime check icons (Geist Sans 13px)
- *   - Dual CTA row: Primary lime "Start 14-day Growth trial" + Ghost "Talk to sales"
- *   - Social proof footer: tiny caps "TRUSTED BY 12,000+ AGENCIES" + 5
- *     monogram circles (Mamaearth · Noise · boAt · Sleepyhead · Mensa
- *     Brands) — licensing-clean, no third-party logos
- *   - Bottom "Stay on AI plan ←" text link — closes modal, no nav
+ * Single source of truth: every paywall in the product reads its copy
+ * from `FEATURE_PRESETS` below. The modal is opened by passing a
+ * `presetKey` — when the key resolves to a preset, the modal renders
+ * the matching copy. Callers route to this component via a `?upsell=`
+ * or `?paywall=` URL param read at the relevant rail.
  *
- * Driven by URL state (`?upsell=<moduleKey>` set by ParentNavigationRail).
- * Mount once at the rail level; the modal reads the URL param and shows
- * the matching preset.
+ * Copy doctrine (Maalik — operator-class framing):
+ *   - Loss-aversion: frame the *absence* of the feature, not the
+ *     feature itself. "Reports without account-level totals is a
+ *     spreadsheet you screenshot."
+ *   - Anchoring with Maalik-authorized facts only:
+ *       "12,000+ agencies", "4 hrs/week saved", "50+ ads at once",
+ *       "1:1:250 retention", "up to 15 ad accounts".
+ *   - Tier name is always "Growth" — never PRO, Premium, Full plan.
+ *   - Trial length is always 14 days, everywhere.
+ *   - English only. No Hinglish, no sales clichés (Elevate / Unleash /
+ *     Supercharge / Seamlessly / Next-gen / Empower).
+ *
+ * Chassis (560px shell — do not widen):
+ *   - shadcn Dialog, ~560px, rounded-2xl
+ *   - Header: lime-tinted Lock disc + Geist Mono caps eyebrow + close X
+ *   - Headline: confronting one-liner, Geist Sans 20px semibold
+ *   - 3 sub-bullets — specific capabilities currently missing, as facts
+ *   - Primary CTA: "Start 14-day Growth trial"
+ *   - Optional secondary CTA: "Talk to sales" (Enterprise-adjacent only)
+ *   - Trust strap: "12,000+ agencies on Growth"
+ *   - Quiet exit: "Stay on AI plan ←"
  */
 
 const SOCIAL_MONOGRAMS = [
@@ -52,13 +64,29 @@ const SOCIAL_MONOGRAMS = [
 ];
 
 export interface FeaturePreset {
-  /** Eyebrow above the title — Geist Mono caps. */
+  /** Eyebrow above the title — Geist Mono caps. 2-3 words max. */
   eyebrow: string;
-  /** Feature display name — goes in "Unlock X". */
+  /** Feature display name — used for the sr-only description + aria. */
   name: string;
-  /** 3 ROI bullets. More than 3 dilutes the pitch — modal forces brevity. */
+  /**
+   * The confronting one-liner. Frame the absence of the feature, not
+   * the feature itself. Replaces the old "Unlock {name}" title.
+   */
+  headline: string;
+  /**
+   * 3 sub-bullets — each a specific capability the user is currently
+   * missing, written as a fact (not a promise). Use numbers. More than
+   * 3 dilutes the pitch; the modal enforces a slice(0, 3).
+   */
   bullets: string[];
-  /** Optional inline illustration that replaces the default lock-disc preview. */
+  /**
+   * Show the "Talk to sales" secondary CTA. Reserved for
+   * Enterprise-adjacent presets where a sales conversation actually
+   * makes sense (multi-account integration, large-team rollouts).
+   * Defaults to false — most presets are pure self-serve trial.
+   */
+  showTalkSales?: boolean;
+  /** Optional inline illustration that replaces the default glyph preview. */
   previewIllustration?: ReactNode;
   /** Lucide icon component for the preview placeholder. */
   PreviewIcon?: React.ComponentType<{ className?: string }>;
@@ -66,59 +94,94 @@ export interface FeaturePreset {
 
 /**
  * Module-key → preset map. Keyed on the ModuleDef.key values used in
- * `components/sidebar/modules.ts`. Each preset captures the feature's
- * sales-deck framing in 3 bullets + an eyebrow.
+ * the nav rail + UserMenu gates. Every paywall in the product resolves
+ * its copy through this map. Adding a new gated surface means adding
+ * a key here — not duplicating the modal anywhere else.
  */
 export const FEATURE_PRESETS: Record<string, FeaturePreset> = {
   reports: {
-    eyebrow: "Multi-account reporting",
+    eyebrow: "REPORTS",
     name: "Reports",
+    headline:
+      "Reports without account-level totals is a spreadsheet you screenshot.",
     bullets: [
-      "Drill down from Account → Campaign → Ad Set → Ad in one view.",
-      "Up to 15 ad accounts in one dashboard with custom KPI columns.",
-      "Creative reporting across Facebook, NB, and TikTok.",
+      "Roll up to 15 ad accounts into one dashboard with custom KPI columns.",
+      "Drill from account → campaign → ad set → ad without leaving the row.",
+      "Compare ROAS across Facebook, TikTok, and NewsBreak in a single view.",
     ],
     PreviewIcon: BarChart3,
   },
   launch: {
-    eyebrow: "Managed launches",
+    eyebrow: "LAUNCH",
     name: "Launch",
+    headline:
+      "Push 50 ads at once with Round Robin, or paste copy 50 times. You pick.",
     bullets: [
-      "Push 50+ ads at once with proven Round Robin distribution.",
-      "Per-account naming, dedupe, warm-up windows baked in.",
-      "Relaunch any winner from history with one click.",
+      "Launch 50+ ads in one motion across up to 15 ad accounts.",
+      "Per-account naming, dedupe, and warm-up windows applied automatically.",
+      "Relaunch any past winner from history with one click.",
     ],
     PreviewIcon: Rocket,
   },
   automation: {
-    eyebrow: "Ad-ops automation",
+    eyebrow: "AUTOMATION",
     name: "Automation",
+    headline:
+      "Auto-rotate winners and losers nightly, or keep watching dashboards yourself.",
     bullets: [
-      "Rules-based spend, refresh, and rotation across accounts.",
-      "Auto-pause on fatigue, dilution, or rejection thresholds.",
-      "Audit trail of every automated action for compliance.",
+      "Auto-pause on fatigue, dilution, or rejection thresholds across every account.",
+      "Rules-based spend, refresh, and rotation that save the team 4 hrs/week.",
+      "Audit trail of every automated action for compliance and rollback.",
     ],
     PreviewIcon: Workflow,
   },
   rrm: {
-    eyebrow: "Recovery & retention",
+    eyebrow: "RRM",
     name: "Recovery & Retention Manager",
+    headline:
+      "Without RRM, the 1:1:250 retention pattern is a slide deck — not a workflow.",
     bullets: [
-      "Recover 1:1:250 retention patterns automatically.",
-      "Auto-detect ad fatigue and spend dilution per account.",
-      "Multi-account health scores with rollback triggers.",
+      "Detect ad fatigue and spend dilution per account before ROAS breaks.",
+      "Recover the 1:1:250 retention curve automatically across 15 accounts.",
+      "Multi-account health scores with rollback triggers wired in.",
     ],
     PreviewIcon: Rocket,
   },
   insights: {
-    eyebrow: "Industry Insights Pro",
-    name: "Industry Insights Pro",
+    eyebrow: "INSIGHTS",
+    name: "Industry Insights",
+    headline:
+      "AI plan shows you your ads. Growth shows you every competitor's ads too.",
     bullets: [
-      "9-table competitor schema + similar-categories intelligence.",
-      "Track unlimited brands + pages across Facebook, TikTok, Google.",
-      "Save winning competitor ads straight into your boards.",
+      "9 tables of competitor data + similar-categories intelligence per brand.",
+      "Track unlimited brands and pages across Facebook, TikTok, and Google.",
+      "Save winning competitor ads straight into your boards for reuse.",
     ],
     PreviewIcon: Telescope,
+  },
+  team: {
+    eyebrow: "TEAM",
+    name: "Team",
+    headline:
+      "Solo on AI plan. Growth lets 5 people share one workspace.",
+    bullets: [
+      "Invite teammates without losing brand context or campaign history.",
+      "Role-based access on every ad account, down to the ad set.",
+      "One billing seat for the whole team — no juggling logins.",
+    ],
+    PreviewIcon: Users,
+  },
+  integration: {
+    eyebrow: "INTEGRATION",
+    name: "Integrations",
+    headline: "AI plan stops at one ad account. Growth doesn't.",
+    bullets: [
+      "Connect Meta, TikTok, and NewsBreak ad accounts in one workspace.",
+      "Up to 15 ad accounts on Growth Starter, with unified billing.",
+      "Unified spend, ROAS, and creative reporting across every account.",
+    ],
+    showTalkSales: true,
+    PreviewIcon: Plug,
   },
 };
 
@@ -139,17 +202,20 @@ export function LockedFeatureSellModal({
 
   const handleStartTrial = () => {
     onClose();
-    navigate("/plans-v2?tier=growth&view=trial");
+    const qs = `?tier=growth&view=trial${presetKey ? `&featureKey=${encodeURIComponent(presetKey)}` : ""}`;
+    navigate(`/plans-v2${qs}`);
   };
 
   const handleTalkSales = () => {
     onClose();
-    navigate("/plans-v2?tier=growth&view=sales");
+    const qs = `?tier=growth&view=sales${presetKey ? `&featureKey=${encodeURIComponent(presetKey)}` : ""}`;
+    navigate(`/plans-v2${qs}`);
   };
 
   if (!preset) return null;
 
   const PreviewIcon = preset.PreviewIcon ?? Lock;
+  const showTalkSales = preset.showTalkSales === true;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -170,10 +236,10 @@ export function LockedFeatureSellModal({
               {preset.eyebrow}
             </p>
             <DialogTitle className="mt-0.5 text-[20px] font-semibold leading-snug text-foreground">
-              Unlock {preset.name}
+              {preset.headline}
             </DialogTitle>
             <DialogDescription className="sr-only">
-              {preset.eyebrow} — upgrade to Growth to use this feature.
+              {preset.name} is a Growth-tier feature. Start a 14-day Growth trial to use it.
             </DialogDescription>
           </div>
         </div>
@@ -197,7 +263,7 @@ export function LockedFeatureSellModal({
           )}
         </div>
 
-        {/* ROI bullets */}
+        {/* Sub-bullets — specific facts about what's missing */}
         <ul className="space-y-2.5 px-6 pt-5">
           {preset.bullets.slice(0, 3).map((b) => (
             <li key={b} className="flex items-start gap-2.5">
@@ -217,7 +283,8 @@ export function LockedFeatureSellModal({
           ))}
         </ul>
 
-        {/* Dual CTA row */}
+        {/* CTA row — primary trial always, secondary sales only for
+            Enterprise-adjacent presets (integration today, more later). */}
         <div className="flex flex-col gap-2 px-6 pt-5 sm:flex-row sm:items-center">
           <Button
             size="default"
@@ -228,22 +295,24 @@ export function LockedFeatureSellModal({
             Start 14-day Growth trial
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            size="default"
-            variant="ghost"
-            className="gap-1.5 text-foreground/70 hover:text-foreground"
-            onClick={handleTalkSales}
-          >
-            <MessageCircle className="h-3.5 w-3.5" />
-            Talk to sales
-          </Button>
+          {showTalkSales && (
+            <Button
+              size="default"
+              variant="ghost"
+              className="gap-1.5 text-foreground/70 hover:text-foreground"
+              onClick={handleTalkSales}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Talk to sales
+            </Button>
+          )}
         </div>
 
-        {/* Social proof footer */}
+        {/* Trust strap — Maalik-authorized claim, verbatim. */}
         <div className="mt-5 border-t border-foreground/[0.06] bg-foreground/[0.02] px-6 py-3.5">
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/55">
-              Trusted by 12,000+ agencies
+              12,000+ agencies on Growth
             </span>
             <div className="flex -space-x-1.5">
               {SOCIAL_MONOGRAMS.map((m) => (
@@ -264,7 +333,8 @@ export function LockedFeatureSellModal({
           </div>
         </div>
 
-        {/* Stay on AI plan — quiet exit. Closes the modal without nav. */}
+        {/* Stay on AI plan — quiet exit. Closes the modal without nav.
+            Arrow is rotate-180 so the glyph reads "←" in the rendered DOM. */}
         <div className="flex items-center justify-center border-t border-foreground/[0.06] px-6 py-2.5">
           <button
             type="button"

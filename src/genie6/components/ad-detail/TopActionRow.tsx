@@ -140,7 +140,14 @@ export function TopActionRow({
           </button>
           <button
             type="button"
-            onClick={onLaunch}
+            onClick={() => {
+              if (launchLocked) return;
+              onLaunch?.();
+            }}
+            disabled={launchLocked}
+            aria-disabled={launchLocked || undefined}
+            aria-label={launchLocked ? "Launch — requires Growth plan" : "Launch"}
+            title={launchLocked ? "Launch needs Growth" : undefined}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-3 h-7 text-[11px] font-semibold transition-colors",
               launchLocked
@@ -207,12 +214,12 @@ export function TopActionRow({
         {launchLocked && (
           <p className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
             <Lock className="h-2.5 w-2.5" />
-            Launch is on the Growth plan.
+            Launching to Meta needs Growth.
             <Link
               to="/plans-v2?tier=growth&view=trial"
               className="text-primary hover:underline"
             >
-              Start your 7-day trial →
+              14-day trial →
             </Link>
           </p>
         )}

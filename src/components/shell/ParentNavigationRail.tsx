@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ export function ParentNavigationRail() {
   const { shape, cycle: cycleShape } = useV7Shape();
   const isFloating = shape === "floating";
 
-  // PRO upsell popover open state lives in the URL as `?upsell=<moduleKey>`.
+  // Growth upsell popover open state lives in the URL as `?upsell=<moduleKey>`.
   // Click a locked rail item → URL gets the param, popover opens.
   // Closing the popover removes the param. Deep-linking the URL re-opens
   // the matching popover on load. Also makes the state visible /
@@ -64,7 +65,7 @@ export function ParentNavigationRail() {
   const { plan } = usePlan();
   // Lock derivation. On AI plan the modules tagged `plans: ["full"]`
   // (Reports / Launch / Automation) render as LOCKED — greyed icon +
-  // PRO badge + click opens the upsell popover. On the Full plan
+  // Growth badge + click opens the upsell popover. On the Growth plan
   // nothing is locked.
   const isLocked = (m: ModuleDef) =>
     !!(m.plans && !m.plans.includes(plan));
@@ -148,7 +149,7 @@ export function ParentNavigationRail() {
             <div className="my-2"><RailDivider /></div>
             <div className="px-1 pb-1 text-center">
               <span className="font-mono text-[7px] uppercase tracking-[0.18em] text-zinc-500">
-                Upgrade
+                Upgrade to Growth
               </span>
             </div>
             <div className="flex flex-col gap-0.5">
@@ -265,9 +266,19 @@ function RailItem({
   const Icon = mod.icon;
   const navigate = useNavigate();
 
-  // Locked items show a "PRO" badge in the existing badge slot (overrides
+  // Locked items show a "Growth" badge in the existing badge slot (overrides
   // any other badge). Greyed icon + label so the disabled state is clear.
-  const displayBadge = locked ? "PRO" : mod.badge;
+  const displayBadge = locked ? "Growth" : mod.badge;
+
+  // Tooltip preview line per locked module — one specific number that
+  // hints at what the user is missing by staying on AI. The rich pitch
+  // lives in LockedFeatureSellModal; this is just the quiet preview.
+  const lockedPreview: Record<string, string> = {
+    reports: "Multi-account · up to 15 ad accounts",
+    launch: "Round Robin · 50+ ads at once",
+    automation: "Rules-based · auto-rotate winners",
+  };
+  const previewLine = locked ? lockedPreview[mod.key] : undefined;
 
   // Locked items: click → open the sell modal via URL param.
   // Unlocked: standard nav.
@@ -307,14 +318,22 @@ function RailItem({
         {displayBadge ? (
           <span
             className={cn(
-              "absolute -right-2 -top-1.5 rounded-sm px-[3px] py-[1px] font-mono text-[7px] font-bold uppercase tracking-wider leading-none shadow-[0_0_0_1px_rgba(0,0,0,0.25)]",
+              "absolute rounded-full font-mono font-bold uppercase leading-none shadow-[0_0_0_1px_rgba(0,0,0,0.25)]",
               locked
-                ? "bg-zinc-200 text-zinc-700"
-                : "bg-[#c3eb42] text-[#1a1a17]",
+                ? "-right-3.5 -top-2 px-[5px] py-[2px] text-[9px] tracking-[0.04em] bg-zinc-200 text-zinc-700"
+                : "-right-2 -top-1.5 px-[3px] py-[1px] text-[7px] tracking-wider bg-[#c3eb42] text-[#1a1a17]",
             )}
             aria-hidden="true"
           >
             {displayBadge}
+          </span>
+        ) : null}
+        {locked ? (
+          <span
+            aria-hidden="true"
+            className="absolute -right-1 -bottom-1 flex h-3 w-3 items-center justify-center rounded-full bg-zinc-800 ring-1 ring-zinc-900"
+          >
+            <Lock className="h-2 w-2 text-zinc-300" strokeWidth={2.5} />
           </span>
         ) : null}
       </span>
@@ -334,17 +353,25 @@ function RailItem({
   );
 
   // 0) Locked → click opens LockedFeatureSellModal at the rail root
-  //    (controlled via ?upsell=<key>). Hover shows a quiet tooltip with
-  //    the module name + Growth tag — the rich pitch lives in the modal,
-  //    not the tooltip, so we don't double up on sell content.
+  //    (controlled via ?upsell=<key>). Hover shows a quiet two-line preview:
+  //    `<module> · Growth` (line 1) + one specific number on a faded line 2
+  //    that hints at what staying on AI costs. The rich pitch lives in the
+  //    modal, not the tooltip, so we don't double up on sell content.
   if (locked) {
     void upsellOpen; // open state lives at rail level — modal reads URL
     return (
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>{button}</TooltipTrigger>
         <TooltipContent side="right" className="text-xs">
-          <span className="font-medium">{mod.label}</span>
-          <span className="ml-1.5 text-muted-foreground">Growth</span>
+          <div className="flex items-center">
+            <span className="font-medium">{mod.label}</span>
+            <span className="ml-1.5 text-muted-foreground">· Growth</span>
+          </div>
+          {previewLine ? (
+            <div className="mt-0.5 text-[11px] text-muted-foreground/70">
+              {previewLine}
+            </div>
+          ) : null}
         </TooltipContent>
       </Tooltip>
     );

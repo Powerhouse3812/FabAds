@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClientContext } from "@/contexts/ClientContext";
 import { usePlan } from "@/contexts/PlanContext";
@@ -15,7 +15,7 @@ import {
 import {
   LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
   Settings, Plug, Users, UserPlus, Check, Sparkles, Receipt,
-  BookOpen,
+  BookOpen, Lock,
 } from "lucide-react";
 
 /**
@@ -33,6 +33,12 @@ import {
  *             section (per Maalik: "user kisi client ke andar hoga"). Was gated
  *             on clients.length > 1; ungated. Dummy fallback added so an empty
  *             Supabase response still shows one client by default.
+ *   A-10.15 — Integration + Team are now VISIBLE-BUT-LOCKED on the AI plan
+ *             instead of hidden. They render with a Growth chip + Lock icon
+ *             in the trailing slot; clicking sets `?upsell=integration|team`
+ *             which the rail-mounted LockedFeatureSellModal reacts to. The
+ *             previous hide-entirely behavior denied the upsell surface and
+ *             made the menu feel inconsistent across plans.
  */
 
 /**
@@ -44,15 +50,30 @@ const DUMMY_CLIENT = { id: "demo-client", name: "Idea Clan" } as const;
 
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const { user, role, signOut } = useAuth();
   const { activeClient, clients, setActiveClient } = useClientContext();
   const { setTheme, resolvedTheme } = useTheme();
   const { plan } = usePlan();
-  // On AI plan, hide Integration + Team (UMS) — per Maalik they don't
-  // belong in the AI-focused surface. They're upsell territory; the
-  // PRO badges on Reports / Launch / Automation in the rail already
-  // hint at the Full plan's existence, so we keep this menu lean.
+  // On the AI plan, Integration + Team remain VISIBLE but locked behind the
+  // Growth tier. Clicking either fires the rail-mounted LockedFeatureSellModal
+  // via the `?upsell=<key>` URL param (same channel the nav rail uses for
+  // Reports / Launch / Automation). Hiding them entirely — the prior
+  // behavior — killed the upsell surface.
   const isAiPlan = plan === "ai";
+
+  // Open the Growth upsell modal for a given preset (`integration` | `team`).
+  // The modal is mounted in ParentNavigationRail and reacts to `?upsell=<key>`.
+  const openUpsell = (key: "integration" | "team") => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set("upsell", key);
+        return sp;
+      },
+      { replace: false },
+    );
+  };
 
   if (!user) return null;
 
@@ -144,18 +165,45 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
           <Receipt className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Plans
         </DropdownMenuItem>
-        {!isAiPlan && (
-          <DropdownMenuItem onClick={() => navigate("/integrations")}>
-            <Plug className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            Integration
-          </DropdownMenuItem>
-        )}
-        {!isAiPlan && (
-          <DropdownMenuItem onClick={() => navigate("/ums")}>
-            <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            Team
-          </DropdownMenuItem>
-        )}
+        {/* Integration + Team — always rendered (A-10.15).
+            On the AI plan, both row-clicks intercept and open the Growth
+            upsell modal instead of navigating; a small Growth chip + Lock
+            icon in the trailing slot signal the gate without disabling the
+            row. On the Full plan they navigate normally with no chip. */}
+        <DropdownMenuItem
+          onClick={() =>
+            isAiPlan ? openUpsell("integration") : navigate("/integrations")
+          }
+          className={isAiPlan ? "text-muted-foreground" : ""}
+        >
+          <Plug className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Integration
+          {isAiPlan && (
+            <span className="ml-auto flex items-center gap-1.5">
+              <span className="font-mono text-[9px] uppercase tracking-wider bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
+                Growth
+              </span>
+              <Lock className="h-3 w-3 text-muted-foreground/70" />
+            </span>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            isAiPlan ? openUpsell("team") : navigate("/ums")
+          }
+          className={isAiPlan ? "text-muted-foreground" : ""}
+        >
+          <Users className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+          Team
+          {isAiPlan && (
+            <span className="ml-auto flex items-center gap-1.5">
+              <span className="font-mono text-[9px] uppercase tracking-wider bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
+                Growth
+              </span>
+              <Lock className="h-3 w-3 text-muted-foreground/70" />
+            </span>
+          )}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/settings/clients")}>
           <UserPlus className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
           Clients
