@@ -40,16 +40,16 @@ export function ProvenanceBreadcrumb({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em]",
+        "flex flex-wrap items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em]",
         className,
       )}
     >
       <span
         aria-hidden
-        className="h-1.5 w-1.5 rounded-full bg-primary shrink-0"
+        className="h-1 w-1 rounded-full bg-primary shrink-0"
       />
       {segments.map((seg, i) => (
-        <span key={seg.key} className="flex items-center gap-1.5">
+        <span key={seg.key} className="flex items-center gap-1">
           <span
             className={cn(
               seg.key === current ? "text-primary" : "text-muted-foreground",
@@ -59,7 +59,7 @@ export function ProvenanceBreadcrumb({
           </span>
           {i < segments.length - 1 && (
             <ChevronRight
-              className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0"
+              className="h-2 w-2 text-muted-foreground/40 shrink-0"
               strokeWidth={2.2}
               aria-hidden
             />

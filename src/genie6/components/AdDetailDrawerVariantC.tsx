@@ -103,58 +103,58 @@ export function AdDetailDrawerVariantC({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-full p-0 sm:max-w-[1600px] overflow-hidden flex flex-col"
+        className="w-full p-0 sm:max-w-[1200px] overflow-hidden flex flex-col"
       >
-        <SheetHeader className="border-b border-border px-5 py-3 flex flex-row items-center justify-between gap-3 space-y-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <SheetHeader className="border-b border-border px-4 py-2 flex flex-row items-center justify-between gap-3 space-y-0">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
               onClick={onClose}
               aria-label="Back"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
             </button>
-            <SheetTitle className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground truncate">
+            <SheetTitle className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground truncate">
               Library / {angle?.label ?? "—"} / {output.brand?.name ?? "—"} —{" "}
               {breadcrumbCur}
             </SheetTitle>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {output.aiVerdict && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary">
                 Quality · {output.aiVerdict.quality}
               </span>
             )}
             {onSwitchVariant && (
               <VariantTogglePill active="c" onSwitch={onSwitchVariant} />
             )}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <kbd className="hidden sm:inline-flex items-center rounded border border-border bg-muted/40 px-1 py-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               ⌘K
             </kbd>
           </div>
         </SheetHeader>
 
         {/* BODY — 12-col bento grid, 4 rows */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {/* ROW 1 — Hero (col-8) + Action lane (col-4) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* LEFT col-span-8 — Hero creative */}
-            <section className="lg:col-span-8 rounded-2xl border border-border/60 bg-card p-5 flex flex-col gap-5 lg:flex-row">
+            <section className="lg:col-span-8 rounded-2xl border border-border/60 bg-card p-4 flex flex-col gap-4 lg:flex-row">
               {/* LEFT inner — text */}
               <div className="flex-1 min-w-0 flex flex-col">
                 <div className="flex items-center gap-2.5 mb-4">
-                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/40 to-primary flex items-center justify-center text-sm font-semibold shrink-0 border border-border/40">
+                  <div className="h-7 w-7 rounded-xl bg-gradient-to-br from-primary/40 to-primary flex items-center justify-center text-sm font-semibold shrink-0 border border-border/40">
                     {output.brand?.name?.slice(0, 1) ?? "—"}
                   </div>
                   <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-semibold text-foreground truncate">
+                    <span className="text-[13.5px] font-semibold text-foreground truncate">
                       {output.brand?.name ?? "Unattributed"}
                     </span>
                     {output.product?.name && (
                       <>
                         <span className="text-muted-foreground/60">·</span>
-                        <span className="text-[13px] text-muted-foreground truncate">
+                        <span className="text-[12.5px] text-muted-foreground truncate">
                           {output.product.name}
                         </span>
                       </>
@@ -163,25 +163,25 @@ export function AdDetailDrawerVariantC({
                 </div>
 
                 {output.headline && (
-                  <h2 className="text-[20px] font-semibold leading-snug tracking-tight text-foreground mb-3 max-w-[440px]">
+                  <h2 className="text-[16px] font-semibold leading-snug tracking-tight text-foreground mb-3 max-w-[440px]">
                     {output.headline}
                   </h2>
                 )}
                 {output.body && (
-                  <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5 max-w-[440px]">
+                  <p className="text-[12.5px] leading-relaxed text-muted-foreground mb-5 max-w-[440px]">
                     {output.body}
                   </p>
                 )}
 
                 {output.cta && (
-                  <span className="self-start inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-[13px] font-medium text-foreground mt-auto">
+                  <span className="self-start inline-flex items-center gap-2 rounded-full border border-border bg-background px-2.5 py-0.5 text-[12px] font-medium text-foreground mt-auto">
                     {output.cta}
                   </span>
                 )}
               </div>
 
               {/* RIGHT inner — media 4:5 */}
-              <div className="shrink-0 w-full lg:w-[240px]">
+              <div className="shrink-0 w-full lg:w-[180px]">
                 <div
                   className={cn(
                     "relative overflow-hidden rounded-xl bg-muted border border-border/40 aspect-[4/5]",
@@ -205,16 +205,16 @@ export function AdDetailDrawerVariantC({
             </section>
 
             {/* RIGHT col-span-4 — Action lane (vertical stack) */}
-            <section className="lg:col-span-4 rounded-2xl border border-border/60 bg-card p-4 flex flex-col gap-3">
+            <section className="lg:col-span-4 rounded-2xl border border-border/60 bg-card p-3 flex flex-col gap-2.5">
               {/* Primary */}
               <button
                 type="button"
-                className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold text-[14px] inline-flex items-center justify-center gap-2 shadow-sm hover:brightness-105 transition"
+                className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-semibold text-[13px] inline-flex items-center justify-center gap-2 shadow-sm hover:brightness-105 transition"
               >
-                <Rocket className="h-4 w-4" />
+                <Rocket className="h-3.5 w-3.5" />
                 Launch ad
               </button>
-              <p className="text-center text-[11.5px] text-muted-foreground leading-relaxed">
+              <p className="text-center text-[11px] text-muted-foreground leading-relaxed">
                 Launch is on the Growth plan.{" "}
                 <a
                   href="#trial"
@@ -229,9 +229,9 @@ export function AdDetailDrawerVariantC({
               {/* Secondary stack */}
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-card hover:bg-muted/40 text-[13px] text-foreground transition"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 text-[12px] text-foreground transition"
               >
-                <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                <Layers className="h-3 w-3 text-muted-foreground" />
                 Forge 10 variants
                 <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
                   →
@@ -239,9 +239,9 @@ export function AdDetailDrawerVariantC({
               </button>
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-card hover:bg-muted/40 text-[13px] text-foreground transition"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 text-[12px] text-foreground transition"
               >
-                <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <Edit3 className="h-3 w-3 text-muted-foreground" />
                 Edit ad
                 <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
                   →
@@ -249,9 +249,9 @@ export function AdDetailDrawerVariantC({
               </button>
               <button
                 type="button"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-border/60 bg-card hover:bg-muted/40 text-[13px] text-foreground transition"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 text-[12px] text-foreground transition"
               >
-                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+                <RefreshCw className="h-3 w-3 text-muted-foreground" />
                 Regenerate
                 <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
                   →
@@ -265,21 +265,21 @@ export function AdDetailDrawerVariantC({
                 <button
                   type="button"
                   aria-label="Save to library"
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
                 >
                   <Bookmark className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
                   aria-label="Download"
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
                 >
                   <Download className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
                   aria-label="More actions"
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/40 transition"
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </button>
@@ -313,9 +313,9 @@ export function AdDetailDrawerVariantC({
           </section>
 
           {/* ROW 3 — Provenance (col-8) + Compare/Coach (col-4) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
             {/* LEFT col-span-8 — Provenance */}
-            <section className="lg:col-span-8 rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+            <section className="lg:col-span-8 rounded-2xl border border-border/60 bg-card p-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   How this was made
@@ -357,12 +357,12 @@ export function AdDetailDrawerVariantC({
               />
 
               {output.priorConfig?.promptSnippet && (
-                <p className="rounded-md bg-muted/40 px-3 py-2 font-mono text-[11.5px] text-muted-foreground italic line-clamp-3 leading-relaxed">
+                <p className="rounded-md bg-muted/40 px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground italic line-clamp-3 leading-snug">
                   &ldquo;{output.priorConfig.promptSnippet}&rdquo;
                 </p>
               )}
 
-              <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border/40">
+              <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-border/40">
                 <StatCell label="Mode" value={MODE_LABELS[output.mode]} />
                 <StatCell
                   label="Created"
@@ -388,9 +388,9 @@ export function AdDetailDrawerVariantC({
             </section>
 
             {/* RIGHT col-span-4 — Compare + Coach */}
-            <section className="lg:col-span-4 rounded-2xl border border-border/60 bg-card p-4 space-y-4">
+            <section className="lg:col-span-4 rounded-2xl border border-border/60 bg-card p-3 space-y-3">
               <div>
-                <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                   Peer comparison
                 </h3>
                 {output.aiVerdict && output.comparison ? (
@@ -423,7 +423,7 @@ export function AdDetailDrawerVariantC({
               </div>
 
               <div>
-                <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                   What to do next
                 </h3>
                 <div className="flex flex-col">
@@ -442,8 +442,8 @@ export function AdDetailDrawerVariantC({
           </div>
 
           {/* ROW 4 — Siblings + Related */}
-          <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-5">
-            <div className="space-y-2">
+          <section className="rounded-2xl border border-border/60 bg-card p-3 space-y-3">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   From the same generation
@@ -463,11 +463,11 @@ export function AdDetailDrawerVariantC({
                   </a>
                 )}
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {/* current */}
                 <a
                   href={`?ad=${encodeURIComponent(output.id)}&drawer=c`}
-                  className="relative shrink-0 w-20 h-[100px] overflow-hidden rounded-xl bg-muted border border-border/40 ring-2 ring-primary ring-offset-2 ring-offset-card"
+                  className="relative shrink-0 w-[60px] h-[76px] overflow-hidden rounded-xl bg-muted border border-border/40 ring-2 ring-primary ring-offset-2 ring-offset-card"
                   aria-current="true"
                 >
                   {output.thumbnail ? (
@@ -491,7 +491,7 @@ export function AdDetailDrawerVariantC({
                   <a
                     key={s.id}
                     href={`?ad=${encodeURIComponent(s.id)}&drawer=c`}
-                    className="relative shrink-0 w-20 h-[100px] overflow-hidden rounded-xl bg-muted border border-border/40 hover:border-primary/60 transition"
+                    className="relative shrink-0 w-[60px] h-[76px] overflow-hidden rounded-xl bg-muted border border-border/40 hover:border-primary/60 transition"
                   >
                     {s.thumbnail ? (
                       <img
@@ -516,7 +516,7 @@ export function AdDetailDrawerVariantC({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   More from {angle?.label ?? "this angle"}
@@ -536,7 +536,7 @@ export function AdDetailDrawerVariantC({
                   </a>
                 )}
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
                 {related.map((r) => {
                   const delta =
                     r.qualityScore !== undefined &&
@@ -547,7 +547,7 @@ export function AdDetailDrawerVariantC({
                     <a
                       key={r.id}
                       href={`?ad=${encodeURIComponent(r.id)}&drawer=c`}
-                      className="relative shrink-0 w-[120px] h-[150px] overflow-hidden rounded-xl bg-muted border border-border/40 hover:border-primary/60 transition group"
+                      className="relative shrink-0 w-[96px] h-[120px] overflow-hidden rounded-xl bg-muted border border-border/40 hover:border-primary/60 transition group"
                     >
                       {r.thumbnail ? (
                         <img
@@ -565,7 +565,7 @@ export function AdDetailDrawerVariantC({
                       {delta !== null && delta !== 0 && (
                         <span
                           className={cn(
-                            "absolute top-1.5 right-1.5 inline-flex items-center rounded bg-background/85 backdrop-blur-sm border border-border/50 px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums",
+                            "absolute top-1.5 right-1.5 inline-flex items-center rounded bg-background/85 backdrop-blur-sm border border-border/50 px-1 py-0 font-mono text-[9px] font-semibold tabular-nums",
                             delta > 0 ? "text-emerald-700" : "text-rose-700",
                           )}
                         >

@@ -74,7 +74,7 @@ export function AiVerdictCells({
         )}
       >
         <div className="flex items-center justify-center px-4">
-          <QualityRing score={verdict.quality} label="Quality" size={70} />
+          <QualityRing score={verdict.quality} label="Quality" size={56} />
         </div>
         {cells}
       </div>
@@ -82,7 +82,7 @@ export function AiVerdictCells({
   }
 
   return (
-    <div className={cn("grid grid-cols-2 gap-3", className)}>{cells}</div>
+    <div className={cn("grid grid-cols-2 gap-2", className)}>{cells}</div>
   );
 }
 
@@ -94,11 +94,11 @@ interface CellProps {
 
 function Cell({ eyebrow, value, sub }: CellProps) {
   return (
-    <div className="px-3 py-2 flex flex-col gap-1">
+    <div className="px-2.5 py-1.5 flex flex-col gap-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {eyebrow}
       </p>
-      <p className="font-mono tabular-nums text-[22px] font-semibold text-foreground leading-none">
+      <p className="font-mono tabular-nums text-[17px] font-semibold text-foreground leading-none">
         {value}
       </p>
       <div className="leading-none">{sub}</div>
@@ -123,7 +123,7 @@ function DeltaChip({ positive, value, suffix }: DeltaChipProps) {
           : "text-destructive",
       )}
     >
-      <Icon className="h-3 w-3" strokeWidth={2.2} />
+      <Icon className="h-2.5 w-2.5" strokeWidth={2.2} />
       {positive ? "+" : ""}
       {value.toFixed(1)}
       {suffix && (

@@ -50,7 +50,7 @@ export function ProvenanceLineageTree({
             <div
               role="listitem"
               className={cn(
-                "rounded-xl border bg-card px-3 py-2 flex flex-col items-start gap-0.5 min-w-[100px]",
+                "rounded-xl border bg-card px-2.5 py-1.5 flex flex-col items-start gap-0.5 min-w-[72px]",
                 isCurrent
                   ? "border-primary ring-2 ring-primary/20 bg-primary/[0.04]"
                   : "border-border/60",
@@ -59,7 +59,7 @@ export function ProvenanceLineageTree({
               <span className="flex items-center gap-1">
                 <Icon
                   className={cn(
-                    "h-3 w-3",
+                    "h-2.5 w-2.5",
                     isCurrent ? "text-primary" : "text-muted-foreground/70",
                   )}
                   strokeWidth={2.2}
@@ -76,7 +76,7 @@ export function ProvenanceLineageTree({
               </span>
               <span
                 className={cn(
-                  "text-[12.5px] font-semibold leading-tight truncate max-w-[140px]",
+                  "text-[11.5px] font-semibold leading-tight truncate max-w-[100px]",
                   isCurrent ? "text-foreground" : "text-foreground/85",
                 )}
               >
@@ -88,7 +88,7 @@ export function ProvenanceLineageTree({
               <div
                 aria-hidden
                 className={cn(
-                  "h-px w-5 shrink-0",
+                  "h-px w-4 shrink-0",
                   isConnectorToCurrent ? "bg-primary" : "bg-border",
                 )}
               />

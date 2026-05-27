@@ -24,18 +24,18 @@ interface CompareBarsProps {
  */
 export function CompareBars({ bars, className }: CompareBarsProps) {
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div className={cn("flex flex-col gap-1.5", className)}>
       {bars.map((bar, i) => (
-        <div key={`${bar.label}-${i}`} className="grid grid-cols-[100px_1fr_36px] items-center gap-3">
+        <div key={`${bar.label}-${i}`} className="grid grid-cols-[88px_1fr_32px] items-center gap-3">
           <p
             className={cn(
-              "text-[12px] leading-tight truncate",
+              "text-[11.5px] leading-tight truncate",
               bar.isCurrent ? "font-semibold text-foreground" : "text-foreground/75",
             )}
           >
             {bar.label}
           </p>
-          <div className="relative h-2 rounded-full bg-muted/40 overflow-hidden">
+          <div className="relative h-1.5 rounded-full bg-muted/40 overflow-hidden">
             <div
               className={cn(
                 "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500",
@@ -44,7 +44,7 @@ export function CompareBars({ bars, className }: CompareBarsProps) {
               style={{ width: `${Math.max(0, Math.min(100, bar.value))}%` }}
             />
           </div>
-          <p className="font-mono tabular-nums text-[12px] text-right text-foreground">
+          <p className="font-mono tabular-nums text-[11.5px] text-right text-foreground">
             {bar.value}
           </p>
         </div>

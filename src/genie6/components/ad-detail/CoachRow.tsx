@@ -24,18 +24,18 @@ export function CoachRow({ rec, className }: CoachRowProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 py-2.5 border-t border-border/40 first:border-t-0",
+        "flex items-center gap-3 py-2 border-t border-border/40 first:border-t-0",
         className,
       )}
     >
-      <span className="h-8 w-8 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-        <Icon className="h-3.5 w-3.5 text-primary" strokeWidth={2.2} aria-hidden />
+      <span className="h-6 w-6 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+        <Icon className="h-3 w-3 text-primary" strokeWidth={2.2} aria-hidden />
       </span>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold leading-tight text-foreground truncate">
+        <p className="text-[12.5px] font-semibold leading-tight text-foreground truncate">
           {rec.title}
         </p>
-        <p className="text-[11.5px] leading-snug text-muted-foreground truncate">
+        <p className="text-[11px] leading-snug text-muted-foreground truncate">
           {rec.sub}
         </p>
       </div>

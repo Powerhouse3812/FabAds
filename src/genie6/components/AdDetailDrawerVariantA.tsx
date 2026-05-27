@@ -132,24 +132,24 @@ export function AdDetailDrawerVariantA({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-full p-0 sm:max-w-[1280px] overflow-hidden flex flex-col"
+        className="w-full p-0 sm:max-w-[1024px] overflow-hidden flex flex-col"
       >
-        <SheetHeader className="border-b border-border px-5 py-3 flex flex-row items-center justify-between gap-3 space-y-0">
-          <div className="flex items-center gap-3">
+        <SheetHeader className="border-b border-border px-4 py-2 flex flex-row items-center justify-between gap-3 space-y-0">
+          <div className="flex items-center gap-2">
             <SheetTitle className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
               Ad detail · {output.id}
             </SheetTitle>
             {output.aiVerdict && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary">
                 Quality · <span className="tabular-nums">{output.aiVerdict.quality}</span>
               </span>
             )}
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-[10.5px] text-muted-foreground">
               Generated {formatRelativeTime(output.generatedAt)}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <kbd className="hidden sm:inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <kbd className="hidden sm:inline-flex items-center rounded border border-border bg-muted/40 px-1 py-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               ⌘K
             </kbd>
             {onSwitchVariant && <VariantTogglePill active="a" onSwitch={onSwitchVariant} />}
@@ -157,30 +157,30 @@ export function AdDetailDrawerVariantA({
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="grid gap-5 p-5 lg:grid-cols-[36%_1fr]">
+          <div className="grid gap-4 p-4 lg:grid-cols-[36%_1fr]">
             {/* LEFT — Creative */}
-            <div className="space-y-3 rounded-2xl border border-border bg-card p-4 lg:sticky lg:top-0 lg:self-start">
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
+            <div className="space-y-2.5 rounded-2xl border border-border bg-card p-3 lg:sticky lg:top-0 lg:self-start">
+              <div className="flex items-center gap-1.5">
+                <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
                   {output.brand?.name?.slice(0, 1) ?? "—"}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold leading-tight truncate">
+                  <p className="text-[12.5px] font-semibold leading-tight truncate">
                     {output.brand?.name ?? "Unattributed"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+                  <p className="text-[10.5px] text-muted-foreground truncate">
                     {output.product?.name ?? MODE_LABELS[output.mode]}
                   </p>
                 </div>
               </div>
 
               {output.headline && (
-                <h2 className="text-[15px] font-semibold leading-snug text-foreground">
+                <h2 className="text-[13px] font-semibold leading-snug text-foreground">
                   {output.headline}
                 </h2>
               )}
               {output.body && (
-                <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                <p className="text-[11.5px] leading-relaxed text-muted-foreground">
                   {output.body}
                 </p>
               )}
@@ -188,7 +188,7 @@ export function AdDetailDrawerVariantA({
               {/* Media */}
               <div
                 className={cn(
-                  "relative overflow-hidden rounded-xl bg-muted",
+                  "relative overflow-hidden rounded-xl bg-muted max-h-[420px]",
                   output.mediaType === "video" ? "aspect-[9/16]" : "aspect-[4/5]",
                 )}
               >
@@ -216,13 +216,13 @@ export function AdDetailDrawerVariantA({
               </div>
 
               {output.cta && (
-                <span className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground">
+                <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-0.5 text-[11px] font-medium text-foreground">
                   {output.cta}
                 </span>
               )}
 
               {/* Provenance breadcrumb */}
-              <div className="mt-3 pt-3 border-t border-dashed border-border/60">
+              <div className="mt-2 pt-2 border-t border-dashed border-border/60">
                 <ProvenanceBreadcrumb
                   brand={output.brand?.name ?? "—"}
                   concept={output.priorConfig?.conceptId ?? "—"}
@@ -236,16 +236,16 @@ export function AdDetailDrawerVariantA({
             {/* RIGHT — 5 bento zones */}
             <div className="space-y-5">
               {/* Zone 1 — Action lane */}
-              <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+              <section className="rounded-2xl border border-border/60 bg-card p-3 space-y-2.5">
                 <button
                   type="button"
-                  className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-full bg-primary text-foreground font-semibold text-[14px] hover:bg-primary/90 transition-colors"
+                  className="w-full inline-flex items-center justify-center gap-2 h-9 rounded-full bg-primary text-foreground font-semibold text-[13px] hover:bg-primary/90 transition-colors"
                 >
-                  <Rocket className="h-4 w-4" />
+                  <Rocket className="h-3.5 w-3.5" />
                   Launch ad
                 </button>
-                <p className="text-[11.5px] text-muted-foreground text-center">
-                  <Lock className="inline h-3 w-3 mr-1 text-muted-foreground/70" />
+                <p className="text-[11px] text-muted-foreground text-center">
+                  <Lock className="inline h-2.5 w-2.5 mr-1 text-muted-foreground/70" />
                   Launch is on the Growth plan.{" "}
                   <Link
                     to="/plans-v2?tier=growth&view=trial"
@@ -255,7 +255,7 @@ export function AdDetailDrawerVariantA({
                   </Link>
                 </p>
 
-                <div className="inline-flex items-center w-full rounded-full border border-border bg-muted/30 p-0.5">
+                <div className="inline-flex items-center w-full rounded-full border border-border/60 bg-muted/20 p-0.5">
                   <SegmentedButton icon={Layers} label="Forge 10 variants" />
                   <SegmentedButton icon={Edit3} label="Edit ad" />
                   <SegmentedButton icon={RefreshCw} label="Regenerate" />
@@ -269,28 +269,28 @@ export function AdDetailDrawerVariantA({
               </section>
 
               {/* Zone 2 — AI verdict */}
-              <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+              <section className="rounded-2xl border border-border/60 bg-card p-3 space-y-2.5">
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   AI verdict
                 </h3>
                 {output.aiVerdict ? (
-                  <div className="grid grid-cols-[auto_1fr] gap-5 items-center">
+                  <div className="grid grid-cols-[auto_1fr] gap-4 items-center">
                     <QualityRing score={output.aiVerdict.quality} label="QUALITY" />
                     <AiVerdictCells verdict={output.aiVerdict} layout="grid" />
                   </div>
                 ) : (
-                  <p className="text-[12px] text-muted-foreground italic">
+                  <p className="text-[11.5px] text-muted-foreground italic">
                     Verdict pending — regenerate to score.
                   </p>
                 )}
               </section>
 
               {/* Zone 3 — How this was made */}
-              <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+              <section className="rounded-2xl border border-border/60 bg-card p-3 space-y-2.5">
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                   How this was made
                 </h3>
-                <dl className="grid grid-cols-3 gap-3">
+                <dl className="grid grid-cols-3 gap-2">
                   <StatCell label="Mode" value={MODE_LABELS[output.mode]} />
                   <StatCell
                     label="Created"
@@ -309,16 +309,16 @@ export function AdDetailDrawerVariantA({
                   )}
                 </dl>
                 {output.priorConfig?.promptSnippet && (
-                  <p className="mt-3 rounded-md bg-muted/40 px-3 py-2 font-mono text-[11.5px] text-muted-foreground italic line-clamp-3 leading-relaxed">
+                  <p className="mt-3 rounded-md bg-muted/40 px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground italic line-clamp-3 leading-snug">
                     "{output.priorConfig.promptSnippet}"
                   </p>
                 )}
               </section>
 
               {/* Zone 4 — Peer comparison + Coach */}
-              <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-4">
+              <section className="rounded-2xl border border-border/60 bg-card p-3 space-y-3">
                 <div>
-                  <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                  <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                     Peer comparison · {angle?.label ?? "this angle"}
                   </h3>
                   {output.aiVerdict && output.comparison && (
@@ -335,7 +335,7 @@ export function AdDetailDrawerVariantA({
 
                 {output.recommendations && output.recommendations.length > 0 && (
                   <div>
-                    <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
+                    <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                       What to do next
                     </h3>
                     <div>
@@ -348,19 +348,19 @@ export function AdDetailDrawerVariantA({
               </section>
 
               {/* Zone 5 — Siblings + Related */}
-              <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-4">
+              <section className="rounded-2xl border border-border/60 bg-card p-3 space-y-3">
                 {siblings.length > 0 && (
                   <div>
-                    <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                    <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                       From the same generation
                     </h3>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
+                    <div className="flex gap-1.5 overflow-x-auto pb-1">
                       {siblings.map((s) => (
                         <Link
                           key={s.id}
                           to={`?ad=${encodeURIComponent(s.id)}&drawer=a`}
                           className={cn(
-                            "shrink-0 aspect-[4/5] w-20 overflow-hidden rounded-md bg-muted",
+                            "shrink-0 aspect-[4/5] w-16 overflow-hidden rounded-md bg-muted",
                             s.id === output.id && "ring-2 ring-primary",
                           )}
                         >
@@ -378,10 +378,10 @@ export function AdDetailDrawerVariantA({
                 )}
 
                 <div>
-                  <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                  <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                     More from {angle?.label ?? "this angle"}
                   </h3>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {related.map((r) => {
                       const rExt = r as OutputData & { aiVerdict?: { quality: number } };
                       const delta = (rExt.aiVerdict?.quality ?? 0) - currentQ;
@@ -408,7 +408,7 @@ export function AdDetailDrawerVariantA({
                           {rExt.aiVerdict && (
                             <span
                               className={cn(
-                                "absolute top-1 right-1 inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] tabular-nums",
+                                "absolute top-1 right-1 inline-flex items-center rounded-full px-1 py-0 font-mono text-[8.5px] tabular-nums",
                                 delta > 0
                                   ? "bg-[hsl(var(--success-text))/0.15] text-[hsl(var(--success-text))]"
                                   : "bg-foreground/10 text-foreground/70",
@@ -444,9 +444,9 @@ function SegmentedButton({
   return (
     <button
       type="button"
-      className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-full px-3 font-medium text-[12px] text-foreground/80 hover:bg-background hover:text-foreground transition-colors"
+      className="flex-1 inline-flex items-center justify-center gap-1.5 h-7 rounded-full px-2.5 font-medium text-[11.5px] text-foreground/80 hover:bg-background hover:text-foreground transition-colors"
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-3 w-3" />
       <span className="truncate">{label}</span>
     </button>
   );
@@ -464,9 +464,9 @@ function IconButton({
       type="button"
       title={label}
       aria-label={label}
-      className="inline-flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      className="inline-flex items-center justify-center h-7 w-7 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-3 w-3" />
     </button>
   );
 }

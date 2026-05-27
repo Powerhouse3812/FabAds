@@ -17,9 +17,9 @@ interface QualityRingProps {
   max?: number;
   /** Mono-caps label below the ring. Default "QUALITY". */
   label?: string;
-  /** Outer diameter in px. Default 80. */
+  /** Outer diameter in px. Default 56. */
   size?: number;
-  /** Stroke thickness. Default 6. */
+  /** Stroke thickness. Default 4. */
   thickness?: number;
   className?: string;
 }
@@ -28,8 +28,8 @@ export function QualityRing({
   score,
   max = 100,
   label = "Quality",
-  size = 80,
-  thickness = 6,
+  size = 56,
+  thickness = 4,
   className,
 }: QualityRingProps) {
   const radius = (size - thickness) / 2;
@@ -39,7 +39,7 @@ export function QualityRing({
   const dashOffset = circumference * (1 - fillFraction);
 
   return (
-    <div className={cn("flex flex-col items-center gap-1", className)}>
+    <div className={cn("flex flex-col items-center gap-0.5", className)}>
       <div className="relative" style={{ width: size, height: size }}>
         <svg
           width={size}
@@ -76,7 +76,7 @@ export function QualityRing({
           className="absolute inset-0 flex items-center justify-center"
           aria-label={`${label} ${clamped} of ${max}`}
         >
-          <span className="font-mono tabular-nums text-[24px] font-semibold text-foreground leading-none">
+          <span className="font-mono tabular-nums text-[18px] font-semibold text-foreground leading-none">
             {clamped}
           </span>
         </div>
