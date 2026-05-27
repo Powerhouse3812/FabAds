@@ -1,27 +1,22 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { sampleOutputs } from "../mocks/sample-outputs";
-import { AdDetailDrawerVariantA } from "./AdDetailDrawerVariantA";
-import { AdDetailDrawerVariantC } from "./AdDetailDrawerVariantC";
+import { AdDetailDrawerContent } from "./AdDetailDrawerContent";
 
 /**
- * AdDetailDrawer — URL-driven wrapper for the ad-detail Sheet.
+ * AdDetailDrawer — URL-driven wrapper for the canonical Ad-Detail Sheet.
  *
  * URL contract:
- *   ?ad=<output-id>       → opens the drawer for that output
- *   ?drawer=a|c           → variant selector (defaults to "a")
+ *   ?ad=<output-id>   → opens the drawer for that output
  *
- * Variant A (Reference) and Variant C (Asymmetric Bento) are the two
- * supported drawers. Variant B (Workflow-first) was deleted in A-12.192.
- *
- * Closing the drawer (X / Esc / backdrop) strips both `?ad` and `?drawer`
- * params from the URL. Switching variant flips `?drawer` in place
- * (replace navigation, so back-button still closes the sheet cleanly).
+ * A-12.196 collapsed Variant A + Variant C into a single canonical drawer
+ * (`AdDetailDrawerContent`). The variant toggle pill, `?drawer=a|c` switch,
+ * and both old variant files are gone. Closing strips `?ad` and any
+ * lingering `?drawer` legacy param.
  */
 export function AdDetailDrawer() {
   const [searchParams, setSearchParams] = useSearchParams();
   const adId = searchParams.get("ad");
-  const variant: "a" | "c" = searchParams.get("drawer") === "c" ? "c" : "a";
 
   const output = useMemo(
     () => (adId ? sampleOutputs.find((o) => o.id === adId) ?? null : null),
@@ -40,32 +35,28 @@ export function AdDetailDrawer() {
     );
   }, [setSearchParams]);
 
-  const switchVariant = useCallback(() => {
-    setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
-        sp.set("drawer", variant === "a" ? "c" : "a");
-        return sp;
-      },
-      { replace: true },
-    );
-  }, [setSearchParams, variant]);
+  const selectSibling = useCallback(
+    (id: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          sp.set("ad", id);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
 
   if (!output) return null;
 
-  return variant === "a" ? (
-    <AdDetailDrawerVariantA
+  return (
+    <AdDetailDrawerContent
       output={output}
       open={true}
       onClose={close}
-      onSwitchVariant={switchVariant}
-    />
-  ) : (
-    <AdDetailDrawerVariantC
-      output={output}
-      open={true}
-      onClose={close}
-      onSwitchVariant={switchVariant}
+      onSelectSibling={selectSibling}
     />
   );
 }

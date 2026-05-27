@@ -299,3 +299,55 @@ sampleOutputs.forEach((out, idx) => {
     },
   ];
 });
+
+/* ── Generation context backfill (A-12.196 canonical Ad Detail) ──
+   Format / aiModel / KB / concepts / angleTags. Deterministic across the
+   pool so the new drawer renders varied but stable mock state. */
+sampleOutputs.forEach((out, idx) => {
+  if (out.qualityScore === undefined) return;
+
+  // Format — derive from mediaType
+  out.format =
+    out.mediaType === "video"
+      ? "Video"
+      : out.mediaType === "text-only"
+        ? "Adcopy"
+        : "Image";
+
+  // AI model — rotate realistic options
+  const models = ["GPT 5.5", "Claude Sonnet 4.5", "Imagen 3", "Veo 2"];
+  out.aiModel = models[idx % models.length];
+
+  // Knowledge base — every 3rd output consulted it
+  out.knowledgeBaseUsed = idx % 3 === 0;
+  if (out.knowledgeBaseUsed) {
+    out.knowledgeBaseSources = [
+      `${out.brand?.name ?? "Brand"} brand voice`,
+      "Previous winners (Q1)",
+    ].slice(0, (idx % 2) + 1);
+  }
+
+  // Concepts — 2 or 3 concepts, 3–5 variations each
+  const conceptCount = 2 + (idx % 2);
+  const variations = 3 + (idx % 3);
+  out.concepts = Array.from({ length: conceptCount }, (_, i) => ({
+    id: `${out.id}-concept-${i + 1}`,
+    label: `Concept ${i + 1}`,
+    variations,
+  }));
+
+  // Angle tags — base angle + 1-2 contextual tags
+  const baseAngle = out.angleId ?? "performance";
+  const extraTags: Record<string, string[]> = {
+    "ang-asp-lifestyle": ["Performance", "Story Ad"],
+    "ang-pain-point": ["Pain Point", "Performance"],
+    "ang-social-proof": ["Social Proof"],
+    "ang-urgency": ["Urgency", "Discount"],
+    "ang-before-after": ["Before/After", "Proof"],
+    "ang-comparison": ["Comparison"],
+    "ang-expert-led": ["Expert", "Authority"],
+    "ang-emotional-story": ["Story", "Emotional"],
+    "ang-empowerment": ["Empowerment"],
+  };
+  out.angleTags = [baseAngle, ...(extraTags[baseAngle] ?? ["Performance"])].slice(0, 3);
+});

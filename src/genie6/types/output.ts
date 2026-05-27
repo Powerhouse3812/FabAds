@@ -156,6 +156,22 @@ export interface OutputData {
   recommendations?: CoachRecommendation[];
   /** IDs of sibling outputs generated in the same batch. */
   siblings?: string[];
+
+  /* ── Provenance / generation context (A-12.196 canonical Ad Detail) ──
+       Surfaces "How this was made" section: Mode / Format / AI model row,
+       Knowledge base usage, Concept presets consumed, and multi-angle tags. */
+  /** Human-facing format label, e.g. "Image" / "Video" / "Carousel" / "Adcopy". */
+  format?: string;
+  /** AI model name that produced this generation, e.g. "GPT 5.5" / "Imagen 3". */
+  aiModel?: string;
+  /** Whether the user's KB was consulted. */
+  knowledgeBaseUsed?: boolean;
+  /** Source identifiers used from the KB (when used). */
+  knowledgeBaseSources?: string[];
+  /** Concept presets consumed. Each may have produced N variations. */
+  concepts?: Array<{ id: string; label: string; variations: number }>;
+  /** Multi-angle tag superset of `angleId`. Drives the multi-chip Angle display. */
+  angleTags?: string[];
 }
 
 /** Mode → human label (for badges, chips, picker tooltips, breadcrumbs). */

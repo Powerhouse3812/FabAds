@@ -46,11 +46,23 @@ export function AiVerdictCells({
       />
       <Cell
         eyebrow="Audience match"
-        value={String(verdict.audienceFit)}
+        value={
+          verdict.audienceFitLabel === "N/A" ||
+          !Number.isFinite(verdict.audienceFit)
+            ? "N/A"
+            : String(verdict.audienceFit)
+        }
+        isNA={
+          verdict.audienceFitLabel === "N/A" ||
+          !Number.isFinite(verdict.audienceFit)
+        }
         sub={
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            {verdict.audienceFitLabel}
-          </span>
+          verdict.audienceFitLabel === "N/A" ||
+          !Number.isFinite(verdict.audienceFit) ? null : (
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              {verdict.audienceFitLabel}
+            </span>
+          )
         }
       />
       <Cell
@@ -92,16 +104,21 @@ interface CellProps {
   sub: React.ReactNode;
 }
 
-function Cell({ eyebrow, value, sub }: CellProps) {
+function Cell({ eyebrow, value, sub, isNA }: CellProps & { isNA?: boolean }) {
   return (
     <div className="px-2.5 py-1.5 flex flex-col gap-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {eyebrow}
       </p>
-      <p className="font-mono tabular-nums text-[17px] font-semibold text-foreground leading-none">
+      <p
+        className={cn(
+          "font-mono tabular-nums text-[17px] font-semibold leading-none",
+          isNA ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
         {value}
       </p>
-      <div className="leading-none">{sub}</div>
+      {sub && <div className="leading-none">{sub}</div>}
     </div>
   );
 }
