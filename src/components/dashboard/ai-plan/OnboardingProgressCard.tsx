@@ -4,50 +4,73 @@ import { cn } from "@/lib/utils";
 
 /**
  * OnboardingProgressCard — prominent setup-progress panel that mounts
- * inside AnalyticsHero's right column, beside the KPI grid.
+ * inside AnalyticsHero's right rail (2-row span, ~280px tall).
  *
- * Strategic context (Maalik, iter A-12.189):
- *   Onboarding state was previously a single chip in NowStatusStrip
- *   ("Setup 2/4"). That chip was too small for what is actually the
- *   most important state the user has — completing their workspace
- *   setup. Promote it into a full card with:
- *     • Big "X / N" hero number
- *     • Thin lime progress bar
- *     • Per-step list with done / in-progress / pending icons
- *     • Continue-setup CTA
+ * Strategic context (Maalik, iter A-12.191):
+ *   Refactored from a step-based tracker (5 micro-steps) into a
+ *   **per-module** tracker — each row is one onboarding flow
+ *   (Genie / Industry Insights / Catalogue). Sub-steps live inside
+ *   each module's own flow; this card only shows module-level
+ *   done / in-progress / pending.
  *
- * When ALL steps are done, the card renders null so the hero can
+ *   • Big "X / N Onboardings completed" hero number
+ *   • Thin lime progress bar
+ *   • Per-module rows with status icon, name, hint, and per-row CTA
+ *   • No footer CTA — each row routes to its own module
+ *
+ * When ALL modules are done, the card renders null so the hero can
  * fall back to chart + KPI (no empty real-estate). Consumers can
  * import { ONBOARDING_COMPLETE } to flip parent column spans.
  *
- * Data: mocked locally. Real wiring lands when the onboarding store
- * exists (likely PlanContext + auth flags).
+ * Data: hardcoded locally — no real entitlement service yet. Real
+ * wiring lands when the onboarding store exists (likely PlanContext
+ * + per-module flags).
  */
 
-type OnboardingStatus = "done" | "pending" | "in-progress";
+type ModuleStatus = "done" | "in-progress" | "pending";
 
-interface OnboardingStep {
+interface ModuleOnboarding {
   id: string;
-  label: string;
-  status: OnboardingStatus;
-  ctaHref?: string;
+  /** Display name shown in the row. */
+  name: string;
+  status: ModuleStatus;
+  /** CTA button label. */
+  ctaLabel: string;
+  /** Where the CTA routes. */
+  ctaHref: string;
+  /** One-line hint of what's pending. Empty string when done. */
+  hint?: string;
 }
 
-const STEPS: OnboardingStep[] = [
-  { id: "brand", label: "Brand profile created", status: "done" },
-  { id: "competitors", label: "Competitors added", status: "done" },
+const MODULES: ModuleOnboarding[] = [
   {
-    id: "email",
-    label: "Email verification",
-    status: "in-progress",
-    ctaHref: "/insights-v2/feed?onboarding=true&step=email",
+    id: "genie",
+    name: "Genie",
+    status: "done",
+    ctaLabel: "View",
+    ctaHref: "/iq/genie6",
+    hint: "",
   },
-  { id: "first-gen", label: "First generation", status: "pending" },
-  { id: "concept", label: "Save a concept preset", status: "pending" },
+  {
+    id: "insights",
+    name: "Industry Insights",
+    status: "in-progress",
+    ctaLabel: "Continue",
+    ctaHref: "/insights-v2/feed?onboarding=true",
+    hint: "Fetch your first brand",
+  },
+  {
+    id: "catalogue",
+    name: "Catalogue",
+    status: "pending",
+    ctaLabel: "Start setup",
+    ctaHref: "/iq/genie6/workspace",
+    hint: "Add brand voice + USPs",
+  },
 ];
 
-const DONE_COUNT = STEPS.filter((s) => s.status === "done").length;
-const TOTAL = STEPS.length;
+const DONE_COUNT = MODULES.filter((m) => m.status === "done").length;
+const TOTAL = MODULES.length;
 
 /** Exposed so AnalyticsHero (parent) can flip its column spans. */
 export const ONBOARDING_COMPLETE: boolean = DONE_COUNT === TOTAL;
@@ -66,13 +89,13 @@ export function OnboardingProgressCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-border/60 bg-card p-4 flex flex-col max-w-3xl",
+        "rounded-2xl border border-border/60 bg-card p-4 flex flex-col h-full",
         className,
       )}
     >
       {/* Eyebrow */}
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground/55">
-        Set up your workspace
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/70">
+        Setup your workspace
       </p>
 
       {/* Hero number + label */}
@@ -82,13 +105,13 @@ export function OnboardingProgressCard({
           <span className="text-foreground/40"> / {TOTAL}</span>
         </span>
         <span className="text-[11.5px] text-muted-foreground leading-none">
-          steps completed
+          Onboardings completed
         </span>
       </div>
 
       {/* Progress bar */}
       <div
-        className="mt-3 relative h-1.5 w-full overflow-hidden rounded-full bg-muted/40"
+        className="mt-3 relative h-[1.5px] w-full overflow-hidden rounded-full bg-muted/40"
         role="progressbar"
         aria-valuenow={Math.round(percent)}
         aria-valuemin={0}
@@ -101,36 +124,24 @@ export function OnboardingProgressCard({
         />
       </div>
 
-      {/* Step list — 2-col grid at sm+ so the card reads horizontal
-          when mounted as a full-width row (A-12.190). */}
-      <ul className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-        {STEPS.map((step) => (
-          <StepRow key={step.id} step={step} />
+      {/* Module list */}
+      <ul className="mt-4 flex flex-col gap-2.5">
+        {MODULES.map((module) => (
+          <ModuleRow key={module.id} module={module} />
         ))}
       </ul>
-
-      {/* CTA */}
-      <div className="mt-3.5 pt-3 border-t border-border/60">
-        <Link
-          to="/insights-v2/feed?onboarding=true"
-          className="inline-flex items-center gap-1 text-[11.5px] text-foreground/80 transition-colors hover:text-foreground"
-        >
-          Continue setup
-          <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
-        </Link>
-      </div>
     </section>
   );
 }
 
-/* ── Step row ── */
-interface StepRowProps {
-  step: OnboardingStep;
+/* ── Module row ── */
+interface ModuleRowProps {
+  module: ModuleOnboarding;
 }
 
-function StepRow({ step }: StepRowProps) {
-  const isDone = step.status === "done";
-  const isInProgress = step.status === "in-progress";
+function ModuleRow({ module }: ModuleRowProps) {
+  const isDone = module.status === "done";
+  const isInProgress = module.status === "in-progress";
 
   const Icon = isDone ? CheckCircle2 : isInProgress ? Clock : Circle;
   const iconClass = isDone
@@ -139,41 +150,45 @@ function StepRow({ step }: StepRowProps) {
       ? "text-amber-500"
       : "text-foreground/30";
 
-  const labelClass = isDone
+  const nameClass = isDone
     ? "text-foreground/45 line-through"
-    : "text-foreground/75";
-
-  const statusLabel: string | null = isDone
-    ? "DONE"
-    : isInProgress
-      ? "VERIFY"
-      : "PENDING";
-
-  const statusClass = isDone
-    ? "text-primary/70"
-    : isInProgress
-      ? "text-amber-500"
-      : "text-foreground/35";
+    : "text-foreground";
 
   return (
-    <li className="flex items-center gap-2">
+    <li className="flex items-start gap-2">
       <Icon
-        className={cn("h-3.5 w-3.5 shrink-0", iconClass)}
+        className={cn("h-4 w-4 shrink-0 mt-0.5", iconClass)}
         strokeWidth={2.2}
         aria-hidden
       />
-      <span className={cn("text-[12px] leading-tight flex-1 min-w-0", labelClass)}>
-        {step.label}
-      </span>
-      {statusLabel && (
-        <span
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-[12.5px] font-medium leading-tight", nameClass)}>
+          {module.name}
+        </p>
+        {!isDone && module.hint ? (
+          <p className="mt-0.5 text-[10.5px] leading-tight text-muted-foreground">
+            {module.hint}
+          </p>
+        ) : null}
+      </div>
+
+      {isDone ? (
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] leading-none text-primary bg-primary/15 px-1.5 py-1 rounded">
+          DONE
+        </span>
+      ) : (
+        <Link
+          to={module.ctaHref}
           className={cn(
-            "font-mono text-[9.5px] uppercase tracking-[0.14em] leading-none",
-            statusClass,
+            "inline-flex items-center gap-1 rounded px-1.5 py-1 text-[10.5px] font-medium leading-none transition-colors",
+            isInProgress
+              ? "text-amber-600 hover:text-amber-700 hover:bg-amber-500/15"
+              : "text-foreground/80 hover:text-foreground hover:bg-muted/50",
           )}
         >
-          {statusLabel}
-        </span>
+          {module.ctaLabel}
+          <ArrowRight className="h-3 w-3" strokeWidth={2.2} aria-hidden />
+        </Link>
       )}
     </li>
   );

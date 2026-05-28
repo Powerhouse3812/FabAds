@@ -22,12 +22,15 @@ import { cn } from "@/lib/utils";
 const NEW_TODAY_COUNT = 24;
 const LAST_FETCH = "3 min ago";
 
+type SourceType = "brand" | "competitor" | "category";
+
 interface TopBrand {
   id: string;
   name: string;
   newAdCount: number;
   platforms: string[];
   tint: { from: string; to: string; ink: string };
+  sourceType: SourceType;
 }
 
 const TOP_BRANDS: TopBrand[] = [
@@ -37,6 +40,7 @@ const TOP_BRANDS: TopBrand[] = [
     newAdCount: 8,
     platforms: ["Facebook", "Instagram"],
     tint: { from: "#FFE4D6", to: "#F5C9B8", ink: "#5A3320" },
+    sourceType: "brand",
   },
   {
     id: "boat",
@@ -44,6 +48,7 @@ const TOP_BRANDS: TopBrand[] = [
     newAdCount: 6,
     platforms: ["Instagram", "TikTok"],
     tint: { from: "#1F2937", to: "#374151", ink: "#F9FAFB" },
+    sourceType: "competitor",
   },
   {
     id: "noise",
@@ -51,6 +56,7 @@ const TOP_BRANDS: TopBrand[] = [
     newAdCount: 5,
     platforms: ["Facebook"],
     tint: { from: "#FFE9F0", to: "#F7C8DC", ink: "#5A1F36" },
+    sourceType: "competitor",
   },
   {
     id: "sleepyhead",
@@ -58,6 +64,23 @@ const TOP_BRANDS: TopBrand[] = [
     newAdCount: 3,
     platforms: ["Google"],
     tint: { from: "#E5F0FF", to: "#C9DDF7", ink: "#1F3A66" },
+    sourceType: "brand",
+  },
+  {
+    id: "skincare-trends",
+    name: "Skincare Trends",
+    newAdCount: 4,
+    platforms: ["Instagram", "TikTok"],
+    tint: { from: "#EAF7D8", to: "#D2EAB1", ink: "#3A4A1F" },
+    sourceType: "category",
+  },
+  {
+    id: "wearables",
+    name: "Wearables",
+    newAdCount: 2,
+    platforms: ["Google", "Facebook"],
+    tint: { from: "#F0E5FF", to: "#D9C5F7", ink: "#3A1F66" },
+    sourceType: "category",
   },
 ];
 
@@ -197,11 +220,14 @@ function BrandRow({ brand, index }: { brand: TopBrand; index: number }) {
           <p className="text-[13px] font-semibold text-foreground leading-tight truncate">
             {brand.name}
           </p>
-          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground/55 truncate">
-            <span className="tabular-nums">{brand.newAdCount}</span> new
-            <span className="mx-1 text-foreground/30">·</span>
-            {platformLine}
-          </p>
+          <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
+            <SourceTag type={brand.sourceType} />
+            <p className="font-mono text-[10px] uppercase tracking-wider text-foreground/55 truncate">
+              <span className="tabular-nums">{brand.newAdCount}</span> new
+              <span className="mx-1 text-foreground/30">·</span>
+              {platformLine}
+            </p>
+          </div>
         </div>
 
         {/* Stacked latest-ad mini-thumbs */}
@@ -236,5 +262,35 @@ function BrandRow({ brand, index }: { brand: TopBrand; index: number }) {
         />
       </Link>
     </motion.div>
+  );
+}
+
+/* -------------------------------------------------------------- */
+/* SourceTag — pill chip indicating where an ad was fetched from    */
+/* -------------------------------------------------------------- */
+
+const SOURCE_TAG_STYLES: Record<SourceType, string> = {
+  brand: "bg-primary/15 text-primary",
+  competitor: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  category: "bg-muted text-muted-foreground",
+};
+
+const SOURCE_TAG_LABELS: Record<SourceType, string> = {
+  brand: "Brand",
+  competitor: "Competitor",
+  category: "Category",
+};
+
+function SourceTag({ type }: { type: SourceType }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5",
+        "font-mono text-[9px] uppercase tracking-[0.12em]",
+        SOURCE_TAG_STYLES[type],
+      )}
+    >
+      {SOURCE_TAG_LABELS[type]}
+    </span>
   );
 }

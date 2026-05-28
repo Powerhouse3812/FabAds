@@ -1,29 +1,31 @@
 /**
- * AnalyticsHero — 4-card KPI row (A-12.191, Figma redesign).
+ * AnalyticsHero — 5-col 2-row KPI grid (A-12.192, Figma redesign).
  *
  * Strategic context (Maalik's pivot):
- *   Previous layout (A-12.187 → A-12.190) was a single asymmetric hero —
- *   AreaChart on col-7 + 2×2 KPI grid on col-5 — sitting BELOW a separate
- *   row that hosted OnboardingProgressCard. That stack ate ~480px of
- *   vertical real estate before the user hit the action launcher.
+ *   A-12.191 collapsed the hero into a single row of 4 cards where the
+ *   4th card absorbed onboarding inline. That packed too many disparate
+ *   concerns into one row (mixing Genie + Industry data) and made the
+ *   Setup card visually compete with KPIs.
  *
- *   New Figma redesign collapses both rows into ONE: four equal-weight
- *   cards in a single row (~323 × 134 each at lg). The 4th card absorbs
- *   the OnboardingProgressCard so the dedicated onboarding row is gone.
+ *   A-12.192 splits the hero into TWO logical KPI rows, separated by
+ *   mono-caps row headers, with a dedicated Setup card on the right rail
+ *   spanning the full hero height:
+ *     • Row 1 (Genie insights):   Generations / Brands / Products / Categories
+ *     • Row 2 (Industry insights): Brands followed / Competitors / Total ads / Categories tracked
+ *     • Col 5 (Setup card):        OnboardingProgressCard, spans both rows.
  *
- * Card layout (lg:grid-cols-4):
- *   1. Generations  — big number + delta + decorative lime AreaChart sparkline
- *   2. Brands active — big number + delta + footer split (Ads / Creatives)
- *   3. Competitor   — big number + "/ 20" + delta + footer (top platforms)
- *   4. Setup workspace — absorbed OnboardingProgressCard (compact, gradient bg)
+ *   The 5-col CSS grid has 4 logical rows on cols 1-4 (header + KPIs ×2)
+ *   and col 5 is occupied by a single child with row-span-4, so it spans
+ *   from the top of Row 1's header to the bottom of Row 2's KPI cards.
  *
  * Mock-data note: deterministic at module scope (no per-render randomness).
- * When the real entity lands, swap SPARK_GENS / STEPS for the live selector.
+ * When the real entities land, swap module-level constants for live selectors.
  */
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
-import { CheckCircle2, Circle, Clock, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OnboardingProgressCard } from "./OnboardingProgressCard";
 
 interface AnalyticsHeroProps {
   className?: string;
@@ -39,28 +41,9 @@ const SPARK_GENS = Array.from({ length: 12 }, (_, i) => ({
   v: 8 + Math.floor(i * 0.9) + ((i * 7) % 5),
 }));
 
-// Onboarding steps (mirrors OnboardingProgressCard) — kept inline so the 4th
-// card stays self-contained and decoupled from the legacy card on disk.
-type StepStatus = "done" | "in-progress" | "pending";
-interface OnboardingStep {
-  id: string;
-  label: string;
-  status: StepStatus;
-}
-
-const STEPS: OnboardingStep[] = [
-  { id: "brand", label: "Brand profile created", status: "done" },
-  { id: "competitors", label: "Competitors added", status: "done" },
-  { id: "first-brand", label: "First brand connected", status: "done" },
-  { id: "email", label: "Email verification", status: "in-progress" },
-  { id: "first-gen", label: "First generation", status: "pending" },
-];
-
-const DONE_COUNT = STEPS.filter((s) => s.status === "done").length;
-const TOTAL = STEPS.length;
-export const ONBOARDING_COMPLETE: boolean = DONE_COUNT === TOTAL;
-
-const TOP_PLATFORMS = ["Twitter", "Facebook", "YouTube"];
+// Pill lists — per card
+const TRENDING_BRANDS = ["Mamaearth", "Noise", "Boat"];
+const TOP_PLATFORMS = ["Meta", "TikTok", "NewsBreak"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared primitives
@@ -106,8 +89,16 @@ function BigNumber({
   );
 }
 
-/** Up-trend delta chip — lime success token, mini TrendingUp icon. */
-function DeltaChip({ value }: { value: number }) {
+/** Up-trend delta chip — lime success token, mini TrendingUp icon.
+ *  `prefix` controls the leading symbol: "%" → "+4.5%", "" → "+2" (raw count).
+ */
+function DeltaChip({
+  value,
+  unit = "%",
+}: {
+  value: number;
+  unit?: "%" | "";
+}) {
   return (
     <span
       className={cn(
@@ -115,19 +106,31 @@ function DeltaChip({ value }: { value: number }) {
         "font-mono text-[10px] font-semibold text-primary tabular-nums",
       )}
     >
-      <TrendingUp className="h-2.5 w-2.5" strokeWidth={2.4} />+{value}%
+      <TrendingUp className="h-2.5 w-2.5" strokeWidth={2.4} />+{value}
+      {unit}
     </span>
   );
 }
 
-/** Common 4-card shell — 134px min, rounded-2xl, soft shadow. */
+/** Common KPI card shell — 134px min, rounded-2xl, soft shadow. */
 const CARD_BASE =
   "min-h-[134px] rounded-2xl border border-border/60 bg-card p-4 " +
   "shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col";
 
+/** Row header — tiny mono caps banding label sitting above a KPI row. */
+function RowHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="lg:col-span-4 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// CARD 1 — Generations (sparkline)
+// ROW 1 — Genie insights
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** CARD 1.1 — Generations (sparkline) */
 function CardGenerations() {
   return (
     <motion.div
@@ -176,49 +179,54 @@ function CardGenerations() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CARD 2 — Brands active (footer split)
-// ─────────────────────────────────────────────────────────────────────────────
-function CardBrandsActive() {
+/** CARD 1.2 — Brands (total Genie brands) */
+function CardBrands() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ delay: 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className={CARD_BASE}
     >
-      {/* Header */}
       <div className="flex items-start gap-1">
         <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-          <Eyebrow>Brands active</Eyebrow>
+          <Eyebrow>Brands</Eyebrow>
           <BigNumber>15</BigNumber>
         </div>
         <DeltaChip value={4.5} />
       </div>
-
-      {/* Footer split — Ads | Creatives */}
-      <div className="mt-auto pt-2 border-t border-border/60 grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-1">
-          <Eyebrow>Ads</Eyebrow>
-          <span className="text-[13px] font-medium text-foreground tabular-nums leading-none">
-            24,851
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Eyebrow>Creatives</Eyebrow>
-          <span className="text-[13px] font-medium text-foreground tabular-nums leading-none">
-            134,822
-          </span>
-        </div>
-      </div>
+      <span className="mt-auto pt-2 text-[11.5px] text-muted-foreground">
+        Across all workspaces
+      </span>
     </motion.div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CARD 3 — Competitor (footer pill tags)
-// ─────────────────────────────────────────────────────────────────────────────
-function CardCompetitor() {
+/** CARD 1.3 — Products (total Genie products) */
+function CardProducts() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className={CARD_BASE}
+    >
+      <div className="flex items-start gap-1">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <Eyebrow>Products</Eyebrow>
+          <BigNumber>47</BigNumber>
+        </div>
+        <DeltaChip value={8} />
+      </div>
+      <span className="mt-auto pt-2 text-[11.5px] text-muted-foreground">
+        Created this month
+      </span>
+    </motion.div>
+  );
+}
+
+/** CARD 1.4 — Categories (total Genie categories) */
+function CardCategories() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -226,10 +234,74 @@ function CardCompetitor() {
       transition={{ delay: 0.16, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className={CARD_BASE}
     >
-      {/* Header */}
       <div className="flex items-start gap-1">
         <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-          <Eyebrow>Competitor</Eyebrow>
+          <Eyebrow>Categories</Eyebrow>
+          <BigNumber>12</BigNumber>
+        </div>
+        <DeltaChip value={2} unit="" />
+      </div>
+      <span className="mt-auto pt-2 text-[11.5px] text-muted-foreground">
+        Catalogue groups
+      </span>
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROW 2 — Industry insights
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** CARD 2.1 — Brands followed (Industry Insights) */
+function CardBrandsFollowed() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className={CARD_BASE}
+    >
+      <div className="flex items-start gap-1">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <Eyebrow>Brands followed</Eyebrow>
+          <BigNumber>8</BigNumber>
+        </div>
+        <DeltaChip value={1} unit="" />
+      </div>
+
+      {/* Footer — trending brand pills */}
+      <div className="mt-auto pt-2 border-t border-border/60 flex flex-col gap-1.5">
+        <Eyebrow>Trending</Eyebrow>
+        <div className="flex items-center gap-1 flex-wrap">
+          {TRENDING_BRANDS.map((b) => (
+            <span
+              key={b}
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5",
+                "bg-foreground/5 text-foreground/45 text-[11px] leading-none",
+              )}
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/** CARD 2.2 — Competitors (count / limit + top platforms) */
+function CardCompetitors() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.24, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className={CARD_BASE}
+    >
+      <div className="flex items-start gap-1">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <Eyebrow>Competitors</Eyebrow>
           <div className="flex items-baseline gap-1">
             <BigNumber>15</BigNumber>
             <span className="text-[12px] font-semibold text-muted-foreground tabular-nums leading-none">
@@ -242,7 +314,7 @@ function CardCompetitor() {
 
       {/* Footer — top platforms */}
       <div className="mt-auto pt-2 border-t border-border/60 flex flex-col gap-1.5">
-        <Eyebrow>Top performing</Eyebrow>
+        <Eyebrow>Top platforms</Eyebrow>
         <div className="flex items-center gap-1 flex-wrap">
           {TOP_PLATFORMS.map((p) => (
             <span
@@ -261,133 +333,113 @@ function CardCompetitor() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CARD 4 — Setup workspace (absorbs OnboardingProgressCard)
-// ─────────────────────────────────────────────────────────────────────────────
-function CardSetupWorkspace() {
-  const percent = (DONE_COUNT / TOTAL) * 100;
-
+/** CARD 2.3 — Total ads (footer split Images / Videos) */
+function CardTotalAds() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.22, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className={cn(
-        "min-h-[134px] rounded-2xl p-4 flex flex-col",
-        "border border-primary/15 bg-gradient-to-br from-primary/[0.04] to-card",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
-      )}
+      transition={{ delay: 0.28, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className={CARD_BASE}
     >
-      {/* Eyebrow — lime-tinted */}
-      <span
-        className="font-mono text-[9px] uppercase tracking-[0.18em]"
-        style={{ color: "#37520A" }}
-      >
-        Setup your workspace
-      </span>
-
-      {/* Hero row */}
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="text-[20px] font-semibold leading-none text-foreground tabular-nums">
-          {DONE_COUNT}/{TOTAL}
-        </span>
-        <Eyebrow>Steps completed</Eyebrow>
+      <div className="flex items-start gap-1">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <Eyebrow>Total ads</Eyebrow>
+          <BigNumber>24,851</BigNumber>
+        </div>
+        <DeltaChip value={12} />
       </div>
 
-      {/* Progress bar — h-1.5 lime, ~80% width */}
-      <div
-        className="mt-2 relative h-1.5 w-4/5 overflow-hidden rounded-full bg-muted/40"
-        role="progressbar"
-        aria-valuenow={Math.round(percent)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Workspace setup progress"
-      >
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-500"
-          style={{ width: `${percent}%` }}
-        />
+      {/* Footer split — Images | Videos */}
+      <div className="mt-auto pt-2 border-t border-border/60 grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <Eyebrow>Images</Eyebrow>
+          <span className="text-[13px] font-medium text-foreground tabular-nums leading-none">
+            18,420
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Eyebrow>Videos</Eyebrow>
+          <span className="text-[13px] font-medium text-foreground tabular-nums leading-none">
+            6,431
+          </span>
+        </div>
       </div>
-
-      {/* Step rows — 3 compact lines (done summary + 2 explicit) */}
-      <ul className="mt-2.5 flex flex-col gap-1">
-        <SetupRow
-          icon="done"
-          label={`${DONE_COUNT} steps done`}
-          pill="DONE"
-        />
-        <SetupRow icon="in-progress" label="Email verification" pill="VERIFY" />
-        <SetupRow icon="pending" label="First generation" pill="PENDING" />
-      </ul>
     </motion.div>
   );
 }
 
-interface SetupRowProps {
-  icon: StepStatus;
-  label: string;
-  pill: "DONE" | "VERIFY" | "PENDING";
-}
-
-function SetupRow({ icon, label, pill }: SetupRowProps) {
-  const isDone = icon === "done";
-  const isInProgress = icon === "in-progress";
-
-  const Icon = isDone ? CheckCircle2 : isInProgress ? Clock : Circle;
-  const iconClass = isDone
-    ? "text-primary"
-    : isInProgress
-      ? "text-amber-500"
-      : "text-foreground/30";
-
-  const labelClass = isDone
-    ? "text-foreground/45 line-through"
-    : "text-foreground/75";
-
-  const pillClass =
-    pill === "DONE"
-      ? "text-primary/80"
-      : pill === "VERIFY"
-        ? "text-amber-500"
-        : "text-foreground/35";
-
+/** CARD 2.4 — Categories tracked (Industry Insights trend categories) */
+function CardCategoriesTracked() {
   return (
-    <li className="flex items-center gap-2 min-w-0">
-      <Icon
-        className={cn("h-3 w-3 shrink-0", iconClass)}
-        strokeWidth={2.2}
-        aria-hidden
-      />
-      <span className={cn("text-[11.5px] leading-tight flex-1 min-w-0 truncate", labelClass)}>
-        {label}
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.32, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className={CARD_BASE}
+    >
+      <div className="flex items-start gap-1">
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <Eyebrow>Categories tracked</Eyebrow>
+          <BigNumber>9</BigNumber>
+        </div>
+        <DeltaChip value={2} unit="" />
+      </div>
+      <span className="mt-auto pt-2 text-[11.5px] text-muted-foreground">
+        Trend categories
       </span>
-      <span
-        className={cn(
-          "font-mono text-[8.5px] uppercase tracking-wider leading-none",
-          pillClass,
-        )}
-      >
-        {pill}
-      </span>
-    </li>
+    </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Grid topology (lg breakpoint and up):
+ *   ┌─────────────────────────────────────────────┬──────────┐
+ *   │ ROW 1: GENIE INSIGHTS header (cols 1-4)     │          │
+ *   ├──────────┬──────────┬──────────┬────────────┤          │
+ *   │ Gen.     │ Brands   │ Products │ Categories │  Setup   │
+ *   ├──────────┴──────────┴──────────┴────────────┤  card    │
+ *   │ ROW 3: INDUSTRY INSIGHTS header (cols 1-4)  │ (col 5,  │
+ *   ├──────────┬──────────┬──────────┬────────────┤  row-    │
+ *   │ Followed │ Compet.  │ Total ads│ Cat. track │  span-4) │
+ *   └──────────┴──────────┴──────────┴────────────┴──────────┘
+ *
+ * The OnboardingProgressCard is the FIRST child of col-5 with
+ * lg:col-start-5 lg:row-start-1 lg:row-span-4, anchoring the right rail
+ * across all four logical rows on cols 1-4.
+ */
 export function AnalyticsHero({ className }: AnalyticsHeroProps) {
   return (
     <section
       className={cn(
-        "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3",
+        "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3",
         className,
       )}
     >
+      {/* Row 1 header — GENIE INSIGHTS */}
+      <RowHeader>Genie insights</RowHeader>
+
+      {/* Row 2 — 4 Genie KPI cards (cols 1-4) */}
       <CardGenerations />
-      <CardBrandsActive />
-      <CardCompetitor />
-      <CardSetupWorkspace />
+      <CardBrands />
+      <CardProducts />
+      <CardCategories />
+
+      {/* Setup card — spans full hero height on col 5 */}
+      <OnboardingProgressCard className="lg:row-span-4 lg:col-start-5 lg:row-start-1 lg:self-stretch" />
+
+      {/* Row 3 header — INDUSTRY INSIGHTS */}
+      <RowHeader>Industry insights</RowHeader>
+
+      {/* Row 4 — 4 Industry KPI cards (cols 1-4) */}
+      <CardBrandsFollowed />
+      <CardCompetitors />
+      <CardTotalAds />
+      <CardCategoriesTracked />
     </section>
   );
 }
