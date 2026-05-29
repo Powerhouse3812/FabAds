@@ -6,110 +6,179 @@ import { cn } from "@/lib/utils";
 /**
  * RecentlyFetchedCard — quick-action card on the AI-plan dashboard.
  *
- * Per Maalik: after the user sees their KPIs (Row 1 + Row 2) and the
- * Generate mode launcher, the next highest-leverage action is "make an
- * ad against something I already have". This card lists the user's
- * MOST RECENT brands, products, and categories — clicking any one of
- * them deep-links into the Ad-create flow with the entity pre-selected,
- * skipping the brand-pick step.
+ * Two top-level tabs:
+ *   Fetched — items scraped via the Industry Insights Chrome extension.
+ *             Click → navigates to /insights-v2/feed
+ *   Created — brands/products the user created in their workspace.
+ *             Click → navigates to /iq/genie6/generate with pre-fill
  *
  * Data is mocked at module scope (deterministic). Real wiring lands when
  * the recents selector is plumbed in.
  */
 
-type RecentItemType = "brand" | "product" | "category";
+/* -------------------------------------------------------------- */
+/* Types                                                           */
+/* -------------------------------------------------------------- */
+
+type Tab = "fetched" | "created";
+
+/** Item types that can appear in the Fetched tab */
+type FetchedItemType = "brand" | "competitor" | "category";
+
+/** Item types that can appear in the Created tab */
+type CreatedItemType = "brand" | "product";
+
+type RecentItemType = FetchedItemType | CreatedItemType;
 
 type RecentItem = {
   id: string;
   type: RecentItemType;
   name: string;
-  /** Short subtitle, e.g. "3 products · 47 ads" for brands, "Skincare · 8 brands" for categories. */
   meta: string;
-  /** ISO timestamp string. */
   fetchedAt: string;
-  /** Pre-fill route. */
   href: string;
 };
 
-type Filter = "all" | "brands" | "products" | "categories";
+type Filter = "all" | "brands" | "products" | "competitors" | "categories";
 
-const RECENT_ITEMS: RecentItem[] = [
+/* -------------------------------------------------------------- */
+/* Mock data — Fetched                                             */
+/* -------------------------------------------------------------- */
+
+const FETCHED_ITEMS: RecentItem[] = [
   {
-    id: "mamaearth",
+    id: "mamaearth-f",
     type: "brand",
     name: "Mamaearth",
-    meta: "3 products · 47 ads",
-    fetchedAt: "2026-05-27T14:30:00",
+    meta: "8 new ads · Facebook, Instagram",
+    fetchedAt: "2026-05-28T14:30:00",
+    href: "/insights-v2/feed?brand=mamaearth",
+  },
+  {
+    id: "boat-f",
+    type: "competitor",
+    name: "Boat",
+    meta: "6 new ads · Instagram, TikTok",
+    fetchedAt: "2026-05-27T10:15:00",
+    href: "/insights-v2/feed?brand=boat",
+  },
+  {
+    id: "noise-f",
+    type: "competitor",
+    name: "Noise",
+    meta: "5 new ads · Facebook",
+    fetchedAt: "2026-05-27T08:20:00",
+    href: "/insights-v2/feed?brand=noise",
+  },
+  {
+    id: "skincare-f",
+    type: "category",
+    name: "Skincare",
+    meta: "4 new ads · Instagram",
+    fetchedAt: "2026-05-26T09:00:00",
+    href: "/insights-v2/feed?category=skincare",
+  },
+  {
+    id: "wearables-f",
+    type: "category",
+    name: "Wearables",
+    meta: "2 new ads · Google",
+    fetchedAt: "2026-05-25T13:30:00",
+    href: "/insights-v2/feed?category=wearables",
+  },
+];
+
+/* -------------------------------------------------------------- */
+/* Mock data — Created                                             */
+/* -------------------------------------------------------------- */
+
+const CREATED_ITEMS: RecentItem[] = [
+  {
+    id: "mamaearth-c",
+    type: "brand",
+    name: "Mamaearth",
+    meta: "3 products · 47 ads generated",
+    fetchedAt: "2026-05-28T11:20:00",
     href: "/iq/genie6/generate?brand=mamaearth",
   },
   {
-    id: "noise",
+    id: "noise-c",
     type: "brand",
     name: "Noise",
-    meta: "5 products · 312 ads",
-    fetchedAt: "2026-05-26T10:15:00",
+    meta: "5 products · 312 ads generated",
+    fetchedAt: "2026-05-27T16:45:00",
     href: "/iq/genie6/generate?brand=noise",
   },
   {
-    id: "vitamin-c-serum",
+    id: "vitamin-c",
     type: "product",
     name: "Vitamin C Serum",
     meta: "Mamaearth · Skincare",
-    fetchedAt: "2026-05-27T11:20:00",
+    fetchedAt: "2026-05-28T09:10:00",
     href: "/iq/genie6/generate?product=vitamin-c-serum",
   },
   {
-    id: "smartwatch-pro",
+    id: "smartwatch",
     type: "product",
     name: "ColorFit Pro Smartwatch",
     meta: "Noise · Wearables",
-    fetchedAt: "2026-05-25T16:45:00",
+    fetchedAt: "2026-05-26T14:30:00",
     href: "/iq/genie6/generate?product=smartwatch-pro",
   },
-  {
-    id: "skincare",
-    type: "category",
-    name: "Skincare",
-    meta: "8 brands · 1,247 ads",
-    fetchedAt: "2026-05-26T09:00:00",
-    href: "/iq/genie6/generate?category=skincare",
-  },
-  {
-    id: "wearables",
-    type: "category",
-    name: "Wearables",
-    meta: "5 brands · 893 ads",
-    fetchedAt: "2026-05-24T13:30:00",
-    href: "/iq/genie6/generate?category=wearables",
-  },
-  {
-    id: "boat",
-    type: "brand",
-    name: "Boat",
-    meta: "2 products · 156 ads",
-    fetchedAt: "2026-05-23T15:10:00",
-    href: "/iq/genie6/generate?brand=boat",
-  },
 ];
+
+/* -------------------------------------------------------------- */
+/* Filter option sets per tab                                       */
+/* -------------------------------------------------------------- */
+
+const FILTER_OPTIONS_FETCHED: Array<{ value: Filter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "brands", label: "Brands" },
+  { value: "competitors", label: "Competitors" },
+  { value: "categories", label: "Categories" },
+];
+
+const FILTER_OPTIONS_CREATED: Array<{ value: Filter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "brands", label: "Brands" },
+  { value: "products", label: "Products" },
+];
+
+/* -------------------------------------------------------------- */
+/* Root component                                                   */
+/* -------------------------------------------------------------- */
 
 interface RecentlyFetchedCardProps {
   className?: string;
 }
 
 export function RecentlyFetchedCard({ className }: RecentlyFetchedCardProps) {
+  const [tab, setTab] = useState<Tab>("fetched");
   const [filter, setFilter] = useState<Filter>("all");
   const navigate = useNavigate();
 
+  // Reset filter when switching tabs to avoid stale/invalid filter state
+  function handleTabChange(nextTab: Tab) {
+    setTab(nextTab);
+    setFilter("all");
+  }
+
+  const pool = tab === "fetched" ? FETCHED_ITEMS : CREATED_ITEMS;
+
   const items = useMemo(() => {
-    const sorted = [...RECENT_ITEMS].sort(
+    const sorted = [...pool].sort(
       (a, b) =>
         new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime(),
     );
     if (filter === "all") return sorted;
     if (filter === "brands") return sorted.filter((i) => i.type === "brand");
     if (filter === "products") return sorted.filter((i) => i.type === "product");
+    if (filter === "competitors") return sorted.filter((i) => i.type === "competitor");
     return sorted.filter((i) => i.type === "category");
-  }, [filter]);
+  }, [pool, filter]);
+
+  const filterOptions =
+    tab === "fetched" ? FILTER_OPTIONS_FETCHED : FILTER_OPTIONS_CREATED;
 
   return (
     <section
@@ -117,10 +186,15 @@ export function RecentlyFetchedCard({ className }: RecentlyFetchedCardProps) {
         "rounded-2xl border border-border/60 bg-card p-4 flex flex-col gap-3",
         className,
       )}
-      aria-label="Recently fetched brands, products, and categories"
+      aria-label="Recently fetched or created brands, products, and categories"
     >
-      <Header />
-      <FilterPills value={filter} onChange={setFilter} />
+      <Header tab={tab} />
+      <TabToggle value={tab} onChange={handleTabChange} />
+      <FilterPills
+        value={filter}
+        onChange={setFilter}
+        options={filterOptions}
+      />
       <ItemsGrid
         items={items}
         filter={filter}
@@ -133,22 +207,30 @@ export function RecentlyFetchedCard({ className }: RecentlyFetchedCardProps) {
 export default RecentlyFetchedCard;
 
 /* -------------------------------------------------------------- */
-/* Header — eyebrow + title + optional view-all link               */
+/* Header — eyebrow + title + tab-aware "View all" link            */
 /* -------------------------------------------------------------- */
 
-function Header() {
+function Header({ tab }: { tab: Tab }) {
+  const eyebrow = tab === "fetched" ? "Recently fetched" : "Recently created";
+  const title =
+    tab === "fetched"
+      ? "What your extension found"
+      : "Pick up where you left off";
+  const viewAllHref =
+    tab === "fetched" ? "/insights-v2/feed" : "/iq/genie6/workspace";
+
   return (
     <header className="flex items-start justify-between gap-3">
       <div className="flex flex-col gap-1">
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Recently fetched
+          {eyebrow}
         </span>
         <h3 className="text-[16px] font-medium text-foreground leading-tight">
-          Pick up where you left off
+          {title}
         </h3>
       </div>
       <Link
-        to="/iq/genie6/workspace"
+        to={viewAllHref}
         className="shrink-0 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
       >
         View all
@@ -158,22 +240,64 @@ function Header() {
 }
 
 /* -------------------------------------------------------------- */
-/* FilterPills — segmented 4-option control                         */
+/* TabToggle — top-level Fetched / Created 2-pill toggle           */
 /* -------------------------------------------------------------- */
 
-const FILTER_OPTIONS: Array<{ value: Filter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "brands", label: "Brands" },
-  { value: "products", label: "Products" },
-  { value: "categories", label: "Categories" },
+const TAB_OPTIONS: Array<{ value: Tab; label: string }> = [
+  { value: "fetched", label: "Fetched" },
+  { value: "created", label: "Created" },
 ];
+
+function TabToggle({
+  value,
+  onChange,
+}: {
+  value: Tab;
+  onChange: (v: Tab) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Switch between fetched and created items"
+      className="flex items-center gap-1 p-0.5 rounded-lg bg-muted/60 w-fit"
+    >
+      {TAB_OPTIONS.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "h-7 px-4 rounded-md text-[12px] font-medium leading-none",
+              "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+              active
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- */
+/* FilterPills — segmented filter control (options vary by tab)    */
+/* -------------------------------------------------------------- */
 
 function FilterPills({
   value,
   onChange,
+  options,
 }: {
   value: Filter;
   onChange: (v: Filter) => void;
+  options: Array<{ value: Filter; label: string }>;
 }) {
   return (
     <div
@@ -181,7 +305,7 @@ function FilterPills({
       aria-label="Filter recent items by type"
       className="flex items-center gap-1"
     >
-      {FILTER_OPTIONS.map((opt) => {
+      {options.map((opt) => {
         const active = opt.value === value;
         return (
           <button
@@ -227,7 +351,9 @@ function ItemsGrid({
           ? "brands"
           : filter === "products"
             ? "products"
-            : "categories";
+            : filter === "competitors"
+              ? "competitors"
+              : "categories";
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <div className="col-span-full py-8 text-center text-[12px] text-muted-foreground">
@@ -266,7 +392,7 @@ function ItemCard({
     <button
       type="button"
       onClick={onClick}
-      aria-label={`Open ${item.name} in Ad-create flow`}
+      aria-label={`Open ${item.name}`}
       className={cn(
         "group cursor-pointer text-left",
         "border border-border/60 rounded-xl p-3",
@@ -316,18 +442,20 @@ function ItemCard({
 }
 
 /* -------------------------------------------------------------- */
-/* TypeTag — pill chip indicating brand/product/category           */
+/* TypeTag — pill chip per item type                               */
 /* -------------------------------------------------------------- */
 
 const TYPE_TAG_STYLES: Record<RecentItemType, string> = {
   brand: "bg-primary/15 text-primary",
   product: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  competitor: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   category: "bg-muted text-muted-foreground",
 };
 
 const TYPE_TAG_LABELS: Record<RecentItemType, string> = {
   brand: "Brand",
   product: "Product",
+  competitor: "Competitor",
   category: "Category",
 };
 

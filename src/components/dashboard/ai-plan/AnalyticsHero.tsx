@@ -25,7 +25,7 @@ import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { OnboardingProgressCard } from "./OnboardingProgressCard";
+import { PlanUpsellRailCard } from "./PlanUpsellRailCard";
 
 interface AnalyticsHeroProps {
   className?: string;
@@ -430,7 +430,7 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
       <CardCategories />
 
       {/* Setup card — spans full hero height on col 5 */}
-      <OnboardingProgressCard className="lg:row-span-4 lg:col-start-5 lg:row-start-1 lg:self-stretch" />
+      <PlanUpsellRailCard className="lg:row-span-4 lg:col-start-5 lg:row-start-1 lg:self-stretch" />
 
       {/* Row 3 header — INDUSTRY INSIGHTS */}
       <RowHeader>Industry insights</RowHeader>
