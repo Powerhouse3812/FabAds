@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Telescope, X } from "lucide-react";
+import { ArrowRight, Telescope, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
 
@@ -8,6 +8,14 @@ import { usePlan } from "@/contexts/PlanContext";
  * ReportsInsightsCrossCard — footer-pinned cross-module add-on prompt
  * for the Reports sub-nav. Promotes Industry Insights Pro to AI-plan
  * users at the moment they're already in a reporting mindset.
+ *
+ * Method: a BEFORE/AFTER comparison list rather than a one-line pitch.
+ * Two stacked rows contrast what reports cover today (muted "Now")
+ * against what Growth + Insights Pro unlocks (lime "Growth"), so the
+ * card reads as a concrete "you have X → you could have Y" delta. In a
+ * 180px column we stack the two states vertically (label on top, value
+ * below) instead of side-by-side, with a lime ArrowRight marking the
+ * jump from current → unlocked.
  *
  * Differs from the Insights extension card in ONE deliberate way: a
  * tiny "30% OFF" pill next to the eyebrow uses an orange tint —
@@ -109,16 +117,58 @@ export function ReportsInsightsCrossCard() {
           </span>
         </div>
 
-        <p className="text-[11px] leading-snug text-foreground/70">
-          Add Industry Insights Pro for ₹999/mo extra.
+        {/* BEFORE/AFTER comparison list — the core of this card. Two
+            stacked states, vertical not side-by-side (180px is too tight
+            for two columns of real copy). Top = current reach in muted
+            foreground; a lime ArrowRight marks the jump; bottom = what
+            Growth + Insights Pro unlocks, lime-accented. Tiny micro-labels
+            ("Now" / "Growth") tag each state so the delta reads at a
+            glance without a header row. */}
+        <div className="flex flex-col gap-1 rounded-md border border-foreground/[0.06] bg-foreground/[0.02] px-2 py-1.5">
+          {/* Current state — muted. */}
+          <div className="flex flex-col gap-px">
+            <span className="font-mono text-[9px] font-medium uppercase tracking-wider text-foreground/40">
+              Now
+            </span>
+            <span className="text-[10px] leading-tight text-muted-foreground">
+              Your account's ads only
+            </span>
+          </div>
+
+          {/* Lime divider + jump glyph: a faint hairline with the
+              ArrowRight straddling it, signalling current → unlocked. */}
+          <div className="flex items-center gap-1.5 py-px" aria-hidden>
+            <span className="h-px flex-1 bg-foreground/[0.06]" />
+            <ArrowRight
+              className="h-3 w-3 shrink-0 text-primary"
+              strokeWidth={2.25}
+            />
+            <span className="h-px flex-1 bg-primary/25" />
+          </div>
+
+          {/* Unlocked state — lime-accented. The payoff line. */}
+          <div className="flex flex-col gap-px">
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-wider text-primary">
+              Growth
+            </span>
+            <span className="text-[10px] font-medium leading-tight text-foreground">
+              15 accounts + every competitor's ads
+            </span>
+          </div>
+        </div>
+
+        {/* Price line — what the unlock costs, kept muted so the
+            comparison above carries the weight. */}
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          Industry Insights Pro · ₹999/mo extra
         </p>
 
         <button
           type="button"
           onClick={() => navigate("/plans-v2?addon=insights-pro")}
           className={cn(
-            "mt-0.5 inline-flex w-fit items-center gap-1 rounded-sm px-1.5 py-[3px]",
-            "bg-primary text-[10px] font-medium tracking-tight text-primary-foreground",
+            "mt-0.5 inline-flex w-fit items-center gap-1 rounded-sm px-2 py-[4px]",
+            "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
             "transition-colors duration-150 hover:bg-primary/90",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}

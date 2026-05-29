@@ -25,6 +25,7 @@ import { InsightsExtensionCard } from "./InsightsExtensionCard";
 import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
 import { LaunchAutopilotCard } from "./LaunchAutopilotCard";
 import { ReportsInsightsCrossCard } from "./ReportsInsightsCrossCard";
+import { CatalogueFooterCard } from "./CatalogueFooterCard";
 
 /**
  * SecondaryNavigationPanel — V7 ClickUp Strict (iter-6 A-10.3 update).
@@ -55,6 +56,7 @@ export function SecondaryNavigationPanel() {
   const isInsights = activeMod.key === "insights";
   const isLaunch = activeMod.key === "launch";
   const isReports = activeMod.key === "reports";
+  const isCatalogue = activeMod.key === "catalogue";
   // A-12.41: Industry Insights sub-nav shares Genie's v3-page-mesh backdrop
   // so the lime/amber/sky wash reads identically when switching modules.
   // Page-level Insights views already use v3-page-mesh; lifting it to the
@@ -160,10 +162,15 @@ export function SecondaryNavigationPanel() {
           - Reports:    AI-plan cross-sell to Industry Insights Pro
                         (with 30% OFF limited-time pill — sole orange
                         accent in the app)
+          - Catalogue:  catalog-setup checklist + progress (utility nudge
+                        that drives generation; not plan-gated)
 
-          Only ONE card renders per sub-nav since each `is*` flag is
-          mutually exclusive (the active module is one module). */}
-      {(isInsights || isGenie || isLaunch || isReports) && (
+          Each card uses a DISTINCT method so no two sub-nav footers read
+          the same: Genie = radial credit meter, Insights = browser-mock
+          illustration, Launch = big-number ROI, Reports = before/after
+          comparison, Catalogue = setup checklist. Only ONE renders per
+          sub-nav since each `is*` flag is mutually exclusive. */}
+      {(isInsights || isGenie || isLaunch || isReports || isCatalogue) && (
         <div
           aria-hidden
           className="h-px shrink-0 border-t border-foreground/[0.06]"
@@ -173,6 +180,7 @@ export function SecondaryNavigationPanel() {
       {isGenie && <GenieCreditsAddonCard />}
       {isLaunch && <LaunchAutopilotCard />}
       {isReports && <ReportsInsightsCrossCard />}
+      {isCatalogue && <CatalogueFooterCard />}
     </aside>
   );
 }

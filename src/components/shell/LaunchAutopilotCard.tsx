@@ -9,9 +9,18 @@ import { usePlan } from "@/contexts/PlanContext";
  * sub-nav. Targets AI-plan users browsing locked launch surfaces,
  * promoting the Growth Pro tier where Autopilot lives.
  *
- * Differs from the Insights extension card in one respect — the
- * eyebrow uses a lime tint to signal "this is a tier-up, not a side
- * add-on". Otherwise the same compact 96px footer grammar.
+ * Design grammar (Maalik — BIG-NUMBER ROI):
+ *  - Taller than the 96px footer cards (~155-180px) — earns the height
+ *    by leading with a single dominant proof stat instead of a pitch.
+ *  - Lime-tinted Rocket + "GROWTH" eyebrow signals tier-up, not a side
+ *    add-on (vs. the neutral-glyph Insights extension card).
+ *  - Hero: "4 hrs" Geist Bold ~30px (Maalik-authorized "hrs/week saved"
+ *    fact), "/week" as a muted same-baseline suffix, mono-caps subtitle.
+ *  - A faint lime baseline bar grounds the number — subtle, theme-aware.
+ *  - Stat-tick row (50+ ads / 15 accounts / 1-click) uses the 180px
+ *    width to add substance under the hero with 9px mono ticks.
+ *  - One-line context + the same lime CTA chip (slightly bigger 11px).
+ *  - Lime is reserved for glyph, baseline bar, and CTA — never floods.
  */
 
 const STORAGE_KEY = "genie6:launch:autopilot-card-dismissed";
@@ -60,7 +69,7 @@ export function LaunchAutopilotCard() {
     <div className="shrink-0 px-2 py-2">
       <div
         className={cn(
-          "group relative flex flex-col gap-1.5 rounded-md px-2.5 py-2",
+          "group relative flex flex-col gap-2 rounded-md px-2.5 py-2.5",
           "border border-foreground/[0.06] bg-foreground/[0.03]",
           "transition-[transform,border-color,background-color] duration-200 ease-out",
           "hover:-translate-y-[1px] hover:border-primary/30 hover:bg-foreground/[0.045]",
@@ -82,28 +91,81 @@ export function LaunchAutopilotCard() {
           <X className="h-3 w-3" strokeWidth={2.25} />
         </button>
 
+        {/* Eyebrow row: lime Rocket + caps "GROWTH" — signals tier-up.
+            pr-5 leaves room for the hover-revealed dismiss X. */}
         <div className="flex items-center gap-1.5 pr-5">
           <Rocket
             className="h-3.5 w-3.5 shrink-0 text-primary"
             strokeWidth={1.75}
             aria-hidden
           />
-          {/* Eyebrow lime-tinted — signals tier-up, not side add-on. */}
           <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-primary/80">
             Growth
           </span>
         </div>
 
-        <p className="text-[11px] leading-snug text-foreground/70">
-          Auto-launch your top creatives across 15 accounts.
+        {/* Hero number block — the Maalik-authorized "4 hrs/week saved"
+            proof stat. Geist Bold ~30px, tabular figures, with "/week"
+            riding the same baseline as a muted suffix. A faint lime
+            baseline bar grounds the figure (theme-aware via text-primary). */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-baseline gap-1 leading-none">
+            <span className="text-[30px] font-bold tabular-nums tracking-tight text-foreground">
+              4
+            </span>
+            <span className="text-[18px] font-bold tracking-tight text-foreground">
+              hrs
+            </span>
+            <span className="text-[12px] font-medium text-muted-foreground">
+              /week
+            </span>
+          </div>
+          {/* Subtle lime baseline spark under the number. */}
+          <div
+            aria-hidden
+            className="h-px w-7 rounded-full bg-primary/60"
+          />
+          <span className="font-mono text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            Saved on launches
+          </span>
+        </div>
+
+        {/* Supporting stat ticks — uses the 180px width to add substance
+            under the hero. Tiny 9px mono value+label pairs, dot-separated. */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[9px] leading-none text-muted-foreground">
+          <span className="inline-flex items-baseline gap-0.5">
+            <span className="font-semibold text-foreground/75 tabular-nums">50+</span>
+            <span className="uppercase tracking-wide">ads</span>
+          </span>
+          <span aria-hidden className="text-foreground/25">
+            ·
+          </span>
+          <span className="inline-flex items-baseline gap-0.5">
+            <span className="font-semibold text-foreground/75 tabular-nums">15</span>
+            <span className="uppercase tracking-wide">accounts</span>
+          </span>
+          <span aria-hidden className="text-foreground/25">
+            ·
+          </span>
+          <span className="inline-flex items-baseline gap-0.5">
+            <span className="font-semibold text-foreground/75 tabular-nums">1</span>
+            <span className="uppercase tracking-wide">-click</span>
+          </span>
+        </div>
+
+        {/* One-line context — 11px muted, clamps to 2 lines on the
+            narrow column. */}
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Auto-launch winners across every account while you sleep.
         </p>
 
+        {/* CTA chip — lime fill, slightly bigger 11px. Route preserved. */}
         <button
           type="button"
           onClick={() => navigate("/plans-v2?tier=growth&view=trial")}
           className={cn(
-            "mt-0.5 inline-flex w-fit items-center gap-1 rounded-sm px-1.5 py-[3px]",
-            "bg-primary text-[10px] font-medium tracking-tight text-primary-foreground",
+            "mt-0.5 inline-flex w-fit items-center gap-1 rounded-sm px-2 py-[4px]",
+            "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
             "transition-colors duration-150 hover:bg-primary/90",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
