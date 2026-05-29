@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LaunchOrbitalBanner } from "@/components/upsell/illustrations/LaunchOrbitalBanner";
+import { ReportsChartBanner } from "@/components/upsell/illustrations/ReportsChartBanner";
+import { AutomationCircuitBanner } from "@/components/upsell/illustrations/AutomationCircuitBanner";
 
 /**
  * LockedFeatureSellModal — the canonical paywall modal for the entire
@@ -101,6 +104,7 @@ export interface FeaturePreset {
 export const FEATURE_PRESETS: Record<string, FeaturePreset> = {
   reports: {
     eyebrow: "REPORTS",
+    previewIllustration: <ReportsChartBanner className="h-full" />,
     name: "Reports",
     headline:
       "Reports without account-level totals is a spreadsheet you screenshot.",
@@ -113,6 +117,7 @@ export const FEATURE_PRESETS: Record<string, FeaturePreset> = {
   },
   launch: {
     eyebrow: "LAUNCH",
+    previewIllustration: <LaunchOrbitalBanner className="h-full" />,
     name: "Launch",
     headline:
       "Push 50 ads at once with Round Robin, or paste copy 50 times. You pick.",
@@ -125,6 +130,7 @@ export const FEATURE_PRESETS: Record<string, FeaturePreset> = {
   },
   automation: {
     eyebrow: "AUTOMATION",
+    previewIllustration: <AutomationCircuitBanner className="h-full" />,
     name: "Automation",
     headline:
       "Auto-rotate winners and losers nightly, or keep watching dashboards yourself.",
@@ -216,52 +222,82 @@ export function LockedFeatureSellModal({
 
   const PreviewIcon = preset.PreviewIcon ?? Lock;
   const showTalkSales = preset.showTalkSales === true;
+  // When a preset ships a custom illustration, it leads the modal as a
+  // full-bleed hero (eyebrow + headline drop below it). Presets without one
+  // keep the lock-disc header + soft glyph placeholder.
+  const hero = preset.previewIllustration ?? null;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[560px] gap-0 overflow-hidden rounded-2xl p-0">
-        {/* Header */}
-        <div className="flex items-start gap-3 border-b border-foreground/[0.06] px-6 py-4">
-          <span
-            className={cn(
-              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-              "bg-primary/15 ring-1 ring-primary/25",
-            )}
-            aria-hidden
-          >
-            <Lock className="h-4 w-4 text-foreground" strokeWidth={2} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/55">
-              {preset.eyebrow}
-            </p>
-            <DialogTitle className="mt-0.5 text-[20px] font-semibold leading-snug text-foreground">
-              {preset.headline}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {preset.name} is a Growth-tier feature. Start a 14-day Growth trial to use it.
-            </DialogDescription>
-          </div>
-        </div>
-
-        {/* Preview region — placeholder with feature glyph. Wire real
-            screenshots later via the FeaturePreset.previewIllustration
-            prop. The placeholder reads as deliberate, not unfinished —
-            soft gradient + centered glyph. */}
-        <div className="px-6 pt-5">
-          {preset.previewIllustration ?? (
-            <div
-              className={cn(
-                "flex aspect-[3/1] w-full items-center justify-center",
-                "rounded-xl bg-gradient-to-br from-foreground/[0.03] to-foreground/[0.07]",
-                "ring-1 ring-inset ring-foreground/[0.04]",
-              )}
-              aria-hidden
-            >
-              <PreviewIcon className="h-10 w-10 text-foreground/30" />
+        {hero ? (
+          <>
+            {/* Full-bleed illustrated hero — leads the modal. Each gated
+                module ships a distinct genre (orbital / chart / circuit),
+                so the illustration is the modal's visual identity, not a
+                placeholder glyph. */}
+            <div className="relative h-[196px] w-full overflow-hidden border-b border-foreground/[0.06] bg-gradient-to-b from-primary/[0.05] to-transparent">
+              {hero}
+              {/* Bottom fade so the art meets the copy block cleanly. */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background to-transparent"
+              />
             </div>
-          )}
-        </div>
+            {/* Eyebrow + headline below the hero */}
+            <div className="px-6 pt-4">
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/55">
+                {preset.eyebrow}
+              </p>
+              <DialogTitle className="mt-1 text-[20px] font-semibold leading-snug text-foreground">
+                {preset.headline}
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {preset.name} is a Growth-tier feature. Start a 14-day Growth trial to use it.
+              </DialogDescription>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Header — lock disc + eyebrow + headline (glyph-fallback presets) */}
+            <div className="flex items-start gap-3 border-b border-foreground/[0.06] px-6 py-4">
+              <span
+                className={cn(
+                  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                  "bg-primary/15 ring-1 ring-primary/25",
+                )}
+                aria-hidden
+              >
+                <Lock className="h-4 w-4 text-foreground" strokeWidth={2} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-foreground/55">
+                  {preset.eyebrow}
+                </p>
+                <DialogTitle className="mt-0.5 text-[20px] font-semibold leading-snug text-foreground">
+                  {preset.headline}
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  {preset.name} is a Growth-tier feature. Start a 14-day Growth trial to use it.
+                </DialogDescription>
+              </div>
+            </div>
+
+            {/* Soft glyph placeholder — deliberate, not unfinished. */}
+            <div className="px-6 pt-5">
+              <div
+                className={cn(
+                  "flex aspect-[3/1] w-full items-center justify-center",
+                  "rounded-xl bg-gradient-to-br from-foreground/[0.03] to-foreground/[0.07]",
+                  "ring-1 ring-inset ring-foreground/[0.04]",
+                )}
+                aria-hidden
+              >
+                <PreviewIcon className="h-10 w-10 text-foreground/30" />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Sub-bullets — specific facts about what's missing */}
         <ul className="space-y-2.5 px-6 pt-5">
