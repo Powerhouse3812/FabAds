@@ -9,7 +9,7 @@ import type { WarmupConfig } from "@/components/autopilot/AutoPilotWarmupConfigT
 import type { AccountState } from "@/components/autopilot/AutoPilotAccountsTab";
 import { Rocket } from "lucide-react";
 import { usePlan } from "@/contexts/PlanContext";
-import { UpsellEmptyState } from "@/components/upsell/UpsellEmptyState";
+import { AutomationUpsellPage } from "@/components/upsell/AutomationUpsellPage";
 
 let nextStrategyId = 3;
 let nextWarmupId = 3;
@@ -127,18 +127,7 @@ export default function AutoPilotLaunch() {
   // matches the LaunchAutopilotCard sub-nav nudge with the same headline
   // claim so the user can connect the two surfaces.
   if (plan === "ai") {
-    return (
-      <UpsellEmptyState
-        featureName="Autopilot launches"
-        valueProp="Auto-launch your top creatives across 15 accounts."
-        targetTier="growth"
-        bullets={[
-          "Per-account launch strategies + nomenclature",
-          "Warm-up windows + cooldown between launches",
-          "Pause on rejection % thresholds",
-        ]}
-      />
-    );
+    return <AutomationUpsellPage />;
   }
 
   // Launch strategies

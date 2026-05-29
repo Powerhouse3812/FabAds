@@ -15,8 +15,6 @@ import {
   Lock,
   Music,
   Newspaper,
-  Sliders,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -117,15 +115,37 @@ export function UpsellRow({ className }: UpsellRowProps) {
           Multi-account totals without a CSV export to Sheets.
         </p>
 
-        {/* Middle preview: 4 vertical bars simulating bar chart */}
-        <div className="mt-2 flex items-end justify-center gap-1.5">
-          <span aria-hidden className="h-2 w-3 rounded-full bg-foreground/70" />
-          <span aria-hidden className="h-3 w-3 rounded-full bg-primary" />
-          <span aria-hidden className="h-1.5 w-3 rounded-full bg-foreground/40" />
-          <span aria-hidden className="h-3 w-3 rounded-full bg-foreground/80" />
+        {/* Middle preview: blurred-table preview */}
+        <div className="mt-auto flex-1 flex flex-col justify-end gap-1 overflow-hidden rounded-lg border border-border/30 bg-muted/20 px-2 py-1.5">
+          {/* Column headers */}
+          <div className="flex items-center gap-1.5 border-b border-border/30 pb-1 mb-1">
+            {["Account", "ROAS", "Spend"].map((h) => (
+              <span key={h} className="flex-1 font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground/60 text-center">
+                {h}
+              </span>
+            ))}
+          </div>
+          {/* 3 blurred rows — grey rectangles of varying widths */}
+          {[
+            [80, 60, 90],
+            [50, 70, 55],
+            [85, 45, 75],
+          ].map((widths, i) => (
+            <div key={i} className="flex items-center gap-1.5 py-0.5">
+              {widths.map((w, j) => (
+                <div key={j} className="flex-1 flex justify-center">
+                  <span
+                    aria-hidden
+                    className="block h-1.5 rounded-full bg-foreground/15"
+                    style={{ width: `${w}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
 
-        <div className="mt-auto">
+        <div>
           <CtaPill label="See sample report" href={REPORTS_CTA_HREF} />
         </div>
       </div>
@@ -141,23 +161,22 @@ export function UpsellRow({ className }: UpsellRowProps) {
           Auto-pause losers. Scale winners.
         </h3>
         <p className="text-[11px] font-normal leading-snug text-muted-foreground">
-          Rules-based optimization while you sleep — no Excel scripting.
+          Agency buyers on Growth Auto-Pilot. Manual is 4 hrs you don't have.
         </p>
 
-        {/* Middle preview: sliders square w/ lime sparkle overlay */}
-        <div className="mt-2 flex justify-center">
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-border/60 bg-card">
-            <Sliders className="h-5 w-5 text-foreground/80" strokeWidth={2} aria-hidden />
-            <span
-              aria-hidden
-              className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary"
-            >
-              <Sparkles className="h-2.5 w-2.5 text-foreground" strokeWidth={2.5} />
+        {/* Middle preview: agency-time cost number */}
+        <div className="mt-auto flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-0.5 rounded-xl bg-muted/40 border border-border/40 px-4 py-2">
+            <span className="font-mono text-[22px] font-bold tabular-nums leading-none text-foreground">
+              4 hrs
+            </span>
+            <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-muted-foreground/60 leading-none">
+              /week · saved
             </span>
           </div>
         </div>
 
-        <div className="mt-auto">
+        <div>
           <CtaPill label="Set up rules" />
         </div>
       </div>
