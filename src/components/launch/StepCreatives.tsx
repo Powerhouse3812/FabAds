@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LaunchPreviewModal } from "./LaunchPreviewModal";
@@ -11,11 +11,17 @@ import { AdGroupsTableTab } from "./AdGroupsTableTab";
 import { AdsTableTab } from "./AdsTableTab";
 import { AdBulkEditToolbar } from "./AdBulkEditToolbar";
 import { AdGroupBulkToolbar } from "./AdGroupBulkToolbar";
+import { LaunchStrategyBar } from "./LaunchStrategyBar";
+import { LaunchDistributionPreview } from "./LaunchDistributionPreview";
+import { LaunchConfirmDialog } from "./LaunchConfirmDialog";
 import { useWorkspaceTexts } from "@/hooks/use-workspace-texts";
 import { useBulkUpdateAds, useUpdateLaunchStep, useBulkUpdateAdsets, useDuplicateAd, useDeleteAd, useAddAd } from "@/hooks/use-launch-mutations";
 import { validateStep3, scrollToFirstError } from "@/lib/launch-validation";
 import { toast } from "@/hooks/use-toast";
 import type { LaunchFull } from "@/hooks/use-launch-data";
+import { rollupSelection, type SelectionLevel } from "@/lib/launch-selection-rollup";
+import { useLaunchDistribution, resolveLaunchCurrency } from "@/hooks/use-launch-distribution";
+import { toDistAdsets } from "./distribution/distribution-view-helpers";
 
 interface StepCreativesProps {
   launchData: LaunchFull;
@@ -28,7 +34,16 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   const [search, setSearch] = useState("");
   const [selectedAds, setSelectedAds] = useState<Set<string>>(new Set());
   const [selectedAdGroups, setSelectedAdGroups] = useState<Set<string>>(new Set());
+  // Lifted out of CampaignsTableTab / AdAccountsTab so the distribution bar can
+  // roll selections up (and constrain account-level) across all tabs.
+  const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
   const [showLaunchPreview, setShowLaunchPreview] = useState(false);
+
+  // Distribution surfaces (Slice 2).
+  const [showDistPreview, setShowDistPreview] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [overflowAsPausedOverride, setOverflowAsPausedOverride] = useState<boolean | null>(null);
 
   const { data: workspaceTexts } = useWorkspaceTexts();
   const bulkUpdate = useBulkUpdateAds();
@@ -39,6 +54,28 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   const updateStep = useUpdateLaunchStep();
 
   const accountCount = launchData.ad_accounts.length;
+
+  // ─── Distribution config + rollup ───────────────────────────────────────────
+  const dist = useLaunchDistribution(launchData);
+  const currency = useMemo(() => resolveLaunchCurrency(launchData), [launchData]);
+  const distAdsets = useMemo(() => toDistAdsets(launchData, currency), [launchData, currency]);
+  const overflowAsPaused = overflowAsPausedOverride ?? dist.overflowAsPaused;
+
+  const rollup = useMemo(
+    () =>
+      rollupSelection(
+        launchData,
+        { accounts: selectedAccounts, campaigns: selectedCampaigns, adgroups: selectedAdGroups, ads: selectedAds },
+        activeTab as SelectionLevel
+      ),
+    [launchData, selectedAccounts, selectedCampaigns, selectedAdGroups, selectedAds, activeTab]
+  );
+
+  // Show the bar when there is something to distribute, OR when the user is on the
+  // Accounts tab with an account-level selection (so we can surface the constraint).
+  const showStrategyBar = rollup.adIds.length > 0 || (activeTab === "accounts" && rollup.accountConstrained);
+
+  const goToTab = (tab: string) => setActiveTab(tab);
 
   const handleBulkApply = (fields: Record<string, any>) => {
     bulkUpdate.mutate({ ids: Array.from(selectedAds), launchId: launchData.id, fields });
@@ -67,7 +104,24 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
       {/* Toolbar */}
       <StepCreativesToolbar launchData={launchData} search={search} onSearchChange={setSearch} />
 
-      {/* Bulk toolbars */}
+      {/* Distribution strategy bar (sticky) — composes ABOVE per-level toolbars. */}
+      {showStrategyBar && (
+        <LaunchStrategyBar
+          rollup={rollup}
+          strategy={dist.strategy}
+          targetPairs={dist.targetPairs}
+          capacities={dist.capacities}
+          distAdsets={distAdsets}
+          configured={dist.configured}
+          onPreview={() => setShowDistPreview(true)}
+          onLaunch={() => setShowDistPreview(true)}
+          onChangeStrategy={onBack}
+          onChangePages={onBack}
+          onReduceSelection={() => goToTab("ads")}
+        />
+      )}
+
+      {/* Bulk toolbars (kept intact, rendered below the strategy bar) */}
       {activeTab === "ads" && selectedAds.size > 0 && (
         <AdBulkEditToolbar
           selectedCount={selectedAds.size}
@@ -111,11 +165,11 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
         </TabsList>
 
         <TabsContent value="accounts" className="mt-4">
-          <AdAccountsTab launchData={launchData} />
+          <AdAccountsTab launchData={launchData} selectedAccounts={selectedAccounts} onSelectionChange={setSelectedAccounts} />
         </TabsContent>
 
         <TabsContent value="campaigns" className="mt-4">
-          <CampaignsTableTab launchData={launchData} />
+          <CampaignsTableTab launchData={launchData} selectedCampaigns={selectedCampaigns} onSelectionChange={setSelectedCampaigns} />
         </TabsContent>
 
         <TabsContent value="adgroups" className="mt-4">
@@ -149,11 +203,49 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
         </div>
       </div>
 
-      {/* Launch Preview Modal */}
+      {/* Launch Preview Modal (existing full-launch path) */}
       <LaunchPreviewModal
         open={showLaunchPreview}
         onClose={() => setShowLaunchPreview(false)}
         launchData={launchData}
+      />
+
+      {/* Distribution Preview (Slice 2) */}
+      <LaunchDistributionPreview
+        open={showDistPreview}
+        onClose={() => setShowDistPreview(false)}
+        rollup={rollup}
+        strategy={dist.strategy}
+        targetPairs={dist.targetPairs}
+        capacities={dist.capacities}
+        backendSupportsOverflow={dist.backendSupportsOverflow}
+        overflowAsPaused={overflowAsPaused}
+        onOverflowAsPausedChange={setOverflowAsPausedOverride}
+        onConfirm={() => {
+          setShowDistPreview(false);
+          setShowConfirm(true);
+        }}
+        onChangeStrategy={() => {
+          setShowDistPreview(false);
+          onBack();
+        }}
+        onChangePages={() => {
+          setShowDistPreview(false);
+          onBack();
+        }}
+      />
+
+      {/* Distribution Confirm (Slice 2) */}
+      <LaunchConfirmDialog
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        launch={launchData}
+        rollup={rollup}
+        strategy={dist.strategy}
+        targetPairs={dist.targetPairs}
+        capacities={dist.capacities}
+        distAdsets={distAdsets}
+        overflowAsPaused={overflowAsPaused}
       />
     </div>
   );

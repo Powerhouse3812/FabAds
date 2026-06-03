@@ -24,6 +24,22 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   failed: "destructive",
 };
 
+const STRATEGY_LABEL: Record<string, string> = {
+  fill_first: "Fill First",
+  equal: "Equal",
+  duplicate: "Duplicate",
+};
+
+// Resolve the launch strategy from the column (post-migration) OR the
+// launch_config.distribution JSON Step 1 writes (always present). "—" when
+// neither carries one (non-distributed launch).
+function resolveStrategy(launch: LaunchWithCounts): string | null {
+  const col = launch.launch_strategy;
+  if (col && STRATEGY_LABEL[col]) return col;
+  const fromConfig = (launch.launch_config as any)?.distribution?.strategy;
+  return fromConfig && STRATEGY_LABEL[fromConfig] ? fromConfig : null;
+}
+
 interface Props {
   launches: LaunchWithCounts[];
   onViewDetails: (launch: LaunchWithCounts) => void;
@@ -58,6 +74,7 @@ export function LaunchHistoryTable({ launches, onViewDetails, onRelaunch, onDele
           <TableRow>
             <TableHead>Launch Name</TableHead>
             <TableHead>Type</TableHead>
+            <TableHead>Strategy</TableHead>
             <TableHead>Platform</TableHead>
             <TableHead className="text-center">Campaigns</TableHead>
             <TableHead className="text-center">Adsets</TableHead>
@@ -114,6 +131,16 @@ export function LaunchHistoryTable({ launches, onViewDetails, onRelaunch, onDele
                 </div>
               </TableCell>
               <TableCell>
+                {(() => {
+                  const strat = resolveStrategy(launch);
+                  return strat ? (
+                    <Badge variant="outline">{STRATEGY_LABEL[strat]}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  );
+                })()}
+              </TableCell>
+              <TableCell>
                 <Badge variant="outline">Facebook</Badge>
               </TableCell>
               <TableCell>
@@ -164,7 +191,7 @@ export function LaunchHistoryTable({ launches, onViewDetails, onRelaunch, onDele
                         <DropdownMenuItem onClick={() => onRelaunch(launch.id)}>
                           <Copy className="mr-2 h-4 w-4" /> Relaunch
                         </DropdownMenuItem>
-                        <DropdownMenuItem disabled>
+                        <DropdownMenuItem onClick={() => navigate(`/launch/${launch.id}/report`)}>
                           <BarChart3 className="mr-2 h-4 w-4" /> Go to Report
                         </DropdownMenuItem>
                       </>

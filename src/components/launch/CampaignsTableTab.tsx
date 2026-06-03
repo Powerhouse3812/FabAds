@@ -12,12 +12,14 @@ import type { LaunchFull } from "@/hooks/use-launch-data";
 
 interface Props {
   launchData: LaunchFull;
+  /** Lifted into StepCreatives so the distribution bar can roll campaigns up. */
+  selectedCampaigns: Set<string>;
+  onSelectionChange: (s: Set<string>) => void;
 }
 
-export function CampaignsTableTab({ launchData }: Props) {
+export function CampaignsTableTab({ launchData, selectedCampaigns, onSelectionChange }: Props) {
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdsets, setExpandedAdsets] = useState<Set<string>>(new Set());
-  const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
 
@@ -51,8 +53,8 @@ export function CampaignsTableTab({ launchData }: Props) {
 
   const allSelected = launchData.campaigns.length > 0 && launchData.campaigns.every((c) => selectedCampaigns.has(c.id));
   const toggleAll = () => {
-    if (allSelected) setSelectedCampaigns(new Set());
-    else setSelectedCampaigns(new Set(launchData.campaigns.map((c) => c.id)));
+    if (allSelected) onSelectionChange(new Set());
+    else onSelectionChange(new Set(launchData.campaigns.map((c) => c.id)));
   };
 
   // Extract countries from adset targeting
@@ -101,7 +103,7 @@ export function CampaignsTableTab({ launchData }: Props) {
                       onCheckedChange={() => {
                         const next = new Set(selectedCampaigns);
                         next.has(camp.id) ? next.delete(camp.id) : next.add(camp.id);
-                        setSelectedCampaigns(next);
+                        onSelectionChange(next);
                       }}
                     />
                   </TableCell>

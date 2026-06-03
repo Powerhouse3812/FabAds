@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronRight, ChevronDown, MoreHorizontal, Copy, Trash2, Settings } from "lucide-react";
+import { ChevronRight, ChevronDown, MoreHorizontal, Copy, Trash2, Settings, Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -16,14 +16,20 @@ import type { LaunchFull } from "@/hooks/use-launch-data";
 
 interface Props {
   launchData: LaunchFull;
+  /**
+   * Lifted into StepCreatives. Account-level selection is CONSTRAINED for bulk
+   * distribution (ads carry no account FK) — the distribution bar shows a notice
+   * and ignores it. We still track the selection here for UI affordances.
+   */
+  selectedAccounts: Set<string>;
+  onSelectionChange: (s: Set<string>) => void;
 }
 
-export function AdAccountsTab({ launchData }: Props) {
+export function AdAccountsTab({ launchData, selectedAccounts, onSelectionChange }: Props) {
   const workspaceId = useWorkspace();
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
   const [expandedAdsets, setExpandedAdsets] = useState<Set<string>>(new Set());
-  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
 
   const { data: fbAccounts } = useQuery({
     queryKey: ["fb-ad-accounts", workspaceId],
@@ -76,14 +82,24 @@ export function AdAccountsTab({ launchData }: Props) {
 
   const allSelected = launchData.ad_accounts.length > 0 && launchData.ad_accounts.every((a) => selectedAccounts.has(a.id));
   const toggleAll = () => {
-    if (allSelected) setSelectedAccounts(new Set());
-    else setSelectedAccounts(new Set(launchData.ad_accounts.map((a) => a.id)));
+    if (allSelected) onSelectionChange(new Set());
+    else onSelectionChange(new Set(launchData.ad_accounts.map((a) => a.id)));
   };
 
   const COL_COUNT = 9;
 
   return (
     <div className="space-y-4">
+      {/* Account-level selection cannot be distributed (no ad-account FK on ads). */}
+      {selectedAccounts.size > 0 && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5">
+          <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          <p className="text-xs text-muted-foreground">
+            Account-level selection isn't supported for bulk distribution. To distribute, select at the
+            Campaign, Ad Set, or Ad level.
+          </p>
+        </div>
+      )}
       <div className="border border-border rounded-md overflow-auto">
         <Table>
           <TableHeader>
@@ -114,7 +130,7 @@ export function AdAccountsTab({ launchData }: Props) {
                         onCheckedChange={() => {
                           const next = new Set(selectedAccounts);
                           next.has(acc.id) ? next.delete(acc.id) : next.add(acc.id);
-                          setSelectedAccounts(next);
+                          onSelectionChange(next);
                         }}
                       />
                     </TableCell>

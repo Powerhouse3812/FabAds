@@ -15,6 +15,19 @@ export interface Launch {
   last_modified_by: string | null;
   created_at: string;
   updated_at: string;
+  // ── Bulk Launch Distribution summary (select is `*`, may be absent
+  //    until the migration is applied — all optional) ───────────────
+  launch_batch_id?: string | null;
+  launch_strategy?: "fill_first" | "equal" | "duplicate" | null;
+  selected_ads_count?: number;
+  created_ads_count?: number;
+  active_count?: number;
+  paused_count?: number;
+  target_pairs_count?: number;
+  unique_pages_count?: number;
+  budget_before?: number | null;
+  budget_after?: number | null;
+  budget_multiplier?: number;
 }
 
 export interface LaunchWithCounts extends Launch {

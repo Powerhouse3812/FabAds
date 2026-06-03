@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useReportsData } from "@/hooks/use-reports-data";
-import { METRIC_COLUMNS, GROUPING_OPTIONS, type ReportEntity } from "@/lib/reports-dummy-data";
+import { METRIC_COLUMNS, GROUPING_OPTIONS, getLaunchFilterOptions, type ReportEntity } from "@/lib/reports-dummy-data";
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
 import { ReportsTable } from "@/components/reports/ReportsTable";
@@ -28,6 +28,15 @@ export default function AdsReport() {
   const [visibleColumns, setVisibleColumns] = useState(METRIC_COLUMNS.map((c) => c.key));
   const [dateSeed, setDateSeed] = useState(0);
 
+  // ── Bulk Launch Distribution provenance filters ──────────────────
+  const ALL = "__all__";
+  const [launchStrategies, setLaunchStrategies] = useState<string[]>([]);
+  const [launchBatchId, setLaunchBatchId] = useState(ALL);
+  const [destinationFbPageId, setDestinationFbPageId] = useState(ALL);
+  const [destinationAdAccountName, setDestinationAdAccountName] = useState(ALL);
+  const [sourceAdName, setSourceAdName] = useState(ALL);
+  const launchFilters = useMemo(() => getLaunchFilterOptions(dateSeed), [dateSeed]);
+
   const groupingOptions = GROUPING_OPTIONS.ads;
   const pg = groupingOptions.find((o) => o.value === primaryGroupBy) ?? null;
   const sg = groupingOptions.find((o) => o.value === secondaryGroupBy) ?? null;
@@ -36,6 +45,11 @@ export default function AdsReport() {
     level: "ad", parentId, search, platforms, statuses,
     primaryGroupBy: pg, secondaryGroupBy: sg,
     sortColumn, sortDirection, page, pageSize: 25, dateSeed,
+    launchStrategies,
+    launchBatchId: launchBatchId === ALL ? null : launchBatchId,
+    destinationFbPageId: destinationFbPageId === ALL ? null : destinationFbPageId,
+    destinationAdAccountName: destinationAdAccountName === ALL ? null : destinationAdAccountName,
+    sourceAdName: sourceAdName === ALL ? null : sourceAdName,
   });
 
   const handleSort = (col: string) => {
@@ -86,6 +100,12 @@ export default function AdsReport() {
         onRefresh={() => setDateSeed((s) => s + 1)}
         onExport={exportCsv}
         onColumnSettings={() => setColSettingsOpen(true)}
+        launchFilters={launchFilters}
+        launchStrategies={launchStrategies} onLaunchStrategiesChange={setLaunchStrategies}
+        launchBatchId={launchBatchId} onLaunchBatchIdChange={setLaunchBatchId}
+        destinationFbPageId={destinationFbPageId} onDestinationFbPageIdChange={setDestinationFbPageId}
+        destinationAdAccountName={destinationAdAccountName} onDestinationAdAccountNameChange={setDestinationAdAccountName}
+        sourceAdName={sourceAdName} onSourceAdNameChange={setSourceAdName}
       />
 
       {isRefreshing ? <PageSkeleton /> : (

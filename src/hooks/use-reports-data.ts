@@ -39,6 +39,12 @@ interface UseReportsDataParams {
   pageSize?: number;
   dateSeed?: number;
   creativeType?: "image" | "video" | null;
+  // ── Bulk Launch Distribution provenance filters ──────────────────
+  launchStrategies?: string[]; // multi-select chips (fill_first/equal/duplicate)
+  launchBatchId?: string | null; // single select
+  destinationFbPageId?: string | null; // single select (fb_page_id)
+  destinationAdAccountName?: string | null; // single select
+  sourceAdName?: string | null; // single select
 }
 
 export function useReportsData({
@@ -55,6 +61,11 @@ export function useReportsData({
   pageSize = 25,
   dateSeed = 0,
   creativeType = null,
+  launchStrategies = [],
+  launchBatchId = null,
+  destinationFbPageId = null,
+  destinationAdAccountName = null,
+  sourceAdName = null,
 }: UseReportsDataParams) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const prevFilters = useRef("");
@@ -64,6 +75,8 @@ export function useReportsData({
     primaryGroupBy: primaryGroupBy?.value,
     secondaryGroupBy: secondaryGroupBy?.value,
     dateSeed, creativeType,
+    launchStrategies, launchBatchId, destinationFbPageId,
+    destinationAdAccountName, sourceAdName,
   });
 
   useEffect(() => {
@@ -102,8 +115,29 @@ export function useReportsData({
       items = items.filter((e) => statuses.includes(e.status));
     }
 
+    // ── Launch provenance filters ──────────────────────────────────
+    if (launchStrategies.length > 0) {
+      items = items.filter((e) => e.launchStrategy != null && launchStrategies.includes(e.launchStrategy));
+    }
+    if (launchBatchId) {
+      items = items.filter((e) => e.launchBatchId === launchBatchId);
+    }
+    if (destinationFbPageId) {
+      items = items.filter((e) => e.destinationFbPageId === destinationFbPageId);
+    }
+    if (destinationAdAccountName) {
+      items = items.filter((e) => e.destinationAdAccountName === destinationAdAccountName);
+    }
+    if (sourceAdName) {
+      items = items.filter((e) => e.sourceAdName === sourceAdName);
+    }
+
     return items;
-  }, [level, parentId, search, platforms, statuses, dateSeed, creativeType]);
+  }, [
+    level, parentId, search, platforms, statuses, dateSeed, creativeType,
+    launchStrategies, launchBatchId, destinationFbPageId,
+    destinationAdAccountName, sourceAdName,
+  ]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];

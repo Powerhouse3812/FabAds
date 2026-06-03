@@ -1390,6 +1390,44 @@ export type Database = {
           },
         ]
       }
+      fb_pages: {
+        Row: {
+          active_ad_count: number
+          fb_ad_account_id: string | null
+          fb_page_id: string
+          id: string
+          name: string | null
+          status: string | null
+          workspace_id: string
+        }
+        Insert: {
+          active_ad_count?: number
+          fb_ad_account_id?: string | null
+          fb_page_id: string
+          id?: string
+          name?: string | null
+          status?: string | null
+          workspace_id: string
+        }
+        Update: {
+          active_ad_count?: number
+          fb_ad_account_id?: string | null
+          fb_page_id?: string
+          id?: string
+          name?: string | null
+          status?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fb_pages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fb_tokens: {
         Row: {
           access_token: string
@@ -2064,8 +2102,15 @@ export type Database = {
       launch_ads: {
         Row: {
           adset_id: string
+          budget_after: number | null
+          budget_before: number | null
+          budget_multiplier: number
+          copy_group_id: string | null
+          created_ad_id: string | null
           cta: string | null
           description: string | null
+          destination_ad_account_id: string | null
+          destination_fb_page_id: string | null
           destination_url: string | null
           display_link: string | null
           headline: string | null
@@ -2076,13 +2121,22 @@ export type Database = {
           name: string
           primary_text: string | null
           sort_order: number
+          source_ad_id: string | null
           status: string
+          target_pair_id: string | null
           workspace_id: string
         }
         Insert: {
           adset_id: string
+          budget_after?: number | null
+          budget_before?: number | null
+          budget_multiplier?: number
+          copy_group_id?: string | null
+          created_ad_id?: string | null
           cta?: string | null
           description?: string | null
+          destination_ad_account_id?: string | null
+          destination_fb_page_id?: string | null
           destination_url?: string | null
           display_link?: string | null
           headline?: string | null
@@ -2093,13 +2147,22 @@ export type Database = {
           name?: string
           primary_text?: string | null
           sort_order?: number
+          source_ad_id?: string | null
           status?: string
+          target_pair_id?: string | null
           workspace_id: string
         }
         Update: {
           adset_id?: string
+          budget_after?: number | null
+          budget_before?: number | null
+          budget_multiplier?: number
+          copy_group_id?: string | null
+          created_ad_id?: string | null
           cta?: string | null
           description?: string | null
+          destination_ad_account_id?: string | null
+          destination_fb_page_id?: string | null
           destination_url?: string | null
           display_link?: string | null
           headline?: string | null
@@ -2110,7 +2173,9 @@ export type Database = {
           name?: string
           primary_text?: string | null
           sort_order?: number
+          source_ad_id?: string | null
           status?: string
+          target_pair_id?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -2287,44 +2352,77 @@ export type Database = {
       }
       launches: {
         Row: {
+          active_count: number
+          budget_after: number | null
+          budget_before: number | null
+          budget_multiplier: number
           completed_step: number
+          created_ads_count: number
           created_at: string
           created_by: string
           id: string
           last_modified_by: string | null
+          launch_batch_id: string | null
           launch_config: Json | null
+          launch_strategy: string | null
           name: string
+          paused_count: number
           platform: string
+          selected_ads_count: number
           status: string
+          target_pairs_count: number
           targeting_template_id: string | null
+          unique_pages_count: number
           updated_at: string
           workspace_id: string
         }
         Insert: {
+          active_count?: number
+          budget_after?: number | null
+          budget_before?: number | null
+          budget_multiplier?: number
           completed_step?: number
+          created_ads_count?: number
           created_at?: string
           created_by: string
           id?: string
           last_modified_by?: string | null
+          launch_batch_id?: string | null
           launch_config?: Json | null
+          launch_strategy?: string | null
           name: string
+          paused_count?: number
           platform?: string
+          selected_ads_count?: number
           status?: string
+          target_pairs_count?: number
           targeting_template_id?: string | null
+          unique_pages_count?: number
           updated_at?: string
           workspace_id: string
         }
         Update: {
+          active_count?: number
+          budget_after?: number | null
+          budget_before?: number | null
+          budget_multiplier?: number
           completed_step?: number
+          created_ads_count?: number
           created_at?: string
           created_by?: string
           id?: string
           last_modified_by?: string | null
+          launch_batch_id?: string | null
           launch_config?: Json | null
+          launch_strategy?: string | null
           name?: string
+          paused_count?: number
           platform?: string
+          selected_ads_count?: number
           status?: string
+          target_pairs_count?: number
           targeting_template_id?: string | null
+          unique_pages_count?: number
           updated_at?: string
           workspace_id?: string
         }

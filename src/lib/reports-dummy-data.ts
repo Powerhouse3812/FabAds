@@ -1,3 +1,5 @@
+import type { LaunchStrategy } from "@/lib/launch-distribution";
+
 // ── Types ──────────────────────────────────────────────────────────
 
 export type EntityLevel = "account" | "campaign" | "adset" | "ad";
@@ -59,6 +61,16 @@ export interface ReportEntity {
   metrics: ReportMetrics;
   creative?: CreativeData;
   parentName?: string;
+  // ── Bulk Launch Distribution provenance (optional) ───────────────
+  // Tagged on a subset of entities so the analytics report can be filtered
+  // by where an entity came from. Absent on entities not produced by a
+  // distributed bulk launch.
+  launchBatchId?: string;
+  launchStrategy?: LaunchStrategy;
+  destinationFbPageId?: string;
+  destinationPageName?: string;
+  destinationAdAccountName?: string;
+  sourceAdName?: string;
 }
 
 // ── Seeded random ─────────────────────────────────────────────────
@@ -108,6 +120,26 @@ const PRIMARY_TEXTS = [
 const DESCRIPTIONS = [
   "Premium quality guaranteed", "Fast & free delivery",
   "30-day money-back guarantee", "Trusted by 10K+ customers",
+];
+
+// ── Bulk Launch Distribution provenance pools ────────────────────────
+// A subset of ad-level entities is tagged as having come from a distributed
+// bulk launch. These power the analytics provenance filters.
+const LAUNCH_BATCHES = [
+  { id: "batch_spring", strategy: "fill_first" as LaunchStrategy },
+  { id: "batch_summer", strategy: "equal" as LaunchStrategy },
+  { id: "batch_bfcm", strategy: "duplicate" as LaunchStrategy },
+];
+const DESTINATION_PAGES = [
+  { fbPageId: "fbp_brand_001", pageName: "Acme Brand Page", accountName: "Acme Corp US" },
+  // Same Facebook Page identity linked under a DIFFERENT account (shared page).
+  { fbPageId: "fbp_brand_001", pageName: "Acme Brand Page", accountName: "Acme Corp EU" },
+  { fbPageId: "fbp_shop_002", pageName: "ShopMax Storefront", accountName: "ShopMax Direct" },
+  { fbPageId: "fbp_trend_003", pageName: "TrendWave Page", accountName: "TrendWave Media" },
+];
+const SOURCE_AD_NAMES_POOL = [
+  "UGC Hook — Skin Glow", "Static — Bold Discount", "Carousel — Bestsellers",
+  "Video — Founder Story", "Static — Social Proof",
 ];
 
 function generateMetrics(rand: () => number, scale: number): ReportMetrics {
@@ -184,12 +216,26 @@ export function generateDataset(dateSeed = 0): ReportEntity[] {
           const adId = `ad_${a}_${c}_${s}_${d}`;
           const creativeType: CreativeType = rand() > 0.5 ? "image" : "video";
           const adType = pick(AD_TYPES, rand);
+          // Tag ~40% of ads with bulk-launch provenance (deterministic via rand).
+          const isDistributed = rand() < 0.4;
+          const batch = isDistributed ? pick(LAUNCH_BATCHES, rand) : null;
+          const dest = isDistributed ? pick(DESTINATION_PAGES, rand) : null;
           entities.push({
             id: adId, name: `Ad ${adType} #${a * 1000 + c * 100 + s * 10 + d + 1}`,
             parentId: asId, level: "ad", status: pick(STATUSES, rand),
             platform: accPlatform, country: accCountry,
             metrics: generateMetrics(rand, 1),
             parentName: `AdSet ${bt} #${a * 100 + c * 10 + s + 1}`,
+            ...(batch && dest
+              ? {
+                  launchBatchId: batch.id,
+                  launchStrategy: batch.strategy,
+                  destinationFbPageId: dest.fbPageId,
+                  destinationPageName: dest.pageName,
+                  destinationAdAccountName: dest.accountName,
+                  sourceAdName: pick(SOURCE_AD_NAMES_POOL, rand),
+                }
+              : {}),
             creative: {
               id: `cr_${adId}`, adId,
               type: creativeType,
@@ -297,6 +343,13 @@ export interface GroupingOption {
   getKey: (e: ReportEntity) => string;
 }
 
+// Human labels for the launch strategy enum (used in grouping + chips).
+export const STRATEGY_LABELS: Record<string, string> = {
+  fill_first: "Fill First",
+  equal: "Equal Distribution",
+  duplicate: "Duplicate to Each",
+};
+
 export const GROUPING_OPTIONS: Record<string, GroupingOption[]> = {
   accounts: [
     { value: "platform", label: "Platform", getKey: (e) => e.platform },
@@ -318,6 +371,11 @@ export const GROUPING_OPTIONS: Record<string, GroupingOption[]> = {
     { value: "parentName", label: "Ad Set", getKey: (e) => e.parentName || "Unknown" },
     { value: "status", label: "Status", getKey: (e) => e.status },
     { value: "platform", label: "Platform", getKey: (e) => e.platform },
+    { value: "launchStrategy", label: "Launch Strategy", getKey: (e) => STRATEGY_LABELS[e.launchStrategy ?? ""] ?? "Not from launch" },
+    { value: "launchBatchId", label: "Launch Batch", getKey: (e) => e.launchBatchId || "Not from launch" },
+    { value: "destinationPageName", label: "Destination Page", getKey: (e) => e.destinationPageName || "Not from launch" },
+    { value: "destinationAdAccountName", label: "Destination Account", getKey: (e) => e.destinationAdAccountName || "Not from launch" },
+    { value: "sourceAdName", label: "Source Ad", getKey: (e) => e.sourceAdName || "Not from launch" },
   ],
   creativeImage: [
     { value: "adGroupName", label: "Ad Group", getKey: (e) => e.creative?.adGroupName || "Unknown" },
@@ -334,3 +392,60 @@ export const GROUPING_OPTIONS: Record<string, GroupingOption[]> = {
     { value: "platform", label: "Platform", getKey: (e) => e.platform },
   ],
 };
+
+// ── Launch provenance filter options ─────────────────────────────────
+// Derived from the dataset so the toolbar dropdowns only offer values that
+// actually appear. The Launch Strategy axis is fixed (the 3 strategies).
+
+export interface LaunchFilterOption {
+  value: string;
+  label: string;
+}
+
+export interface LaunchFilterOptions {
+  strategies: LaunchFilterOption[]; // rendered as chips
+  batches: LaunchFilterOption[];
+  destinationPages: LaunchFilterOption[]; // value = fb_page_id
+  destinationAccounts: LaunchFilterOption[];
+  sourceAds: LaunchFilterOption[];
+}
+
+const BATCH_LABELS: Record<string, string> = {
+  batch_spring: "Spring Sale",
+  batch_summer: "Summer Drop",
+  batch_bfcm: "BFCM Blast",
+};
+
+export function getLaunchFilterOptions(dateSeed = 0): LaunchFilterOptions {
+  const ads = getByLevel("ad", dateSeed);
+
+  const batchIds = new Set<string>();
+  const pages = new Map<string, string>(); // fb_page_id -> page name
+  const accounts = new Set<string>();
+  const sourceAds = new Set<string>();
+
+  for (const e of ads) {
+    if (e.launchBatchId) batchIds.add(e.launchBatchId);
+    if (e.destinationFbPageId) pages.set(e.destinationFbPageId, e.destinationPageName || e.destinationFbPageId);
+    if (e.destinationAdAccountName) accounts.add(e.destinationAdAccountName);
+    if (e.sourceAdName) sourceAds.add(e.sourceAdName);
+  }
+
+  const sortOpt = (a: LaunchFilterOption, b: LaunchFilterOption) => a.label.localeCompare(b.label);
+
+  return {
+    strategies: Object.entries(STRATEGY_LABELS).map(([value, label]) => ({ value, label })),
+    batches: Array.from(batchIds)
+      .map((id) => ({ value: id, label: BATCH_LABELS[id] ?? id }))
+      .sort(sortOpt),
+    destinationPages: Array.from(pages.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort(sortOpt),
+    destinationAccounts: Array.from(accounts)
+      .map((a) => ({ value: a, label: a }))
+      .sort(sortOpt),
+    sourceAds: Array.from(sourceAds)
+      .map((s) => ({ value: s, label: s }))
+      .sort(sortOpt),
+  };
+}

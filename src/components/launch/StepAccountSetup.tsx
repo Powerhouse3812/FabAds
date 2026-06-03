@@ -19,6 +19,38 @@ import { validateStep1, scrollToFirstError } from "@/lib/launch-validation";
 import { Loader2 } from "lucide-react";
 import type { LaunchFull } from "@/hooks/use-launch-data";
 import type { AccountSetupConfig, AccountStrategy } from "./AccountSetupCard";
+import { RadioGroup } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { DistributionSummary } from "./distribution/DistributionSummary";
+import { StrategyCard } from "./distribution/StrategyCard";
+import { getMockCapacities } from "./distribution/mock-page-capacity";
+import { getMockPagesForAccount } from "./distribution/mock-pages";
+import {
+  splitByStatus,
+  validateStrategy,
+  budgetByCurrency,
+} from "@/lib/launch-distribution";
+import type {
+  LaunchStrategy,
+  TargetPair,
+  DistAd,
+  DistAdset,
+} from "@/lib/launch-distribution";
+
+const STRATEGIES: LaunchStrategy[] = ["fill_first", "equal", "duplicate"];
+
+/**
+ * Persisted into the existing launch_config JSON (no new DB columns).
+ * `target_pairs` is the single source of truth for every (account -> page)
+ * destination across all accounts.
+ */
+interface DistributionConfig {
+  version: 1;
+  strategy: LaunchStrategy;
+  target_pairs: TargetPair[];
+  overflowAsPaused?: boolean;
+  backendSupportsOverflow?: boolean;
+}
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +95,10 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [pendingSave, setPendingSave] = useState(false);
 
+  // ── Distribution (persisted in launch_config.distribution v1) ────────────────
+  const [strategy, setStrategy] = useState<LaunchStrategy>("fill_first");
+  const [targetPairs, setTargetPairs] = useState<TargetPair[]>([]);
+
   // Pre-fill from launchData when editing
   useEffect(() => {
     if (launchData && launchId) {
@@ -94,6 +130,55 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
       }
     }
   }, [launchData?.id]);
+
+  // Hydrate distribution (strategy + target_pairs) on edit-load. Depends on
+  // adAccounts too, because the legacy single-page mapping needs account names
+  // and the mock page directory to resolve a real fb_page_id.
+  useEffect(() => {
+    if (!launchData || !launchId || adAccounts.length === 0) return;
+    const dist = (launchData.launch_config as any)?.distribution as DistributionConfig | undefined;
+
+    if (dist?.target_pairs || dist?.strategy) {
+      if (dist.strategy) setStrategy(dist.strategy);
+      setTargetPairs(Array.isArray(dist.target_pairs) ? dist.target_pairs : []);
+      return;
+    }
+
+    // Legacy hydration: no distribution block yet. For each account, if the old
+    // single `setup_config.page` exists, convert it to ONE TargetPair using the
+    // account's mock page directory. If neither, the account contributes none.
+    const hydrated: TargetPair[] = [];
+    for (const acc of launchData.ad_accounts) {
+      const accId = acc.fb_ad_account_id;
+      const fbAcc = adAccounts.find((a) => a.id === accId);
+      if (!fbAcc) continue;
+      const legacyPage = (acc.setup_config as any)?.page as string | undefined;
+      if (!legacyPage) continue;
+      const pages = getMockPagesForAccount(accId, fbAcc.name);
+      // Old values were "page-1"/"page-2" (index-based) — map onto the directory.
+      const idx = legacyPage === "page-2" ? 1 : 0;
+      const page = pages[idx] ?? pages[0];
+      if (page) {
+        hydrated.push({
+          ad_account_id: accId,
+          account_name: fbAcc.name,
+          page_id: page.page_id,
+          fb_page_id: page.fb_page_id,
+          page_name: page.page_name,
+        });
+      }
+    }
+    setTargetPairs(hydrated);
+  }, [launchData?.id, adAccounts.length]);
+
+  // Drop target_pairs for accounts that are no longer selected.
+  useEffect(() => {
+    setTargetPairs((prev) => {
+      const allowed = new Set(selectedAccounts);
+      const next = prev.filter((p) => allowed.has(p.ad_account_id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [selectedAccounts]);
 
   // Auto-expand newly added accounts
   useEffect(() => {
@@ -149,8 +234,10 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
   };
 
   const handleSave = async (forceRegen = false) => {
-    const strategy = getGlobalStrategy();
-    const validation = validateStep1({ name, selectedAccounts, strategy, setupConfigs: setupConfigs as Record<string, Record<string, unknown>> });
+    // Hierarchy structure (campaigns:adsets:ads) — distinct from the distribution
+    // `strategy` (LaunchStrategy) state used by the strategy cards.
+    const hierarchyStrategy = getGlobalStrategy();
+    const validation = validateStep1({ name, selectedAccounts, strategy: hierarchyStrategy, setupConfigs: setupConfigs as Record<string, Record<string, unknown>> });
     if (!validation.valid) {
       setFieldErrors(validation.fieldErrors);
       scrollToFirstError(validation.fieldErrors);
@@ -165,10 +252,18 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
 
     setPendingSave(true);
     try {
-      // Persist expand state in launch_config
+      // Persist expand state + distribution (v1) in launch_config.
+      const distribution: DistributionConfig = {
+        version: 1,
+        strategy,
+        target_pairs: targetPairs,
+        overflowAsPaused: (launchData?.launch_config as any)?.distribution?.overflowAsPaused ?? false,
+        backendSupportsOverflow: (launchData?.launch_config as any)?.distribution?.backendSupportsOverflow ?? false,
+      };
       const launchConfig = {
         ...(launchData?.launch_config || {}),
         expandState: expandedAccounts,
+        distribution,
       };
 
       if (isEditing) {
@@ -192,17 +287,17 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
           await (supabase as any).from("launch_campaigns").delete().eq("launch_id", launchId);
 
           const workspaceId = launchData!.workspace_id;
-          for (let c = 0; c < strategy.campaigns; c++) {
+          for (let c = 0; c < hierarchyStrategy.campaigns; c++) {
             const { data: camp } = await (supabase as any)
               .from("launch_campaigns")
               .insert({ launch_id: launchId, workspace_id: workspaceId, name: `Campaign ${c + 1}`, sort_order: c })
               .select().single();
-            for (let a = 0; a < strategy.adsets; a++) {
+            for (let a = 0; a < hierarchyStrategy.adsets; a++) {
               const { data: adset } = await (supabase as any)
                 .from("launch_adsets")
                 .insert({ launch_id: launchId, campaign_id: camp.id, workspace_id: workspaceId, name: `Adset ${a + 1}`, sort_order: a })
                 .select().single();
-              const adRows = Array.from({ length: strategy.ads }, (_, i) => ({
+              const adRows = Array.from({ length: hierarchyStrategy.ads }, (_, i) => ({
                 launch_id: launchId, adset_id: adset.id, workspace_id: workspaceId, name: `Ad ${i + 1}`, sort_order: i,
               }));
               await (supabase as any).from("launch_ads").insert(adRows);
@@ -218,14 +313,14 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
           name: name.trim(),
           adAccountIds: selectedAccounts,
           setupConfigs: setupConfigs as Record<string, Record<string, unknown>>,
-          strategy,
+          strategy: hierarchyStrategy,
           folderAds: folderAds && folderAds.length > 0 ? folderAds : undefined,
         });
 
-        // Persist expand state
+        // Persist expand state + distribution (v1).
         const { supabase } = await import("@/integrations/supabase/client");
         await (supabase as any).from("launches").update({
-          launch_config: { expandState: expandedAccounts },
+          launch_config: { expandState: expandedAccounts, distribution },
         }).eq("id", launch.id);
 
         await updateStep.mutateAsync({ launchId: launch.id, step: 1 });
@@ -272,6 +367,39 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
   };
 
   const bmMap = Object.fromEntries(businessManagers.map((bm) => [bm.id, bm.name]));
+
+  // ── Derived distribution values ──────────────────────────────────────────────
+  // Step 1 runs BEFORE final ad selection (ads are chosen in Step 3), so this is
+  // always provisional. We surface an estimated ad set from the launch hierarchy
+  // (if any) for the summary, but validate the strategy cards on PAGES/CAPACITY
+  // ONLY — never hard-disabling on an ad count that is not authoritative yet.
+  const estimatedAds: DistAd[] = (launchData?.ads || []).map((a) => ({
+    id: a.id,
+    status: a.status,
+    adset_id: a.adset_id,
+  }));
+  // pending = no final ad selection exists for this slice (always true in Step 1).
+  const pending = true;
+
+  // Currency lookup per ad account (adset budgets are reported in account currency).
+  const currencyByAccount = new Map(adAccounts.map((a) => [a.id, a.currency || "USD"]));
+  // Map an adset -> its account's currency by walking adset -> campaign isn't needed;
+  // launch adsets carry budget_value, currency comes from the owning ad account. In
+  // the absence of a per-adset currency we use the first selected account's currency.
+  const fallbackCurrency =
+    (selectedAccounts.length > 0 ? currencyByAccount.get(selectedAccounts[0]) : undefined) || "USD";
+  const estimatedAdsets: DistAdset[] = (launchData?.adsets || []).map((a) => ({
+    id: a.id,
+    budget_value: a.budget_value,
+    currency: fallbackCurrency,
+  }));
+
+  const estimatedSplit = splitByStatus(estimatedAds);
+  // For the summary's status breakdown we show the estimate; for card VALIDATION
+  // we pass an empty active set so capacity/pages are checked without gating on a
+  // provisional ad count.
+  const capacities = getMockCapacities(targetPairs);
+  const provisionalSplit = { active: [] as DistAd[], paused: [] as DistAd[], unknown: [] as DistAd[] };
 
   return (
     <div className="space-y-6">
@@ -358,9 +486,53 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
                 adsLocked={!!folderId && folderAdCount > 0}
                 healthState={badge.label.toLowerCase() as "safe" | "risk" | "unknown"}
                 capacityHint={hint}
+                targetPairs={targetPairs}
+                onTargetPairsChange={setTargetPairs}
               />
             );
           })}
+        </div>
+      )}
+
+      {/* Distribution: summary + strategy selection */}
+      {selectedAccounts.length > 0 && (
+        <div className="space-y-3" data-field="distribution" id="distribution">
+          <Label className="text-base font-semibold">Distribution</Label>
+
+          <DistributionSummary
+            statusSplit={estimatedSplit}
+            targetPairs={targetPairs}
+            capacities={capacities}
+            selectedAds={estimatedAds}
+            adsets={estimatedAdsets}
+            strategy={strategy}
+            pending={pending}
+          />
+
+          <RadioGroup
+            value={strategy}
+            onValueChange={(v) => setStrategy(v as LaunchStrategy)}
+            className="grid gap-3 md:grid-cols-3"
+          >
+            {STRATEGIES.map((s) => {
+              const validation = validateStrategy(s, provisionalSplit, targetPairs, capacities);
+              const budget =
+                s === "duplicate"
+                  ? budgetByCurrency(estimatedAds, estimatedAdsets, s, targetPairs.length)
+                  : [];
+              return (
+                <StrategyCard
+                  key={s}
+                  strategy={s}
+                  selected={strategy === s}
+                  onSelect={setStrategy}
+                  validation={validation}
+                  budget={budget}
+                  pending={pending}
+                />
+              );
+            })}
+          </RadioGroup>
         </div>
       )}
 

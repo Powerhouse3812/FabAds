@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { GroupingOption } from "@/lib/reports-dummy-data";
+import type { GroupingOption, LaunchFilterOptions } from "@/lib/reports-dummy-data";
 
 interface ReportsToolbarProps {
   search: string;
@@ -26,6 +26,21 @@ interface ReportsToolbarProps {
   onRefresh: () => void;
   onExport: () => void;
   onColumnSettings: () => void;
+  // ── Bulk Launch Distribution provenance filters (optional) ───────
+  // When `launchFilters` is provided the toolbar renders Launch Strategy
+  // chips + Launch Batch / Destination Page / Destination Account / Source Ad
+  // dropdowns. Omitted on reports that have no provenance dimension.
+  launchFilters?: LaunchFilterOptions;
+  launchStrategies?: string[];
+  onLaunchStrategiesChange?: (v: string[]) => void;
+  launchBatchId?: string;
+  onLaunchBatchIdChange?: (v: string) => void;
+  destinationFbPageId?: string;
+  onDestinationFbPageIdChange?: (v: string) => void;
+  destinationAdAccountName?: string;
+  onDestinationAdAccountNameChange?: (v: string) => void;
+  sourceAdName?: string;
+  onSourceAdNameChange?: (v: string) => void;
 }
 
 const ALL_PLATFORMS = ["Meta", "Google", "TikTok"];
@@ -35,6 +50,9 @@ function toggleChip(arr: string[], value: string): string[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
+// Sentinel for "no filter" in single-select dropdowns (Radix Select forbids "").
+const ALL = "__all__";
+
 export function ReportsToolbar({
   search, onSearchChange,
   platforms, onPlatformsChange,
@@ -43,6 +61,12 @@ export function ReportsToolbar({
   primaryGroupBy, onPrimaryGroupByChange,
   secondaryGroupBy, onSecondaryGroupByChange,
   onRefresh, onExport, onColumnSettings,
+  launchFilters,
+  launchStrategies = [], onLaunchStrategiesChange,
+  launchBatchId = ALL, onLaunchBatchIdChange,
+  destinationFbPageId = ALL, onDestinationFbPageIdChange,
+  destinationAdAccountName = ALL, onDestinationAdAccountNameChange,
+  sourceAdName = ALL, onSourceAdNameChange,
 }: ReportsToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -108,6 +132,68 @@ export function ReportsToolbar({
               ))}
           </SelectContent>
         </Select>
+      )}
+
+      {launchFilters && (
+        <>
+          {/* Launch Strategy — chips */}
+          <div className="flex items-center gap-1">
+            {launchFilters.strategies.map((s) => (
+              <Badge
+                key={s.value}
+                variant={launchStrategies.includes(s.value) ? "default" : "outline"}
+                className="cursor-pointer select-none"
+                onClick={() => onLaunchStrategiesChange?.(toggleChip(launchStrategies, s.value))}
+              >
+                {s.label}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Launch Batch */}
+          <Select value={launchBatchId} onValueChange={onLaunchBatchIdChange}>
+            <SelectTrigger className="w-40"><SelectValue placeholder="Launch Batch" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All batches</SelectItem>
+              {launchFilters.batches.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Destination Page */}
+          <Select value={destinationFbPageId} onValueChange={onDestinationFbPageIdChange}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Destination Page" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All pages</SelectItem>
+              {launchFilters.destinationPages.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Destination Account */}
+          <Select value={destinationAdAccountName} onValueChange={onDestinationAdAccountNameChange}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Destination Account" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All accounts</SelectItem>
+              {launchFilters.destinationAccounts.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Source Ad */}
+          <Select value={sourceAdName} onValueChange={onSourceAdNameChange}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="Source Ad" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All source ads</SelectItem>
+              {launchFilters.sourceAds.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
       )}
 
       <div className="ml-auto flex items-center gap-1">
