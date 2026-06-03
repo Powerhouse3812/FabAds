@@ -101,20 +101,31 @@ export function PlanModalV2({
   const onPlanCta = useCallback(
     (plan: PlanDef) => {
       if (printMode) return;
+
+      // Enterprise — book-a-call toast (no plan switch, no navigate).
       if (plan.id === "growth-enterprise") {
         toast.success("Demo: book-a-call link would open.", {
           description: "Wire to Calendly / Cal.com later.",
         });
         return;
       }
+
       const newPlan = plan.tier === "ai" ? "ai" : "full";
       setPlan(newPlan);
+
+      // Destination per tier. The plan-pick is psychologically a "I just paid
+      // for X — show me X." AI users land on Industry Insights (an AI-plan
+      // staple). Growth users land on Launch — the flagship Growth-only
+      // feature they just unlocked. Demonstrating the unlock immediately
+      // beats dumping them on a generic dashboard.
+      const destination = plan.tier === "ai" ? "/insights-v2/feed" : "/launch";
+
       toast.success(`${plan.name} selected`, {
         description: `Plan switched to ${
           newPlan === "ai" ? "AI plan" : "Full plan"
         } — nav rail updated.`,
       });
-      navigate("/insights-v2/feed");
+      navigate(destination);
     },
     [setPlan, navigate, printMode],
   );

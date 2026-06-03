@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 
 export type Plan = "full" | "ai";
@@ -10,54 +10,89 @@ interface PlanContextValue {
 
 const PlanContext = createContext<PlanContextValue | undefined>(undefined);
 
+const SESSION_KEY = "fabads:plan";
+
+function readPlanFromURL(searchParams: URLSearchParams): Plan | null {
+  const v = searchParams.get("plan");
+  return v === "full" || v === "ai" ? v : null;
+}
+
+function readPlanFromSession(): Plan | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = window.sessionStorage.getItem(SESSION_KEY);
+    return v === "full" || v === "ai" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePlanToSession(next: Plan): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(SESSION_KEY, next);
+  } catch {
+    // sessionStorage unavailable (private mode, quota) — no-op
+  }
+}
+
 /**
- * Plan provider — URL is the source of truth (A-12.189).
+ * Plan provider — sessionStorage persistence with URL as deep-link override
+ * (A-12.xxx — fixes "plan reverts to AI on every navigate" bug).
  *
- * Maalik flagged two issues:
- *   1. Toggling Full ↔ AI didn't change the URL — no deep-link, no back
- *      button parity, no reload-safety.
- *   2. Opening /dashboard from a fresh tab booted into the "full" plan
- *      because the old `useState<Plan>("full")` defaulted there. He
- *      expected AI plan to be the default surface.
+ * Resolution order (every render):
+ *   1. URL `?plan=full|ai` — canonical when present, drives deep-linking
+ *   2. sessionStorage `fabads:plan` — survives navigation that drops the
+ *      URL param (the cause of the original bug: `navigate("/launch")` was
+ *      wiping `?plan=full` because it didn't carry the search string)
+ *   3. "ai" default — fresh tabs/sessions land on AI per Maalik's intent
  *
- * Fix: the `?plan=ai|full` query param drives state. No local useState
- * — `plan` is derived from `searchParams.get("plan")` on every render,
- * so URL and UI can't drift.
+ * `setPlan` writes BOTH sessionStorage AND the URL. The URL keeps the
+ * existing shareable / back-button-aware behavior; sessionStorage prevents
+ * the silent revert. A useEffect syncs whatever plan resolved on initial
+ * mount back into sessionStorage, so deep-links via `?plan=full` hydrate
+ * the session correctly even without a subsequent setPlan call.
  *
- *   no `?plan`      → AI  (default — Maalik's primary working surface)
- *   `?plan=full`    → Full plan
- *   `?plan=ai`      → AI (accepted but stripped on write — cleaner URLs)
- *
- * `setPlan("full")` writes `?plan=full`; `setPlan("ai")` strips the
- * param entirely. Both use `replace: false` so the browser back button
- * navigates between plan states.
- *
- * The "full" plan shows every module in the nav rail; the "ai" plan
- * hides Reports / Launch / Automation, leaving an AI-generation-focused
- * surface (Dashboard, Industry Insights, Genie, Catalogue, Creative
- * Library, Video Sage, Copilot, Brand Book, Onboarding).
- *
- * The toggle lives at the bottom of the nav rail — see PlanShiftToggle.
+ * Use sessionStorage (not localStorage) because Maalik wants AI to be the
+ * default surface for new tabs/sessions; only intra-session navigation
+ * should preserve the toggle.
  */
 export function PlanProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const plan: Plan = searchParams.get("plan") === "full" ? "full" : "ai";
 
-  const setPlan = (next: Plan) => {
-    setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
-        if (next === "full") {
-          sp.set("plan", "full");
-        } else {
-          // AI is the default — strip the param so URLs stay clean.
-          sp.delete("plan");
-        }
-        return sp;
-      },
-      { replace: false },
-    );
-  };
+  // Resolve plan: URL wins, then sessionStorage, then "ai".
+  const plan: Plan =
+    readPlanFromURL(searchParams) ?? readPlanFromSession() ?? "ai";
+
+  // Hydrate sessionStorage from the resolved plan. Covers both:
+  //   - deep-link via ?plan=full (URL → session sync, so subsequent
+  //     navigates that drop ?plan still resolve to "full")
+  //   - first-mount default (writes "ai" so reads never miss)
+  useEffect(() => {
+    writePlanToSession(plan);
+  }, [plan]);
+
+  const setPlan = useCallback(
+    (next: Plan) => {
+      // Write session first — so even if setSearchParams batching delays
+      // the URL update, sessionStorage is already authoritative.
+      writePlanToSession(next);
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === "full") {
+            sp.set("plan", "full");
+          } else {
+            // AI is the default; keep URLs clean (matches prior behavior).
+            sp.delete("plan");
+          }
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
 
   return (
     <PlanContext.Provider value={{ plan, setPlan }}>
@@ -69,9 +104,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 export function usePlan(): PlanContextValue {
   const ctx = useContext(PlanContext);
   if (!ctx) {
-    // Fail open — treat as full plan when used outside a provider so
-    // existing screens that haven't been wrapped yet still render
-    // every module.
+    // Fail open — full plan when used outside a provider so screens that
+    // haven't been wrapped yet still render every module.
     return { plan: "full", setPlan: () => {} };
   }
   return ctx;
