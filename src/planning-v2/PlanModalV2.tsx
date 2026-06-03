@@ -220,8 +220,11 @@ export function PlanModalV2({
             })}
           </div>
 
-          {/* View segmented — AI only */}
-          {tier === "ai" && (
+          {/* View segmented — both tiers. Growth Starter/Pro now expose the
+              same Direct / Free-trial selection AI has (previously hidden, so
+              Growth was trial-only with no instant-access path). Growth
+              Enterprise ignores it and stays "Book a call". */}
+          {(tier === "ai" || tier === "growth") && (
             <div className="flex items-center gap-[3px] bg-muted/50 border border-border rounded-full p-[3px]">
               {(["direct", "trial"] as const).map((v) => {
                 const active = view === v;

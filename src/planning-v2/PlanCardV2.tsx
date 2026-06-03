@@ -49,9 +49,34 @@ export function PlanCardV2({
   density,
 }: PlanCardV2Props) {
   const price = priceFor(plan, billing);
-  const isTrial = view === "trial" && plan.tier === "ai";
-  const showTrialLine =
-    (isTrial && plan.trialDays) || (plan.tier === "growth" && plan.trialDays);
+
+  // View-awareness. AI tier behavior is unchanged (`isAiTrialView` == the old
+  // `isTrial`). Growth Starter/Pro now honor the Direct/Free-trial selector —
+  // previously they were trial-only with no instant-access path. Growth
+  // Enterprise has no trialDays, so it always keeps its custom CTA ("Book a
+  // call") and ignores the selector.
+  const supportsTrial = !!plan.trialDays;
+  const isAiTrialView = view === "trial" && plan.tier === "ai";
+  const isGrowthTrialPlan = plan.tier === "growth" && supportsTrial;
+  const growthDirect = isGrowthTrialPlan && view === "direct";
+  const growthTrial = isGrowthTrialPlan && view === "trial";
+
+  // Trial microline: AI in trial view (old) OR Growth in trial view (new).
+  const showTrialLine = (isAiTrialView && supportsTrial) || growthTrial;
+  // Growth in direct view gets a "full access" line in place of the trial one.
+  const showGrowthDirectLine = growthDirect;
+
+  // CTA + trust become view-aware for Growth Starter/Pro only; AI + Enterprise
+  // keep their own ctaLabel / trustText verbatim.
+  const monthly = plan.pricing === "custom" ? 0 : plan.pricing.monthly;
+  const ctaLabel = isGrowthTrialPlan
+    ? growthTrial
+      ? `Start ${plan.trialDays}-day free trial`
+      : "Get instant access"
+    : plan.ctaLabel;
+  const trustText = growthDirect
+    ? "Billed today · cancel any time"
+    : plan.trustText(monthly);
 
   // Cumulative pricing: if this plan inherits from a base (Growth Pro
   // from Starter, Enterprise from Pro), render only the delta + an
@@ -93,7 +118,7 @@ export function PlanCardV2({
         <p className="text-[10.5px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
           {plan.name}
         </p>
-        {isTrial && plan.tagTrial && (
+        {isAiTrialView && plan.tagTrial && (
           <p className="text-[11.5px] text-muted-foreground mt-1 leading-snug line-clamp-2">
             {plan.tagTrial}
           </p>
@@ -133,6 +158,15 @@ export function PlanCardV2({
             </span>
             <span className="text-muted-foreground">· No card required</span>
           </>
+        ) : showGrowthDirectLine ? (
+          <>
+            <span
+              className="shrink-0 h-[5px] w-[5px] rounded-full bg-primary"
+              style={{ boxShadow: "0 0 0 2.5px rgba(195,235,66,0.18)" }}
+            />
+            <span className="text-foreground">Full access from day one</span>
+            <span className="text-muted-foreground">· billed today</span>
+          </>
         ) : plan.creditsPill ? (
           <>
             <span className="shrink-0 h-[5px] w-[5px] rounded-full bg-primary" />
@@ -153,10 +187,10 @@ export function PlanCardV2({
         )}
         onClick={() => onCtaClick(plan)}
       >
-        {plan.ctaLabel}
+        {ctaLabel}
       </Button>
       <p className="relative z-10 text-center text-[10.5px] text-muted-foreground leading-snug mb-3.5">
-        {plan.trustText(plan.pricing === "custom" ? 0 : plan.pricing.monthly)}
+        {trustText}
       </p>
 
       {/* ── Divider ── */}
