@@ -22,6 +22,9 @@ import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
+import { GeniePulseCard } from "@/components/dashboard/growth/GeniePulseCard";
+import { GenieQuickStartCard } from "@/components/dashboard/growth/GenieQuickStartCard";
+import { InsightsPulseCard } from "@/components/dashboard/growth/InsightsPulseCard";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
@@ -196,6 +199,17 @@ function FullPlanDashboard() {
       {/* Zone 3: Performance Trend */}
       {showGraph && <PerformanceTrend dateSeed={dateSeed} />}
 
+      {/* Zone 3.5 (A-12.193): Genie activity strip — compact Genie
+          widgets ported from the AI-plan dashboard. GeniePulseCard
+          (queue marquee + recent generations) on the left, GenieQuickStart
+          (6 modes + KB coverage stat) on the right. 50/50 split on lg+,
+          stacks on narrow. Both reuse queueBatches + sampleOutputs + KB
+          mocks so the dashboard demos with live-feeling data. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+        <GeniePulseCard />
+        <GenieQuickStartCard />
+      </div>
+
       {/* Masonry: two independent column stacks */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
         {/* Left column -- 60% */}
@@ -212,6 +226,11 @@ function FullPlanDashboard() {
           <RrmSnapshotCard />
           <RiskHeatmap />
           <IndustryInsightsWidget />
+          {/* A-12.193: new InsightsPulseCard alongside the existing
+              IndustryInsightsWidget. The existing widget covers ad-trend
+              signals; this one carries team-activity signals (pinned
+              boards + follow activity). Kept additive per Maalik. */}
+          <InsightsPulseCard />
           <ActivityLogsWidget />
         </div>
       </div>
