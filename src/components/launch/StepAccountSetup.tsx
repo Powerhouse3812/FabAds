@@ -20,8 +20,8 @@ import { Loader2 } from "lucide-react";
 import type { LaunchFull } from "@/hooks/use-launch-data";
 import type { AccountSetupConfig, AccountStrategy } from "./AccountSetupCard";
 import { RadioGroup } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { DistributionSummary } from "./distribution/DistributionSummary";
+import { DistributionAllocation } from "./distribution/DistributionAllocation";
 import { StrategyCard } from "./distribution/StrategyCard";
 import { getMockCapacities } from "./distribution/mock-page-capacity";
 import { getMockPagesForAccount } from "./distribution/mock-pages";
@@ -29,6 +29,8 @@ import {
   splitByStatus,
   validateStrategy,
   budgetByCurrency,
+  distribute,
+  computeOutputCount,
 } from "@/lib/launch-distribution";
 import type {
   LaunchStrategy,
@@ -369,37 +371,48 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
   const bmMap = Object.fromEntries(businessManagers.map((bm) => [bm.id, bm.name]));
 
   // ── Derived distribution values ──────────────────────────────────────────────
-  // Step 1 runs BEFORE final ad selection (ads are chosen in Step 3), so this is
-  // always provisional. We surface an estimated ad set from the launch hierarchy
-  // (if any) for the summary, but validate the strategy cards on PAGES/CAPACITY
-  // ONLY — never hard-disabling on an ad count that is not authoritative yet.
-  const estimatedAds: DistAd[] = (launchData?.ads || []).map((a) => ({
-    id: a.id,
-    status: a.status,
-    adset_id: a.adset_id,
-  }));
-  // pending = no final ad selection exists for this slice (always true in Step 1).
-  const pending = true;
+  // Step 1 runs BEFORE the Step-3 ads table, so the count is an ESTIMATE — but a
+  // LIVE one. The authoritative source pre-Step-3 is the hierarchy the user is
+  // editing right here (campaigns x adsets x ads); when EDITING an existing launch
+  // we use its real ads instead. Driving the summary/allocation/budget from this
+  // live state (not the empty launchData.ads of a brand-new launch) is what makes
+  // everything react in real time as accounts, pages, structure, and strategy change.
+  const hierarchy = getGlobalStrategy();
+  const structureAdCount = Math.max(
+    0,
+    hierarchy.campaigns * hierarchy.adsets * hierarchy.ads,
+  );
+  const realAds = launchData?.ads ?? [];
+  const estimatedAds: DistAd[] = realAds.length
+    ? realAds.map((a) => ({ id: a.id, status: a.status, adset_id: a.adset_id }))
+    : Array.from({ length: structureAdCount }, (_, i) => ({
+        id: `est-${i}`,
+        status: "active",
+        adset_id: `est-adset-${i % Math.max(1, hierarchy.adsets)}`,
+      }));
+  // pending = these are estimates (no real ads yet); flips false when editing a
+  // launch that already has ads. Drives the "Estimated" badge + note.
+  const pending = realAds.length === 0;
 
-  // Currency lookup per ad account (adset budgets are reported in account currency).
+  // Currency comes from the owning ad account (adsets don't carry it); use the
+  // first selected account's currency as the launch-level currency.
   const currencyByAccount = new Map(adAccounts.map((a) => [a.id, a.currency || "USD"]));
-  // Map an adset -> its account's currency by walking adset -> campaign isn't needed;
-  // launch adsets carry budget_value, currency comes from the owning ad account. In
-  // the absence of a per-adset currency we use the first selected account's currency.
   const fallbackCurrency =
     (selectedAccounts.length > 0 ? currencyByAccount.get(selectedAccounts[0]) : undefined) || "USD";
-  const estimatedAdsets: DistAdset[] = (launchData?.adsets || []).map((a) => ({
+  const estimatedAdsets: DistAdset[] = (launchData?.adsets ?? []).map((a) => ({
     id: a.id,
     budget_value: a.budget_value,
     currency: fallbackCurrency,
   }));
 
   const estimatedSplit = splitByStatus(estimatedAds);
-  // For the summary's status breakdown we show the estimate; for card VALIDATION
-  // we pass an empty active set so capacity/pages are checked without gating on a
-  // provisional ad count.
   const capacities = getMockCapacities(targetPairs);
-  const provisionalSplit = { active: [] as DistAd[], paused: [] as DistAd[], unknown: [] as DistAd[] };
+  const pairCount = targetPairs.length;
+  // Live per-(account -> page) allocation for the SELECTED strategy, plus the
+  // resulting output count. Empty when no pages are chosen yet.
+  const allocation = pairCount > 0 ? distribute(strategy, estimatedSplit, targetPairs, capacities) : [];
+  const outputCount = computeOutputCount(strategy, estimatedAds.length, pairCount);
+  const distributionBudgets = budgetByCurrency(estimatedAds, estimatedAdsets, strategy, pairCount);
 
   return (
     <div className="space-y-6">
@@ -506,6 +519,7 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
             selectedAds={estimatedAds}
             adsets={estimatedAdsets}
             strategy={strategy}
+            outputCount={outputCount}
             pending={pending}
           />
 
@@ -515,7 +529,10 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
             className="grid gap-3 md:grid-cols-3"
           >
             {STRATEGIES.map((s) => {
-              const validation = validateStrategy(s, provisionalSplit, targetPairs, capacities);
+              // Validate against the LIVE estimate so availability + the disabled
+              // reason reflect the real ad count (kept non-blocking / "estimated"
+              // — Next still saves; the hard gate is at Preview).
+              const validation = validateStrategy(s, estimatedSplit, targetPairs, capacities);
               const budget =
                 s === "duplicate"
                   ? budgetByCurrency(estimatedAds, estimatedAdsets, s, targetPairs.length)
@@ -533,6 +550,18 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
               );
             })}
           </RadioGroup>
+
+          {/* Live per-destination allocation for the selected strategy — answers
+              "kis page pe kitni ads" + how budget multiplies, reacting to every
+              account / page / structure / strategy change. */}
+          <DistributionAllocation
+            strategy={strategy}
+            allocation={allocation}
+            budgets={distributionBudgets}
+            outputCount={outputCount}
+            pairCount={pairCount}
+            pending={pending}
+          />
         </div>
       )}
 

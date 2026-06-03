@@ -24,6 +24,8 @@ interface DistributionSummaryProps {
   selectedAds: DistAd[];
   adsets: DistAdset[];
   strategy: LaunchStrategy;
+  /** Final ads that will be created under the current strategy + pages. */
+  outputCount: number;
   /** True in Step 1: ad counts are an estimate, not the final selection. */
   pending: boolean;
 }
@@ -54,6 +56,7 @@ export function DistributionSummary({
   selectedAds,
   adsets,
   strategy,
+  outputCount,
   pending,
 }: DistributionSummaryProps) {
   const pairCount = targetPairsCount(targetPairs);
@@ -90,11 +93,20 @@ export function DistributionSummary({
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Stat
             label="Ads selected"
             value={totalAds}
             hint={`${statusSplit.active.length} active · ${statusSplit.paused.length} paused · ${statusSplit.unknown.length} unknown`}
+          />
+          <Stat
+            label="Ads to create"
+            value={outputCount}
+            hint={
+              strategy === "duplicate" && pairCount > 0
+                ? `${totalAds} × ${pairCount} destination${pairCount === 1 ? "" : "s"}`
+                : "same as selected"
+            }
           />
           <Stat
             label="Pages selected"
