@@ -15,8 +15,9 @@ import {
 import {
   LogOut, Sun, Moon, HelpCircle, Building2, ChevronsUpDown,
   Settings, Plug, Users, UserPlus, Check, Sparkles, Receipt,
-  BookOpen, Lock,
+  BookOpen, Lock, Boxes, Layers,
 } from "lucide-react";
+import type { Plan } from "@/contexts/PlanContext";
 
 /**
  * UserMenu — profile dropdown.
@@ -48,13 +49,24 @@ import {
  */
 const DUMMY_CLIENT = { id: "demo-client", name: "Idea Clan" } as const;
 
+/**
+ * Plan switcher options surfaced in the profile pop-over. Mirrors the
+ * rail-footer PlanShiftToggle — both write the same `?plan=` param via
+ * PlanContext. "Full" shows every module; "AI" drops Reports / Launch /
+ * Automation for the generation-focused surface.
+ */
+const PLAN_SWITCH_OPTIONS: { value: Plan; label: string; icon: typeof Boxes }[] = [
+  { value: "full", label: "Full plan", icon: Boxes },
+  { value: "ai", label: "AI plan", icon: Sparkles },
+];
+
 export function UserMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const [, setSearchParams] = useSearchParams();
   const { user, role, signOut } = useAuth();
   const { activeClient, clients, setActiveClient } = useClientContext();
   const { setTheme, resolvedTheme } = useTheme();
-  const { plan } = usePlan();
+  const { plan, setPlan } = usePlan();
   // On the AI plan, Integration + Team remain VISIBLE but locked behind the
   // Growth tier. Clicking either fires the rail-mounted LockedFeatureSellModal
   // via the `?upsell=<key>` URL param (same channel the nav rail uses for
@@ -138,6 +150,35 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
               <Building2 className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
               <span className="flex-1 truncate text-xs">{c.name}</span>
               {isActive && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+            </DropdownMenuItem>
+          );
+        })}
+
+        {/* Plan switcher — quick Full ↔ AI toggle without leaving the menu.
+            Mirrors the rail-footer PlanShiftToggle; both write the same
+            `?plan=` param via PlanContext. Surfaced here too so the plan
+            can be flipped straight from the profile pop-over during launch
+            demos. Sits beside the client selector — the two context
+            switchers grouped together. */}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground py-1">
+          <span className="flex items-center gap-1.5">
+            <Layers className="h-3 w-3" />
+            Switch plan
+          </span>
+        </DropdownMenuLabel>
+        {PLAN_SWITCH_OPTIONS.map((opt) => {
+          const Icon = opt.icon;
+          const isActivePlan = plan === opt.value;
+          return (
+            <DropdownMenuItem
+              key={opt.value}
+              onClick={() => setPlan(opt.value)}
+              className={isActivePlan ? "font-medium" : ""}
+            >
+              <Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <span className="flex-1 truncate text-xs">{opt.label}</span>
+              {isActivePlan && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
             </DropdownMenuItem>
           );
         })}
