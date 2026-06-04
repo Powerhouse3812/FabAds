@@ -2,30 +2,33 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, LayoutGrid, Telescope } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NewAdsFetchedTile } from "@/components/dashboard/ai-plan/NewAdsFetchedTile";
+import { AnalyticsHeroInsightsRow } from "@/components/dashboard/ai-plan/AnalyticsHero";
 import { IndustryInsightsTile } from "@/components/dashboard/ai-plan/IndustryInsightsTile";
 import { usePinnedInsightBoards } from "@/components/insights/use-pinned-insight-boards";
 import { useInsightBoards } from "@/hooks/use-insight-boards";
 
 /**
- * IndustryInsightsSection — Growth dashboard section that replaces the
- * legacy IndustryInsightsWidget. Composed of AI-plan tiles reused
- * verbatim plus a small pinned-boards strip footer:
+ * IndustryInsightsSection — Growth dashboard section replacing the legacy
+ * IndustryInsightsWidget. Composed of AI-plan tiles reused verbatim,
+ * led by numeric analytics (Maalik A-12.195 — "numeric analytics are
+ * the more important data than recent new ads").
  *
- *   1. NewAdsFetchedTile      — brand-grouped fresh-ad list (AI-plan hero)
- *   2. IndustryInsightsTile   — donut + trending keywords (AI-plan col-5)
- *   3. Pinned boards strip    — quick-jump chips, same source as the
- *                                sub-nav addon (usePinnedInsightBoards)
+ * Order is deliberate (most-important → least):
  *
- * Same no-card-in-card pattern as GenieSection: each child tile carries
- * its own rounded-2xl border; the section wrapper is a header bar +
- * vertical stack. The pinned-boards strip is a thin footer row inside
- * its own card so the visual rhythm matches the two AI-plan tiles above.
+ *   1. AnalyticsHeroInsightsRow — 4 KPI cards (Brands followed /
+ *      Competitors / Total ads / Categories tracked). At-a-glance
+ *      state of the Industry Insights side of the business.
  *
- * Replaces (in Dashboard.tsx) the existing IndustryInsightsWidget mount
- * in the right column — the new section carries everything the old
- * widget did plus the latest Insights work (pinned boards, fresh-fetch
- * brand list, trending keywords).
+ *   2. IndustryInsightsTile — donut breakdown (Creatives vs Videos)
+ *      + trending keywords. Numeric depth + signal of the market.
+ *
+ *   3. Pinned boards strip — quick-jump chips. Hidden when zero pins.
+ *
+ * Dropped from the previous version:
+ *   - NewAdsFetchedTile (browse-y, the brand list is signal but it's
+ *     a "what arrived" feed; the KPI row carries the totals).
+ *
+ * No card-in-card: each child carries its own rounded-2xl chrome.
  */
 export function IndustryInsightsSection() {
   const { pinnedIds } = usePinnedInsightBoards();
@@ -42,11 +45,9 @@ export function IndustryInsightsSection() {
   return (
     <section
       data-fabads-dash-section="industry-insights"
-      aria-label="Industry Insights"
+      aria-label="Industry Insights analytics"
       className="flex min-w-0 flex-col gap-3"
     >
-      {/* Section header — bar, not a card. Mirrors GenieSection so the
-          two surfaces feel like peers on the dashboard. */}
       <header className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
         <div className="flex min-w-0 items-center gap-2">
           <Telescope className="h-4 w-4 text-foreground" aria-hidden />
@@ -54,7 +55,7 @@ export function IndustryInsightsSection() {
             Industry Insights
           </h2>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            · what the market shipped
+            · market at a glance
           </span>
         </div>
         <Link
@@ -67,12 +68,9 @@ export function IndustryInsightsSection() {
       </header>
 
       <div className="flex flex-col gap-3">
-        <NewAdsFetchedTile />
+        <AnalyticsHeroInsightsRow />
         <IndustryInsightsTile />
 
-        {/* Pinned boards — thin card, matches the donut tile's chrome
-            so the section reads as 3 ranked cards under one header.
-            Hidden when zero pins so the section ends cleanly. */}
         {pinnedBoards.length > 0 && (
           <div className="rounded-2xl border border-border/60 bg-card p-4">
             <header className="mb-2 flex items-center justify-between gap-3">

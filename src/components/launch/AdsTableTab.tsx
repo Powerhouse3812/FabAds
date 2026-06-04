@@ -18,6 +18,7 @@ import { useFbConnection } from "@/hooks/use-fb-connection";
 import { getAccountTimezone, DEFAULT_TIMEZONE } from "@/lib/timezones";
 import { readAdSchedules, entryToValue } from "@/lib/ad-schedule";
 import { toAdStatus, AD_STATUS_LABEL, AD_STATUS_BADGE_VARIANT } from "@/lib/ad-status";
+import { AlertCircle } from "lucide-react";
 
 const CTA_OPTIONS = ["Book Now", "Learn More", "Shop Now", "Sign Up", "Download", "Contact Us", "Get Offer", "Apply Now"];
 
@@ -27,6 +28,8 @@ interface Props {
   selectedAds: Set<string>;
   onSelectionChange: (s: Set<string>) => void;
   workspaceTexts: WorkspaceTexts | undefined;
+  /** Per-field validation errors keyed by `<field>-<adId>` (from validateStep3). */
+  fieldErrors?: Record<string, string>;
 }
 
 function TextCarousel({
@@ -114,7 +117,7 @@ function MediaTypeBadge({ type, onSwitch }: { type: string | null; onSwitch: (t:
   );
 }
 
-export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange, workspaceTexts }: Props) {
+export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange, workspaceTexts, fieldErrors = {} }: Props) {
   const [editingAdId, setEditingAdId] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState("");
@@ -195,8 +198,15 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAds.map((ad) => (
-              <TableRow key={ad.id}>
+            {filteredAds.map((ad) => {
+              const adSummary = fieldErrors[`ad-summary-${ad.id}`];
+              return (
+              <TableRow
+                key={ad.id}
+                data-field={`ad-${ad.id}`}
+                id={`ad-${ad.id}`}
+                className={adSummary ? "bg-destructive/5" : undefined}
+              >
                 <TableCell>
                   <Checkbox checked={selectedAds.has(ad.id)} onCheckedChange={() => toggleOne(ad.id)} />
                 </TableCell>
@@ -241,6 +251,16 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
                           {AD_STATUS_LABEL[toAdStatus(ad.status)]}
                         </Badge>
                       </div>
+                      {adSummary && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingAdId(ad.id)}
+                          className="flex items-center gap-1 text-xs font-medium text-destructive hover:underline"
+                        >
+                          <AlertCircle className="h-3 w-3 shrink-0" />
+                          {adSummary}
+                        </button>
+                      )}
                       <div className="flex gap-2 text-xs">
                         <button className="text-primary hover:underline" onClick={() => dupAd.mutate({ adId: ad.id, launchId: launchData.id })}>Clone</button>
                         <button className="text-primary hover:underline" onClick={() => setEditingAdId(ad.id)}>Edit</button>
@@ -328,7 +348,8 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             {filteredAds.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
@@ -352,6 +373,7 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
                 ad={editingAd}
                 launchId={launchData.id}
                 defaultTimezone={defaultTimezone}
+                fieldErrors={fieldErrors}
                 schedule={entryToValue(adSchedules[editingAd.id], defaultTimezone)}
                 onSave={(fields, scheduleEntry) => {
                   updateAd.mutate({ id: editingAd.id, launchId: launchData.id, ...fields });

@@ -199,17 +199,14 @@ function FullPlanDashboard() {
       {/* Zone 3: Performance Trend */}
       {showGraph && <PerformanceTrend dateSeed={dateSeed} />}
 
-      {/* Zone 3.5 (A-12.194): two cohesive sections side-by-side on
-          lg+, stacking on narrow. GenieSection composes ModeLauncherBar
-          + RecentWorkStrip (reused verbatim from AI plan).
-          IndustryInsightsSection composes NewAdsFetchedTile +
-          IndustryInsightsTile + pinned-boards strip. Each section is a
-          header bar + a vertical stack of self-contained child cards —
-          no card-in-card. Reuses ~100% of the AI-plan tile components. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <GenieSection />
-        <IndustryInsightsSection />
-      </div>
+      {/* Zone 3.5 (A-12.195): two cohesive sections, stacked full-width
+          vertically so the 4-up numeric KPI grids inside each section
+          can spread across the row (2-col on narrow, 4-col on lg+).
+          Each section now LEADS with the AI-plan AnalyticsHero row
+          (Genie KPIs in one, Industry KPIs in the other) — the numeric
+          analytics Maalik called out as the more important data. */}
+      <GenieSection />
+      <IndustryInsightsSection />
 
       {/* Masonry: two independent column stacks */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">

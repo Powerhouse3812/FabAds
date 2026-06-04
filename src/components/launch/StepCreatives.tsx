@@ -20,7 +20,8 @@ import { validateStep3, scrollToFirstError } from "@/lib/launch-validation";
 import { toast } from "@/hooks/use-toast";
 import { useFbConnection } from "@/hooks/use-fb-connection";
 import { getAccountTimezone, DEFAULT_TIMEZONE } from "@/lib/timezones";
-import type { AdScheduleEntry } from "@/lib/ad-schedule";
+import { readAdSchedules, type AdScheduleEntry } from "@/lib/ad-schedule";
+import { MissingFieldsSummary, type MissingFieldItem } from "./MissingFieldsSummary";
 import type { LaunchFull } from "@/hooks/use-launch-data";
 import { rollupSelection, type SelectionLevel } from "@/lib/launch-selection-rollup";
 import { useLaunchDistribution, resolveLaunchCurrency } from "@/hooks/use-launch-distribution";
@@ -42,6 +43,9 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
   const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
   const [showLaunchPreview, setShowLaunchPreview] = useState(false);
+  // Per-field validation errors keyed by `<field>-<adId>` (from validateStep3),
+  // surfaced inline + as the MissingFieldsSummary at the top of the step.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Distribution surfaces (Slice 2).
   const [showDistPreview, setShowDistPreview] = useState(false);
@@ -87,6 +91,17 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   // Accounts tab with an account-level selection (so we can surface the constraint).
   const showStrategyBar = rollup.adIds.length > 0 || (activeTab === "accounts" && rollup.accountConstrained);
 
+  // One summary row per incomplete ad → jumps to that ad's row anchor.
+  // Built from the `ad-summary-<id>` entries (value = "Missing: <fields>").
+  const missingItems = useMemo<MissingFieldItem[]>(() => {
+    return launchData.ads
+      .filter((ad) => fieldErrors[`ad-summary-${ad.id}`])
+      .map((ad) => {
+        const missing = fieldErrors[`ad-summary-${ad.id}`].replace(/^Missing:\s*/, "");
+        return { key: `ad-${ad.id}`, label: `${ad.name} — Missing: ${missing}` };
+      });
+  }, [launchData.ads, fieldErrors]);
+
   const goToTab = (tab: string) => setActiveTab(tab);
 
   const handleBulkApply = (fields: Record<string, any>) => {
@@ -106,13 +121,31 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   };
 
   const handleProceed = async () => {
-    const validation = validateStep3(launchData.ads);
+    // Scheduled ads also need a date/time — pass the launch_config schedule map
+    // so validateStep3 flags any "scheduled" ad without a scheduled_at.
+    const schedules = readAdSchedules(launchData.launch_config);
+    const validation = validateStep3(launchData.ads, schedules);
     if (!validation.valid) {
+      setFieldErrors(validation.fieldErrors);
+      setActiveTab("ads");
       scrollToFirstError(validation.fieldErrors);
-      toast({ title: "Please complete required ad fields", variant: "destructive" });
+
+      // Build a SPECIFIC toast naming the incomplete ad(s), not a generic prompt.
+      const incomplete = launchData.ads.filter((ad) => validation.fieldErrors[`ad-summary-${ad.id}`]);
+      const n = incomplete.length;
+      const description = incomplete
+        .slice(0, 2)
+        .map((ad) => `${ad.name}: ${validation.fieldErrors[`ad-summary-${ad.id}`].replace(/^Missing:\s*/, "")}`)
+        .join(" · ") + (n > 2 ? ` · +${n - 2} more` : "");
+      toast({
+        title: `${n} ad${n > 1 ? "s" : ""} need required fields`,
+        description,
+        variant: "destructive",
+      });
       return;
     }
 
+    setFieldErrors({});
     try {
       await updateStep.mutateAsync({ launchId: launchData.id, step: 3 });
       toast({ title: "Creatives validated" });
@@ -124,6 +157,9 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
 
   return (
     <div className="space-y-4">
+      {/* Validation summary — names every incomplete ad; each row jumps to it. */}
+      <MissingFieldsSummary items={missingItems} />
+
       {/* Toolbar */}
       <StepCreativesToolbar launchData={launchData} search={search} onSearchChange={setSearch} />
 
@@ -208,6 +244,7 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
             selectedAds={selectedAds}
             onSelectionChange={setSelectedAds}
             workspaceTexts={workspaceTexts}
+            fieldErrors={fieldErrors}
           />
         </TabsContent>
       </Tabs>

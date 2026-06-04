@@ -5,7 +5,6 @@ import { StepAccountSetup } from "@/components/launch/StepAccountSetup";
 import { StepTargeting } from "@/components/launch/StepTargeting";
 import { StepCreatives } from "@/components/launch/StepCreatives";
 import { useLaunchFull } from "@/hooks/use-launch-data";
-import { validateStep1, validateStep2, validateStep3, scrollToFirstError } from "@/lib/launch-validation";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 
@@ -33,21 +32,6 @@ export default function LaunchFlow() {
       setCurrentStep(resumeStep);
     }
   }, [launchData?.id]); // only on initial load
-
-  const validateCurrentStep = useCallback((): boolean => {
-    if (!launchData) return currentStep === 1;
-    if (currentStep === 1) {
-      const v = validateStep1({ name: launchData.name, selectedAccounts: launchData.ad_accounts.map((a) => a.fb_ad_account_id), strategy: { campaigns: launchData.campaigns.length || 1, adsets: launchData.adsets.length || 1, ads: launchData.ads.length || 1 }, setupConfigs: Object.fromEntries(launchData.ad_accounts.map((a) => [a.fb_ad_account_id, (a.setup_config || {}) as Record<string, unknown>])) });
-      if (!v.valid) { scrollToFirstError(v.fieldErrors); toast({ title: "Please complete required fields before continuing", variant: "destructive" }); return false; }
-    } else if (currentStep === 2) {
-      const v = validateStep2(launchData.campaigns, launchData.adsets);
-      if (!v.valid) { scrollToFirstError(v.fieldErrors); toast({ title: "Please complete required fields before continuing", variant: "destructive" }); return false; }
-    } else if (currentStep === 3) {
-      const v = validateStep3(launchData.ads);
-      if (!v.valid) { scrollToFirstError(v.fieldErrors); toast({ title: "Please complete required fields before continuing", variant: "destructive" }); return false; }
-    }
-    return true;
-  }, [currentStep, launchData]);
 
   const handleStepChange = useCallback((targetStep: number) => {
     if (targetStep < currentStep) { setCurrentStep(targetStep); return; }

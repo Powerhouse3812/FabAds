@@ -1,4 +1,5 @@
 import type { LaunchFull, LaunchCampaign, LaunchAdset, LaunchAd, LaunchAdAccount } from "@/hooks/use-launch-data";
+import { readAdSchedules } from "@/lib/ad-schedule";
 
 export interface ValidationResult {
   valid: boolean;
@@ -77,7 +78,21 @@ export function validateStep2(campaigns: LaunchCampaign[], adsets: LaunchAdset[]
 
 // ─── Step 3 ───
 
-export function validateStep3(ads: LaunchAd[]): FieldValidationResult {
+/**
+ * Validate the creatives step. Each incomplete ad gets per-field errors
+ * (`primary-text-<id>`, `headline-<id>`, `cta-<id>`, `destination-url-<id>`,
+ * `media-<id>`, `schedule-<id>`) plus a roll-up `ad-summary-<id>` whose value is
+ * `"Missing: <fields>"`.
+ *
+ * `schedules` (optional) is the per-ad schedule map read from launch_config
+ * (`readAdSchedules`). When supplied, any ad with `status === "scheduled"` that
+ * lacks a `scheduled_at` is flagged as missing its schedule date & time. Passing
+ * nothing keeps the legacy behavior so existing callers stay valid.
+ */
+export function validateStep3(
+  ads: LaunchAd[],
+  schedules?: Record<string, { scheduled_at?: string }>,
+): FieldValidationResult {
   const fieldErrors: Record<string, string> = {};
 
   for (const ad of ads) {
@@ -88,12 +103,20 @@ export function validateStep3(ads: LaunchAd[]): FieldValidationResult {
     if (!ad.destination_url?.trim()) { missing.push("Destination URL"); fieldErrors[`destination-url-${ad.id}`] = "Required"; }
     if (!ad.media_urls?.length) { missing.push("Media"); fieldErrors[`media-${ad.id}`] = "At least 1 media file required"; }
 
+    // A Scheduled ad with no schedule entry (date + time) is also incomplete.
+    if (ad.status === "scheduled" && !schedules?.[ad.id]?.scheduled_at) {
+      missing.push("Schedule date & time");
+      fieldErrors[`schedule-${ad.id}`] = "Schedule date & time required";
+    }
+
     if (missing.length > 0) {
       fieldErrors[`ad-summary-${ad.id}`] = `Missing: ${missing.join(", ")}`;
     }
   }
 
-  const errors = Object.values(fieldErrors).filter((v) => !v.startsWith("Required") && v !== "At least 1 media file required");
+  const errors = Object.values(fieldErrors).filter(
+    (v) => !v.startsWith("Required") && v !== "At least 1 media file required" && v !== "Schedule date & time required",
+  );
   return { valid: Object.keys(fieldErrors).length === 0, fieldErrors, errors };
 }
 
@@ -116,7 +139,7 @@ export function validateStep4(launchData: LaunchFull): ValidationResult {
   });
 
   const s2 = validateStep2(launchData.campaigns, launchData.adsets);
-  const s3 = validateStep3(launchData.ads);
+  const s3 = validateStep3(launchData.ads, readAdSchedules(launchData.launch_config));
 
   errors.push(...s1.errors, ...s2.errors);
   // For step 3, use summary errors

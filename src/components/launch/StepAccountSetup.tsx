@@ -7,6 +7,7 @@ import { AdAccountMultiSelect } from "./AdAccountMultiSelect";
 import { AccountSetupCard } from "./AccountSetupCard";
 import { AccountBulkToolbar } from "./AccountBulkToolbar";
 import { FieldError } from "./FieldError";
+import { MissingFieldsSummary, type MissingFieldItem } from "./MissingFieldsSummary";
 import { useCreateLaunch } from "@/hooks/use-launch";
 import { useUpdateLaunch, useUpdateLaunchStep } from "@/hooks/use-launch-mutations";
 import { useFolderAds } from "@/hooks/use-folder-ads";
@@ -414,6 +415,23 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
   const outputCount = computeOutputCount(strategy, estimatedAds.length, pairCount);
   const distributionBudgets = budgetByCurrency(estimatedAds, estimatedAdsets, strategy, pairCount);
 
+  // Build the "what's missing" rows from the live fieldErrors map. Keys stay
+  // identical to fieldErrors so the summary's scroll anchors line up with the
+  // existing data-field/id anchors on each field.
+  const missingFields: MissingFieldItem[] = Object.keys(fieldErrors).map((key) => {
+    if (key === "launch-name") return { key, label: "Launch name" };
+    if (key === "ad-accounts") return { key, label: "Ad accounts — select at least one" };
+    if (key === "strategy-campaigns") return { key, label: "Campaigns count — at least 1" };
+    if (key === "strategy-adsets") return { key, label: "Adsets count — at least 1" };
+    if (key === "strategy-ads") return { key, label: "Ads count — at least 1" };
+    if (key.startsWith("website-url-")) {
+      const accId = key.slice("website-url-".length);
+      const accName = adAccounts.find((a) => a.id === accId)?.name || accId;
+      return { key, label: `Website URL — ${accName}` };
+    }
+    return { key, label: fieldErrors[key] };
+  });
+
   return (
     <div className="space-y-6">
       {/* Campaign URL (optional) */}
@@ -564,6 +582,10 @@ export function StepAccountSetup({ launchId, launchData, onCreated, onNext, fold
           />
         </div>
       )}
+
+      {/* Missing-fields summary — precise "what's missing" panel, replaces the
+          old generic toast. Each row scrolls to its field via the shared anchors. */}
+      {missingFields.length > 0 && <MissingFieldsSummary items={missingFields} />}
 
       {/* Footer */}
       <div className="flex justify-end gap-3 pt-4 border-t border-border">

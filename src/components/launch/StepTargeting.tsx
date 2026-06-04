@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CampaignCard } from "./CampaignCard";
 import { AdsetCard } from "./AdsetCard";
+import { MissingFieldsSummary, type MissingFieldItem } from "./MissingFieldsSummary";
 import { TemplateSelectModal } from "./TemplateSelectModal";
 import { useSaveTargeting, useUpdateLaunchStep } from "@/hooks/use-launch-mutations";
 import { useCreateTargetingTemplate } from "@/hooks/use-targeting-templates";
@@ -82,6 +83,49 @@ export function StepTargeting({ launchData, onNext, onBack, campaignUrlId, templ
 
   const isSaving = saveTargeting.isPending || updateStep.isPending;
 
+  // ── Friendly labels for the missing-fields summary ──────────────────────────
+  // Resolve campaign/adset display indices (1-based, matching how cards nest) so
+  // a fieldErrors key like `objective-<campId>` reads as "Campaign 1 — Objective".
+  const campIndexById = new Map(campaigns.map((c, i) => [c.id, i + 1]));
+  const campBudgetTypeById = new Map(campaigns.map((c) => [c.id, c.budget_type]));
+  // Adset index is per-campaign (2nd adset of its campaign → "Adset 2").
+  const adsetMetaById = new Map<string, { campId: string; index: number }>();
+  for (const camp of campaigns) {
+    adsets
+      .filter((a) => a.campaign_id === camp.id)
+      .forEach((a, i) => adsetMetaById.set(a.id, { campId: camp.id, index: i + 1 }));
+  }
+
+  const campLabel = (campId: string) => `Campaign ${campIndexById.get(campId) ?? "?"}`;
+  const adsetLabel = (adsetId: string) => {
+    const meta = adsetMetaById.get(adsetId);
+    return meta ? `Adset ${meta.index}` : "Adset";
+  };
+
+  // Build the "what's missing" rows from the live fieldErrors. Keys stay identical
+  // to fieldErrors so the summary's scroll anchors line up with the field anchors.
+  const missingFields: MissingFieldItem[] = Object.keys(fieldErrors).map((key) => {
+    if (key.startsWith("objective-")) {
+      return { key, label: `${campLabel(key.slice("objective-".length))} — Objective` };
+    }
+    if (key.startsWith("budget-")) {
+      return { key, label: `${campLabel(key.slice("budget-".length))} — Budget (CBO)` };
+    }
+    if (key.startsWith("adset-budget-")) {
+      const adsetId = key.slice("adset-budget-".length);
+      const campId = adsetMetaById.get(adsetId)?.campId;
+      const isABO = campId ? campBudgetTypeById.get(campId) !== "CBO" && campBudgetTypeById.get(campId) !== "cbo" : true;
+      return { key, label: `${adsetLabel(adsetId)} — Budget (${isABO ? "ABO" : "CBO"})` };
+    }
+    if (key.startsWith("locations-")) {
+      return { key, label: `${adsetLabel(key.slice("locations-".length))} — Location` };
+    }
+    if (key.startsWith("schedule-start-")) {
+      return { key, label: `${adsetLabel(key.slice("schedule-start-".length))} — Schedule start` };
+    }
+    return { key, label: fieldErrors[key] };
+  });
+
   // If returning to a step2-initialized launch, ensure we have the data from DB
   useEffect(() => {
     setCampaigns(launchData.campaigns);
@@ -116,6 +160,12 @@ export function StepTargeting({ launchData, onNext, onBack, campaignUrlId, templ
     if (!validation.valid) {
       setFieldErrors(validation.fieldErrors);
       scrollToFirstError(validation.fieldErrors);
+      const count = Object.keys(validation.fieldErrors).length;
+      toast({
+        title: `${count} targeting field${count === 1 ? "" : "s"} missing`,
+        description: "Fix the highlighted fields to continue.",
+        variant: "destructive",
+      });
       return;
     }
     setFieldErrors({});
@@ -205,9 +255,22 @@ export function StepTargeting({ launchData, onNext, onBack, campaignUrlId, templ
         </Button>
       </div>
 
+      {/* Missing-fields summary — precise "what's missing" panel. Each row scrolls
+          to its campaign/adset field via the shared anchors. */}
+      {missingFields.length > 0 && <MissingFieldsSummary items={missingFields} />}
+
       {/* Campaign + Adset forms */}
       {campaigns.map((camp) => (
-        <div key={camp.id} className="space-y-3">
+        // Per-campaign scroll anchors. CampaignCard's internal objective/budget
+        // anchors are static (not camp-scoped), so wrap the card to give the
+        // `objective-<id>` / `budget-<id>` summary rows a target to scroll to.
+        <div
+          key={camp.id}
+          className="space-y-3"
+          data-field={`objective-${camp.id}`}
+          id={`objective-${camp.id}`}
+        >
+          <span data-field={`budget-${camp.id}`} id={`budget-${camp.id}`} className="sr-only" />
           <CampaignCard
             campaign={camp}
             onChange={(fields) => updateCampaign(camp.id, fields)}

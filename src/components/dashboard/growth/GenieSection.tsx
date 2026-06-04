@@ -1,38 +1,39 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Wand2 } from "lucide-react";
+import { AnalyticsHeroGenieRow } from "@/components/dashboard/ai-plan/AnalyticsHero";
 import { ModeLauncherBar } from "@/components/dashboard/ai-plan/ModeLauncherBar";
-import { RecentWorkStrip } from "@/components/dashboard/ai-plan/RecentWorkStrip";
 
 /**
  * GenieSection — Growth dashboard section that surfaces the AI-plan
- * Genie workspace activity. Composed almost entirely of AI-plan
- * components reused as-is (Maalik A-12.194 — "components reuse ho ske,
- * atleast kuchh % hi sahi"). Two reuse blocks under one section header:
+ * Genie workspace. Composed almost entirely of AI-plan components reused
+ * as-is (Maalik A-12.195 — numeric analytics are the more important
+ * data than recent generations).
  *
- *   1. ModeLauncherBar  — 6 mode pills, click → Studio Alpha preset
- *   2. RecentWorkStrip  — 4 recent-output thumbnails (mode-aware mocks)
+ * Order is deliberate (most-important → least):
  *
- * Avoids the card-in-card anti-pattern: each child carries its own
- * rounded-2xl border, so the section wrapper is just a header bar +
- * a vertical stack. The header is what visually groups them under
- * "Genie" — no outer card, no double border.
+ *   1. AnalyticsHeroGenieRow — 4 KPI cards (Generations / Brands /
+ *      Products / Categories) with sparkline + delta chips. This is
+ *      what the dashboard exists for: at-a-glance state of the Genie
+ *      side of the business.
  *
- * Why this shape on Growth:
- *   - Growth-plan users still generate ads via Studio. Surfacing the
- *     mode launcher one-click away from the dashboard cuts a nav hop.
- *   - Recent-work thumbnails are the fastest "what did the team make
- *     today" signal — same on AI plan and Growth.
- *   - No upsell strip / queue here — Growth users have full access.
+ *   2. ModeLauncherBar — 6 mode pills, click → Studio Alpha preset.
+ *      Stays second because "what's happening" beats "start something"
+ *      on a dashboard glance.
+ *
+ * Dropped from the previous version:
+ *   - RecentWorkStrip (browse-y; Library already serves this)
+ *
+ * Avoids the card-in-card anti-pattern: each child is already a
+ * self-contained card; the section wrapper is a header bar + a
+ * vertical stack only.
  */
 export function GenieSection() {
   return (
     <section
       data-fabads-dash-section="genie"
-      aria-label="Genie workspace activity"
+      aria-label="Genie workspace analytics"
       className="flex min-w-0 flex-col gap-3"
     >
-      {/* Section header — bar, not a card. Anchors the two child cards
-          below under "Genie" without nesting another card. */}
       <header className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
         <div className="flex min-w-0 items-center gap-2">
           <Wand2 className="h-4 w-4 text-foreground" aria-hidden />
@@ -40,7 +41,7 @@ export function GenieSection() {
             Genie
           </h2>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            · live workspace
+            · workspace at a glance
           </span>
         </div>
         <Link
@@ -53,8 +54,8 @@ export function GenieSection() {
       </header>
 
       <div className="flex flex-col gap-3">
+        <AnalyticsHeroGenieRow />
         <ModeLauncherBar />
-        <RecentWorkStrip />
       </div>
     </section>
   );
