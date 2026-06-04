@@ -23,13 +23,14 @@ So Launch 2.0 has a twofold job:
 ## 3. Core journeys 2.0 must serve `[MOM][Maalik]`
 1. **Scaling launch** — pick a ratio strategy (`1:5:1` / `1:3:5` / `1:1:5`) → creatives → distribute across accounts/pages → preview/confirm.
 2. **Creative-testing launch** — more creatives, different structure; treated separately from scaling `[MOM decision #4]`.
-3. **Mass-test ("Bruno")** — thousands of cheap ads, minimal budget, find winners `[Maalik]`. Collides hard with the 250/page cap + leans entirely on the distribution engine `[03]`; **exact mechanics open**.
+3. **Mass-test ("Bruno")** — thousands of cheap ads, minimal budget, find winners `[Maalik]`. `05c`: the *name* is unconfirmed (`[not-found]` EN+PT — likely insider shorthand); the *shape* is real `[directional]`. **Load-bearing**: it collides with Meta's 250 active+scheduled+in-review **per Page** (which aggregates *across* ad accounts) — so it's viable **only as a multi-Page job using `fill_first`/`equal`, never `duplicate`** (the output-explosion case). Paused-backlog rotation fits the engine (paused = free slot), but **real `fb_pages` capacity is a prerequisite** (today it's mock) `[05c][03]`.
 4. **Catalog launch** — product mapping at the ad level; distinct handling `[MOM]`.
 5. **Scratch / flow-builder** — advanced custom; goal is to minimize its use ("the person should not scratch at all") `[MOM]`.
 6. **Entry from anywhere** — creative-first *or* strategy-first, consistent across creative/launch/catalog areas. **Entry point UNDECIDED** (Sahil leaned creative-first: *"that's a natural flow"*) `[MOM]`.
 
 ## 4. The "Launch Strategy" model
 - **Grammar**: `campaign : adset : ad` ratios `[Maalik]`. A preset encodes ratio + budget + targeting + creative-mapping + account/page spread, to **minimize inputs** `[MOM]`.
+- **What each preset isolates** `[05c — mechanics data-backed, label-binding directional]`: `1:5:1` = **audience test** (5 ad sets, 1 constant ad, ABO equal-split ~$20–50/ad set); `1:1:5` = **creative test** (1 broad/Advantage+ ad set, 5 creatives, concentrated budget); `1:3:5` = **both** (3 audiences × 5 creatives). Clean UX framing: *audience / creative / both*. The "5" matches the 3–5-creatives-per-ad-set best practice. **Gap: all three are TEST shapes — no named SCALE preset exists yet**, though the MOM calls for scaling flows.
 - **Creative mapping** — 3 observed modes `[proto, screenshot]`: *Distribute across ads* / *Multiply by media* / *Map manually*. **Finding** `[proto]`: as built, only *Multiply* is structurally distinct; *Manual* = *Distribute* + per-slot overrides, and *Multiply*'s shape math is **buggy**. → **Recommend** making the three genuinely distinct (or collapse to 2 + an override toggle) and answering Neeraj's *"are these the same?"* head-on. **Add creative thumbnails** — visibility is required `[Neeraj]` (today: filename dropdowns only `[proto]`).
 - **Tags** to categorize flows by purpose `[MOM]`.
 - **Naming collision** `[01][02][05b]`: "strategy" already means the `fill_first|equal|duplicate` distribution enum **and** AutoPilot's automation profile (in-code) **and** Revealbot/Madgicx automation bundles (market). **IA must disambiguate** — proposal: "**Launch Strategy**" = the structure preset; rename the distribution enum (e.g. "Distribution mode"); keep AutoPilot's as "Automation profile."
@@ -94,7 +95,8 @@ Every surface needs **populated / partial / zero-data**. The prototype has **non
 ## 12. Open questions for the Q&A round (Speaker 4's user-journey session) `[MOM]`
 Genuine unknowns — need Maalik/team, **not assumable**:
 1. **Entry point** — creative-first or strategy-first as primary? (Sahil leaned creative-first.)
-2. **Per-strategy mechanics** — budget (CBO/ABO + amounts), targeting, default creative-mapping, account/page spread for each of `1:5:1` / `1:3:5` / `1:1:5`.
+2. **Per-strategy mechanics** — `05c` gives a `[directional]` read (`1:5:1`=audience test/ABO ~$20–50/set · `1:1:5`=creative test/broad · `1:3:5`=both); **confirm** budget amounts, CBO/ABO default, and account/page spread per ratio. **And — all three are TEST shapes: what is the named SCALE preset?** (the MOM's scaling flows have no defined structure yet) `[05c]`
+2a. **"Bruno" canon** — confirm the name/owner/meaning; `05c` could only confirm the mass-test *shape*, not the label.
 3. **Bruno** — exact structure + how it respects the 250/page cap + budget floor.
 4. **Which strategies ship first?** (`05b` `[directional]`: a testing + a scaling one are the safest first bets.)
 5. **Editing on the preview/confirm screen** — how much is allowed?
@@ -103,5 +105,5 @@ Genuine unknowns — need Maalik/team, **not assumable**:
 8. **Pricing model** for Enterprise flows.
 9. **Permissions** — should publishing be role-gated? (today any member can `[04]`.)
 
-## 13. Still corroborating
-`05c` (ratio-strategy + Bruno mechanics) is running; findings will be confidence-labelled and folded into §3–§4. Expect thin public canon `[05b]` — the authoritative source is the FabAds team.
+## 13. Corroboration status (`05c` — done)
+Folded into §3–§4 + §12. Key results: ratio *shapes* corroborated `[data-backed]` but *label-binding* stays `[directional]`; "Bruno" name `[not-found]` (EN+PT) — mass-test shape is real but the label is an unconfirmed hypothesis; the 250-cap aggregates across accounts so Bruno must be multi-Page + never `duplicate`. **Standing gap: all three named ratios are test structures — the scale side of test→scale has no named preset.** Authoritative definitions remain the FabAds team's call.

@@ -13,7 +13,7 @@ Fixes Genie's biggest miss — research that was never durably captured.
 | `04-roles-failures.md` | Roles + failure taxonomy (light) | Codebase | ✅ done |
 | `05-market-user.md` | Market & user research (pain/needs/personas) | deep-research (web) | ✅ done |
 | `05b-strategy-demand.md` | Strategy demand + competitor presets (MOM follow-up) | deep-research (web) | ✅ done |
-| `05c-ratio-strategies.md` | Ratio strategies (1:5:1…) + Bruno mechanics | deep-research (web) | 🔄 running |
+| `05c-ratio-strategies.md` | Ratio strategies (1:5:1…) + Bruno mechanics | deep-research (web) | ✅ done |
 | `prototype-review.md` | Lovable "Unified Launch Builder" review (reference) | Prototype codebase | ✅ done |
 | `06-synthesis.md` | Cross-stream synthesis + recommendations + open Qs | Maalik + me | ✅ v1 (folding in 05c) |
 | `anti-patterns.md` | Decisions we deliberately drop, with reasons | Seeded in 06 §11 | ✅ |
