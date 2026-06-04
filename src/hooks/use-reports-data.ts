@@ -45,6 +45,11 @@ interface UseReportsDataParams {
   destinationFbPageId?: string | null; // single select (fb_page_id)
   destinationAdAccountName?: string | null; // single select
   sourceAdName?: string | null; // single select
+  // ── URL-driven launch scope (?launch=) ────────────────────────────
+  // When set, the dataset deterministically attributes a subset of rows to
+  // this launch so the launchBatchId filter (typically === launchScopeId)
+  // yields a realistic non-empty set even for a real launch id.
+  launchScopeId?: string | null;
 }
 
 export function useReportsData({
@@ -66,6 +71,7 @@ export function useReportsData({
   destinationFbPageId = null,
   destinationAdAccountName = null,
   sourceAdName = null,
+  launchScopeId = null,
 }: UseReportsDataParams) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const prevFilters = useRef("");
@@ -76,7 +82,7 @@ export function useReportsData({
     secondaryGroupBy: secondaryGroupBy?.value,
     dateSeed, creativeType,
     launchStrategies, launchBatchId, destinationFbPageId,
-    destinationAdAccountName, sourceAdName,
+    destinationAdAccountName, sourceAdName, launchScopeId,
   });
 
   useEffect(() => {
@@ -91,11 +97,11 @@ export function useReportsData({
   const filtered = useMemo(() => {
     let items: ReportEntity[];
     if (parentId) {
-      items = getDataset(dateSeed).filter(
+      items = getDataset(dateSeed, launchScopeId).filter(
         (e) => e.level === level && e.parentId === parentId
       );
     } else {
-      items = getByLevel(level, dateSeed);
+      items = getByLevel(level, dateSeed, launchScopeId);
     }
 
     if (creativeType) {
@@ -136,7 +142,7 @@ export function useReportsData({
   }, [
     level, parentId, search, platforms, statuses, dateSeed, creativeType,
     launchStrategies, launchBatchId, destinationFbPageId,
-    destinationAdAccountName, sourceAdName,
+    destinationAdAccountName, sourceAdName, launchScopeId,
   ]);
 
   const sorted = useMemo(() => {

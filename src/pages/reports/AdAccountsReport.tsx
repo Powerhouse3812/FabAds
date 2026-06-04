@@ -9,9 +9,11 @@ import { ReportsTable } from "@/components/reports/ReportsTable";
 import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { ColumnSettingsModal } from "@/components/reports/ColumnSettingsModal";
+import { LaunchScopeChip } from "@/components/reports/LaunchScopeChip";
 
 export default function AdAccountsReport() {
   const [searchParams] = useSearchParams();
+  const launchScope = searchParams.get("launch");
   const [search, setSearch] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
@@ -34,6 +36,7 @@ export default function AdAccountsReport() {
     level: "account", search, platforms, statuses,
     primaryGroupBy: pg, secondaryGroupBy: sg,
     sortColumn, sortDirection, page, pageSize: 25, dateSeed,
+    launchScopeId: launchScope, launchBatchId: launchScope,
   });
 
   const handleSort = (col: string) => {
@@ -75,6 +78,8 @@ export default function AdAccountsReport() {
         onExport={exportCsv}
         onColumnSettings={() => setColSettingsOpen(true)}
       />
+
+      <LaunchScopeChip />
 
       {isRefreshing ? (
         <PageSkeleton />

@@ -8,10 +8,12 @@ import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
 import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { CreativeReportCard } from "@/components/reports/CreativeReportCard";
 import { CreativeDetailDrawer } from "@/components/reports/CreativeDetailDrawer";
+import { LaunchScopeChip } from "@/components/reports/LaunchScopeChip";
 
 export default function ImageReport() {
   const [searchParams] = useSearchParams();
   const adIdFilter = searchParams.get("adId") || undefined;
+  const launchScope = searchParams.get("launch");
   const [search, setSearch] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
@@ -29,6 +31,7 @@ export default function ImageReport() {
     primaryGroupBy: null, secondaryGroupBy: null,
     sortColumn: "spend", sortDirection: "desc",
     page: 1, pageSize: 200, dateSeed, creativeType: "image",
+    launchScopeId: launchScope, launchBatchId: launchScope,
   });
 
   const filteredByAd = useMemo(() => {
@@ -66,6 +69,8 @@ export default function ImageReport() {
         onExport={exportCsv}
         onColumnSettings={() => {}}
       />
+
+      <LaunchScopeChip />
 
       {isRefreshing ? (
         <PageSkeleton variant="cards" />

@@ -262,13 +262,94 @@ export function generateDataset(dateSeed = 0): ReportEntity[] {
 
 const _cache = new Map<number, ReportEntity[]>();
 
-export function getDataset(dateSeed = 0): ReportEntity[] {
+function getBaseDataset(dateSeed = 0): ReportEntity[] {
   if (!_cache.has(dateSeed)) _cache.set(dateSeed, generateDataset(dateSeed));
   return _cache.get(dateSeed)!;
 }
 
-export function getByLevel(level: EntityLevel, dateSeed = 0): ReportEntity[] {
-  return getDataset(dateSeed).filter((e) => e.level === level);
+// ── Launch-scope deterministic attribution ────────────────────────────
+// A real launch id (e.g. a UUID from the launches table) will never match
+// the random `batch_*` provenance tags baked into the dummy data, so a naive
+// `launchBatchId === <realId>` filter would always be empty. To keep the demo
+// realistic, when a launch scope is requested we clone the dataset and
+// deterministically attribute a hash-seeded subset (~8-15 rows spanning every
+// level, including image-type creatives) to that launch. The base cache is
+// never mutated, so unscoped views are unaffected.
+
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  // Keep it a positive 31-bit int so it seeds seededRandom cleanly.
+  return (h >>> 0) % 2147483646 + 1;
+}
+
+const _scopedCache = new Map<string, ReportEntity[]>();
+
+// Pick `count` deterministic distinct items from `pool` using `rand`.
+function sampleDeterministic<T>(pool: T[], count: number, rand: () => number): T[] {
+  if (pool.length <= count) return [...pool];
+  const idxs = pool.map((_, i) => i);
+  // Fisher-Yates driven by the seeded rng, then take the first `count`.
+  for (let i = idxs.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+  }
+  return idxs.slice(0, count).map((i) => pool[i]);
+}
+
+function buildScopedDataset(launchScopeId: string, dateSeed: number): ReportEntity[] {
+  const base = getBaseDataset(dateSeed);
+  const rand = seededRandom(hashString(launchScopeId));
+  // Stable strategy for this launch (so the Launch Strategy column is coherent).
+  const strategy = pick(LAUNCH_BATCHES, rand).strategy;
+  const dest = pick(DESTINATION_PAGES, rand);
+  const sourceAd = pick(SOURCE_AD_NAMES_POOL, rand);
+
+  // Choose a deterministic subset at each level. Guarantee that some image-type
+  // ads are included so the creative (image) report is non-empty as well.
+  const tagIds = new Set<string>();
+  const add = (items: ReportEntity[], count: number) => {
+    for (const e of sampleDeterministic(items, count, rand)) tagIds.add(e.id);
+  };
+
+  add(base.filter((e) => e.level === "account"), 2);
+  add(base.filter((e) => e.level === "campaign"), 3);
+  add(base.filter((e) => e.level === "adset"), 3);
+  add(base.filter((e) => e.level === "ad" && e.creative?.type === "image"), 3);
+  add(base.filter((e) => e.level === "ad" && e.creative?.type === "video"), 2);
+
+  return base.map((e) =>
+    tagIds.has(e.id)
+      ? {
+          ...e,
+          launchBatchId: launchScopeId,
+          launchStrategy: strategy,
+          destinationFbPageId: dest.fbPageId,
+          destinationPageName: dest.pageName,
+          destinationAdAccountName: dest.accountName,
+          sourceAdName: sourceAd,
+        }
+      : e
+  );
+}
+
+/**
+ * Returns the report dataset. When `launchScopeId` is provided, a deterministic
+ * subset of rows (spanning all levels) is attributed to that launch so a
+ * `launchBatchId === launchScopeId` filter yields a realistic non-empty set.
+ */
+export function getDataset(dateSeed = 0, launchScopeId?: string | null): ReportEntity[] {
+  if (!launchScopeId) return getBaseDataset(dateSeed);
+  const key = `${dateSeed}::${launchScopeId}`;
+  if (!_scopedCache.has(key)) _scopedCache.set(key, buildScopedDataset(launchScopeId, dateSeed));
+  return _scopedCache.get(key)!;
+}
+
+export function getByLevel(level: EntityLevel, dateSeed = 0, launchScopeId?: string | null): ReportEntity[] {
+  return getDataset(dateSeed, launchScopeId).filter((e) => e.level === level);
 }
 
 export function getChildren(parentId: string, dateSeed = 0): ReportEntity[] {

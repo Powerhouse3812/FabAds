@@ -10,10 +10,12 @@ import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { ColumnSettingsModal } from "@/components/reports/ColumnSettingsModal";
 import { CreateAdsetDrawer } from "@/components/reports/CreateAdsetDrawer";
+import { LaunchScopeChip } from "@/components/reports/LaunchScopeChip";
 
 export default function CampaignsReport() {
   const [searchParams] = useSearchParams();
   const parentId = searchParams.get("accountId") || undefined;
+  const launchScope = searchParams.get("launch");
   const [search, setSearch] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
@@ -37,6 +39,7 @@ export default function CampaignsReport() {
     level: "campaign", parentId, search, platforms, statuses,
     primaryGroupBy: pg, secondaryGroupBy: sg,
     sortColumn, sortDirection, page, pageSize: 25, dateSeed,
+    launchScopeId: launchScope, launchBatchId: launchScope,
   });
 
   const handleSort = (col: string) => {
@@ -74,6 +77,8 @@ export default function CampaignsReport() {
         onExport={exportCsv}
         onColumnSettings={() => setColSettingsOpen(true)}
       />
+
+      <LaunchScopeChip />
 
       {isRefreshing ? <PageSkeleton /> : (
         <ReportsTable

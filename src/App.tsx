@@ -12,7 +12,6 @@ import NoAccess from "@/pages/NoAccess";
 import LaunchHistory from "@/pages/LaunchHistory";
 import TargetingTemplates from "@/pages/TargetingTemplates";
 import LaunchFlow from "@/pages/LaunchFlow";
-import LaunchReport from "@/pages/launch/LaunchReport";
 import AutoPilotLaunch from "@/pages/AutoPilotLaunch";
 import Genie from "@/pages/iq/Genie";
 import Genie2 from "@/pages/iq/Genie2";
@@ -144,7 +143,6 @@ const App = () => (
                 <Route path="launch/clones" element={<ComingSoonPage label="Clones" description="Clone and variant your best-performing launches." />} />
                 <Route path="launch/settings" element={<ComingSoonPage label="Launch Settings" description="Default targeting, nomenclature, naming conventions, and launch presets — manage them once, apply them everywhere." />} />
                 <Route path="launch/campaign-urls" element={<Offers />} />
-                <Route path="launch/:id/report" element={<LaunchReport />} />
                 <Route path="launch/:id" element={<LaunchFlow />} />
                 <Route path="iq/genie" element={<Genie />} />
                 <Route path="iq/genie2" element={<Genie2 />} />

@@ -191,7 +191,7 @@ export function LaunchHistoryTable({ launches, onViewDetails, onRelaunch, onDele
                         <DropdownMenuItem onClick={() => onRelaunch(launch.id)}>
                           <Copy className="mr-2 h-4 w-4" /> Relaunch
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/launch/${launch.id}/report`)}>
+                        <DropdownMenuItem onClick={() => navigate(`/reports/fb?launch=${launch.id}`)}>
                           <BarChart3 className="mr-2 h-4 w-4" /> Go to Report
                         </DropdownMenuItem>
                       </>
