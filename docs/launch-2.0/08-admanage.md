@@ -17,8 +17,20 @@
 
 ## 0. Retrieval honesty — what could and couldn't be pulled
 
-**The two demo videos could NOT be retrieved.** As anticipated in the brief, this
-environment's fetch allowlist blocks YouTube and every transcript/oembed shim tried:
+> **UPDATE (2026-06-04) — transcripts now in hand.** Maalik supplied **transcripts of
+> two AdManage demo videos** — *"Launch Ads as Post IDs in One Click"* and *"Launch
+> Meta Partnership Ads in seconds with AdManage.ai."* They are ingested below (§5 +
+> §5a) and the relevant cells are upgraded to **`[video-confirmed]`**.
+> **Load-bearing caveat:** both are **narrow ~30–60-second feature clips**, not
+> end-to-end launch demos. They confirm the **post-ID** and **partnership** flows but
+> **do NOT show the campaign/ad-set setup step** — so the **targeting/audience picker,
+> custom-audience attach, interest/lookalike/saved-audience search, the named template
+> library, and in-app RBAC remain UNCONFIRMED** (see §11). The single biggest open
+> question — *how deep is AdManage's audience targeting UI* (Neeraj's exact concern) —
+> is **not answered by these two videos.**
+
+The environment itself still could not fetch the videos — Maalik pasted the
+transcripts. For the record, every automated route was blocked:
 
 | Target | Result |
 |---|---|
@@ -172,6 +184,47 @@ This is where AdManage clearly out-specs the simpler launchers.
   across all campaigns/ad sets; "eliminates manual work of copying Post IDs one by
   one… maintain engagement across hundreds of duplicates **with a single click**."
   `[data-backed]` ([admanage.ai/blog/how-to-duplicate-facebook-ads](https://admanage.ai/blog/how-to-duplicate-facebook-ads), [admanage.ai/blog/how-to-preserve-social-proof-scaling-facebook-ads](https://admanage.ai/blog/how-to-preserve-social-proof-scaling-facebook-ads))
+- **Post-ID is a persisted ACCOUNT-LEVEL launch SETTING, not a per-ad manual toggle**
+  `[video-confirmed]`: in *"Launch Ads as Post IDs in One Click,"* the user goes
+  **Account Settings → Launch Settings**, enables **"Launch ads as Post ID when
+  launched"** + **"Use post ID when recreating ads,"** and from then on every launch
+  inherits it. The launcher flow itself is: select ad set → toggle **"launch ads as
+  paused"** → **load media** (e.g. 6 creatives) → **Launch** → *"in literally 10
+  seconds we launched the six ads,"* and the ads' **`creative type` column reads
+  "Post ID."** → **Design implication for FabAds:** post-ID reuse should be a
+  *persisted launch preference* (account/workspace-scoped), not a per-row chore — and
+  the results table should expose a **creative-type column** that surfaces "Post ID"
+  vs fresh-create. (Transcript provided by Maalik, 2026-06-04.)
+
+---
+
+## 5a. Partnership-ad launch flow (video-confirmed)
+
+From *"Launch Meta Partnership Ads in seconds with AdManage.ai"* `[video-confirmed]`,
+the partnership/branded-content flow is **media-first and one-click**:
+
+1. **Switch to the Meta ad account** → **Load media** → **pick the video.**
+2. Click **"Partnership ads"** to set up **co-branding.** AdManage reports *"your own
+   brand identity is ready"* (the launching account's identity is auto-attached).
+3. **Identity display toggle:** *"show both identities in the header"* — i.e.
+   single-vs-**dual identity** is a checkbox at launch time (corroborates §8's
+   single/double/dynamic identity controls).
+4. **Pick the ad set** → **Confirm** → **"Launch with one click."** *"AdManage handles
+   the partnership setup in the background."*
+
+**Reading it for FabAds:** partnership setup — historically a fiddly manual step in
+Ads Manager (load partner handle, accept the partnership, attach identity) — is
+collapsed to **one toggle + an identity-display choice**, launched into an *existing*
+ad set (same "launch into existing structure" pattern as the post-ID flow). If FabAds
+2.0 wants partnership/branded-content parity (Neeraj: *"catalogue partnership… we can
+differentiate that way also"*), the bar is: **co-brand toggle + single/dual identity
++ no separate partnership wizard.** (Transcript provided by Maalik, 2026-06-04.)
+
+> **What these two videos did NOT show** (so it stays unconfirmed): the
+> campaign/ad-set **creation + targeting** step. Both clips launch into a
+> **pre-existing ad set** the user just picks — neither demonstrates building an
+> audience, attaching a custom/lookalike/saved audience, or any interest/behavior
+> search. The audience-picker depth question is **still open** (§11).
 
 ---
 
@@ -237,13 +290,13 @@ This is where AdManage clearly out-specs the simpler launchers.
 | **Pixel / dataset / conversion event** | ✅ Yes | `promotedObject` = `pixel_id` + `custom_event_type`; SKAN/attribution fields | [api-docs](https://admanage.ai/api-docs) | `[data-backed]` |
 | **Cross-account / cross-adset duplication** | ✅ Yes | duplicate entities, edit copy/URL/CTA/UTM, launch paused | [duplicate blog](https://admanage.ai/blog/how-to-duplicate-facebook-ads) | `[data-backed]` |
 | **Pixel re-mapping on duplicate** | ✅ Yes | pixel verified + reassigned to destination account every duplication | [api-docs](https://admanage.ai/api-docs) | `[data-backed]` |
-| **Post ID / existing-post (social proof)** | ✅ Yes | reuse Post IDs at scale, 1-click, keep likes/comments | [duplicate blog](https://admanage.ai/blog/how-to-duplicate-facebook-ads) | `[data-backed]` |
+| **Post ID / existing-post (social proof)** | ✅ Yes | **persisted account-level setting** ("Launch ads as Post ID"); launcher: pick ad set → launch-as-paused → load 6 media → live in ~10s; results show `creative type: Post ID` | [video: post-ID](#0-retrieval-honesty--what-could-and-couldnt-be-pulled), [duplicate blog](https://admanage.ai/blog/how-to-duplicate-facebook-ads) | `[video-confirmed]` |
 | **Auto-grouping by aspect ratio → placements** | ✅ Yes (flagship) | 1:1 / 4:5 / 9:16 auto-detected → Feed vs Stories/Reels; "best-in-class" | [auto-grouping](https://admanage.ai/blog/auto-grouping) | `[data-backed]` |
 | **Carousel (up to 10 cards) + custom placement** | ✅ Yes | dedicated docs flow | [docs/launch-carousel-ads](https://docs.admanage.ai/launch-carousel-ads) | `[data-backed]` |
 | **Collection ads** | ✅ Yes | listed format; "launch collection ads at speed" | [admanage.ai/meta](https://admanage.ai/meta) | `[data-backed]` |
 | **Flexible ads (multi-variation, Meta picks)** | ✅ Yes | group variations into one ad | [admanage.ai/meta](https://admanage.ai/meta) | `[data-backed]` |
 | **Catalogue / DPA / Advantage+ catalog** | ✅ Yes | "DPA" + "catalog campaigns" assignable; Advantage+/SKAN fields in API | [bulk-upload blog](https://admanage.ai/blog/facebook-ads-bulk-upload), [api-docs](https://admanage.ai/api-docs) | `[data-backed]` / DPA depth `[directional]` |
-| **Partnership / branded-content ads (creator codes)** | ✅ Yes | single/double/dynamic identity; IG URLs; partner media; bulk | [meta-partnership-ads](https://admanage.ai/meta-partnership-ads) | `[data-backed]` |
+| **Partnership / branded-content ads (creator codes)** | ✅ Yes | **video-confirmed flow:** load media → pick video → "Partnership ads" co-brand toggle → "show both identities in header" (single/dual) → pick ad set → confirm → 1-click; AdManage wires partnership in background. Also: dynamic identity; IG URLs; partner media; bulk | [video: partnership](#5a-partnership-ad-launch-flow-video-confirmed), [meta-partnership-ads](https://admanage.ai/meta-partnership-ads) | `[video-confirmed]` |
 | **Multi-language / DLO** | ✅ Yes | one ad, many languages, Meta serves per user | [admanage.ai/meta](https://admanage.ai/meta) | `[data-backed]` |
 | **Media processing (Smart Fix) + custom thumbnail** | ✅ Yes | fix codec/aspect, auto-resize, choose/upload thumbnail | [best-bulk-meta blog](https://admanage.ai/blog/best-bulk-meta-ad-launch-tools) | `[data-backed]` |
 | **Disable Advantage+ creative enhancements (persisted)** | ✅ Yes | turn off auto-enhancements, keep consistent across launches | [admanage.ai/meta](https://admanage.ai/meta) | `[data-backed]` |
@@ -330,15 +383,21 @@ above (auto-grouping, media processing, post-ID, formats, cloud import).
 
 ## 11. Caveats & what to verify next
 
-- **The two demo videos were never seen** (§0). Anything shown *only* in the videos —
-  most likely the **end-to-end launch UI, the targeting/audience picker depth, and any
-  live A/B-matrix step** — is **not captured here.** If video content is essential,
-  someone with normal YouTube access should watch `PwdKghPA5gM` and `QL_bHjXTtPs` and
-  append a §0-addendum; this doc has marked exactly which cells (`[directional]`/
-  `[not-found]`) those videos would most likely resolve: **interest/lookalike/custom-
-  audience targeting UI**, **named targeting-template library**, **in-app RBAC**, and
-  whether the **combinatorial matrix (creatives × copy → variations)** exists as a
-  visual builder vs. just filename-grouping.
+- **Two demo-video transcripts are now in hand** (§0, §5, §5a) — but they were
+  **narrow feature clips** (post-ID; partnership), so the **most important unknowns
+  are STILL open**: the **end-to-end campaign/ad-set creation UI**, the **targeting/
+  audience picker depth** (interest/behavior/lookalike/saved/**custom-audience attach**),
+  the **named targeting-template library**, **in-app RBAC**, and whether a
+  **combinatorial matrix (creatives × copy → variations)** exists as a visual builder
+  vs. just filename-grouping. **To close these we need ONE of:** (a) AdManage demo
+  videos that actually show the *audience/targeting step* (the two provided don't);
+  (b) a live AdManage trial run with screen-grabs of the targeting screen — the team's
+  original ask (*"inka ek bar fir se trial lai k dekhna chiye admanage ka"*); or
+  (c) an explicit decision to design FabAds' custom-audience/targeting surface from
+  **Meta's own field spec** (already inventoried in `07-meta-fields.md`) and treat
+  AdManage parity here as unverified. **Recommendation:** pursue (b) — a 20-minute
+  trial capture of AdManage's ad-set/targeting screen — since that is the single
+  highest-value missing artifact and the one Neeraj explicitly requested.
 - **All site/docs content here came via WebSearch snippet extraction**, since direct
   WebFetch on `admanage.ai/*` returned 403. Snippets are faithful but **not full-page
   reads** — field lists (esp. §3 API) should be re-checked against the live
@@ -387,13 +446,19 @@ above (auto-grouping, media processing, post-ID, formats, cloud import).
 [AdsUploader — compare/admanage](https://adsuploader.com/compare/admanage) ·
 [Adnova — AdManage alternatives](https://www.adnova.ai/blogs/admanage-ai-alternatives)
 
-**Could NOT retrieve:** `youtube.com/watch?v=PwdKghPA5gM`, `youtube.com/watch?v=QL_bHjXTtPs`
-(both 403), plus oembed/noembed/youtubetotranscript shims (all 403). Direct WebFetch on
-`admanage.ai/*` and `docs.admanage.ai/*` also 403 — content recovered via WebSearch.
+**Video transcripts (provided by Maalik, 2026-06-04):** *"Launch Ads as Post IDs in
+One Click"* + *"Launch Meta Partnership Ads in seconds with AdManage.ai"* — ingested
+into §0/§5/§5a. **Environment still could not fetch directly:**
+`youtube.com/watch?v=PwdKghPA5gM`, `youtube.com/watch?v=QL_bHjXTtPs` (both 403), plus
+oembed/noembed/youtubetotranscript shims (all 403). Direct WebFetch on `admanage.ai/*`
+and `docs.admanage.ai/*` also 403 — site content recovered via WebSearch.
 
-> **Confidence summary:** Format coverage, bulk flow, duplication+pixel-remap, post-ID,
-> auto-grouping, Smart Fix, cloud/Sheets/API/MCP, multi-platform, and pricing are
-> **`[data-backed]`** (AdManage's own pages + ≥1 corroborator). The **interest/lookalike/
-> custom-audience targeting UI, named targeting-template library, in-app RBAC, and any
-> combinatorial-matrix builder** are **`[directional]` or unconfirmed** — most likely
-> resolvable only by watching the two videos this environment could not open.
+> **Confidence summary:** Format coverage, bulk flow, duplication+pixel-remap,
+> **post-ID (now `[video-confirmed]` — persisted account setting)**, **partnership
+> (now `[video-confirmed]` — co-brand toggle + dual identity)**, auto-grouping, Smart
+> Fix, cloud/Sheets/API/MCP, multi-platform, and pricing are **`[data-backed]`/
+> `[video-confirmed]`**. The **interest/lookalike/custom-audience targeting UI, named
+> targeting-template library, in-app RBAC, and any combinatorial-matrix builder**
+> remain **`[directional]`/unconfirmed** — the two demo videos Maalik supplied were
+> narrow (post-ID + partnership) and did **not** show the targeting step, so these
+> need a **live AdManage trial capture** of the ad-set/targeting screen (§11).
