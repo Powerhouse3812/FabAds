@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Launch 2.0 — Research</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; margin: 0; font-size: 15px; line-height: 1.5; }
+  .slide { padding: 40px 48px; min-height: 980px; border-left: 12px solid #84cc16; page-break-after: always; position: relative; }
+  .eyebrow { color: #65a30d; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 6px; }
+  h1 { color: #0f172a; font-size: 40px; margin: 0 0 12px; line-height: 1.1; }
+  h2 { color: #0f172a; font-size: 30px; margin: 0 0 18px; line-height: 1.15; }
+  .num { position: absolute; top: 40px; right: 48px; color: #cbd5e1; font-size: 14px; font-weight: bold; }
+  .lead { font-size: 19px; color: #334155; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 7px 0; }
+  .muted { color: #64748b; }
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+  .gap { background: #fee2e2; color: #b91c1c; }
+  .good { background: #dcfce7; color: #15803d; }
+  .wedge { background: #ecfccb; color: #4d7c0f; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  td, th { border: 1px solid #e2e8f0; padding: 9px 12px; text-align: left; vertical-align: top; font-size: 14px; }
+  th { background: #0f172a; color: #fff; }
+  .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin: 8px 0; }
+  .flowbox { background: #0f172a; color: #fff; border-radius: 8px; padding: 14px; text-align: center; font-weight: bold; font-size: 14px; }
+  .flowarrow { text-align: center; color: #84cc16; font-weight: bold; font-size: 22px; }
+  .big { font-size: 22px; font-weight: bold; color: #0f172a; }
+  .footer { position: absolute; bottom: 22px; left: 60px; color: #94a3b8; font-size: 12px; }
+  .tag { font-size: 11px; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<!-- 1 COVER -->
+<div class="slide" style="border-left: 12px solid #84cc16;">
+  <p class="eyebrow" style="margin-top:120px;">FabAds · Product Research</p>
+  <h1 style="font-size:56px;">Launch 2.0<br><span style="color:#65a30d;">"Launch Strategies"</span></h1>
+  <p class="lead">Research findings — what it is, why, and what we found.<br>Meta-only · pre-decision (decisions come in the Q&amp;A).</p>
+  <p class="muted" style="margin-top:40px;">Prepared 2026-06-04 · Sources: codebase audit, market &amp; user research, competitor teardown, Meta field inventory, the Lovable prototype. Every claim is evidence-backed.</p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 2 TL;DR -->
+<div class="slide">
+  <span class="num">2</span>
+  <p class="eyebrow">The whole thing on one screen</p>
+  <h2>TL;DR</h2>
+  <div class="card"><span class="big">What.</span> Launch 2.0 = ready-made <b>"recipes"</b> to launch many Meta ads in one go — pick a recipe, add creatives, system builds &amp; spreads the ads, one preview, launch.</div>
+  <div class="card"><span class="big">Why.</span> Today's launch is slow, manual, and <b>actually fake</b> — it shows "success" without really publishing. And it's missing half of Meta's fields (custom audience, etc.).</div>
+  <div class="card"><span class="big">The opening.</span> <b>No competitor packages launch as guided strategies</b>, and none own multi-account distribution / warm-up / account-health. That band is ours — <i>but only after</i> launch actually works and matches table-stakes (e.g. AdManage).</div>
+  <div class="card"><span class="big">This deck.</span> Research <b>only</b>. No decisions yet — those come in the Q&amp;A next.</div>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 3 WHAT -->
+<div class="slide">
+  <span class="num">3</span>
+  <p class="eyebrow">In plain terms</p>
+  <h2>What is "Launch 2.0"?</h2>
+  <p class="lead">A faster, guided way to launch lots of Meta ads at once. Instead of filling every field by hand, the user picks a <b>ready-made strategy</b>.</p>
+  <table>
+    <tr>
+      <td class="flowbox">1 · Pick a<br>Strategy<br><span class="tag" style="color:#a3e635;">e.g. 1:5:1</span></td>
+      <td class="flowarrow">→</td>
+      <td class="flowbox">2 · Add<br>Creatives</td>
+      <td class="flowarrow">→</td>
+      <td class="flowbox">3 · System builds<br>&amp; distributes<br><span class="tag" style="color:#a3e635;">across accounts/pages</span></td>
+      <td class="flowarrow">→</td>
+      <td class="flowbox">4 · One<br>Preview</td>
+      <td class="flowarrow">→</td>
+      <td class="flowbox" style="background:#65a30d;">5 · Launch</td>
+    </tr>
+  </table>
+  <p style="margin-top:20px;"><b>Goal:</b> fewer inputs, stronger validation, fewer mistakes. Advanced users can still build "from scratch" — but the aim is they rarely need to.</p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 4 WHY -->
+<div class="slide">
+  <span class="num">4</span>
+  <p class="eyebrow">The problem we're solving</p>
+  <h2>Why now — 3 real problems</h2>
+  <div class="card"><span class="chip gap">1 · BROKEN</span> &nbsp; Today's launch <b>doesn't actually publish</b> — the execution is a stub that fakes "Launch successful!" Catalogue &amp; Fast-Launch don't execute at all.</div>
+  <div class="card"><span class="chip gap">2 · CONFUSING</span> &nbsp; It's a long, multi-step, back-and-forth flow. Validation is scattered &amp; skippable → users hit errors <b>after</b> launching → bad experience → they may not retry. <span class="muted">(Neeraj's point.)</span></div>
+  <div class="card"><span class="chip gap">3 · INCOMPLETE</span> &nbsp; Half of Meta's fields are missing — custom audiences, lookalikes, "use existing post", real pixel/conversion, and more. Current objectives are even stale (Meta changed them).</div>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 5 SCOPE -->
+<div class="slide">
+  <span class="num">5</span>
+  <p class="eyebrow">Boundaries (important)</p>
+  <h2>Scope</h2>
+  <table>
+    <tr><th style="background:#15803d; width:50%;">✓ IN — Launch 2.0 is ONLY this</th><th style="background:#b91c1c;">✗ OUT — handled elsewhere</th></tr>
+    <tr>
+      <td>Launching Meta ads: structure (recipe) + creatives + <b>all Meta fields</b> + distribution across accounts/pages + actually executing it reliably + activity logs.</td>
+      <td>Scaling winners, optimization, rejection recovery → these are the job of <b>Reports + the Rule Engine</b>, not Launch. The user scales manually or via a rule.</td>
+    </tr>
+  </table>
+  <p style="margin-top:18px;"><span class="chip wedge">META-ONLY</span> &nbsp; For now, Facebook + Instagram only. (AdManage-style multi-platform is out of scope.)</p>
+  <p class="muted">This keeps Launch 2.0 focused: <b>launch is only about launching.</b></p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 6 WHO -->
+<div class="slide">
+  <span class="num">6</span>
+  <p class="eyebrow">Who it's for · discovered from data, not assumed</p>
+  <h2>Users</h2>
+  <table>
+    <tr><th>Persona</th><th>Fit</th><th>What they need</th></tr>
+    <tr><td><b>Dropship / agency-account operator</b></td><td><span class="chip good">Sharpest</span></td><td>Many ad accounts + pages; lives with bans; launches at high volume.</td></tr>
+    <tr><td><b>Agency lead</b></td><td><span class="chip good">High</span></td><td>Many clients/accounts; speed + delegation.</td></tr>
+    <tr><td><b>Solo performance operator</b></td><td>Medium</td><td>Runs real spend solo; wants speed without a team.</td></tr>
+    <tr><td>Performance marketer (in-house)</td><td>Medium</td><td>Optimization-minded; structured testing.</td></tr>
+    <tr><td>Brand manager</td><td>Lower</td><td>Fewer launches; brand-safety.</td></tr>
+  </table>
+  <p class="muted">Priority for v1 is a Q&amp;A decision — the first two carry the volume + pain that "Launch Strategies" targets.</p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 7 PAINS -->
+<div class="slide">
+  <span class="num">7</span>
+  <p class="eyebrow">Voice of the user · ranked, evidence-backed</p>
+  <h2>The biggest pains</h2>
+  <table>
+    <tr><th>#</th><th>Pain</th><th>Evidence</th></tr>
+    <tr><td>1</td><td><b>Ad-account bans / restrictions with no support</b></td><td>Most-repeated complaint everywhere; people pay 3–15% of spend (or £200–1500+/mo) for rented accounts just to dodge it. <span class="tag">data-backed</span></td></tr>
+    <tr><td>2</td><td><b>Bulk-launch tedium</b> — building/duplicating many ads by hand</td><td>The whole reason this tool category exists. <span class="tag">data-backed</span></td></tr>
+    <tr><td>3</td><td>Managing many accounts + pages (the 250-ads-per-page wall)</td><td>Meta caps 250 active ads per Page (shared across accounts) → forces multi-account sprawl. <span class="tag">data-backed</span></td></tr>
+    <tr><td>4</td><td>Keeping social proof (likes/comments) when duplicating</td><td>Post-ID reuse is a known scaling need. <span class="tag">data-backed</span></td></tr>
+  </table>
+  <p class="muted">Note: deep forum/Reddit sources were blocked in this environment — pains are corroborated via reviews + market reports; a few vendor stats are flagged as directional in the detail docs.</p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 8 STRATEGY GRAMMAR -->
+<div class="slide">
+  <span class="num">8</span>
+  <p class="eyebrow">The core concept</p>
+  <h2>What a "Launch Strategy" is</h2>
+  <p class="lead">A strategy = a structure written as <b>campaign : ad&nbsp;set : ad</b>.</p>
+  <table>
+    <tr><th>Recipe</th><th>Means</th><th>It isolates…</th></tr>
+    <tr><td><b>1 : 5 : 1</b></td><td>1 campaign · 5 ad sets · 1 ad each</td><td><span class="chip wedge">Audience</span> test (same ad, 5 audiences)</td></tr>
+    <tr><td><b>1 : 1 : 5</b></td><td>1 campaign · 1 ad set · 5 ads</td><td><span class="chip wedge">Creative</span> test (1 audience, 5 ads)</td></tr>
+    <tr><td><b>1 : 3 : 5</b></td><td>1 campaign · 3 ad sets · 5 ads</td><td><span class="chip wedge">Both</span></td></tr>
+    <tr><td><b>"Bruno"</b></td><td>1000s of cheap ads, tiny budgets</td><td>Mass-test to find winners <span class="tag">name unconfirmed</span></td></tr>
+  </table>
+  <p style="margin-top:14px;"><b>Important finding:</b> all named recipes are <b>TEST</b> shapes — there's no named <b>scaling</b> recipe (and scaling is out of Launch's scope anyway). "Bruno" only works across <b>many Pages</b> because of the 250-cap.</p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 9 CREATIVE MAPPING -->
+<div class="slide">
+  <span class="num">9</span>
+  <p class="eyebrow">How creatives fill the structure</p>
+  <h2>Creative mapping — 3 modes</h2>
+  <table>
+    <tr><th>Mode</th><th>What it does</th><th>Best for</th></tr>
+    <tr><td><b>Distribute across ads</b></td><td>Spread each media item across the ad slots, repeating as needed.</td><td>Fast experiments</td></tr>
+    <tr><td><b>Multiply by media</b></td><td>Clone the whole structure once per creative (5 media → 5× the structure).</td><td>Clean per-creative read</td></tr>
+    <tr><td><b>Map manually</b></td><td>Drag exact creatives into exact slots.</td><td>Hand-crafted launches</td></tr>
+  </table>
+  <div class="card"><span class="chip gap">Finding</span> &nbsp; In the prototype these 3 aren't really distinct — "Manual" is just "Distribute" + overrides, and "Multiply" has a math bug. <b>Neeraj asked "are these the same?" — basically yes, today.</b> 2.0 must make them genuinely distinct (or collapse to 2 + an override) and <b>show creative thumbnails</b> (currently filename dropdowns only).</div>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 10 CURRENT STATE: META FIELDS -->
+<div class="slide">
+  <span class="num">10</span>
+  <p class="eyebrow">Current state · the field gap (Meta)</p>
+  <h2>v1 is missing most Meta fields</h2>
+  <table>
+    <tr><th>Field</th><th>In v1 today?</th></tr>
+    <tr><td>Custom audiences</td><td><span class="chip gap">Fake stub</span> just a name box + platform dropdown — no real audiences/IDs</td></tr>
+    <tr><td>Lookalikes / saved audiences</td><td><span class="chip gap">Absent</span></td></tr>
+    <tr><td>"Use existing post" / Post ID</td><td><span class="chip gap">Absent</span> — a core Meta path</td></tr>
+    <tr><td>Real pixel / conversion event / attribution</td><td><span class="chip gap">Absent</span></td></tr>
+    <tr><td>Interests / behaviors / demographics targeting</td><td><span class="chip gap">Absent</span></td></tr>
+    <tr><td>Dayparting, A/B test, frequency cap, cost-cap/ROAS values</td><td><span class="chip gap">Absent</span></td></tr>
+    <tr><td>Campaign objectives</td><td><span class="chip gap">Stale</span> — old labels; Meta now uses different ones</td></tr>
+    <tr><td>Basic campaign/ad-set/creative fields</td><td><span class="chip good">~30–40%</span> present (but mock, against a fake backend)</td></tr>
+  </table>
+  <p><b>Net:</b> 2.0 effectively builds the Meta field layer <b>from scratch</b>; v1 is a partial reference only. <span class="muted">(This is exactly Neeraj's "custom audience chhoot gaya tha" point — confirmed and bigger.)</span></p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 11 PROTOTYPE -->
+<div class="slide">
+  <span class="num">11</span>
+  <p class="eyebrow">Current state · the Lovable prototype</p>
+  <h2>Prototype = reference only</h2>
+  <p class="lead">A polished demo of ~40% of one happy path. Not reusable as-is.</p>
+  <table>
+    <tr><th><span class="chip gap">Gaps</span></th><th><span class="chip good">Worth carrying (the idea)</span></th></tr>
+    <tr>
+      <td>
+        • Scale is fake (caps at 12 rows; no virtualization)<br>
+        • Validation scattered &amp; ungated (publish not blocked)<br>
+        • 3 mapping modes not distinct; no creative thumbnails<br>
+        • No account-health, no real retry, no activity logs<br>
+        • No empty / zero-data states
+      </td>
+      <td>
+        • Before→after "Resulting shape" preview<br>
+        • Per-row publish / status center<br>
+        • AI-enhance toggle with conflict warning<br>
+        • Persistent entity / issue counter<br>
+        • Entry-from-context deep-link<br>
+        • Multi-view matrix / sheet / JSON editor
+      </td>
+    </tr>
+  </table>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 12 COMPETITORS -->
+<div class="slide">
+  <span class="num">12</span>
+  <p class="eyebrow">Competitive landscape · feature-wise</p>
+  <h2>The market &amp; AdManage</h2>
+  <div class="card"><span class="chip wedge">OUR EMPTY BAND</span> &nbsp; <b>Nobody</b> ships named launch-structure "recipes", and nobody owns <b>(account × page) distribution, the 250-cap, warm-up, or account-health</b>. That's FabAds' wedge.</div>
+  <p><b>AdManage</b> (the one to match feature-wise) is a <b>fast launcher</b>, strong where v1 is weak:</p>
+  <table>
+    <tr><th>AdManage does (we don't)</th><th>AdManage does NOT (our wedge)</th></tr>
+    <tr>
+      <td>• Actually launches (100+ ads &lt;1 min)<br>• Auto-group by aspect ratio → placements<br>• Media "Smart Fix" + thumbnails<br>• Post-ID reuse + pixel re-map on duplicate<br>• Rich formats: carousel, collection, flexible, partnership, multi-language<br>• Cloud/Sheets/API/MCP import</td>
+      <td>• Multi-page (account×page) distribution<br>• 250-ads/page cap awareness<br>• Warm-up ramp<br>• Recurring auto-launch<br>• Account-health / rejection recovery</td>
+    </tr>
+  </table>
+  <p class="muted"><b>⚠ Note:</b> the 2 AdManage YouTube videos couldn't be opened here (allowlist blocked). Findings are from their site/docs/API. The targeting-UI depth in those videos is still unverified — worth someone watching them.</p>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 13 CONSTRAINTS / FIELDS -->
+<div class="slide">
+  <span class="num">13</span>
+  <p class="eyebrow">What 2.0 must bake in</p>
+  <h2>Fields &amp; constraints</h2>
+  <div class="card"><b>All Meta fields</b> — incl. the ones v1 missed: custom audiences, lookalikes, saved audiences, <b>post-ID / existing post</b>, real pixel + conversion + attribution, interests/behaviors targeting, formats (carousel/collection/flexible), dayparting. <span class="muted">(Team callouts: post-ID, custom audience, static/flexible, catalogue-partnership.)</span></div>
+  <div class="card"><b>The 250-ads-per-Page cap</b> — Meta caps active ads per Page, <b>aggregated across all ad accounts</b>. This is exactly why distribution across (account, page) pairs matters — it's our differentiator and a hard rule the builder must respect.</div>
+  <div class="card"><b>Scale</b> — bulk means thousands of rows. Needs table virtualization + server-side batched execution + real page-capacity data (today it's mock).</div>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 14 OPEN QUESTIONS -->
+<div class="slide">
+  <span class="num">14</span>
+  <p class="eyebrow">Decisions for the Q&amp;A (not assumed)</p>
+  <h2>Open questions</h2>
+  <ol>
+    <li><b>Entry point</b> — creatives-first or strategy-first? (Both wanted; which is primary?)</li>
+    <li><b>Per-strategy details</b> — budget (CBO/ABO + amounts), targeting, mapping default for 1:5:1 / 1:3:5 / 1:1:5.</li>
+    <li><b>"Bruno"</b> — confirm the name + exact structure + budget floor.</li>
+    <li><b>Which recipe ships first?</b></li>
+    <li><b>Editing on the final preview screen</b> — how much is allowed?</li>
+    <li><b>Can users save their own strategies?</b></li>
+    <li><b>Catalogue mapping</b> — at account / campaign / ad-set / ad level?</li>
+    <li><b>Pricing</b> for Enterprise flows.</li>
+    <li><b>Publish permissions</b> — role-gated? (today any member can publish)</li>
+  </ol>
+  <div class="footer">Launch Strategies · Research</div>
+</div>
+
+<!-- 15 NEXT -->
+<div class="slide">
+  <span class="num">15</span>
+  <p class="eyebrow">The path</p>
+  <h2>Next steps</h2>
+  <table>
+    <tr>
+      <td class="flowbox" style="background:#65a30d;">✓ DONE<br>Research<br><span class="tag" style="color:#ecfccb;">this deck</span></td>
+      <td class="flowarrow">→</td>
+      <td class="flowbox">NOW<br>Q&amp;A<br><span class="tag" style="color:#a3e635;">answer open questions</span></td>
+      <td class="flowarrow">→</td>
+      <td class="flowbox">THEN<br>Design + build<br><span class="tag" style="color:#a3e635;">no build until Q&amp;A closes</span></td>
+    </tr>
+  </table>
+  <div class="card" style="margin-top:24px;"><b>One side task:</b> someone with normal YouTube access watches the 2 AdManage demo videos — they'd fill the one gap we couldn't (their targeting/audience-picker depth).</div>
+  <p class="muted" style="margin-top:24px;">Full evidence + citations live in <span class="tag">docs/launch-2.0/</span> (00–08). This deck is the readable summary; nothing here is assumed without a source.</p>
+  <div class="footer">Launch Strategies · Research · FabAds</div>
+</div>
+
+</body>
+</html>
