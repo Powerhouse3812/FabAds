@@ -1,27 +1,33 @@
 # Launch 2.0 — Research
 
-Front-loaded research for the **Launch 2.0** redesign. One doc per stream.
-Fixes Genie's biggest miss — research that was never durably captured.
-**No code, no mockups this phase.** Research → synthesis → Q&A with Maalik → then design.
+**START HERE → [`launch-2.0-research.md`](./launch-2.0-research.md)** — the
+consolidated, plain-language, data-backed research doc (what / why / who / fields
+/ constraints / open questions). The docs below are the detailed evidence behind it.
 
-| Doc | Stream | Engine | Status |
-|---|---|---|---|
-| `00-context.md` | MOM digest + scope: "Launch Strategies" | Maalik's MOM | ✅ done |
-| `01-v1-teardown.md` | Current Launch + "Launch 2.0 Beta" audit | Codebase + live UI | ✅ done |
-| `02-competitive.md` | Competitive teardown | deep-research (web) | ✅ done |
-| `03-data-model-flows.md` | Data model, flows & stress @ 10× | Codebase | ✅ done |
-| `04-roles-failures.md` | Roles + failure taxonomy (light) | Codebase | ✅ done |
-| `05-market-user.md` | Market & user research (pain/needs/personas) | deep-research (web) | ✅ done |
-| `05b-strategy-demand.md` | Strategy demand + competitor presets (MOM follow-up) | deep-research (web) | ✅ done |
-| `05c-ratio-strategies.md` | Ratio strategies (1:5:1…) + Bruno mechanics | deep-research (web) | ✅ done |
-| `prototype-review.md` | Lovable "Unified Launch Builder" review (reference) | Prototype codebase | ✅ done |
-| `06-synthesis.md` | Cross-stream synthesis + recommendations + open Qs | Maalik + me | ✅ v1 (folding in 05c) |
-| `anti-patterns.md` | Decisions we deliberately drop, with reasons | Seeded in 06 §11 | ✅ |
+**Scope:** Meta (Facebook + Instagram) only, for now. Launch 2.0 = **launching ads
+only** (post-launch scaling/optimisation/recovery = reports + rule engine).
+**No decisions yet** — research → Q&A → build.
 
-**Headline (Stream 1):** the "Launch 2.0 (Beta)" CTA is a no-op toast — **the redesign is greenfield**, not a half-built v2.
+| Doc | What it is | Status |
+|---|---|---|
+| **`launch-2.0-research.md`** | **★ Consolidated research — read this** | ✅ |
+| `00-context.md` | MOM digest + scope + Neeraj feedback | ✅ |
+| `01-v1-teardown.md` | Current Launch teardown (greenfield finding) | ✅ |
+| `02-competitive.md` | Competitive teardown (the field) | ✅ |
+| `03-data-model-flows.md` | Data model, distribution, stress @ 10× | ✅ |
+| `04-roles-failures.md` | Roles + failure taxonomy | ✅ |
+| `05-market-user.md` | Market & user research (pains / personas) | ✅ |
+| `05b-strategy-demand.md` | Strategy demand + competitor presets | ✅ |
+| `05c-ratio-strategies.md` | Ratio strategies (1:5:1…) + Bruno | ✅ |
+| `07-meta-fields.md` | Meta field inventory + v1 gap (custom audience…) | ✅ |
+| `08-admanage.md` | AdManage feature study | ✅ |
+| `prototype-review.md` | Lovable "Unified Launch Builder" review | ✅ |
+| `06-synthesis.md` | Earlier synthesis — *superseded by `launch-2.0-research.md`* | ⚠︎ |
+| `anti-patterns.md` | Decisions we deliberately drop | seeded in 06 |
 
-**Scope (MOM):** Launch 2.0 = **"Launch Strategies"** — predefined guided bulk-launch flows + scratch builder, Enterprise-gated, preview/confirm screen, mandatory activity logs.
+**Key findings:** v1 launch execution is a stub (fake "success"); custom audiences
+/ post-id / most Meta fields are missing (2.0 builds the field layer ~from
+scratch); no competitor owns (account × page) distribution + the 250-cap + warm-up
++ account-health — that's FabAds' wedge.
 
-**Validation (05b):** no competitor ships vendor-defined *named launch-structure* presets — "Launch Strategies" sits in an **empty market band**.
-
-**Synthesis payoff:** *user pain × v1 gaps × competitor patterns × data constraints → prioritized 2.0 recommendations.*
+**Next:** Q&A on the open questions (research doc §10) → then build.
