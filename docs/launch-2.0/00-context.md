@@ -89,7 +89,12 @@ The meeting's concerns line up almost 1:1 with what streams 01–05 found in cod
 - **Multiply by media** — clone the whole structure once per media (5 media → 5× campaigns / 250 ad sets / 250 ads, each clone uses one creative). Best for a clean per-creative read.
 - **Map manually** — drag exact creatives into ad slots (50 slots from 5 creatives, override). Best for hand-crafted launches.
 
-This confirms the *grammar*; the canonical **151 / 135 / 115 / Bruno** numbers + per-strategy mapping rules still come from Maalik (gap #1). Per `05b`, these labels have **no authoritative public definition** — PT/BR sources describe a high-ad-set testing shape as the likely "Brazilian-style," but it was never named that.
+**Strategy definitions (from Maalik, 2026-06-04):** the labels are **ratios `campaign:adset:ad`** —
+- `1:5:1` = 1 campaign, 5 ad sets, 1 ad each
+- `1:3:5` = 1 campaign, 3 ad sets, 5 ads each
+- `1:1:5` = 1 campaign, 1 ad set, 5 ads
+
+("151 / 135 / 115" was shorthand for the colon-ratios.) **Bruno** is not precisely defined yet — Maalik's read: a **high-volume, minimal-budget mass-test** (thousands of cheap ads to surface what's working). The per-strategy **budget / targeting / creative-mapping / account-page spread** and the exact **Bruno** mechanics remain open (see Q&A list); a focused pass (`05c`) is corroborating what's public, confidence-labeled. Per `05b`, these labels have no authoritative *public* canon.
 
 **Manager feedback — Neeraj Moudgil** (high-level, quick-glimpse only):
 - "Good to start"; the creative-mapping screen "looks good."
