@@ -21,10 +21,11 @@ import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
-// A-12.194: replaced the 3-widget zone + IndustryInsightsWidget with two
-// cohesive section cards that reuse AI-plan components verbatim.
-import { GenieSection } from "@/components/dashboard/growth/GenieSection";
-import { IndustryInsightsSection } from "@/components/dashboard/growth/IndustryInsightsSection";
+// A-12.197 (finalised-Figma reference): compact 2-row analytics strip
+// (GENIE + INDUSTRY INSIGHTS) up top + the rich Industry Insights card
+// in the body. Replaces the over-sized GenieSection/IndustryInsightsSection.
+import { ModuleAnalyticsStrip } from "@/components/dashboard/growth/ModuleAnalyticsStrip";
+import { IndustryInsightsCard } from "@/components/dashboard/growth/IndustryInsightsCard";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
@@ -199,14 +200,13 @@ function FullPlanDashboard() {
       {/* Zone 3: Performance Trend */}
       {showGraph && <PerformanceTrend dateSeed={dateSeed} />}
 
-      {/* Zone 3.5 (A-12.195): two cohesive sections, stacked full-width
-          vertically so the 4-up numeric KPI grids inside each section
-          can spread across the row (2-col on narrow, 4-col on lg+).
-          Each section now LEADS with the AI-plan AnalyticsHero row
-          (Genie KPIs in one, Industry KPIs in the other) — the numeric
-          analytics Maalik called out as the more important data. */}
-      <GenieSection />
-      <IndustryInsightsSection />
+      {/* Zone 3.5 (A-12.197): compact 2-row analytics strip — GENIE +
+          INDUSTRY INSIGHTS numbers in one card, lime module labels +
+          inline metrics + hairline dividers, no sparklines / no
+          per-metric cards. Mirrors the AI dashboard's strip language at
+          its minimal density. The rich Industry Insights card lives in
+          the masonry right column below. */}
+      <ModuleAnalyticsStrip />
 
       {/* Masonry: two independent column stacks */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
@@ -220,10 +220,13 @@ function FullPlanDashboard() {
           <LaunchSummaryCard dateSeed={dateSeed} />
         </div>
         {/* Right column -- 40%.
-            A-12.194: IndustryInsightsWidget removed — IndustryInsightsSection
-            in Zone 3.5 replaces it with richer content (fresh-fetch brand
-            list + donut + pinned boards). Avoids duplicate Insights surface. */}
+            A-12.197: the rich Industry Insights card (finalised Figma —
+            fast-growing industries + creative-distribution donut + My
+            Feed totals + trending hashtags) restored here. The compact
+            strip up top carries the at-a-glance numbers; this carries
+            the depth. */}
         <div className="lg:col-span-2 space-y-3">
+          <IndustryInsightsCard />
           <RrmSnapshotCard />
           <RiskHeatmap />
           <ActivityLogsWidget />
