@@ -16,15 +16,15 @@ import { AlertsSummary } from "@/components/dashboard/AlertsSummary";
 import { AutomationSummaryCard } from "@/components/dashboard/AutomationSummaryCard";
 import { CoPilotRecommendations } from "@/components/dashboard/CoPilotRecommendations";
 import { ProductivityCard } from "@/components/dashboard/ProductivityCard";
-import { IndustryInsightsWidget } from "@/components/dashboard/IndustryInsightsWidget";
 import { LaunchSummaryCard } from "@/components/dashboard/LaunchSummaryCard";
 import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
-import { GeniePulseCard } from "@/components/dashboard/growth/GeniePulseCard";
-import { GenieQuickStartCard } from "@/components/dashboard/growth/GenieQuickStartCard";
-import { InsightsPulseCard } from "@/components/dashboard/growth/InsightsPulseCard";
+// A-12.194: replaced the 3-widget zone + IndustryInsightsWidget with two
+// cohesive section cards that reuse AI-plan components verbatim.
+import { GenieSection } from "@/components/dashboard/growth/GenieSection";
+import { IndustryInsightsSection } from "@/components/dashboard/growth/IndustryInsightsSection";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
@@ -199,15 +199,16 @@ function FullPlanDashboard() {
       {/* Zone 3: Performance Trend */}
       {showGraph && <PerformanceTrend dateSeed={dateSeed} />}
 
-      {/* Zone 3.5 (A-12.193): Genie activity strip — compact Genie
-          widgets ported from the AI-plan dashboard. GeniePulseCard
-          (queue marquee + recent generations) on the left, GenieQuickStart
-          (6 modes + KB coverage stat) on the right. 50/50 split on lg+,
-          stacks on narrow. Both reuse queueBatches + sampleOutputs + KB
-          mocks so the dashboard demos with live-feeling data. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
-        <GeniePulseCard />
-        <GenieQuickStartCard />
+      {/* Zone 3.5 (A-12.194): two cohesive sections side-by-side on
+          lg+, stacking on narrow. GenieSection composes ModeLauncherBar
+          + RecentWorkStrip (reused verbatim from AI plan).
+          IndustryInsightsSection composes NewAdsFetchedTile +
+          IndustryInsightsTile + pinned-boards strip. Each section is a
+          header bar + a vertical stack of self-contained child cards —
+          no card-in-card. Reuses ~100% of the AI-plan tile components. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <GenieSection />
+        <IndustryInsightsSection />
       </div>
 
       {/* Masonry: two independent column stacks */}
@@ -221,16 +222,13 @@ function FullPlanDashboard() {
           <ProductivityCard />
           <LaunchSummaryCard dateSeed={dateSeed} />
         </div>
-        {/* Right column -- 40% */}
+        {/* Right column -- 40%.
+            A-12.194: IndustryInsightsWidget removed — IndustryInsightsSection
+            in Zone 3.5 replaces it with richer content (fresh-fetch brand
+            list + donut + pinned boards). Avoids duplicate Insights surface. */}
         <div className="lg:col-span-2 space-y-3">
           <RrmSnapshotCard />
           <RiskHeatmap />
-          <IndustryInsightsWidget />
-          {/* A-12.193: new InsightsPulseCard alongside the existing
-              IndustryInsightsWidget. The existing widget covers ad-trend
-              signals; this one carries team-activity signals (pinned
-              boards + follow activity). Kept additive per Maalik. */}
-          <InsightsPulseCard />
           <ActivityLogsWidget />
         </div>
       </div>
