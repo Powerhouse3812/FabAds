@@ -4,8 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { MediaUploader } from "./MediaUploader";
+import { AdStatusControl } from "./AdStatusControl";
+import { AdSchedulePicker } from "./AdSchedulePicker";
+import { toAdStatus } from "@/lib/ad-status";
+import { valueToEntry, type AdScheduleEntry, type ScheduleValue } from "@/lib/ad-schedule";
 import type { LaunchAd } from "@/hooks/use-launch-data";
 
 const CTA_OPTIONS = ["Book Now", "Learn More", "Shop Now", "Sign Up", "Download", "Contact Us", "Get Offer", "Apply Now"];
@@ -13,12 +16,20 @@ const CTA_OPTIONS = ["Book Now", "Learn More", "Shop Now", "Sign Up", "Download"
 interface AdEditPanelProps {
   ad: LaunchAd;
   launchId: string;
-  onSave: (fields: Partial<LaunchAd>) => void;
+  /** Effective timezone of the launch's owning account (already resolved). */
+  defaultTimezone: string;
+  /** Current schedule for this ad (date/time/timezone), if any. */
+  schedule?: ScheduleValue;
+  /**
+   * Persist. `scheduleEntry` is the resolved launch_config entry when status is
+   * "scheduled" (null when status is not scheduled, so the caller can clear it).
+   */
+  onSave: (fields: Partial<LaunchAd>, scheduleEntry: AdScheduleEntry | null) => void;
   onCancel: () => void;
   saving?: boolean;
 }
 
-export function AdEditPanel({ ad, launchId, onSave, onCancel, saving }: AdEditPanelProps) {
+export function AdEditPanel({ ad, launchId, defaultTimezone, schedule, onSave, onCancel, saving }: AdEditPanelProps) {
   const [fields, setFields] = useState({
     primary_text: ad.primary_text || "",
     headline: ad.headline || "",
@@ -30,8 +41,27 @@ export function AdEditPanel({ ad, launchId, onSave, onCancel, saving }: AdEditPa
     media_type: ad.media_type || "",
     status: ad.status,
   });
+  const [scheduleValue, setScheduleValue] = useState<ScheduleValue>(
+    schedule ?? { timezone: defaultTimezone },
+  );
+  const [scheduleError, setScheduleError] = useState(false);
 
   const update = (k: string, v: any) => setFields((p) => ({ ...p, [k]: v }));
+
+  const isScheduled = fields.status === "scheduled";
+
+  const handleSave = () => {
+    if (isScheduled) {
+      const entry = valueToEntry(scheduleValue);
+      if (!entry) {
+        setScheduleError(true);
+        return;
+      }
+      onSave(fields, entry);
+    } else {
+      onSave(fields, null);
+    }
+  };
 
   return (
     <div className="border border-border rounded-md p-4 bg-muted/30 space-y-4">
@@ -87,15 +117,35 @@ export function AdEditPanel({ ad, launchId, onSave, onCancel, saving }: AdEditPa
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-2 pt-5">
-          <span className="text-xs text-muted-foreground">{fields.status === "active" ? "Active" : "Paused"}</span>
-          <Switch checked={fields.status === "active"} onCheckedChange={(v) => update("status", v ? "active" : "paused")} />
+        <div className="col-span-2 space-y-1.5">
+          <Label className="text-xs">Status</Label>
+          <AdStatusControl
+            value={toAdStatus(fields.status)}
+            onChange={(s) => {
+              update("status", s);
+              if (s !== "scheduled") setScheduleError(false);
+            }}
+          />
         </div>
+
+        {isScheduled && (
+          <div className="col-span-2">
+            <AdSchedulePicker
+              value={scheduleValue}
+              defaultTimezone={defaultTimezone}
+              onChange={(v) => {
+                setScheduleValue(v);
+                setScheduleError(false);
+              }}
+              showError={scheduleError}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 pt-2 border-t border-border">
         <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button size="sm" onClick={() => onSave(fields)} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+        <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
       </div>
     </div>
   );

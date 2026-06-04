@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   splitByStatus,
+  slotConsuming,
+  slotConsumingCount,
   aggregateCapacityByPage,
   fillFirst,
   equalDistribute,
@@ -25,6 +27,7 @@ import {
   THREE_DISTINCT_PAIRS,
   TWO_PAIRS_SHARED_PAGE,
   makeActiveAds,
+  makeScheduledAds,
   makePausedAds,
   makeAds,
   ADSET_USD,
@@ -47,9 +50,15 @@ function emptyCaps(fbPageIds: string[]): PageCapacity[] {
   return Array.from(new Set(fbPageIds)).map((fb_page_id) => ({ fb_page_id, currentActive: 0 }));
 }
 
-function split(active: number, paused: number, unknownStatuses: string[] = []): StatusSplit {
+function split(
+  active: number,
+  paused: number,
+  scheduled = 0,
+  unknownStatuses: string[] = []
+): StatusSplit {
   const ads: DistAd[] = [
     ...makeActiveAds(active),
+    ...makeScheduledAds(scheduled),
     ...makePausedAds(paused),
     ...unknownStatuses.map((s, i) => ({ id: `unk_${i}`, status: s, adset_id: "adset_1" })),
   ];
@@ -57,23 +66,39 @@ function split(active: number, paused: number, unknownStatuses: string[] = []): 
 }
 
 const sumActive = (perPair: { activeToLaunch: number }[]) => perPair.reduce((s, p) => s + p.activeToLaunch, 0);
+const sumScheduled = (perPair: { scheduledToLaunch: number }[]) => perPair.reduce((s, p) => s + p.scheduledToLaunch, 0);
 const sumPaused = (perPair: { pausedToAdd: number }[]) => perPair.reduce((s, p) => s + p.pausedToAdd, 0);
 
 // ─── splitByStatus ───────────────────────────────────────────────────────────
 
 describe("splitByStatus", () => {
-  it("buckets active / paused / unknown and never treats unknown as paused", () => {
+  it("buckets active / scheduled / paused / unknown and never treats unknown as paused", () => {
     const ads: DistAd[] = [
       { id: "1", status: "active", adset_id: "a" },
       { id: "2", status: "paused", adset_id: "a" },
       { id: "3", status: "archived", adset_id: "a" },
       { id: "4", status: "deleted", adset_id: "a" },
       { id: "5", status: "in_review", adset_id: "a" },
+      { id: "6", status: "scheduled", adset_id: "a" },
     ];
     const s = splitByStatus(ads);
     expect(s.active.map((a) => a.id)).toEqual(["1"]);
+    expect(s.scheduled.map((a) => a.id)).toEqual(["6"]);
     expect(s.paused.map((a) => a.id)).toEqual(["2"]);
     expect(s.unknown.map((a) => a.id)).toEqual(["3", "4", "5"]);
+  });
+
+  it("routes 'scheduled' / 'SCHEDULED' to the scheduled bucket (case-insensitive, trimmed)", () => {
+    const s = splitByStatus([
+      { id: "1", status: "scheduled", adset_id: "a" },
+      { id: "2", status: "SCHEDULED", adset_id: "a" },
+      { id: "3", status: " Scheduled ", adset_id: "a" },
+      { id: "4", status: "schedule", adset_id: "a" }, // NOT "scheduled" -> unknown
+    ]);
+    expect(s.scheduled.map((a) => a.id)).toEqual(["1", "2", "3"]);
+    expect(s.unknown.map((a) => a.id)).toEqual(["4"]); // typo stays unknown
+    expect(s.active).toHaveLength(0);
+    expect(s.paused).toHaveLength(0);
   });
 
   it("is case-insensitive and trims", () => {
@@ -83,6 +108,16 @@ describe("splitByStatus", () => {
     ]);
     expect(s.active).toHaveLength(1);
     expect(s.paused).toHaveLength(1);
+  });
+});
+
+// ─── slotConsuming / slotConsumingCount ─────────────────────────────────────
+
+describe("slotConsuming / slotConsumingCount", () => {
+  it("active + scheduled consume slots; paused + unknown do NOT", () => {
+    const s = split(3, 7, 2, ["archived"]); // 3 active, 2 scheduled, 7 paused, 1 unknown
+    expect(slotConsumingCount(s)).toBe(5); // 3 active + 2 scheduled
+    expect(slotConsuming(s).map((a) => a.status)).toEqual(["active", "active", "active", "scheduled", "scheduled"]);
   });
 });
 
@@ -164,6 +199,34 @@ describe("fillFirst", () => {
     expect(perPair[0].activeToLaunch).toBe(0);
     expect(perPair[0].status).toBe("full");
   });
+
+  it("scheduled ads consume slots exactly like active (active+scheduled overflow together)", () => {
+    // page1 has 200 active -> 50 free. 30 active + 40 scheduled = 70 live to place.
+    const caps: PageCapacity[] = [
+      { fb_page_id: "fbpage_1", currentActive: 200 },
+      { fb_page_id: "fbpage_2", currentActive: 0 },
+    ];
+    const s = split(30, 0, 40); // 30 active, 40 scheduled, 0 paused
+    const perPair = fillFirst(s, [PAIR_ACC_A_PAGE_1, PAIR_ACC_B_PAGE_2], caps);
+    expect(perPair[0].activeToLaunch).toBe(50); // page1 had 50 free, filled with live ads
+    expect(perPair[1].activeToLaunch).toBe(20); // overflow of remaining 20 live
+    expect(sumActive(perPair)).toBe(70); // active + scheduled placed = 70
+    // scheduledToLaunch reconciles back to the 40 scheduled across pairs.
+    expect(sumScheduled(perPair)).toBe(40);
+    expect(perPair[0].status).toBe("partial");
+  });
+
+  it("paused ride along alongside active + scheduled without consuming slots", () => {
+    const caps = emptyCaps(["fbpage_1", "fbpage_2"]);
+    const s = split(100, 80, 150); // 100 active + 150 scheduled = 250 live, 80 paused
+    const perPair = fillFirst(s, [PAIR_ACC_A_PAGE_1, PAIR_ACC_B_PAGE_2], caps);
+    // 250 live fill page1 (250 free) fully; page2 gets 0 live.
+    expect(perPair[0].activeToLaunch).toBe(250);
+    expect(perPair[1].activeToLaunch).toBe(0);
+    expect(sumActive(perPair)).toBe(250);
+    expect(sumScheduled(perPair)).toBe(150); // scheduled column sums back
+    expect(sumPaused(perPair)).toBe(80); // paused placed, never blocking
+  });
 });
 
 // ─── Equal Distribute ─────────────────────────────────────────────────────────
@@ -202,6 +265,25 @@ describe("equalDistribute", () => {
     expect(perPair[0]).toMatchObject({ activeToLaunch: 3, pausedToAdd: 0 }); // quota 3, all active
     expect(perPair[1]).toMatchObject({ activeToLaunch: 0, pausedToAdd: 2 }); // quota 2, all paused
   });
+
+  it("balances TOTAL incl scheduled: 20 active + 20 scheduled + 20 paused over 3 pairs -> 20 each", () => {
+    const s = split(20, 20, 20); // active=20, paused=20, scheduled=20 -> total 60
+    const perPair = equalDistribute(s, THREE_DISTINCT_PAIRS, []);
+    const totals = perPair.map((p) => p.activeToLaunch + p.pausedToAdd);
+    expect(totals).toEqual([20, 20, 20]); // TOTAL ads balanced
+    // Slot-consuming (active+scheduled=40) fills earliest quotas first: [20,20,0].
+    expect(perPair.map((p) => p.activeToLaunch)).toEqual([20, 20, 0]);
+    expect(sumActive(perPair)).toBe(40); // active + scheduled placed
+    expect(sumPaused(perPair)).toBe(20);
+  });
+
+  it("scheduledToLaunch sums back to total scheduled across pairs (Equal)", () => {
+    const s = split(40, 0, 35); // 40 active + 35 scheduled = 75 live over 3 pairs
+    const perPair = equalDistribute(s, THREE_DISTINCT_PAIRS, []);
+    expect(sumScheduled(perPair)).toBe(35); // exact reconciliation
+    // scheduledToLaunch never exceeds that pair's slot-consuming count.
+    for (const p of perPair) expect(p.scheduledToLaunch).toBeLessThanOrEqual(p.activeToLaunch);
+  });
 });
 
 // ─── Duplicate To Each ──────────────────────────────────────────────────────────
@@ -226,6 +308,18 @@ describe("duplicateToEach", () => {
       .filter((p) => p.pair.fb_page_id === "fbpage_shared")
       .reduce((sum, p) => sum + p.activeToLaunch, 0);
     expect(sharedDemand).toBe(active * 2);
+  });
+
+  it("every pair gets ALL scheduled; live count = active + scheduled per pair", () => {
+    const s = split(10, 5, 4); // 10 active, 4 scheduled, 5 paused
+    const perPair = duplicateToEach(s, THREE_DISTINCT_PAIRS, []);
+    for (const p of perPair) {
+      expect(p.activeToLaunch).toBe(14); // 10 active + 4 scheduled (slot-consuming)
+      expect(p.scheduledToLaunch).toBe(4); // each pair gets ALL scheduled
+      expect(p.pausedToAdd).toBe(5);
+    }
+    // Duplicate gives every pair all scheduled (not summing to total scheduled).
+    expect(sumScheduled(perPair)).toBe(4 * 3);
   });
 });
 
@@ -259,7 +353,7 @@ describe("validateStrategy", () => {
   });
 
   it("counts excludedUnknown without treating them as paused", () => {
-    const v = validateStrategy("equal", split(2, 2, ["archived", "deleted"]), THREE_DISTINCT_PAIRS, emptyCaps(["fbpage_1", "fbpage_2", "fbpage_3"]));
+    const v = validateStrategy("equal", split(2, 2, 0, ["archived", "deleted"]), THREE_DISTINCT_PAIRS, emptyCaps(["fbpage_1", "fbpage_2", "fbpage_3"]));
     expect(v.excludedUnknown).toBe(2);
   });
 
@@ -328,6 +422,60 @@ describe("validateStrategy", () => {
     const v = validateStrategy("duplicate", split(50, 0), THREE_DISTINCT_PAIRS, caps);
     expect(v.available).toBe(true);
     for (const d of v.perPageDemand) expect(d.activeDemand).toBe(50);
+  });
+
+  it("scheduled consumes a slot like active: 200 active + 60 scheduled on a 250 page -> demand 260 -> over", () => {
+    // Empty page (250 free). equal across one pair -> all 260 live land here.
+    const caps: PageCapacity[] = [{ fb_page_id: "fbpage_1", currentActive: 0 }];
+    const v = validateStrategy("equal", split(200, 0, 60), [PAIR_ACC_A_PAGE_1], caps);
+    expect(v.available).toBe(false);
+    const page = v.perPageDemand.find((d) => d.fb_page_id === "fbpage_1");
+    expect(page?.activeDemand).toBe(260); // active + scheduled, NOT just active
+    expect(page?.status).toBe("over");
+  });
+
+  it("0 active but scheduled present still consumes slots (260 scheduled over 250 -> over)", () => {
+    const caps: PageCapacity[] = [{ fb_page_id: "fbpage_1", currentActive: 0 }];
+    const v = validateStrategy("equal", split(0, 0, 260), [PAIR_ACC_A_PAGE_1], caps);
+    expect(v.available).toBe(false); // scheduled alone blocks — not "0 active -> available"
+    expect(v.perPageDemand.find((d) => d.fb_page_id === "fbpage_1")?.activeDemand).toBe(260);
+  });
+
+  it("mixed active+scheduled+paused: demand = active+scheduled only; paused excluded but still placed", () => {
+    // 100 active + 100 scheduled = 200 live (fits 250); 500 paused excluded from demand.
+    const caps: PageCapacity[] = [{ fb_page_id: "fbpage_1", currentActive: 0 }];
+    const v = validateStrategy("equal", split(100, 500, 100), [PAIR_ACC_A_PAGE_1], caps);
+    expect(v.available).toBe(true); // 200 live <= 250; paused never counted
+    const page = v.perPageDemand.find((d) => d.fb_page_id === "fbpage_1");
+    expect(page?.activeDemand).toBe(200); // paused NOT in demand
+    // Paused still placed on the pair (rides along).
+    expect(v.perPair[0].pausedToAdd).toBe(500);
+    expect(v.perPair[0].activeToLaunch).toBe(200); // active + scheduled
+  });
+
+  it("fill_first Σ-available check counts active+scheduled as demand", () => {
+    // page1: 50 free, page2: 50 free -> 100 free. 60 active + 50 scheduled = 110 live > 100.
+    const caps: PageCapacity[] = [
+      { fb_page_id: "fbpage_1", currentActive: 200 },
+      { fb_page_id: "fbpage_2", currentActive: 200 },
+    ];
+    const v = validateStrategy("fill_first", split(60, 0, 50), [PAIR_ACC_A_PAGE_1, PAIR_ACC_B_PAGE_2], caps);
+    expect(v.available).toBe(false);
+    expect(v.reason).toContain("110"); // 110 active/scheduled ads to launch
+  });
+
+  it("PerPairAllocation.scheduledToLaunch sums back to total scheduled (Fill/Equal); Duplicate gives each pair all", () => {
+    const caps = emptyCaps(["fbpage_1", "fbpage_2", "fbpage_3"]);
+    const s = split(30, 10, 24); // 30 active + 24 scheduled live, 10 paused
+
+    const fill = validateStrategy("fill_first", s, THREE_DISTINCT_PAIRS, caps);
+    expect(fill.perPair.reduce((a, p) => a + p.scheduledToLaunch, 0)).toBe(24);
+
+    const eq = validateStrategy("equal", s, THREE_DISTINCT_PAIRS, caps);
+    expect(eq.perPair.reduce((a, p) => a + p.scheduledToLaunch, 0)).toBe(24);
+
+    const dup = validateStrategy("duplicate", s, THREE_DISTINCT_PAIRS, caps);
+    for (const p of dup.perPair) expect(p.scheduledToLaunch).toBe(24); // each pair gets ALL
   });
 });
 

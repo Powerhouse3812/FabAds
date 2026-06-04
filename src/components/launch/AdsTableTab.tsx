@@ -9,11 +9,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, Copy, Trash2, Pencil, Image, Film, Layers, ChevronLeft, ChevronRight } from "lucide-react";
-import { useUpdateAd, useDuplicateAd, useDeleteAd } from "@/hooks/use-launch-mutations";
+import { useUpdateAd, useDuplicateAd, useDeleteAd, useUpdateAdSchedules } from "@/hooks/use-launch-mutations";
 import { AdEditPanel } from "./AdEditPanel";
 import type { LaunchFull, LaunchAd } from "@/hooks/use-launch-data";
 import type { WorkspaceTexts } from "@/hooks/use-workspace-texts";
 import { toast } from "@/hooks/use-toast";
+import { useFbConnection } from "@/hooks/use-fb-connection";
+import { getAccountTimezone, DEFAULT_TIMEZONE } from "@/lib/timezones";
+import { readAdSchedules, entryToValue } from "@/lib/ad-schedule";
+import { toAdStatus, AD_STATUS_LABEL, AD_STATUS_BADGE_VARIANT } from "@/lib/ad-status";
 
 const CTA_OPTIONS = ["Book Now", "Learn More", "Shop Now", "Sign Up", "Download", "Contact Us", "Get Offer", "Apply Now"];
 
@@ -118,6 +122,18 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
   const updateAd = useUpdateAd();
   const dupAd = useDuplicateAd();
   const deleteAd = useDeleteAd();
+  const updateSchedules = useUpdateAdSchedules();
+  const { adAccounts } = useFbConnection();
+
+  // Ads carry no account FK, and a launch can span accounts — default the
+  // scheduling timezone from the launch's PRIMARY (first) ad account, resolved
+  // via getAccountTimezone (real rows lack the not-yet-applied tz column).
+  const primaryFbAccountId = launchData.ad_accounts[0]?.fb_ad_account_id;
+  const primaryAccount = adAccounts.find((a) => a.id === primaryFbAccountId);
+  const defaultTimezone = primaryFbAccountId ? getAccountTimezone(primaryAccount) : DEFAULT_TIMEZONE;
+
+  // Existing per-ad schedules from launch_config (date/time/timezone for editor).
+  const adSchedules = readAdSchedules(launchData.launch_config);
 
   const filteredAds = launchData.ads.filter((ad) => {
     if (!search) return true;
@@ -216,10 +232,15 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
                           {ad.name}
                         </span>
                       )}
-                      <MediaTypeBadge
-                        type={ad.media_type}
-                        onSwitch={(t) => updateAd.mutate({ id: ad.id, launchId: launchData.id, media_type: t })}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <MediaTypeBadge
+                          type={ad.media_type}
+                          onSwitch={(t) => updateAd.mutate({ id: ad.id, launchId: launchData.id, media_type: t })}
+                        />
+                        <Badge variant={AD_STATUS_BADGE_VARIANT[toAdStatus(ad.status)]} className="text-xs">
+                          {AD_STATUS_LABEL[toAdStatus(ad.status)]}
+                        </Badge>
+                      </div>
                       <div className="flex gap-2 text-xs">
                         <button className="text-primary hover:underline" onClick={() => dupAd.mutate({ adId: ad.id, launchId: launchData.id })}>Clone</button>
                         <button className="text-primary hover:underline" onClick={() => setEditingAdId(ad.id)}>Edit</button>
@@ -330,8 +351,14 @@ export function AdsTableTab({ launchData, search, selectedAds, onSelectionChange
               <AdEditPanel
                 ad={editingAd}
                 launchId={launchData.id}
-                onSave={(fields) => {
+                defaultTimezone={defaultTimezone}
+                schedule={entryToValue(adSchedules[editingAd.id], defaultTimezone)}
+                onSave={(fields, scheduleEntry) => {
                   updateAd.mutate({ id: editingAd.id, launchId: launchData.id, ...fields });
+                  updateSchedules.mutate({
+                    launchId: launchData.id,
+                    updates: { [editingAd.id]: scheduleEntry },
+                  });
                   setEditingAdId(null);
                 }}
                 onCancel={() => setEditingAdId(null)}

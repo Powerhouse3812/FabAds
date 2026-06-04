@@ -70,13 +70,16 @@ export function LaunchStrategyBar({
   const validation = validateStrategy(strategy, rollup.statusSplit, targetPairs, capacities);
   const outputCount = computeOutputCount(strategy, selectedAdCount, pairCount);
   const budgets = budgetByCurrency(
-    rollup.statusSplit.active.concat(rollup.statusSplit.paused),
+    rollup.statusSplit.active
+      .concat(rollup.statusSplit.scheduled)
+      .concat(rollup.statusSplit.paused),
     distAdsets,
     strategy,
     pairCount
   );
 
   const activeCount = rollup.statusSplit.active.length;
+  const scheduledCount = rollup.statusSplit.scheduled.length;
   const pausedCount = rollup.statusSplit.paused.length;
   const ctaLabel = primaryCtaLabel(strategy);
 
@@ -148,7 +151,7 @@ export function LaunchStrategyBar({
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>
-            {activeCount} active / {pausedCount} paused
+            {activeCount} active / {scheduledCount} scheduled / {pausedCount} paused
           </span>
         </div>
 

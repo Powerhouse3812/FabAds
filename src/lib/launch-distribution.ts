@@ -2,9 +2,16 @@
  * Bulk Launch Distribution — pure core (no React / no Supabase).
  *
  * Distribution targets are (Ad Account -> Page) PAIRS. The capacity cap of
- * MAX_ADS_PER_PAGE (250) active ads is keyed on the UNIQUE Facebook Page
+ * MAX_ADS_PER_PAGE (250) slots is keyed on the UNIQUE Facebook Page
  * identity (`fb_page_id`). The SAME `fb_page_id` linked under two different ad
  * accounts is ONE 250-slot bucket shared across those pairs — never two.
+ *
+ * ─── Slot consumption (IMPORTANT) ───────────────────────────────────────────
+ * Three real ad statuses: "active", "scheduled", "paused" (+ "unknown" = any
+ * other string, excluded from launch). ACTIVE *and* SCHEDULED both consume a
+ * Page slot — a scheduled ad will go live, so it counts against the 250.
+ * PAUSED is free and never consumes a slot. So "Active/Scheduled slots" in the
+ * docs is literal: capacity demand = active + scheduled.
  *
  * ─── Axis distinction (IMPORTANT) ───────────────────────────────────────────
  * "Equal Distribution" in THIS file is the *ad -> page distribution* axis:
@@ -42,6 +49,7 @@ export interface DistAdset {
 
 export interface StatusSplit {
   active: DistAd[];
+  scheduled: DistAd[];
   paused: DistAd[];
   unknown: DistAd[];
 }
@@ -53,7 +61,13 @@ export interface PageCapacity {
 
 export interface PerPairAllocation {
   pair: TargetPair;
+  /**
+   * Slot-consuming ads placed on this pair = active + scheduled (BOTH count
+   * against the 250-slot Page cap). Kept named `activeToLaunch` for compat.
+   */
   activeToLaunch: number;
+  /** The scheduled portion of `activeToLaunch` (for display). */
+  scheduledToLaunch: number;
   pausedToAdd: number;
   status: "ok" | "partial" | "full";
 }
@@ -63,7 +77,11 @@ export interface PerPageDemand {
   page_name: string;
   currentActive: number;
   availableSlots: number;
-  activeDemand: number; // total active ads targeted at this unique page
+  /**
+   * Slot-consuming demand at this unique page = active + scheduled ads
+   * targeted here (BOTH consume a slot). Kept named `activeDemand` for compat.
+   */
+  activeDemand: number;
   status: "ok" | "over"; // over = demand > available
 }
 
@@ -86,21 +104,61 @@ export interface CurrencyBudget {
 // ─── Status split ────────────────────────────────────────────────────────────
 
 /**
- * "active" -> active, "paused" -> paused, ANYTHING ELSE -> unknown.
- * Unknown-status ads are excluded from launch and are NEVER treated as paused.
- * Matching is case-insensitive / trimmed to tolerate upstream casing drift.
+ * "active" -> active, "scheduled" -> scheduled, "paused" -> paused,
+ * ANYTHING ELSE -> unknown. Unknown-status ads are excluded from launch and are
+ * NEVER treated as paused. Matching is case-insensitive / trimmed to tolerate
+ * upstream casing drift.
  */
 export function splitByStatus(ads: DistAd[]): StatusSplit {
   const active: DistAd[] = [];
+  const scheduled: DistAd[] = [];
   const paused: DistAd[] = [];
   const unknown: DistAd[] = [];
   for (const ad of ads) {
     const s = (ad.status ?? "").trim().toLowerCase();
     if (s === "active") active.push(ad);
+    else if (s === "scheduled") scheduled.push(ad);
     else if (s === "paused") paused.push(ad);
     else unknown.push(ad);
   }
-  return { active, paused, unknown };
+  return { active, scheduled, paused, unknown };
+}
+
+/**
+ * The ads that consume a Page slot under the cap: active + scheduled (a
+ * scheduled ad will go live, so it counts against the 250). Paused are free.
+ * Active come first so strategy placement is deterministic.
+ */
+export function slotConsuming(split: StatusSplit): DistAd[] {
+  return [...split.active, ...split.scheduled];
+}
+
+/** Count of slot-consuming ads = active + scheduled. */
+export function slotConsumingCount(split: StatusSplit): number {
+  return split.active.length + split.scheduled.length;
+}
+
+/**
+ * Deterministic scheduled share of a per-pair slot allocation, summing-correct.
+ * Given `placedHere` slot-consuming ads on this pair, the scheduled portion is
+ * round(placedHere * scheduledTotal / liveTotal). Tracks running totals so the
+ * column reconciles back to exactly `scheduledTotal` across pairs (any rounding
+ * remainder lands on the final allocation by clamping to what is left).
+ */
+function makeScheduledApportioner(scheduledTotal: number, liveTotal: number) {
+  let placedSoFar = 0; // slot-consuming ads accounted so far
+  let scheduledSoFar = 0; // scheduled ads emitted so far
+  return (placedHere: number): number => {
+    placedSoFar += placedHere;
+    if (liveTotal === 0) return 0;
+    // Ideal cumulative scheduled at this point, rounded; diff is this pair's share.
+    const idealCumulative = Math.round((placedSoFar * scheduledTotal) / liveTotal);
+    let share = idealCumulative - scheduledSoFar;
+    // Clamp to [0, placedHere] and to remaining scheduled budget.
+    share = Math.max(0, Math.min(share, placedHere, scheduledTotal - scheduledSoFar));
+    scheduledSoFar += share;
+    return share;
+  };
 }
 
 // ─── Capacity aggregation ──────────────────────────────────────────────────────
@@ -154,18 +212,20 @@ export function uniquePagesCount(pairs: TargetPair[]): number {
 // ─── Fill First ──────────────────────────────────────────────────────────────
 
 /**
- * Walk pairs in order; place active ads into each pair's page until that page's
- * REMAINING capacity (shared across pairs of the same fb_page_id) is exhausted,
- * overflowing to the next pair. Paused ads ride along in the same order (spread
- * evenly so a single pair does not hoard them) and never consume active slots.
+ * Walk pairs in order; place slot-consuming ads (active + scheduled) into each
+ * pair's page until that page's REMAINING capacity (shared across pairs of the
+ * same fb_page_id) is exhausted, overflowing to the next pair. Paused ads ride
+ * along in the same order (spread evenly so a single pair does not hoard them)
+ * and never consume slots.
  *
  * Per-pair status:
- *  - "full"    -> this pair wanted active ads (active still unplaced when we
- *                 arrived) but its page bucket had 0 slots, so it placed none.
- *  - "partial" -> this pair placed some active but not all that remained,
- *                 because its page bucket ran out mid-fill (overflow continues
- *                 to the next pair).
- *  - "ok"      -> placed everything it was asked for, or no active ads existed.
+ *  - "full"    -> this pair wanted slot-consuming ads (active/scheduled still
+ *                 unplaced when we arrived) but its page bucket had 0 slots, so
+ *                 it placed none.
+ *  - "partial" -> this pair placed some active/scheduled but not all that
+ *                 remained, because its page bucket ran out mid-fill (overflow
+ *                 continues to the next pair).
+ *  - "ok"      -> placed everything it was asked for, or no slot-consuming ads.
  */
 export function fillFirst(
   statusSplit: StatusSplit,
@@ -177,23 +237,24 @@ export function fillFirst(
   const remaining = new Map<string, number>();
   for (const [fbPageId] of capByPage) remaining.set(fbPageId, availableFor(capByPage, fbPageId));
 
-  let activeLeft = statusSplit.active.length;
+  let liveLeft = slotConsumingCount(statusSplit); // active + scheduled still to place
+  const apportionScheduled = makeScheduledApportioner(statusSplit.scheduled.length, slotConsumingCount(statusSplit));
   const perPair: PerPairAllocation[] = [];
 
   for (const pair of targetPairs) {
     const slots = remaining.get(pair.fb_page_id) ?? 0;
-    const wantedActive = activeLeft; // all remaining active "wants" this pair
-    const take = Math.min(activeLeft, slots);
+    const wantedLive = liveLeft; // all remaining slot-consuming "wants" this pair
+    const take = Math.min(liveLeft, slots);
     remaining.set(pair.fb_page_id, slots - take);
-    activeLeft -= take;
+    liveLeft -= take;
 
     let status: "ok" | "partial" | "full";
-    if (wantedActive === 0) status = "ok"; // nothing left to place
-    else if (take === 0) status = "full"; // wanted active but page bucket empty
-    else if (take < wantedActive) status = "partial"; // placed some, overflow continues
-    else status = "ok"; // placed all remaining active
+    if (wantedLive === 0) status = "ok"; // nothing left to place
+    else if (take === 0) status = "full"; // wanted active/scheduled but page bucket empty
+    else if (take < wantedLive) status = "partial"; // placed some, overflow continues
+    else status = "ok"; // placed all remaining slot-consuming
 
-    perPair.push({ pair, activeToLaunch: take, pausedToAdd: 0, status });
+    perPair.push({ pair, activeToLaunch: take, scheduledToLaunch: apportionScheduled(take), pausedToAdd: 0, status });
   }
 
   // Paused ride along: spread evenly across pairs in target order (tie ->
@@ -217,10 +278,12 @@ function distributePausedAlong(perPair: PerPairAllocation[], totalPaused: number
 // ─── Equal Distribute ──────────────────────────────────────────────────────────
 
 /**
- * Split TOTAL ads (active + paused) as evenly as possible across pairs.
- * Tie-break: extra ad(s) go to the EARLIEST pairs in target order.
- * Active ads are placed first into each pair's quota, then paused fill the rest;
- * active demand is validated per unique page in validateStrategy.
+ * Split TOTAL ads (active + scheduled + paused) as evenly as possible across
+ * pairs. Tie-break: extra ad(s) go to the EARLIEST pairs in target order.
+ * Slot-consuming ads (active + scheduled) are placed first into each pair's
+ * quota, then paused fill the rest; slot demand is validated per unique page in
+ * validateStrategy. `scheduledToLaunch` is apportioned from the per-pair
+ * slot-consuming count and reconciles back to total scheduled.
  */
 export function equalDistribute(
   statusSplit: StatusSplit,
@@ -231,26 +294,28 @@ export function equalDistribute(
   const perPair: PerPairAllocation[] = [];
   if (n === 0) return perPair;
 
-  const totalActive = statusSplit.active.length;
+  const liveTotal = slotConsumingCount(statusSplit); // active + scheduled
   const totalPaused = statusSplit.paused.length;
-  const total = totalActive + totalPaused;
+  const total = liveTotal + totalPaused;
 
   const base = Math.floor(total / n);
   const extra = total % n;
 
-  let activeLeft = totalActive;
+  let liveLeft = liveTotal;
   let pausedLeft = totalPaused;
+  const apportionScheduled = makeScheduledApportioner(statusSplit.scheduled.length, liveTotal);
 
   for (let i = 0; i < n; i++) {
     const quota = base + (i < extra ? 1 : 0);
-    // Active fills the quota first, paused takes the remainder of the quota.
-    const activeTake = Math.min(activeLeft, quota);
-    activeLeft -= activeTake;
-    const pausedTake = Math.min(pausedLeft, quota - activeTake);
+    // Slot-consuming (active+scheduled) fills the quota first, paused takes the rest.
+    const liveTake = Math.min(liveLeft, quota);
+    liveLeft -= liveTake;
+    const pausedTake = Math.min(pausedLeft, quota - liveTake);
     pausedLeft -= pausedTake;
     perPair.push({
       pair: targetPairs[i],
-      activeToLaunch: activeTake,
+      activeToLaunch: liveTake,
+      scheduledToLaunch: apportionScheduled(liveTake),
       pausedToAdd: pausedTake,
       status: "ok",
     });
@@ -262,19 +327,22 @@ export function equalDistribute(
 // ─── Duplicate To Each ───────────────────────────────────────────────────────
 
 /**
- * Every pair gets ALL active ads (+ all paused). A unique page appearing in N
- * pairs therefore needs activeCount x N slots on that one shared bucket.
+ * Every pair gets ALL slot-consuming ads (active + scheduled) + all paused. A
+ * unique page appearing in N pairs therefore needs (active+scheduled) x N slots
+ * on that one shared bucket. Each pair gets ALL scheduled.
  */
 export function duplicateToEach(
   statusSplit: StatusSplit,
   targetPairs: TargetPair[],
   _capacities: PageCapacity[]
 ): PerPairAllocation[] {
-  const activeCount = statusSplit.active.length;
+  const liveCount = slotConsumingCount(statusSplit); // active + scheduled
+  const scheduledCount = statusSplit.scheduled.length;
   const pausedCount = statusSplit.paused.length;
   return targetPairs.map((pair) => ({
     pair,
-    activeToLaunch: activeCount,
+    activeToLaunch: liveCount,
+    scheduledToLaunch: scheduledCount,
     pausedToAdd: pausedCount,
     status: "ok",
   }));
@@ -308,14 +376,15 @@ export function distribute(
  * Runs the allocation, computes per-page demand, and decides availability.
  *
  *  - 0 pairs                      -> unavailable, "Select at least one Page".
- *  - 0 active ads                 -> available (paused never block).
- *  - Fill First                   -> Σ available across unique pages ≥ active count.
- *  - Equal (base/extra split)     -> every pair gets ≥ base, and active fits per
- *                                    unique page (requested active per page ≤ available).
- *  - Duplicate                    -> every unique page has available ≥ activeCount × (pairs sharing it).
+ *  - 0 slot-consuming ads         -> available (paused never block).
+ *  - Fill First                   -> Σ available across unique pages ≥ active/scheduled count.
+ *  - Equal (base/extra split)     -> every pair gets ≥ base, and active/scheduled fits per
+ *                                    unique page (requested per page ≤ available).
+ *  - Duplicate                    -> every unique page has available ≥ (active+scheduled) × (pairs sharing it).
  *
- * `reason` names the over-capacity page(s) when any page's active demand exceeds
- * its available slots.
+ * "Slot-consuming" = active + scheduled (both count against the 250 cap). Paused
+ * are free. `reason` names the over-capacity page(s) when any page's
+ * active/scheduled demand exceeds its available slots.
  */
 export function validateStrategy(
   strategy: LaunchStrategy,
@@ -338,12 +407,13 @@ export function validateStrategy(
   const capByPage = aggregateCapacityByPage(targetPairs, capacities);
   const perPair = distribute(strategy, statusSplit, targetPairs, capacities);
 
-  // Per-page ACTIVE demand under the strategy. For equal/duplicate this is the
-  // demand BEFORE capacity clamping (so per-page over-capacity is detectable).
-  // For fill_first it is the placed (capacity-aware) active per page — fill_first
-  // overflows across pages, so its binding constraint is the GLOBAL Σ check
-  // below, never a single page's per-page demand.
-  const requestedActiveByPage = computeRequestedActivePerPage(strategy, statusSplit, targetPairs, capacities);
+  // Per-page slot-consuming demand (active + scheduled) under the strategy. For
+  // equal/duplicate this is the demand BEFORE capacity clamping (so per-page
+  // over-capacity is detectable). For fill_first it is the placed
+  // (capacity-aware) slot-consuming per page — fill_first overflows across
+  // pages, so its binding constraint is the GLOBAL Σ check below, never a single
+  // page's per-page demand.
+  const liveDemandByPage = computeLiveDemandPerPage(strategy, statusSplit, targetPairs, capacities);
 
   const perPageDemand: PerPageDemand[] = [];
   const overPages: string[] = [];
@@ -352,7 +422,7 @@ export function validateStrategy(
     const cap = capByPage.get(fbId);
     const currentActive = cap ? cap.currentActive : 0;
     const availableSlots = Math.max(0, MAX_ADS_PER_PAGE - currentActive);
-    const activeDemand = requestedActiveByPage.get(fbId) ?? 0;
+    const activeDemand = liveDemandByPage.get(fbId) ?? 0; // active + scheduled
     // fill_first never flags per-page over (placed <= available by construction);
     // its shortfall is caught by the global Σ-available check.
     const isOver = strategy !== "fill_first" && activeDemand > availableSlots;
@@ -367,10 +437,10 @@ export function validateStrategy(
     });
   }
 
-  const totalActive = statusSplit.active.length;
+  const liveTotal = slotConsumingCount(statusSplit); // active + scheduled
 
-  // 0 active -> always available regardless of capacity.
-  if (totalActive === 0) {
+  // 0 slot-consuming ads -> always available regardless of capacity.
+  if (liveTotal === 0) {
     return { available: true, perPair, perPageDemand, excludedUnknown };
   }
 
@@ -381,23 +451,23 @@ export function validateStrategy(
     available = false;
     reason = capacityReason(overPages);
   } else if (strategy === "fill_first") {
-    // Σ available across unique pages ≥ active count. (Fill First overflows
-    // across pages, so the binding constraint is the GLOBAL sum, not any single
-    // page — but we still name the full page(s) that caused the shortfall.)
+    // Σ available across unique pages ≥ active/scheduled count. (Fill First
+    // overflows across pages, so the binding constraint is the GLOBAL sum, not
+    // any single page — but we still name the full page(s) that caused it.)
     let totalAvailable = 0;
     for (const [, cap] of capByPage) totalAvailable += Math.max(0, MAX_ADS_PER_PAGE - cap.currentActive);
-    if (totalAvailable < totalActive) {
+    if (totalAvailable < liveTotal) {
       available = false;
       const fullPageNames = dedupePairsByPage(targetPairs)
         .filter((p) => Math.max(0, MAX_ADS_PER_PAGE - (capByPage.get(p.fb_page_id)?.currentActive ?? 0)) === 0)
         .map((p) => p.page_name);
       const namePart = fullPageNames.length > 0 ? ` Full: ${Array.from(new Set(fullPageNames)).map((n) => `"${n}"`).join(", ")}.` : "";
-      reason = `Not enough capacity: ${totalAvailable} active slot${totalAvailable === 1 ? "" : "s"} across selected Pages, but ${totalActive} active ad${totalActive === 1 ? "" : "s"} to launch.${namePart}`;
+      reason = `Not enough capacity: ${totalAvailable} active/scheduled slot${totalAvailable === 1 ? "" : "s"} across selected Pages, but ${liveTotal} active/scheduled ad${liveTotal === 1 ? "" : "s"} to launch.${namePart}`;
     }
   }
   // Equal & Duplicate per-page constraints are fully captured by overPages above:
-  //  - Equal: requested active per unique page = its even share of active ads.
-  //  - Duplicate: requested active per unique page = activeCount × pairs sharing it.
+  //  - Equal: requested active/scheduled per unique page = its even share.
+  //  - Duplicate: requested active/scheduled per unique page = (active+scheduled) × pairs sharing it.
 
   return { available, reason, perPair, perPageDemand, excludedUnknown };
 }
@@ -409,7 +479,7 @@ function capacityReason(pageNames: string[]): string {
     return `Page "${unique[0]}" is over capacity (needs more than its available 250-ad limit allows).`;
   }
   const list = unique.map((n) => `"${n}"`).join(", ");
-  return `${unique.length} Pages are over capacity: ${list}. Each Facebook Page allows max ${MAX_ADS_PER_PAGE} active ads.`;
+  return `${unique.length} Pages are over capacity: ${list}. Each Facebook Page allows max ${MAX_ADS_PER_PAGE} active/scheduled ads.`;
 }
 
 /** First pair seen per unique fb_page_id, preserving target order. */
@@ -425,42 +495,43 @@ function dedupePairsByPage(targetPairs: TargetPair[]): TargetPair[] {
 }
 
 /**
- * Requested ACTIVE ads per unique fb_page_id under a strategy, BEFORE capacity
- * clamping — this is what we validate against each page's available slots.
+ * Requested SLOT-CONSUMING ads (active + scheduled) per unique fb_page_id under
+ * a strategy, BEFORE capacity clamping — this is what we validate against each
+ * page's available slots.
  *
- *  - fill_first: all active ads ultimately target the selected pages as one
- *    shared pool; per-page "requested" is the active that would land on that
- *    page if pages filled in order. For validation we instead check the GLOBAL
- *    sum (handled in validateStrategy) and per-page over only when a single
- *    page is asked to exceed its own slots — which for fill_first happens only
- *    if active > that page's slots AND it is the sole page. To keep per-page
- *    demand meaningful we report the placed active per page (post-fill).
- *  - equal: each unique page's requested active = sum over its pairs of the
- *    active share assigned to those pairs by the even split.
- *  - duplicate: each unique page's requested active = activeCount × (#pairs
+ *  - fill_first: all slot-consuming ads ultimately target the selected pages as
+ *    one shared pool; per-page "requested" is what would land on that page if
+ *    pages filled in order. For validation we instead check the GLOBAL sum
+ *    (handled in validateStrategy) and per-page over only when a single page is
+ *    asked to exceed its own slots — which for fill_first happens only if the
+ *    live count > that page's slots AND it is the sole page. To keep per-page
+ *    demand meaningful we report the placed live count per page (post-fill).
+ *  - equal: each unique page's requested live = sum over its pairs of the
+ *    active+scheduled share assigned to those pairs by the even split.
+ *  - duplicate: each unique page's requested live = (active+scheduled) × (#pairs
  *    sharing that page).
  */
-function computeRequestedActivePerPage(
+function computeLiveDemandPerPage(
   strategy: LaunchStrategy,
   statusSplit: StatusSplit,
   targetPairs: TargetPair[],
   capacities: PageCapacity[]
 ): Map<string, number> {
   const byPage = new Map<string, number>();
-  const activeCount = statusSplit.active.length;
+  const liveCount = slotConsumingCount(statusSplit); // active + scheduled
 
   if (strategy === "duplicate") {
     const pairsPerPage = new Map<string, number>();
     for (const pair of targetPairs) pairsPerPage.set(pair.fb_page_id, (pairsPerPage.get(pair.fb_page_id) ?? 0) + 1);
-    for (const [fbId, count] of pairsPerPage) byPage.set(fbId, activeCount * count);
+    for (const [fbId, count] of pairsPerPage) byPage.set(fbId, liveCount * count);
     return byPage;
   }
 
   if (strategy === "equal") {
-    // Even split of TOTAL across pairs, but only the ACTIVE portion is what
-    // each pair contributes to its page's active demand. Active fills the
-    // earliest pairs' quotas first (same order equalDistribute uses), so we
-    // replay that placement to get per-pair active, then sum per page.
+    // Even split of TOTAL across pairs, but only the slot-consuming portion
+    // (active+scheduled, carried in activeToLaunch) is what each pair contributes
+    // to its page's demand. Live fills the earliest pairs' quotas first (same
+    // order equalDistribute uses), so we replay that placement, then sum per page.
     const perPair = equalDistribute(statusSplit, targetPairs, []);
     for (const alloc of perPair) {
       byPage.set(alloc.pair.fb_page_id, (byPage.get(alloc.pair.fb_page_id) ?? 0) + alloc.activeToLaunch);
@@ -468,10 +539,10 @@ function computeRequestedActivePerPage(
     return byPage;
   }
 
-  // fill_first: report placed active per page (post-fill, capacity-aware, using
-  // the REAL capacities). Placement never exceeds a page's slots, so per-page
-  // "over" is never flagged for fill_first; the global Σ-available check in
-  // validateStrategy is the authority for fill_first shortfalls.
+  // fill_first: report placed slot-consuming per page (post-fill, capacity-aware,
+  // using the REAL capacities). Placement never exceeds a page's slots, so
+  // per-page "over" is never flagged for fill_first; the global Σ-available check
+  // in validateStrategy is the authority for fill_first shortfalls.
   const perPair = fillFirst(statusSplit, targetPairs, capacities);
   for (const alloc of perPair) {
     byPage.set(alloc.pair.fb_page_id, (byPage.get(alloc.pair.fb_page_id) ?? 0) + alloc.activeToLaunch);
@@ -484,6 +555,8 @@ function computeRequestedActivePerPage(
 /**
  * fill_first / equal -> selectedAdCount (the same ads are spread across pairs).
  * duplicate          -> selectedAdCount × targetPairsCount (copied into each pair).
+ *
+ * selectedAdCount = ALL selected ads (active + scheduled + paused); status-agnostic.
  */
 export function computeOutputCount(
   strategy: LaunchStrategy,

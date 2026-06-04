@@ -43,6 +43,8 @@ export interface LaunchReportSummary {
   selectedAdsCount: number;
   createdAdsCount: number;
   activeCount: number;
+  /** Created ads scheduled to go live later. Consume a Page slot like Active. */
+  scheduledCount: number;
   pausedCount: number;
   /** Count of (account -> page) target pairs. Shown SEPARATELY from pages. */
   targetPairsCount: number;
@@ -53,6 +55,9 @@ export interface LaunchReportSummary {
   isDemo: boolean;
 }
 
+/** Status of a created ad. Active + Scheduled both consume a Page slot. */
+export type CreatedAdStatus = "Active" | "Scheduled" | "Paused";
+
 /** One created ad (flat "Created Ads" view + leaf of a Source-Ads group). */
 export interface CreatedAdRow {
   id: string;
@@ -61,7 +66,11 @@ export interface CreatedAdRow {
   source_ad_name: string;
   copy_group_id: string | null;
   name: string;
-  status: "Active" | "Paused";
+  status: CreatedAdStatus;
+  /** Absolute go-live instant (ISO) when status is Scheduled; else null. */
+  scheduled_at: string | null;
+  /** IANA timezone the schedule was picked in; null when not scheduled. */
+  timezone: string | null;
   target_pair_id: string | null;
   destination_fb_page_id: string | null;
   destination_page_name: string;
@@ -78,7 +87,7 @@ export interface SourceAdGroup {
   source_ad_id: string;
   source_ad_name: string;
   copy_group_id: string | null;
-  status: "Active" | "Paused";
+  status: CreatedAdStatus;
   created_count: number;
   children: CreatedAdRow[];
 }
@@ -144,7 +153,7 @@ async function tryReadLiveReport(
     const { data, error } = await (supabase as any)
       .from("launch_ads")
       .select(
-        "id, name, status, source_ad_id, created_ad_id, copy_group_id, target_pair_id, destination_fb_page_id, destination_ad_account_id, budget_before, budget_after, budget_multiplier",
+        "id, name, status, scheduled_at, ad_timezone, source_ad_id, created_ad_id, copy_group_id, target_pair_id, destination_fb_page_id, destination_ad_account_id, budget_before, budget_after, budget_multiplier",
       )
       .eq("launch_id", launchId);
 
@@ -177,6 +186,14 @@ async function tryReadLiveReport(
   }
 }
 
+/** Map a raw launch_ads.status string to the report's 3-way status. */
+function normalizeStatus(raw: unknown): CreatedAdStatus {
+  const s = String(raw ?? "").toLowerCase();
+  if (s === "active") return "Active";
+  if (s === "scheduled") return "Scheduled";
+  return "Paused";
+}
+
 /** Shape live rows into the report domain types. */
 function assembleReport(
   launchId: string,
@@ -190,7 +207,7 @@ function assembleReport(
   for (const pair of resolved.targetPairs) pairPageName.set(pair.fb_page_id, pair.page_name);
 
   const createdAds: CreatedAdRow[] = rows.map((r) => {
-    const status: "Active" | "Paused" = String(r.status).toLowerCase() === "active" ? "Active" : "Paused";
+    const status = normalizeStatus(r.status);
     const fbPageId = r.destination_fb_page_id ?? null;
     return {
       id: String(r.id),
@@ -200,6 +217,8 @@ function assembleReport(
       copy_group_id: r.copy_group_id ?? null,
       name: r.name ?? "Ad",
       status,
+      scheduled_at: status === "Scheduled" ? (r.scheduled_at ?? null) : null,
+      timezone: status === "Scheduled" ? (r.ad_timezone ?? null) : null,
       target_pair_id: r.target_pair_id ?? null,
       destination_fb_page_id: fbPageId,
       destination_page_name: (fbPageId && (pageNames.get(fbPageId) || pairPageName.get(fbPageId))) || "—",
@@ -235,7 +254,8 @@ function assembleReport(
   const sourceGroups = Array.from(groups.values());
 
   const activeCount = createdAds.filter((a) => a.status === "Active").length;
-  const pausedCount = createdAds.length - activeCount;
+  const scheduledCount = createdAds.filter((a) => a.status === "Scheduled").length;
+  const pausedCount = createdAds.length - activeCount - scheduledCount;
 
   const beforeByCur = new Map<string, number>();
   const afterByCur = new Map<string, number>();
@@ -255,6 +275,7 @@ function assembleReport(
     selectedAdsCount: sourceGroups.length,
     createdAdsCount: createdAds.length,
     activeCount,
+    scheduledCount,
     pausedCount,
     targetPairsCount: targetPairsCount(resolved.targetPairs),
     uniquePagesCount: uniquePagesCount(resolved.targetPairs),

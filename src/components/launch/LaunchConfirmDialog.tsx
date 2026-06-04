@@ -88,7 +88,9 @@ export function LaunchConfirmDialog({
   }, [open, validation.available]);
 
   const budgets = budgetByCurrency(
-    rollup.statusSplit.active.concat(rollup.statusSplit.paused),
+    rollup.statusSplit.active
+      .concat(rollup.statusSplit.scheduled)
+      .concat(rollup.statusSplit.paused),
     distAdsets,
     strategy,
     pairCount
@@ -219,7 +221,8 @@ export function LaunchConfirmDialog({
                     <span className="text-muted-foreground">{alloc.pair.account_name}</span> · {alloc.pair.page_name}
                   </span>
                   <span className="shrink-0 tabular-nums text-muted-foreground">
-                    {alloc.activeToLaunch} active
+                    {alloc.activeToLaunch} active/scheduled
+                    {alloc.scheduledToLaunch > 0 ? ` · ${alloc.scheduledToLaunch} scheduled` : ""}
                     {alloc.pausedToAdd > 0 ? ` · ${alloc.pausedToAdd} paused` : ""}
                   </span>
                 </div>

@@ -29,6 +29,12 @@ export interface FbAdAccount {
   account_status: number | null;
   fb_business_manager_id: string | null;
   created_at: string;
+  /**
+   * IANA timezone for the account. The DB column is owned by the
+   * reports/migration slice and is NOT applied live yet, so real rows won't
+   * carry it — always resolve the effective tz via getAccountTimezone().
+   */
+  timezone?: string | null;
 }
 
 export function useFbConnection() {

@@ -15,9 +15,12 @@ import { LaunchStrategyBar } from "./LaunchStrategyBar";
 import { LaunchDistributionPreview } from "./LaunchDistributionPreview";
 import { LaunchConfirmDialog } from "./LaunchConfirmDialog";
 import { useWorkspaceTexts } from "@/hooks/use-workspace-texts";
-import { useBulkUpdateAds, useUpdateLaunchStep, useBulkUpdateAdsets, useDuplicateAd, useDeleteAd, useAddAd } from "@/hooks/use-launch-mutations";
+import { useBulkUpdateAds, useUpdateLaunchStep, useBulkUpdateAdsets, useDuplicateAd, useDeleteAd, useAddAd, useUpdateAdSchedules } from "@/hooks/use-launch-mutations";
 import { validateStep3, scrollToFirstError } from "@/lib/launch-validation";
 import { toast } from "@/hooks/use-toast";
+import { useFbConnection } from "@/hooks/use-fb-connection";
+import { getAccountTimezone, DEFAULT_TIMEZONE } from "@/lib/timezones";
+import type { AdScheduleEntry } from "@/lib/ad-schedule";
 import type { LaunchFull } from "@/hooks/use-launch-data";
 import { rollupSelection, type SelectionLevel } from "@/lib/launch-selection-rollup";
 import { useLaunchDistribution, resolveLaunchCurrency } from "@/hooks/use-launch-distribution";
@@ -48,12 +51,21 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   const { data: workspaceTexts } = useWorkspaceTexts();
   const bulkUpdate = useBulkUpdateAds();
   const bulkUpdateAdsets = useBulkUpdateAdsets();
+  const updateSchedules = useUpdateAdSchedules();
   const dupAd = useDuplicateAd();
   const delAd = useDeleteAd();
   const addAd = useAddAd();
   const updateStep = useUpdateLaunchStep();
+  const { adAccounts } = useFbConnection();
 
   const accountCount = launchData.ad_accounts.length;
+
+  // Default scheduling timezone = the launch's PRIMARY (first) ad account,
+  // resolved via getAccountTimezone (real rows lack the not-yet-live tz column).
+  const primaryFbAccountId = launchData.ad_accounts[0]?.fb_ad_account_id;
+  const defaultTimezone = primaryFbAccountId
+    ? getAccountTimezone(adAccounts.find((a) => a.id === primaryFbAccountId))
+    : DEFAULT_TIMEZONE;
 
   // ─── Distribution config + rollup ───────────────────────────────────────────
   const dist = useLaunchDistribution(launchData);
@@ -79,6 +91,17 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
 
   const handleBulkApply = (fields: Record<string, any>) => {
     bulkUpdate.mutate({ ids: Array.from(selectedAds), launchId: launchData.id, fields });
+    setSelectedAds(new Set());
+  };
+
+  // Bulk schedule: status="scheduled" on every selected ad (normal status path)
+  // + the date/time/timezone into launch_config.adSchedules per ad id.
+  const handleBulkSchedule = (adIds: string[], entry: AdScheduleEntry) => {
+    bulkUpdate.mutate({ ids: adIds, launchId: launchData.id, fields: { status: "scheduled" } });
+    updateSchedules.mutate({
+      launchId: launchData.id,
+      updates: Object.fromEntries(adIds.map((id) => [id, entry])),
+    });
     setSelectedAds(new Set());
   };
 
@@ -126,7 +149,9 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
         <AdBulkEditToolbar
           selectedCount={selectedAds.size}
           ads={launchData.ads.filter(a => selectedAds.has(a.id))}
+          defaultTimezone={defaultTimezone}
           onApply={handleBulkApply}
+          onSchedule={handleBulkSchedule}
           onDuplicate={(adId) => dupAd.mutate({ adId, launchId: launchData.id })}
           onDelete={(adId) => delAd.mutate({ id: adId, launchId: launchData.id })}
           onClear={() => setSelectedAds(new Set())}

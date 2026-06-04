@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "./use-workspace";
+import { mergeAdSchedules, type AdScheduleEntry } from "@/lib/ad-schedule";
 
 function useInvalidateLaunch() {
   const qc = useQueryClient();
@@ -224,6 +225,41 @@ export function useBulkUpdateAds() {
       }
       if (Object.keys(cleanFields).length === 0) return { launchId };
       const { error } = await (supabase as any).from("launch_ads").update(cleanFields).in("id", ids);
+      if (error) throw error;
+      return { launchId };
+    },
+    onSuccess: (d) => invalidate(d.launchId),
+  });
+}
+
+/**
+ * Persist per-ad schedule entries into the existing launch_config.adSchedules
+ * JSON (no new DB columns). Read-modify-write mirrors how StepAccountSetup saves
+ * distribution. Pass `null` for an ad to clear its schedule (e.g. status moved
+ * off "scheduled"). The ad's status itself rides the normal useUpdateAd path.
+ */
+export function useUpdateAdSchedules() {
+  const invalidate = useInvalidateLaunch();
+  return useMutation({
+    mutationFn: async ({
+      launchId,
+      updates,
+    }: {
+      launchId: string;
+      updates: Record<string, AdScheduleEntry | null>;
+    }) => {
+      if (Object.keys(updates).length === 0) return { launchId };
+      const { data: launch, error: readErr } = await (supabase as any)
+        .from("launches")
+        .select("launch_config")
+        .eq("id", launchId)
+        .single();
+      if (readErr) throw readErr;
+      const nextConfig = mergeAdSchedules(launch?.launch_config ?? null, updates);
+      const { error } = await (supabase as any)
+        .from("launches")
+        .update({ launch_config: nextConfig })
+        .eq("id", launchId);
       if (error) throw error;
       return { launchId };
     },

@@ -119,6 +119,9 @@ export function DistributionAllocation({
                     <span className="shrink-0 tabular-nums text-foreground">
                       <span className="font-medium">{p.activeToLaunch}</span> ad
                       {p.activeToLaunch === 1 ? "" : "s"}
+                      {p.scheduledToLaunch > 0 && (
+                        <span className="text-muted-foreground"> · {p.scheduledToLaunch} scheduled</span>
+                      )}
                       {p.pausedToAdd > 0 && (
                         <span className="text-muted-foreground"> · {p.pausedToAdd} paused</span>
                       )}

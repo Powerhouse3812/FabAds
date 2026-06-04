@@ -8,7 +8,7 @@ import type { LaunchFull, LaunchAd, LaunchAdset, LaunchCampaign, LaunchAdAccount
 //     adset_1 -> ad_1 (active), ad_2 (paused)
 //     adset_2 -> ad_3 (active), ad_4 (weird/unknown)
 //   camp_2
-//     adset_3 -> ad_5 (active)
+//     adset_3 -> ad_5 (active), ad_6 (scheduled)
 
 function ad(id: string, adset_id: string, status: string): LaunchAd {
   return {
@@ -50,6 +50,7 @@ const LAUNCH: LaunchFull = {
     ad("ad_3", "adset_2", "active"),
     ad("ad_4", "adset_2", "in_review"), // unknown status
     ad("ad_5", "adset_3", "active"),
+    ad("ad_6", "adset_3", "scheduled"), // scheduled -> slot-consuming
   ],
 };
 
@@ -67,9 +68,21 @@ describe("rollupSelection", () => {
     expect(r.counts.adsets).toBe(2);
     expect(r.counts.ads).toBe(4);
     expect(r.statusSplit.active.map((a) => a.id).sort()).toEqual(["ad_1", "ad_3"]);
+    expect(r.statusSplit.scheduled).toEqual([]); // camp_1 has no scheduled ads
     expect(r.statusSplit.paused.map((a) => a.id)).toEqual(["ad_2"]);
     expect(r.statusSplit.unknown.map((a) => a.id)).toEqual(["ad_4"]); // never treated as paused
     expect(r.accountConstrained).toBe(false);
+  });
+
+  it("routes a scheduled ad into the scheduled bucket (mirrors the lib's 4-bucket split)", () => {
+    // adset_3 -> ad_5 (active), ad_6 (scheduled).
+    const sel = { ...emptySel(), adgroups: new Set(["adset_3"]) };
+    const r = rollupSelection(LAUNCH, sel, "adgroups");
+    expect(r.adIds.sort()).toEqual(["ad_5", "ad_6"]);
+    expect(r.statusSplit.active.map((a) => a.id)).toEqual(["ad_5"]);
+    expect(r.statusSplit.scheduled.map((a) => a.id)).toEqual(["ad_6"]);
+    expect(r.statusSplit.paused).toEqual([]);
+    expect(r.statusSplit.unknown).toEqual([]);
   });
 
   it("DEDUPES an ad reached via its campaign AND selected directly (counted once)", () => {

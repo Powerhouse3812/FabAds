@@ -76,7 +76,11 @@ export function DistributionSummary({
   }
 
   const budgets = budgetByCurrency(selectedAds, adsets, strategy, pairCount);
-  const totalAds = statusSplit.active.length + statusSplit.paused.length + statusSplit.unknown.length;
+  const totalAds =
+    statusSplit.active.length +
+    statusSplit.scheduled.length +
+    statusSplit.paused.length +
+    statusSplit.unknown.length;
 
   const pagesValue =
     pairCount === pageCount
@@ -97,7 +101,7 @@ export function DistributionSummary({
           <Stat
             label="Ads selected"
             value={totalAds}
-            hint={`${statusSplit.active.length} active · ${statusSplit.paused.length} paused · ${statusSplit.unknown.length} unknown`}
+            hint={`${statusSplit.active.length} active · ${statusSplit.scheduled.length} scheduled · ${statusSplit.paused.length} paused · ${statusSplit.unknown.length} unknown`}
           />
           <Stat
             label="Ads to create"
@@ -114,7 +118,7 @@ export function DistributionSummary({
             hint={pairCount === 0 ? "No pages yet" : undefined}
           />
           <Stat
-            label="Available slots"
+            label="Active/Scheduled slots"
             value={totalAvailable.toLocaleString("en-US")}
             hint={`of ${(uniqueFbIds.size * MAX_ADS_PER_PAGE).toLocaleString("en-US")} across pages`}
           />

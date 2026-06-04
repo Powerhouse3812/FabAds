@@ -1242,6 +1242,7 @@ export type Database = {
           fb_connection_id: string
           id: string
           name: string
+          timezone: string | null
           workspace_id: string
         }
         Insert: {
@@ -1253,6 +1254,7 @@ export type Database = {
           fb_connection_id: string
           id?: string
           name: string
+          timezone?: string | null
           workspace_id: string
         }
         Update: {
@@ -1264,6 +1266,7 @@ export type Database = {
           fb_connection_id?: string
           id?: string
           name?: string
+          timezone?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -2101,6 +2104,7 @@ export type Database = {
       }
       launch_ads: {
         Row: {
+          ad_timezone: string | null
           adset_id: string
           budget_after: number | null
           budget_before: number | null
@@ -2120,6 +2124,7 @@ export type Database = {
           media_urls: string[] | null
           name: string
           primary_text: string | null
+          scheduled_at: string | null
           sort_order: number
           source_ad_id: string | null
           status: string
@@ -2127,6 +2132,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          ad_timezone?: string | null
           adset_id: string
           budget_after?: number | null
           budget_before?: number | null
@@ -2146,6 +2152,7 @@ export type Database = {
           media_urls?: string[] | null
           name?: string
           primary_text?: string | null
+          scheduled_at?: string | null
           sort_order?: number
           source_ad_id?: string | null
           status?: string
@@ -2153,6 +2160,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          ad_timezone?: string | null
           adset_id?: string
           budget_after?: number | null
           budget_before?: number | null
@@ -2172,6 +2180,7 @@ export type Database = {
           media_urls?: string[] | null
           name?: string
           primary_text?: string | null
+          scheduled_at?: string | null
           sort_order?: number
           source_ad_id?: string | null
           status?: string
@@ -2368,6 +2377,7 @@ export type Database = {
           name: string
           paused_count: number
           platform: string
+          scheduled_count: number
           selected_ads_count: number
           status: string
           target_pairs_count: number
@@ -2393,6 +2403,7 @@ export type Database = {
           name: string
           paused_count?: number
           platform?: string
+          scheduled_count?: number
           selected_ads_count?: number
           status?: string
           target_pairs_count?: number
@@ -2418,6 +2429,7 @@ export type Database = {
           name?: string
           paused_count?: number
           platform?: string
+          scheduled_count?: number
           selected_ads_count?: number
           status?: string
           target_pairs_count?: number

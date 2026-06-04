@@ -1,11 +1,13 @@
 /**
  * Bulk Launch Distribution — Preview modal (Step 3).
  *
- * Header: strategy, selected ads, final created, active/paused split, and the
- * Duplicate multiplier when applicable. Body: a per-pair allocation table grouped
- * by Ad Account with columns:
- *   Ad Account | Page | Current Active | Available Slots | Active to Launch | Paused to Add | Status
- * built from validation.perPair + the page capacities.
+ * Header: strategy, selected ads, final created, active/scheduled/paused split,
+ * and the Duplicate multiplier when applicable. Body: a per-pair allocation table
+ * grouped by Ad Account with columns:
+ *   Ad Account | Page | Current Active | Available Slots | Active/Scheduled to Launch | Paused to Add | Status
+ * built from validation.perPair + the page capacities. The "Active/Scheduled to
+ * Launch" column shows activeToLaunch (= active + scheduled, both slot-consuming)
+ * with a "(N scheduled)" sub-figure when a scheduled portion is present.
  *
  * Invalid state keeps the table VISIBLE, shows a reason banner, disables the
  * primary, and offers fix actions. It NEVER silently re-allocates — what the core
@@ -59,6 +61,7 @@ interface PreviewRow {
   currentActive: number;
   availableSlots: number;
   activeToLaunch: number;
+  scheduledToLaunch: number;
   pausedToAdd: number;
   status: PerPairAllocation["status"];
 }
@@ -98,6 +101,7 @@ export function LaunchDistributionPreview({
       currentActive,
       availableSlots,
       activeToLaunch: alloc.activeToLaunch,
+      scheduledToLaunch: alloc.scheduledToLaunch,
       pausedToAdd: alloc.pausedToAdd,
       status: alloc.status,
     };
@@ -116,6 +120,7 @@ export function LaunchDistributionPreview({
   }
 
   const activeCount = rollup.statusSplit.active.length;
+  const scheduledCount = rollup.statusSplit.scheduled.length;
   const pausedCount = rollup.statusSplit.paused.length;
 
   const statusBadge = (status: PerPairAllocation["status"]) => {
@@ -156,9 +161,9 @@ export function LaunchDistributionPreview({
             </div>
           </div>
           <div className="rounded-md border border-border p-3">
-            <div className="text-xs text-muted-foreground">Active / Paused</div>
+            <div className="text-xs text-muted-foreground">Active / Scheduled / Paused</div>
             <div className="text-sm font-semibold text-foreground">
-              {activeCount} / {pausedCount}
+              {activeCount} / {scheduledCount} / {pausedCount}
             </div>
           </div>
         </div>
@@ -190,7 +195,7 @@ export function LaunchDistributionPreview({
                 <TableHead className="min-w-[140px]">Page</TableHead>
                 <TableHead className="w-28 text-right">Current Active</TableHead>
                 <TableHead className="w-28 text-right">Available Slots</TableHead>
-                <TableHead className="w-28 text-right">Active to Launch</TableHead>
+                <TableHead className="w-32 text-right">Active/Scheduled to Launch</TableHead>
                 <TableHead className="w-28 text-right">Paused to Add</TableHead>
                 <TableHead className="w-20">Status</TableHead>
               </TableRow>
@@ -220,6 +225,11 @@ export function LaunchDistributionPreview({
                         <TableCell className="text-right text-sm tabular-nums">{r.availableSlots}</TableCell>
                         <TableCell className="text-right text-sm font-medium tabular-nums">
                           {r.activeToLaunch}
+                          {r.scheduledToLaunch > 0 && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              ({r.scheduledToLaunch} scheduled)
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{r.pausedToAdd}</TableCell>
                         <TableCell>{statusBadge(r.status)}</TableCell>

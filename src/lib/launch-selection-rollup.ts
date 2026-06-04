@@ -6,7 +6,9 @@
  * module collapses whatever the user selected across levels into:
  *   - the union of affected ad ids (each ad counted ONCE even if reached via its
  *     campaign AND selected directly),
- *   - a {@link StatusSplit} (active / paused / unknown) for the distribution core,
+ *   - a {@link StatusSplit} (active / scheduled / paused / unknown) for the
+ *     distribution core; the "slot-consuming" count it exposes = active +
+ *     scheduled (both consume a Page slot), paused are free,
  *   - level counts for the bulk bar headline ("2 campaigns -> 46 ad sets -> 180 ads"),
  *   - an `accountConstrained` flag.
  *
@@ -44,7 +46,10 @@ export interface RollupCounts {
 export interface SelectionRollup {
   /** Deduped affected ad ids (union across the active level + direct ad picks). */
   adIds: string[];
-  /** Active / paused / unknown split of the affected ads, ready for the core. */
+  /**
+   * Active / scheduled / paused / unknown split of the affected ads, ready for
+   * the core. Slot-consuming count = active + scheduled (both consume a slot).
+   */
   statusSplit: StatusSplit;
   /** Counts for the headline. `accounts` reflects the raw account selection. */
   counts: RollupCounts;

@@ -22,6 +22,7 @@ export interface Launch {
   selected_ads_count?: number;
   created_ads_count?: number;
   active_count?: number;
+  scheduled_count?: number;
   paused_count?: number;
   target_pairs_count?: number;
   unique_pages_count?: number;

@@ -13,6 +13,7 @@ import type { GroupedRow } from "@/hooks/use-reports-data";
 import type { ColumnDef, ReportEntity, ReportMetrics } from "@/lib/reports-dummy-data";
 import { useLaunchReport, type CreatedAdRow, type SourceAdGroup } from "@/hooks/use-launch-report";
 import type { LaunchStrategy } from "@/lib/launch-distribution";
+import { getTimezoneLabel } from "@/lib/timezones";
 
 const STRATEGY_LABEL: Record<LaunchStrategy, string> = {
   fill_first: "Fill First",
@@ -22,12 +23,24 @@ const STRATEGY_LABEL: Record<LaunchStrategy, string> = {
 
 const statusBadge: Record<string, string> = {
   Active: "bg-chart-1/20 text-chart-1",
+  Scheduled: "bg-chart-2/20 text-chart-2",
   Paused: "bg-muted text-muted-foreground",
 };
 
 function fmtMoney(currency: string, v: number | null): string {
   if (v == null) return "—";
   return `${currency} ${v.toLocaleString()}`;
+}
+
+/** Compact "25 Jun 2026, 9:00 AM · Asia/Kolkata" for a scheduled row. */
+function fmtGoesLive(scheduledAt: string | null, timezone: string | null): string | null {
+  if (!scheduledAt) return null;
+  const d = new Date(scheduledAt);
+  if (Number.isNaN(d.getTime())) return null;
+  const dateTime = d.toLocaleString(undefined, {
+    day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+  return timezone ? `${dateTime} · ${getTimezoneLabel(timezone)}` : dateTime;
 }
 
 // Empty metrics object so created-ad rows satisfy ReportEntity. We never read
@@ -49,7 +62,11 @@ function createdAdToEntity(row: CreatedAdRow): ReportEntity {
     name: `${row.destination_account_name} · ${row.destination_page_name}`,
     parentId: row.source_ad_id,
     level: "ad",
-    status: row.status,
+    // ReportEntity.status is a closed union without "Scheduled"; a scheduled ad
+    // occupies a live Page slot like Active, so it maps to "Active" in this
+    // read-only grouped view (the per-ad "Goes live" detail lives in the
+    // Created-Ads table). Paused stays Paused.
+    status: row.status === "Paused" ? "Paused" : "Active",
     platform: "Meta",
     country: "—",
     metrics: {
@@ -138,7 +155,7 @@ export default function LaunchReport() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <Stat label="Selected → Created">
               <span className="text-lg font-semibold text-foreground">
                 {summary.selectedAdsCount} → {summary.createdAdsCount}
@@ -152,6 +169,9 @@ export default function LaunchReport() {
             </Stat>
             <Stat label="Active">
               <span className="text-lg font-semibold text-chart-1">{summary.activeCount}</span>
+            </Stat>
+            <Stat label="Scheduled">
+              <span className="text-lg font-semibold text-chart-2">{summary.scheduledCount}</span>
             </Stat>
             <Stat label="Paused">
               <span className="text-lg font-semibold text-muted-foreground">{summary.pausedCount}</span>
@@ -216,7 +236,14 @@ export default function LaunchReport() {
                         <TableCell className="text-sm font-medium text-foreground">{ad.name}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{ad.source_ad_name}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-xs ${statusBadge[ad.status]}`}>{ad.status}</Badge>
+                          <div className="flex flex-col gap-0.5">
+                            <Badge variant="outline" className={`text-xs w-fit ${statusBadge[ad.status]}`}>{ad.status}</Badge>
+                            {ad.status === "Scheduled" && fmtGoesLive(ad.scheduled_at, ad.timezone) && (
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                Goes live {fmtGoesLive(ad.scheduled_at, ad.timezone)}
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{ad.destination_page_name}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{ad.destination_account_name}</TableCell>

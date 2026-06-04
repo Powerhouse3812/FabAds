@@ -11,12 +11,15 @@
  * launch renders identical numbers across reloads. No network, no Date.now().
  *
  * Honors:
- *  - the per-UNIQUE-page 250 active-ad cap (capacity keyed on fb_page_id),
+ *  - the per-UNIQUE-page 250 cap counting ACTIVE + SCHEDULED (both consume a
+ *    Page slot; Paused is free),
  *  - Duplicate => one shared copy_group_id per source ad (copied into every pair),
  *  - a shared-page-across-accounts scenario (same fb_page_id under two accounts),
- *  - an Active/Paused status split on created ads.
+ *  - an Active / Scheduled / Paused status split on created ads, with scheduled
+ *    ads carrying a deterministic FUTURE scheduled_at + an IANA timezone.
  */
 import { MAX_ADS_PER_PAGE, type LaunchStrategy, type TargetPair } from "@/lib/launch-distribution";
+import { DEFAULT_TIMEZONE } from "@/lib/timezones";
 import type {
   CreatedAdRow,
   LaunchReportSummary,
@@ -54,6 +57,22 @@ const SOURCE_AD_NAMES = [
   "Video — Founder Story", "Static — Social Proof", "UGC — Before/After",
   "Video — Problem/Solution", "Static — Limited Drop",
 ];
+
+// Demo timezones a scheduled ad may carry. DEFAULT_TIMEZONE leads so the most
+// common case matches the ad-account default.
+const DEMO_TIMEZONES = [DEFAULT_TIMEZONE, "America/New_York", "Europe/London"];
+
+// Fixed anchor instant for deterministic "future" schedules (no Date.now() so
+// output is stable across reloads): 2026-07-01T00:00:00Z. Scheduled ads land a
+// seeded number of days/hours after this.
+const SCHEDULE_ANCHOR_MS = Date.UTC(2026, 6, 1, 0, 0, 0);
+
+/** Deterministic future ISO instant from the seeded RNG. */
+function seededFutureIso(rand: () => number): string {
+  const days = 1 + Math.floor(rand() * 30); // 1..30 days out
+  const hours = Math.floor(rand() * 24);
+  return new Date(SCHEDULE_ANCHOR_MS + days * 86_400_000 + hours * 3_600_000).toISOString();
+}
 
 /**
  * Default demo target pairs when a launch has no distribution config yet.
@@ -98,38 +117,52 @@ export function buildDemoLaunchReport(
   const rand = seededRandom(hashString(launchId || "demo") + 7);
   const pairs = targetPairs.length > 0 ? targetPairs : defaultDemoPairs();
 
-  // ── Source ads: 3–6 selected, deterministic split Active/Paused ──
+  // ── Source ads: 3–6 selected, deterministic Active/Scheduled/Paused split ──
   const sourceCount = 3 + Math.floor(rand() * 4); // 3..6
+  type DemoStatus = "Active" | "Scheduled" | "Paused";
   interface SourceSeed {
     id: string;
     name: string;
-    status: "Active" | "Paused";
+    status: DemoStatus;
     baseBudget: number;
+    /** Stable future go-live + tz, only surfaced when the ad lands Scheduled. */
+    scheduledAt: string;
+    timezone: string;
   }
+  const pickStatus = (r: number): DemoStatus => (r < 0.55 ? "Active" : r < 0.8 ? "Scheduled" : "Paused");
   const sources: SourceSeed[] = Array.from({ length: sourceCount }, (_, i) => ({
     id: seededId(rand),
     name: SOURCE_AD_NAMES[i % SOURCE_AD_NAMES.length],
-    // ~70% active, but always at least one of each when possible.
-    status: rand() > 0.3 ? "Active" : "Paused",
+    // ~55% active / ~25% scheduled / ~20% paused; forced spread below.
+    status: pickStatus(rand()),
     baseBudget: Math.round((rand() * 80 + 20)), // 20..100 per source's parent adset
+    scheduledAt: seededFutureIso(rand),
+    timezone: DEMO_TIMEZONES[Math.floor(rand() * DEMO_TIMEZONES.length)],
   }));
-  if (sources.length > 1) {
+  // Guarantee all three statuses are represented when there's room (>= 3 sources).
+  if (sources.length >= 3) {
     sources[0].status = "Active";
+    sources[1].status = "Scheduled";
     sources[sources.length - 1].status = "Paused";
+  } else if (sources.length === 2) {
+    sources[0].status = "Active";
+    sources[1].status = "Scheduled";
   }
 
   const multiplier = strategy === "duplicate" ? pairs.length : 1;
 
-  // Live remaining active slots per UNIQUE fb_page_id (shared across pairs).
-  const startActive = new Map<string, number>();
+  // Live remaining slots per UNIQUE fb_page_id (shared across pairs). The cap
+  // counts ACTIVE + SCHEDULED — both will occupy the page — so the seeded
+  // existing load and every newly-consumed slot below are status-agnostic.
+  const startUsed = new Map<string, number>();
   for (const p of pairs) {
-    if (!startActive.has(p.fb_page_id)) {
+    if (!startUsed.has(p.fb_page_id)) {
       // Seed an existing load so the 250 cap is meaningful but rarely hit.
-      startActive.set(p.fb_page_id, Math.floor(rand() * 30));
+      startUsed.set(p.fb_page_id, Math.floor(rand() * 30));
     }
   }
   const remaining = new Map<string, number>();
-  for (const [fbId, used] of startActive) {
+  for (const [fbId, used] of startUsed) {
     remaining.set(fbId, Math.max(0, MAX_ADS_PER_PAGE - used));
   }
 
@@ -156,6 +189,7 @@ export function buildDemoLaunchReport(
   };
 
   let activeCount = 0;
+  let scheduledCount = 0;
   let pausedCount = 0;
   const budgetBeforeByCurrency = new Map<string, number>();
   const budgetAfterByCurrency = new Map<string, number>();
@@ -173,14 +207,16 @@ export function buildDemoLaunchReport(
     const landingPairs = pairsForSource(sIdx);
     landingPairs.forEach((pair) => {
       const currency = currencyForPair(pair);
-      // Active ad consumes a page slot; if the page is full, it lands Paused.
-      let status: "Active" | "Paused" = src.status;
-      if (status === "Active") {
+      // ACTIVE *and* SCHEDULED both consume a page slot (a scheduled ad will go
+      // live). If the page is full, the ad spills to Paused. Paused is free.
+      let status: DemoStatus = src.status;
+      if (status === "Active" || status === "Scheduled") {
         const left = remaining.get(pair.fb_page_id) ?? 0;
         if (left > 0) remaining.set(pair.fb_page_id, left - 1);
         else status = "Paused"; // page cap hit -> spill to paused
       }
 
+      const isScheduled = status === "Scheduled";
       const budgetBefore = src.baseBudget;
       const budgetAfter = Math.round(budgetBefore * multiplier);
 
@@ -192,6 +228,8 @@ export function buildDemoLaunchReport(
         copy_group_id: group.copy_group_id,
         name: `${src.name} — ${pair.account_name}`,
         status,
+        scheduled_at: isScheduled ? src.scheduledAt : null,
+        timezone: isScheduled ? src.timezone : null,
         target_pair_id: pair.page_id,
         destination_fb_page_id: pair.fb_page_id,
         destination_page_name: pair.page_name,
@@ -208,6 +246,7 @@ export function buildDemoLaunchReport(
       group.created_count += 1;
 
       if (status === "Active") activeCount += 1;
+      else if (status === "Scheduled") scheduledCount += 1;
       else pausedCount += 1;
 
       budgetBeforeByCurrency.set(currency, (budgetBeforeByCurrency.get(currency) ?? 0) + budgetBefore);
@@ -237,6 +276,7 @@ export function buildDemoLaunchReport(
     selectedAdsCount: sources.length,
     createdAdsCount: createdAds.length,
     activeCount,
+    scheduledCount,
     pausedCount,
     targetPairsCount: pairs.length,
     uniquePagesCount: uniquePages.size,

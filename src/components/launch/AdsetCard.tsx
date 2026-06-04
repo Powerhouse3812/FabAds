@@ -4,6 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { AdStatusControl } from "./AdStatusControl";
+import { toAdStatus } from "@/lib/ad-status";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -82,10 +84,10 @@ export function AdsetCard({ adset, budgetType, onChange, fieldErrors = {} }: Ads
               Set audience targeting, placements, scheduling, and budget allocation.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{adset.status === "active" ? "Active" : "Paused"}</span>
-            <Switch checked={adset.status === "active"} onCheckedChange={(v) => onChange({ status: v ? "active" : "paused" })} />
-          </div>
+          <AdStatusControl
+            value={toAdStatus(adset.status)}
+            onChange={(s) => onChange({ status: s })}
+          />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

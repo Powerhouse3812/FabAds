@@ -70,6 +70,10 @@ export function makeActiveAds(count: number, adsetId = "adset_1"): DistAd[] {
   return makeAds(count, "active", adsetId, "active");
 }
 
+export function makeScheduledAds(count: number, adsetId = "adset_1"): DistAd[] {
+  return makeAds(count, "scheduled", adsetId, "scheduled");
+}
+
 export function makePausedAds(count: number, adsetId = "adset_1"): DistAd[] {
   return makeAds(count, "paused", adsetId, "paused");
 }
