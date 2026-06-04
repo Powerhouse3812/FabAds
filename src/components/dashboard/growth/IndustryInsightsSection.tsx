@@ -1,111 +1,156 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, LayoutGrid, Telescope } from "lucide-react";
+import { ArrowUpRight, Search, Telescope } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
-import { AnalyticsHeroInsightsRow } from "@/components/dashboard/ai-plan/AnalyticsHero";
-import { IndustryInsightsTile } from "@/components/dashboard/ai-plan/IndustryInsightsTile";
-import { usePinnedInsightBoards } from "@/components/insights/use-pinned-insight-boards";
-import { useInsightBoards } from "@/hooks/use-insight-boards";
+import { DashboardStatStrip, type StatItem } from "./DashboardStatStrip";
 
 /**
- * IndustryInsightsSection — Growth dashboard section replacing the legacy
- * IndustryInsightsWidget. Composed of AI-plan tiles reused verbatim,
- * led by numeric analytics (Maalik A-12.195 — "numeric analytics are
- * the more important data than recent new ads").
+ * IndustryInsightsSection — single compact card for the Growth dashboard.
  *
- * Order is deliberate (most-important → least):
+ * Maalik A-12.196: collapsed from a 4-card KPI grid + NewAdsFetchedTile +
+ * IndustryInsightsTile + pinned-boards card into ONE card. Inside, two
+ * stacked blocks under a quiet header:
+ *   1. DashboardStatStrip — 4 Industry KPIs as an inline strip.
+ *   2. Breakdown row — compact donut (Creatives vs Videos) + trending
+ *      keyword chips, inline below a hairline.
  *
- *   1. AnalyticsHeroInsightsRow — 4 KPI cards (Brands followed /
- *      Competitors / Total ads / Categories tracked). At-a-glance
- *      state of the Industry Insights side of the business.
- *
- *   2. IndustryInsightsTile — donut breakdown (Creatives vs Videos)
- *      + trending keywords. Numeric depth + signal of the market.
- *
- *   3. Pinned boards strip — quick-jump chips. Hidden when zero pins.
- *
- * Dropped from the previous version:
- *   - NewAdsFetchedTile (browse-y, the brand list is signal but it's
- *     a "what arrived" feed; the KPI row carries the totals).
- *
- * No card-in-card: each child carries its own rounded-2xl chrome.
+ * Same flat hierarchy + sibling header treatment as GenieSection.
+ * Demo data matches the AI-plan AnalyticsHero + IndustryInsightsTile
+ * constants for numeric consistency.
  */
+
+const INSIGHTS_STATS: StatItem[] = [
+  { label: "Brands followed", value: "8", delta: { value: 1, unit: "" } },
+  { label: "Competitors", value: "15 / 20", delta: { value: 4.5 } },
+  { label: "Total ads", value: "24,851", delta: { value: 12 } },
+  { label: "Categories tracked", value: "9", delta: { value: 2, unit: "" } },
+];
+
+const CREATIVES = 57;
+const VIDEOS = 61;
+const CREATIVES_COLOR = "#138585";
+const VIDEOS_COLOR = "#A02669";
+const DONUT_DATA = [
+  { name: "Creatives", value: CREATIVES, color: CREATIVES_COLOR },
+  { name: "Videos", value: VIDEOS, color: VIDEOS_COLOR },
+];
+const DONUT_TOTAL = CREATIVES + VIDEOS;
+
+const TRENDING_KEYWORDS = ["skincare routine", "summer sale", "Vitamin C benefits"];
+
 export function IndustryInsightsSection() {
-  const { pinnedIds } = usePinnedInsightBoards();
-  const { boards } = useInsightBoards();
-
-  const pinnedBoards = useMemo(() => {
-    if (!boards) return [];
-    return pinnedIds
-      .map((id) => boards.find((b: any) => b.id === id))
-      .filter((b: any): b is { id: string; name: string } => Boolean(b))
-      .slice(0, 5);
-  }, [pinnedIds, boards]);
-
   return (
     <section
       data-fabads-dash-section="industry-insights"
-      aria-label="Industry Insights analytics"
-      className="flex min-w-0 flex-col gap-3"
+      aria-label="Industry Insights"
+      className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4"
     >
-      <header className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
+      <header className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Telescope className="h-4 w-4 text-foreground" aria-hidden />
-          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
+          <Telescope className="h-3.5 w-3.5 text-foreground" aria-hidden />
+          <h2 className="text-[13px] font-semibold tracking-tight text-foreground">
             Industry Insights
           </h2>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            · market at a glance
+          <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+            · market
           </span>
         </div>
         <Link
           to="/insights-v2/feed"
-          className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex shrink-0 items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
         >
           Open feed
           <ArrowUpRight className="h-3 w-3" />
         </Link>
       </header>
 
-      <div className="flex flex-col gap-3">
-        <AnalyticsHeroInsightsRow />
-        <IndustryInsightsTile />
+      <DashboardStatStrip stats={INSIGHTS_STATS} />
 
-        {pinnedBoards.length > 0 && (
-          <div className="rounded-2xl border border-border/60 bg-card p-4">
-            <header className="mb-2 flex items-center justify-between gap-3">
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-foreground">
-                Pinned boards
-              </span>
-              <Link
-                to="/insights/boards"
-                className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-              >
-                All boards
-              </Link>
-            </header>
-            <div className="flex flex-wrap gap-1.5">
-              {pinnedBoards.map((b) => (
-                <Link
-                  key={b.id}
-                  to={`/insights/boards/${b.id}`}
-                  className={cn(
-                    "group inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background px-2.5",
-                    "text-[11.5px] font-medium text-foreground transition-all",
-                    "hover:-translate-y-px hover:border-primary/40 hover:bg-primary/[0.04]",
-                  )}
+      {/* Breakdown row — donut + legend on the left, trending keywords on
+          the right. One compact line below a hairline; wraps on narrow. */}
+      <div className="flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:gap-5">
+        {/* Donut + legend */}
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="relative h-12 w-12 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={DONUT_DATA}
+                  dataKey="value"
+                  innerRadius={15}
+                  outerRadius={24}
+                  paddingAngle={2}
+                  strokeWidth={0}
+                  startAngle={90}
+                  endAngle={-270}
+                  isAnimationActive={false}
                 >
-                  <LayoutGrid
-                    className="h-3 w-3 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <span className="max-w-[140px] truncate">{b.name}</span>
-                </Link>
-              ))}
-            </div>
+                  {DONUT_DATA.map((d) => (
+                    <Cell key={d.name} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-mono text-[11px] font-bold leading-none text-foreground tabular-nums">
+                {DONUT_TOTAL}
+              </span>
+            </span>
           </div>
-        )}
+          <div className="flex flex-col gap-1">
+            <LegendRow color={CREATIVES_COLOR} label="Creatives" value={CREATIVES} />
+            <LegendRow color={VIDEOS_COLOR} label="Videos" value={VIDEOS} />
+          </div>
+        </div>
+
+        {/* Vertical divider on sm+ */}
+        <span aria-hidden className="hidden h-10 w-px bg-border/60 sm:block" />
+
+        {/* Trending keywords */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Trending keywords · AI suggested
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {TRENDING_KEYWORDS.map((kw) => (
+              <span
+                key={kw}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2 py-0.5",
+                  "text-[11px] text-foreground/80",
+                )}
+              >
+                <Search className="h-2.5 w-2.5 shrink-0 text-muted-foreground" aria-hidden />
+                {kw}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+function LegendRow({
+  color,
+  label,
+  value,
+}: {
+  color: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        aria-hidden
+        className="inline-block h-2 w-2 shrink-0 rounded-[2px]"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[11px] font-semibold text-foreground tabular-nums">
+        {value}
+      </span>
+    </div>
   );
 }

@@ -446,59 +446,8 @@ export function AnalyticsHero({ className }: AnalyticsHeroProps) {
 
 export default AnalyticsHero;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// A-12.195 — Row-level exports for reuse from the Growth dashboard.
-//
-// The 4-up KPI rows on the AI-plan AnalyticsHero are exactly what the Growth
-// dashboard needs in its GenieSection + IndustryInsightsSection (Maalik:
-// "the numeric analytics are the more important data, rather than recent
-// generations and recent new ads"). Rather than duplicate the cards into
-// the growth folder, export the row composers here. AnalyticsHero itself
-// stays unchanged in behaviour — the 5-col grid + PlanUpsellRailCard
-// composition above is the AI-plan-specific shell; these row exports drop
-// the side-rail card so Growth callers can size them independently.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * AnalyticsHeroGenieRow — Row 1 of the AnalyticsHero KPI grid, standalone.
- * 4 KPI cards (Generations / Brands / Products / Categories) in a
- * responsive grid: 2 cols on narrow, 4 cols on lg+. No row header (caller
- * owns the section header). No side-rail Setup card.
- */
-export function AnalyticsHeroGenieRow({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3",
-        className,
-      )}
-    >
-      <CardGenerations />
-      <CardBrands />
-      <CardProducts />
-      <CardCategories />
-    </div>
-  );
-}
-
-/**
- * AnalyticsHeroInsightsRow — Row 2 of the AnalyticsHero KPI grid, standalone.
- * 4 KPI cards (Brands followed / Competitors / Total ads / Categories
- * tracked) in the same responsive grid. Identical reuse semantics as
- * AnalyticsHeroGenieRow.
- */
-export function AnalyticsHeroInsightsRow({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3",
-        className,
-      )}
-    >
-      <CardBrandsFollowed />
-      <CardCompetitors />
-      <CardTotalAds />
-      <CardCategoriesTracked />
-    </div>
-  );
-}
+// A-12.196: the AnalyticsHeroGenieRow / AnalyticsHeroInsightsRow exports
+// (added in A-12.195) were removed. The Growth dashboard no longer reuses
+// the heavy 134px KPI cards — GenieSection + IndustryInsightsSection now
+// render their own compact inline stat strip (DashboardStatStrip). This
+// file is back to being AI-plan-only.

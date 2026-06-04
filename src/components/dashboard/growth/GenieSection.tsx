@@ -1,61 +1,120 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Wand2 } from "lucide-react";
-import { AnalyticsHeroGenieRow } from "@/components/dashboard/ai-plan/AnalyticsHero";
-import { ModeLauncherBar } from "@/components/dashboard/ai-plan/ModeLauncherBar";
+import {
+  ArrowUpRight,
+  Camera,
+  RefreshCw,
+  ShoppingBag,
+  Sparkles,
+  Target,
+  Video,
+  Wand2,
+  type LucideIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { DashboardStatStrip, type StatItem } from "./DashboardStatStrip";
 
 /**
- * GenieSection — Growth dashboard section that surfaces the AI-plan
- * Genie workspace. Composed almost entirely of AI-plan components reused
- * as-is (Maalik A-12.195 — numeric analytics are the more important
- * data than recent generations).
+ * GenieSection — single compact card for the Growth dashboard.
  *
- * Order is deliberate (most-important → least):
+ * Maalik A-12.196: collapsed from a 4-card KPI grid + separate mode
+ * launcher into ONE card. Inside, two stacked blocks under a quiet
+ * header:
+ *   1. DashboardStatStrip — 4 Genie KPIs as an inline divider-separated
+ *      strip (no per-metric cards).
+ *   2. Mode chips — compact pills, one click → Studio Alpha preset.
  *
- *   1. AnalyticsHeroGenieRow — 4 KPI cards (Generations / Brands /
- *      Products / Categories) with sparkline + delta chips. This is
- *      what the dashboard exists for: at-a-glance state of the Genie
- *      side of the business.
+ * Hierarchy is deliberately flat: the card is the only bordered surface;
+ * everything inside is dividers + chips. Numbers carry the weight,
+ * modes are the action.
  *
- *   2. ModeLauncherBar — 6 mode pills, click → Studio Alpha preset.
- *      Stays second because "what's happening" beats "start something"
- *      on a dashboard glance.
- *
- * Dropped from the previous version:
- *   - RecentWorkStrip (browse-y; Library already serves this)
- *
- * Avoids the card-in-card anti-pattern: each child is already a
- * self-contained card; the section wrapper is a header bar + a
- * vertical stack only.
+ * Demo data matches the AI-plan AnalyticsHero constants so the two
+ * dashboards stay numerically consistent.
  */
+
+const GENIE_STATS: StatItem[] = [
+  { label: "Generations", value: "192", delta: { value: 4.5 } },
+  { label: "Brands", value: "15", delta: { value: 4.5 } },
+  { label: "Products", value: "47", delta: { value: 8 } },
+  { label: "Categories", value: "12", delta: { value: 2, unit: "" } },
+];
+
+const MODES: Array<{ id: string; label: string; icon: LucideIcon; skipGate?: boolean }> = [
+  { id: "brand-ad", label: "Brand Ad", icon: Sparkles },
+  { id: "product-ad", label: "Product Ad", icon: ShoppingBag },
+  { id: "affiliate-ad", label: "Affiliate", icon: Target },
+  { id: "product-shoot", label: "Product Shoot", icon: Camera },
+  { id: "ugc-video", label: "UGC Video", icon: Video },
+  { id: "variation", label: "Variations", icon: RefreshCw, skipGate: true },
+];
+
 export function GenieSection() {
   return (
     <section
       data-fabads-dash-section="genie"
-      aria-label="Genie workspace analytics"
-      className="flex min-w-0 flex-col gap-3"
+      aria-label="Genie workspace"
+      className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4"
     >
-      <header className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
+      {/* Quiet header — low hierarchy: small icon + name + faded tagline,
+          right-aligned link. */}
+      <header className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Wand2 className="h-4 w-4 text-foreground" aria-hidden />
-          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
+          <Wand2 className="h-3.5 w-3.5 text-foreground" aria-hidden />
+          <h2 className="text-[13px] font-semibold tracking-tight text-foreground">
             Genie
           </h2>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            · workspace at a glance
+          <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground">
+            · workspace
           </span>
         </div>
         <Link
           to="/iq/genie6/library"
-          className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex shrink-0 items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
         >
           Open library
           <ArrowUpRight className="h-3 w-3" />
         </Link>
       </header>
 
-      <div className="flex flex-col gap-3">
-        <AnalyticsHeroGenieRow />
-        <ModeLauncherBar />
+      <DashboardStatStrip stats={GENIE_STATS} />
+
+      {/* Modes — compact pills below a hairline. The "generate" entry
+          points, kept secondary to the numbers above. */}
+      <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Generate · pick a mode
+          </span>
+          <Link
+            to="/iq/genie6/studio-alpha"
+            className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          >
+            View all →
+          </Link>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {MODES.map((m) => {
+            const Icon = m.icon;
+            const href = `/iq/genie6/studio-alpha?mode=${m.id}${m.skipGate ? "&skipGate=1" : ""}`;
+            return (
+              <Link
+                key={m.id}
+                to={href}
+                className={cn(
+                  "group inline-flex h-8 items-center gap-1.5 rounded-full border border-border/60 bg-background px-2.5",
+                  "text-[12px] font-medium text-foreground transition-all",
+                  "hover:-translate-y-px hover:border-primary/40 hover:bg-primary/[0.04]",
+                )}
+              >
+                <Icon
+                  className="h-3 w-3 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                <span>{m.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
