@@ -80,7 +80,24 @@ The meeting's concerns line up almost 1:1 with what streams 01–05 found in cod
 3. **Do competitors ship predefined "strategy" templates?** Stream 02 covered combinatorial *matrix builders* (AdEspresso) but not named-strategy presets — a targeted re-scan is warranted.
 4. **Naming collision** — "Launch strategy" already means **two** things in code: the `fill_first|equal|duplicate` distribution enum (`launch-distribution.ts`) and AutoPilot's automation-profile type (`AutoPilotConfigTab`). The MOM's "Launch strategy" would be a **third**. IA must disambiguate (Stream 01 flagged this as F-A3).
 
+## New inputs (2026-06-04) — prototype + manager feedback
+
+**Lovable prototype "Unified Launch Builder"** (from the backend dev) — provided as reference. Maalik's caveat: only a small portion, already too big/complex, and still missing many use cases, edge cases, user needs, and pain points. Under review in `prototype-review.md`.
+
+**Observed grammar (data, from the prototype screenshot — not assumed):** strategy structure is `campaign : adset : ad` — e.g. `1:50:1` = 1 campaign, 50 ad sets, 1 ad. The creative→ad step offers **3 mapping modes**:
+- **Distribute across ads** — spread each media item across the ads (e.g. across 50 ads, each gets 1, repeating as needed). Best for fast experiments.
+- **Multiply by media** — clone the whole structure once per media (5 media → 5× campaigns / 250 ad sets / 250 ads, each clone uses one creative). Best for a clean per-creative read.
+- **Map manually** — drag exact creatives into ad slots (50 slots from 5 creatives, override). Best for hand-crafted launches.
+
+This confirms the *grammar*; the canonical **151 / 135 / 115 / Bruno** numbers + per-strategy mapping rules still come from Maalik (gap #1). Per `05b`, these labels have **no authoritative public definition** — PT/BR sources describe a high-ad-set testing shape as the likely "Brazilian-style," but it was never named that.
+
+**Manager feedback — Neeraj Moudgil** (high-level, quick-glimpse only):
+- "Good to start"; the creative-mapping screen "looks good."
+- Questioned whether the **3 mapping options are too similar** ("all 3 options are same?").
+- **Creative visibility** is required in the flow.
+- **Load-bearing constraint**: today's multi-step/multi-screen launch makes users go **back and forth**, which forces **disabling/skipping validations in multiple places** → users hit errors **after** launching → bad experience → they may not retry. So **keep easily-validated things together** (co-locate + validate early). A primary architectural constraint for 2.0.
+
 ## Next
-- Close gap #1 (strategy definitions) — required to keep the synthesis data-backed.
-- Optionally run a targeted pass on gaps #2–#3 (demand + competitor strategy-presets).
+- **Awaiting**: Maalik's canonical strategy definitions (gap #1) — the last blocker for synthesis.
+- **Done**: demand + competitor-preset research (`05b` — confirms the empty market band); prototype review running (`prototype-review.md`).
 - Then write `06-synthesis.md` (evidence-tagged) + the open-questions list for the high-level user-journey discussion Speaker 4 requested.

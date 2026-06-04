@@ -12,9 +12,15 @@ Fixes Genie's biggest miss — research that was never durably captured.
 | `03-data-model-flows.md` | Data model, flows & stress @ 10× | Codebase | ✅ done |
 | `04-roles-failures.md` | Roles + failure taxonomy (light) | Codebase | ✅ done |
 | `05-market-user.md` | Market & user research (pain/needs/personas) | deep-research (web) | ✅ done |
+| `05b-strategy-demand.md` | Strategy demand + competitor presets (MOM follow-up) | deep-research (web) | ✅ done |
+| `prototype-review.md` | Lovable "Unified Launch Builder" review (reference) | Prototype codebase | 🔄 running |
 | `06-synthesis.md` | Cross-stream synthesis + recommendations + open Qs | Maalik + me | ⏳ next — pending strategy defs |
 | `anti-patterns.md` | Decisions we deliberately drop, with reasons | Folded into synthesis | ⏳ |
 
 **Headline (Stream 1):** the "Launch 2.0 (Beta)" CTA is a no-op toast — **the redesign is greenfield**, not a half-built v2.
+
+**Scope (MOM):** Launch 2.0 = **"Launch Strategies"** — predefined guided bulk-launch flows + scratch builder, Enterprise-gated, preview/confirm screen, mandatory activity logs.
+
+**Validation (05b):** no competitor ships vendor-defined *named launch-structure* presets — "Launch Strategies" sits in an **empty market band**.
 
 **Synthesis payoff:** *user pain × v1 gaps × competitor patterns × data constraints → prioritized 2.0 recommendations.*
