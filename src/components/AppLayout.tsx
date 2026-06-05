@@ -74,6 +74,7 @@ const LABEL_MAP: Record<string, string> = {
   dashboard: "Dashboard",
   integrations: "Integrations",
   launch: "Launch",
+  launch2: "Launch 2.0",
   "launch-history": "Launch History",
   offers: "Campaign URLs",
   "campaign-urls": "Campaign URLs",
@@ -109,6 +110,11 @@ const KNOWN_SUB_NAV_PATHS = new Set([
   "/launch",
   "/launch/templates",
   "/launch/campaign-urls",
+  "/launch2",
+  "/launch2/new",
+  "/launch2/activity",
+  "/launch2/health",
+  "/launch2/settings",
   "/insights",
   "/insights/discover",
   "/insights/boards",
@@ -212,11 +218,15 @@ function AppLayoutInner() {
   const { pathname } = useLocation();
   const isGenie6Route = pathname.startsWith("/iq/genie6");
   const isInsightsV2Route = pathname.startsWith("/insights-v2");
+  const isLaunch2Route = pathname.startsWith("/launch2");
   // Routes that own their own scroll regions + chrome (no AppLayout
   // breadcrumb header, no outer padding). Genie6 set this pattern;
   // Industry Insights v2 follows it so the masonry page bg + sticky
-  // toolbar both reach the top of the viewport.
-  const ownsLayout = isGenie6Route || isInsightsV2Route;
+  // toolbar both reach the top of the viewport. Launch 2.0 is a
+  // Genie/Studio-style hub module — it renders its own Launch2Topbar,
+  // so it must own its layout too (else the FabAds breadcrumb header
+  // stacks on top of the module topbar = double chrome).
+  const ownsLayout = isGenie6Route || isInsightsV2Route || isLaunch2Route;
   const { isPinned, isOpen } = useCopilot();
 
   return (
