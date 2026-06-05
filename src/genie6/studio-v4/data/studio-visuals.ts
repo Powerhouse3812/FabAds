@@ -17,19 +17,34 @@ import { sampleOutputs } from "../../mocks/sample-outputs";
  */
 
 /**
- * Reliable, lightweight, CORS-friendly placeholder clips (Google GTV demo
- * bucket). Kept to the SMALL "ForBigger*" set (~2 MB each) so they buffer +
- * autoplay fast; only ~6 distinct URLs so the browser caches them across all
- * tiles. (Dropped the heavy Sintel / TearsOfSteel / Subaru clips that were
- * slow to start and left tiles showing only their static poster.)
+ * Realistic placeholder clips — real Mixkit stock footage (skincare / beauty /
+ * lifestyle categories), 360p. Direct `assets.mixkit.co` URLs: CORS-friendly,
+ * token-free, no expiry → embed + autoplay reliably in a `<video>` (unlike
+ * Facebook Ad Library clips, which are fbcdn token-gated/CORS-locked and would
+ * fail to embed). Free under the Mixkit License (commercial use, no attribution
+ * required) — fine as design-phase placeholders.
+ *
+ * ~16 distinct URLs → the browser caches them across all tiles. When the real
+ * UGC-generation backend lands, swap this pool for real preview URLs; the
+ * PreviewVideo component + every call site stay unchanged.
  */
 export const MOCK_VIDEO_POOL: string[] = [
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100163/1721153027/100163-video-360.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100607/1730159956/100607-video-360.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100608/1730160112/100608-video-360.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100610/1730160235/100610-video-360.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100611/1730160284/100611-video-360.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100626/1730161374/100626-video-360.mp4",
+  "https://assets.mixkit.co/active_storage/video_items/100627/1730161415/100627-video-360.mp4",
+  "https://assets.mixkit.co/videos/1164/1164-360.mp4",
+  "https://assets.mixkit.co/videos/1192/1192-360.mp4",
+  "https://assets.mixkit.co/videos/1196/1196-360.mp4",
+  "https://assets.mixkit.co/videos/1198/1198-360.mp4",
+  "https://assets.mixkit.co/videos/1203/1203-360.mp4",
+  "https://assets.mixkit.co/videos/1232/1232-360.mp4",
+  "https://assets.mixkit.co/videos/39764/39764-360.mp4",
+  "https://assets.mixkit.co/videos/39874/39874-360.mp4",
+  "https://assets.mixkit.co/videos/39877/39877-360.mp4",
 ];
 
 /** FNV-1a string hash → stable non-negative int. Used for deterministic picks. */
