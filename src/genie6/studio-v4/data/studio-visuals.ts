@@ -17,34 +17,32 @@ import { sampleOutputs } from "../../mocks/sample-outputs";
  */
 
 /**
- * Realistic placeholder clips — real Mixkit stock footage (skincare / beauty /
- * lifestyle categories), 360p. Direct `assets.mixkit.co` URLs: CORS-friendly,
- * token-free, no expiry → embed + autoplay reliably in a `<video>` (unlike
- * Facebook Ad Library clips, which are fbcdn token-gated/CORS-locked and would
- * fail to embed). Free under the Mixkit License (commercial use, no attribution
- * required) — fine as design-phase placeholders.
+ * Realistic placeholder clips — real Mixkit stock footage, 360p, BUNDLED LOCALLY
+ * under `public/studio-previews/` and served SAME-ORIGIN (`/studio-previews/*.mp4`).
  *
- * ~16 distinct URLs → the browser caches them across all tiles. When the real
- * UGC-generation backend lands, swap this pool for real preview URLs; the
- * PreviewVideo component + every call site stay unchanged.
+ * Why local, NOT a CDN URL (verified on a real deploy + Maalik's Chrome):
+ * ad/privacy blockers + some network policies silently STALL cross-origin
+ * `<video>` media requests — every external clip, even Google's BigBuckBunny,
+ * hung at readyState 0, while a plain `fetch` slipped through (blockers key on
+ * the `media` request type, not `fetch`/XHR). The tile then falls back to its
+ * (subtle) Ken-Burns poster and reads as "static". Same-origin first-party media
+ * is not blocked, so bundling is the only reliable autoplay path. Clips are free
+ * under the Mixkit License (commercial use, no attribution) — design placeholders.
+ *
+ * When the real UGC-generation backend lands, swap this pool (or the per-theme
+ * buckets layered on top) for real preview URLs; PreviewVideo + every call site
+ * stay unchanged.
  */
 export const MOCK_VIDEO_POOL: string[] = [
-  "https://assets.mixkit.co/active_storage/video_items/100163/1721153027/100163-video-360.mp4",
-  "https://assets.mixkit.co/active_storage/video_items/100607/1730159956/100607-video-360.mp4",
-  "https://assets.mixkit.co/active_storage/video_items/100608/1730160112/100608-video-360.mp4",
-  "https://assets.mixkit.co/active_storage/video_items/100610/1730160235/100610-video-360.mp4",
-  "https://assets.mixkit.co/active_storage/video_items/100611/1730160284/100611-video-360.mp4",
-  "https://assets.mixkit.co/active_storage/video_items/100626/1730161374/100626-video-360.mp4",
-  "https://assets.mixkit.co/active_storage/video_items/100627/1730161415/100627-video-360.mp4",
-  "https://assets.mixkit.co/videos/1164/1164-360.mp4",
-  "https://assets.mixkit.co/videos/1192/1192-360.mp4",
-  "https://assets.mixkit.co/videos/1196/1196-360.mp4",
-  "https://assets.mixkit.co/videos/1198/1198-360.mp4",
-  "https://assets.mixkit.co/videos/1203/1203-360.mp4",
-  "https://assets.mixkit.co/videos/1232/1232-360.mp4",
-  "https://assets.mixkit.co/videos/39764/39764-360.mp4",
-  "https://assets.mixkit.co/videos/39874/39874-360.mp4",
-  "https://assets.mixkit.co/videos/39877/39877-360.mp4",
+  "/studio-previews/mk-1164.mp4",
+  "/studio-previews/mk-1192.mp4",
+  "/studio-previews/mk-1196.mp4",
+  "/studio-previews/mk-1198.mp4",
+  "/studio-previews/mk-1203.mp4",
+  "/studio-previews/mk-1232.mp4",
+  "/studio-previews/mk-39764.mp4",
+  "/studio-previews/mk-39874.mp4",
+  "/studio-previews/mk-39877.mp4",
 ];
 
 /** FNV-1a string hash → stable non-negative int. Used for deterministic picks. */
