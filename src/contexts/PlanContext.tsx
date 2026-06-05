@@ -17,6 +17,28 @@ function readPlanFromURL(searchParams: URLSearchParams): Plan | null {
   return v === "full" || v === "ai" ? v : null;
 }
 
+/**
+ * A-12.203: Growth-only UI params imply the Growth ("full") plan. Some
+ * surfaces exist ONLY on the Growth dashboard — e.g. the KPI customize
+ * popover (`?kpi-customize=open`). A copied / exported URL carrying one of
+ * these is by definition meant for Growth, so resolve to "full" even when
+ * the link omits `?plan=full` and the session is empty (fresh tab /
+ * incognito — which otherwise falls back to the "ai" default and renders
+ * the wrong dashboard, so the popover never mounts).
+ *
+ * Keep this list tight: only params that genuinely cannot exist on AI.
+ */
+const GROWTH_ONLY_PARAMS: Array<[key: string, value: string]> = [
+  ["kpi-customize", "open"],
+];
+
+function readPlanFromGrowthOnlyParams(searchParams: URLSearchParams): Plan | null {
+  for (const [key, value] of GROWTH_ONLY_PARAMS) {
+    if (searchParams.get(key) === value) return "full";
+  }
+  return null;
+}
+
 function readPlanFromSession(): Plan | null {
   if (typeof window === "undefined") return null;
   try {
@@ -60,9 +82,15 @@ function writePlanToSession(next: Plan): void {
 export function PlanProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Resolve plan: URL wins, then sessionStorage, then "ai".
+  // Resolve plan: explicit URL ?plan= wins, then a Growth-only UI param
+  // (kpi-customize=open ⇒ full), then sessionStorage, then the "ai"
+  // default. The growth-only check sits above session so a fresh
+  // incognito tab opening an exported Growth deep-link resolves correctly.
   const plan: Plan =
-    readPlanFromURL(searchParams) ?? readPlanFromSession() ?? "ai";
+    readPlanFromURL(searchParams) ??
+    readPlanFromGrowthOnlyParams(searchParams) ??
+    readPlanFromSession() ??
+    "ai";
 
   // Hydrate sessionStorage from the resolved plan. Covers both:
   //   - deep-link via ?plan=full (URL → session sync, so subsequent
