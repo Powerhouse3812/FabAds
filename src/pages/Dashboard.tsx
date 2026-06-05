@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlan } from "@/contexts/PlanContext";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
-import { KpiRow } from "@/components/dashboard/KpiRow";
+import { CustomizableKpiBand } from "@/components/dashboard/CustomizableKpiBand";
 import { PerformanceTrend } from "@/components/dashboard/PerformanceTrend";
 import { MarketingSummary } from "@/components/dashboard/MarketingSummary";
 import { AdAccountBreakdown } from "@/components/dashboard/AdAccountBreakdown";
@@ -28,7 +28,6 @@ import { GenieCard } from "@/components/dashboard/growth/GenieCard";
 import { IndustryInsightsCard } from "@/components/dashboard/growth/IndustryInsightsCard";
 import { NewlyFetchedAdsCard } from "@/components/dashboard/growth/NewlyFetchedAdsCard";
 import { RecentGenerationsCard } from "@/components/dashboard/growth/RecentGenerationsCard";
-import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
  * Dashboard — plan-aware top-level page.
@@ -164,8 +163,6 @@ function FullPlanDashboard() {
 
   const handleRefresh = () => setRefreshKey((k) => k + 1);
 
-  const kpis = useMemo(() => aggregateKpis(dateSeed), [dateSeed]);
-
   const rawName = user?.email?.split("@")[0] || "User";
   const firstName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
@@ -196,8 +193,9 @@ function FullPlanDashboard() {
         </div>
       </div>
 
-      {/* Zone 2: KPI Row */}
-      <KpiRow kpis={kpis} />
+      {/* Zone 2: KPI Row — customizable (A-12.200). User pins up to 5
+          Reports columns + reorders them via the gear popover top-right. */}
+      <CustomizableKpiBand dateSeed={dateSeed} />
 
       {/* Zone 3: Performance Trend */}
       {showGraph && <PerformanceTrend dateSeed={dateSeed} />}
