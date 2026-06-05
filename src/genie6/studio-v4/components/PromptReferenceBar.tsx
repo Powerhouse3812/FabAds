@@ -29,6 +29,7 @@ import {
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
 import { getModelVisual } from "../data/studio-visuals";
+import { PreviewVideo } from "./PreviewVideo";
 import type {
   UseWizardReturn,
   AttachSource,
@@ -409,16 +410,7 @@ export function PromptReferenceBar({
                       >
                         {/* Video preview (16:9) */}
                         <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                          <video
-                            src={v.video}
-                            poster={v.poster}
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                            preload="metadata"
-                            className="h-full w-full object-cover"
-                          />
+                          <PreviewVideo src={v.video} poster={v.poster} />
                           {/* Selected check badge */}
                           {active && (
                             <span

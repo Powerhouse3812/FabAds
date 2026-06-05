@@ -18,6 +18,7 @@ import {
   hasSubTypes,
 } from "../data/approach-subtypes";
 import { getApproachVisual } from "../data/studio-visuals";
+import { PreviewVideo as PreviewVideoBase } from "../components/PreviewVideo";
 
 interface Step3Props {
   wizard: UseWizardReturn;
@@ -100,18 +101,7 @@ function PreviewVideo({
   className?: string;
 }) {
   const { poster, video } = getApproachVisual(seed);
-  return (
-    <video
-      src={video}
-      poster={poster}
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      className={cn("h-full w-full object-cover", className)}
-    />
-  );
+  return <PreviewVideoBase src={video} poster={poster} className={className} />;
 }
 
 export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {

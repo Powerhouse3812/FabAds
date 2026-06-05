@@ -16,16 +16,20 @@ import { sampleOutputs } from "../../mocks/sample-outputs";
  * (angle tiles, approach cards, model cards) don't change.
  */
 
-/** Reliable, lightweight public sample videos (Google GTV demo bucket). */
+/**
+ * Reliable, lightweight, CORS-friendly placeholder clips (Google GTV demo
+ * bucket). Kept to the SMALL "ForBigger*" set (~2 MB each) so they buffer +
+ * autoplay fast; only ~6 distinct URLs so the browser caches them across all
+ * tiles. (Dropped the heavy Sintel / TearsOfSteel / Subaru clips that were
+ * slow to start and left tiles showing only their static poster.)
+ */
 export const MOCK_VIDEO_POOL: string[] = [
   "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
   "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
   "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
   "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
   "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4",
+  "https://storage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
 ];
 
 /** FNV-1a string hash → stable non-negative int. Used for deterministic picks. */

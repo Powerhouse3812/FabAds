@@ -8,6 +8,7 @@ import {
   posterForSeed,
 } from "../data/studio-visuals";
 import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
+import { PreviewVideo } from "./PreviewVideo";
 
 interface ConceptAngleRailProps {
   selectedAngleId: string | null;
@@ -149,16 +150,7 @@ export function ConceptAngleRail({
                       : "border-border/50 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                   )}
                 >
-                  <video
-                    src={v.video}
-                    poster={v.poster}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
+                  <PreviewVideo src={v.video} poster={v.poster} />
                   {/* Label overlay — bottom gradient scrim for legibility */}
                   <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pb-1 pt-4">
                     <span className="line-clamp-1 text-[10px] font-semibold leading-tight text-white">
@@ -225,15 +217,10 @@ export function ConceptAngleRail({
                   )}
                 >
                   <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-                    <video
+                    <PreviewVideo
                       src={videoForSeed(`concept:${c.id}`)}
                       poster={v?.thumbnail ?? posterForSeed(`concept:${c.id}`)}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      preload="metadata"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                      className="transition-transform group-hover:scale-[1.04]"
                     />
                     {v?.brand && (
                       <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">

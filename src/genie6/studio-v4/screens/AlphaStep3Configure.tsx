@@ -32,6 +32,7 @@ import {
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
+import { PreviewVideo } from "../components/PreviewVideo";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
 import { ScriptRail } from "../components/ScriptRail";
 import { KbInstructionRail } from "../components/KbInstructionRail";
@@ -515,16 +516,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                               : "border-border/50 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                           )}
                         >
-                          <video
-                            src={v.video}
-                            poster={v.poster}
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                            preload="metadata"
-                            className="h-full w-full object-cover"
-                          />
+                          <PreviewVideo src={v.video} poster={v.poster} />
                           <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pb-1 pt-4">
                             <span className="line-clamp-1 text-[10px] font-semibold leading-tight text-white">
                               {label}
@@ -702,15 +694,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                               concept's existing thumbnail; deterministic video
                               seeded by id). Replaces the old still image + the
                               stray text-emoji fallback. */}
-                          <video
+                          <PreviewVideo
                             src={videoForSeed(`concept:${t.id}`)}
                             poster={t.thumbnail ?? posterForSeed(`concept:${t.id}`)}
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                            preload="metadata"
-                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                            className="transition-transform group-hover:scale-[1.04]"
                           />
                           {t.brand?.name && (
                             <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
