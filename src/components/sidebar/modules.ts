@@ -9,6 +9,7 @@ import {
   Lightbulb,
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss,
+  PlaneTakeoff, Activity, HeartPulse,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -131,6 +132,20 @@ export const MODULES: ModuleDef[] = [
     ],
   },
 
+  {
+    // Launch 2.0 — greenfield Meta bulk-launch module (parallel to v1 "Launch").
+    // Dev/preview track; in-module sub-nav = Home / Activity / Account-Health / Settings.
+    key: "launch2", label: "Launch 2.0", icon: PlaneTakeoff,
+    plans: ["full"],
+    badge: "New",
+    subItems: [
+      { label: "Home", path: "/launch2", icon: Home },
+      { label: "Activity", path: "/launch2/activity", icon: Activity },
+      { label: "Account Health", path: "/launch2/health", icon: HeartPulse },
+      { label: "Settings", path: "/launch2/settings", icon: Settings },
+    ],
+  },
+
   { key: "automation", label: "Automation", icon: Workflow, path: "/automation", plans: ["full"] },
 
   /* CREATE */
@@ -219,6 +234,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   reports: "RUN",
   insights: "RUN",
   launch: "RUN",
+  launch2: "RUN",
   automation: "RUN",
   // CREATE
   genie: "CREATE",
