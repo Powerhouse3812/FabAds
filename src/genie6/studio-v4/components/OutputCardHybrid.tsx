@@ -2,6 +2,8 @@ import { Check, Download, Rocket, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EllipsisMenu } from "../../components/OutputCard/EllipsisMenu";
 import { qualityTier, type EllipsisAction, type OutputData } from "../../types/output";
+import { PreviewVideo } from "./PreviewVideo";
+import { videoForSeed } from "../data/studio-visuals";
 
 interface OutputCardHybridProps {
   output: OutputData;
@@ -100,7 +102,12 @@ export function OutputCardHybrid({
 
       {/* G5+G6 — Media (aspect-[4/5] thumbnail + quality score badge) */}
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-        {output.thumbnail ? (
+        {output.thumbnail && output.mediaType === "video" ? (
+          <PreviewVideo
+            src={videoForSeed(output.angleId ? `angle:${output.angleId}` : `output:${output.id}`)}
+            poster={output.thumbnail}
+          />
+        ) : output.thumbnail ? (
           <img
             src={output.thumbnail}
             alt={output.headline ?? brandName}

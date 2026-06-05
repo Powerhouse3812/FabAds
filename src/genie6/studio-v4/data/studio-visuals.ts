@@ -55,8 +55,125 @@ export function hashSeed(seed: string): number {
   return h >>> 0;
 }
 
-/** Deterministic video URL for any seed string. */
+/**
+ * ON-THEME MAPPING (Maalik MOM 06-05 — "har tile on-theme, Higgsfield-style").
+ *
+ * Every preview tile is seeded as `<kind>:<id>` (angle:/concept:/model:/approach:).
+ * We map each id → a semantic THEME, then pick a clip from that theme's bucket —
+ * so a Testimonial angle shows a person-to-camera clip, an Unboxing sub-type shows
+ * hands-on-a-box, a Product concept shows a product macro, etc. Deterministic
+ * (seeded) so a given tile is stable across renders. Unknown ids (e.g. recent:/
+ * output:) fall back to the full pool. Empty buckets fall back to `abstract`.
+ */
+export type Theme =
+  | "talking-head"
+  | "unboxing"
+  | "tutorial"
+  | "testimonial"
+  | "lifestyle"
+  | "product-closeup"
+  | "hero-cinematic"
+  | "abstract";
+
+/** Clips bucketed by theme (filenames in public/studio-previews/). Each clip is
+ *  real Mixkit stock footage chosen to match its theme — content verified. */
+const CLIPS_BY_THEME: Record<Theme, string[]> = {
+  "talking-head": [
+    "/studio-previews/mk-42323.mp4", // influencer talking to camera
+    "/studio-previews/mk-41289.mp4", // youtuber recording himself, studio
+    "/studio-previews/mk-8784.mp4",  // woman recording a social video in a cafe
+    "/studio-previews/mk-1232.mp4",  // intimate portrait, warm light
+  ],
+  "unboxing": [
+    "/studio-previews/mk-382.mp4",   // hand opening a lipstick (product reveal)
+    "/studio-previews/mk-39907.mp4", // taking makeup items out of a bag
+    "/studio-previews/mk-42606.mp4", // opening an envelope — reveal motion
+  ],
+  "tutorial": [
+    "/studio-previews/mk-50417.mp4", // how-to: using a skincare product, ring light
+    "/studio-previews/mk-384.mp4",   // applying mascara, close-up demo
+    "/studio-previews/mk-9158.mp4",  // applying skincare cream to face
+  ],
+  "testimonial": [
+    "/studio-previews/mk-5721.mp4",  // beauty vlogger answering subscribers
+    "/studio-previews/mk-49141.mp4", // influencer recording a product video
+    "/studio-previews/mk-34486.mp4", // speaker talking on camera (interview feel)
+  ],
+  "lifestyle": [
+    "/studio-previews/mk-50406.mp4", // skincare routine being filmed at home
+    "/studio-previews/mk-4948.mp4",  // woman reading — calm daily moment
+    "/studio-previews/mk-39764.mp4", // mother + child outdoors
+  ],
+  "product-closeup": [
+    "/studio-previews/mk-20766.mp4", // pressing a perfume bottle (hero macro)
+    "/studio-previews/mk-21694.mp4", // spraying a perfume sample
+    "/studio-previews/mk-40549.mp4", // cosmetics arranged on a table (flat-lay)
+  ],
+  "hero-cinematic": [
+    "/studio-previews/mk-805.mp4",   // model in a dress — fashion hero
+    "/studio-previews/mk-39874.mp4", // beauty / glitter editorial
+    "/studio-previews/mk-39877.mp4", // beauty close-up, blue tones
+  ],
+  "abstract": [
+    "/studio-previews/mk-1164.mp4",  // ocean surface
+    "/studio-previews/mk-1192.mp4",  // peach + blue paint swirl
+    "/studio-previews/mk-1196.mp4",  // teal liquid
+    "/studio-previews/mk-1198.mp4",  // warm gradient
+    "/studio-previews/mk-1203.mp4",  // lavender gradient
+  ],
+};
+
+/**
+ * id → theme. Keys cover every Studio Alpha angle / concept / approach-mode /
+ * approach-sub-type / model id. (Duplicate ids across dimensions — e.g.
+ * `unboxing` as both angle and sub-type — resolve to the same theme.)
+ */
+const THEME_BY_ID: Record<string, Theme> = {
+  // Angles (20)
+  hero: "hero-cinematic", lifestyle: "lifestyle", "social-proof": "testimonial",
+  urgency: "abstract", comparison: "testimonial", "ugc-style": "talking-head",
+  unboxing: "unboxing", infographic: "abstract", testimonial: "testimonial",
+  "before-after": "testimonial", "problem-solution": "tutorial",
+  "feature-highlight": "product-closeup", "benefit-led": "lifestyle", fomo: "abstract",
+  scarcity: "abstract", premium: "product-closeup", "value-prop": "abstract",
+  story: "hero-cinematic", demo: "tutorial", educational: "tutorial",
+  // Concepts (12)
+  "c-hero-pack": "product-closeup", "c-detail-macro": "product-closeup",
+  "c-bundle-stack": "product-closeup", "c-founder-note": "talking-head",
+  "c-before-after": "testimonial", "c-heritage": "hero-cinematic",
+  "c-morning-ritual": "lifestyle", "c-fest-scene": "lifestyle",
+  "c-ugc-creator": "talking-head", "c-flash-sale": "abstract", "c-bogo": "abstract",
+  "c-launch-tease": "hero-cinematic",
+  // Approach modes (7)
+  scratch: "abstract", "create-variations": "product-closeup", "ugc-video": "talking-head",
+  "image-to-video": "product-closeup", broll: "lifestyle", "bg-remover": "product-closeup",
+  resize: "abstract",
+  // Approach sub-types (the ones not already keyed above)
+  "talking-head": "talking-head", tutorial: "tutorial", reaction: "talking-head",
+  "day-in-life": "lifestyle", "whole-ad": "hero-cinematic", "media-only": "lifestyle",
+  "copy-only": "product-closeup", subtle: "product-closeup", "full-ai": "hero-cinematic",
+  // Models (5)
+  "genie-1.0": "abstract", "genie-2.0-pro": "hero-cinematic", "genie-flash": "abstract",
+  "genie-video": "hero-cinematic", "genie-labs": "abstract",
+};
+
+/** Pick a clip from a theme's bucket (deterministic); fall back to abstract, then pool. */
+function clipForTheme(theme: Theme, seed: string): string {
+  const bucket = CLIPS_BY_THEME[theme]?.length
+    ? CLIPS_BY_THEME[theme]
+    : CLIPS_BY_THEME.abstract;
+  const usable = bucket.length ? bucket : MOCK_VIDEO_POOL;
+  return usable[hashSeed(seed) % usable.length];
+}
+
+/**
+ * Deterministic video URL for any seed string. Routes `<kind>:<id>` seeds through
+ * the on-theme buckets; unknown ids fall back to the full pool.
+ */
 export function videoForSeed(seed: string): string {
+  const id = seed.includes(":") ? seed.slice(seed.indexOf(":") + 1) : seed;
+  const theme = THEME_BY_ID[id];
+  if (theme) return clipForTheme(theme, seed);
   return MOCK_VIDEO_POOL[hashSeed(seed) % MOCK_VIDEO_POOL.length];
 }
 

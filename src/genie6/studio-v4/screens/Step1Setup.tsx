@@ -2,6 +2,8 @@ import { TrendingUp, Clock, Zap, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WizardCard } from "../components/WizardCard";
 import { HeroHeader } from "../components/HeroHeader";
+import { PreviewVideo } from "../components/PreviewVideo";
+import { videoForSeed } from "../data/studio-visuals";
 import type { Category, Format, UseWizardReturn } from "../state/useWizard";
 
 interface Step1Props {
@@ -180,11 +182,10 @@ export function Step1Setup({ wizard }: Step1Props) {
               className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
             >
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                <img
-                  src={r.thumbnail}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                <PreviewVideo
+                  src={videoForSeed(`recent:${r.id}`)}
+                  poster={r.thumbnail}
+                  className="transition-transform group-hover:scale-[1.04]"
                 />
                 <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-card/90 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-foreground shadow-sm backdrop-blur-sm">
                   <Sparkles className="h-2.5 w-2.5" />
