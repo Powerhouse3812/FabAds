@@ -1,10 +1,7 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowUpRight,
   Camera,
-  CheckCircle2,
-  Clock,
-  Loader2,
   RefreshCw,
   ShoppingBag,
   Sparkles,
@@ -50,25 +47,12 @@ const MODES: Array<{ id: string; label: string; icon: LucideIcon; skipGate?: boo
   { id: "variation", label: "Variations", icon: RefreshCw, skipGate: true },
 ];
 
-type GenStatus = "in-progress" | "success" | "queued";
-const RECENT_WORK: Array<{ id: string; title: string; mode: string; status: GenStatus; time: string }> = [
-  { id: "g-1", title: "Festive Diwali bundle — gifting angle", mode: "Brand Ad", status: "in-progress", time: "now" },
-  { id: "g-2", title: "Mamaearth Vitamin C — UGC testimonial", mode: "UGC Video", status: "success", time: "12 min" },
-  { id: "g-3", title: "Noise Smartwatch — discount push", mode: "Adcopy", status: "success", time: "1 h" },
-];
-
 const RECENTLY_SYNCED: Array<{ name: string; type: "brand" | "product" | "category" }> = [
   { name: "Mamaearth", type: "brand" },
   { name: "Onion Shampoo", type: "product" },
   { name: "Skincare", type: "category" },
   { name: "Noise", type: "brand" },
 ];
-
-const STATUS_META: Record<GenStatus, { icon: LucideIcon; cls: string; label: string }> = {
-  "in-progress": { icon: Loader2, cls: "text-primary", label: "In progress" },
-  success: { icon: CheckCircle2, cls: "text-emerald-600 dark:text-emerald-500", label: "Success" },
-  queued: { icon: Clock, cls: "text-muted-foreground", label: "Queued" },
-};
 
 const TYPE_DOT: Record<"brand" | "product" | "category", string> = {
   brand: "bg-primary",
@@ -77,7 +61,6 @@ const TYPE_DOT: Record<"brand" | "product" | "category", string> = {
 };
 
 export function GenieCard() {
-  const navigate = useNavigate();
   const { used, limit } = useCredits();
   const remaining = Math.max(limit - used, 0);
   const pct = Math.min(100, Math.round((used / limit) * 100));
@@ -162,54 +145,6 @@ export function GenieCard() {
             );
           })}
         </div>
-      </div>
-
-      {/* Recent work */}
-      <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Recent work
-          </span>
-          <Link
-            to="/iq/genie6/studio-alpha/configure?queue=v3"
-            className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Go to studio →
-          </Link>
-        </div>
-        <ul className="flex flex-col">
-          {RECENT_WORK.map((w) => {
-            const meta = STATUS_META[w.status];
-            const StatusIcon = meta.icon;
-            return (
-              <li key={w.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate("/iq/genie6/library")}
-                  className="group flex w-full items-center gap-2.5 rounded-md px-1 py-1.5 text-left transition-colors hover:bg-muted/40"
-                >
-                  <StatusIcon
-                    className={cn(
-                      "h-3.5 w-3.5 shrink-0",
-                      meta.cls,
-                      w.status === "in-progress" && "animate-spin",
-                    )}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-foreground">
-                    {w.title}
-                  </span>
-                  <span className="shrink-0 font-mono text-[9.5px] uppercase tracking-wider text-muted-foreground">
-                    {w.mode}
-                  </span>
-                  <span className="shrink-0 font-mono text-[9.5px] tabular-nums text-muted-foreground/70">
-                    {w.time}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
       </div>
 
       {/* Recently synced */}

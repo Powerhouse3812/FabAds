@@ -27,6 +27,7 @@ import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard"
 import { GenieCard } from "@/components/dashboard/growth/GenieCard";
 import { IndustryInsightsCard } from "@/components/dashboard/growth/IndustryInsightsCard";
 import { NewlyFetchedAdsCard } from "@/components/dashboard/growth/NewlyFetchedAdsCard";
+import { RecentGenerationsCard } from "@/components/dashboard/growth/RecentGenerationsCard";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
@@ -225,10 +226,11 @@ function FullPlanDashboard() {
           <LaunchSummaryCard dateSeed={dateSeed} />
         </div>
         {/* Right column -- 40%.
-            A-12.198: compact NewlyFetchedAdsCard (brand-grouped fresh
-            competitor ads) added at the top. The rich Industry Insights
-            card moved up into the 2-col Zone 3.5 row. */}
+            A-12.198/199: two compact list cards lead the column — fresh
+            competitor ads + recent generations (the latter pulled out of
+            GenieCard into its own card to match NewlyFetchedAds). */}
         <div className="lg:col-span-2 space-y-3">
+          <RecentGenerationsCard />
           <NewlyFetchedAdsCard />
           <RrmSnapshotCard />
           <RiskHeatmap />
