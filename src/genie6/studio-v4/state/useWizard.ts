@@ -65,6 +65,14 @@ export interface WizardState {
   ctaLayout: "inline" | "footer";
   credits: number;
   count: number;
+  /**
+   * "Vary" amount (0–100) — how MUCH each generated output should differ from
+   * the base. This is NOT the variation COUNT (that's `count`). Default 10
+   * (safe, close variations). Surfaced via the Generation-settings slider on
+   * the Configure screen. (Maalik MOM 06-05: "variation meter, default 10%".)
+   * NOTE: not part of the credit recompute — it doesn't change output volume.
+   */
+  varyAmount: number;
   aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
   videoResolution: VideoResolution;
   videoAudio: boolean;
@@ -97,6 +105,7 @@ const INITIAL_STATE: WizardState = {
   ctaLayout: "inline",
   credits: 4,
   count: 4,
+  varyAmount: 10,
   aspectRatio: "1:1",
   videoResolution: "1080p",
   videoAudio: true,

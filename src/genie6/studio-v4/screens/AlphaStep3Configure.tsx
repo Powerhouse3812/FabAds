@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, ChevronRight, Lock, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
+import { Braces, Check, ChevronDown, ChevronRight, Copy, FileText, Lock, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getConceptById } from "../data/concepts";
 import {
@@ -8,13 +8,14 @@ import {
   videoForSeed,
   posterForSeed,
 } from "../data/studio-visuals";
-import { autoFillForApproach, getApproachLocks } from "../data/approach-subtypes";
+import { autoFillForApproach, getApproachLocks, getSubType } from "../data/approach-subtypes";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import type {
   AttachSource,
@@ -367,6 +368,19 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               />
             }
           />
+
+          {/* Script showcase card (MOM 06-05: "script show krni hogi") —
+              surfaces the script prominently, not just the prompt-bar chip.
+              Opens the existing ScriptRail to edit / write / paste. */}
+          <ScriptCard
+            script={wizard.state.script}
+            onOpenRail={() => setRailMode("script")}
+          />
+
+          {/* Master prompt card (MOM 06-05: "Master prompt for the video") —
+              read-only, collapsible, live-derived assembly of everything Genie
+              will receive. Copy button copies the assembled text. */}
+          <MasterPromptCard wizard={wizard} />
 
           {/* Angles + Concepts — combined glass card. A-12.9 (Maalik MOM 06-05):
               STARTS COLLAPSED because angle + concept are auto-filled from the
@@ -1103,6 +1117,13 @@ const RESOLUTION_OPTIONS: {
   { value: "4K",    tier: "Premium",  multiplier: "×3" },
 ];
 
+/**
+ * PLACEHOLDER NAME — Maalik hasn't finalized the word for the "Vary" meter
+ * (candidates: "Variance" / "Deviation" / "Difference"). Single const so the
+ * label can be renamed in ONE place once it's locked. (MOM 06-05.)
+ */
+const VARY_LABEL = "Vary";
+
 function GenerationSettingsButton({
   wizard,
   open,
@@ -1232,6 +1253,40 @@ function GenerationSettingsButton({
             className="h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
           />
 
+          {/* — Vary section (MOM 06-05: "variation meter, default 10%") —
+              This is NOT the variation COUNT (selectedConceptIds × count); it's
+              how MUCH each output differs from the base. Label is a PLACEHOLDER
+              (VARY_LABEL) until Maalik locks the word. */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {VARY_LABEL}
+              </p>
+              <span className="font-mono text-[11px] font-semibold text-primary">
+                {state.varyAmount}%
+              </span>
+            </div>
+            <Slider
+              value={[state.varyAmount]}
+              min={0}
+              max={100}
+              step={5}
+              onValueChange={(v) => wizard.set("varyAmount", v[0] ?? 0)}
+              aria-label={`${VARY_LABEL} amount`}
+              className="py-1"
+            />
+            <p className="text-[10px] italic leading-snug text-muted-foreground">
+              How much each output differs from the base. Low % = safe, close
+              variations.
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div
+            aria-hidden
+            className="h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
+          />
+
           {/* — Audio section — */}
           <div className="flex flex-col gap-1.5">
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -1262,6 +1317,231 @@ function GenerationSettingsButton({
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * ScriptCard — A (MOM 06-05: "script show krni hogi" / "Script showcase").
+ * Surfaces the script prominently on Configure (not just the prompt-bar chip).
+ *   • script set  → readable block (max ~4 lines, expand for more) + Edit.
+ *   • script null → Auto explainer + a muted "preview after Generate" note +
+ *                   a "Write / paste script" CTA.
+ * Both CTAs open the existing ScriptRail (railMode === "script").
+ * ───────────────────────────────────────────────────────────────────────── */
+function ScriptCard({
+  script,
+  onOpenRail,
+}: {
+  script: string | null;
+  onOpenRail: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasScript = script !== null && script.trim().length > 0;
+  // "Long" = worth offering an expand toggle (rough line-count heuristic).
+  const isLong =
+    hasScript && (script!.length > 220 || script!.split("\n").length > 4);
+
+  return (
+    <div className="v3-glass-card shrink-0 overflow-hidden rounded-2xl">
+      <div className="flex items-center gap-2 px-4 pt-3">
+        <SectionHeader title="Script" icon={FileText} size="compact" />
+        {!hasScript && (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
+            <Sparkles className="h-2.5 w-2.5" />
+            Auto
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onOpenRail}
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          <Pencil className="h-3 w-3" />
+          {hasScript ? "Edit script" : "Write / paste script"}
+        </button>
+      </div>
+
+      <div className="px-4 pb-3 pt-2">
+        {hasScript ? (
+          <>
+            <p
+              className={cn(
+                "whitespace-pre-wrap text-[12px] leading-relaxed text-foreground/90",
+                !expanded && isLong && "line-clamp-4",
+                expanded && isLong && "max-h-44 overflow-y-auto pr-1",
+              )}
+            >
+              {script}
+            </p>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
+                className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {expanded ? "Show less" : "Show full script"}
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 transition-transform duration-300",
+                    expanded && "rotate-180",
+                  )}
+                />
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-[12px] leading-relaxed text-foreground/90">
+              Auto — Genie writes the script from your prompt, angle &amp;
+              product.
+            </p>
+            <p className="mt-1 text-[11px] italic text-muted-foreground">
+              Script preview appears after Generate.
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Approach (Mode) → readable label, for the Master prompt assembly. No central
+ * map exists for Mode, so it's defined locally (this file owns it).
+ * ───────────────────────────────────────────────────────────────────────── */
+const MODE_LABEL: Record<string, string> = {
+  scratch: "From scratch",
+  "create-variations": "Create variations",
+  "ugc-video": "UGC Video",
+  "image-to-video": "Image to video",
+  broll: "B-roll",
+  "bg-remover": "Background remover",
+  resize: "Resize",
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * MasterPromptCard — A (MOM 06-05: "Master prompt for the video").
+ * Read-only, collapsible (default collapsed) card showing the assembled brief
+ * Genie will receive — derived LIVE from wizard state on each render. Copy
+ * button copies the assembled text via navigator.clipboard.
+ * ───────────────────────────────────────────────────────────────────────── */
+function MasterPromptCard({ wizard }: { wizard: UseWizardReturn }) {
+  const { state } = wizard;
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Assemble the labeled lines live from current state. Kept as an array so the
+  // copied text and the rendered <pre> share one source of truth.
+  const lines = useMemo(() => {
+    const out: string[] = [];
+
+    const approach = MODE_LABEL[state.mode] ?? state.mode;
+    const sub = getSubType(state.mode, state.approachSubType);
+    out.push(`Approach: ${approach}${sub ? ` · ${sub.label}` : ""}`);
+
+    out.push(
+      `Angle: ${
+        state.angleId
+          ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
+          : "Auto"
+      }`,
+    );
+
+    const conceptNames = state.selectedConceptIds.map((id) =>
+      id.startsWith("trend:")
+        ? "Trending concept"
+        : getConceptById(id)?.name ?? id,
+    );
+    out.push(`Concept: ${conceptNames.length ? conceptNames.join(", ") : "Auto"}`);
+
+    const scriptLine =
+      state.script && state.script.trim().length > 0
+        ? state.script.trim().replace(/\s+/g, " ").slice(0, 120) +
+          (state.script.trim().length > 120 ? "…" : "")
+        : "Auto-written";
+    out.push(`Script: ${scriptLine}`);
+
+    out.push(`Prompt: ${state.prompt.trim() || "(none yet — describe your ad)"}`);
+
+    if (state.useBrandGuidelines) out.push("Brand guidelines: on");
+    if (state.useKnowledgeBase) out.push("Knowledge base: on");
+
+    return out;
+  }, [
+    state.mode,
+    state.approachSubType,
+    state.angleId,
+    state.selectedConceptIds,
+    state.script,
+    state.prompt,
+    state.useBrandGuidelines,
+    state.useKnowledgeBase,
+  ]);
+
+  const assembled = lines.join("\n");
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(assembled);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard may be unavailable (insecure context / permissions) — no-op.
+    }
+  };
+
+  return (
+    <div className="v3-glass-card shrink-0 overflow-hidden rounded-2xl">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300",
+              open && "rotate-90",
+            )}
+          />
+          <SectionHeader
+            title="Master prompt · what Genie receives"
+            icon={Braces}
+            size="compact"
+          />
+        </button>
+        <button
+          type="button"
+          onClick={copy}
+          aria-label="Copy master prompt"
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              Copy
+            </>
+          )}
+        </button>
+      </div>
+      {open && (
+        <div className="border-t border-border/40 px-4 pb-3 pt-3">
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/40 bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground/90 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+            {assembled}
+          </pre>
+          <p className="mt-1.5 text-[10px] italic text-muted-foreground">
+            Read-only · assembled live from your selections.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
