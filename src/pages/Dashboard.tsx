@@ -21,11 +21,12 @@ import { ActivityLogsWidget } from "@/components/dashboard/ActivityLogsWidget";
 import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
-// A-12.197 (finalised-Figma reference): compact 2-row analytics strip
-// (GENIE + INDUSTRY INSIGHTS) up top + the rich Industry Insights card
-// in the body. Replaces the over-sized GenieSection/IndustryInsightsSection.
-import { ModuleAnalyticsStrip } from "@/components/dashboard/growth/ModuleAnalyticsStrip";
+// A-12.198: each module's numbers merged INTO its own card. GenieCard +
+// IndustryInsightsCard sit side-by-side; the compact NewlyFetchedAdsCard
+// lives in the masonry right column. (ModuleAnalyticsStrip retired.)
+import { GenieCard } from "@/components/dashboard/growth/GenieCard";
 import { IndustryInsightsCard } from "@/components/dashboard/growth/IndustryInsightsCard";
+import { NewlyFetchedAdsCard } from "@/components/dashboard/growth/NewlyFetchedAdsCard";
 import { aggregateKpis } from "@/lib/dashboard-selectors";
 
 /**
@@ -200,13 +201,17 @@ function FullPlanDashboard() {
       {/* Zone 3: Performance Trend */}
       {showGraph && <PerformanceTrend dateSeed={dateSeed} />}
 
-      {/* Zone 3.5 (A-12.197): compact 2-row analytics strip — GENIE +
-          INDUSTRY INSIGHTS numbers in one card, lime module labels +
-          inline metrics + hairline dividers, no sparklines / no
-          per-metric cards. Mirrors the AI dashboard's strip language at
-          its minimal density. The rich Industry Insights card lives in
-          the masonry right column below. */}
-      <ModuleAnalyticsStrip />
+      {/* Zone 3.5 (A-12.198): Genie + Industry Insights as two
+          self-contained cards, side-by-side on lg, stacked on narrow.
+          Each card merges its own numeric KPIs (inline metric row) WITH
+          its module content — Genie carries credit usage + modes +
+          recent work + recently synced; Industry Insights carries
+          fast-growing industries + the creative-distribution donut +
+          trending keywords. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
+        <GenieCard />
+        <IndustryInsightsCard />
+      </div>
 
       {/* Masonry: two independent column stacks */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
@@ -220,13 +225,11 @@ function FullPlanDashboard() {
           <LaunchSummaryCard dateSeed={dateSeed} />
         </div>
         {/* Right column -- 40%.
-            A-12.197: the rich Industry Insights card (finalised Figma —
-            fast-growing industries + creative-distribution donut + My
-            Feed totals + trending hashtags) restored here. The compact
-            strip up top carries the at-a-glance numbers; this carries
-            the depth. */}
+            A-12.198: compact NewlyFetchedAdsCard (brand-grouped fresh
+            competitor ads) added at the top. The rich Industry Insights
+            card moved up into the 2-col Zone 3.5 row. */}
         <div className="lg:col-span-2 space-y-3">
-          <IndustryInsightsCard />
+          <NewlyFetchedAdsCard />
           <RrmSnapshotCard />
           <RiskHeatmap />
           <ActivityLogsWidget />

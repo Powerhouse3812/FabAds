@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
+import { InlineMetricRow, type InlineMetric } from "./InlineMetricRow";
 
 /**
  * IndustryInsightsCard — the rich Industry Insights card from the finalised
@@ -45,10 +46,14 @@ const DONUT_DATA = [
   { name: "Video", value: VIDEO_PCT, color: VIDEO_COLOR },
 ];
 
-const MY_FEED = [
-  { label: "Ads", value: "24,851" },
-  { label: "Creatives", value: "1,420" },
-  { label: "Competitor", value: "3,232" },
+// A-12.198: the 5 Industry-Insights KPIs merged INTO this card, replacing
+// the old "My Feed" totals line (which duplicated Total ads / Competitor).
+const II_METRICS: InlineMetric[] = [
+  { label: "Total ads", value: "24,851", delta: { value: 12 } },
+  { label: "Competitors", value: "53" },
+  { label: "Brands followed", value: "64" },
+  { label: "Pages tracked", value: "128" },
+  { label: "Categories tracked", value: "9" },
 ];
 
 const TRENDING = ["#ChicVibes", "#StyleInspo", "#FashionForward"];
@@ -158,26 +163,10 @@ export function IndustryInsightsCard() {
         </div>
       </section>
 
-      {/* My Feed totals */}
-      <section className="flex flex-col gap-1.5 border-t border-border/60 pt-3">
-        <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          My Feed
-        </span>
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12.5px]">
-          {MY_FEED.map((m, i) => (
-            <span key={m.label} className="inline-flex items-baseline gap-1">
-              {i > 0 && (
-                <span aria-hidden className="mr-1 text-muted-foreground/50">
-                  ·
-                </span>
-              )}
-              <span className="font-mono font-semibold tabular-nums text-foreground">
-                {m.value}
-              </span>
-              <span className="text-muted-foreground">{m.label}</span>
-            </span>
-          ))}
-        </div>
+      {/* Industry Insights KPIs — the 5-metric strip merged into the card
+          (A-12.198), in the spot the old My Feed totals line occupied. */}
+      <section className="border-t border-border/60 pt-3">
+        <InlineMetricRow metrics={II_METRICS} />
       </section>
 
       {/* Trending keywords */}
