@@ -5,7 +5,7 @@ import {
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Tag, Building2, Package, Boxes,
-  Workflow, Eraser, Scissors,
+  Workflow, Eraser, Scissors, Send,
   Lightbulb,
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss,
@@ -131,6 +131,20 @@ export const MODULES: ModuleDef[] = [
     ],
   },
 
+  {
+    // Launch 2.0 — fresh from-scratch parent module for Meta bulk ad-launching.
+    // Genie-style hub + 5-step guided flow, all behind a mock MetaLaunchService.
+    // NO `plans` field → visible on BOTH full + ai plans (ungated for now per
+    // Maalik; a Full-plan gate may be added later).
+    key: "launch2", label: "Launch 2.0", icon: Send, badge: "Beta",
+    subItems: [
+      { label: "Home", path: "/launch2", icon: Home },
+      { label: "Activity", path: "/launch2/activity", icon: History },
+      { label: "Account Health", path: "/launch2/health", icon: Shield },
+      { label: "Settings", path: "/launch2/settings", icon: Settings },
+    ],
+  },
+
   { key: "automation", label: "Automation", icon: Workflow, path: "/automation", plans: ["full"] },
 
   /* CREATE */
@@ -219,6 +233,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   reports: "RUN",
   insights: "RUN",
   launch: "RUN",
+  launch2: "RUN",
   automation: "RUN",
   // CREATE
   genie: "CREATE",

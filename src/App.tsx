@@ -24,6 +24,7 @@ import Genie5 from "@/pages/iq/Genie5";
 import Genie5QuickStartPage from "@/pages/iq/Genie5QuickStartPage";
 import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
+import { launch2Routes } from "@/launch2/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
 import { PaymentVerificationPage } from "@/payment-verification/PaymentVerificationPage";
@@ -144,6 +145,9 @@ const App = () => (
                 <Route path="launch/settings" element={<ComingSoonPage label="Launch Settings" description="Default targeting, nomenclature, naming conventions, and launch presets — manage them once, apply them everywhere." />} />
                 <Route path="launch/campaign-urls" element={<Offers />} />
                 <Route path="launch/:id" element={<LaunchFlow />} />
+
+                {/* Launch 2.0 — parallel namespace; v1 Launch above untouched */}
+                {launch2Routes}
                 <Route path="iq/genie" element={<Genie />} />
                 <Route path="iq/genie2" element={<Genie2 />} />
                 <Route path="iq/genie3" element={<Genie3 />} />

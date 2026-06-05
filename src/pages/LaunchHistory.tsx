@@ -95,7 +95,7 @@ export default function LaunchHistory() {
         </div>
         <Button variant="outline" size="icon"><SlidersHorizontal className="h-4 w-4" /></Button>
         <Button variant="outline" className="ml-auto" onClick={() => navigate("/launch/new?mode=catalogue")}><Plus className="mr-2 h-4 w-4" /> New Catalogue Ads</Button>
-        <Button variant="outline" onClick={() => toast({ title: "Coming Soon", description: "New Launch 2.0 is under development." })}><Rocket className="mr-2 h-4 w-4" /> New Launch 2.0 <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">Beta</Badge></Button>
+        <Button variant="outline" onClick={() => navigate("/launch2")}><Rocket className="mr-2 h-4 w-4" /> New Launch 2.0 <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">Beta</Badge></Button>
         <Button onClick={() => navigate("/launch/new")}><Plus className="mr-2 h-4 w-4" /> New Launch</Button>
       </div>
 
