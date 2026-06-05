@@ -134,9 +134,11 @@ export const MODULES: ModuleDef[] = [
   {
     // Launch 2.0 — fresh from-scratch parent module for Meta bulk ad-launching.
     // Genie-style hub + 5-step guided flow, all behind a mock MetaLaunchService.
-    // NO `plans` field → visible on BOTH full + ai plans (ungated for now per
-    // Maalik; a Full-plan gate may be added later).
+    // FULL-PLAN module — gated like v1 Launch / Reports / Automation: locked on
+    // the AI plan (greyed + Growth badge + upsell on click), available on the
+    // Growth/Full plan. (Maalik: "It was supposed to be in the Full plan.")
     key: "launch2", label: "Launch 2.0", icon: Send, badge: "Beta",
+    plans: ["full"],
     subItems: [
       { label: "Home", path: "/launch2", icon: Home },
       { label: "Activity", path: "/launch2/activity", icon: History },

@@ -276,6 +276,7 @@ function RailItem({
   const lockedPreview: Record<string, string> = {
     reports: "Multi-account · up to 15 ad accounts",
     launch: "Round Robin · 50+ ads at once",
+    launch2: "Meta bulk · 50+ ads, guided flow",
     automation: "Rules-based · auto-rotate winners",
   };
   const previewLine = locked ? lockedPreview[mod.key] : undefined;

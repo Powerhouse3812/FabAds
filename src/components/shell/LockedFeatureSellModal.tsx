@@ -11,6 +11,7 @@ import {
   Telescope,
   Users,
   Plug,
+  Send,
 } from "lucide-react";
 import {
   Dialog,
@@ -127,6 +128,18 @@ export const FEATURE_PRESETS: Record<string, FeaturePreset> = {
       "Relaunch any past winner from history with one click.",
     ],
     PreviewIcon: Rocket,
+  },
+  launch2: {
+    eyebrow: "LAUNCH 2.0",
+    name: "Launch 2.0",
+    headline:
+      "Build 50 Meta ads in one guided flow, or rebuild them by hand every launch.",
+    bullets: [
+      "Bulk-launch 50+ Meta ads in a single 5-step flow — no per-ad copy-paste.",
+      "Per-account naming, dedupe, and warm-up windows applied automatically.",
+      "Account-health checks before every push, with activity logged end to end.",
+    ],
+    PreviewIcon: Send,
   },
   automation: {
     eyebrow: "AUTOMATION",
