@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, ChevronRight, MoreVertical, Search, Sparkles, Target, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getConceptById } from "../data/concepts";
+import {
+  getAngleVisual,
+  videoForSeed,
+  posterForSeed,
+} from "../data/studio-visuals";
+import { autoFillForApproach } from "../data/approach-subtypes";
 import {
   Popover,
   PopoverContent,
@@ -235,9 +242,15 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
   const handleChipOpen = (chip: ChipKind) => setRailMode(chip);
 
+  // A-12.9 (Maalik MOM 06-05): once the user touches angle OR concepts, stop
+  // auto-filling — going back/forward through the wizard must not clobber a
+  // manual pick. A ref (not state) so flipping it never triggers a re-render.
+  const userEditedRef = useRef(false);
+
   // Click trending → toggle into selectedConceptIds via synthetic prefix
   // (so it doesn't collide with library concept IDs).
   const toggleTrending = (sampleId: string) => {
+    userEditedRef.current = true;
     const synthId = `trend:${sampleId}`;
     const current = wizard.state.selectedConceptIds;
     const next = current.includes(synthId)
@@ -251,6 +264,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
   // Click an angle chip → toggle (set null if already selected, else replace).
   const toggleAngle = (angleId: string) => {
+    userEditedRef.current = true;
     const next = wizard.state.angleId === angleId ? null : angleId;
     wizard.set("angleId", next);
   };
@@ -270,7 +284,44 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     conceptStripRef.current.scrollTo({ left: 0, behavior: "smooth" });
   }, [wizard.state.angleId]);
 
+  // A-12.9: auto-fill angle + concept from the chosen approach (+ sub-type).
+  // Runs on mount and whenever mode/approachSubType change — but ONLY while the
+  // user hasn't manually edited the picks (userEditedRef guard). Uses one
+  // wizard.patch so angle + concepts land together.
+  const { mode, approachSubType } = wizard.state;
+  useEffect(() => {
+    if (userEditedRef.current) return;
+    const { angleId, conceptIds } = autoFillForApproach(mode, approachSubType);
+    wizard.patch({ angleId, selectedConceptIds: conceptIds });
+    // wizard.patch is stable (useCallback); intentionally excluded so this
+    // re-runs only on mode / approachSubType change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, approachSubType]);
 
+  // Inline Angles+Concepts card open/closed state. STARTS COLLAPSED because the
+  // picks are auto-filled (A-12.9). URL-backed via ?picks=open so back/forward
+  // is predictable and matches the existing accordion convention in this file.
+  const [picksExpanded, setPicksExpanded] = useAccordionUrl("picks", false);
+
+  // Resolved labels for the collapsed summary row.
+  const angleLabel = wizard.state.angleId
+    ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
+    : null;
+  // Concept summary — first selected concept's display name. trend:* ids are
+  // sample-output picks (no concepts.ts entry); fall back to a generic label.
+  const firstConceptId = wizard.state.selectedConceptIds[0] ?? null;
+  const conceptLabel = firstConceptId
+    ? firstConceptId.startsWith("trend:")
+      ? "Trending concept"
+      : getConceptById(firstConceptId)?.name ?? firstConceptId
+    : null;
+  const extraConceptCount = Math.max(
+    0,
+    wizard.state.selectedConceptIds.length - 1,
+  );
+  const angleVisual = wizard.state.angleId
+    ? getAngleVisual(wizard.state.angleId)
+    : null;
 
   return (
     <>
@@ -307,14 +358,76 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             }
           />
 
-          {/* Angles + Concepts — combined glass card. A-12.67: this card
-              is the single flex-1 min-h-0 region in the step's flex column,
-              absorbing leftover height. The Concepts grid inside has its
-              own max-h + overflow-y-auto, which is now the only internal
-              scroll surface on the entire step. */}
-          <div className="v3-glass-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl">
-            {/* Section 1: Angles — single horizontal-scroll row by default;
-                View more expands to 2-row flex-wrap. A-12.57 (Maalik). */}
+          {/* Angles + Concepts — combined glass card. A-12.9 (Maalik MOM 06-05):
+              STARTS COLLAPSED because angle + concept are auto-filled from the
+              chosen approach. Collapsed = a compact summary row (preview thumb +
+              "Angle: X · Concept: Y" + Auto badge + Edit). Expanding reveals the
+              full VISUAL angle tiles + VISUAL concept tiles. When expanded the
+              card claims flex-1 min-h-0 so the Concepts grid is the only internal
+              scroll surface; collapsed it's just a short auto-height row. */}
+          <div
+            className={cn(
+              "v3-glass-card flex flex-col overflow-hidden rounded-2xl",
+              picksExpanded ? "min-h-0 flex-1" : "shrink-0",
+            )}
+          >
+            {/* Collapsed summary row — always rendered. Acts as the toggle. */}
+            {!picksExpanded && (
+              <button
+                type="button"
+                onClick={() => setPicksExpanded(true)}
+                className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
+              >
+                {/* Preview thumbnail of the picked angle (poster still) */}
+                <span className="relative h-11 w-9 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
+                  {angleVisual?.poster ? (
+                    <img
+                      src={angleVisual.poster}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center">
+                      <Sparkles className="h-4 w-4 text-muted-foreground/50" />
+                    </span>
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <SectionHeader title="Angle · Concept" icon={Target} size="compact" />
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
+                      <Sparkles className="h-2.5 w-2.5" />
+                      Auto
+                    </span>
+                  </div>
+                  <p className="mt-0.5 line-clamp-1 text-[12px] text-foreground">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Angle:
+                    </span>{" "}
+                    <span className="font-semibold">{angleLabel ?? "None"}</span>
+                    <span className="mx-1.5 text-muted-foreground/50">·</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Concept:
+                    </span>{" "}
+                    <span className="font-semibold">{conceptLabel ?? "None"}</span>
+                    {extraConceptCount > 0 && (
+                      <span className="ml-1 font-mono text-[10px] text-muted-foreground">
+                        +{extraConceptCount}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary">
+                  <Pencil className="h-3 w-3" />
+                  Edit / Change
+                </span>
+              </button>
+            )}
+
+            {/* Expanded — full visual selection. Section 1: Angles VISUAL tiles. */}
+            {picksExpanded && (
+              <>
             <div className="px-4 py-3">
               <SectionHeader
                 title="Angles"
@@ -324,56 +437,87 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 trailing={
                   <button
                     type="button"
-                    onClick={() => setAnglesExpanded(!anglesExpanded)}
-                    aria-expanded={anglesExpanded}
+                    onClick={() => setPicksExpanded(false)}
+                    aria-label="Collapse to summary"
                     className="ml-auto inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
                   >
-                    {anglesExpanded ? "View less" : "View more"}
-                    <ChevronRight
-                      className={cn(
-                        "h-3 w-3 transition-transform duration-300",
-                        anglesExpanded && "rotate-90",
-                      )}
-                    />
+                    Collapse
+                    <ChevronDown className="h-3 w-3" />
                   </button>
                 }
               />
               <div
                 className={cn(
                   "mt-2 overflow-hidden transition-[max-height] duration-300 ease-out",
-                  anglesExpanded ? "max-h-[200px]" : "max-h-[44px]",
+                  anglesExpanded ? "max-h-[400px] overflow-y-auto" : "max-h-[112px]",
                 )}
               >
                 <ul
                   className={cn(
-                    anglesExpanded
-                      ? "flex flex-wrap items-center gap-1.5"
-                      : "flex items-center gap-1.5 overflow-x-auto pb-1.5 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_92%,transparent)]",
+                    "grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6",
+                    !anglesExpanded &&
+                      "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
                   )}
                 >
                   {ANGLE_IDS.map((id) => {
                     const active = wizard.state.angleId === id;
                     const label = ANGLE_CHIP_LABEL[id] ?? id;
+                    const v = getAngleVisual(id);
                     return (
-                      <li key={id} className={cn(!anglesExpanded && "snap-start shrink-0")}>
+                      <li key={id}>
                         <button
                           type="button"
                           onClick={() => toggleAngle(id)}
                           aria-pressed={active}
                           className={cn(
-                            "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                            "group relative block aspect-[4/5] w-full overflow-hidden rounded-lg border text-left transition-all",
                             active
-                              ? "border-primary/50 bg-primary/10 text-primary"
-                              : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                              ? "border-primary/60 ring-2 ring-primary/40"
+                              : "border-border/50 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                           )}
                         >
-                          {label}
+                          <video
+                            src={v.video}
+                            poster={v.poster}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover"
+                          />
+                          <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pb-1 pt-4">
+                            <span className="line-clamp-1 text-[10px] font-semibold leading-tight text-white">
+                              {label}
+                            </span>
+                          </span>
+                          {active && (
+                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                            </span>
+                          )}
                         </button>
                       </li>
                     );
                   })}
                 </ul>
               </div>
+              {ANGLE_IDS.length > 12 && (
+                <button
+                  type="button"
+                  onClick={() => setAnglesExpanded(!anglesExpanded)}
+                  aria-expanded={anglesExpanded}
+                  className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {anglesExpanded ? "Show fewer angles" : "Show all angles"}
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 transition-transform duration-300",
+                      anglesExpanded && "rotate-180",
+                    )}
+                  />
+                </button>
+              )}
             </div>
 
             {/* Gradient divider — parent-nav rail style */}
@@ -388,7 +532,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                     (not horizontal anymore).
                   • Dim-all-when-no-match bug gone — matching concepts get a
                     positive lime accent instead of dimming the rest.
-                  • ✨ Generate button in header → opens the AI generate
+                  • Generate button in header → opens the AI generate
                     rail picker (same one /iq/genie6/concepts/generate uses).
             */}
             {(() => {
@@ -511,18 +655,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                         )}
                       >
                         <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                          {t.thumbnail ? (
-                            <img
-                              src={t.thumbnail}
-                              alt=""
-                              loading="lazy"
-                              className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/50">
-                              ✨
-                            </div>
-                          )}
+                          {/* A-12.9: autoplay-loop video preview (poster = the
+                              concept's existing thumbnail; deterministic video
+                              seeded by id). Replaces the old still image + the
+                              stray text-emoji fallback. */}
+                          <video
+                            src={videoForSeed(`concept:${t.id}`)}
+                            poster={t.thumbnail ?? posterForSeed(`concept:${t.id}`)}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                          />
                           {t.brand?.name && (
                             <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
                               {t.brand.name}
@@ -551,6 +697,8 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             </div>
               );
             })()}
+              </>
+            )}
           </div>
       </div>
 

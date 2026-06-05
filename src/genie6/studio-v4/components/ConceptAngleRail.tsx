@@ -2,6 +2,11 @@ import { useMemo } from "react";
 import { Check, Target, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONCEPTS, getConceptVisuals } from "../data/concepts";
+import {
+  getAngleVisual,
+  videoForSeed,
+  posterForSeed,
+} from "../data/studio-visuals";
 import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 
 interface ConceptAngleRailProps {
@@ -13,13 +18,16 @@ interface ConceptAngleRailProps {
 }
 
 /**
- * ConceptAngleRail — A-12.71 (Maalik). Mirrors the bottom Angles +
- * Concepts pattern from Step 4 Configure, inside the prompt-bar
+ * ConceptAngleRail — A-12.71 → A-12.9 (Maalik MOM 06-05). Mirrors the
+ * Angles + Concepts pattern from Step 3 Configure, inside the prompt-bar
  * "Concept" chip modal:
- *   - Angles flex-wrap chips at the top (all visible, single-select).
- *   - Concepts grid below — vertical scroll inside a fixed-height
- *     frame, MATCH-FIRST ordering when an angle is picked.
- *   - No more tab toggle. Both surfaces co-visible.
+ *   - Angles are now VISUAL tiles at the top — autoplay-loop video
+ *     (getAngleVisual) + label overlay, all 20 visible, single-select
+ *     (lime ring + check when active).
+ *   - Concepts grid below — also autoplay-loop video tiles, vertical
+ *     scroll inside a fixed-height frame, MATCH-FIRST ordering when an
+ *     angle is picked, multi-select.
+ *   - No tab toggle. Both surfaces co-visible.
  */
 
 const ANGLE_IDS = [
@@ -84,7 +92,8 @@ export function ConceptAngleRail({
         </button>
       </header>
 
-      {/* Angles — flex-wrap chips, all 20 visible. Single-select. */}
+      {/* Angles — VISUAL tiles (autoplay-loop video + label overlay), all
+          20 visible in a capped-height scroll frame. Single-select. */}
       <div className="shrink-0 border-b border-border px-3 py-2.5">
         <div className="mb-2 flex items-center gap-1.5">
           <Target className="h-3 w-3 text-muted-foreground" />
@@ -95,10 +104,11 @@ export function ConceptAngleRail({
             · pick one to filter concepts
           </span>
         </div>
-        <ul className="flex flex-wrap items-center gap-1.5">
+        <ul className="grid max-h-[176px] grid-cols-3 gap-2 overflow-y-auto pr-0.5 sm:grid-cols-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
           {ANGLE_IDS.map((id) => {
             const active = selectedAngleId === id;
             const label = ANGLE_CHIP_LABEL[id] ?? id;
+            const v = getAngleVisual(id);
             return (
               <li key={id}>
                 <button
@@ -106,13 +116,33 @@ export function ConceptAngleRail({
                   onClick={() => onAngleChange(active ? null : id)}
                   aria-pressed={active}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                    "group relative block aspect-[4/5] w-full overflow-hidden rounded-lg border text-left transition-all",
                     active
-                      ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+                      ? "border-primary/60 ring-2 ring-primary/40"
+                      : "border-border/50 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                   )}
                 >
-                  {label}
+                  <video
+                    src={v.video}
+                    poster={v.poster}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
+                  {/* Label overlay — bottom gradient scrim for legibility */}
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pb-1 pt-4">
+                    <span className="line-clamp-1 text-[10px] font-semibold leading-tight text-white">
+                      {label}
+                    </span>
+                  </span>
+                  {active && (
+                    <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                    </span>
+                  )}
                 </button>
               </li>
             );
@@ -164,18 +194,16 @@ export function ConceptAngleRail({
                   )}
                 >
                   <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-                    {v?.thumbnail ? (
-                      <img
-                        src={v.thumbnail}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl">
-                        <Sparkles className="h-5 w-5 text-muted-foreground/50" />
-                      </div>
-                    )}
+                    <video
+                      src={videoForSeed(`concept:${c.id}`)}
+                      poster={v?.thumbnail ?? posterForSeed(`concept:${c.id}`)}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                    />
                     {v?.brand && (
                       <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
                         {v.brand}

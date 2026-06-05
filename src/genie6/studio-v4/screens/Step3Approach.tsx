@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Check,
   Film,
   Maximize2,
   Mic,
@@ -11,6 +12,12 @@ import {
 import { cn } from "@/lib/utils";
 import { HeroHeader } from "../components/HeroHeader";
 import type { Mode, UseWizardReturn } from "../state/useWizard";
+import {
+  APPROACH_SUBTYPES,
+  autoFillForApproach,
+  hasSubTypes,
+} from "../data/approach-subtypes";
+import { getApproachVisual } from "../data/studio-visuals";
 
 interface Step3Props {
   wizard: UseWizardReturn;
@@ -23,70 +30,19 @@ interface ApproachMode {
   Icon: React.ElementType;
   title: string;
   desc: string;
-  /** When user picks this mode, auto-set angleId to this. undefined = leave as is. */
-  autoAngleId?: string | null;
-  /** A-12.69 (Maalik): per-card signature color. Soft tint, not neon
-   *  (§7 #3 — no purple/blue neon glows). Resting bg is the 50/100
-   *  pale variant; hover lifts to 100/200; icon stays the saturated
-   *  600. From-scratch keeps lime to anchor it to the default
-   *  selected-ring color. */
-  colors: {
-    bgRest: string;
-    bgHover: string;
-    bgSelected: string;
-    textRest: string;
-    textSelected: string;
-  };
 }
 
-const SCHEME = {
-  indigo: {
-    bgRest: "bg-indigo-50", bgHover: "group-hover:bg-indigo-100",
-    bgSelected: "bg-indigo-100",
-    textRest: "text-indigo-600", textSelected: "text-indigo-700",
-  },
-  emerald: {
-    bgRest: "bg-emerald-50", bgHover: "group-hover:bg-emerald-100",
-    bgSelected: "bg-emerald-100",
-    textRest: "text-emerald-600", textSelected: "text-emerald-700",
-  },
-  fuchsia: {
-    bgRest: "bg-fuchsia-50", bgHover: "group-hover:bg-fuchsia-100",
-    bgSelected: "bg-fuchsia-100",
-    textRest: "text-fuchsia-600", textSelected: "text-fuchsia-700",
-  },
-  amber: {
-    bgRest: "bg-amber-50", bgHover: "group-hover:bg-amber-100",
-    bgSelected: "bg-amber-100",
-    textRest: "text-amber-600", textSelected: "text-amber-700",
-  },
-  rose: {
-    bgRest: "bg-rose-50", bgHover: "group-hover:bg-rose-100",
-    bgSelected: "bg-rose-100",
-    textRest: "text-rose-600", textSelected: "text-rose-700",
-  },
-  cyan: {
-    bgRest: "bg-cyan-50", bgHover: "group-hover:bg-cyan-100",
-    bgSelected: "bg-cyan-100",
-    textRest: "text-cyan-600", textSelected: "text-cyan-700",
-  },
-  lime: {
-    // Anchored to brand lime; keeps "From scratch" feeling primary.
-    bgRest: "bg-primary/[0.10]", bgHover: "group-hover:bg-primary/[0.18]",
-    bgSelected: "bg-primary/[0.20]",
-    textRest: "text-primary", textSelected: "text-primary",
-  },
-} as const;
-
 /**
- * Single unified mode list — no "Coming soon" split. All entries are clickable
- * and run the same pickMode flow (advances to next step). Order: UGC Video
- * first, "From scratch" last so users see the special-purpose modes before
- * the catch-all custom flow.
+ * Single unified mode list — no "Coming soon" split. Order: UGC Video first,
+ * "From scratch" last so users see the special-purpose modes before the
+ * catch-all custom flow.
  *
- * A-12.68 (Maalik): emojis replaced with lucide-react icons. Each icon
- * sits inside a soft-tinted square so the cards read as professional /
- * product-grade, not consumer-emoji-led.
+ * A-12.71 (Maalik, MOM 06-05): the Approach step is now VISUAL. Each card leads
+ * with an autoplay-loop video preview (getApproachVisual) instead of just an
+ * icon. The lucide icon survives as a small glass badge on the poster. Modes
+ * that branch (ugc-video, create-variations, image-to-video) reveal a "Choose a
+ * style" row of sub-type cards instead of advancing immediately; the rest
+ * advance on click exactly as before.
  */
 const ALL_MODES: ApproachMode[] = [
   {
@@ -94,55 +50,77 @@ const ALL_MODES: ApproachMode[] = [
     Icon: Mic,
     title: "UGC Video",
     desc: "Avatar-led talking-head, script-first.",
-    autoAngleId: "ugc-style",
-    colors: SCHEME.indigo,
   },
   {
     id: "create-variations",
     Icon: Repeat,
     title: "Create Variations",
     desc: "Iterate on existing creatives — keep layout, colors, or copy.",
-    colors: SCHEME.emerald,
   },
   {
     id: "image-to-video",
     Icon: Video,
     title: "Image to Video",
     desc: "Animate a static image — subtle motion or full AI.",
-    colors: SCHEME.fuchsia,
   },
   {
     id: "broll",
     Icon: Film,
     title: "B-Roll",
     desc: "Cutaway footage to layer with primary content.",
-    colors: SCHEME.amber,
   },
   {
     id: "bg-remover",
     Icon: Scissors,
     title: "BG Remover",
     desc: "Strip backgrounds from product shots.",
-    colors: SCHEME.rose,
   },
   {
     id: "resize",
     Icon: Maximize2,
     title: "Resize",
     desc: "Reformat to platform aspect ratios.",
-    colors: SCHEME.cyan,
   },
   {
     id: "scratch",
     Icon: Wand2,
     title: "From scratch",
     desc: "Full flow — prompt, references, angle, model, output count.",
-    colors: SCHEME.lime,
   },
 ];
 
+/** Shared autoplay-loop video preview (muted + playsInline required for
+ *  autoplay). Poster covers slow loads. preload="metadata" keeps it cheap —
+ *  the pool is ~8 URLs so the browser caches across every tile. */
+function PreviewVideo({
+  seed,
+  className,
+}: {
+  seed: string;
+  className?: string;
+}) {
+  const { poster, video } = getApproachVisual(seed);
+  return (
+    <video
+      src={video}
+      poster={poster}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      className={cn("h-full w-full object-cover", className)}
+    />
+  );
+}
+
 export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
-  // Auto-select "scratch" on mount if nothing is selected yet.
+  // Which approach is "open" for sub-type selection. Mirrors wizard.mode for
+  // approaches that branch; null when nothing is being chosen.
+  const [openMode, setOpenMode] = useState<Mode | null>(null);
+  const subTypeRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-select "scratch" on mount if nothing is selected yet. Does NOT advance.
   useEffect(() => {
     if (!wizard.state.mode) {
       wizard.set("mode", "scratch");
@@ -150,19 +128,52 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Mode picker handler — also auto-sets angleId where the mode profile
-  // calls for it (UGC Video → ugc-style angle).
-  const pickMode = (mode: Mode, autoAngleId?: string | null) => {
-    if (autoAngleId !== undefined) {
-      wizard.patch({ mode, angleId: autoAngleId });
-    } else {
-      wizard.set("mode", mode);
+  // Bring the revealed sub-type section into view once it mounts.
+  useEffect(() => {
+    if (openMode) {
+      subTypeRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }
+  }, [openMode]);
+
+  // Pick an approach. Branching approaches reveal their sub-types (no advance);
+  // leaf approaches set mode + auto-fill and advance immediately.
+  const pickApproach = (mode: Mode) => {
+    if (hasSubTypes(mode)) {
+      // Highlight the approach + reveal "Choose a style". Don't auto-fill until
+      // a sub-type is chosen so the Configure step receives the precise combo.
+      wizard.set("mode", mode);
+      setOpenMode(mode);
+      return;
+    }
+    wizard.patch({
+      mode,
+      approachSubType: null,
+      ...autoFillForApproach(mode, null),
+    });
+    setOpenMode(null);
     onAdvance();
   };
 
+  // Pick a sub-type within the open approach → patch mode + sub-type + auto-fill
+  // (angle + concepts) in one go, then advance.
+  const pickSubType = (mode: Mode, subTypeId: string) => {
+    wizard.patch({
+      mode,
+      approachSubType: subTypeId,
+      ...autoFillForApproach(mode, subTypeId),
+    });
+    onAdvance();
+  };
+
+  const openApproach = openMode
+    ? ALL_MODES.find((m) => m.id === openMode)
+    : undefined;
+
   return (
-    <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="relative mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
       {/* Ambient bg — consistent with Step 1 */}
       <div
         aria-hidden
@@ -181,44 +192,119 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
 
       <HeroHeader title="What's your approach?" onBack={onBack} />
 
-      {/* Single unified grid — 2 cols mobile, 3 cols md.
-          With 7 cards at max-w-2xl, this produces a 3+3+1 layout on desktop. */}
+      {/* Approach grid — visual cards, 2 cols mobile / 3 cols md. */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {ALL_MODES.map((m) => {
           const selected = wizard.state.mode === m.id;
+          const isOpen = openMode === m.id;
           const Icon = m.Icon;
           return (
             <button
               key={m.id}
               type="button"
-              onClick={() => pickMode(m.id, m.autoAngleId)}
+              onClick={() => pickApproach(m.id)}
+              aria-pressed={selected}
               className={cn(
-                "v3-glass-card group flex flex-col items-center gap-2.5 rounded-2xl p-5 transition-all",
+                "v3-glass-card group flex flex-col overflow-hidden rounded-2xl text-left transition-all",
                 selected
-                  ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
+                  ? "ring-2 ring-primary/40 shadow-[0_8px_32px_rgba(195,235,66,0.18)]"
                   : "hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
               )}
             >
-              <span
-                className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
-                  selected
-                    ? `${m.colors.bgSelected} ${m.colors.textSelected}`
-                    : `${m.colors.bgRest} ${m.colors.textRest} ${m.colors.bgHover}`,
+              {/* Video preview — ~4:3, leads the card. */}
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                <PreviewVideo
+                  seed={m.id}
+                  className="transition-transform duration-500 group-hover:scale-[1.03]"
+                />
+                {/* Legibility scrim */}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                {/* Lucide icon — small glass badge */}
+                <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg border border-white/20 bg-black/35 text-white backdrop-blur-sm">
+                  <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
+                {/* Selected check */}
+                {selected && (
+                  <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
                 )}
-              >
-                <Icon className="h-5 w-5" strokeWidth={2} />
-              </span>
-              <span className="text-[13px] font-bold text-foreground">
-                {m.title}
-              </span>
-              <span className="line-clamp-2 text-center text-[11px] text-muted-foreground">
-                {m.desc}
-              </span>
+              </div>
+              {/* Title + 1-line desc */}
+              <div className="flex flex-col gap-0.5 px-3 py-2.5">
+                <span className="flex items-center gap-1 text-[13px] font-bold text-foreground">
+                  {m.title}
+                  {isOpen && hasSubTypes(m.id) && (
+                    <span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-primary">
+                      Pick style
+                    </span>
+                  )}
+                </span>
+                <span className="line-clamp-2 text-[11px] text-muted-foreground">
+                  {m.desc}
+                </span>
+              </div>
             </button>
           );
         })}
       </section>
+
+      {/* Sub-type reveal — appears below the grid when a branching approach is
+          picked. "Choose a style" with smaller visual cards, each with its own
+          seeded preview (`${mode}:${subType.id}`). */}
+      {openApproach && (
+        <section
+          ref={subTypeRef}
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-card/60 p-4 duration-300 animate-in fade-in slide-in-from-top-2"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-foreground">
+              Choose a style
+            </h2>
+            <span className="text-[11px] text-muted-foreground">
+              for {openApproach.title}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {APPROACH_SUBTYPES[openApproach.id].map((sub) => {
+              const subSelected =
+                wizard.state.mode === openApproach.id &&
+                wizard.state.approachSubType === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => pickSubType(openApproach.id, sub.id)}
+                  aria-pressed={subSelected}
+                  className={cn(
+                    "v3-glass-card group flex flex-col overflow-hidden rounded-xl text-left transition-all",
+                    subSelected
+                      ? "ring-2 ring-primary/40 shadow-[0_8px_32px_rgba(195,235,66,0.18)]"
+                      : "hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
+                  )}
+                >
+                  <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                    <PreviewVideo
+                      seed={`${openApproach.id}:${sub.id}`}
+                      className="transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                  </div>
+                  <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                    <span className="text-[12px] font-bold text-foreground">
+                      {sub.label}
+                    </span>
+                    <span className="line-clamp-2 text-[10.5px] text-muted-foreground">
+                      {sub.desc}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

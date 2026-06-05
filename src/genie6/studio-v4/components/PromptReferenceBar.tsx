@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import {
   BookOpen,
+  Check,
   ChevronDown,
   Database,
   Plus,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
+import { getModelVisual } from "../data/studio-visuals";
 import type {
   UseWizardReturn,
   AttachSource,
@@ -379,32 +381,74 @@ export function PromptReferenceBar({
                   <ChevronDown className="h-3 w-3 text-muted-foreground" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" side="top" className="w-72 p-1">
-                {MODELS.map((m) => {
-                  const active = state.modelId === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => {
-                        wizard.set("modelId", m.id);
-                        setModelOpen(false);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                        active ? "bg-foreground/[0.06]" : "hover:bg-muted",
-                      )}
-                    >
-                      <m.Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
-                      <span className="font-semibold">{m.name}</span>
-                      {m.hint && (
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          {m.hint}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              <PopoverContent align="start" side="top" className="w-[420px] p-3">
+                {/* Tiny header */}
+                <div className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Model
+                </div>
+                {/* Visual card grid — autoplay-loop preview + name/hint + icon badge */}
+                <div className="grid grid-cols-2 gap-2">
+                  {MODELS.map((m) => {
+                    const active = state.modelId === m.id;
+                    const v = getModelVisual(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          wizard.set("modelId", m.id);
+                          setModelOpen(false);
+                        }}
+                        aria-pressed={active}
+                        className={cn(
+                          "group relative flex flex-col overflow-hidden rounded-lg border text-left transition-all",
+                          active
+                            ? "border-primary ring-2 ring-primary"
+                            : "border-border hover:border-foreground/30",
+                        )}
+                      >
+                        {/* Video preview (16:9) */}
+                        <div className="relative aspect-video w-full overflow-hidden bg-muted">
+                          <video
+                            src={v.video}
+                            poster={v.poster}
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover"
+                          />
+                          {/* Selected check badge */}
+                          {active && (
+                            <span
+                              aria-hidden
+                              className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+                            >
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            </span>
+                          )}
+                        </div>
+                        {/* Name + hint + icon badge */}
+                        <div className="flex items-center gap-2 bg-card px-2.5 py-2">
+                          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                            <m.Icon className="h-3.5 w-3.5" aria-hidden />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12px] font-semibold text-foreground">
+                              {m.name}
+                            </span>
+                            {m.hint && (
+                              <span className="block truncate text-[10px] text-muted-foreground">
+                                {m.hint}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </PopoverContent>
             </Popover>
 

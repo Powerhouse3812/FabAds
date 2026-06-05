@@ -46,6 +46,9 @@ export interface WizardState {
   productId: string | null;
   categoryId: string | null;
   mode: Mode;
+  /** Sub-type within the chosen approach (e.g. UGC Video → tutorial / unboxing
+   *  / talking-head). null = approach has no sub-type or none picked yet. */
+  approachSubType: string | null;
   modelId: string;
   angleId: string | null;
   /** UGC Video mode — avatar + voice picks. null = AI auto-decides. */
@@ -79,6 +82,7 @@ const INITIAL_STATE: WizardState = {
   productId: null,
   categoryId: null,
   mode: "scratch",
+  approachSubType: null,
   modelId: "genie-1.0",
   angleId: null,
   avatarId: null,
