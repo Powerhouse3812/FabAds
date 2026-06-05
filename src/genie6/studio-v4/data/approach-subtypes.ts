@@ -23,6 +23,14 @@ export interface ApproachSubType {
   autoAngleId: string;
   /** Concept(s) auto-selected (concepts.ts ids). */
   conceptIds: string[];
+  /**
+   * When true, the auto-filled ANGLE is LOCKED (not editable) for this
+   * sub-type — because the sub-type IS essentially that angle (e.g. Unboxing
+   * → unboxing, Tutorial → educational). Concept always stays editable.
+   * Approach links to angle+concept (auto-fills) but never replaces them;
+   * this flag only governs editability. (Maalik 06-05 correction.)
+   */
+  lockAngle?: boolean;
 }
 
 /**
@@ -32,11 +40,11 @@ export interface ApproachSubType {
 export const APPROACH_SUBTYPES: Record<Mode, ApproachSubType[]> = {
   "ugc-video": [
     { id: "talking-head", label: "Talking head", desc: "Creator speaks to camera, script-led.", autoAngleId: "ugc-style", conceptIds: ["c-ugc-creator"] },
-    { id: "tutorial",     label: "Tutorial",     desc: "Step-by-step how-to with the product.", autoAngleId: "educational", conceptIds: ["c-ugc-creator"] },
-    { id: "unboxing",     label: "Unboxing",     desc: "First-open reveal + reaction.", autoAngleId: "unboxing", conceptIds: ["c-ugc-creator"] },
+    { id: "tutorial",     label: "Tutorial",     desc: "Step-by-step how-to with the product.", autoAngleId: "educational", conceptIds: ["c-ugc-creator"], lockAngle: true },
+    { id: "unboxing",     label: "Unboxing",     desc: "First-open reveal + reaction.", autoAngleId: "unboxing", conceptIds: ["c-ugc-creator"], lockAngle: true },
     { id: "reaction",     label: "Reaction",     desc: "Genuine first-impression reaction.", autoAngleId: "social-proof", conceptIds: ["c-ugc-creator"] },
-    { id: "testimonial",  label: "Testimonial",  desc: "Customer shares a real result.", autoAngleId: "testimonial", conceptIds: ["c-before-after"] },
-    { id: "day-in-life",  label: "Day in the life", desc: "Product woven into a daily routine.", autoAngleId: "lifestyle", conceptIds: ["c-morning-ritual"] },
+    { id: "testimonial",  label: "Testimonial",  desc: "Customer shares a real result.", autoAngleId: "testimonial", conceptIds: ["c-before-after"], lockAngle: true },
+    { id: "day-in-life",  label: "Day in the life", desc: "Product woven into a daily routine.", autoAngleId: "lifestyle", conceptIds: ["c-morning-ritual"], lockAngle: true },
   ],
   "create-variations": [
     { id: "whole-ad",   label: "Whole ad",   desc: "Re-imagine the entire creative.", autoAngleId: "hero", conceptIds: ["c-hero-pack"] },
@@ -61,6 +69,28 @@ export function hasSubTypes(mode: Mode): boolean {
 export function getSubType(mode: Mode, subTypeId: string | null): ApproachSubType | undefined {
   if (!subTypeId) return undefined;
   return APPROACH_SUBTYPES[mode]?.find((s) => s.id === subTypeId);
+}
+
+export interface ApproachLocks {
+  /** Angle is locked (auto-filled, not editable) for the current sub-type. */
+  angle: boolean;
+  /** Concept is locked. Always false in the current mapping (kept for future). */
+  concept: boolean;
+  /** Human reason shown next to the lock icon, e.g. "Fixed for UGC · Unboxing". */
+  reason: string | null;
+}
+
+/**
+ * Editability locks for the auto-filled angle/concept, by sub-type.
+ * Approach links to angle+concept (auto-fills) but never replaces them — this
+ * only decides whether the user can change them. Per Maalik's mapping: lock the
+ * ANGLE for sub-types whose name IS the angle (Tutorial / Unboxing / Testimonial
+ * / Day-in-life); concept always editable.
+ */
+export function getApproachLocks(mode: Mode, subTypeId: string | null): ApproachLocks {
+  const sub = getSubType(mode, subTypeId);
+  if (!sub?.lockAngle) return { angle: false, concept: false, reason: null };
+  return { angle: true, concept: false, reason: `Fixed for ${sub.label}` };
 }
 
 export interface AutoFill {

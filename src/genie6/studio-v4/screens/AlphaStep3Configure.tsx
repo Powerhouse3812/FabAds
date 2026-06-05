@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, ChevronRight, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Lock, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getConceptById } from "../data/concepts";
 import {
@@ -8,7 +8,7 @@ import {
   videoForSeed,
   posterForSeed,
 } from "../data/studio-visuals";
-import { autoFillForApproach } from "../data/approach-subtypes";
+import { autoFillForApproach, getApproachLocks } from "../data/approach-subtypes";
 import {
   Popover,
   PopoverContent,
@@ -262,8 +262,17 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   const isTrendingSelected = (id: string) =>
     wizard.state.selectedConceptIds.includes(`trend:${id}`);
 
+  // A-12.9 (Maalik 06-05): per-sub-type editability locks for the auto-filled
+  // angle/concept. When locks.angle is true the angle is fixed by the approach
+  // sub-type (e.g. Unboxing → unboxing) — greyed + lock + reason, no-op setter.
+  // Concept always stays editable.
+  const locks = getApproachLocks(wizard.state.mode, wizard.state.approachSubType);
+
   // Click an angle chip → toggle (set null if already selected, else replace).
+  // No-op while the angle is locked: a locked angle can't be user-edited (it's
+  // already auto-filled to the sub-type's angle).
   const toggleAngle = (angleId: string) => {
+    if (locks.angle) return;
     userEditedRef.current = true;
     const next = wizard.state.angleId === angleId ? null : angleId;
     wizard.set("angleId", next);
@@ -396,15 +405,33 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <SectionHeader title="Angle · Concept" icon={Target} size="compact" />
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
-                      <Sparkles className="h-2.5 w-2.5" />
-                      Auto
-                    </span>
+                    {/* When the angle is locked, swap the generic "Auto" badge
+                        for a Lock + reason chip so the lock reads at a glance.
+                        Concept stays auto/editable below. */}
+                    {locks.angle ? (
+                      <span
+                        className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-foreground/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-foreground/70"
+                        title={locks.reason ?? "Angle locked"}
+                      >
+                        <Lock className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate normal-case tracking-normal">
+                          {locks.reason ?? "Angle locked"}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        Auto
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 line-clamp-1 text-[12px] text-foreground">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Angle:
                     </span>{" "}
+                    {locks.angle && (
+                      <Lock className="mr-0.5 inline-block h-2.5 w-2.5 -translate-y-px text-muted-foreground" />
+                    )}
                     <span className="font-semibold">{angleLabel ?? "None"}</span>
                     <span className="mx-1.5 text-muted-foreground/50">·</span>
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -446,10 +473,21 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                   </button>
                 }
               />
+              {/* Locked-angle banner — the angle is fixed by the approach
+                  sub-type; tiles below are greyed + non-interactive. */}
+              {locks.angle && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                  <Lock className="h-3 w-3 shrink-0" />
+                  <span className="min-w-0 truncate">
+                    {locks.reason ?? "Angle is fixed"} · change the sub-type to edit
+                  </span>
+                </div>
+              )}
               <div
                 className={cn(
                   "mt-2 overflow-hidden transition-[max-height] duration-300 ease-out",
                   anglesExpanded ? "max-h-[400px] overflow-y-auto" : "max-h-[112px]",
+                  locks.angle && "pointer-events-none opacity-50",
                 )}
               >
                 <ul
@@ -469,6 +507,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                           type="button"
                           onClick={() => toggleAngle(id)}
                           aria-pressed={active}
+                          aria-disabled={locks.angle || undefined}
                           className={cn(
                             "group relative block aspect-[4/5] w-full overflow-hidden rounded-lg border text-left transition-all",
                             active
@@ -491,11 +530,15 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                               {label}
                             </span>
                           </span>
-                          {active && (
+                          {active && locks.angle ? (
+                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-background shadow-sm">
+                              <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
+                            </span>
+                          ) : active ? (
                             <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                               <Check className="h-2.5 w-2.5" strokeWidth={3} />
                             </span>
-                          )}
+                          ) : null}
                         </button>
                       </li>
                     );
@@ -763,6 +806,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 onConceptsChange={(ids) =>
                   wizard.set("selectedConceptIds", ids)
                 }
+                angleLock={{ locked: locks.angle, reason: locks.reason ?? undefined }}
                 onClose={handleAttachCancel}
               />
             )}

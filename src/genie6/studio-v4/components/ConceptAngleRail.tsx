@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Check, Target, Sparkles, X } from "lucide-react";
+import { Check, Lock, Target, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONCEPTS, getConceptVisuals } from "../data/concepts";
 import {
@@ -15,6 +15,12 @@ interface ConceptAngleRailProps {
   onAngleChange: (id: string | null) => void;
   onConceptsChange: (ids: string[]) => void;
   onClose: () => void;
+  /**
+   * A-12.9 (Maalik 06-05): when the chosen approach sub-type locks the angle,
+   * the angle tiles become NOT-editable — greyed + lock overlay + reason banner.
+   * `onAngleChange` is a no-op while locked. Concept selection stays editable.
+   */
+  angleLock?: { locked: boolean; reason?: string };
 }
 
 /**
@@ -43,7 +49,9 @@ export function ConceptAngleRail({
   onAngleChange,
   onConceptsChange,
   onClose,
+  angleLock,
 }: ConceptAngleRailProps) {
+  const angleLocked = angleLock?.locked ?? false;
   const toggleConcept = (id: string) => {
     onConceptsChange(
       selectedConceptIds.includes(id)
@@ -101,10 +109,25 @@ export function ConceptAngleRail({
             Angles
           </p>
           <span className="font-mono text-[9px] text-muted-foreground/70">
-            · pick one to filter concepts
+            {angleLocked ? "· locked by approach" : "· pick one to filter concepts"}
           </span>
         </div>
-        <ul className="grid max-h-[176px] grid-cols-3 gap-2 overflow-y-auto pr-0.5 sm:grid-cols-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+        {/* Locked-angle banner — greyed angle grid is read-only; only the
+            approach sub-type can change it. */}
+        {angleLocked && (
+          <div className="mb-2 flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">
+            <Lock className="h-3 w-3 shrink-0" />
+            <span className="min-w-0 truncate">
+              {angleLock?.reason ?? "Angle is fixed"} · change the sub-type to edit
+            </span>
+          </div>
+        )}
+        <ul
+          className={cn(
+            "grid max-h-[176px] grid-cols-3 gap-2 overflow-y-auto pr-0.5 sm:grid-cols-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5",
+            angleLocked && "pointer-events-none opacity-50",
+          )}
+        >
           {ANGLE_IDS.map((id) => {
             const active = selectedAngleId === id;
             const label = ANGLE_CHIP_LABEL[id] ?? id;
@@ -113,8 +136,12 @@ export function ConceptAngleRail({
               <li key={id}>
                 <button
                   type="button"
-                  onClick={() => onAngleChange(active ? null : id)}
+                  onClick={() => {
+                    if (angleLocked) return;
+                    onAngleChange(active ? null : id);
+                  }}
                   aria-pressed={active}
+                  aria-disabled={angleLocked || undefined}
                   className={cn(
                     "group relative block aspect-[4/5] w-full overflow-hidden rounded-lg border text-left transition-all",
                     active
@@ -138,11 +165,15 @@ export function ConceptAngleRail({
                       {label}
                     </span>
                   </span>
-                  {active && (
+                  {active && angleLocked ? (
+                    <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-background shadow-sm">
+                      <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
+                    </span>
+                  ) : active ? (
                     <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                       <Check className="h-2.5 w-2.5" strokeWidth={3} />
                     </span>
-                  )}
+                  ) : null}
                 </button>
               </li>
             );
