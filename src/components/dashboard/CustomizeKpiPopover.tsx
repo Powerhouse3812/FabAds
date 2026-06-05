@@ -59,8 +59,18 @@ export function CustomizeKpiPopover({ prefs }: { prefs: DashboardKpiPrefs }) {
       setSearchParams(
         (prev) => {
           const sp = new URLSearchParams(prev);
-          if (next) sp.set("kpi-customize", "open");
-          else sp.delete("kpi-customize");
+          if (next) {
+            sp.set("kpi-customize", "open");
+            // A-12.202: this band is Growth-plan-only. Plan resolves from
+            // URL → sessionStorage → "ai" default, so a copied link WITHOUT
+            // ?plan=full lands a fresh tab on the AI dashboard, where this
+            // popover doesn't exist. Stamp plan=full when opening so the
+            // shareable / exportable URL reconstructs the exact screen.
+            sp.set("plan", "full");
+          } else {
+            sp.delete("kpi-customize");
+            // Leave ?plan as-is on close — the user genuinely is on Growth.
+          }
           return sp;
         },
         { replace: false },
