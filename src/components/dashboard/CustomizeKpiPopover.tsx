@@ -15,6 +15,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Check, GripVertical, Plus, RotateCcw, Settings2, X } from "lucide-react";
 import {
   Popover,
@@ -41,9 +43,31 @@ import type { DashboardKpiPrefs } from "./useDashboardKpiPrefs";
  *
  * dnd-kit powers the reorder (already a project dep). Pointer + keyboard
  * sensors so it's draggable by mouse AND operable by keyboard.
+ *
+ * Open state is URL-backed (A-12.201): `?kpi-customize=open`. So refresh
+ * keeps the popover open, and the open state can be deep-linked / exported
+ * (same pattern as the AdDetailDrawer + BatchDetailsAccordion). Closed =
+ * param absent.
  */
 export function CustomizeKpiPopover({ prefs }: { prefs: DashboardKpiPrefs }) {
   const { selected, isAtMax, toggle, remove, reorder, reset } = prefs;
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const open = searchParams.get("kpi-customize") === "open";
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next) sp.set("kpi-customize", "open");
+          else sp.delete("kpi-customize");
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -62,7 +86,7 @@ export function CustomizeKpiPopover({ prefs }: { prefs: DashboardKpiPrefs }) {
   const available = KPI_COLUMNS.filter((c) => !selected.includes(c.key));
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
