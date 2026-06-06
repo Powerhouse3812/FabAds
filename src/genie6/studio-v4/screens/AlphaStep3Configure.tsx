@@ -827,6 +827,11 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 onAvatarChange={(id) => wizard.set("avatarId", id)}
                 onVoiceChange={(id) => wizard.set("voiceId", id)}
                 contextLabel={avatarVoiceContextLabel}
+                auditAngleLabel={
+                  wizard.state.angleId
+                    ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
+                    : undefined
+                }
                 onClose={handleAttachCancel}
               />
             )}

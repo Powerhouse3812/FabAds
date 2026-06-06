@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Mic, Pause, Play, Sparkles, User, X } from "lucide-react";
+import { ArrowRight, Check, Mic, Pause, Play, Shuffle, Sparkles, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatars, voices } from "../../mocks/library";
 
@@ -15,6 +15,12 @@ interface AvatarVoiceRailProps {
    * [Name]" banner on both tabs. When null/empty the suggestion UI hides.
    */
   contextLabel?: string | null;
+  /**
+   * Readable label of the selected angle (caller resolves wizard.state.angleId
+   * → ANGLE_CHIP_LABEL[angleId]). Used only in the Auto card's audit reasoning
+   * line ("… · {label} angle"). When absent the angle clause is omitted.
+   */
+  auditAngleLabel?: string;
 }
 
 type Tab = "avatar" | "voice";
@@ -259,6 +265,7 @@ export function AvatarVoiceRail({
   onVoiceChange,
   onClose,
   contextLabel,
+  auditAngleLabel,
 }: AvatarVoiceRailProps) {
   const [tab, setTab] = useState<Tab>("avatar");
   const [mode, setMode] = useState<Mode>("presets");
@@ -316,6 +323,22 @@ export function AvatarVoiceRail({
     if (!hasContext) return null;
     return VOICE_PRESETS[presetIndexFor(contextLabel!, VOICE_PRESETS.length)] ?? null;
   }, [hasContext, contextLabel]);
+
+  /* ── Auto-card "would-be" picks (mock AI Review & Audit) ──
+   * When Auto is the ACTIVE selection, the Auto card expands to review the
+   * avatar/voice the AI *would* use. The pick is the context-matched preset
+   * (suggestedAvatar/VoicePreset) when there's context, else a STABLE default
+   * (first preset) so the audit never shows empty. Resolve each to its real,
+   * decorated record so the card can reuse the standard name + chip rendering.
+   * Deterministic — same context always yields the same pick. */
+  const autoAvatarPick = useMemo(() => {
+    const preset = suggestedAvatarPreset ?? AVATAR_PRESETS[0];
+    return decoratedAvatars.find((a) => a.id === preset.avatarId) ?? null;
+  }, [suggestedAvatarPreset, decoratedAvatars]);
+  const autoVoicePick = useMemo(() => {
+    const preset = suggestedVoicePreset ?? VOICE_PRESETS[0];
+    return decoratedVoices.find((v) => v.id === preset.voiceId) ?? null;
+  }, [suggestedVoicePreset, decoratedVoices]);
 
   /* ── Avatar ↔ voice persona pairing (mock; shared persona `label`) ──
    * When the selected avatar is a PRESET whose label also names a voice preset
@@ -502,6 +525,11 @@ export function AvatarVoiceRail({
               kind="avatar"
               active={selectedAvatarId === null}
               onSelect={() => onAvatarChange(null)}
+              pick={autoAvatarPick}
+              contextLabel={contextLabel}
+              auditAngleLabel={auditAngleLabel}
+              onUsePick={(id) => onAvatarChange(id)}
+              onSwap={() => setMode("browse")}
             />
 
             {mode === "presets" && (
@@ -613,6 +641,11 @@ export function AvatarVoiceRail({
               kind="voice"
               active={selectedVoiceId === null}
               onSelect={() => onVoiceChange(null)}
+              pick={autoVoicePick}
+              contextLabel={contextLabel}
+              auditAngleLabel={auditAngleLabel}
+              onUsePick={(id) => onVoiceChange(id)}
+              onSwap={() => setMode("browse")}
             />
 
             {mode === "presets" && (
@@ -753,42 +786,186 @@ function TabBtn({
   );
 }
 
+/** Decorated avatar shape the Auto card renders (name + parsed chip parts). */
+type AutoAvatarPick = {
+  id: string;
+  name: string;
+  demographic: string;
+  gender: "female" | "male";
+  age: string;
+  style: string;
+};
+/** Decorated voice shape the Auto card renders (shortName + chip parts). */
+type AutoVoicePick = {
+  id: string;
+  shortName: string;
+  description: string;
+  gender: "female" | "male";
+  lang: string;
+  tone: string;
+};
+
+/**
+ * AutoCard — "Genie picks for you" card.
+ *
+ * Two visual states (Maalik-confirmed):
+ *  - INACTIVE: the original compact button. Clicking it selects Auto (null).
+ *  - ACTIVE (this kind's selection is Auto/null): EXPANDS inline into an
+ *    "Avatar/Voice Review & Audit" panel — the AI's would-be pick (name +
+ *    chips), a muted audit/reasoning line, and two actions: commit the shown
+ *    pick ("Use this avatar/voice") or "Swap" (jump to Browse-all to choose
+ *    another). Mock only; the pick is deterministic (see autoAvatarPick /
+ *    autoVoicePick in the parent).
+ *
+ * Nested-button safety: the active state is a <div> (buttons can't nest) so
+ * the "Use this…" / "Swap" actions are real buttons. No explicit "keep Auto"
+ * affordance is needed — Auto is already the active selection (ring + check).
+ */
 function AutoCard({
   kind,
   active,
   onSelect,
+  pick,
+  contextLabel,
+  auditAngleLabel,
+  onUsePick,
+  onSwap,
 }: {
   kind: "avatar" | "voice";
   active: boolean;
   onSelect: () => void;
+  /** The AI's would-be pick (decorated avatar OR voice depending on kind). */
+  pick?: AutoAvatarPick | AutoVoicePick | null;
+  contextLabel?: string | null;
+  auditAngleLabel?: string;
+  onUsePick?: (id: string) => void;
+  onSwap?: () => void;
 }) {
   const Icon = kind === "avatar" ? User : Mic;
   const description =
     kind === "avatar"
       ? "Genie picks the best avatar for your script"
       : "Genie matches voice to brand + avatar";
+
+  // INACTIVE — original compact button, unchanged. Clicking selects Auto.
+  if (!active) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex w-full items-center gap-2 rounded-xl border border-border/40 bg-card/60 p-3 text-left backdrop-blur-sm transition-colors hover:border-foreground/20"
+      >
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/[0.08]">
+          <Icon className="h-3.5 w-3.5 text-foreground/70" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-bold text-foreground">Auto</p>
+          <p className="truncate text-[10px] text-muted-foreground">{description}</p>
+        </div>
+      </button>
+    );
+  }
+
+  // ACTIVE — expanded Review & Audit panel.
+  const hasCtx = !!contextLabel && contextLabel.trim().length > 0;
+  const reasoning = `Matched to ${hasCtx ? contextLabel : "your audience"}${
+    auditAngleLabel ? ` · ${auditAngleLabel} angle` : ""
+  }`;
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-xl border bg-card/60 p-3 text-left backdrop-blur-sm transition-colors",
-        active
-          ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
-          : "border-border/40 hover:border-foreground/20",
-      )}
-    >
-      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/[0.08]">
-        <Icon className="h-3.5 w-3.5 text-foreground/70" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-bold text-foreground">Auto</p>
-        <p className="truncate text-[10px] text-muted-foreground">{description}</p>
-      </div>
-      {active && (
+    <div className="rounded-xl border border-primary/50 bg-primary/5 p-3 ring-2 ring-primary/30 backdrop-blur-sm">
+      {/* Header row — Auto label + active check (mirrors the compact card). */}
+      <div className="flex items-center gap-2">
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-bold text-foreground">Auto</p>
+          <p className="truncate text-[10px] text-muted-foreground">{description}</p>
+        </div>
         <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={3} />
+      </div>
+
+      {pick && (
+        <>
+          {/* Review panel — the AI's would-be pick. */}
+          <div className="mt-2.5 rounded-lg border border-border/50 bg-background/40 p-2.5">
+            <p className="flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <Sparkles className="h-2.5 w-2.5 text-primary" />
+              AI will use
+            </p>
+            <p className="mt-1 truncate text-[13px] font-bold leading-tight text-foreground">
+              {kind === "avatar"
+                ? (pick as AutoAvatarPick).name
+                : (pick as AutoVoicePick).shortName}
+            </p>
+
+            {/* Attribute chips — same rendering as the preset/gallery cards. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+              {kind === "avatar" ? (
+                <AutoAvatarChips pick={pick as AutoAvatarPick} />
+              ) : (
+                <AutoVoiceChips pick={pick as AutoVoicePick} />
+              )}
+            </div>
+
+            {/* Audit / reasoning line — muted, with a subtle AI marker. */}
+            <p className="mt-2 flex items-start gap-1 text-[10px] leading-snug text-muted-foreground">
+              <Sparkles className="mt-px h-2.5 w-2.5 shrink-0 text-primary/70" />
+              <span className="min-w-0">{reasoning}</span>
+            </p>
+          </div>
+
+          {/* Actions — commit the shown pick, or swap to choose another. */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onUsePick?.(pick.id)}
+              className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition-colors hover:opacity-90"
+            >
+              <Check className="h-3 w-3" strokeWidth={3} />
+              {kind === "avatar" ? "Use this avatar" : "Use this voice"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwap?.()}
+              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              <Shuffle className="h-3 w-3" />
+              Swap
+            </button>
+          </div>
+        </>
       )}
-    </button>
+    </div>
+  );
+}
+
+/** Avatar chips for the Auto review panel — gender · age · style. Mirrors
+ *  AvatarPresetCard / AvatarGalleryCard chip logic ("general" → "Auto"). */
+function AutoAvatarChips({ pick }: { pick: AutoAvatarPick }) {
+  const styleLabel =
+    pick.style === "general"
+      ? "Auto"
+      : pick.style.charAt(0).toUpperCase() + pick.style.slice(1).replace(/-/g, " ");
+  return (
+    <>
+      <Chip>{pick.gender === "female" ? "♀ F" : "♂ M"}</Chip>
+      {pick.age && <Chip>{pick.age}</Chip>}
+      <Chip variant="primary">{styleLabel}</Chip>
+    </>
+  );
+}
+
+/** Voice chips for the Auto review panel — gender · language · tone. Mirrors
+ *  VoicePresetCard / VoiceGalleryCard chip logic. */
+function AutoVoiceChips({ pick }: { pick: AutoVoicePick }) {
+  return (
+    <>
+      <Chip>{pick.gender === "female" ? "♀ F" : "♂ M"}</Chip>
+      <Chip>{pick.lang}</Chip>
+      <Chip variant="primary">{pick.tone}</Chip>
+    </>
   );
 }
 
