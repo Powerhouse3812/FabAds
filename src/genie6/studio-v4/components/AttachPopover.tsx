@@ -1,4 +1,16 @@
-import type { ReactNode } from "react";
+import type { ReactNode, ElementType } from "react";
+import {
+  Upload,
+  Library,
+  Pin,
+  Trophy,
+  Package,
+  FileText,
+  Link as LinkIcon,
+  Database,
+  Image as ImageIcon,
+  LayoutTemplate,
+} from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -25,52 +37,20 @@ interface AttachPopoverProps {
 
 const ITEMS: {
   source: AttachSource;
-  emoji: string;
+  Icon: ElementType;
   label: string;
   subtext: string;
 }[] = [
-  {
-    source: "upload",
-    emoji: "🖼",
-    label: "Upload",
-    subtext: "from your computer",
-  },
-  {
-    source: "library",
-    emoji: "🗂",
-    label: "From Library",
-    subtext: "saved generations & assets",
-  },
-  {
-    source: "pinterest",
-    emoji: "📌",
-    label: "Pinterest",
-    subtext: "auto-fetched mood-board pins",
-  },
-  {
-    source: "brand-winner-ads",
-    emoji: "🏆",
-    label: "Brand knowledge: Winner Ads",
-    subtext: "top-performing brand creatives",
-  },
-  {
-    source: "product-winner-ads",
-    emoji: "📦",
-    label: "Product knowledge: Winner Ads",
-    subtext: "top-performing product creatives",
-  },
-  {
-    source: "instruction",
-    emoji: "📝",
-    label: "Instruction",
-    subtext: "attach a KB instruction to guide this generation",
-  },
-  {
-    source: "url",
-    emoji: "🔗",
-    label: "URL",
-    subtext: "paste a reference link",
-  },
+  { source: "upload", Icon: Upload, label: "Upload", subtext: "from your computer" },
+  { source: "library", Icon: Library, label: "From Library", subtext: "saved generations & assets" },
+  { source: "seed-image", Icon: ImageIcon, label: "Product images", subtext: "official seed shots for this product" },
+  { source: "pinterest", Icon: Pin, label: "Pinterest", subtext: "auto-fetched mood-board pins" },
+  { source: "brand-winner-ads", Icon: Trophy, label: "Brand knowledge: Winner Ads", subtext: "top-performing brand creatives" },
+  { source: "product-winner-ads", Icon: Package, label: "Product knowledge: Winner Ads", subtext: "top-performing product creatives" },
+  { source: "industry-insights", Icon: Database, label: "Industry Insights", subtext: "pinned competitor & category insights" },
+  { source: "template", Icon: LayoutTemplate, label: "Templates", subtext: "start from a proven ad layout" },
+  { source: "instruction", Icon: FileText, label: "Instruction", subtext: "attach a KB instruction to guide this generation" },
+  { source: "url", Icon: LinkIcon, label: "URL", subtext: "paste a reference link" },
 ];
 
 export function AttachPopover({
@@ -91,7 +71,9 @@ export function AttachPopover({
               onClick={() => onPick(item.source)}
               className="flex w-full items-start gap-3 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-muted"
             >
-              <span className="text-lg leading-none mt-0.5">{item.emoji}</span>
+              <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+                <item.Icon className="h-4 w-4" />
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-foreground">
                   {item.label}

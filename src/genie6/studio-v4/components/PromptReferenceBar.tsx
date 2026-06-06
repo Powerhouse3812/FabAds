@@ -19,9 +19,20 @@ import {
   Rocket,
   Video,
   FlaskConical,
+  ExternalLink,
+  Image as ImageIcon,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatars, voices } from "../../mocks/library";
+// CHANGE #3: saved reference-URLs surfaced inside the URL-attach popover.
+// Mirrors ContextRail.tsx, which imports the same helpers from "@/mocks/shared"
+// (barrel re-exports src/mocks/shared/referenceUrls.ts).
+import {
+  getReferenceUrlsForEntity,
+  shortUrl,
+  type EntityType,
+} from "@/mocks/shared";
 import {
   Popover,
   PopoverContent,
@@ -80,6 +91,9 @@ const SOURCE_ICON: Record<AttachSource, React.ElementType> = {
   "product-winner-ads": Package,
   url: LinkIcon,
   instruction: FileText,
+  "industry-insights": Database,
+  "seed-image": ImageIcon,
+  template: LayoutTemplate,
 };
 
 const MODELS: { id: string; Icon: React.ElementType; name: string; hint?: string }[] = [
@@ -167,6 +181,21 @@ export function PromptReferenceBar({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // CHANGE #3: shared url-attach handler. Both the manual paste flow and the
+  // one-tap "saved for this brand/product" rows funnel through here so a URL
+  // ref is built + appended + the popover closed in exactly one place.
+  const attachUrlRef = (label: string, thumbnail?: string) => {
+    const ref: AttachedRef = {
+      id: `url-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      source: "url",
+      label,
+      ...(thumbnail ? { thumbnail } : {}),
+    };
+    wizard.set("attachedReferences", [...state.attachedReferences, ref]);
+    setUrlInput("");
+    setUrlPopoverOpen(false);
+  };
+
   const submitUrl = () => {
     const trimmed = urlInput.trim();
     if (!trimmed) return;
@@ -178,15 +207,21 @@ export function PromptReferenceBar({
     } catch {
       // fall back to raw
     }
-    const ref: AttachedRef = {
-      id: `url-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      source: "url",
-      label: `URL · ${host}`,
-    };
-    wizard.set("attachedReferences", [...state.attachedReferences, ref]);
-    setUrlInput("");
-    setUrlPopoverOpen(false);
+    attachUrlRef(`URL · ${host}`);
   };
+
+  // CHANGE #3: resolve the active entity for saved-URL lookup. Wizard selection
+  // is XOR across brand / product / category (see WizardState docs); productId
+  // is the more specific signal, so prefer it, else fall back to brandId. We do
+  // not surface category here — the attach flow is brand/product-scoped per spec.
+  const refEntity: { type: EntityType; id: string } | null = state.productId
+    ? { type: "product", id: state.productId }
+    : state.brandId
+      ? { type: "brand", id: state.brandId }
+      : null;
+  const savedRefUrls = refEntity
+    ? getReferenceUrlsForEntity(refEntity.type, refEntity.id)
+    : [];
 
   const showInlineSend = hideLayoutToggle || state.ctaLayout === "inline";
   const isUgcMode = state.mode === "ugc-video" || state.angleId === "ugc-style";
@@ -271,29 +306,18 @@ export function PromptReferenceBar({
             </div>
           )}
 
-          {/* Row 1 — attached refs (compact) */}
+          {/* Row 1 — attached refs (compact). CHANGE #2: each pill is its own
+              component so it can own a per-pill hover state for the thumbnail
+              preview without re-rendering the whole row. */}
           {state.attachedReferences.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {state.attachedReferences.map((ref) => {
-                const SourceIcon = SOURCE_ICON[ref.source];
-                return (
-                <span
+              {state.attachedReferences.map((ref) => (
+                <AttachedRefPill
                   key={ref.id}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-2 py-0.5 text-[11px] font-medium text-foreground"
-                >
-                  <SourceIcon className="h-3 w-3 text-muted-foreground" aria-hidden />
-                  <span className="max-w-[140px] truncate">{ref.label}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeRef(ref.id)}
-                    aria-label={`Remove ${ref.label}`}
-                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </span>
-                );
-              })}
+                  refItem={ref}
+                  onRemove={() => removeRef(ref.id)}
+                />
+              ))}
             </div>
           )}
 
@@ -325,6 +349,54 @@ export function PromptReferenceBar({
               </PopoverTrigger>
               <PopoverContent align="start" side="top" className="w-80 p-3">
                 <div className="space-y-2">
+                  {/* CHANGE #3: saved reference-URLs for the active brand/product.
+                      One-tap rows attach via the shared url-attach handler. When
+                      the entity has none, this whole block renders nothing. */}
+                  {savedRefUrls.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="px-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Saved for this {refEntity?.type === "product" ? "product" : "brand"}
+                      </div>
+                      <div className="-mx-0.5 max-h-40 space-y-1 overflow-y-auto px-0.5">
+                        {savedRefUrls.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => attachUrlRef(r.label, r.thumbnail)}
+                            title={`${r.label} · ${r.url}`}
+                            className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-background/50 px-2 py-1.5 text-left transition-colors hover:border-foreground/20 hover:bg-background/70"
+                          >
+                            {r.thumbnail ? (
+                              <img
+                                src={r.thumbnail}
+                                alt=""
+                                aria-hidden
+                                className="h-7 w-7 shrink-0 rounded object-cover"
+                              />
+                            ) : (
+                              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+                                <LinkIcon className="h-3 w-3" aria-hidden />
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11px] font-medium text-foreground">
+                                {r.label}
+                              </span>
+                              <span className="block truncate text-[10px] text-muted-foreground">
+                                {shortUrl(r.url)}
+                              </span>
+                            </span>
+                            <Plus className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="h-px flex-1 bg-border/50" aria-hidden />
+                        <span className="text-[10px] text-muted-foreground/70">or paste a new one</span>
+                        <span className="h-px flex-1 bg-border/50" aria-hidden />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <LinkIcon className="h-3.5 w-3.5" />
                     Paste a URL
@@ -512,6 +584,76 @@ export function PromptReferenceBar({
         />
       </div>
     </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  AttachedRefPill — a single attached-reference chip.
+ *  CHANGE #2:
+ *    - When refItem.thumbnail exists, a small rounded thumbnail replaces the
+ *      source icon at the left (icon stays as the fallback).
+ *    - Hovering / focusing a thumbnailed pill reveals a larger (~140px) image
+ *      preview in an absolutely-positioned popover above the pill.
+ *    - Remove × is preserved.
+ * ────────────────────────────────────────────────────────── */
+function AttachedRefPill({
+  refItem,
+  onRemove,
+}: {
+  refItem: AttachedRef;
+  onRemove: () => void;
+}) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const SourceIcon = SOURCE_ICON[refItem.source];
+  const hasThumb = Boolean(refItem.thumbnail);
+
+  return (
+    <span
+      className="relative inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 py-0.5 pl-1 pr-2 text-[11px] font-medium text-foreground"
+      onMouseEnter={() => hasThumb && setPreviewOpen(true)}
+      onMouseLeave={() => setPreviewOpen(false)}
+    >
+      {hasThumb ? (
+        <span
+          className="inline-flex shrink-0"
+          tabIndex={0}
+          onFocus={() => setPreviewOpen(true)}
+          onBlur={() => setPreviewOpen(false)}
+        >
+          <img
+            src={refItem.thumbnail}
+            alt=""
+            aria-hidden
+            className="h-[18px] w-[18px] rounded-full object-cover"
+          />
+        </span>
+      ) : (
+        <SourceIcon className="ml-0.5 h-3 w-3 text-muted-foreground" aria-hidden />
+      )}
+      <span className="max-w-[140px] truncate">{refItem.label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${refItem.label}`}
+        className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
+
+      {/* Hover preview — larger thumbnail, anchored above the pill. */}
+      {hasThumb && previewOpen && (
+        <span
+          role="tooltip"
+          className="absolute bottom-full left-0 z-50 mb-1.5 block overflow-hidden rounded-lg border border-border/60 bg-popover p-1 shadow-lg"
+        >
+          <img
+            src={refItem.thumbnail}
+            alt={refItem.label}
+            className="block h-[140px] w-[140px] rounded-md object-cover"
+          />
+        </span>
+      )}
+    </span>
   );
 }
 

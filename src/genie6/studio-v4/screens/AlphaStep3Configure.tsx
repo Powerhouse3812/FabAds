@@ -44,6 +44,10 @@ import { KbInstructionRail } from "../components/KbInstructionRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
 import { BrandWinnerAdsDrawer } from "../components/BrandWinnerAdsDrawer";
 import { ProductWinnerAdsDrawer } from "../components/ProductWinnerAdsDrawer";
+import { IndustryInsightsPicker } from "../components/IndustryInsightsPicker";
+import { SeedImageRail } from "../components/SeedImageRail";
+import { TemplateRail } from "../components/TemplateRail";
+import { StyleBrandRail } from "../components/StyleBrandRail";
 import { InstructionsPickerModal } from "../components/InstructionsPickerModal";
 import type { AlphaMode } from "./StudioHome";
 
@@ -60,7 +64,10 @@ export type RailMode =
   | "style-brand"
   | "script"
   | "kb-instruction"
-  | "instructions";
+  | "instructions"
+  | "industry-insights"
+  | "seed-image"
+  | "template";
 
 const VALID_PICKERS: ReadonlyArray<Exclude<RailMode, null>> = [
   "generate-concepts",
@@ -75,6 +82,9 @@ const VALID_PICKERS: ReadonlyArray<Exclude<RailMode, null>> = [
   "script",
   "kb-instruction",
   "instructions",
+  "industry-insights",
+  "seed-image",
+  "template",
 ];
 
 /** URL-backed accordion open state. Default behaviour preserved if no param.
@@ -240,7 +250,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
       source === "library" ||
       source === "pinterest" ||
       source === "brand-winner-ads" ||
-      source === "product-winner-ads"
+      source === "product-winner-ads" ||
+      source === "industry-insights" ||
+      source === "seed-image" ||
+      source === "template"
     ) {
       setRailMode(source);
     }
@@ -836,7 +849,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               />
             )}
             {railMode === "style-brand" && (
-              <StyleBrandStub onClose={handleAttachCancel} />
+              <StyleBrandRail
+                brandId={wizard.state.brandId}
+                onClose={handleAttachCancel}
+              />
             )}
             {railMode === "kb-instruction" && (
               <KbInstructionRail
@@ -881,6 +897,32 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 productId={wizard.state.productId}
                 onSave={handleAttachSave("product-winner-ads")}
                 onCancel={handleAttachCancel}
+              />
+            )}
+            {railMode === "industry-insights" && (
+              <IndustryInsightsPicker
+                brandId={wizard.state.brandId}
+                productId={wizard.state.productId}
+                onSave={handleAttachSave("industry-insights")}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "seed-image" && (
+              <SeedImageRail
+                brandId={wizard.state.brandId}
+                productId={wizard.state.productId}
+                onSave={handleAttachSave("seed-image")}
+                onClose={handleAttachCancel}
+              />
+            )}
+            {railMode === "template" && (
+              <TemplateRail
+                brandId={wizard.state.brandId}
+                onSelect={(id) => {
+                  wizard.set("selectedTemplateIds", [id]);
+                  setRailMode(null);
+                }}
+                onClose={handleAttachCancel}
               />
             )}
             {railMode === "instructions" && (

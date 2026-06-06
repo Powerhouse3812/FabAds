@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Mic, Pause, Play, Shuffle, Sparkles, User, X } from "lucide-react";
+import { ArrowRight, Check, Globe, Mic, Pause, Play, Shuffle, Sparkles, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatars, voices } from "../../mocks/library";
 
@@ -141,6 +141,109 @@ function parseAvatarParts(d: string): {
 }
 
 /* ======================================================================
+ *  Region / market bucketing.
+ *
+ *  Avatars carry a granular region in the 3rd `·` segment of `demographic`
+ *  (e.g. "South Asian", "Punjabi", "African-American", "Singaporean Chinese").
+ *  Voices carry only a BCP-47 `language` code. We collapse BOTH into one small
+ *  set of market buckets so a single "Region" control can filter both lists.
+ *
+ *  "Senior" is an AGE dimension, not a place — but Maalik wants it as a market
+ *  option, so we treat it specially: avatars whose age band starts at 50+ and
+ *  voices flagged "mature/elder" land in Senior regardless of geography.
+ * ====================================================================== */
+type RegionBucket =
+  | "south-asian"
+  | "mena"
+  | "western"
+  | "east-asian"
+  | "sea"
+  | "africa"
+  | "australia"
+  | "senior";
+
+/** Ordered list for the selector. Label is what the user sees. */
+const REGION_OPTIONS: { v: RegionBucket; l: string }[] = [
+  { v: "south-asian", l: "South Asian" },
+  { v: "mena", l: "MENA" },
+  { v: "western", l: "Caucasian / NA / Europe" },
+  { v: "east-asian", l: "East Asian" },
+  { v: "sea", l: "SEA" },
+  { v: "africa", l: "Africa" },
+  { v: "australia", l: "Australia" },
+  { v: "senior", l: "Senior" },
+];
+
+/** Region segment of an avatar demographic — always the 3rd `·` part. */
+function parseAvatarRegion(d: string): string {
+  const parts = d.split("·").map((s) => s.trim()).filter(Boolean);
+  return parts[2] ?? "";
+}
+
+/** Lower bound of an age band like "28-34" → 28 (NaN-safe → 0). */
+function ageLowerBound(age: string): number {
+  const n = parseInt(age.split(/[-–]/)[0]?.trim() ?? "", 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Map an avatar's granular region string → one market bucket. `age` is passed
+ * so the 50+ bands route to "senior" ahead of their geographic bucket
+ * (Maalik-confirmed: Senior is a market, not a place).
+ */
+function avatarRegionBucket(demographic: string): RegionBucket | null {
+  const { age } = parseAvatarParts(demographic);
+  if (ageLowerBound(age) >= 50) return "senior";
+
+  const r = parseAvatarRegion(demographic).toLowerCase();
+  if (!r) return null;
+  // SEA before East-Asian: "Singaporean Chinese" reads SEA, not China.
+  if (/thai|filipino|indonesian|vietnamese|singapore|malay/.test(r)) return "sea";
+  if (/south asian|pan-asian|indian|punjabi|bengali|maharashtrian|tamil|telugu|gujarati|sri lankan/.test(r))
+    return "south-asian";
+  if (/mena|arab|middle east|gulf|emirati/.test(r)) return "mena";
+  if (/east asian|japanese|chinese|korean/.test(r)) return "east-asian";
+  if (/african|nigeria|ghana/.test(r)) {
+    // "African-American" is a US persona → Western; standalone "African" → Africa.
+    return /american/.test(r) ? "western" : "africa";
+  }
+  if (/australian|oceania|kiwi|new zealand/.test(r)) return "australia";
+  if (/caucasian|european|latina|latino|hispanic|white|north america/.test(r))
+    return "western";
+  return null;
+}
+
+/**
+ * Map a voice BCP-47 `language` → the same market buckets. Explicit list per
+ * Maalik's spec (hi-IN/ta/te/bn → South Asian, en-US/en-GB → Western, ar →
+ * MENA, ja/zh/ko → East Asian, id/th/vi → SEA, …). en-AU → Australia.
+ */
+function voiceRegionBucket(language: string): RegionBucket | null {
+  const code = language.toLowerCase();
+  const base = code.split("-")[0]; // "hi-in" → "hi"
+  if (code === "en-au") return "australia";
+  // Any Indian-subcontinent tongue (incl. en-IN Hinglish + Urdu).
+  if (code === "en-in" || ["hi", "ta", "te", "ml", "kn", "mr", "bn", "pa", "gu", "ur", "ne", "si"].includes(base))
+    return "south-asian";
+  if (base === "ar" || base === "fa" || base === "he") return "mena";
+  if (["ja", "zh", "ko"].includes(base)) return "east-asian";
+  if (["id", "th", "vi", "ms", "km", "lo", "my", "tl"].includes(base) || code === "fil" || code === "en-ph" || code === "en-sg")
+    return "sea";
+  if (code === "en-ng" || code === "en-gh" || code === "en-za" || base === "sw" || base === "yo" || base === "zu")
+    return "africa";
+  // Western default: en-US/GB/CA, es, fr, de, it, pt, nl, …
+  if (base === "en" || ["es", "fr", "de", "it", "pt", "nl", "sv", "no", "da", "pl"].includes(base))
+    return "western";
+  return null;
+}
+
+/** A handful of voices read as "mature/elder" — Senior is age, not language,
+ *  so we flag them explicitly (description keyword) for the Senior bucket. */
+function isSeniorVoice(v: { name: string; description: string }): boolean {
+  return /\bmature\b|\belder\b|\bsenior\b/i.test(`${v.name} ${v.description}`);
+}
+
+/* ======================================================================
  *  Curated presets — Maalik wants personality, not the underlying real names.
  *  Each preset wraps an existing voice/avatar id with a label + tagline.
  * ====================================================================== */
@@ -270,6 +373,11 @@ export function AvatarVoiceRail({
   const [tab, setTab] = useState<Tab>("avatar");
   const [mode, setMode] = useState<Mode>("presets");
 
+  // Region / market filter — "all" = no filtering (default, current behavior).
+  // Filters the Browse-all galleries + the Manual matcher candidates on BOTH
+  // tabs. Presets stay as-is (curated personas; kept clean per Maalik's call).
+  const [region, setRegion] = useState<RegionBucket | "all">("all");
+
   // Only one voice preview plays at a time across the whole rail. Lifted here
   // so switching cards / tabs / modes stops any in-flight preview. Mock only —
   // real audio is wired backend-side.
@@ -293,16 +401,38 @@ export function AvatarVoiceRail({
       tone: extractTone(v.description),
       lang: langLabel(v.language),
       shortName: v.name.split(/[\s—-]/)[0]?.trim() ?? v.name,
+      region: isSeniorVoice(v) ? ("senior" as RegionBucket) : voiceRegionBucket(v.language),
     }));
   }, []);
 
-  /** All avatars, decorated. */
+  /** All avatars, decorated (incl. market-region bucket). */
   const decoratedAvatars = useMemo(() => {
     return avatars.map((a) => ({
       ...a,
       ...parseAvatarParts(a.demographic),
+      region: avatarRegionBucket(a.demographic),
     }));
   }, []);
+
+  /** Region-filtered views. "all" → unfiltered (identity). */
+  const regionAvatars = useMemo(
+    () =>
+      region === "all"
+        ? decoratedAvatars
+        : decoratedAvatars.filter((a) => a.region === region),
+    [decoratedAvatars, region],
+  );
+  const regionVoices = useMemo(
+    () =>
+      region === "all"
+        ? decoratedVoices
+        : decoratedVoices.filter((v) => v.region === region),
+    [decoratedVoices, region],
+  );
+  const activeRegionLabel =
+    region === "all"
+      ? null
+      : REGION_OPTIONS.find((o) => o.v === region)?.l ?? null;
 
   // Stop any in-flight voice preview when the user switches tab or mode — the
   // card that owns the timer may unmount, so kill the "playing" id centrally.
@@ -355,54 +485,70 @@ export function AvatarVoiceRail({
     );
   }, [selectedAvatarPreset]);
 
-  /** Distinct values for Voice manual dropdowns — derived from data. */
+  /** Distinct values for Voice manual dropdowns — scoped to the active region
+   *  so a user can't pick a language/tone absent from the chosen market. */
   const voiceLangOptions = useMemo(() => {
     const set = new Map<string, string>();
-    for (const v of voices) set.set(v.language, langLabel(v.language));
+    for (const v of regionVoices) set.set(v.language, langLabel(v.language));
     return Array.from(set.entries()).map(([v, l]) => ({ v, l }));
-  }, []);
+  }, [regionVoices]);
   const voiceToneOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const v of decoratedVoices) set.add(v.tone);
+    for (const v of regionVoices) set.add(v.tone);
     return Array.from(set).sort().map((t) => ({ v: t, l: t }));
-  }, [decoratedVoices]);
+  }, [regionVoices]);
 
-  /** Distinct values for Avatar manual dropdowns. */
+  /** Distinct values for Avatar manual dropdowns — scoped to the active region. */
   const avatarAgeOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const a of decoratedAvatars) if (a.age) set.add(a.age);
+    for (const a of regionAvatars) if (a.age) set.add(a.age);
     return Array.from(set).sort().map((a) => ({ v: a, l: a }));
-  }, [decoratedAvatars]);
+  }, [regionAvatars]);
   const avatarStyleOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const a of decoratedAvatars) set.add(a.style);
+    for (const a of regionAvatars) set.add(a.style);
     return Array.from(set)
       .sort()
       .map((s) => ({
         v: s,
         l: s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, " "),
       }));
-  }, [decoratedAvatars]);
+  }, [regionAvatars]);
 
-  /** First voice that matches all 3 manual selections. */
+  /** First voice that matches all 3 manual selections (within the region). */
   const matchedVoice = useMemo(() => {
-    return decoratedVoices.find((v) => {
+    return regionVoices.find((v) => {
       if (manualVoiceGender !== "any" && v.gender !== manualVoiceGender) return false;
       if (manualVoiceLang !== "any" && v.language !== manualVoiceLang) return false;
       if (manualVoiceTone !== "any" && v.tone !== manualVoiceTone) return false;
       return true;
     });
-  }, [decoratedVoices, manualVoiceGender, manualVoiceLang, manualVoiceTone]);
+  }, [regionVoices, manualVoiceGender, manualVoiceLang, manualVoiceTone]);
 
-  /** First avatar that matches all 3 manual selections. */
+  /** First avatar that matches all 3 manual selections (within the region). */
   const matchedAvatar = useMemo(() => {
-    return decoratedAvatars.find((a) => {
+    return regionAvatars.find((a) => {
       if (manualAvatarGender !== "any" && a.gender !== manualAvatarGender) return false;
       if (manualAvatarAge !== "any" && a.age !== manualAvatarAge) return false;
       if (manualAvatarStyle !== "any" && a.style !== manualAvatarStyle) return false;
       return true;
     });
-  }, [decoratedAvatars, manualAvatarGender, manualAvatarAge, manualAvatarStyle]);
+  }, [regionAvatars, manualAvatarGender, manualAvatarAge, manualAvatarStyle]);
+
+  // When the region changes, drop any Manual selection that no longer exists in
+  // the scoped option lists (e.g. lang "ja" after switching to South Asian).
+  // Gender is universal so it's never pruned. Keeps Manual state coherent.
+  useEffect(() => {
+    if (manualVoiceLang !== "any" && !voiceLangOptions.some((o) => o.v === manualVoiceLang))
+      setManualVoiceLang("any");
+    if (manualVoiceTone !== "any" && !voiceToneOptions.some((o) => o.v === manualVoiceTone))
+      setManualVoiceTone("any");
+    if (manualAvatarAge !== "any" && !avatarAgeOptions.some((o) => o.v === manualAvatarAge))
+      setManualAvatarAge("any");
+    if (manualAvatarStyle !== "any" && !avatarStyleOptions.some((o) => o.v === manualAvatarStyle))
+      setManualAvatarStyle("any");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region]);
 
   /** Auto-apply once all 3 manual filters are set (≠ "any"). */
   const allVoiceManualSet =
@@ -460,6 +606,9 @@ export function AvatarVoiceRail({
           <X className="h-3.5 w-3.5" />
         </button>
       </header>
+
+      {/* Region / market filter — governs BOTH tabs (avatars + voices). */}
+      <RegionSelect value={region} onChange={setRegion} />
 
       <div className="shrink-0 flex border-b border-border bg-muted/20 px-2 py-1">
         <TabBtn
@@ -598,19 +747,24 @@ export function AvatarVoiceRail({
             {mode === "browse" && (
               <>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {decoratedAvatars.length} avatars
+                  {regionAvatars.length} avatars
+                  {activeRegionLabel ? ` · ${activeRegionLabel}` : ""}
                 </p>
-                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {decoratedAvatars.map((av) => (
-                    <li key={av.id}>
-                      <AvatarGalleryCard
-                        avatar={av}
-                        active={selectedAvatarId === av.id}
-                        onSelect={() => onAvatarChange(av.id)}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                {regionAvatars.length === 0 ? (
+                  <RegionEmptyNote kind="avatars" region={activeRegionLabel} />
+                ) : (
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {regionAvatars.map((av) => (
+                      <li key={av.id}>
+                        <AvatarGalleryCard
+                          avatar={av}
+                          active={selectedAvatarId === av.id}
+                          onSelect={() => onAvatarChange(av.id)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </>
             )}
           </div>
@@ -718,23 +872,28 @@ export function AvatarVoiceRail({
             {mode === "browse" && (
               <>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {decoratedVoices.length} voices
+                  {regionVoices.length} voices
+                  {activeRegionLabel ? ` · ${activeRegionLabel}` : ""}
                 </p>
-                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {decoratedVoices.map((v) => (
-                    <li key={v.id}>
-                      <VoiceGalleryCard
-                        voice={v}
-                        active={selectedVoiceId === v.id}
-                        playing={playingVoiceId === v.id}
-                        onTogglePlay={() =>
-                          setPlayingVoiceId((cur) => (cur === v.id ? null : v.id))
-                        }
-                        onSelect={() => onVoiceChange(v.id)}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                {regionVoices.length === 0 ? (
+                  <RegionEmptyNote kind="voices" region={activeRegionLabel} />
+                ) : (
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {regionVoices.map((v) => (
+                      <li key={v.id}>
+                        <VoiceGalleryCard
+                          voice={v}
+                          active={selectedVoiceId === v.id}
+                          playing={playingVoiceId === v.id}
+                          onTogglePlay={() =>
+                            setPlayingVoiceId((cur) => (cur === v.id ? null : v.id))
+                          }
+                          onSelect={() => onVoiceChange(v.id)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </>
             )}
           </div>
@@ -757,6 +916,73 @@ export function AvatarVoiceRail({
 /* ======================================================================
  *  Sub-components
  * ====================================================================== */
+
+/**
+ * RegionSelect — compact market filter that governs BOTH tabs. A leading
+ * Globe + "Region" label, then a horizontally-scrollable segmented pill row
+ * ("All regions" + the 8 market buckets). Mirrors the AttributePicker / mode
+ * toggle visual language (dense, lime active state via --color-primary).
+ */
+function RegionSelect({
+  value,
+  onChange,
+}: {
+  value: RegionBucket | "all";
+  onChange: (v: RegionBucket | "all") => void;
+}) {
+  const opts: { v: RegionBucket | "all"; l: string }[] = [
+    { v: "all", l: "All regions" },
+    ...REGION_OPTIONS,
+  ];
+  return (
+    <div className="shrink-0 flex items-center gap-2 border-b border-border px-3 py-1.5">
+      <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        <Globe className="h-3 w-3" />
+        Region
+      </span>
+      <div className="-mx-0.5 flex min-w-0 flex-1 items-center overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="inline-flex shrink-0 rounded-full border border-border/60 bg-background/40 p-0.5">
+          {opts.map((o) => {
+            const active = value === o.v;
+            return (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => onChange(o.v)}
+                aria-pressed={active}
+                className={cn(
+                  "shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
+                  active
+                    ? o.v === "all"
+                      ? "bg-foreground/[0.08] text-foreground"
+                      : "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {o.l}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Inline note shown when the active region filters a gallery to empty. */
+function RegionEmptyNote({
+  kind,
+  region,
+}: {
+  kind: "avatars" | "voices";
+  region: string | null;
+}) {
+  return (
+    <p className="rounded-xl border border-dashed border-border/50 bg-card/30 px-3 py-4 text-center text-[11px] text-muted-foreground">
+      No {kind}{region ? ` for ${region}` : ""} — try another region.
+    </p>
+  );
+}
 
 function TabBtn({
   active,

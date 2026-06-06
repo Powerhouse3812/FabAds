@@ -21,7 +21,10 @@ export type AttachSource =
   | "brand-winner-ads"
   | "product-winner-ads"
   | "url"
-  | "instruction";
+  | "instruction"
+  | "industry-insights"
+  | "seed-image"
+  | "template";
 
 export interface AttachedRef {
   id: string;
