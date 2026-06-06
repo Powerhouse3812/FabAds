@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, Mic, User, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, Mic, Pause, Play, Sparkles, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatars, voices } from "../../mocks/library";
 
@@ -9,6 +9,12 @@ interface AvatarVoiceRailProps {
   onAvatarChange: (id: string | null) => void;
   onVoiceChange: (id: string | null) => void;
   onClose: () => void;
+  /**
+   * Display name of the currently-selected brand or product (resolved by the
+   * caller from wizard.state.brandId / productId). Drives the "Suggested for
+   * [Name]" banner on both tabs. When null/empty the suggestion UI hides.
+   */
+  contextLabel?: string | null;
 }
 
 type Tab = "avatar" | "voice";
@@ -31,6 +37,18 @@ function avatarGradient(id: string): { c1: string; c2: string } {
 function voiceGlow(id: string): string {
   return `${hashHue(id, 17)} 85% 60%`;
 }
+
+/** Stable index into a preset list of length `len`, derived from a string
+ *  (brand/product name). Deterministic so the AI "suggestion" never shuffles
+ *  for the same brand. Mock stand-in for backend persona matching. */
+function presetIndexFor(seed: string, len: number): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return len > 0 ? h % len : 0;
+}
+
+/** How long a mock voice preview "plays" before auto-stopping (ms). */
+const PREVIEW_DURATION_MS = 3000;
 
 /** Derive gender from voice id/name — first names in our mock data. */
 const FEMALE_NAMES = new Set([
@@ -240,9 +258,15 @@ export function AvatarVoiceRail({
   onAvatarChange,
   onVoiceChange,
   onClose,
+  contextLabel,
 }: AvatarVoiceRailProps) {
   const [tab, setTab] = useState<Tab>("avatar");
   const [mode, setMode] = useState<Mode>("presets");
+
+  // Only one voice preview plays at a time across the whole rail. Lifted here
+  // so switching cards / tabs / modes stops any in-flight preview. Mock only —
+  // real audio is wired backend-side.
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
   // Voice manual selections
   const [manualVoiceGender, setManualVoiceGender] = useState<GenderChoice>("any");
@@ -272,6 +296,41 @@ export function AvatarVoiceRail({
       ...parseAvatarParts(a.demographic),
     }));
   }, []);
+
+  // Stop any in-flight voice preview when the user switches tab or mode — the
+  // card that owns the timer may unmount, so kill the "playing" id centrally.
+  useEffect(() => {
+    setPlayingVoiceId(null);
+  }, [tab, mode]);
+
+  /* ── Suggested-for-brand (deterministic mock for backend AI matching) ──
+   * Hash the brand/product display name → stable index into each preset list.
+   * Same label across the two lists is NOT required here; each tab suggests
+   * from its own preset array. Hidden entirely when no context. */
+  const hasContext = !!contextLabel && contextLabel.trim().length > 0;
+  const suggestedAvatarPreset = useMemo(() => {
+    if (!hasContext) return null;
+    return AVATAR_PRESETS[presetIndexFor(contextLabel!, AVATAR_PRESETS.length)] ?? null;
+  }, [hasContext, contextLabel]);
+  const suggestedVoicePreset = useMemo(() => {
+    if (!hasContext) return null;
+    return VOICE_PRESETS[presetIndexFor(contextLabel!, VOICE_PRESETS.length)] ?? null;
+  }, [hasContext, contextLabel]);
+
+  /* ── Avatar ↔ voice persona pairing (mock; shared persona `label`) ──
+   * When the selected avatar is a PRESET whose label also names a voice preset
+   * (e.g. "The Authority" exists in both lists), surface a one-tap hint on the
+   * Voice tab to select that matching voice. */
+  const selectedAvatarPreset = useMemo(
+    () => AVATAR_PRESETS.find((p) => p.avatarId === selectedAvatarId) ?? null,
+    [selectedAvatarId],
+  );
+  const pairedVoicePreset = useMemo(() => {
+    if (!selectedAvatarPreset) return null;
+    return (
+      VOICE_PRESETS.find((v) => v.label === selectedAvatarPreset.label) ?? null
+    );
+  }, [selectedAvatarPreset]);
 
   /** Distinct values for Voice manual dropdowns — derived from data. */
   const voiceLangOptions = useMemo(() => {
@@ -430,6 +489,15 @@ export function AvatarVoiceRail({
 
         {tab === "avatar" && (
           <div className="space-y-3">
+            {suggestedAvatarPreset && (
+              <SuggestionBanner
+                contextLabel={contextLabel!}
+                presetLabel={suggestedAvatarPreset.label}
+                isSelected={selectedAvatarId === suggestedAvatarPreset.avatarId}
+                onUse={() => onAvatarChange(suggestedAvatarPreset.avatarId)}
+              />
+            )}
+
             <AutoCard
               kind="avatar"
               active={selectedAvatarId === null}
@@ -522,6 +590,25 @@ export function AvatarVoiceRail({
 
         {tab === "voice" && (
           <div className="space-y-3">
+            {suggestedVoicePreset && (
+              <SuggestionBanner
+                contextLabel={contextLabel!}
+                presetLabel={suggestedVoicePreset.label}
+                isSelected={selectedVoiceId === suggestedVoicePreset.voiceId}
+                onUse={() => onVoiceChange(suggestedVoicePreset.voiceId)}
+              />
+            )}
+
+            {/* Avatar↔voice persona pairing — only when the chosen avatar preset
+                shares a persona label with a voice preset and that voice isn't
+                already selected. Subtle inline row, one-tap to match. */}
+            {pairedVoicePreset && selectedVoiceId !== pairedVoicePreset.voiceId && (
+              <PairingHint
+                personaLabel={pairedVoicePreset.label}
+                onUse={() => onVoiceChange(pairedVoicePreset.voiceId)}
+              />
+            )}
+
             <AutoCard
               kind="voice"
               active={selectedVoiceId === null}
@@ -540,6 +627,10 @@ export function AvatarVoiceRail({
                         preset={preset}
                         voice={v}
                         active={active}
+                        playing={playingVoiceId === v.id}
+                        onTogglePlay={() =>
+                          setPlayingVoiceId((cur) => (cur === v.id ? null : v.id))
+                        }
                         onSelect={() => onVoiceChange(v.id)}
                       />
                     </li>
@@ -602,6 +693,10 @@ export function AvatarVoiceRail({
                       <VoiceGalleryCard
                         voice={v}
                         active={selectedVoiceId === v.id}
+                        playing={playingVoiceId === v.id}
+                        onTogglePlay={() =>
+                          setPlayingVoiceId((cur) => (cur === v.id ? null : v.id))
+                        }
                         onSelect={() => onVoiceChange(v.id)}
                       />
                     </li>
@@ -815,6 +910,8 @@ function VoicePresetCard({
   preset,
   voice,
   active,
+  playing,
+  onTogglePlay,
   onSelect,
 }: {
   preset: VoicePreset;
@@ -826,11 +923,10 @@ function VoicePresetCard({
     description: string;
   };
   active: boolean;
+  playing: boolean;
+  onTogglePlay: () => void;
   onSelect: () => void;
 }) {
-  // 5 bars with staggered animation delays — `animate-pulse` + arbitrary delay.
-  const barHeights = [40, 70, 100, 70, 40];
-  const delays = [0, 100, 200, 300, 400];
   return (
     <button
       type="button"
@@ -842,32 +938,13 @@ function VoicePresetCard({
           : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
       )}
     >
-      {/* Visual: tinted radial glow + animated waveform */}
-      <div className="relative h-16 overflow-hidden rounded-lg bg-foreground/[0.04]">
-        <div
-          className="absolute inset-0 transition-opacity group-hover:opacity-100"
-          style={{
-            background: `radial-gradient(circle at center, hsl(${preset.glow} / 0.22), transparent 70%)`,
-            opacity: active ? 1 : 0.7,
-          }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center gap-1">
-          {barHeights.map((h, i) => (
-            <span
-              key={i}
-              className={cn(
-                "w-1 rounded-full bg-foreground/40 transition-colors group-hover:bg-foreground/70",
-                "animate-pulse motion-reduce:animate-none",
-              )}
-              style={{
-                height: `${h}%`,
-                animationDelay: `${delays[i]}ms`,
-                animationDuration: "1.2s",
-              }}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Visual: tinted radial glow + animated waveform + preview play control */}
+      <VoiceWaveform
+        glow={preset.glow}
+        active={active}
+        playing={playing}
+        onTogglePlay={onTogglePlay}
+      />
 
       {/* Name + tagline */}
       <div className="space-y-0.5">
@@ -1080,6 +1157,8 @@ function AvatarGalleryCard({
 function VoiceGalleryCard({
   voice,
   active,
+  playing,
+  onTogglePlay,
   onSelect,
 }: {
   voice: {
@@ -1092,11 +1171,11 @@ function VoiceGalleryCard({
     description: string;
   };
   active: boolean;
+  playing: boolean;
+  onTogglePlay: () => void;
   onSelect: () => void;
 }) {
   const glow = voiceGlow(voice.id);
-  const barHeights = [40, 70, 100, 70, 40];
-  const delays = [0, 100, 200, 300, 400];
   return (
     <button
       type="button"
@@ -1108,32 +1187,13 @@ function VoiceGalleryCard({
           : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
       )}
     >
-      {/* Visual: tinted radial glow + animated waveform */}
-      <div className="relative h-16 overflow-hidden rounded-lg bg-foreground/[0.04]">
-        <div
-          className="absolute inset-0 transition-opacity group-hover:opacity-100"
-          style={{
-            background: `radial-gradient(circle at center, hsl(${glow} / 0.22), transparent 70%)`,
-            opacity: active ? 1 : 0.7,
-          }}
-        />
-        <div className="absolute inset-0 flex items-center justify-center gap-1">
-          {barHeights.map((h, i) => (
-            <span
-              key={i}
-              className={cn(
-                "w-1 rounded-full bg-foreground/40 transition-colors group-hover:bg-foreground/70",
-                "animate-pulse motion-reduce:animate-none",
-              )}
-              style={{
-                height: `${h}%`,
-                animationDelay: `${delays[i]}ms`,
-                animationDuration: "1.2s",
-              }}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Visual: tinted radial glow + animated waveform + preview play control */}
+      <VoiceWaveform
+        glow={glow}
+        active={active}
+        playing={playing}
+        onTogglePlay={onTogglePlay}
+      />
 
       {/* Real name + description line */}
       <div className="space-y-0.5">
@@ -1179,6 +1239,190 @@ function Chip({
     >
       {children}
     </span>
+  );
+}
+
+/* ======================================================================
+ *  VoiceWaveform — shared visual for both voice cards.
+ *  Tinted radial glow + 5 animated bars + a preview Play/Pause control.
+ *  "Playing" is controlled by the parent (only one voice plays at a time);
+ *  this component owns the ~3s auto-stop timer and stops it on unmount.
+ *  The play control stops propagation so previewing never selects the card.
+ * ====================================================================== */
+function VoiceWaveform({
+  glow,
+  active,
+  playing,
+  onTogglePlay,
+}: {
+  glow: string;
+  active: boolean;
+  playing: boolean;
+  onTogglePlay: () => void;
+}) {
+  // Resting bars are short + staggered. While playing they go taller/livelier.
+  const restHeights = [40, 70, 100, 70, 40];
+  const playHeights = [55, 92, 100, 88, 60];
+  const delays = [0, 100, 200, 300, 400];
+
+  // Auto-stop the mock preview after ~3s. Cleared on unmount and whenever the
+  // playing state flips (e.g. user toggles another card → parent clears this).
+  const stopRef = useRef(onTogglePlay);
+  stopRef.current = onTogglePlay;
+  useEffect(() => {
+    if (!playing) return;
+    const t = window.setTimeout(() => stopRef.current(), PREVIEW_DURATION_MS);
+    return () => window.clearTimeout(t);
+  }, [playing]);
+
+  return (
+    <div className="relative h-16 overflow-hidden rounded-lg bg-foreground/[0.04]">
+      <div
+        className="absolute inset-0 transition-opacity"
+        style={{
+          background: `radial-gradient(circle at center, hsl(${glow} / ${
+            playing ? "0.4" : "0.22"
+          }), transparent 70%)`,
+          opacity: playing ? 1 : active ? 1 : 0.7,
+        }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center gap-1">
+        {restHeights.map((h, i) => (
+          <span
+            key={i}
+            className={cn(
+              "w-1 rounded-full transition-[colors,height] duration-300",
+              playing
+                ? "bg-primary animate-pulse motion-reduce:animate-none"
+                : "bg-foreground/40 animate-pulse motion-reduce:animate-none group-hover:bg-foreground/70",
+            )}
+            style={{
+              height: `${playing ? playHeights[i] : h}%`,
+              animationDelay: `${delays[i]}ms`,
+              // Livelier (faster) pulse while playing.
+              animationDuration: playing ? "0.6s" : "1.2s",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Preview Play/Pause control — separate from card select. */}
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={playing ? "Pause preview" : "Play preview"}
+        aria-pressed={playing}
+        onClick={(e) => {
+          e.stopPropagation();
+          onTogglePlay();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            onTogglePlay();
+          }
+        }}
+        className={cn(
+          "absolute left-1.5 top-1.5 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border backdrop-blur-sm transition-colors",
+          playing
+            ? "border-primary/50 bg-primary text-primary-foreground"
+            : "border-border/60 bg-background/80 text-foreground/80 hover:border-primary/40 hover:text-primary",
+        )}
+      >
+        {playing ? (
+          <Pause className="h-3 w-3" strokeWidth={2.5} />
+        ) : (
+          <Play className="h-3 w-3 translate-x-px" strokeWidth={2.5} />
+        )}
+      </span>
+
+      {/* Tiny affordance label — makes it read clearly as a sample. */}
+      <span className="absolute bottom-1 right-1.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {playing ? "Playing…" : "Preview"}
+      </span>
+    </div>
+  );
+}
+
+/* ======================================================================
+ *  SuggestionBanner — compact "Suggested for [Name]" row (NOT a card).
+ *  Deterministic AI-mock pick; one-tap "Use" selects the preset. Hidden by
+ *  the caller when there's no brand/product context.
+ * ====================================================================== */
+function SuggestionBanner({
+  contextLabel,
+  presetLabel,
+  isSelected,
+  onUse,
+}: {
+  contextLabel: string;
+  presetLabel: string;
+  isSelected: boolean;
+  onUse: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.06] px-2.5 py-2">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15">
+        <Sparkles className="h-3 w-3 text-primary" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-primary">
+          AI · Suggested for {contextLabel}
+        </p>
+        <p className="truncate text-[12px] font-bold leading-tight text-foreground">
+          {presetLabel}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onUse}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors",
+          isSelected
+            ? "bg-primary/15 text-primary"
+            : "bg-primary text-primary-foreground hover:opacity-90",
+        )}
+      >
+        {isSelected ? (
+          <>
+            <Check className="h-3 w-3" strokeWidth={3} />
+            Selected
+          </>
+        ) : (
+          "Use"
+        )}
+      </button>
+    </div>
+  );
+}
+
+/* ======================================================================
+ *  PairingHint — subtle inline "Pair with the [Persona] voice →" row, shown
+ *  on the Voice tab when the chosen avatar preset shares a persona label with
+ *  a voice preset. One-tap selects the matching voice. Mock pairing.
+ * ====================================================================== */
+function PairingHint({
+  personaLabel,
+  onUse,
+}: {
+  personaLabel: string;
+  onUse: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onUse}
+      className="group flex w-full items-center gap-1.5 rounded-lg border border-dashed border-primary/40 bg-primary/[0.04] px-2.5 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:border-primary/60 hover:bg-primary/[0.07]"
+    >
+      <Sparkles className="h-3 w-3 shrink-0 text-primary" />
+      <span className="min-w-0 flex-1 truncate">
+        Pair with the{" "}
+        <span className="font-semibold text-foreground">{personaLabel}</span>{" "}
+        voice
+      </span>
+      <ArrowRight className="h-3 w-3 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
+    </button>
   );
 }
 

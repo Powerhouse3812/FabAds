@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Braces, Check, ChevronDown, ChevronRight, Copy, FileText, Lock, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  brands as ALL_BRANDS,
+  products as ALL_PRODUCTS,
+} from "@/mocks/shared";
 import { getConceptById } from "../data/concepts";
 import {
   getAngleVisual,
@@ -333,6 +337,21 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   const angleVisual = wizard.state.angleId
     ? getAngleVisual(wizard.state.angleId)
     : null;
+
+  // Readable brand/product name for AvatarVoiceRail's "Suggested for [Name]"
+  // banner. Product is the more specific context, so prefer its name; else fall
+  // back to the brand. null when neither is set → rail hides the suggestion UI.
+  // Mirrors ContextRail's product-then-brand resolution precedence.
+  const avatarVoiceContextLabel = useMemo(() => {
+    const product = wizard.state.productId
+      ? ALL_PRODUCTS.find((p) => p.id === wizard.state.productId)
+      : undefined;
+    if (product) return product.name;
+    const brand = wizard.state.brandId
+      ? ALL_BRANDS.find((b) => b.id === wizard.state.brandId)
+      : undefined;
+    return brand?.name ?? null;
+  }, [wizard.state.productId, wizard.state.brandId]);
 
   return (
     <>
@@ -807,6 +826,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 selectedVoiceId={wizard.state.voiceId}
                 onAvatarChange={(id) => wizard.set("avatarId", id)}
                 onVoiceChange={(id) => wizard.set("voiceId", id)}
+                contextLabel={avatarVoiceContextLabel}
                 onClose={handleAttachCancel}
               />
             )}
