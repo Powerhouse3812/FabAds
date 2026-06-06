@@ -14,18 +14,22 @@
  * Swap this for a real Graph-API implementation behind MetaLaunchService — the
  * screens never change.
  */
-import type {
-  AccountHealth,
-  ActivityEvent,
-  AdAccount,
-  AdUnit,
-  Catalogue,
-  FailureReason,
-  LaunchPlan,
-  LaunchRun,
-  WinnerStrategy,
+import {
+  MAX_ADS_PER_PAGE,
+  type AccountHealth,
+  type ActivityEvent,
+  type AdAccount,
+  type AdUnit,
+  type Catalogue,
+  type CreativeAsset,
+  type CreativeSpec,
+  type FailureReason,
+  type LaunchPlan,
+  type LaunchRun,
+  type LaunchTemplate,
+  type WinnerStrategy,
 } from "../types";
-import { adsPerDestination, getStrategy } from "../data/strategies";
+import { getStrategy } from "../data/strategies";
 import {
   MOCK_ACCOUNTS,
   MOCK_ACTIVITY,
@@ -33,10 +37,15 @@ import {
   MOCK_DRAFTS,
   MOCK_HEALTH,
   MOCK_SEED_RUNS,
+  MOCK_TEMPLATES,
   MOCK_WINNERS,
   SEED_RUN_ID,
   type SeedRunSpec,
 } from "../data/mockData";
+import { MOCK_CREATIVES } from "../data/mockCreatives";
+import { budgetPerDay } from "../state/flowDerive";
+import { brandFromAccount, resolveNamingPattern } from "../utils/naming";
+import { buildTrackedUrl } from "../utils/tracking";
 import type { Launch2Event, Launch2Listener, MetaLaunchService } from "./MetaLaunchService";
 
 const FAIL_PCT = 6; // % of units that fail on first attempt
@@ -75,54 +84,111 @@ function pickFailure(seed: string): FailureReason {
 /* ------------------------------------------------------------------ */
 
 /** Build the full requested unit list for a plan (all pending). */
+/** Product names that DPA units cycle through (from the chosen catalogue/set). */
+function productsForPlan(plan: LaunchPlan): string[] {
+  if (!plan.catalogueId) return [];
+  const cat = MOCK_CATALOGUES.find((c) => c.id === plan.catalogueId);
+  if (!cat) return [];
+  if (plan.productSetId) {
+    const ps = cat.productSets.find((p) => p.id === plan.productSetId);
+    if (ps?.sampleProducts?.length) return ps.sampleProducts;
+  }
+  return cat.productSets.flatMap((p) => p.sampleProducts ?? []);
+}
+
+interface Slot {
+  c: number;
+  a: number;
+  creative: CreativeSpec;
+}
+
 function buildUnits(plan: LaunchPlan): AdUnit[] {
   const strategy = getStrategy(plan.strategyId);
   if (!strategy || plan.targets.length === 0) return [];
   const { campaigns, adSetsPerCampaign, adsPerAdSet } = plan.structure;
-  const base = campaigns * adSetsPerCampaign * adsPerAdSet;
 
-  // Per-destination shape (campaign / ad set / ad names) shared across targets.
-  const shape: { campaignName: string; adSetName: string; creativeName: string }[] = [];
-  for (let c = 1; c <= campaigns; c++) {
-    for (let a = 1; a <= adSetsPerCampaign; a++) {
-      for (let d = 1; d <= adsPerAdSet; d++) {
-        const creative = plan.creatives[(shape.length) % Math.max(plan.creatives.length, 1)];
-        shape.push({
-          campaignName: `${strategy.name} · C${c}`,
-          adSetName: `Ad set ${String(a).padStart(2, "0")}`,
-          creativeName: creative?.name ?? `${strategy.name} creative`,
-        });
+  const creatives: CreativeSpec[] = plan.creatives.length
+    ? plan.creatives
+    : [{ id: "default", name: `${strategy.name} creative`, type: plan.adType, source: "library" }];
+
+  const products = plan.adType === "dpa" ? productsForPlan(plan) : [];
+  const dateStr = (plan.createdAt || new Date().toISOString()).slice(0, 10);
+  const objectiveLabel = plan.objective ?? strategy.objective;
+
+  // Per-destination shape of (campaign, ad set, ad) slots + the creative each
+  // uses. Allocation drives creative→slot mapping:
+  //   multiply   → clone the whole structure once per creative
+  //   distribute → round-robin creatives across slots
+  //   manual     → creativeSlotMap, fall back to round-robin
+  const blocks: (CreativeSpec | null)[] = plan.allocation === "multiply" ? creatives : [null];
+  const shape: Slot[] = [];
+  blocks.forEach((blockCreative) => {
+    let slotIndex = 0;
+    for (let c = 1; c <= campaigns; c++) {
+      for (let a = 1; a <= adSetsPerCampaign; a++) {
+        for (let d = 1; d <= adsPerAdSet; d++) {
+          let creative: CreativeSpec;
+          if (plan.allocation === "multiply" && blockCreative) {
+            creative = blockCreative;
+          } else if (plan.allocation === "manual") {
+            const mappedId = plan.creativeSlotMap[slotIndex];
+            creative = creatives.find((cr) => cr.id === mappedId) ?? creatives[slotIndex % creatives.length];
+          } else {
+            creative = creatives[slotIndex % creatives.length];
+          }
+          shape.push({ c, a, creative });
+          slotIndex++;
+        }
       }
     }
-  }
+  });
 
-  const units: AdUnit[] = [];
   const caps = plan.targets.map((t) => {
     const acc = MOCK_ACCOUNTS.find((a) => a.id === t.accountId);
     const pg = acc?.pages.find((p) => p.id === t.pageId);
-    return Math.max(0, 250 - (pg?.activeAds ?? 0));
+    return Math.max(0, MAX_ADS_PER_PAGE - (pg?.activeAds ?? 0));
   });
 
-  const push = (shapeItem: typeof shape[number], targetIdx: number) => {
+  const units: AdUnit[] = [];
+  const push = (slot: Slot, targetIdx: number) => {
     const target = plan.targets[targetIdx];
+    const idx = units.length;
+    const campaignName = `${strategy.name} · C${slot.c}`;
+    const adSetName = `Ad set ${String(slot.a).padStart(2, "0")}`;
+    const product = products.length ? products[idx % products.length] : undefined;
+    const creativeName = product ? `${slot.creative.name} · ${product}` : slot.creative.name;
+    const name = resolveNamingPattern(plan.namingPattern, {
+      brand: brandFromAccount(target.accountName),
+      strategy: strategy.name,
+      objective: objectiveLabel,
+      date: dateStr,
+      campaign: `C${slot.c}`,
+      adset: String(slot.a).padStart(2, "0"),
+      n: idx + 1,
+      product,
+    });
+    const destinationUrl = buildTrackedUrl(plan.destinationUrl, plan.utmTemplate, {
+      campaign: campaignName,
+      adset: adSetName,
+    });
     units.push({
-      id: `${plan.id}:${units.length}`,
-      campaignName: shapeItem.campaignName,
-      adSetName: shapeItem.adSetName,
-      creativeName: shapeItem.creativeName,
+      id: `${plan.id}:${idx}`,
+      name,
+      campaignName,
+      adSetName,
+      creativeName,
+      creativeId: slot.creative.id,
+      destinationUrl: destinationUrl || undefined,
       target,
       status: "pending",
     });
   };
 
   if (plan.distribution === "duplicate") {
-    // Replicate the whole shape to every target.
     plan.targets.forEach((_t, ti) => shape.forEach((s) => push(s, ti)));
   } else if (plan.distribution === "equal") {
-    // Round-robin across targets.
     shape.forEach((s, i) => push(s, i % plan.targets.length));
   } else {
-    // fill-first: fill each target up to its remaining capacity, then overflow.
     let ti = 0;
     let placed = 0;
     shape.forEach((s) => {
@@ -135,7 +201,6 @@ function buildUnits(plan: LaunchPlan): AdUnit[] {
     });
   }
 
-  void base;
   return units;
 }
 
@@ -154,11 +219,15 @@ class MockMetaLaunchService implements MetaLaunchService {
   private runByPlan = new Map<string, string>();
   private drafts = new Map<string, LaunchPlan>();
   private attempt = new Map<string, number>(); // unitId -> attempt count
+  private templates = new Map<string, LaunchTemplate>();
   private listeners = new Set<Launch2Listener>();
   private timer: ReturnType<typeof setInterval> | null = null;
+  private cloneSeq = 0;
+  private tplSeq = 0;
 
   constructor() {
     MOCK_DRAFTS.forEach((d) => this.drafts.set(d.id, { ...d }));
+    MOCK_TEMPLATES.forEach((t) => this.templates.set(t.id, t));
     MOCK_SEED_RUNS.forEach((spec) => this.materializeSeed(spec));
   }
 
@@ -192,10 +261,11 @@ class MockMetaLaunchService implements MetaLaunchService {
       failed: 0,
       pending: 0,
       units,
-      budgetPerDay: plan.structure.adSetsPerCampaign * plan.structure.campaigns * plan.budgetPerAdSet,
+      budgetPerDay: budgetPerDay(plan),
       currency: MOCK_ACCOUNTS.find((a) => a.id === plan.targets[0]?.accountId)?.currency ?? "USD",
       targets: plan.targets,
       retryCount: 0,
+      sourcePlan: plan,
       createdAt: plan.createdAt,
       startedAt: spec.startedMsAgo != null ? new Date(Date.now() - spec.startedMsAgo).toISOString() : undefined,
       completedAt: spec.completedMsAgo != null ? new Date(Date.now() - spec.completedMsAgo).toISOString() : undefined,
@@ -248,10 +318,11 @@ class MockMetaLaunchService implements MetaLaunchService {
       failed: 0,
       pending: units.length,
       units,
-      budgetPerDay: plan.structure.adSetsPerCampaign * plan.structure.campaigns * plan.budgetPerAdSet,
+      budgetPerDay: budgetPerDay(plan),
       currency: MOCK_ACCOUNTS.find((a) => a.id === plan.targets[0]?.accountId)?.currency ?? "USD",
       targets: plan.targets,
       retryCount: 0,
+      sourcePlan: plan,
       createdAt: new Date().toISOString(),
       startedAt: scheduled ? undefined : new Date().toISOString(),
       scheduledFor: plan.scheduledFor ?? undefined,
@@ -392,6 +463,64 @@ class MockMetaLaunchService implements MetaLaunchService {
   }
   listAccountHealth(): AccountHealth[] {
     return MOCK_HEALTH;
+  }
+  listCreatives(): CreativeAsset[] {
+    return MOCK_CREATIVES;
+  }
+
+  /* ---- templates ---- */
+  listTemplates(): LaunchTemplate[] {
+    return [...this.templates.values()].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }
+  getTemplate(id: string): LaunchTemplate | undefined {
+    return this.templates.get(id);
+  }
+  saveTemplate(name: string, plan: LaunchPlan): LaunchTemplate {
+    this.tplSeq += 1;
+    const tpl: LaunchTemplate = {
+      id: `tpl_${this.tplSeq}_${Date.now().toString(36)}`,
+      name: name.trim() || "Untitled template",
+      strategyId: plan.strategyId,
+      objective: plan.objective,
+      audienceLabel: plan.audienceLabel,
+      budgetPerAdSet: plan.budgetPerAdSet,
+      distribution: plan.distribution,
+      specialAdCategories: [...plan.specialAdCategories],
+      createdAt: new Date().toISOString(),
+    };
+    this.templates.set(tpl.id, tpl);
+    this.emit({ type: "templates-updated" });
+    return tpl;
+  }
+  deleteTemplate(id: string): void {
+    if (this.templates.delete(id)) this.emit({ type: "templates-updated" });
+  }
+
+  /* ---- clone / relaunch ---- */
+  clonePlanFromRun(runId: string): LaunchPlan | undefined {
+    const run = this.runs.get(runId);
+    const src = run?.sourcePlan;
+    if (!run || !src) return undefined;
+    this.cloneSeq += 1;
+    const ts = new Date().toISOString();
+    const clone: LaunchPlan = {
+      ...src,
+      id: `plan_clone_${this.cloneSeq}_${Date.now().toString(36)}`,
+      name: `${run.name} (copy)`,
+      targets: src.targets.map((t) => ({ ...t })),
+      creatives: src.creatives.map((c) => ({ ...c })),
+      structure: { ...src.structure },
+      creativeSlotMap: { ...src.creativeSlotMap },
+      specialAdCategories: [...src.specialAdCategories],
+      scheduledFor: null,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+    this.drafts.set(clone.id, clone);
+    this.emit({ type: "drafts-updated" });
+    return clone;
   }
 }
 

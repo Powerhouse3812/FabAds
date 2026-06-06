@@ -26,6 +26,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
+  Copy,
   FileEdit,
   Inbox,
   Layers,
@@ -37,6 +38,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -90,6 +92,21 @@ export default function Launch2Home() {
   };
   const resumeDraft = (id: string) => navigate(`/launch2/new?draft=${encodeURIComponent(id)}`);
 
+  // Clone a finished run's plan into a fresh draft, then open the flow on it.
+  const cloneRun = (id: string) => {
+    const draft = service.clonePlanFromRun(id);
+    if (draft) {
+      toast.success("Cloned to a new draft", {
+        description: "Copied this launch’s setup — pick up at Step 1 to relaunch.",
+      });
+      resumeDraft(draft.id);
+    } else {
+      toast.error("Couldn’t clone this launch", {
+        description: "Its original setup wasn’t captured, so there’s nothing to copy.",
+      });
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={150}>
       <div data-screen="launch2-home" className="mx-auto max-w-6xl space-y-7 pb-4">
@@ -108,6 +125,7 @@ export default function Launch2Home() {
             launches={launches}
             onOpen={(id) => navigate(`/launch2/${id}`)}
             onRetry={(id) => service.retryFailed(id)}
+            onClone={cloneRun}
             onNew={() => goNew()}
           />
           <AccountHealthStrip
@@ -224,12 +242,14 @@ function RecentLaunches({
   launches,
   onOpen,
   onRetry,
+  onClone,
   onNew,
   className,
 }: {
   launches: LaunchRun[];
   onOpen: (id: string) => void;
   onRetry: (id: string) => void;
+  onClone: (id: string) => void;
   onNew: () => void;
   className?: string;
 }) {
@@ -280,7 +300,13 @@ function RecentLaunches({
       ) : (
         <Card className="divide-y divide-border overflow-hidden rounded-2xl">
           {recent.map((run) => (
-            <LaunchRow key={run.id} run={run} onOpen={() => onOpen(run.id)} onRetry={() => onRetry(run.id)} />
+            <LaunchRow
+              key={run.id}
+              run={run}
+              onOpen={() => onOpen(run.id)}
+              onRetry={() => onRetry(run.id)}
+              onClone={() => onClone(run.id)}
+            />
           ))}
         </Card>
       )}
@@ -288,9 +314,21 @@ function RecentLaunches({
   );
 }
 
-function LaunchRow({ run, onOpen, onRetry }: { run: LaunchRun; onOpen: () => void; onRetry: () => void }) {
+function LaunchRow({
+  run,
+  onOpen,
+  onRetry,
+  onClone,
+}: {
+  run: LaunchRun;
+  onOpen: () => void;
+  onRetry: () => void;
+  onClone: () => void;
+}) {
   const strategy = getStrategy(run.strategyId);
   const scheduled = run.status === "scheduled";
+  // Clone needs a captured plan; scheduled runs deep-link elsewhere.
+  const canClone = !scheduled && !!run.sourcePlan;
 
   return (
     <div
@@ -332,6 +370,26 @@ function LaunchRow({ run, onOpen, onRetry }: { run: LaunchRun; onOpen: () => voi
           <div className="w-full max-w-[200px]">
             <RunProgressBar run={run} />
           </div>
+        )}
+
+        {canClone && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClone();
+                }}
+                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label={`Clone launch ${run.name}`}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-xs">Clone to a new draft</TooltipContent>
+          </Tooltip>
         )}
 
         {run.failed > 0 ? (

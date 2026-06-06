@@ -9,11 +9,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AdType,
+  AllocationMode,
   DistributionStrategy,
   LaunchMode,
   LaunchPlan,
   LaunchTarget,
+  LaunchTemplate,
   Objective,
+  SpecialAdCategory,
   StrategyId,
 } from "../types";
 import { getStrategy } from "../data/strategies";
@@ -44,6 +47,14 @@ export function newPlan(): LaunchPlan {
     adType: "single-image",
     creatives: [],
     structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 },
+    allocation: "distribute",
+    creativeSlotMap: {},
+    destinationUrl: "",
+    displayLink: null,
+    utmTemplate: "utm_source=facebook&utm_medium=paid&utm_campaign={{campaign}}&utm_content={{adset}}",
+    specialAdCategories: [],
+    namingPattern: "{brand}_{strategy}_{objective}_{date}",
+    templateId: null,
     scheduledFor: null,
     createdAt: ts,
     updatedAt: ts,
@@ -64,6 +75,12 @@ export interface UseLaunch2FlowReturn {
   setDistribution: (d: DistributionStrategy) => void;
   setTargets: (t: LaunchTarget[]) => void;
   setAdType: (t: AdType) => void;
+  setAllocation: (a: AllocationMode) => void;
+  setDestinationUrl: (u: string) => void;
+  setUtmTemplate: (u: string) => void;
+  setSpecialAdCategories: (c: SpecialAdCategory[]) => void;
+  /** Apply a saved Targeting Template onto the plan. */
+  applyTemplate: (t: LaunchTemplate) => void;
   reset: () => void;
 }
 
@@ -126,6 +143,30 @@ export function useLaunch2Flow(draftId?: string): UseLaunch2FlowReturn {
   const setDistribution = useCallback((d: DistributionStrategy) => patch({ distribution: d }), [patch]);
   const setTargets = useCallback((t: LaunchTarget[]) => patch({ targets: t }), [patch]);
   const setAdType = useCallback((t: AdType) => patch({ adType: t }), [patch]);
+  const setAllocation = useCallback((a: AllocationMode) => patch({ allocation: a }), [patch]);
+  const setDestinationUrl = useCallback((u: string) => patch({ destinationUrl: u }), [patch]);
+  const setUtmTemplate = useCallback((u: string) => patch({ utmTemplate: u }), [patch]);
+  const setSpecialAdCategories = useCallback(
+    (c: SpecialAdCategory[]) => patch({ specialAdCategories: c }),
+    [patch],
+  );
+  const applyTemplate = useCallback((t: LaunchTemplate) => {
+    setPlan((prev) => {
+      const s = t.strategyId ? getStrategy(t.strategyId) : undefined;
+      return {
+        ...prev,
+        templateId: t.id,
+        strategyId: t.strategyId ?? prev.strategyId,
+        objective: t.objective ?? prev.objective,
+        audienceLabel: t.audienceLabel ?? prev.audienceLabel,
+        distribution: t.distribution,
+        specialAdCategories: t.specialAdCategories,
+        budgetPerAdSet: t.budgetPerAdSet,
+        structure: s ? { ...s.structure } : prev.structure,
+        name: prev.name === "Untitled launch" && s ? `${s.name} launch` : prev.name,
+      };
+    });
+  }, []);
   const reset = useCallback(() => {
     setPlan(newPlan());
     setStepState(1);
@@ -144,6 +185,11 @@ export function useLaunch2Flow(draftId?: string): UseLaunch2FlowReturn {
     setDistribution,
     setTargets,
     setAdType,
+    setAllocation,
+    setDestinationUrl,
+    setUtmTemplate,
+    setSpecialAdCategories,
+    applyTemplate,
     reset,
   };
 }

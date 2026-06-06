@@ -11,7 +11,7 @@
  * Renders content-only inside the FabAds shell.
  */
 import { useMemo, useState } from "react";
-import { Boxes, Database, ImageIcon, Layers, Plus, Sparkles, Tag } from "lucide-react";
+import { Boxes, Database, ImageIcon, Layers, LayoutTemplate, Plus, Sparkles, Tag, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,9 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import { useLaunch2 } from "../state/Launch2Context";
 import type { DistributionStrategy, Objective } from "../types";
-import { STRATEGIES } from "../data/strategies";
+import { STRATEGIES, getStrategy } from "../data/strategies";
 import { formatRelative } from "../utils/time";
 import { AccountStatusBadge, MetaRow, SectionLabel } from "./settings/parts";
 
@@ -102,6 +103,7 @@ export default function Launch2Settings() {
   const service = useLaunch2();
   const accounts = service.listAccounts();
   const catalogues = service.listCatalogues();
+  const templates = service.listTemplates();
 
   /* ---- 1. Defaults (local state) ---- */
   const [strategyId, setStrategyId] = useState<string>("bruno");
@@ -376,7 +378,88 @@ export default function Launch2Settings() {
         </CardContent>
       </Card>
 
-      {/* 4 · Saved presets / Library */}
+      {/* 4 · Targeting templates (service-backed) */}
+      <Card className="rounded-2xl">
+        <CardContent className="p-4">
+          <SectionLabel
+            trailing={
+              <span className="ml-auto font-mono text-[11px] tabular-nums text-muted-foreground">
+                {templates.length} template{templates.length === 1 ? "" : "s"}
+              </span>
+            }
+          >
+            Targeting templates
+          </SectionLabel>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Reusable targeting setups applied from the launch flow. Create one with{" "}
+            <span className="font-medium text-foreground">Save as template</span> in the flow’s targeting step.
+          </p>
+
+          {templates.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
+              <LayoutTemplate className="mx-auto h-6 w-6 text-muted-foreground" />
+              <p className="mt-2 text-sm font-medium text-foreground">No templates yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+                Save a targeting setup from the launch flow to reuse it across launches.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((t) => {
+                const strat = getStrategy(t.strategyId);
+                const objLabel = t.objective
+                  ? OBJECTIVES.find((o) => o.id === t.objective)?.label ?? t.objective
+                  : "Any objective";
+                const distLabel = DISTRIBUTIONS.find((d) => d.id === t.distribution)?.label ?? t.distribution;
+                const summary = [
+                  strat?.name ?? "No strategy",
+                  objLabel,
+                  distLabel,
+                  `${t.budgetPerAdSet.toLocaleString("en-IN")}/ad set/day`,
+                ].join(" · ");
+                return (
+                  <div
+                    key={t.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/[0.12]">
+                        <LayoutTemplate className="h-4 w-4 text-foreground/70" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">{t.name}</div>
+                        <div className="truncate font-mono text-[11px] tabular-nums text-muted-foreground">
+                          {summary}
+                          {t.audienceLabel ? ` · ${t.audienceLabel}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                        {formatRelative(t.createdAt)}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                        aria-label={`Delete template ${t.name}`}
+                        onClick={() => {
+                          service.deleteTemplate(t.id);
+                          toast.success("Template deleted", { description: `“${t.name}” removed.` });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 5 · Saved presets / Library */}
       <Card className="rounded-2xl">
         <CardContent className="p-4">
           <SectionLabel

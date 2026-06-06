@@ -81,6 +81,8 @@ export interface ProductSet {
   id: string;
   name: string;
   productCount: number;
+  /** A few representative product names — used to label DPA units. */
+  sampleProducts?: string[];
 }
 
 export interface Catalogue {
@@ -125,12 +127,40 @@ export interface StrategyPlaybook {
 export type AdType = "single-image" | "carousel" | "video" | "dpa";
 export type CreativeSource = "library" | "upload" | "post" | "catalogue";
 
+/**
+ * How selected creatives map onto the ad slots the structure produces.
+ *  - distribute: round-robin creatives across existing ad slots (count unchanged)
+ *  - multiply:   clone the whole structure once per creative (count × creatives)
+ *  - manual:     explicit creativeSlotMap; unmapped slots fall back to round-robin
+ */
+export type AllocationMode = "distribute" | "multiply" | "manual";
+
+/** Meta special ad categories (compliance — restricts targeting). */
+export type SpecialAdCategory =
+  | "credit"
+  | "employment"
+  | "housing"
+  | "social-issues";
+
+/** A pickable creative from the library/pool (the small "real creative" slice). */
+export interface CreativeAsset {
+  id: string;
+  name: string;
+  type: AdType;
+  source: CreativeSource;
+  thumbnail?: string;
+  /** seconds, for video assets */
+  durationSec?: number;
+}
+
 export interface CreativeSpec {
   id: string;
   name: string;
   type: AdType;
   source: CreativeSource;
   thumbnail?: string;
+  /** id of the CreativeAsset this was picked from (when picked, not uploaded). */
+  assetId?: string;
 }
 
 /** A single (Ad Account → Page) destination. */
@@ -173,16 +203,51 @@ export interface LaunchPlan {
   productSetId: string | null;
   budgetPerAdSet: number;
 
-  // Step 4
+  // Step 4 — creatives + allocation + tracking
   adType: AdType;
   creatives: CreativeSpec[];
   structure: LaunchStructure;
+  /** How creatives fill ad slots. */
+  allocation: AllocationMode;
+  /** adSlotIndex -> creativeId, for manual allocation only. */
+  creativeSlotMap: Record<number, string>;
+  /** Landing/destination URL for the ads. */
+  destinationUrl: string;
+  displayLink: string | null;
+  /** UTM/tracking template appended to destinationUrl; supports {{campaign}} / {{adset}} tokens. */
+  utmTemplate: string;
+
+  // Compliance + naming
+  specialAdCategories: SpecialAdCategory[];
+  /** Entity-naming pattern, e.g. "{brand}_{strategy}_{objective}_{date}". */
+  namingPattern: string;
+
+  /** Template this plan was seeded from (provenance; null = none). */
+  templateId: string | null;
 
   // Scheduling (optional) — ISO string; if set + future, run is "scheduled".
   scheduledFor: string | null;
 
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * A saved Targeting/config template — captured from a plan, applied to a new
+ * one. Thin today (the targeting model is shallow); grows automatically as the
+ * targeting fields deepen. Note: V1's targeting option-lists are themselves
+ * mock, so this is re-derived, not copied.
+ */
+export interface LaunchTemplate {
+  id: string;
+  name: string;
+  strategyId: StrategyId | null;
+  objective: Objective | null;
+  audienceLabel: string | null;
+  budgetPerAdSet: number;
+  distribution: DistributionStrategy;
+  specialAdCategories: SpecialAdCategory[];
+  createdAt: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -213,9 +278,14 @@ export interface FailureReason {
  */
 export interface AdUnit {
   id: string;
+  /** Resolved entity name (from the plan's namingPattern). */
+  name: string;
   campaignName: string;
   adSetName: string;
   creativeName: string;
+  creativeId?: string;
+  /** Final tracked destination URL (destinationUrl + resolved UTM). */
+  destinationUrl?: string;
   target: LaunchTarget;
   status: AdUnitStatus;
   failure?: FailureReason;
@@ -245,6 +315,9 @@ export interface LaunchRun {
 
   /** How many times retry-failed-only has been run. */
   retryCount: number;
+
+  /** Snapshot of the plan that produced this run — enables exact clone/relaunch. */
+  sourcePlan?: LaunchPlan;
 
   createdAt: string;
   startedAt?: string;

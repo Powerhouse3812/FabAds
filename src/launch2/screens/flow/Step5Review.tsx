@@ -14,8 +14,10 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
+  Link2,
   ShieldAlert,
   ShieldCheck,
+  Tag,
   XCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,10 +28,14 @@ import { formatMoney } from "../../utils/time";
 import {
   budgetPerDay,
   capCheck,
+  creativeMultiplier,
   estimateRequested,
   perTargetCounts,
   validateStep,
 } from "../../state/flowDerive";
+import { resolveNamingPattern, brandFromAccount } from "../../utils/naming";
+import { buildTrackedUrl } from "../../utils/tracking";
+import type { SpecialAdCategory } from "../../types";
 import type { UseLaunch2FlowReturn, FlowStep } from "../../state/useLaunch2Flow";
 import { SectionLabel } from "./parts";
 
@@ -44,6 +50,21 @@ function mockPolicyWarnings(planId: string): string[] {
   const count = h % 3; // 0, 1, or 2
   return pool.slice(0, count);
 }
+
+/** Human labels for the allocation modes (mirrors Step 4's wording). */
+const ALLOCATION_LABELS: Record<string, string> = {
+  distribute: "Distribute creatives across slots",
+  multiply: "Multiply structure per creative",
+  manual: "Manual creative → slot map",
+};
+
+/** Compliance labels for Meta's special ad categories. */
+const SPECIAL_AD_CATEGORY_LABELS: Record<SpecialAdCategory, string> = {
+  credit: "Credit",
+  employment: "Employment",
+  housing: "Housing",
+  "social-issues": "Social issues, elections or politics",
+};
 
 export function Step5Review({
   flow,
@@ -75,6 +96,36 @@ export function Step5Review({
   const hasMissing = missing.length > 0;
 
   const { campaigns, adSetsPerCampaign, adsPerAdSet } = plan.structure;
+
+  /* ---- naming preview + allocation + tracking (the launch-shape summary) ---- */
+  const brand = brandFromAccount(plan.targets[0]?.accountName ?? "");
+  const objectiveLabel = plan.objective
+    ? plan.objective.charAt(0).toUpperCase() + plan.objective.slice(1)
+    : "";
+  const today = new Date().toISOString().slice(0, 10);
+  const namePreview = resolveNamingPattern(plan.namingPattern, {
+    brand,
+    strategy: strategy?.name,
+    objective: objectiveLabel,
+    date: today,
+    campaign: "C1",
+    adset: "01",
+    n: 1,
+  });
+
+  const multiplier = creativeMultiplier(plan);
+  const allocationLabel = ALLOCATION_LABELS[plan.allocation];
+
+  // 1–2 representative tracked destination URLs (first two ad-set positions).
+  const trackedUrls =
+    plan.destinationUrl.trim().length > 0
+      ? [
+          buildTrackedUrl(plan.destinationUrl, plan.utmTemplate, { campaign: "C1", adset: "01" }),
+          adSetsPerCampaign > 1
+            ? buildTrackedUrl(plan.destinationUrl, plan.utmTemplate, { campaign: "C1", adset: "02" })
+            : null,
+        ].filter((u): u is string => !!u)
+      : [];
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
@@ -144,6 +195,93 @@ export function Step5Review({
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Launch shape — naming · allocation · compliance · tracking */}
+        <Card className="rounded-2xl">
+          <CardContent className="space-y-4 p-4">
+            <SectionLabel>Naming &amp; delivery</SectionLabel>
+
+            {/* Naming preview */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-foreground">Naming</span>
+                <span className="font-mono text-[10px] text-muted-foreground/70">
+                  {plan.namingPattern || "{brand}_{strategy}_{date}"}
+                </span>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 font-mono text-xs tabular-nums text-foreground">
+                {namePreview}
+              </div>
+              <p className="text-[10px] leading-relaxed text-muted-foreground">
+                Example entity name — tokens resolve per campaign / ad set / ad at launch.
+              </p>
+            </div>
+
+            {/* Allocation + final estimate */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-foreground">Allocation</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="rounded-md bg-muted px-2 py-0.5 text-foreground">
+                  {allocationLabel}
+                </span>
+                <span className="font-mono tabular-nums">
+                  {requested} ad{requested === 1 ? "" : "s"}
+                  {plan.allocation === "multiply" && multiplier > 1 && (
+                    <span className="text-muted-foreground"> · ×{multiplier} creatives</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Special Ad Categories — compliance chips */}
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-foreground">Special Ad Categories</span>
+              {plan.specialAdCategories.length === 0 ? (
+                <p className="text-xs text-muted-foreground">None declared — standard targeting.</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {plan.specialAdCategories.map((c) => (
+                    <span
+                      key={c}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none"
+                      style={{ color: "#874d00", backgroundColor: "rgba(250,173,20,0.16)" }}
+                    >
+                      <Tag className="h-3 w-3" />
+                      {SPECIAL_AD_CATEGORY_LABELS[c]}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {plan.specialAdCategories.length > 0 && (
+                <p className="text-[10px] leading-relaxed text-muted-foreground">
+                  Declared categories restrict targeting (age, gender, location) per Meta policy.
+                </p>
+              )}
+            </div>
+
+            {/* Tracked destination URLs */}
+            <div className="space-y-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                Tracked destination URL
+              </span>
+              {trackedUrls.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No destination URL set.</p>
+              ) : (
+                <div className="space-y-1">
+                  {trackedUrls.map((u) => (
+                    <div
+                      key={u}
+                      className="break-all rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-muted-foreground"
+                    >
+                      {u}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

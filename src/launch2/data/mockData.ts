@@ -16,6 +16,7 @@ import type {
   LaunchPlan,
   LaunchRunStatus,
   LaunchTarget,
+  LaunchTemplate,
   StrategyId,
   WinnerStrategy,
 } from "../types";
@@ -117,7 +118,7 @@ export const MOCK_CATALOGUES: Catalogue[] = [
     name: "Acme Master Catalog",
     productCount: 642,
     productSets: [
-      { id: "ps_acme_best", name: "Best Sellers", productCount: 48 },
+      { id: "ps_acme_best", name: "Best Sellers", productCount: 48, sampleProducts: ["Aero Runner", "Trail Pro 2", "City Pack 20L", "Flux Bottle", "Drift Cap"] },
       { id: "ps_acme_new", name: "New Arrivals", productCount: 96 },
       { id: "ps_acme_sale", name: "Clearance", productCount: 120 },
     ],
@@ -128,7 +129,7 @@ export const MOCK_CATALOGUES: Catalogue[] = [
     name: "Mamaearth Catalog",
     productCount: 318,
     productSets: [
-      { id: "ps_mama_face", name: "Face Care", productCount: 64 },
+      { id: "ps_mama_face", name: "Face Care", productCount: 64, sampleProducts: ["Vitamin C Serum", "Ubtan Face Wash", "Aqua Glow Gel", "Rice Toner", "Tea Tree Foam"] },
       { id: "ps_mama_hair", name: "Hair Care", productCount: 52 },
     ],
   },
@@ -138,7 +139,7 @@ export const MOCK_CATALOGUES: Catalogue[] = [
     name: "boAt Catalog",
     productCount: 274,
     productSets: [
-      { id: "ps_boat_tws", name: "TWS Earbuds", productCount: 38 },
+      { id: "ps_boat_tws", name: "TWS Earbuds", productCount: 38, sampleProducts: ["Airdopes 161", "Airdopes 311 Pro", "Nirvana Ion", "Airdopes 91 Prime"] },
       { id: "ps_boat_watch", name: "Smartwatches", productCount: 41 },
     ],
   },
@@ -226,14 +227,59 @@ export function makePlan(args: MakePlanArgs): LaunchPlan {
     budgetPerAdSet: s.budgetPerAdSet,
     adType: "single-image",
     creatives: [
-      { id: "cr_1", name: `${s.name} creative A`, type: "single-image", source: "library" },
+      { id: "cr_seed_1", name: "Acme — Hero static", type: "single-image", source: "library", assetId: "cr_acme_hero" },
     ],
     structure: { ...s.structure },
+    allocation: "distribute",
+    creativeSlotMap: {},
+    destinationUrl: "https://example.com/shop",
+    displayLink: null,
+    utmTemplate: "utm_source=facebook&utm_medium=paid&utm_campaign={{campaign}}&utm_content={{adset}}",
+    specialAdCategories: [],
+    namingPattern: "{brand}_{strategy}_{objective}_{date}",
+    templateId: null,
     scheduledFor: args.scheduledFor ?? null,
     createdAt: iso((args.updatedAtMsAgo ?? HOUR) + HOUR),
     updatedAt: iso(args.updatedAtMsAgo ?? HOUR),
   };
 }
+
+/** Seed Targeting Templates (saved configs, applied to new plans). */
+export const MOCK_TEMPLATES: LaunchTemplate[] = [
+  {
+    id: "tpl_broad_prospecting",
+    name: "Broad Prospecting — Sales",
+    strategyId: "bruno",
+    objective: "sales",
+    audienceLabel: "Broad · 18–45 · all genders",
+    budgetPerAdSet: 1,
+    distribution: "fill-first",
+    specialAdCategories: [],
+    createdAt: iso(9 * DAY),
+  },
+  {
+    id: "tpl_lookalike_scale",
+    name: "Lookalike 1% — ASC Scaling",
+    strategyId: "asc-scaling",
+    objective: "sales",
+    audienceLabel: "Lookalike 1% (Purchasers) · 18–54",
+    budgetPerAdSet: 500,
+    distribution: "fill-first",
+    specialAdCategories: [],
+    createdAt: iso(15 * DAY),
+  },
+  {
+    id: "tpl_engagement_proof",
+    name: "Engagement — Social Proofing",
+    strategyId: "social-proofing",
+    objective: "engagement",
+    audienceLabel: "Broad · 18–35 · India metros",
+    budgetPerAdSet: 8,
+    distribution: "fill-first",
+    specialAdCategories: [],
+    createdAt: iso(20 * DAY),
+  },
+];
 
 /** In-progress drafts (autosaved, resumable). */
 export const MOCK_DRAFTS: LaunchPlan[] = [

@@ -11,8 +11,10 @@ import type {
   AdAccount,
   ActivityEvent,
   Catalogue,
+  CreativeAsset,
   LaunchPlan,
   LaunchRun,
+  LaunchTemplate,
   WinnerStrategy,
 } from "../types";
 
@@ -20,7 +22,8 @@ import type {
 export type Launch2Event =
   | { type: "run-updated"; run: LaunchRun }
   | { type: "runs-updated" }
-  | { type: "drafts-updated" };
+  | { type: "drafts-updated" }
+  | { type: "templates-updated" };
 
 export type Launch2Listener = (event: Launch2Event) => void;
 
@@ -62,6 +65,21 @@ export interface MetaLaunchService {
   listWinners(): WinnerStrategy[];
   listActivity(): ActivityEvent[];
   listAccountHealth(): AccountHealth[];
+  /** Pickable creative pool (the small "real creative" slice). */
+  listCreatives(): CreativeAsset[];
+
+  /* ---- targeting templates (save / apply) ---- */
+  listTemplates(): LaunchTemplate[];
+  getTemplate(id: string): LaunchTemplate | undefined;
+  /** Capture a template from a plan. */
+  saveTemplate(name: string, plan: LaunchPlan): LaunchTemplate;
+  deleteTemplate(id: string): void;
+
+  /**
+   * Clone a finished run's plan into a NEW draft (exact relaunch) and return it.
+   * Returns undefined if the run has no captured sourcePlan.
+   */
+  clonePlanFromRun(runId: string): LaunchPlan | undefined;
 
   /* ---- pub/sub ---- */
   subscribe(listener: Launch2Listener): () => void;

@@ -27,6 +27,11 @@ import { formatMoney, formatRelative } from "../utils/time";
 import { RunProgressBar, StatusPill } from "../components/runViz";
 import { EmptyState, StatTile } from "./detail/parts";
 import { UnitTree, type UnitFilter } from "./detail/UnitTree";
+import {
+  CloneRelaunchButton,
+  CsvExportButton,
+  ReportRedirectButton,
+} from "./detail/CloneReportExport";
 
 const FILTERS: { id: UnitFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -64,6 +69,8 @@ export default function Launch2Detail() {
   const strategy = getStrategy(run.strategyId);
   const isScheduled = run.status === "scheduled";
   const isLive = run.status === "launching";
+  const isFinished =
+    run.status === "completed" || run.status === "partial" || run.status === "failed";
   const targetLabel =
     run.targets.length === 1
       ? run.targets[0].pageName
@@ -112,6 +119,28 @@ export default function Launch2Detail() {
               <span>{formatRelative(run.createdAt)}</span>
             </div>
           </div>
+
+          {/* Finished-run actions — clone / report / export */}
+          {!isScheduled && (
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {isFinished && (
+                  <CloneRelaunchButton
+                    run={run}
+                    service={service}
+                    onCloned={(draftId) =>
+                      navigate(`/launch2/new?draft=${encodeURIComponent(draftId)}`)
+                    }
+                  />
+                )}
+                <ReportRedirectButton run={run} onView={(path) => navigate(path)} />
+                <CsvExportButton run={run} />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                View report opens the Reports module filtered to this launch.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

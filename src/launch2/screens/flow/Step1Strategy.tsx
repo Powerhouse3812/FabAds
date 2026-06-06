@@ -15,6 +15,7 @@ import { formatMoney } from "../../utils/time";
 import { validateStep } from "../../state/flowDerive";
 import type { UseLaunch2FlowReturn } from "../../state/useLaunch2Flow";
 import { ChoicePill, InlineErrors, ProvenanceTag, SectionLabel, SelectTile } from "./parts";
+import { ComplianceCategories } from "./ComplianceCategories";
 
 const MODES: { id: LaunchMode; title: string; blurb: string }[] = [
   { id: "quick", title: "Quick", blurb: "Clone a winner or draft, inherit everything, jump to Review." },
@@ -124,6 +125,13 @@ export function Step1Strategy({ flow }: { flow: UseLaunch2FlowReturn }) {
               Gates conversion & catalogue fields downstream.
             </span>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Compliance — Special ad category */}
+      <Card className="rounded-2xl">
+        <CardContent className="p-4">
+          <ComplianceCategories flow={flow} />
         </CardContent>
       </Card>
 

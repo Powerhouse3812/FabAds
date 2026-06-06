@@ -19,12 +19,21 @@ function currentActive(target: LaunchTarget): number {
   return pg?.activeAds ?? 0;
 }
 
+/**
+ * Allocation "multiply" clones the whole structure once per creative (Unified's
+ * "larger spend footprint" model) → ad count AND budget scale by creative count.
+ * distribute / manual fill existing slots → no multiplier.
+ */
+export function creativeMultiplier(plan: LaunchPlan): number {
+  return plan.allocation === "multiply" ? Math.max(plan.creatives.length, 1) : 1;
+}
+
 /** Ads each target receives, given the distribution strategy. */
 export function perTargetCounts(plan: LaunchPlan): number[] {
   const s = getStrategy(plan.strategyId);
   const n = plan.targets.length;
   if (!s || n === 0) return [];
-  const base = adsPerDestination(s);
+  const base = adsPerDestination(s) * creativeMultiplier(plan);
 
   if (plan.distribution === "duplicate") return plan.targets.map(() => base);
   if (plan.distribution === "equal") {
@@ -49,15 +58,15 @@ export function perTargetCounts(plan: LaunchPlan): number[] {
 export function estimateRequested(plan: LaunchPlan): number {
   const s = getStrategy(plan.strategyId);
   if (!s || plan.targets.length === 0) return 0;
-  const base = adsPerDestination(s);
+  const base = adsPerDestination(s) * creativeMultiplier(plan);
   return plan.distribution === "duplicate" ? base * plan.targets.length : base;
 }
 
-/** Daily budget = active ad sets × budget/ad set (× targets if duplicating). */
+/** Daily budget = active ad sets × budget/ad set (× creatives if multiplying, × targets if duplicating). */
 export function budgetPerDay(plan: LaunchPlan): number {
   const s = getStrategy(plan.strategyId);
   if (!s) return 0;
-  const adSets = s.structure.campaigns * s.structure.adSetsPerCampaign;
+  const adSets = s.structure.campaigns * s.structure.adSetsPerCampaign * creativeMultiplier(plan);
   const mult = plan.distribution === "duplicate" ? Math.max(plan.targets.length, 1) : 1;
   return adSets * plan.budgetPerAdSet * mult;
 }
