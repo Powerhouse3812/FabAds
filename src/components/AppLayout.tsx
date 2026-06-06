@@ -212,11 +212,13 @@ function AppLayoutInner() {
   const { pathname } = useLocation();
   const isGenie6Route = pathname.startsWith("/iq/genie6");
   const isInsightsV2Route = pathname.startsWith("/insights-v2");
+  const isLaunchV2Route = pathname.startsWith("/launchv2");
   // Routes that own their own scroll regions + chrome (no AppLayout
   // breadcrumb header, no outer padding). Genie6 set this pattern;
   // Industry Insights v2 follows it so the masonry page bg + sticky
-  // toolbar both reach the top of the viewport.
-  const ownsLayout = isGenie6Route || isInsightsV2Route;
+  // toolbar both reach the top of the viewport. Launch v2 = full-height
+  // wizard + Step-4 two-pane.
+  const ownsLayout = isGenie6Route || isInsightsV2Route || isLaunchV2Route;
   const { isPinned, isOpen } = useCopilot();
 
   return (

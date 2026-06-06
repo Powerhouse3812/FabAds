@@ -25,6 +25,7 @@ import Genie5QuickStartPage from "@/pages/iq/Genie5QuickStartPage";
 import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
+import { launchV2Routes } from "@/launchv2/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
 import { PaymentVerificationPage } from "@/payment-verification/PaymentVerificationPage";
@@ -148,6 +149,9 @@ const App = () => (
 
                 {/* Launch 2.0 — parallel namespace; v1 Launch above untouched */}
                 {launch2Routes}
+
+                {/* Launch v2 — fresh redesign; v1 + launch2 untouched */}
+                {launchV2Routes}
                 <Route path="iq/genie" element={<Genie />} />
                 <Route path="iq/genie2" element={<Genie2 />} />
                 <Route path="iq/genie3" element={<Genie3 />} />

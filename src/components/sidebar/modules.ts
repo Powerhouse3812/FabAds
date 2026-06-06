@@ -147,6 +147,13 @@ export const MODULES: ModuleDef[] = [
     ],
   },
 
+  {
+    // Launch v2 — fresh from-scratch redesign of Launch 2.0 (4-step Meta-grounded
+    // flow). Own namespace /launchv2; v1 Launch + Launch 2.0 untouched. Ungated
+    // for now so it can be reviewed on any plan.
+    key: "launchv2", label: "Launch v2", icon: Sparkles, path: "/launchv2", badge: "Beta",
+  },
+
   { key: "automation", label: "Automation", icon: Workflow, path: "/automation", plans: ["full"] },
 
   /* CREATE */
@@ -236,6 +243,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   insights: "RUN",
   launch: "RUN",
   launch2: "RUN",
+  launchv2: "RUN",
   automation: "RUN",
   // CREATE
   genie: "CREATE",
