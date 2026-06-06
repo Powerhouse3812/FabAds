@@ -1,8 +1,8 @@
 /**
  * LivePreview — compact stats card. Shows campaign structure summary +
  * cap status in one row. Slot mapper for manual spread is collapsible.
+ * When cap is violated, expands a per-page breakdown with one-click fixes.
  */
-import { useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,12 +31,14 @@ export default function LivePreview({ flow }: { flow: UseFlowV2 }) {
   const slots = Math.min(MAX_SLOTS, Math.max(nCreatives, p.adSets || 1));
 
   return (
-    <div className="space-y-3">
-      {/* Compact stats row */}
+    <div className="space-y-2">
+      {/* Compact stats row — always shown */}
       <div
         className={cn(
           "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border px-4 py-2.5",
-          cap.ok ? "border-border bg-muted/20" : "border-amber-300/60 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/20",
+          cap.ok
+            ? "border-border bg-muted/20"
+            : "border-amber-300/60 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/20",
         )}
       >
         <span className="font-mono text-xs tabular-nums text-foreground">
@@ -57,10 +59,63 @@ export default function LivePreview({ flow }: { flow: UseFlowV2 }) {
             <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
           )}
           <span className={cap.ok ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}>
-            {cap.ok ? "Cap OK" : "Cap warning"}
+            {cap.ok
+              ? "Cap OK"
+              : `${cap.offenders.length} page${cap.offenders.length !== 1 ? "s" : ""} over limit`}
           </span>
         </span>
       </div>
+
+      {/* Cap warning expanded block — only when !cap.ok */}
+      {!cap.ok && (
+        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 dark:border-amber-800/50 dark:bg-amber-950/30 p-3 space-y-3">
+          {/* Offender list */}
+          <div className="space-y-2">
+            {cap.offenders.map((off) => {
+              const overBy = off.current + off.demand - 250;
+              return (
+                <div key={off.fbPageId} className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{off.pageName}</p>
+                    <p className="font-mono text-[11px] text-amber-700 dark:text-amber-400 tabular-nums">
+                      {off.current} live + {off.demand} new = {off.current + off.demand}
+                      <span className="ml-1 font-sans text-[10px]">(over by {overBy})</span>
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-200/80 dark:bg-amber-900/60 px-2 py-0.5 font-mono text-[10px] text-amber-800 dark:text-amber-300 tabular-nums">
+                    {off.available} left
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick fix actions */}
+          <div className="flex flex-wrap gap-2">
+            <p className="w-full text-[11px] text-amber-700 dark:text-amber-400">
+              Fix options — one click applies immediately:
+            </p>
+            {plan.pageDistribution !== "fill_first" && (
+              <button
+                type="button"
+                onClick={() => flow.patch({ pageDistribution: "fill_first" })}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white dark:bg-amber-950/50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors"
+              >
+                Switch to Fill First
+              </button>
+            )}
+            {plan.pageDistribution !== "equal" && (
+              <button
+                type="button"
+                onClick={() => flow.patch({ pageDistribution: "equal" })}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white dark:bg-amber-950/50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors"
+              >
+                Switch to Equal distribution
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Manual spread slot mapper — collapsible */}
       {plan.spread === "manual" && (
