@@ -12,8 +12,25 @@ interface AvatarVoiceRailProps {
 }
 
 type Tab = "avatar" | "voice";
-type Mode = "presets" | "manual";
+type Mode = "presets" | "manual" | "browse";
 type GenderChoice = "any" | "female" | "male";
+
+/** Stable hash → hue (0-359) from an id, so gallery colors never shuffle. */
+function hashHue(id: string, offset = 0): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return (h + offset) % 360;
+}
+/** Deterministic conic-gradient HSL pair for an avatar gallery card. */
+function avatarGradient(id: string): { c1: string; c2: string } {
+  const h1 = hashHue(id);
+  const h2 = (h1 + 48) % 360;
+  return { c1: `${h1} 72% 58%`, c2: `${h2} 80% 62%` };
+}
+/** Deterministic radial-glow HSL for a voice gallery card. */
+function voiceGlow(id: string): string {
+  return `${hashHue(id, 17)} 85% 60%`;
+}
 
 /** Derive gender from voice id/name — first names in our mock data. */
 const FEMALE_NAMES = new Set([
@@ -386,21 +403,25 @@ export function AvatarVoiceRail({
             Choose by
           </span>
           <div className="inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
-            {(["presets", "manual"] as const).map((m) => {
-              const active = mode === m;
+            {([
+              { v: "presets", l: "Presets" },
+              { v: "manual", l: "Manual" },
+              { v: "browse", l: "Browse all" },
+            ] as const).map((m) => {
+              const active = mode === m.v;
               return (
                 <button
-                  key={m}
+                  key={m.v}
                   type="button"
-                  onClick={() => setMode(m)}
+                  onClick={() => setMode(m.v)}
                   className={cn(
-                    "rounded-full px-2.5 py-0.5 text-[10px] font-semibold capitalize transition-colors",
+                    "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
                     active
                       ? "bg-foreground/[0.08] text-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {m}
+                  {m.l}
                 </button>
               );
             })}
@@ -477,6 +498,25 @@ export function AvatarVoiceRail({
                 />
               </div>
             )}
+
+            {mode === "browse" && (
+              <>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {decoratedAvatars.length} avatars
+                </p>
+                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {decoratedAvatars.map((av) => (
+                    <li key={av.id}>
+                      <AvatarGalleryCard
+                        avatar={av}
+                        active={selectedAvatarId === av.id}
+                        onSelect={() => onAvatarChange(av.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         )}
 
@@ -549,6 +589,25 @@ export function AvatarVoiceRail({
                   onUse={(id) => onVoiceChange(id)}
                 />
               </div>
+            )}
+
+            {mode === "browse" && (
+              <>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {decoratedVoices.length} voices
+                </p>
+                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {decoratedVoices.map((v) => (
+                    <li key={v.id}>
+                      <VoiceGalleryCard
+                        voice={v}
+                        active={selectedVoiceId === v.id}
+                        onSelect={() => onVoiceChange(v.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         )}
@@ -916,6 +975,181 @@ function AvatarPresetCard({
         <Chip>{avatar.gender === "female" ? "♀ F" : "♂ M"}</Chip>
         {avatar.age && <Chip>{avatar.age}</Chip>}
         <Chip variant="primary">{styleLabel}</Chip>
+      </div>
+
+      {active && (
+        <span className="absolute right-2 top-2">
+          <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+/* ======================================================================
+ *  Gallery cards — "Browse all" mode. Same VISUAL language as the preset
+ *  cards above, but every field is driven by a real avatar/voice record and
+ *  colors are hashed off the id (stable, no persona label/tagline).
+ * ====================================================================== */
+function AvatarGalleryCard({
+  avatar,
+  active,
+  onSelect,
+}: {
+  avatar: {
+    id: string;
+    name: string;
+    demographic: string;
+    language: string[];
+    gender: "female" | "male";
+    age: string;
+    style: string;
+  };
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const initial = avatar.name.charAt(0).toUpperCase();
+  const { c1, c2 } = avatarGradient(avatar.id);
+  const styleLabel =
+    avatar.style === "general"
+      ? "Auto"
+      : avatar.style.charAt(0).toUpperCase() +
+        avatar.style.slice(1).replace(/-/g, " ");
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "group relative flex h-full w-full flex-col gap-2 rounded-xl border p-3 text-left backdrop-blur-sm transition-all",
+        active
+          ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+          : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
+      )}
+    >
+      {/* Visual: stylized portrait — conic gradient circle + monogram + decoration */}
+      <div className="relative h-16 overflow-hidden rounded-lg bg-foreground/[0.04]">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className="relative">
+            <div
+              className="h-12 w-12 rounded-full transition-transform duration-500 group-hover:rotate-[18deg]"
+              style={{
+                background: `conic-gradient(from 90deg, hsl(${c1}), hsl(${c2}), hsl(${c1}))`,
+              }}
+            />
+            <span
+              className="absolute inset-0 flex items-center justify-center text-base font-bold text-white"
+              style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
+            >
+              {initial}
+            </span>
+            <span
+              className="absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-card"
+              style={{ background: `hsl(${c2})` }}
+            />
+            <span className="absolute -left-2 bottom-0 h-3 w-3 rounded-full border border-foreground/20" />
+          </div>
+        </div>
+      </div>
+
+      {/* Real name + demographic line */}
+      <div className="space-y-0.5">
+        <p className="truncate text-[13px] font-bold leading-tight text-foreground">
+          {avatar.name}
+        </p>
+        <p className="line-clamp-1 text-[11px] leading-snug text-muted-foreground">
+          {avatar.demographic}
+        </p>
+      </div>
+
+      {/* Attribute chips: gender · age · style */}
+      <div className="flex flex-wrap items-center gap-1">
+        <Chip>{avatar.gender === "female" ? "♀ F" : "♂ M"}</Chip>
+        {avatar.age && <Chip>{avatar.age}</Chip>}
+        <Chip variant="primary">{styleLabel}</Chip>
+      </div>
+
+      {active && (
+        <span className="absolute right-2 top-2">
+          <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function VoiceGalleryCard({
+  voice,
+  active,
+  onSelect,
+}: {
+  voice: {
+    id: string;
+    name: string;
+    shortName: string;
+    gender: "female" | "male";
+    lang: string;
+    tone: string;
+    description: string;
+  };
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const glow = voiceGlow(voice.id);
+  const barHeights = [40, 70, 100, 70, 40];
+  const delays = [0, 100, 200, 300, 400];
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "group relative flex h-full w-full flex-col gap-2 rounded-xl border p-3 text-left backdrop-blur-sm transition-all",
+        active
+          ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+          : "border-border/40 bg-card/60 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
+      )}
+    >
+      {/* Visual: tinted radial glow + animated waveform */}
+      <div className="relative h-16 overflow-hidden rounded-lg bg-foreground/[0.04]">
+        <div
+          className="absolute inset-0 transition-opacity group-hover:opacity-100"
+          style={{
+            background: `radial-gradient(circle at center, hsl(${glow} / 0.22), transparent 70%)`,
+            opacity: active ? 1 : 0.7,
+          }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center gap-1">
+          {barHeights.map((h, i) => (
+            <span
+              key={i}
+              className={cn(
+                "w-1 rounded-full bg-foreground/40 transition-colors group-hover:bg-foreground/70",
+                "animate-pulse motion-reduce:animate-none",
+              )}
+              style={{
+                height: `${h}%`,
+                animationDelay: `${delays[i]}ms`,
+                animationDuration: "1.2s",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Real name + description line */}
+      <div className="space-y-0.5">
+        <p className="truncate text-[13px] font-bold leading-tight text-foreground">
+          {voice.shortName}
+        </p>
+        <p className="line-clamp-1 text-[11px] leading-snug text-muted-foreground">
+          {voice.description}
+        </p>
+      </div>
+
+      {/* Attribute chips: gender · language · tone */}
+      <div className="flex flex-wrap items-center gap-1">
+        <Chip>{voice.gender === "female" ? "♀ F" : "♂ M"}</Chip>
+        <Chip>{voice.lang}</Chip>
+        <Chip variant="primary">{voice.tone}</Chip>
       </div>
 
       {active && (

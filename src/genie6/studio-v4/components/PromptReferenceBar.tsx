@@ -21,6 +21,7 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { avatars, voices } from "../../mocks/library";
 import {
   Popover,
   PopoverContent,
@@ -205,10 +206,17 @@ export function PromptReferenceBar({
           .join(" · ")
       : "Auto";
 
-  const avatarVoiceValue =
-    state.avatarId || state.voiceId
-      ? [state.avatarId ? "Set" : "Auto", state.voiceId ? "Set" : "Auto"].join(" · ")
-      : "Auto";
+  // Avatar · Voice compound value — show the REAL selected names looked up by
+  // id (null → "Auto"). Voice names are "Priya — Warm Hindi"; show the descriptor
+  // after the em-dash ("Warm Hindi") so it reads distinctly from the avatar name.
+  // e.g. "Priya · Warm Hindi", "Auto · Auto".
+  const selectedAvatarName = state.avatarId
+    ? avatars.find((a) => a.id === state.avatarId)?.name ?? "Auto"
+    : "Auto";
+  const selectedVoiceName = state.voiceId
+    ? (voices.find((v) => v.id === state.voiceId)?.name ?? "Auto").split("—").pop()!.trim()
+    : "Auto";
+  const avatarVoiceValue = `${selectedAvatarName} · ${selectedVoiceName}`;
 
   const activeModel = MODELS.find((m) => m.id === state.modelId) ?? MODELS[0];
 
