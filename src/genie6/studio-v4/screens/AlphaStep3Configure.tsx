@@ -858,6 +858,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             )}
             {railMode === "library" && (
               <LibraryColumnDrawer
+                brandId={wizard.state.brandId}
                 onSave={handleAttachSave("library")}
                 onCancel={handleAttachCancel}
               />
@@ -870,12 +871,14 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             )}
             {railMode === "brand-winner-ads" && (
               <BrandWinnerAdsDrawer
+                brandId={wizard.state.brandId}
                 onSave={handleAttachSave("brand-winner-ads")}
                 onCancel={handleAttachCancel}
               />
             )}
             {railMode === "product-winner-ads" && (
               <ProductWinnerAdsDrawer
+                productId={wizard.state.productId}
                 onSave={handleAttachSave("product-winner-ads")}
                 onCancel={handleAttachCancel}
               />

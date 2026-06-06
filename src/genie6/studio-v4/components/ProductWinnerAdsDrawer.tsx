@@ -1,94 +1,84 @@
-import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Trophy, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AttachedRef } from "../state/useWizard";
+import {
+  brands as ALL_BRANDS,
+  products as ALL_PRODUCTS,
+  getWinnerAdsForEntity,
+  type WinnerAd,
+} from "@/mocks/shared";
 
 /**
  * ProductWinnerAdsDrawer — Step 4 right-rail body for top-performing
- * product creatives (Track C). Same chassis as LibraryColumnDrawer;
- * mock-only.
+ * product creatives (Track C). Same chassis as LibraryColumnDrawer.
+ *
+ * A-12.8x (Maalik): ENTITY-SCOPED. Pulls from the shared Winner-Ads pool
+ * via getWinnerAdsForEntity("product", productId) instead of an inline mock.
+ * No product selected → falls back to ALL product winners with a soft banner
+ * so the picker never blanks.
  *
  * Card baseline: glass (bg-card/60), 4:5 aspect, brand chip top-left,
- * format chip top-right, price + CTR shown as primary stats.
+ * format chip top-right, CTR shown as primary stat.
  */
 
 interface ProductWinnerAdsDrawerProps {
+  /** Resolved from wizard.state.productId. null → show all product winners. */
+  productId: string | null;
   onSave: (refs: AttachedRef[]) => void;
   onCancel: () => void;
 }
 
-interface ProductWinnerItem {
-  id: string;
-  thumbnail: string;
-  label: string;
-  brand: string;
-  format: "Static" | "Video" | "Carousel";
-  price: string;
-  ctr: string;
+const FORMAT_LABEL: Record<WinnerAd["format"], string> = {
+  image: "Static",
+  video: "Video",
+  carousel: "Carousel",
+};
+
+/** 0.038 → "3.8% CTR". */
+function ctrLabel(ctr?: number): string | null {
+  if (ctr == null) return null;
+  return `${(ctr * 100).toFixed(1)}% CTR`;
 }
 
-const MOCK_PRODUCT_WINNERS: ProductWinnerItem[] = [
-  {
-    id: "pwa-1",
-    thumbnail: "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?auto=format&fit=crop&w=240&q=70",
-    label: "Onion Hair Oil 250ml",
-    brand: "Mamaearth",
-    format: "Static",
-    price: "₹399",
-    ctr: "3.6% CTR",
-  },
-  {
-    id: "pwa-2",
-    thumbnail: "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?auto=format&fit=crop&w=240&q=70",
-    label: "Airdopes 141 TWS",
-    brand: "Boat",
-    format: "Video",
-    price: "₹1,299",
-    ctr: "4.1% CTR",
-  },
-  {
-    id: "pwa-3",
-    thumbnail: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=240&q=70",
-    label: "ColorFit Pro 5 Watch",
-    brand: "Noise",
-    format: "Carousel",
-    price: "₹3,499",
-    ctr: "3.2% CTR",
-  },
-  {
-    id: "pwa-4",
-    thumbnail: "https://images.unsplash.com/photo-1631679706909-1844bbd07221?auto=format&fit=crop&w=240&q=70",
-    label: "Ortho Mattress Queen",
-    brand: "Sleepyhead",
-    format: "Static",
-    price: "₹18,999",
-    ctr: "2.5% CTR",
-  },
-  {
-    id: "pwa-5",
-    thumbnail: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=240&q=70",
-    label: "Vitamin C Face Serum",
-    brand: "Plum",
-    format: "Static",
-    price: "₹599",
-    ctr: "3.8% CTR",
-  },
-  {
-    id: "pwa-6",
-    thumbnail: "https://images.unsplash.com/photo-1599751449128-eb7249c3d6b1?auto=format&fit=crop&w=240&q=70",
-    label: "Plant Protein Choco 1kg",
-    brand: "Plix",
-    format: "Video",
-    price: "₹1,899",
-    ctr: "2.9% CTR",
-  },
-];
+/** 124000 → "124K imp", 1_240_000 → "1.2M imp". */
+function impLabel(imp?: number): string | null {
+  if (imp == null) return null;
+  if (imp >= 1_000_000) return `${(imp / 1_000_000).toFixed(1)}M imp`;
+  if (imp >= 1_000) return `${Math.round(imp / 1_000)}K imp`;
+  return `${imp} imp`;
+}
+
+/** Resolve the owning brand's name for a given product entity id. */
+function brandNameForProduct(productId: string | undefined): string | undefined {
+  if (!productId) return undefined;
+  const product = ALL_PRODUCTS.find((p) => p.id === productId);
+  if (!product) return undefined;
+  return ALL_BRANDS.find((b) => b.id === product.brandId)?.name;
+}
 
 export function ProductWinnerAdsDrawer({
+  productId,
   onSave,
   onCancel,
 }: ProductWinnerAdsDrawerProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const productName = useMemo(
+    () => ALL_PRODUCTS.find((p) => p.id === productId)?.name ?? null,
+    [productId],
+  );
+
+  // Entity-scoped pull. No product → fall back to ALL product-level winners.
+  const { winners, isFallback } = useMemo(() => {
+    if (productId) {
+      return {
+        winners: getWinnerAdsForEntity("product", productId),
+        isFallback: false,
+      };
+    }
+    return { winners: getAllProductWinners(), isFallback: true };
+  }, [productId]);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -99,14 +89,14 @@ export function ProductWinnerAdsDrawer({
     });
 
   const handleSave = () => {
-    const refs: AttachedRef[] = MOCK_PRODUCT_WINNERS.filter((i) =>
-      selected.has(i.id),
-    ).map((i) => ({
-      id: i.id,
-      source: "product-winner-ads",
-      label: i.label,
-      thumbnail: i.thumbnail,
-    }));
+    const refs: AttachedRef[] = winners
+      .filter((i) => selected.has(i.id))
+      .map((i) => ({
+        id: i.id,
+        source: "product-winner-ads",
+        label: i.headline,
+        thumbnail: i.thumbnail,
+      }));
     onSave(refs);
   };
 
@@ -117,9 +107,15 @@ export function ProductWinnerAdsDrawer({
       <header className="shrink-0 flex items-center justify-between border-b border-border px-3 py-2.5">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Product winners · last 30 days
+            {productName ? `${productName} winners` : "Product winners"} · last
+            30 days
           </p>
-          <h3 className="text-sm font-semibold text-foreground">Top creatives</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Top creatives
+            <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">
+              {winners.length}
+            </span>
+          </h3>
         </div>
         <button
           type="button"
@@ -131,55 +127,77 @@ export function ProductWinnerAdsDrawer({
         </button>
       </header>
 
+      {/* Fallback banner — no product picked, showing all product winners. */}
+      {isFallback && winners.length > 0 && (
+        <div className="shrink-0 border-b border-border/40 bg-muted/30 px-3 py-1.5">
+          <p className="text-[11px] text-muted-foreground">
+            Showing winners across all products — pick a product to scope these
+            to it.
+          </p>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-y-auto p-3">
-        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {MOCK_PRODUCT_WINNERS.map((item) => {
-            const isSelected = selected.has(item.id);
-            return (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => toggle(item.id)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "group flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
-                    isSelected
-                      ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
-                      : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
-                  )}
-                >
-                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-                    <img
-                      src={item.thumbnail}
-                      alt={item.label}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                    />
-                    <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-                      {item.brand}
-                    </span>
-                    <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-foreground backdrop-blur">
-                      {item.format}
-                    </span>
-                    {isSelected && (
-                      <span className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                        <Check className="h-3 w-3" strokeWidth={3} />
-                      </span>
+        {winners.length === 0 ? (
+          <EmptyWinners productName={productName} />
+        ) : (
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {winners.map((item) => {
+              const isSelected = selected.has(item.id);
+              const ctr = ctrLabel(item.ctr);
+              const imp = impLabel(item.impressions);
+              const stats = [ctr, imp].filter(Boolean).join(" · ");
+              const chipBrand = brandNameForProduct(item.entityId);
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(item.id)}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "group flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
+                      isSelected
+                        ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                        : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                     )}
-                  </div>
-                  <div className="flex flex-col gap-0.5 px-2.5 py-2">
-                    <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
-                      {item.label}
-                    </p>
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      {item.price} · {item.ctr}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  >
+                    <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+                      <img
+                        src={item.thumbnail}
+                        alt={item.headline}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                      />
+                      {chipBrand && (
+                        <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+                          {chipBrand}
+                        </span>
+                      )}
+                      <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-foreground backdrop-blur">
+                        {FORMAT_LABEL[item.format]}
+                      </span>
+                      {isSelected && (
+                        <span className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                          <Check className="h-3 w-3" strokeWidth={3} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                      <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                        {item.headline}
+                      </p>
+                      {stats && (
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {stats}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <footer className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-3 py-2.5">
@@ -202,6 +220,38 @@ export function ProductWinnerAdsDrawer({
           Save{n > 0 && <span className="font-mono opacity-90">· {n}</span>}
         </button>
       </footer>
+    </div>
+  );
+}
+
+/** All product-level winners across every product (fallback when none set). */
+function getAllProductWinners(): WinnerAd[] {
+  const seen = new Set<string>();
+  const out: WinnerAd[] = [];
+  for (const p of ALL_PRODUCTS) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(...getWinnerAdsForEntity("product", p.id));
+  }
+  return out;
+}
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * EmptyWinners — composed empty state (icon + line + sub-line).
+ * ────────────────────────────────────────────────────────────────────── */
+function EmptyWinners({ productName }: { productName: string | null }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
+      <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Trophy className="h-4 w-4" />
+      </span>
+      <p className="text-[13px] font-semibold text-foreground">
+        No winners yet{productName ? ` for ${productName}` : ""}
+      </p>
+      <p className="mt-1 max-w-[36ch] text-[11px] leading-snug text-muted-foreground">
+        Winner ads appear here once {productName ?? "this product"} has
+        top-performing creatives from Insights, Genie, or your Library.
+      </p>
     </div>
   );
 }

@@ -1,93 +1,75 @@
-import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Trophy, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AttachedRef } from "../state/useWizard";
+import {
+  brands as ALL_BRANDS,
+  getWinnerAdsForEntity,
+  type WinnerAd,
+} from "@/mocks/shared";
 
 /**
  * BrandWinnerAdsDrawer — Step 4 right-rail body for top-performing brand
- * creatives (Track C). Same chassis as LibraryColumnDrawer; mock-only.
+ * creatives (Track C). Same chassis as LibraryColumnDrawer.
+ *
+ * A-12.8x (Maalik): ENTITY-SCOPED. Pulls from the shared Winner-Ads pool
+ * via getWinnerAdsForEntity("brand", brandId) instead of an inline mock.
+ * No brand selected → falls back to ALL brand winners with a soft banner so
+ * the picker never blanks.
  *
  * Card baseline: glass (bg-card/60), 4:5 aspect, brand chip top-left,
  * format chip top-right, CTR shown as primary stat.
  */
 
 interface BrandWinnerAdsDrawerProps {
+  /** Resolved from wizard.state.brandId. null → show all brand winners. */
+  brandId: string | null;
   onSave: (refs: AttachedRef[]) => void;
   onCancel: () => void;
 }
 
-interface BrandWinnerItem {
-  id: string;
-  thumbnail: string;
-  label: string;
-  brand: string;
-  format: "Static" | "Video" | "Carousel";
-  ctr: string;
-  imp: string;
+const FORMAT_LABEL: Record<WinnerAd["format"], string> = {
+  image: "Static",
+  video: "Video",
+  carousel: "Carousel",
+};
+
+/** 0.038 → "3.8% CTR". */
+function ctrLabel(ctr?: number): string | null {
+  if (ctr == null) return null;
+  return `${(ctr * 100).toFixed(1)}% CTR`;
 }
 
-const MOCK_BRAND_WINNERS: BrandWinnerItem[] = [
-  {
-    id: "bwa-1",
-    thumbnail: "https://images.unsplash.com/photo-1522335789203-aaa5cf9b7a7e?auto=format&fit=crop&w=240&q=70",
-    label: "Hero serum drop",
-    brand: "Mamaearth",
-    format: "Static",
-    ctr: "3.1% CTR",
-    imp: "4.2M imp",
-  },
-  {
-    id: "bwa-2",
-    thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=240&q=70",
-    label: "Bass-boost demo",
-    brand: "Noise",
-    format: "Video",
-    ctr: "2.7% CTR",
-    imp: "2.8M imp",
-  },
-  {
-    id: "bwa-3",
-    thumbnail: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?auto=format&fit=crop&w=240&q=70",
-    label: "Wireless launch",
-    brand: "Boat",
-    format: "Carousel",
-    ctr: "3.4% CTR",
-    imp: "5.6M imp",
-  },
-  {
-    id: "bwa-4",
-    thumbnail: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=240&q=70",
-    label: "Sleep solved",
-    brand: "Sleepyhead",
-    format: "Static",
-    ctr: "2.4% CTR",
-    imp: "1.9M imp",
-  },
-  {
-    id: "bwa-5",
-    thumbnail: "https://images.unsplash.com/photo-1556228852-80b6e5eeff06?auto=format&fit=crop&w=240&q=70",
-    label: "Glow routine",
-    brand: "Mensa",
-    format: "Video",
-    ctr: "2.9% CTR",
-    imp: "3.3M imp",
-  },
-  {
-    id: "bwa-6",
-    thumbnail: "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=240&q=70",
-    label: "Plant-power flex",
-    brand: "Plix",
-    format: "Carousel",
-    ctr: "3.0% CTR",
-    imp: "2.1M imp",
-  },
-];
+/** 124000 → "124K imp", 1_240_000 → "1.2M imp". */
+function impLabel(imp?: number): string | null {
+  if (imp == null) return null;
+  if (imp >= 1_000_000) return `${(imp / 1_000_000).toFixed(1)}M imp`;
+  if (imp >= 1_000) return `${Math.round(imp / 1_000)}K imp`;
+  return `${imp} imp`;
+}
 
 export function BrandWinnerAdsDrawer({
+  brandId,
   onSave,
   onCancel,
 }: BrandWinnerAdsDrawerProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Readable brand name for the eyebrow + per-card chip.
+  const brandName = useMemo(
+    () => ALL_BRANDS.find((b) => b.id === brandId)?.name ?? null,
+    [brandId],
+  );
+
+  // Entity-scoped pull. No brand → fall back to ALL brand-level winners so the
+  // picker still has substance (flagged with `isFallback` for the banner).
+  const { winners, isFallback } = useMemo(() => {
+    if (brandId) {
+      const scoped = getWinnerAdsForEntity("brand", brandId);
+      return { winners: scoped, isFallback: false };
+    }
+    return { winners: getAllBrandWinners(), isFallback: true };
+  }, [brandId]);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -98,14 +80,14 @@ export function BrandWinnerAdsDrawer({
     });
 
   const handleSave = () => {
-    const refs: AttachedRef[] = MOCK_BRAND_WINNERS.filter((i) =>
-      selected.has(i.id),
-    ).map((i) => ({
-      id: i.id,
-      source: "brand-winner-ads",
-      label: `${i.brand} · ${i.label}`,
-      thumbnail: i.thumbnail,
-    }));
+    const refs: AttachedRef[] = winners
+      .filter((i) => selected.has(i.id))
+      .map((i) => ({
+        id: i.id,
+        source: "brand-winner-ads",
+        label: i.headline,
+        thumbnail: i.thumbnail,
+      }));
     onSave(refs);
   };
 
@@ -116,9 +98,14 @@ export function BrandWinnerAdsDrawer({
       <header className="shrink-0 flex items-center justify-between border-b border-border px-3 py-2.5">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Brand winners · last 30 days
+            {brandName ? `${brandName} winners` : "Brand winners"} · last 30 days
           </p>
-          <h3 className="text-sm font-semibold text-foreground">Top creatives</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Top creatives
+            <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">
+              {winners.length}
+            </span>
+          </h3>
         </div>
         <button
           type="button"
@@ -130,55 +117,80 @@ export function BrandWinnerAdsDrawer({
         </button>
       </header>
 
+      {/* Fallback banner — no brand picked, showing all brand winners. */}
+      {isFallback && winners.length > 0 && (
+        <div className="shrink-0 border-b border-border/40 bg-muted/30 px-3 py-1.5">
+          <p className="text-[11px] text-muted-foreground">
+            Showing winners across all brands — pick a brand to scope these to
+            it.
+          </p>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-y-auto p-3">
-        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {MOCK_BRAND_WINNERS.map((item) => {
-            const isSelected = selected.has(item.id);
-            return (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => toggle(item.id)}
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "group flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
-                    isSelected
-                      ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
-                      : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
-                  )}
-                >
-                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-                    <img
-                      src={item.thumbnail}
-                      alt={item.label}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-                    />
-                    <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-                      {item.brand}
-                    </span>
-                    <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-foreground backdrop-blur">
-                      {item.format}
-                    </span>
-                    {isSelected && (
-                      <span className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                        <Check className="h-3 w-3" strokeWidth={3} />
-                      </span>
+        {winners.length === 0 ? (
+          <EmptyWinners brandName={brandName} />
+        ) : (
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {winners.map((item) => {
+              const isSelected = selected.has(item.id);
+              const ctr = ctrLabel(item.ctr);
+              const imp = impLabel(item.impressions);
+              const stats = [ctr, imp].filter(Boolean).join(" · ");
+              const chipBrand =
+                ALL_BRANDS.find((b) => b.id === item.entityId)?.name ??
+                brandName ??
+                undefined;
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(item.id)}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "group flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card/60 text-left backdrop-blur-sm transition-all",
+                      isSelected
+                        ? "border-primary/50 bg-primary/5 ring-2 ring-primary/30"
+                        : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
                     )}
-                  </div>
-                  <div className="flex flex-col gap-0.5 px-2.5 py-2">
-                    <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
-                      {item.label}
-                    </p>
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      {item.ctr} · {item.imp}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  >
+                    <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+                      <img
+                        src={item.thumbnail}
+                        alt={item.headline}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
+                      />
+                      {chipBrand && (
+                        <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
+                          {chipBrand}
+                        </span>
+                      )}
+                      <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase text-foreground backdrop-blur">
+                        {FORMAT_LABEL[item.format]}
+                      </span>
+                      {isSelected && (
+                        <span className="absolute right-1.5 bottom-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                          <Check className="h-3 w-3" strokeWidth={3} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-0.5 px-2.5 py-2">
+                      <p className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                        {item.headline}
+                      </p>
+                      {stats && (
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {stats}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <footer className="shrink-0 flex items-center justify-end gap-2 border-t border-border px-3 py-2.5">
@@ -201,6 +213,40 @@ export function BrandWinnerAdsDrawer({
           Save{n > 0 && <span className="font-mono opacity-90">· {n}</span>}
         </button>
       </footer>
+    </div>
+  );
+}
+
+/** All brand-level winners across every entity (fallback when no brand set). */
+function getAllBrandWinners(): WinnerAd[] {
+  // Unique brand entity ids present in the pool, resolved via the helper so we
+  // never re-implement the filter. Order follows ALL_BRANDS for stability.
+  const seen = new Set<string>();
+  const out: WinnerAd[] = [];
+  for (const b of ALL_BRANDS) {
+    if (seen.has(b.id)) continue;
+    seen.add(b.id);
+    out.push(...getWinnerAdsForEntity("brand", b.id));
+  }
+  return out;
+}
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * EmptyWinners — composed empty state (icon + line + sub-line).
+ * ────────────────────────────────────────────────────────────────────── */
+function EmptyWinners({ brandName }: { brandName: string | null }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
+      <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Trophy className="h-4 w-4" />
+      </span>
+      <p className="text-[13px] font-semibold text-foreground">
+        No winners yet{brandName ? ` for ${brandName}` : ""}
+      </p>
+      <p className="mt-1 max-w-[36ch] text-[11px] leading-snug text-muted-foreground">
+        Winner ads appear here once {brandName ?? "this brand"} has
+        top-performing creatives from Insights, Genie, or your Library.
+      </p>
     </div>
   );
 }
