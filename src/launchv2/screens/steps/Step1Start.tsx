@@ -2,42 +2,27 @@
  * Step 1 — Start (the reducer). The calm first screen of Launch v2.
  *
  * Two stacked sections (LAUNCH2_V2_PLAN.md §6c):
- *   1. Objective + format (GATED) — objective unlocks the allowed formats.
+ *   1. Objective — sets what's available downstream.
  *   2. Intent — Test / Scale / Custom; prefills structure/budget/spread.
  *
  * Renders only the step BODY; the orchestrator owns chrome/progress/footer and
- * gates Next on objective + format.
+ * gates Next on objective.
  */
 import {
   Sparkles,
   FlaskConical,
   Rocket,
   SlidersHorizontal,
-  Image as ImageIcon,
-  Video,
-  GalleryHorizontalEnd,
-  Layers,
-  Boxes,
-  ShoppingBag,
   Check,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import type { AdFormat, Intent, Objective } from "../../types";
-import { INTENTS, OBJECTIVES, FORMATS } from "../../data";
-import { allowedFormats, defaultDestination, intentDefaults } from "../../reducer";
+import type { Intent, Objective } from "../../types";
+import { INTENTS, OBJECTIVES } from "../../data";
+import { intentDefaults } from "../../reducer";
 
 /* ---- icon maps (kept local to the screen) ---- */
-const FORMAT_ICONS: Record<AdFormat, LucideIcon> = {
-  single_image: ImageIcon,
-  single_video: Video,
-  carousel: GalleryHorizontalEnd,
-  collection: Layers,
-  flexible: Boxes,
-  dpa: ShoppingBag,
-};
-
 const INTENT_ICONS: Record<Intent, LucideIcon> = {
   test: FlaskConical,
   scale: Rocket,
@@ -56,25 +41,10 @@ function intentHint(intent: Intent, objective: Objective | null): string {
 
 export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
-  const { objective, format, intent } = plan;
-
-  // Formats are gated on a chosen objective. Once chosen, only allowed ones show.
-  const formatOptions: AdFormat[] = objective
-    ? allowedFormats(objective, defaultDestination(objective), null)
-    : [];
-  const formatSet = new Set(formatOptions);
-  const formatsLocked = !objective;
+  const { objective, intent } = plan;
 
   const chooseObjective = (o: Objective) => {
-    // Re-validate the current format against the new objective's allowed set.
-    const allowed = allowedFormats(o, defaultDestination(o), null);
-    const keep = format && allowed.includes(format) ? format : null;
-    flow.chooseObjectiveFormat(o, keep);
-  };
-
-  const chooseFormat = (f: AdFormat) => {
-    if (!objective) return;
-    flow.chooseObjectiveFormat(objective, f);
+    flow.chooseObjectiveFormat(o, null);
   };
 
   return (
@@ -82,15 +52,15 @@ export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">Start a launch</h1>
         <p className="text-sm text-muted-foreground">
-          Pick your goal and launch intent — everything downstream prefills from here.
+          Pick your objective and how aggressive to launch — everything downstream prefills from here.
         </p>
       </header>
 
-      {/* ── 1. Objective + format (combined, gated) ──────────────── */}
+      {/* ── 1. Objective ─────────────────────────────────────────── */}
       <Section
         index={1}
         title="What's the goal?"
-        hint="Objective then format. Required."
+        hint="Required — sets what's available."
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {OBJECTIVES.map((o) => {
@@ -116,44 +86,6 @@ export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
               </button>
             );
           })}
-        </div>
-
-        {/* Format — gated on objective */}
-        <div className="mt-4">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-medium text-foreground">Format</span>
-            <span className="text-xs text-muted-foreground">
-              {formatsLocked ? "Pick an objective first" : "Choose one"}
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {FORMATS.map((f) => {
-              const enabled = !formatsLocked && formatSet.has(f.id);
-              const selected = format === f.id;
-              const Icon = FORMAT_ICONS[f.id];
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  disabled={!enabled}
-                  onClick={() => chooseFormat(f.id)}
-                  aria-pressed={selected}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                    selected
-                      ? "border-primary bg-primary/5 text-foreground"
-                      : enabled
-                        ? "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        : "border-border/60 text-muted-foreground/40",
-                    !enabled && "cursor-not-allowed",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {f.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </Section>
 

@@ -4,11 +4,13 @@
  *
  * Routing:
  *   genie   → GenieModal
- *   library → LibraryModal   (stub until built)
+ *   library → LibraryModal
  *   upload  → UploadModal    (stub until built)
  *   url | drive | reports → StubPanel
  *
  * State model:
+ *   - `activeSource` — internal source state; defaults to prop or "genie".
+ *     Switching pills changes the view without closing the sheet.
  *   - `localSelected` — Map<id, CreativeRef> — built from `currentSelections`
  *     when the sheet opens. Committed to parent only on Save.
  *   - `search` — string passed to active child modal.
@@ -43,34 +45,12 @@ import {
 import { cn } from "@/lib/utils";
 import { SOURCES } from "../../../data";
 import type { AdCopy, AdFormat, CreativeRef, SourceType } from "../../../types";
-import {
-  GenieModal,
-  outputToCreativeRef,
-} from "./modals/GenieModal";
+import { GenieModal } from "./modals/GenieModal";
+import { LibraryModal } from "./modals/LibraryModal";
 
 /* ─────────────────────────────────────────────────────────────────
-   Lazy-import placeholders for modals not yet built.
-   Replace with real imports when LibraryModal and UploadModal land.
+   Placeholder for modals not yet built.
 ───────────────────────────────────────────────────────────────────*/
-
-// These are forward declarations. Once the real components exist, swap these:
-//   import { LibraryModal } from "./modals/LibraryModal";
-//   import { UploadModal }  from "./modals/UploadModal";
-// For now they resolve to null and fall through to StubPanel.
-const LibraryModal: React.ComponentType<LibraryModalProps> | null = null;
-const UploadModal: React.ComponentType<UploadModalProps> | null = null;
-
-/* ─────────────────────────────────────────────────────────────────
-   Shared child-modal prop shapes (the intended contract for future modals)
-───────────────────────────────────────────────────────────────────*/
-
-/** Props shape LibraryModal MUST implement when built. */
-interface LibraryModalProps {
-  selectedIds: Set<string>;
-  onToggle: (ref: CreativeRef) => void;
-  search: string;
-  format: AdFormat | null;
-}
 
 /** Props shape UploadModal MUST implement when built. */
 interface UploadModalProps {
@@ -79,8 +59,11 @@ interface UploadModalProps {
   search: string;
 }
 
+// Replace with real import when UploadModal lands.
+const UploadModal: React.ComponentType<UploadModalProps> | null = null;
+
 /* ─────────────────────────────────────────────────────────────────
-   Source icon map (mirrors SourcePicker)
+   Source icon map
 ───────────────────────────────────────────────────────────────────*/
 
 const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
@@ -91,6 +74,9 @@ const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
   drive: HardDrive,
   reports: BarChart3,
 };
+
+/** Sources that are stubs (no modal content yet) */
+const STUB_SOURCES = new Set<SourceType>(["url", "drive", "reports"]);
 
 /* ─────────────────────────────────────────────────────────────────
    StubPanel — for sources that aren't built yet (url / drive / reports)
@@ -161,6 +147,16 @@ export function SourceSheet({
   onSave,
   onClose,
 }: SourceSheetProps) {
+  /* ── Internal source state — drives which modal renders ──── */
+  const [activeSource, setActiveSource] = useState<SourceType>(
+    () => source ?? "genie"
+  );
+
+  // Sync when the prop changes (e.g. parent explicitly sets a source).
+  useEffect(() => {
+    if (source) setActiveSource(source);
+  }, [source]);
+
   /* ── Local selection state ─────────────────────────────────── */
   const [localSelected, setLocalSelected] = useState<Map<string, CreativeRef>>(
     () => new Map(currentSelections.map((c) => [c.id, c]))
@@ -248,18 +244,17 @@ export function SourceSheet({
 
   /* ── Source label ──────────────────────────────────────────── */
   const sourceLabel =
-    SOURCES.find((s) => s.id === source)?.label ??
-    (source ? source.charAt(0).toUpperCase() + source.slice(1) : "Creative");
+    SOURCES.find((s) => s.id === activeSource)?.label ??
+    activeSource.charAt(0).toUpperCase() + activeSource.slice(1);
 
-  const SourceIcon = source ? (SOURCE_ICONS[source] ?? ImageIcon) : ImageIcon;
+  const SourceIcon = SOURCE_ICONS[activeSource] ?? ImageIcon;
 
   /* ── Selected count ────────────────────────────────────────── */
   const selectedCount = localSelected.size;
 
   /* ── Derived: should we show search bar? ─────────────────────
      URL, drive, reports are stub-only — search bar is irrelevant.          */
-  const showSearch =
-    source === "genie" || source === "library" || source === "upload";
+  const showSearch = !STUB_SOURCES.has(activeSource);
 
   /* ─────────────────────────────────────────────────────────── */
 
@@ -278,56 +273,85 @@ export function SourceSheet({
         {/* ── Header ──────────────────────────────────────────── */}
         <SheetHeader
           className={cn(
-            "flex-row items-center gap-3 border-b px-4 py-3",
+            "border-b px-4 pt-3 pb-2",
             "flex-shrink-0 space-y-0",
           )}
         >
-          {/* Source icon + title */}
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <SourceIcon className="h-3.5 w-3.5 text-primary" />
+          {/* Top row: icon + title + search + close */}
+          <div className="flex items-center gap-3">
+            {/* Source icon + title */}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <SourceIcon className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <SheetTitle className="truncate text-sm font-semibold leading-none tracking-tight">
+                {sourceLabel}
+              </SheetTitle>
             </div>
-            <SheetTitle className="truncate text-sm font-semibold leading-none tracking-tight">
-              {sourceLabel}
-            </SheetTitle>
+
+            {/* Search bar — only for browsable sources */}
+            {showSearch && (
+              <div className="relative flex-shrink-0">
+                <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <Input
+                  type="search"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className={cn(
+                    "h-8 w-44 pl-7 text-xs",
+                    "rounded-full border-border bg-muted/40 focus-visible:bg-background",
+                  )}
+                />
+              </div>
+            )}
+
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className={cn(
+                "flex-shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
+                "hover:bg-accent hover:text-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Search bar — only for browsable sources */}
-          {showSearch && (
-            <div className="relative flex-shrink-0">
-              <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input
-                type="search"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={cn(
-                  "h-8 w-44 pl-7 text-xs",
-                  // FabFunnel input radius = rounded-[28px] (pill)
-                  "rounded-full border-border bg-muted/40 focus-visible:bg-background",
-                )}
-              />
-            </div>
-          )}
-
-          {/* Close button — replaces SheetContent's default built-in close */}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className={cn(
-              "flex-shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
-              "hover:bg-accent hover:text-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            )}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {/* Source selector pills */}
+          <div className="flex flex-wrap gap-1 mt-2">
+            {SOURCES.map((s) => {
+              const Icon = SOURCE_ICONS[s.id] ?? ImageIcon;
+              const active = activeSource === s.id;
+              const stub = STUB_SOURCES.has(s.id) || (s.id === "upload");
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setActiveSource(s.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : stub
+                        ? "border-border/50 text-muted-foreground/50 hover:border-border hover:text-muted-foreground"
+                        : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
         </SheetHeader>
 
         {/* ── Body — flex-1 min-h-0 so child modals can fill height ── */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          {source === "genie" && (
+          {activeSource === "genie" && (
             <GenieModal
               selectedIds={new Set(localSelected.keys())}
               onToggle={handleGenieToggle}
@@ -336,20 +360,38 @@ export function SourceSheet({
             />
           )}
 
-          {source === "library" && LibraryModal !== null && (
+          {activeSource === "library" && (
             <LibraryModal
               selectedIds={new Set(localSelected.keys())}
-              onToggle={handleToggle}
+              onToggle={(id: string) => {
+                // LibraryModal passes bare ids; build a minimal CreativeRef so
+                // SourceSheet stays the single authority on selection state.
+                if (localSelected.has(id)) {
+                  setLocalSelected((prev) => {
+                    const next = new Map(prev);
+                    next.delete(id);
+                    return next;
+                  });
+                } else {
+                  setLocalSelected((prev) => {
+                    const next = new Map(prev);
+                    next.set(id, {
+                      id,
+                      name: id,
+                      format: format ?? "single_image",
+                      source: "library",
+                      itemType: "media",
+                    });
+                    return next;
+                  });
+                }
+              }}
               search={search}
               format={format}
             />
           )}
 
-          {source === "library" && LibraryModal === null && (
-            <StubPanel source="library" reason="not_built" />
-          )}
-
-          {source === "upload" && UploadModal !== null && (
+          {activeSource === "upload" && UploadModal !== null && (
             <UploadModal
               selectedIds={new Set(localSelected.keys())}
               onToggle={handleToggle}
@@ -357,22 +399,12 @@ export function SourceSheet({
             />
           )}
 
-          {source === "upload" && UploadModal === null && (
+          {activeSource === "upload" && UploadModal === null && (
             <StubPanel source="upload" reason="not_built" />
           )}
 
-          {(source === "url" ||
-            source === "drive" ||
-            source === "reports") && (
-            <StubPanel source={source} reason="coming_soon" />
-          )}
-
-          {source === null && (
-            <div className="flex h-full items-center justify-center p-8">
-              <p className="font-mono text-sm text-muted-foreground">
-                Select a source to browse creatives.
-              </p>
-            </div>
+          {STUB_SOURCES.has(activeSource) && (
+            <StubPanel source={activeSource} reason="coming_soon" />
           )}
         </div>
 

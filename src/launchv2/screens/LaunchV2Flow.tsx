@@ -19,18 +19,18 @@ import Step4Review from "./steps/Step4Review";
 const STEP_TITLES: Record<StepV2, string> = {
   1: "Start",
   2: "Setup",
-  3: "Creative spread",
+  3: "Creative",
   4: "Review & Launch",
 };
 
 function stepValid(plan: PlanV2, step: StepV2): boolean {
   switch (step) {
     case 1:
-      return !!plan.objective && !!plan.format;
+      return !!plan.objective;
     case 2:
       return plan.targets.length > 0 && plan.budgetAmount > 0;
     case 3:
-      return plan.creatives.length > 0;
+      return !!plan.format;
     case 4:
       return capCheck(plan).ok;
   }

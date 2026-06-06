@@ -1,26 +1,26 @@
 /**
- * SpreadPicker — tiles for the 5 spread modes (labels from SPREAD_LABELS).
- * DCO (dynamic creative optimization) is a toggle that surfaces ON the stacked
- * tile when stacked is selected — it's not its own mode.
+ * SpreadPicker — compact pill row of spread modes.
+ * Selected mode's description shows below. DCO toggle inline for stacked.
  */
-import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { SPREAD_LABELS } from "../../../data";
-import type { SpreadMode } from "../../../types";
 import type { UseFlowV2 } from "../../../state/useFlowV2";
 import { SPREAD_META, SPREAD_ORDER } from "./meta";
 
 export default function SpreadPicker({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
+  const selected = SPREAD_META[plan.spread];
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Spread mode</h3>
-      <div className="grid grid-cols-2 gap-2">
+      {/* Pill row */}
+      <div className="flex flex-wrap gap-1.5">
         {SPREAD_ORDER.map((mode) => {
           const on = plan.spread === mode;
-          const meta = SPREAD_META[mode];
-          const Icon = meta.icon;
+          const Icon = SPREAD_META[mode].icon;
+          // Short label: just first word ("One", "Round-robin", "Stacked", "Multiply", "Manual")
+          const shortLabel = SPREAD_LABELS[mode].split(" ")[0];
           return (
             <button
               key={mode}
@@ -28,42 +28,37 @@ export default function SpreadPicker({ flow }: { flow: UseFlowV2 }) {
               onClick={() => flow.patch({ spread: mode })}
               aria-pressed={on}
               className={cn(
-                "flex flex-col gap-1.5 rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                on ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/50",
-                mode === "manual" && "col-span-2",
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                on
+                  ? "border-primary bg-primary/5 text-foreground"
+                  : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
               )}
             >
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Icon className={cn("h-4 w-4", on ? "text-primary" : "text-muted-foreground")} />
-                  <span className="text-xs font-medium text-foreground">{SPREAD_LABELS[mode]}</span>
-                </span>
-                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{meta.ratio}</span>
-              </div>
-              <p className="text-[11px] leading-snug text-muted-foreground">{meta.blurb}</p>
-
-              {/* DCO lives on the stacked tile */}
-              {mode === "stacked" && on && (
-                <div
-                  className="mt-1 flex items-center justify-between rounded-xl border border-border bg-background px-2 py-1.5"
-                  onClick={(e) => e.stopPropagation()}
-                  role="presentation"
-                >
-                  <span className="text-[11px] font-medium text-foreground">
-                    Dynamic creative (DCO)
-                    <span className="block text-[10px] font-normal text-muted-foreground">Auto-mix assets per impression.</span>
-                  </span>
-                  <Switch
-                    checked={plan.advantageCreative}
-                    onCheckedChange={(v) => flow.patch({ advantageCreative: v })}
-                    aria-label="Dynamic creative optimization"
-                  />
-                </div>
-              )}
+              <Icon className="h-3 w-3" />
+              {shortLabel}
+              <span className="font-mono text-[10px] tabular-nums opacity-60">{SPREAD_META[mode].ratio}</span>
             </button>
           );
         })}
       </div>
+
+      {/* Description of selected mode */}
+      <p className="text-[11px] text-muted-foreground">{selected.blurb}</p>
+
+      {/* DCO toggle — only for stacked */}
+      {plan.spread === "stacked" && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-3 py-2">
+          <div>
+            <p className="text-xs font-medium text-foreground">Dynamic creative (DCO)</p>
+            <p className="text-[11px] text-muted-foreground">Auto-mix assets per impression.</p>
+          </div>
+          <Switch
+            checked={plan.advantageCreative}
+            onCheckedChange={(v) => flow.patch({ advantageCreative: v })}
+            aria-label="Dynamic creative optimization"
+          />
+        </div>
+      )}
     </div>
   );
 }
