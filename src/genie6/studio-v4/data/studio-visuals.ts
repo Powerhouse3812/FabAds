@@ -76,50 +76,57 @@ export type Theme =
   | "abstract";
 
 /** Clips bucketed by theme (filenames in public/studio-previews/). Each clip is
- *  real Mixkit stock footage chosen to match its theme — content verified. */
+ *  real licensed stock (Mixkit / Coverr) hand-picked to read as a FINISHED AD of
+ *  its type — content spot-checked. Swap for real UGC-gen output when it lands. */
 const CLIPS_BY_THEME: Record<Theme, string[]> = {
   "talking-head": [
+    "/studio-previews/mk-49285.mp4", // creator filming a beauty-product video (ring light)
+    "/studio-previews/mk-49141.mp4", // influencer recording a product commercial
     "/studio-previews/mk-42323.mp4", // influencer talking to camera
-    "/studio-previews/mk-41289.mp4", // youtuber recording himself, studio
-    "/studio-previews/mk-8784.mp4",  // woman recording a social video in a cafe
-    "/studio-previews/mk-1232.mp4",  // intimate portrait, warm light
   ],
   "unboxing": [
-    "/studio-previews/mk-382.mp4",   // hand opening a lipstick (product reveal)
-    "/studio-previews/mk-39907.mp4", // taking makeup items out of a bag
-    "/studio-previews/mk-42606.mp4", // opening an envelope — reveal motion
+    "/studio-previews/cv-unbox-iphone.mp4",  // hands opening an iPhone box (close-up)
+    "/studio-previews/cv-a-man-unboxes.mp4", // person unboxing a phone on a couch
+    "/studio-previews/mk-382.mp4",           // opening a lipstick (product reveal)
   ],
   "tutorial": [
-    "/studio-previews/mk-50417.mp4", // how-to: using a skincare product, ring light
-    "/studio-previews/mk-384.mp4",   // applying mascara, close-up demo
-    "/studio-previews/mk-9158.mp4",  // applying skincare cream to face
+    "/studio-previews/cv-mascara.mp4", // applying mascara, close-up demo
+    "/studio-previews/cv-bronzer.mp4", // applying bronzer with a brush
+    "/studio-previews/mk-371.mp4",     // applying lipstick
+    "/studio-previews/mk-384.mp4",     // mascara application
   ],
   "testimonial": [
     "/studio-previews/mk-5721.mp4",  // beauty vlogger answering subscribers
-    "/studio-previews/mk-49141.mp4", // influencer recording a product video
-    "/studio-previews/mk-34486.mp4", // speaker talking on camera (interview feel)
+    "/studio-previews/mk-5497.mp4",  // tech vlogger addressing viewers
+    "/studio-previews/mk-34486.mp4", // speaker talking on camera (interview)
   ],
   "lifestyle": [
-    "/studio-previews/mk-50406.mp4", // skincare routine being filmed at home
-    "/studio-previews/mk-4948.mp4",  // woman reading — calm daily moment
-    "/studio-previews/mk-39764.mp4", // mother + child outdoors
+    "/studio-previews/cv-perfume-dance.mp4", // fragrance ad: woman + perfume by a window
+    "/studio-previews/mk-50406.mp4",         // skincare routine filmed at home
+    "/studio-previews/mk-21980.mp4",         // trying a perfume in a store
+    "/studio-previews/mk-50417.mp4",         // beauty content at a ring-light vanity
   ],
   "product-closeup": [
     "/studio-previews/mk-20766.mp4", // pressing a perfume bottle (hero macro)
     "/studio-previews/mk-21694.mp4", // spraying a perfume sample
-    "/studio-previews/mk-40549.mp4", // cosmetics arranged on a table (flat-lay)
+    "/studio-previews/mk-40549.mp4", // cosmetics flat-lay on a table
+    "/studio-previews/mk-49014.mp4", // skincare product on a clean set
+    "/studio-previews/mk-9158.mp4",  // applying cream, white-background product shot
   ],
   "hero-cinematic": [
+    "/studio-previews/mk-44560.mp4", // woman + sports car, moody premium ad
     "/studio-previews/mk-805.mp4",   // model in a dress — fashion hero
     "/studio-previews/mk-39874.mp4", // beauty / glitter editorial
     "/studio-previews/mk-39877.mp4", // beauty close-up, blue tones
   ],
+  // Neutral motion — only for utility approaches (From scratch / Resize) with no
+  // inherent ad "look", and as the ultimate fallback.
   "abstract": [
-    "/studio-previews/mk-1164.mp4",  // ocean surface
-    "/studio-previews/mk-1192.mp4",  // peach + blue paint swirl
-    "/studio-previews/mk-1196.mp4",  // teal liquid
-    "/studio-previews/mk-1198.mp4",  // warm gradient
-    "/studio-previews/mk-1203.mp4",  // lavender gradient
+    "/studio-previews/mk-1164.mp4",
+    "/studio-previews/mk-1192.mp4",
+    "/studio-previews/mk-1196.mp4",
+    "/studio-previews/mk-1198.mp4",
+    "/studio-previews/mk-1203.mp4",
   ],
 };
 
@@ -129,22 +136,22 @@ const CLIPS_BY_THEME: Record<Theme, string[]> = {
  * `unboxing` as both angle and sub-type — resolve to the same theme.)
  */
 const THEME_BY_ID: Record<string, Theme> = {
-  // Angles (20)
+  // Angles (20) — promo/urgency angles route to product/lifestyle ads (no gradients)
   hero: "hero-cinematic", lifestyle: "lifestyle", "social-proof": "testimonial",
-  urgency: "abstract", comparison: "testimonial", "ugc-style": "talking-head",
-  unboxing: "unboxing", infographic: "abstract", testimonial: "testimonial",
+  urgency: "lifestyle", comparison: "testimonial", "ugc-style": "talking-head",
+  unboxing: "unboxing", infographic: "product-closeup", testimonial: "testimonial",
   "before-after": "testimonial", "problem-solution": "tutorial",
-  "feature-highlight": "product-closeup", "benefit-led": "lifestyle", fomo: "abstract",
-  scarcity: "abstract", premium: "product-closeup", "value-prop": "abstract",
+  "feature-highlight": "product-closeup", "benefit-led": "lifestyle", fomo: "lifestyle",
+  scarcity: "product-closeup", premium: "product-closeup", "value-prop": "product-closeup",
   story: "hero-cinematic", demo: "tutorial", educational: "tutorial",
   // Concepts (12)
   "c-hero-pack": "product-closeup", "c-detail-macro": "product-closeup",
   "c-bundle-stack": "product-closeup", "c-founder-note": "talking-head",
   "c-before-after": "testimonial", "c-heritage": "hero-cinematic",
   "c-morning-ritual": "lifestyle", "c-fest-scene": "lifestyle",
-  "c-ugc-creator": "talking-head", "c-flash-sale": "abstract", "c-bogo": "abstract",
+  "c-ugc-creator": "talking-head", "c-flash-sale": "product-closeup", "c-bogo": "product-closeup",
   "c-launch-tease": "hero-cinematic",
-  // Approach modes (7)
+  // Approach modes (7) — scratch/resize are utility, kept neutral (abstract)
   scratch: "abstract", "create-variations": "product-closeup", "ugc-video": "talking-head",
   "image-to-video": "product-closeup", broll: "lifestyle", "bg-remover": "product-closeup",
   resize: "abstract",
@@ -152,9 +159,9 @@ const THEME_BY_ID: Record<string, Theme> = {
   "talking-head": "talking-head", tutorial: "tutorial", reaction: "talking-head",
   "day-in-life": "lifestyle", "whole-ad": "hero-cinematic", "media-only": "lifestyle",
   "copy-only": "product-closeup", subtle: "product-closeup", "full-ai": "hero-cinematic",
-  // Models (5)
-  "genie-1.0": "abstract", "genie-2.0-pro": "hero-cinematic", "genie-flash": "abstract",
-  "genie-video": "hero-cinematic", "genie-labs": "abstract",
+  // Models (5) — ad-style per tier (Maalik: "sab incl. Model")
+  "genie-1.0": "product-closeup", "genie-2.0-pro": "hero-cinematic", "genie-flash": "talking-head",
+  "genie-video": "hero-cinematic", "genie-labs": "lifestyle",
 };
 
 /** Pick a clip from a theme's bucket (deterministic); fall back to abstract, then pool. */
