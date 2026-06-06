@@ -1,21 +1,15 @@
 /**
  * Step 1 — Start (the reducer). The calm first screen of Launch v2.
  *
- * Three stacked sections (LAUNCH2_V2_PLAN.md §6c):
- *   1. Start from — pick a creative source (optional; creatives chosen in Step 3).
- *   2. Objective + format (GATED) — objective unlocks the allowed formats.
- *   3. Intent — Test / Scale / Custom; prefills structure/budget/spread.
+ * Two stacked sections (LAUNCH2_V2_PLAN.md §6c):
+ *   1. Objective + format (GATED) — objective unlocks the allowed formats.
+ *   2. Intent — Test / Scale / Custom; prefills structure/budget/spread.
  *
  * Renders only the step BODY; the orchestrator owns chrome/progress/footer and
  * gates Next on objective + format.
  */
 import {
-  Link2,
-  Library,
-  Upload,
   Sparkles,
-  HardDrive,
-  BarChart3,
   FlaskConical,
   Rocket,
   SlidersHorizontal,
@@ -30,20 +24,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import type { AdFormat, Intent, Objective, SourceType } from "../../types";
-import { INTENTS, OBJECTIVES, FORMATS, SOURCES } from "../../data";
+import type { AdFormat, Intent, Objective } from "../../types";
+import { INTENTS, OBJECTIVES, FORMATS } from "../../data";
 import { allowedFormats, defaultDestination, intentDefaults } from "../../reducer";
 
 /* ---- icon maps (kept local to the screen) ---- */
-const SOURCE_ICONS: Record<SourceType, LucideIcon> = {
-  url: Link2,
-  library: Library,
-  upload: Upload,
-  genie: Sparkles,
-  drive: HardDrive,
-  reports: BarChart3,
-};
-
 const FORMAT_ICONS: Record<AdFormat, LucideIcon> = {
   single_image: ImageIcon,
   single_video: Video,
@@ -59,11 +44,6 @@ const INTENT_ICONS: Record<Intent, LucideIcon> = {
   custom: SlidersHorizontal,
 };
 
-const SOURCE_LABEL: Record<SourceType, string> = SOURCES.reduce(
-  (m, s) => ({ ...m, [s.id]: s.label }),
-  {} as Record<SourceType, string>,
-);
-
 /** One-line "yeh prefill karega" hint per intent, derived from intentDefaults. */
 function intentHint(intent: Intent, objective: Objective | null): string {
   if (intent === "custom") return "No preset — set every field by hand.";
@@ -76,7 +56,7 @@ function intentHint(intent: Intent, objective: Objective | null): string {
 
 export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
-  const { source, objective, format, intent } = plan;
+  const { objective, format, intent } = plan;
 
   // Formats are gated on a chosen objective. Once chosen, only allowed ones show.
   const formatOptions: AdFormat[] = objective
@@ -84,12 +64,6 @@ export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
     : [];
   const formatSet = new Set(formatOptions);
   const formatsLocked = !objective;
-
-  const chooseSource = (type: SourceType) => {
-    // Toggle off if the same tile is tapped again.
-    if (source.type === type) flow.patch({ source: { type: null, ref: null } });
-    else flow.patch({ source: { type, ref: null } });
-  };
 
   const chooseObjective = (o: Objective) => {
     // Re-validate the current format against the new objective's allowed set.
@@ -108,49 +82,13 @@ export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">Start a launch</h1>
         <p className="text-sm text-muted-foreground">
-          Pick where creatives come from, what you want, and how aggressive to be. Everything downstream prefills from this.
+          Pick your goal and launch intent — everything downstream prefills from here.
         </p>
       </header>
 
-      {/* ── 1. Start from (source) ───────────────────────────────── */}
+      {/* ── 1. Objective + format (combined, gated) ──────────────── */}
       <Section
         index={1}
-        title="Start from"
-        hint="Optional — you'll also pick creatives in Step 3."
-      >
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {SOURCES.map((s) => {
-            const Icon = SOURCE_ICONS[s.id];
-            const selected = source.type === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => chooseSource(s.id)}
-                aria-pressed={selected}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-2 rounded-2xl border bg-card px-2 py-4 text-xs font-medium transition-colors",
-                  selected
-                    ? "border-primary bg-primary/5 text-foreground"
-                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-        {source.type && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Picked: <span className="font-medium text-foreground">{SOURCE_LABEL[source.type]}</span>
-          </p>
-        )}
-      </Section>
-
-      {/* ── 2. Objective + format (combined, gated) ──────────────── */}
-      <Section
-        index={2}
         title="What's the goal?"
         hint="Objective then format. Required."
       >
@@ -219,8 +157,8 @@ export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
         </div>
       </Section>
 
-      {/* ── 3. Intent ────────────────────────────────────────────── */}
-      <Section index={3} title="How aggressive?" hint="Prefills structure, budget and spread. Default is Custom.">
+      {/* ── 2. Intent ────────────────────────────────────────────── */}
+      <Section index={2} title="How aggressive?" hint="Prefills structure, budget and spread. Default is Custom.">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {INTENTS.map((it) => {
             const selected = intent === it.id;

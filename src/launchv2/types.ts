@@ -103,6 +103,10 @@ export interface CreativeRef {
   thumbnail?: string;
   /** A complete saved ad (Library/Reports) carries its own copy — applied as-is. */
   savedAd?: boolean;
+  /** Discriminates the kind of Library item: media asset, text-only copy, or a saved whole-ad. */
+  itemType?: "media" | "text" | "ad";
+  /** Full text content for itemType="text" items (name is truncated; this holds the complete copy). */
+  text?: string;
 }
 
 /** Shared ad-copy block (per-creative overrides keyed by creative id). */

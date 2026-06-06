@@ -42,6 +42,8 @@ export default function AdContent({ flow }: { flow: UseFlowV2 }) {
   const [advanced, setAdvanced] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
 
+  const hasSavedAds = plan.creatives.some((c) => c.savedAd || c.itemType === "ad");
+
   const set = (p: Partial<AdCopy>) => flow.patch({ adCopy: { ...copy, ...p } });
 
   const variations = copy.textVariations ?? [];
@@ -60,6 +62,12 @@ export default function AdContent({ flow }: { flow: UseFlowV2 }) {
 
   return (
     <div className="space-y-3">
+      {hasSavedAds && (
+        <div className="flex items-center gap-1.5 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2 text-[11px] text-foreground">
+          <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
+          Copy pre-filled from selected ads — you can edit or override below.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Ad content</h3>
         <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => set(GENIE_FILL)}>
