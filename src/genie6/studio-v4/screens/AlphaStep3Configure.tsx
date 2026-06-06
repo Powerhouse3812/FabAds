@@ -341,7 +341,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
           combined Angles+Concepts card becomes the single flex-1 min-h-0
           region absorbing leftover height. Concepts grid's max-h scroll
           becomes the only internal scroll surface — page never scrolls. */}
-      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto px-6 pt-8 pb-10">
         <HeroHeader title="Configure" onBack={onBack} />
 
           {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
@@ -369,18 +369,8 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             }
           />
 
-          {/* Script showcase card (MOM 06-05: "script show krni hogi") —
-              surfaces the script prominently, not just the prompt-bar chip.
-              Opens the existing ScriptRail to edit / write / paste. */}
-          <ScriptCard
-            script={wizard.state.script}
-            onOpenRail={() => setRailMode("script")}
-          />
-
-          {/* Master prompt card (MOM 06-05: "Master prompt for the video") —
-              read-only, collapsible, live-derived assembly of everything Genie
-              will receive. Copy button copies the assembled text. */}
-          <MasterPromptCard wizard={wizard} />
+          {/* Script + Master-prompt cards removed (Maalik 06-06) — prompt bar
+              + auto-filled Angle/Concept below are the focus. */}
 
           {/* Angles + Concepts — combined glass card. A-12.9 (Maalik MOM 06-05):
               STARTS COLLAPSED because angle + concept are auto-filled from the
@@ -392,7 +382,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
           <div
             className={cn(
               "v3-glass-card flex flex-col overflow-hidden rounded-2xl",
-              picksExpanded ? "min-h-0 flex-1" : "shrink-0",
+              "shrink-0",
             )}
           >
             {/* Collapsed summary row — always rendered. Acts as the toggle. */}
@@ -822,16 +812,6 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             )}
             {railMode === "style-brand" && (
               <StyleBrandStub onClose={handleAttachCancel} />
-            )}
-            {railMode === "script" && (
-              <ScriptRail
-                currentScript={wizard.state.script}
-                onSave={(script) => {
-                  wizard.set("script", script);
-                  setRailMode(null);
-                }}
-                onClose={handleAttachCancel}
-              />
             )}
             {railMode === "kb-instruction" && (
               <KbInstructionRail
