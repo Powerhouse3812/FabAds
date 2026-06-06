@@ -157,7 +157,7 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
   );
 
   const seedGroups = entity
-    ? getInstructionsForEntity(entity.type, entity.id, state.customKbInstructions)
+    ? getInstructionsForEntity(entity.type, entity.id)
     : { main: null, custom: [], angles: [] };
   const instructionGroups = entity
     ? { ...seedGroups, custom: [...seedGroups.custom, ...savedInstr] }

@@ -22,8 +22,8 @@ import {
  */
 
 interface BrandWinnerAdsDrawerProps {
-  /** Resolved from wizard.state.brandId. null → show all brand winners. */
-  brandId: string | null;
+  /** Resolved from wizard.state.brandId. null/undefined → show all brand winners. */
+  brandId?: string | null;
   onSave: (refs: AttachedRef[]) => void;
   onCancel: () => void;
 }

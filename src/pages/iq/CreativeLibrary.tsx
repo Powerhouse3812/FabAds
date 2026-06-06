@@ -263,8 +263,14 @@ export default function CreativeLibrary() {
       tags: [] as string[],
       brand_id: null as string | null, // real items currently have no brand attribution
     }));
-    const merged = real.length > 0 ? real : DUMMY_ASSETS;
-    return applyBrandFilter(merged) as DisplayAsset[];
+    const merged: DisplayAsset[] = real.length > 0 ? real : DUMMY_ASSETS;
+    // applyBrandFilter is generic over { brand_id?: string | null }; DisplayAsset
+    // is a union whose members don't cleanly satisfy that constraint, so assert
+    // the brand_id shape for the call and restore DisplayAsset[] on the result
+    // (filtering only ever returns a subset of the same objects).
+    return applyBrandFilter(
+      merged as { brand_id?: string | null }[],
+    ) as DisplayAsset[];
   }, [assets, applyBrandFilter]);
 
   // Filtered list for media tab
@@ -310,6 +316,7 @@ export default function CreativeLibrary() {
           displayLink: ag.display_link,
           cta: ag.cta,
           isReal: true,
+          brand_id: null as string | null,
         };
       });
     }
@@ -337,6 +344,7 @@ export default function CreativeLibrary() {
         displayLink: ag.display_link ?? undefined,
         cta: ag.cta ?? undefined,
         isReal: false,
+        brand_id: ag.brand_id,
       };
     });
   }, [realAdgroups, realHeadlines, realPrimaryTexts, realDescs, realMediaAssets]);

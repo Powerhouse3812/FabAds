@@ -65,7 +65,13 @@ export function Step4Configure({ wizard }: Step4Props) {
   };
 
   // Top-row chip click → opens corresponding rail picker
-  const handleChipOpen = (chip: ChipKind) => setRailMode(chip);
+  const handleChipOpen = (chip: ChipKind) => {
+    // Step4 only mounts these three chip rails; script / kb-instruction chips
+    // are Alpha-only, so ignore them here (keeps the RailMode union type-safe).
+    if (chip === "concept-angle" || chip === "avatar-voice" || chip === "style-brand") {
+      setRailMode(chip);
+    }
+  };
 
   return (
     <>

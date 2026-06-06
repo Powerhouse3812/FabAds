@@ -23,8 +23,8 @@ import {
  */
 
 interface ProductWinnerAdsDrawerProps {
-  /** Resolved from wizard.state.productId. null → show all product winners. */
-  productId: string | null;
+  /** Resolved from wizard.state.productId. null/undefined → show all product winners. */
+  productId?: string | null;
   onSave: (refs: AttachedRef[]) => void;
   onCancel: () => void;
 }

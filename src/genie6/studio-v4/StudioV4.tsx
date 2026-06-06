@@ -62,7 +62,7 @@ export function StudioV4() {
       >
         {state.step === 1 && <Step1Setup wizard={wizard} />}
         {state.step === 2 && <Step2Product wizard={wizard} onAdvance={wizard.next} />}
-        {state.step === 3 && <Step3Approach wizard={wizard} />}
+        {state.step === 3 && <Step3Approach wizard={wizard} onAdvance={wizard.next} />}
         {state.step === 4 && <Step4Configure wizard={wizard} />}
         {state.step === 5 && (
           <Step5ResultsQueue wizard={wizard} onStartOver={handleStartOver} />

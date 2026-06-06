@@ -148,7 +148,7 @@ function HomeZeroData() {
                   case "affiliate-ad": return "/iq/genie6/generate/affiliate-ad";
                   case "forge": return "/iq/genie6/generate/variation";
                   case "ugc-video": return "/iq/genie6/generate/product-ad?output=video&preset=ugc-video";
-                  case "image-to-video": return "/iq/genie6/generate/product-ad?output=video";
+                  case "image-to-ad": return "/iq/genie6/generate/product-ad?output=video";
                   default: return "/iq/genie6/generate";
                 }
               })();

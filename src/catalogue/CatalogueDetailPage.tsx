@@ -27,6 +27,7 @@ import {
   Mic,
   Volume2,
   Wand2,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -661,7 +662,7 @@ function KbTabPanel({
   /** A-12.191: longer instruction paragraph shown under the empty headline. */
   emptyInstructions?: string;
   /** A-12.191: section-specific lucide icon for the empty state. */
-  emptyIcon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  emptyIcon?: LucideIcon;
   createLabel: string;
   onCreate: () => void;
   isEmpty: boolean;

@@ -237,9 +237,9 @@ function Render({ variant }: { variant: AngleVariant }) {
           {/* Product peek */}
           <rect x="44" y="28" width="12" height="14" rx="1.5" fill="#c3eb42" />
           {/* Sparkles */}
-          <Sparkle cx="20" cy="20" size={4} />
-          <Sparkle cx="80" cy="14" size={5} />
-          <Sparkle cx="84" cy="42" size={3} />
+          <Sparkle cx={20} cy={20} size={4} />
+          <Sparkle cx={80} cy={14} size={5} />
+          <Sparkle cx={84} cy={42} size={3} />
         </g>
       );
 

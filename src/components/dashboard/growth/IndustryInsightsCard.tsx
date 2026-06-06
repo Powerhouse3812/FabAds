@@ -5,6 +5,7 @@ import {
   Search,
   TrendingUp,
   Video,
+  type LucideIcon,
 } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
@@ -200,7 +201,7 @@ function DistRow({
   pct,
   count,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   color: string;
   label: string;
   pct: number;

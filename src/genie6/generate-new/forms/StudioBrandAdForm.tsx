@@ -18,6 +18,7 @@ import {
   CommonAdvancedFields,
   DEFAULT_COMMON_ADVANCED,
   type CommonAdvancedState,
+  type AspectOption,
 } from "../sections/CommonAdvancedFields";
 import type { OutputType, ImageFormat } from "../types";
 
@@ -270,11 +271,11 @@ function AspectMulti({
   value,
   onChange,
 }: {
-  value: string[];
-  onChange: (next: string[]) => void;
+  value: AspectOption[];
+  onChange: (next: AspectOption[]) => void;
 }) {
-  const opts = ["1:1", "4:5", "9:16", "16:9", "1.91:1"];
-  const toggle = (a: string) =>
+  const opts: AspectOption[] = ["1:1", "4:5", "9:16", "16:9", "1.91:1"];
+  const toggle = (a: AspectOption) =>
     onChange(value.includes(a) ? value.filter((x) => x !== a) : [...value, a]);
   return (
     <div className="flex flex-wrap gap-1">

@@ -930,7 +930,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 brandId={wizard.state.brandId}
                 productId={wizard.state.productId}
                 categoryId={wizard.state.categoryId}
-                customInstructions={wizard.state.customKbInstructions}
+                customInstructions={[]}
                 onSave={(refs) => {
                   wizard.set("attachedReferences", [
                     ...wizard.state.attachedReferences,
@@ -1028,7 +1028,7 @@ function AccordionStrip({
     <div className="v3-glass-card overflow-hidden rounded-2xl transition-colors hover:border-foreground/20">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
         className="flex w-full items-center px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
       >
