@@ -16,9 +16,7 @@
  *   - `search` — string passed to active child modal.
  *
  * Child modal onToggle contract: `(ref: CreativeRef) => void`
- * GenieModal currently uses `(id: string) => void` — bridged here via
- * `outputToCreativeRef` so SourceSheet remains the single source of truth
- * for selection state.
+ * All modals (GenieModal, LibraryModal) now use this signature directly.
  */
 
 import { useEffect, useState } from "react";
@@ -44,7 +42,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { SOURCES } from "../../../data";
-import type { AdCopy, AdFormat, CreativeRef, SourceType } from "../../../types";
+import type { AdCopy, CreativeRef, SourceType } from "../../../types";
 import { GenieModal } from "./modals/GenieModal";
 import { LibraryModal } from "./modals/LibraryModal";
 
@@ -128,8 +126,8 @@ export interface SourceSheetProps {
   source: SourceType | null;
   /** Existing committed selections — pre-populates local state on open. */
   currentSelections: CreativeRef[];
-  /** From plan — passed to child modals for format filtering. */
-  format: AdFormat | null;
+  /** Controls which modal is shown by default: "ads" → genie, "media" → library. */
+  creativeMode?: "ads" | "media";
   /** Committed on Save. suggestedCopy derived from first ad-type item. */
   onSave: (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => void;
   onClose: () => void;
@@ -143,13 +141,13 @@ export function SourceSheet({
   open,
   source,
   currentSelections,
-  format,
+  creativeMode,
   onSave,
   onClose,
 }: SourceSheetProps) {
   /* ── Internal source state — drives which modal renders ──── */
   const [activeSource, setActiveSource] = useState<SourceType>(
-    () => source ?? "genie"
+    () => source ?? (creativeMode === "media" ? "library" : "genie")
   );
 
   // Sync when the prop changes (e.g. parent explicitly sets a source).
@@ -186,58 +184,12 @@ export function SourceSheet({
     });
   };
 
-  /**
-   * GenieModal bridge — it uses `onToggle(id: string)` internally.
-   * We reconstruct the CreativeRef from the id using outputToCreativeRef
-   * via a thin adapter that GenieModal calls with the id only.
-   *
-   * GenieModal already exports outputToCreativeRef; we import it above and
-   * pass a wrapped handler here so SourceSheet stays the authority on state.
-   */
-  const handleGenieToggle = (id: string) => {
-    // If already selected, delete immediately.
-    if (localSelected.has(id)) {
-      setLocalSelected((prev) => {
-        const next = new Map(prev);
-        next.delete(id);
-        return next;
-      });
-      return;
-    }
-    // Otherwise we need the full ref — GenieModal passes only the id,
-    // so we build a minimal CreativeRef and let GenieModal's own
-    // outputToCreativeRef fill details when the grid item is clicked.
-    // The grid itself calls onToggle(output.id) — we receive the id here.
-    // We cannot reconstruct the full ref without the output object, so we
-    // rely on the fact that GenieModal internally calls outputToCreativeRef
-    // and passes the id. We therefore accept just the id and attach a
-    // synthetic ref. The format will be corrected on the next open cycle
-    // when currentSelections is committed from plan.creatives (which
-    // carries the full ref built by the caller after onSave).
-    //
-    // Simpler path: if GenieModal is updated to `onToggle: (ref: CreativeRef) => void`
-    // in a future refactor, remove this bridge and use handleToggle directly.
-    setLocalSelected((prev) => {
-      const next = new Map(prev);
-      const syntheticRef: CreativeRef = {
-        id,
-        name: `Genie output`,
-        format: format ?? "single_image",
-        source: "genie",
-        savedAd: true,
-        itemType: "ad",
-      };
-      next.set(id, syntheticRef);
-      return next;
-    });
-  };
-
   /* ── Save handler ──────────────────────────────────────────── */
   const handleSave = () => {
     const items = Array.from(localSelected.values());
-    const firstAd = items.find((c) => c.itemType === "ad" || c.savedAd);
+    const firstAd = items.find((r) => r.itemType === "ad" || r.savedAd);
     const suggestedCopy: Partial<AdCopy> | undefined = firstAd
-      ? { headline: firstAd.name }
+      ? { headline: firstAd.name, primaryText: "" }
       : undefined;
     onSave(items, suggestedCopy);
   };
@@ -354,8 +306,7 @@ export function SourceSheet({
           {activeSource === "genie" && (
             <GenieModal
               selectedIds={new Set(localSelected.keys())}
-              onToggle={handleGenieToggle}
-              filterFormat={format}
+              onToggle={handleToggle}
               search={search}
             />
           )}
@@ -363,31 +314,8 @@ export function SourceSheet({
           {activeSource === "library" && (
             <LibraryModal
               selectedIds={new Set(localSelected.keys())}
-              onToggle={(id: string) => {
-                // LibraryModal passes bare ids; build a minimal CreativeRef so
-                // SourceSheet stays the single authority on selection state.
-                if (localSelected.has(id)) {
-                  setLocalSelected((prev) => {
-                    const next = new Map(prev);
-                    next.delete(id);
-                    return next;
-                  });
-                } else {
-                  setLocalSelected((prev) => {
-                    const next = new Map(prev);
-                    next.set(id, {
-                      id,
-                      name: id,
-                      format: format ?? "single_image",
-                      source: "library",
-                      itemType: "media",
-                    });
-                    return next;
-                  });
-                }
-              }}
+              onToggle={handleToggle}
               search={search}
-              format={format}
             />
           )}
 

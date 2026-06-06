@@ -5,9 +5,10 @@
  * Spread = compact pill row. Preview = compact stats.
  */
 import { useState } from "react";
-import { Plus, Sparkles } from "lucide-react";
+import { ChevronDown, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +37,20 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
+function AdCopyCollapsed({ flow, hasAds }: { flow: UseFlowV2; hasAds: boolean }) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <ChevronDown className="h-3.5 w-3.5 transition-transform [[data-state=open]_&]:rotate-180" />
+        Ad copy {hasAds ? "(pre-filled from selected ads)" : ""}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-3">
+        <AdContent flow={flow} />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const policy = fieldPolicy(plan);
@@ -50,10 +65,12 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   const acPolicy = policy.advantageCreative;
   const showStandaloneAdvantage = acPolicy.visibility !== "hidden" && plan.spread !== "stacked";
 
-  // When every creative is a whole saved ad, replace media row + copy with WholeAdGrid
-  const allWholeAds =
-    plan.creatives.length > 0 &&
-    plan.creatives.every((c) => c.savedAd || c.itemType === "ad");
+  // creativeMode: "ads" = whole saved ads (via Genie), "media" = individual media assets
+  const [creativeMode, setCreativeMode] = useState<"ads" | "media">(() => {
+    if (plan.creatives.some(c => c.itemType === "ad" || c.savedAd)) return "ads";
+    if (plan.creatives.some(c => c.itemType === "media")) return "media";
+    return "ads"; // default: whole ads
+  });
 
   const handleSheetSave = (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => {
     const updates: Partial<typeof plan> = { creatives: items };
@@ -110,18 +127,60 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
               );
             })}
           </div>
+
+          {/* Creative type toggle */}
+          <div className="flex items-center gap-1.5">
+            {(["ads", "media"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  if (mode !== creativeMode) {
+                    // Clear creatives when switching mode
+                    if (plan.creatives.length > 0) flow.patch({ creatives: [] });
+                    setCreativeMode(mode);
+                  }
+                }}
+                aria-pressed={creativeMode === mode}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  creativeMode === mode
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+              >
+                {mode === "ads" ? "Whole Ads" : "Individual Media"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── 1. Ad creative ─────────────────── */}
         <SectionCard title="Ad creative">
 
-          {allWholeAds ? (
-            /* All creatives are whole saved ads — show grid, hide copy fields */
-            <WholeAdGrid
-              creatives={plan.creatives}
-              onRemove={handleRemoveCreative}
-              onAdd={() => setSheetOpen(true)}
-            />
+          {creativeMode === "ads" ? (
+            <div className="space-y-3">
+              {/* Whole ads display */}
+              {plan.creatives.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setSheetOpen(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add from Genie, Library or upload
+                </button>
+              ) : (
+                <WholeAdGrid
+                  creatives={plan.creatives}
+                  onRemove={handleRemoveCreative}
+                  onAdd={() => setSheetOpen(true)}
+                />
+              )}
+
+              {/* Ad copy — collapsed by default, pre-filled from selected ads */}
+              <AdCopyCollapsed flow={flow} hasAds={plan.creatives.length > 0} />
+            </div>
           ) : (
             <>
               {/* Media row */}
@@ -211,7 +270,7 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
           open={sheetOpen}
           source={plan.source.type}
           currentSelections={plan.creatives}
-          format={plan.format}
+          creativeMode={creativeMode}
           onSave={handleSheetSave}
           onClose={() => setSheetOpen(false)}
         />

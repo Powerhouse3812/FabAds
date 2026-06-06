@@ -18,12 +18,10 @@ import type { AdCopy, AdFormat, CreativeRef } from "../../../../types";
  * Also handles the human-readable `output.format` string from the generation context backfill.
  */
 function deriveAdFormat(output: OutputData): AdFormat {
-  // Prefer the human-readable format string if it was backfilled
   const fmt = output.format?.toLowerCase() ?? "";
   if (fmt === "video" || output.mediaType === "video") return "single_video";
   if (fmt === "carousel") return "carousel";
   if (fmt === "adcopy" || output.mediaType === "text-only") return "flexible";
-  // Default: image
   return "single_image";
 }
 
@@ -67,11 +65,9 @@ const FORMAT_CHIP_LABEL: Record<string, string> = {
 interface GenieModalProps {
   /** Currently selected output IDs */
   selectedIds: Set<string>;
-  /** Toggle one item on/off */
-  onToggle: (id: string) => void;
-  /** Optional: only show outputs matching this format */
-  filterFormat?: AdFormat | null;
-  /** Search string from Sheet header — case-insensitive match on headline or id */
+  /** Toggle one item on/off — receives the full CreativeRef */
+  onToggle: (ref: CreativeRef) => void;
+  /** Search string from Sheet header — case-insensitive match on headline, brand name, or id */
   search: string;
 }
 
@@ -79,42 +75,26 @@ interface GenieModalProps {
    Component
 ───────────────────────────────────────────────────────────────────*/
 
-export function GenieModal({
-  selectedIds,
-  onToggle,
-  filterFormat,
-  search,
-}: GenieModalProps) {
+export function GenieModal({ selectedIds, onToggle, search }: GenieModalProps) {
   const outputs = useMemo<OutputData[]>(() => {
     const trimmed = search.trim().toLowerCase();
 
     return sampleOutputs.filter((out) => {
-      // Skip the zero-data edge-case row (empty headline + empty brand)
-      if (!out.headline && !out.brand?.name) return false;
+      if (!trimmed) return true;
 
-      // Format filter
-      if (filterFormat) {
-        const derived = deriveAdFormat(out);
-        if (derived !== filterFormat) return false;
-      }
-
-      // Search filter — headline or id
-      if (trimmed) {
-        const inHeadline = (out.headline ?? "").toLowerCase().includes(trimmed);
-        const inId = out.id.toLowerCase().includes(trimmed);
-        if (!inHeadline && !inId) return false;
-      }
-
-      return true;
+      const inHeadline = (out.headline ?? "").toLowerCase().includes(trimmed);
+      const inBrand = (out.brand?.name ?? "").toLowerCase().includes(trimmed);
+      const inId = out.id.toLowerCase().includes(trimmed);
+      return inHeadline || inBrand || inId;
     });
-  }, [search, filterFormat]);
+  }, [search]);
 
   /* ── Empty state ─────────────────────────────────────────────── */
   if (outputs.length === 0) {
     return (
       <div className="h-full flex items-center justify-center p-8">
         <p className="text-sm text-muted-foreground font-mono">
-          No Genie outputs match your filters.
+          No Genie outputs match your search.
         </p>
       </div>
     );
@@ -123,63 +103,92 @@ export function GenieModal({
   /* ── Grid ────────────────────────────────────────────────────── */
   return (
     <div className="h-full overflow-y-auto">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4">
         {outputs.map((out) => {
           const selected = selectedIds.has(out.id);
           const adFormat = deriveAdFormat(out);
           const chipLabel = FORMAT_CHIP_LABEL[adFormat] ?? adFormat;
-          const displayName = out.headline?.trim() || `Genie output`;
+          const brandName = out.brand?.name?.trim() ?? "";
+          const headline = out.headline?.trim() ?? "";
+          const hasThumbnail = Boolean(out.thumbnail);
+
+          function handleClick() {
+            if (selected) {
+              // Re-build the ref so caller can deselect by id
+              onToggle(outputToCreativeRef(out));
+            } else {
+              onToggle(outputToCreativeRef(out));
+            }
+          }
 
           return (
             <button
               key={out.id}
               type="button"
-              onClick={() => onToggle(out.id)}
+              onClick={handleClick}
               className={cn(
-                "relative rounded-2xl border bg-card overflow-hidden cursor-pointer group transition-colors text-left w-full",
+                "relative rounded-2xl border bg-card overflow-hidden cursor-pointer group transition-all text-left w-full",
                 selected
-                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  ? "border-primary ring-2 ring-primary bg-primary/5"
                   : "border-border hover:border-foreground/30"
               )}
             >
-              {/* Thumbnail area */}
-              <div className="relative aspect-video bg-muted">
-                {out.thumbnail ? (
+              {/* Thumbnail — aspect-[4/5] like a portrait ad preview */}
+              <div className="relative aspect-[4/5] overflow-hidden">
+                {hasThumbnail ? (
                   <img
                     src={out.thumbnail}
-                    alt={displayName}
-                    className="h-full w-full object-cover"
+                    alt={headline || brandName || "Genie output"}
+                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center">
-                    <Sparkles className="h-6 w-6 text-muted-foreground" />
+                  <div
+                    className={cn(
+                      "h-full w-full flex flex-col items-center justify-center gap-2",
+                      "bg-gradient-to-br from-primary/20 to-primary/5"
+                    )}
+                  >
+                    {brandName ? (
+                      <span className="text-xs font-semibold text-primary/70 text-center px-2 leading-snug">
+                        {brandName}
+                      </span>
+                    ) : (
+                      <Sparkles className="h-6 w-6 text-primary/50" />
+                    )}
                   </div>
                 )}
 
-                {/* Checkbox — top-right corner */}
-                <div
-                  className={cn(
-                    "absolute top-2 right-2 h-4 w-4 rounded border-2 flex items-center justify-center transition-opacity",
-                    selected
-                      ? "bg-primary border-primary text-black opacity-100"
-                      : "bg-background/80 border-border opacity-0 group-hover:opacity-100"
-                  )}
-                >
-                  {selected && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
-                </div>
+                {/* Format chip — top-right overlay */}
+                <span className="absolute top-2 right-2 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] font-mono text-white uppercase tracking-wide leading-none">
+                  {chipLabel}
+                </span>
+
+                {/* Selected checkmark badge — top-left */}
+                {selected && (
+                  <div className="absolute top-2 left-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                    <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                  </div>
+                )}
               </div>
 
               {/* Info area */}
-              <div className="p-2">
-                {/* Format chip */}
-                <span className="inline-block rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground uppercase tracking-wide leading-none">
-                  {chipLabel}
-                </span>
-                {/* Name / headline */}
-                <p className="text-xs font-medium text-foreground truncate mt-1 leading-tight">
-                  {displayName}
-                </p>
+              <div className="p-2.5 space-y-0.5">
+                {brandName && (
+                  <p className="text-xs font-medium text-foreground truncate leading-tight">
+                    {brandName}
+                  </p>
+                )}
+                {headline && (
+                  <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
+                    {headline}
+                  </p>
+                )}
+                {!brandName && !headline && (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    Genie output
+                  </p>
+                )}
               </div>
             </button>
           );

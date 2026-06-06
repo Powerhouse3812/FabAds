@@ -1,9 +1,10 @@
 /**
  * LibraryModal — body-only component for the Library creative source sheet.
  *
- * Three tabs: Media | Text | Adgroups.
- * Multi-select via selectedIds Set + onToggle callback.
+ * Three tabs: Media | Text | Ads.
+ * Multi-select via selectedIds Set + onToggle(CreativeRef) callback.
  * Header/footer live in the Sheet wrapper — this is content only.
+ * No format filtering — all items visible; only search text filters.
  */
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,12 +18,12 @@ import {
   type LibraryTextItem,
   type LibraryAdgroup,
 } from "@/mocks/shared/library-items";
-import type { AdFormat, CreativeRef } from "../../../../types";
+import type { CreativeRef } from "../../../../types";
 import { cn } from "@/lib/utils";
-import { Check, Image, Video, FileText } from "lucide-react";
+import { Check, Image, Video, User } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Conversion helpers (exported for parent to use when building CreativeRef[])
+// Conversion helpers (exported for parent use when building CreativeRef[])
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function assetToCreativeRef(asset: LibraryAsset): CreativeRef {
@@ -65,9 +66,8 @@ export function adgroupToCreativeRef(adgroup: LibraryAdgroup): CreativeRef {
 
 interface LibraryModalProps {
   selectedIds: Set<string>;
-  onToggle: (id: string) => void;
+  onToggle: (ref: CreativeRef) => void;
   search: string;
-  format?: AdFormat | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,6 +90,23 @@ function SelectCheckbox({ checked }: { checked: boolean }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Zero-data empty state
+// ─────────────────────────────────────────────────────────────────────────────
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-2">
+      <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-wide">
+        No {label} matched
+      </p>
+      <p className="font-mono text-[11px] text-muted-foreground/60">
+        Try a different search term
+      </p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Media tab
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -99,7 +116,7 @@ function MediaTab({
   search,
 }: {
   selectedIds: Set<string>;
-  onToggle: (id: string) => void;
+  onToggle: (ref: CreativeRef) => void;
   search: string;
 }) {
   const filtered = LIBRARY_MEDIA.filter((a) =>
@@ -107,11 +124,7 @@ function MediaTab({
   );
 
   if (filtered.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm font-mono">
-        No Media found.
-      </div>
-    );
+    return <EmptyState label="media" />;
   }
 
   return (
@@ -124,12 +137,15 @@ function MediaTab({
             key={asset.id}
             role="button"
             tabIndex={0}
-            onClick={() => onToggle(asset.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle(asset.id)}
+            onClick={() => onToggle(assetToCreativeRef(asset))}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") && onToggle(assetToCreativeRef(asset))
+            }
             className={cn(
-              "relative rounded-2xl border bg-card overflow-hidden cursor-pointer group transition-all duration-150 hover:-translate-y-px",
+              "relative rounded-2xl border bg-card overflow-hidden cursor-pointer group transition-all duration-[220ms]",
+              "hover:-translate-y-[2px] hover:shadow-md",
               checked
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                ? "border-primary ring-2 ring-primary bg-primary/5"
                 : "border-border hover:border-border/80 hover:shadow-sm",
             )}
           >
@@ -148,7 +164,10 @@ function MediaTab({
 
             {/* Info */}
             <div className="p-2 space-y-1">
-              <p className="text-xs font-mono text-foreground truncate" title={asset.file_name}>
+              <p
+                className="text-[11px] font-mono text-foreground truncate"
+                title={asset.file_name}
+              >
                 {asset.file_name}
               </p>
               <div className="flex items-center gap-1">
@@ -157,7 +176,7 @@ function MediaTab({
                 ) : (
                   <Image className="size-3 text-muted-foreground" />
                 )}
-                <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
+                <span className="text-[10px] font-mono uppercase tracking-[0.06em] font-semibold text-muted-foreground">
                   {isVideo ? "Video" : "Image"}
                 </span>
               </div>
@@ -186,13 +205,21 @@ function TextTab({
   search,
 }: {
   selectedIds: Set<string>;
-  onToggle: (id: string) => void;
+  onToggle: (ref: CreativeRef) => void;
   search: string;
 }) {
   const entries: TextEntry[] = [
     ...LIBRARY_HEADLINES.map((item) => ({ item, textType: "headline", typeLabel: "Headline" })),
-    ...LIBRARY_PRIMARY_TEXTS.map((item) => ({ item, textType: "primary_text", typeLabel: "Body" })),
-    ...LIBRARY_DESCRIPTIONS.map((item) => ({ item, textType: "description", typeLabel: "Desc" })),
+    ...LIBRARY_PRIMARY_TEXTS.map((item) => ({
+      item,
+      textType: "primary_text",
+      typeLabel: "Body",
+    })),
+    ...LIBRARY_DESCRIPTIONS.map((item) => ({
+      item,
+      textType: "description",
+      typeLabel: "Desc",
+    })),
   ];
 
   const filtered = entries.filter((e) =>
@@ -200,38 +227,35 @@ function TextTab({
   );
 
   if (filtered.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm font-mono">
-        No Text found.
-      </div>
-    );
+    return <EmptyState label="text" />;
   }
 
   return (
     <div className="space-y-1.5">
       {filtered.map(({ item, textType, typeLabel }) => {
         const checked = selectedIds.has(item.id);
+        const ref = textItemToCreativeRef(item, textType);
         return (
           <div
             key={item.id}
             role="button"
             tabIndex={0}
-            onClick={() => onToggle(item.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle(item.id)}
+            onClick={() => onToggle(ref)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle(ref)}
             className={cn(
-              "flex items-start gap-2 rounded-xl border bg-card px-3 py-2 cursor-pointer group transition-all duration-150",
+              "flex items-start gap-2.5 rounded-xl border bg-card px-3 py-2.5 cursor-pointer group transition-all duration-150",
               checked
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-border/80 hover:bg-muted/30",
             )}
           >
             {/* Type chip */}
-            <span className="mt-0.5 flex-shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-mono font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="mt-0.5 flex-shrink-0 rounded-full bg-[#F0F0EC] dark:bg-[#1B1B1F] px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               {typeLabel}
             </span>
 
             {/* Text content */}
-            <p className="text-xs text-foreground line-clamp-2 flex-1 leading-relaxed">
+            <p className="text-sm text-foreground line-clamp-2 flex-1 leading-relaxed">
               {item.text}
             </p>
 
@@ -247,16 +271,16 @@ function TextTab({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Adgroups tab
+// Ads tab — IndustryInsights card design, renamed from "Adgroups"
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AdgroupsTab({
+function AdsTab({
   selectedIds,
   onToggle,
   search,
 }: {
   selectedIds: Set<string>;
-  onToggle: (id: string) => void;
+  onToggle: (ref: CreativeRef) => void;
   search: string;
 }) {
   const filtered = LIBRARY_ADGROUPS.filter((ag) =>
@@ -267,67 +291,71 @@ function AdgroupsTab({
   );
 
   if (filtered.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm font-mono">
-        No Adgroups found.
-      </div>
-    );
+    return <EmptyState label="ads" />;
   }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {filtered.map((ag) => {
         const checked = selectedIds.has(ag.id);
+        const ref = adgroupToCreativeRef(ag);
         return (
           <div
             key={ag.id}
             role="button"
             tabIndex={0}
-            onClick={() => onToggle(ag.id)}
-            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle(ag.id)}
+            onClick={() => onToggle(ref)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle(ref)}
             className={cn(
-              "relative rounded-2xl border bg-card p-3 cursor-pointer group transition-all duration-150 hover:-translate-y-px",
+              "relative rounded-2xl border bg-card p-4 cursor-pointer group transition-all duration-[220ms]",
+              "hover:-translate-y-[2px] hover:shadow-md",
               checked
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                ? "border-primary ring-2 ring-primary bg-primary/5"
                 : "border-border hover:border-border/80 hover:shadow-sm",
             )}
           >
-            <div className="flex items-start gap-2.5 pr-7">
-              {/* Page avatar */}
+            {/* Checkbox top-right */}
+            <div className="absolute top-3 right-3">
+              <SelectCheckbox checked={checked} />
+            </div>
+
+            {/* Card body — IndustryInsights style */}
+            <div className="flex items-start gap-3 pr-7">
+              {/* Page avatar — 48px round */}
               {ag.page_avatar_url ? (
                 <img
                   src={ag.page_avatar_url}
                   alt={ag.page_name}
-                  className="size-8 rounded-full object-cover flex-shrink-0"
+                  className="size-12 rounded-full object-cover flex-shrink-0 ring-1 ring-border/40"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).style.display = "none";
                   }}
                 />
               ) : (
-                <div className="size-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  <FileText className="size-4 text-muted-foreground" />
+                <div className="size-12 rounded-full bg-[#F0F0EC] dark:bg-[#1B1B1F] flex items-center justify-center flex-shrink-0 ring-1 ring-border/40">
+                  <User className="size-5 text-muted-foreground" />
                 </div>
               )}
 
-              <div className="flex-1 min-w-0 space-y-1">
-                {/* Adgroup name */}
-                <p className="text-xs font-semibold text-foreground leading-snug truncate" title={ag.name}>
+              <div className="flex-1 min-w-0 space-y-1.5">
+                {/* Ad name */}
+                <p
+                  className="text-[13px] font-medium text-foreground leading-snug truncate"
+                  title={ag.name}
+                >
                   {ag.name}
                 </p>
-                {/* Brand / page chip */}
-                <span className="inline-block rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wide text-muted-foreground">
+
+                {/* Page name chip */}
+                <span className="inline-block rounded-full bg-[#F0F0EC] dark:bg-[#1B1B1F] px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   {ag.page_name}
                 </span>
-                {/* Ad type + CTA */}
+
+                {/* Ad type · CTA */}
                 <p className="text-[11px] font-mono text-muted-foreground truncate">
                   {ag.ad_type} · {ag.cta}
                 </p>
               </div>
-            </div>
-
-            {/* Checkbox top-right */}
-            <div className="absolute top-3 right-3">
-              <SelectCheckbox checked={checked} />
             </div>
           </div>
         );
@@ -340,7 +368,7 @@ function AdgroupsTab({
 // LibraryModal — root
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function LibraryModal({ selectedIds, onToggle, search, format }: LibraryModalProps) {
+export function LibraryModal({ selectedIds, onToggle, search }: LibraryModalProps) {
   return (
     <Tabs defaultValue="media" className="flex flex-col h-full overflow-hidden">
       {/* Tab list — sticky at top, never scrolls */}
@@ -350,13 +378,19 @@ export function LibraryModal({ selectedIds, onToggle, search, format }: LibraryM
             [
               { value: "media", label: "Media" },
               { value: "text", label: "Text" },
-              { value: "adgroups", label: "Adgroups" },
+              { value: "ads", label: "Ads" },
             ] as const
           ).map(({ value, label }) => (
             <TabsTrigger
               key={value}
               value={value}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:font-semibold px-4 py-2 text-xs text-muted-foreground data-[state=active]:text-foreground transition-colors"
+              className={cn(
+                "rounded-none border-b-2 border-transparent px-4 py-2 text-xs font-mono",
+                "text-muted-foreground transition-colors",
+                "data-[state=active]:border-primary data-[state=active]:bg-transparent",
+                "data-[state=active]:shadow-none data-[state=active]:font-semibold",
+                "data-[state=active]:text-foreground",
+              )}
             >
               {label}
             </TabsTrigger>
@@ -373,8 +407,8 @@ export function LibraryModal({ selectedIds, onToggle, search, format }: LibraryM
         <TextTab selectedIds={selectedIds} onToggle={onToggle} search={search} />
       </TabsContent>
 
-      <TabsContent value="adgroups" className="flex-1 overflow-y-auto p-4 mt-0">
-        <AdgroupsTab selectedIds={selectedIds} onToggle={onToggle} search={search} />
+      <TabsContent value="ads" className="flex-1 overflow-y-auto p-4 mt-0">
+        <AdsTab selectedIds={selectedIds} onToggle={onToggle} search={search} />
       </TabsContent>
     </Tabs>
   );
