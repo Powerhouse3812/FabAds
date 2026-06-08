@@ -9,7 +9,7 @@
  *
  * Everything here reads the FROZEN contract (deriveV2 / reducer) — no mutation.
  */
-import type { PageDistribution, PlanV2 } from "../../types";
+import type { BidStrategy, BudgetMode, PageDistribution, PlanV2 } from "../../types";
 import {
   adSetCount,
   adsPerDestination,
@@ -42,6 +42,28 @@ export interface TreeNode {
   children?: TreeNode[];
   /** true when this node is a summarised "+N more" placeholder, not real. */
   summary?: boolean;
+  /** Node-specific field values (populated for multi-select mixed-state UI). */
+  fields?: Partial<NodeFields>;
+}
+
+/** Per-node field values exposed for the Edit pane multi-select mixed-state UI. */
+export interface NodeFields {
+  // Campaign
+  budgetMode?: BudgetMode;
+  budgetAmount?: number;
+  bidStrategy?: BidStrategy;
+  advantagePlus?: boolean;
+  abTest?: boolean;
+  // Ad set
+  optimizationGoal?: string;
+  audienceName?: string;
+  placements?: string;
+  // Ad
+  primaryText?: string;
+  headline?: string;
+  description?: string;
+  cta?: string;
+  destinationUrl?: string;
 }
 
 /** How many real ad leaves we render per ad set before summarising "+N more". */
@@ -72,6 +94,13 @@ export function perTargetAdCounts(plan: PlanV2): number[] {
     return take;
   });
 }
+
+/** Demo audience names — rotate per ad set index to show mixed-state variance in Edit pane. */
+const DEMO_AUDIENCES = [
+  "Saved — India 25–45",
+  "Lookalike 1% — Purchasers",
+  "Broad — all ages",
+];
 
 /**
  * Build a representative tree. We model the structure as:
@@ -112,6 +141,13 @@ export function buildReviewTree(plan: PlanV2): TreeNode[] {
             sub: target.pageName,
             targetIndex: ti,
             creativeId: creative.id,
+            fields: {
+              primaryText: plan.adCopy.primaryText || "Discover the difference quality makes.",
+              headline: creative.name,
+              description: plan.adCopy.description,
+              cta: plan.adCopy.cta,
+              destinationUrl: plan.adCopy.destinationUrl,
+            },
           };
         });
         if (adsHere > shownLeaves) {
@@ -131,8 +167,14 @@ export function buildReviewTree(plan: PlanV2): TreeNode[] {
           count: adsHere,
           targetIndex: ti,
           children: leaves,
+          fields: {
+            optimizationGoal: plan.optimizationGoal ?? "",
+            audienceName: DEMO_AUDIENCES[si % DEMO_AUDIENCES.length],
+            placements: si % 2 === 0 ? "Automatic" : "Manual — Feed + Stories",
+          },
         };
       });
+      const isCampaignVariant = campaignsN > 1 && ci === 1;
       return {
         id: `${target.fbPageId}:c${ci}`,
         kind: "campaign" as const,
@@ -141,6 +183,17 @@ export function buildReviewTree(plan: PlanV2): TreeNode[] {
         count: adSets.reduce((n, s) => n + (s.count ?? 0), 0),
         targetIndex: ti,
         children: adSets,
+        fields: {
+          budgetMode: isCampaignVariant
+            ? (plan.budgetMode === "CBO" ? "ABO" : "CBO")
+            : plan.budgetMode,
+          budgetAmount: isCampaignVariant
+            ? Math.round(plan.budgetAmount * 0.6)
+            : plan.budgetAmount,
+          bidStrategy: plan.bidStrategy,
+          advantagePlus: isCampaignVariant ? !plan.advantagePlus : plan.advantagePlus,
+          abTest: plan.abTest,
+        },
       };
     });
     return {
@@ -185,6 +238,17 @@ export function flattenTree(tree: TreeNode[]): FlatRow[] {
     }
   }
   return rows;
+}
+
+/** Flatten ALL nodes at every depth — used by EditPane for multi-select field lookup. */
+export function flattenAllNodes(tree: TreeNode[]): TreeNode[] {
+  const result: TreeNode[] = [];
+  function visit(node: TreeNode) {
+    result.push(node);
+    if (node.children) node.children.forEach(visit);
+  }
+  tree.forEach(visit);
+  return result;
 }
 
 /* ------------------------------------------------------------------ */

@@ -8,6 +8,7 @@
  * Edits route through `flow.patch` (frozen contract). Distribution writes
  * `pageDistribution`; the Issues fixes call into the supplied `onApplyFix`.
  */
+import { useMemo } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -26,17 +27,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { PageDistribution, PlanV2 } from "../../types";
+import type { BidStrategy, BudgetMode, PageDistribution, PlanV2 } from "../../types";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import { BID_LABELS, getTemplate } from "../../data";
 import { perPageDemand } from "../../deriveV2";
 import { formatMoney } from "@/launch2/utils/time";
 import {
   buildReviewTree,
+  flattenAllNodes,
   nodeKindFromId,
   reviewSummary,
-  type ReviewIssue,
   type IssueFixKind,
+  type ReviewIssue,
+  type TreeNode,
 } from "./reviewModel";
 import {
   CapMeter,
@@ -54,24 +57,40 @@ import {
 /* ------------------------------------------------------------------ */
 export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<string> }) {
   const { plan } = flow;
+  const tree = useMemo(() => buildReviewTree(plan), [plan]);
+  const allNodes = useMemo(() => flattenAllNodes(tree), [tree]);
+  const selectedNodes = useMemo(
+    () =>
+      [...selected]
+        .map((id) => allNodes.find((n) => n.id === id))
+        .filter((n): n is TreeNode => Boolean(n)),
+    [selected, allNodes],
+  );
+
   const multi = selected.size > 1;
-  const tpl = getTemplate(plan.targetingTemplateId);
   const firstId = [...selected][0];
   const kind = nodeKindFromId(firstId);
+  const N = selected.size;
+  const kindLabel = kind ?? "node";
+
+  /** Collect stringified values of a field from every selected node. */
+  const vals = (
+    getter: (n: TreeNode) => string | number | boolean | undefined | null,
+  ): string[] => selectedNodes.map((n) => String(getter(n) ?? ""));
 
   return (
     <ScrollArea className="h-full">
       <div className="space-y-3 p-4">
 
-        {/* Bulk-edit banner — only when multiple same-kind nodes selected */}
+        {/* Bulk-edit banner */}
         {multi && (
           <div className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-xs text-foreground">
             <Layers className="h-4 w-4 text-primary" />
-            {selected.size} {kind ?? "nodes"} selected — edits apply to all.
+            {N} {kindLabel}s selected — edits apply to all.
           </div>
         )}
 
-        {/* Safety fallback (tab should be disabled when empty — this is a net) */}
+        {/* Safety fallback */}
         {!selected.size && (
           <p className="py-8 text-center text-sm text-muted-foreground">
             Select a node in the tree to edit its fields.
@@ -83,10 +102,21 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
           <Card className="rounded-2xl">
             <CardContent className="p-4">
               <SectionHead icon={Building2} label="Account" />
-              <FieldRow label="Destinations">{plan.targets.length}</FieldRow>
-              <FieldRow label="Pages">
-                {plan.targets.map((t) => t.pageName).join(", ")}
-              </FieldRow>
+              <EditInput
+                label="Destinations"
+                values={[String(plan.targets.length)]}
+                type="number"
+                count={N}
+                kind={kindLabel}
+                onChange={() => {}}
+              />
+              <EditInput
+                label="Pages"
+                values={[plan.targets.map((t) => t.pageName).join(", ")]}
+                count={N}
+                kind={kindLabel}
+                onChange={() => {}}
+              />
             </CardContent>
           </Card>
         )}
@@ -96,16 +126,51 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
           <Card className="rounded-2xl">
             <CardContent className="p-4">
               <SectionHead icon={Megaphone} label="Campaign" />
-              <FieldRow label="Objective">
-                {(plan.objective ?? "").replace("OUTCOME_", "")}
-              </FieldRow>
-              <FieldRow label="Budget mode">{plan.budgetMode}</FieldRow>
-              <FieldRow label="Daily budget" mono>
-                {formatMoney(plan.budgetAmount, plan.targets[0]?.currency ?? "USD")}
-              </FieldRow>
-              <FieldRow label="Bid strategy">{BID_LABELS[plan.bidStrategy]}</FieldRow>
-              {plan.advantagePlus && <FieldRow label="Advantage+">On</FieldRow>}
-              {plan.abTest && <FieldRow label="A/B test">On</FieldRow>}
+              <EditSelect
+                label="Budget mode"
+                values={vals((n) => n.fields?.budgetMode ?? plan.budgetMode)}
+                options={[
+                  { value: "CBO", label: "CBO — Campaign Budget" },
+                  { value: "ABO", label: "ABO — Ad Set Budget" },
+                ]}
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ budgetMode: v as BudgetMode })}
+              />
+              <EditInput
+                label="Daily budget"
+                values={vals((n) => n.fields?.budgetAmount ?? plan.budgetAmount)}
+                type="number"
+                placeholder="0"
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ budgetAmount: Number(v) })}
+              />
+              <EditSelect
+                label="Bid strategy"
+                values={vals((n) => n.fields?.bidStrategy ?? plan.bidStrategy)}
+                options={Object.entries(BID_LABELS).map(([v, l]) => ({
+                  value: v,
+                  label: l,
+                }))}
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ bidStrategy: v as BidStrategy })}
+              />
+              <EditToggle
+                label="Advantage+"
+                values={vals((n) => n.fields?.advantagePlus ?? plan.advantagePlus)}
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ advantagePlus: v })}
+              />
+              <EditToggle
+                label="A/B test"
+                values={vals((n) => n.fields?.abTest ?? plan.abTest)}
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ abTest: v })}
+              />
             </CardContent>
           </Card>
         )}
@@ -115,23 +180,41 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
           <Card className="rounded-2xl">
             <CardContent className="p-4">
               <SectionHead icon={Layers} label="Ad set" />
-              <FieldRow label="Optimization">
-                {(plan.optimizationGoal ?? "—").replace(/_/g, " ").toLowerCase()}
-              </FieldRow>
-              <FieldRow label="Audience">{tpl ? tpl.name : "Default"}</FieldRow>
-              {tpl && <FieldRow label="Location">{tpl.settings.locations}</FieldRow>}
-              {tpl && (
-                <FieldRow label="Age">
-                  {tpl.settings.ageMin}–{tpl.settings.ageMax}
-                </FieldRow>
-              )}
-              <FieldRow label="Placements">
-                {plan.advantagePlus
-                  ? "Advantage+"
-                  : tpl?.settings.placements === "manual"
-                    ? "Manual"
-                    : "Automatic"}
-              </FieldRow>
+              <EditInput
+                label="Optimization goal"
+                values={vals((n) =>
+                  (n.fields?.optimizationGoal ?? plan.optimizationGoal ?? "")
+                    .toString()
+                    .replace(/_/g, " ")
+                    .toLowerCase(),
+                )}
+                placeholder="e.g. conversions"
+                count={N}
+                kind={kindLabel}
+                onChange={() => {}} // cascade-locked — demo only
+              />
+              <EditInput
+                label="Audience"
+                values={vals((n) => n.fields?.audienceName ?? "")}
+                placeholder="Audience name"
+                count={N}
+                kind={kindLabel}
+                onChange={() => {}} // demo audience names — no direct PlanV2 field
+              />
+              <EditSelect
+                label="Placements"
+                values={vals((n) =>
+                  n.fields?.placements ??
+                  (plan.advantagePlus ? "Automatic" : "Manual — Feed + Stories"),
+                )}
+                options={[
+                  { value: "Automatic", label: "Automatic placements" },
+                  { value: "Manual — Feed + Stories", label: "Manual — Feed + Stories" },
+                ]}
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ advantagePlus: v === "Automatic" })}
+              />
             </CardContent>
           </Card>
         )}
@@ -141,44 +224,46 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
           <Card className="rounded-2xl">
             <CardContent className="p-4">
               <SectionHead icon={ImageIcon} label="Ad copy" />
-              <CopyField
+              <EditInput
                 label="Primary text"
-                value={plan.adCopy.primaryText}
+                values={vals((n) => n.fields?.primaryText ?? plan.adCopy.primaryText)}
                 placeholder="Write a hook…"
                 multiline
-                onChange={(v) =>
-                  flow.patch({ adCopy: { ...plan.adCopy, primaryText: v } })
-                }
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, primaryText: v } })}
               />
-              <CopyField
+              <EditInput
                 label="Headline"
-                value={plan.adCopy.headline}
+                values={vals((n) => n.fields?.headline ?? plan.adCopy.headline)}
                 placeholder="Headline"
-                onChange={(v) =>
-                  flow.patch({ adCopy: { ...plan.adCopy, headline: v } })
-                }
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, headline: v } })}
               />
-              <CopyField
+              <EditInput
                 label="Description"
-                value={plan.adCopy.description}
+                values={vals((n) => n.fields?.description ?? plan.adCopy.description)}
                 placeholder="Description"
-                onChange={(v) =>
-                  flow.patch({ adCopy: { ...plan.adCopy, description: v } })
-                }
+                count={N}
+                kind={kindLabel}
+                onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, description: v } })}
               />
               <div className="grid grid-cols-2 gap-3">
-                <CopyField
+                <EditInput
                   label="CTA"
-                  value={plan.adCopy.cta}
-                  onChange={(v) =>
-                    flow.patch({ adCopy: { ...plan.adCopy, cta: v } })
-                  }
-                  display={ctaLabel(plan.adCopy.cta)}
+                  values={vals((n) => n.fields?.cta ?? plan.adCopy.cta)}
+                  placeholder="CTA"
+                  count={N}
+                  kind={kindLabel}
+                  onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, cta: v } })}
                 />
-                <CopyField
+                <EditInput
                   label="Destination URL"
-                  value={plan.adCopy.destinationUrl}
+                  values={vals((n) => n.fields?.destinationUrl ?? plan.adCopy.destinationUrl)}
                   placeholder="https://…"
+                  count={N}
+                  kind={kindLabel}
                   onChange={(v) =>
                     flow.patch({ adCopy: { ...plan.adCopy, destinationUrl: v } })
                   }
@@ -201,41 +286,166 @@ function SectionHead({ icon: Icon, label }: { icon: typeof Layers; label: string
   );
 }
 
-function CopyField({
+/* ------------------------------------------------------------------ */
+/*  Edit pane sub-components                                           */
+/* ------------------------------------------------------------------ */
+
+/** Amber override warning shown below a Mixed field. */
+function MixedWarning({ count, kind }: { count: number; kind: string }) {
+  return (
+    <p className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+      Saving will override all {count} {kind}s.
+    </p>
+  );
+}
+
+/** Editable text / number input with mixed-state detection. */
+function EditInput({
   label,
-  value,
-  placeholder,
+  values,
+  type = "text",
   multiline,
-  display,
+  placeholder,
+  count,
+  kind,
   onChange,
 }: {
   label: string;
-  value: string;
-  placeholder?: string;
+  values: string[];
+  type?: "text" | "number";
   multiline?: boolean;
-  display?: string;
+  placeholder?: string;
+  count: number;
+  kind: string;
   onChange: (v: string) => void;
 }) {
+  const unique = [...new Set(values.filter((v) => v !== "" && v !== "undefined" && v !== "null"))];
+  const isMixed = unique.length > 1;
+  const current = isMixed ? "" : (unique[0] ?? "");
+  const cls = cn(
+    "w-full rounded-lg border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40",
+    isMixed
+      ? "border-amber-400 dark:border-amber-600 placeholder:text-amber-500 dark:placeholder:text-amber-400"
+      : "border-border",
+  );
   return (
     <label className="block py-1.5">
       <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
       {multiline ? (
         <textarea
-          value={value}
-          placeholder={placeholder}
+          value={current}
+          placeholder={isMixed ? "Mixed" : placeholder}
           onChange={(e) => onChange(e.target.value)}
           rows={3}
-          className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40"
+          className={cn(cls, "resize-none")}
         />
       ) : (
         <input
-          value={display ?? value}
-          placeholder={placeholder}
+          type={type}
+          value={current}
+          placeholder={isMixed ? "Mixed" : placeholder}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40"
+          className={cls}
         />
       )}
+      {isMixed && count > 1 && <MixedWarning count={count} kind={kind} />}
     </label>
+  );
+}
+
+/** Editable select dropdown with mixed-state detection. */
+function EditSelect({
+  label,
+  values,
+  options,
+  count,
+  kind,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  options: { value: string; label: string }[];
+  count: number;
+  kind: string;
+  onChange: (v: string) => void;
+}) {
+  const unique = [...new Set(values.filter((v) => v !== "" && v !== "undefined" && v !== "null"))];
+  const isMixed = unique.length > 1;
+  const current = isMixed ? "" : (unique[0] ?? "");
+  return (
+    <label className="block py-1.5">
+      <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
+      <select
+        value={current}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "w-full rounded-lg border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40",
+          isMixed
+            ? "border-amber-400 dark:border-amber-600 text-amber-500 dark:text-amber-400"
+            : "border-border",
+        )}
+      >
+        {isMixed && <option value="">Mixed</option>}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {isMixed && count > 1 && <MixedWarning count={count} kind={kind} />}
+    </label>
+  );
+}
+
+/** Toggle switch with mixed-state badge. */
+function EditToggle({
+  label,
+  values,
+  count,
+  kind,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  count: number;
+  kind: string;
+  onChange: (v: boolean) => void;
+}) {
+  const unique = [...new Set(values.filter((v) => v !== "" && v !== "undefined" && v !== "null"))];
+  const isMixed = unique.length > 1;
+  const current = !isMixed && unique[0] === "true";
+  return (
+    <div className="py-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+        <div className="flex items-center gap-2">
+          {isMixed && (
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              Mixed
+            </span>
+          )}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={current}
+            onClick={() => onChange(!current)}
+            className={cn(
+              "relative flex h-5 w-9 items-center rounded-full border transition-colors",
+              current ? "border-primary bg-primary" : "border-border bg-muted",
+              isMixed && "border-amber-400 dark:border-amber-600",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute h-3.5 w-3.5 rounded-full bg-white shadow transition-transform",
+                current ? "translate-x-[18px]" : "translate-x-0.5",
+              )}
+            />
+          </button>
+        </div>
+      </div>
+      {isMixed && count > 1 && <MixedWarning count={count} kind={kind} />}
+    </div>
   );
 }
 
