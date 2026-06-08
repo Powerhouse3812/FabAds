@@ -4,6 +4,7 @@
  * Chrome: running-context chips + step progress + footer (Back/Next/Launch).
  * Step bodies are filled by build agents; this owns the shell + flow control.
  */
+import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,8 @@ import Step4Review from "./steps/Step4Review";
 
 const STEP_TITLES: Record<StepV2, string> = {
   1: "Start",
-  2: "Creative",
-  3: "Setup",
+  2: "Setup",
+  3: "Ad",
   4: "Distribution",
   5: "Review & Launch",
 };
@@ -36,10 +37,11 @@ export default function LaunchV2Flow() {
   const service = useLaunchV2();
   const navigate = useNavigate();
   const { plan, step } = flow;
+  const [saveAsStrategy, setSaveAsStrategy] = useState(false);
 
   const valid = stepValid(plan, step);
   const allValid = ([1, 2, 3, 4, 5] as StepV2[]).every((s) => stepValid(plan, s));
-  const twoPane = step === 5;
+  const twoPane = step === 4 || step === 5;
 
   const handleLaunch = () => {
     if (!allValid) return;
@@ -59,8 +61,8 @@ export default function LaunchV2Flow() {
       <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
         <div className={cn(twoPane ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
           {step === 1 && <Step1Start flow={flow} />}
-          {step === 2 && <Step3Spread flow={flow} />}
-          {step === 3 && <Step2Setup flow={flow} />}
+          {step === 2 && <Step2Setup flow={flow} />}
+          {step === 3 && <Step3Spread flow={flow} />}
           {step === 4 && <Step4Distribution flow={flow} />}
           {step === 5 && <Step4Review flow={flow} />}
         </div>
@@ -73,9 +75,20 @@ export default function LaunchV2Flow() {
         {step < 5 ? (
           <Button onClick={flow.next} disabled={!valid}>Next</Button>
         ) : (
-          <Button onClick={handleLaunch} disabled={!allValid}>
-            Launch {estimateAds(plan)} ads
-          </Button>
+          <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none">
+              <input
+                type="checkbox"
+                checked={saveAsStrategy}
+                onChange={(e) => setSaveAsStrategy(e.target.checked)}
+                className="h-3.5 w-3.5 rounded accent-primary"
+              />
+              Save as strategy
+            </label>
+            <Button onClick={handleLaunch} disabled={!allValid}>
+              Launch {estimateAds(plan)} ads
+            </Button>
+          </div>
         )}
       </div>
     </div>

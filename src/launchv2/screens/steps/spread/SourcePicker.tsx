@@ -8,7 +8,7 @@
  * cursor-not-allowed) but still callable — the Sheet will show a stub view.
  */
 import { useState } from "react";
-import { BarChart3, HardDrive, Library, Link2, Sparkles, Upload } from "lucide-react";
+import { BarChart3, FolderOpen, HardDrive, Hash, Library, Link2, Sparkles, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SOURCES } from "../../../data";
@@ -22,6 +22,8 @@ const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
   genie: Sparkles,
   drive: HardDrive,
   reports: BarChart3,
+  post_id: Hash,
+  folder: FolderOpen,
 };
 
 /** Tiles that are available as stubs only — they still open the sheet. */

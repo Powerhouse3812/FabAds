@@ -5,7 +5,7 @@
  * gates downstream. Autosaves to sessionStorage.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AdFormat, Intent, Objective, PlanV2, TargetPair } from "../types";
+import type { AdFormat, Intent, MediaScope, Objective, PlanV2, TargetPair } from "../types";
 import {
   cascade,
   defaultBudgetMode,
@@ -44,6 +44,10 @@ export function newPlanV2(): PlanV2 {
     advantageCreative: true,
     specialAdCategories: [],
     attribution: "7d_click_1d_view",
+    strategyId: null,
+    catalogueToggle: false,
+    abTest: false,
+    mediaScope: "individual_media" as MediaScope,
     creatives: [
       {
         id: "pre_cr_001",
@@ -101,6 +105,8 @@ export interface UseFlowV2 {
   patch: (p: Partial<PlanV2>) => void;
   /** Intent → prefill structure/budget/spread/bid/advantage+ (the smart reduction). */
   chooseIntent: (i: Intent) => void;
+  /** Strategy preset/saved → prefill all budget+structure+spread+advantage fields. */
+  chooseStrategy: (id: string | null) => void;
   /** Objective+format → set destination + optimization defaults + gate. */
   chooseObjectiveFormat: (o: Objective, f: AdFormat | null) => void;
   setTargets: (t: TargetPair[]) => void;
@@ -155,6 +161,32 @@ export function useFlowV2(draftId?: string): UseFlowV2 {
     });
   }, []);
 
+  const chooseStrategy = useCallback((id: string | null) => {
+    setPlan((prev) => {
+      if (!id) return { ...prev, strategyId: null, intent: "custom" as Intent };
+      const intentMap: Record<string, Intent> = {
+        preset_test: "test",
+        preset_scale: "scale",
+      };
+      const mappedIntent = intentMap[id] as Intent | undefined;
+      if (mappedIntent) {
+        const d = intentDefaults(mappedIntent, prev.objective);
+        return {
+          ...prev,
+          strategyId: id,
+          intent: mappedIntent,
+          budgetMode: d.budgetMode,
+          spread: d.spread,
+          bidStrategy: d.bidStrategy,
+          structure: { ...d.structure },
+          advantagePlus: d.advantagePlus,
+          budgetAmount: d.budgetAmount,
+        };
+      }
+      return { ...prev, strategyId: id };
+    });
+  }, []);
+
   const chooseObjectiveFormat = useCallback((o: Objective, f: AdFormat | null) => {
     setPlan((prev) => {
       const tpl = prev.targetingTemplateId
@@ -186,5 +218,5 @@ export function useFlowV2(draftId?: string): UseFlowV2 {
     setStepState(1);
   }, []);
 
-  return { plan, step, setStep, next, back, patch, chooseIntent, chooseObjectiveFormat, setTargets, reset };
+  return { plan, step, setStep, next, back, patch, chooseIntent, chooseStrategy, chooseObjectiveFormat, setTargets, reset };
 }

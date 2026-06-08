@@ -278,11 +278,19 @@ export function softWarnings(plan: PlanV2, adSetCount: number): SoftWarning[] {
   return w;
 }
 
-/** Cumulative validation — checks every step UP TO and INCLUDING throughStep is satisfied. */
+/**
+ * Cumulative validation — checks every step UP TO and INCLUDING throughStep.
+ * Step order (new 5-step flow):
+ *   1 Start     — objective required
+ *   2 Setup     — at least 1 destination + positive budget
+ *   3 Ad        — format selected + at least 1 creative
+ *   4 Distribution — cap check (fix buttons shown inline)
+ *   5 Review    — same cap check (must be resolved before launch)
+ */
 export function planReady(plan: PlanV2, throughStep: 1 | 2 | 3 | 4 | 5): boolean {
   if (throughStep >= 1 && !plan.objective) return false;
-  if (throughStep >= 2 && (!plan.format || plan.creatives.length === 0)) return false;
-  if (throughStep >= 3 && (plan.targets.length === 0 || plan.budgetAmount <= 0)) return false;
+  if (throughStep >= 2 && (plan.targets.length === 0 || plan.budgetAmount <= 0)) return false;
+  if (throughStep >= 3 && (!plan.format || plan.creatives.length === 0)) return false;
   if (throughStep >= 4 && !capCheck(plan).ok) return false;
   if (throughStep >= 5 && !capCheck(plan).ok) return false;
   return true;

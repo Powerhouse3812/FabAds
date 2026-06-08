@@ -229,6 +229,7 @@ function recommendedDistribution(plan: PlanV2): PageDistribution | null {
 }
 
 const DIST_LABEL: Record<PageDistribution, string> = {
+  one_page: "One page",
   fill_first: "Fill-first",
   equal: "Equal split",
   duplicate: "Duplicate to all",

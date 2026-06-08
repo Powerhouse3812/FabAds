@@ -3,7 +3,7 @@
  * Format = standalone section (no card). Media + Copy = "Ad creative" card.
  * When all creatives are whole ads, show WholeAdGrid instead of media row + AdContent.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,9 +11,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { allowedFormats, defaultDestination } from "../../reducer";
-import { FORMATS } from "../../data";
+import { FORMATS, SOURCES } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import type { AdFormat, AdCopy, CreativeRef } from "../../types";
+import type { AdFormat, AdCopy, CreativeRef, SourceType } from "../../types";
 import AdContent from "./spread/AdContent";
 import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
@@ -49,19 +49,29 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // Pre-select Catalogue format when catalogueToggle is on from Step 2
+  useEffect(() => {
+    if (plan.catalogueToggle && !plan.format && plan.objective) {
+      flow.chooseObjectiveFormat(plan.objective, "dpa");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.catalogueToggle]);
+
   // Format chips (standalone section above Ad creative card)
   const allowedFmts: AdFormat[] = plan.objective
     ? allowedFormats(plan.objective, defaultDestination(plan.objective), null)
     : [];
   const formatSet = new Set(allowedFmts);
 
-  // creativeMode: "ads" = whole saved ads (via Genie), "media" = individual media assets
+  // creativeMode: synced with plan.mediaScope
   const [creativeMode, setCreativeMode] = useState<"ads" | "media">(() => {
+    if (plan.mediaScope === "whole_ads") return "ads";
     if (plan.creatives.some(c => c.itemType === "ad" || c.savedAd)) return "ads";
-    if (plan.creatives.some(c => c.itemType === "media")) return "media";
-    return "ads"; // default: whole ads
+    return "media";
   });
   const [pendingMode, setPendingMode] = useState<"ads" | "media" | null>(null);
+
+  const activeSourceId = plan.source.type;
 
   const handleSheetSave = (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => {
     const updates: Partial<typeof plan> = { creatives: items };
@@ -82,9 +92,14 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
       {/* ── Format — standalone section, no card wrapper ─── */}
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">
-          Format
+          Ad type
           {!plan.objective && (
             <span className="ml-1 text-muted-foreground/60">— pick an objective first</span>
+          )}
+          {plan.catalogueToggle && (
+            <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+              pre-selected from Setup
+            </span>
           )}
         </Label>
         <div className="flex flex-wrap gap-1.5">
@@ -117,7 +132,39 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
             );
           })}
         </div>
+      </div>
 
+      {/* ── Source — 8 chips ─────────────────────────────── */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Source</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {SOURCES.map((s) => {
+            const active = activeSourceId === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  flow.patch({ source: { type: s.id as SourceType, ref: null } });
+                  setSheetOpen(true);
+                }}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Creative type toggle ─────────────────────────── */}
+      <div className="space-y-2">
         {/* Creative type toggle */}
         <div className="flex items-center gap-1.5">
           {(["ads", "media"] as const).map((mode) => (

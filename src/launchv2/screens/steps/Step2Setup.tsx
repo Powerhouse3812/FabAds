@@ -48,6 +48,9 @@ import {
   isAdvantagePlus,
   specialCategoryActive,
   requiresPixel,
+  cascade,
+  showsLocationPicker,
+  DESTINATIONS_BY_OBJECTIVE,
 } from "../../reducer";
 import {
   BID_LABELS,
@@ -55,7 +58,7 @@ import {
   TARGETING_TEMPLATES,
   getTemplate,
 } from "../../data";
-import type { AttributionWindow, BidStrategy, SpecialAdCategory } from "../../types";
+import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal, SpecialAdCategory } from "../../types";
 import { AccountsPages } from "./setup/AccountsPages";
 import { TemplateModal } from "./setup/TemplateModal";
 
@@ -176,8 +179,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           <AccountsPages plan={plan} targets={plan.targets} onChange={flow.setTargets} />
         </SectionCard>
 
-        {/* ── 2 · Budget & bidding ──────────────────────────────── */}
-        <SectionCard n={2} title="Budget & bidding">
+        {/* ── 2 · Campaign ──────────────────────────────────────── */}
+        <SectionCard n={2} title="Campaign">
           <div className="flex flex-wrap items-end gap-4">
             {/* budget amount — surfaced */}
             <div className="space-y-1.5">
@@ -231,9 +234,32 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </p>
           )}
 
-          {/* Advanced: bid strategy + attribution */}
-          <AdvancedReveal label="Advanced — bid strategy, attribution">
-            {/* bid strategy — gated by allowedBidStrategies */}
+          {/* A/B Test toggle */}
+          <Toggle
+            checked={plan.abTest}
+            onCheckedChange={(v) => patch({ abTest: v })}
+            label="A/B Test"
+            desc="Meta runs the test on their side — no extra inputs required."
+          />
+
+          {/* Advantage+ Catalogue toggle */}
+          <Toggle
+            checked={plan.catalogueToggle}
+            onCheckedChange={(v) => {
+              patch({ catalogueToggle: v });
+              // Pre-select Catalogue format in Step 3 when toggled on
+              if (v && plan.objective) {
+                patch({ catalogueToggle: v, format: "dpa" });
+              } else if (!v && plan.format === "dpa") {
+                patch({ catalogueToggle: v, format: null });
+              }
+            }}
+            label="Advantage+ Catalogue"
+            desc="Pre-selects Catalogue (DPA) in the Ad step."
+          />
+
+          {/* Advanced: bid strategy only */}
+          <AdvancedReveal label="Advanced — bid strategy">
             {policy.bidStrategy.visibility !== "hidden" && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Bid strategy</Label>
@@ -269,44 +295,110 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                 )}
               </div>
             )}
+          </AdvancedReveal>
+        </SectionCard>
 
-            {/* attribution (light placeholder — kept under advanced) */}
+        {/* ── 3 · Ad set ────────────────────────────────────────── */}
+        <SectionCard n={3} title="Ad set">
+          {/* Conversion location — only shown when objective supports it */}
+          {plan.objective && showsLocationPicker(plan.objective) && (
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                Attribution setting
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3" />
-                  </TooltipTrigger>
-                  <TooltipContent>Conversion window used to credit results.</TooltipContent>
-                </Tooltip>
-              </Label>
+              <Label className="text-xs text-muted-foreground">Conversion location</Label>
               <Select
-                value={plan.attribution}
-                onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
+                value={plan.destinationType ?? undefined}
+                onValueChange={(v) => patch({ destinationType: v as DestinationType })}
               >
                 <SelectTrigger className="h-9 w-full max-w-xs">
-                  <SelectValue />
+                  <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1d_click">1-day click</SelectItem>
-                  <SelectItem value="7d_click">7-day click</SelectItem>
-                  <SelectItem value="7d_click_1d_view">7-day click + 1-day view</SelectItem>
+                  {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-          </AdvancedReveal>
-
-          {needsPixel && (
-            <p className="flex items-center gap-1.5 text-[11px] text-amber-600">
-              <Info className="h-3 w-3" /> This optimization needs a pixel + conversion event — set it on the
-              ad set.
-            </p>
           )}
+
+          {/* Performance goal */}
+          {plan.objective && plan.destinationType && (() => {
+            const c = cascade(plan.objective, plan.destinationType);
+            return (
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  Performance goal
+                  {c.lockedGoal && <Lock className="h-3 w-3" />}
+                </Label>
+                {c.lockedGoal ? (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                    <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
+                  </p>
+                ) : (
+                  <Select
+                    value={plan.optimizationGoal ?? undefined}
+                    onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
+                  >
+                    <SelectTrigger className="h-9 w-full max-w-xs">
+                      <SelectValue placeholder="Select goal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {c.optimizationGoals.map((g) => (
+                        <SelectItem key={g} value={g}>
+                          {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Pixel — shown when required */}
+          {needsPixel && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Info className="h-3 w-3 text-amber-500" />
+                Pixel / Dataset required for this goal
+              </Label>
+              <p className="text-[11px] text-amber-600">
+                Select accounts that have a pixel connected — or switch to a different optimization goal.
+              </p>
+            </div>
+          )}
+
+          {/* Attribution */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+              Attribution window
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3" />
+                </TooltipTrigger>
+                <TooltipContent>Conversion window used to credit results. 28-day view removed Jan 2026.</TooltipContent>
+              </Tooltip>
+            </Label>
+            <Select
+              value={plan.attribution}
+              onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
+            >
+              <SelectTrigger className="h-9 w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1d_click">1-day click</SelectItem>
+                <SelectItem value="7d_click">7-day click</SelectItem>
+                <SelectItem value="7d_click_1d_view">7-day click + 1-day engage-through + 1-day view (default)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </SectionCard>
 
-        {/* ── 3 · Audience ──────────────────────────────────────── */}
-        <SectionCard n={3} title="Audience" hint="targeting template">
+        {/* ── 4 · Audience ──────────────────────────────────────── */}
+        <SectionCard n={4} title="Audience" hint="targeting template">
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1 space-y-1.5">
               <Label className="text-xs text-muted-foreground">Targeting template</Label>
@@ -323,6 +415,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                       {t.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value="custom">Custom (advanced settings)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -364,6 +457,36 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               desc="Auto creative enhancements per placement."
             />
           </div>
+
+          {/* Placements */}
+          <AdvancedReveal label="Placements">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Placement type</Label>
+              <div className="flex flex-wrap gap-2">
+                {(["advantage", "manual"] as const).map((mode) => {
+                  const on = asc ? mode === "advantage" : (mode === "advantage");
+                  const isAdv = mode === "advantage";
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={asc}
+                      onClick={() => {/* placements stored in targetingTemplate settings */}}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                        isAdv
+                          ? "border-primary bg-primary/5 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:bg-accent",
+                      )}
+                    >
+                      {mode === "advantage" ? "Advantage+ (automatic)" : "Manual"}
+                    </button>
+                  );
+                })}
+              </div>
+              {asc && <p className="text-[11px] text-muted-foreground">Locked to Advantage+ when ASC is active.</p>}
+            </div>
+          </AdvancedReveal>
 
           <Separator />
 

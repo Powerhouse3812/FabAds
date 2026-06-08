@@ -22,6 +22,8 @@
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  FolderOpen,
+  Hash,
   HardDrive,
   ImageIcon,
   Library,
@@ -71,10 +73,12 @@ const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
   genie: Sparkles,
   drive: HardDrive,
   reports: BarChart3,
+  post_id: Hash,
+  folder: FolderOpen,
 };
 
 /** Sources that are stubs (no modal content yet) */
-const STUB_SOURCES = new Set<SourceType>(["url", "drive", "reports"]);
+const STUB_SOURCES = new Set<SourceType>(["url", "drive", "reports", "post_id", "folder"]);
 
 /* ─────────────────────────────────────────────────────────────────
    StubPanel — for sources that aren't built yet (url / drive / reports)
@@ -97,6 +101,8 @@ function StubPanel({
     library: "Library browser coming soon.",
     upload: "Upload assets directly — coming soon.",
     genie: "Genie outputs coming soon.",
+    post_id: "Paste a Post ID to import an existing Facebook post as a creative.",
+    folder: "Browse and import from a saved creative folder.",
   };
 
   return (

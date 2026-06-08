@@ -33,7 +33,7 @@ export type AdFormat =
   | "flexible"
   | "dpa";
 
-export type SourceType = "url" | "library" | "upload" | "genie" | "drive" | "reports";
+export type SourceType = "url" | "library" | "upload" | "genie" | "drive" | "reports" | "post_id" | "folder";
 
 /* ---- Meta cascade enums (from the matrix) ---- */
 
@@ -122,8 +122,25 @@ export interface AdCopy {
   textVariations?: string[];
 }
 
+/* ---- Step 3: media scope ---- */
+export type MediaScope = "whole_ads" | "individual_media";
+
 /* ---- Step 4: page distribution (ad→page axis) ---- */
-export type PageDistribution = "fill_first" | "equal" | "duplicate";
+export type PageDistribution = "one_page" | "fill_first" | "equal" | "duplicate";
+
+/* ---- Strategy entity (bundles campaign defaults + targeting prefill) ---- */
+export interface Strategy {
+  id: string;
+  name: string;
+  type: "preset" | "saved";
+  budgetMode: BudgetMode;
+  budgetAmount: number;
+  bidStrategy: BidStrategy;
+  structure: { campaigns: number; adSetsPerCampaign: number; adsPerAdSet: number };
+  spread: SpreadMode;
+  advantagePlus: boolean;
+  targetingTemplateId?: string | null;
+}
 
 export const MAX_ADS_PER_PAGE = 250;
 
@@ -168,6 +185,14 @@ export interface PlanV2 {
   advantageCreative: boolean;
   specialAdCategories: SpecialAdCategory[];
   attribution: AttributionWindow;
+  /** Which strategy preset/saved is active (null = custom, no preset). */
+  strategyId: string | null;
+  /** Catalogue Ads toggle — if true, Step 3 pre-selects the Catalogue format. */
+  catalogueToggle: boolean;
+  /** Campaign-level A/B test signal (Meta handles the split). */
+  abTest: boolean;
+  /** Whole ads (pre-built) vs individual media assets. */
+  mediaScope: MediaScope;
 
   // Step 3 — Creative spread
   creatives: CreativeRef[];

@@ -15,6 +15,7 @@ import type {
   SourceType,
   SpecialAdCategory,
   SpreadMode,
+  Strategy,
   TargetPair,
 } from "./types";
 
@@ -35,7 +36,7 @@ export const OBJECTIVES: { id: Objective; label: string; desc: string }[] = [
 ];
 
 export const FORMATS: { id: AdFormat; label: string }[] = [
-  { id: "single_image", label: "Single image" },
+  { id: "single_image", label: "Static" },
   { id: "single_video", label: "Video" },
   { id: "carousel", label: "Carousel" },
   { id: "collection", label: "Collection" },
@@ -44,12 +45,14 @@ export const FORMATS: { id: AdFormat; label: string }[] = [
 ];
 
 export const SOURCES: { id: SourceType; label: string }[] = [
-  { id: "url", label: "URL" },
   { id: "library", label: "Library" },
-  { id: "upload", label: "Upload" },
   { id: "genie", label: "Genie" },
+  { id: "reports", label: "Report" },
+  { id: "post_id", label: "Post ID" },
+  { id: "folder", label: "Folder" },
+  { id: "upload", label: "Upload" },
+  { id: "url", label: "URL" },
   { id: "drive", label: "Google Drive" },
-  { id: "reports", label: "Reports" },
 ];
 
 /** UI label for each canonical bid-strategy enum (2026 names). */
@@ -130,6 +133,38 @@ export const TARGETING_TEMPLATES: TargetingTemplateV2[] = [
 
 export function getTemplate(id: string | null): TargetingTemplateV2 | undefined {
   return id ? TARGETING_TEMPLATES.find((t) => t.id === id) : undefined;
+}
+
+/* ---- Strategy presets ---- */
+export const STRATEGIES: Strategy[] = [
+  {
+    id: "preset_test",
+    name: "Test",
+    type: "preset",
+    budgetMode: "ABO",
+    budgetAmount: 10,
+    bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+    structure: { campaigns: 1, adSetsPerCampaign: 5, adsPerAdSet: 1 },
+    spread: "one_per_adset",
+    advantagePlus: false,
+    targetingTemplateId: null,
+  },
+  {
+    id: "preset_scale",
+    name: "Scale",
+    type: "preset",
+    budgetMode: "CBO",
+    budgetAmount: 100,
+    bidStrategy: "COST_CAP",
+    structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 6 },
+    spread: "stacked",
+    advantagePlus: true,
+    targetingTemplateId: null,
+  },
+];
+
+export function getStrategy(id: string | null): Strategy | undefined {
+  return id ? STRATEGIES.find((s) => s.id === id) : undefined;
 }
 
 /* ---- Reuse launch2 accounts/pages/creatives ---- */
