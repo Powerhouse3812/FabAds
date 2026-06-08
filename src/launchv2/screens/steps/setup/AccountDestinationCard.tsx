@@ -221,16 +221,16 @@ export function AccountDestinationCard({
                 </p>
               ) : (
                 <Select
-                  value={pixelId ?? ""}
+                  value={pixelId ?? "__none__"}
                   onValueChange={(v) =>
-                    onSetPixel(v === "" ? undefined : v)
+                    onSetPixel(v === "__none__" ? undefined : v)
                   }
                 >
                   <SelectTrigger className="h-9 w-full max-w-xs">
                     <SelectValue placeholder="Select a pixel" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No pixel</SelectItem>
+                    <SelectItem value="__none__">No pixel</SelectItem>
                     {account.pixels.map((px) => (
                       <SelectItem key={px.id} value={px.id}>
                         <span className="flex items-center gap-1.5">
