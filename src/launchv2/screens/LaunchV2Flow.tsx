@@ -14,13 +14,15 @@ import type { PlanV2 } from "../types";
 import Step1Start from "./steps/Step1Start";
 import Step2Setup from "./steps/Step2Setup";
 import Step3Spread from "./steps/Step3Spread";
+import Step4Distribution from "./steps/Step4Distribution";
 import Step4Review from "./steps/Step4Review";
 
 const STEP_TITLES: Record<StepV2, string> = {
   1: "Start",
-  2: "Setup",
-  3: "Creative",
-  4: "Review & Launch",
+  2: "Creative",
+  3: "Setup",
+  4: "Distribution",
+  5: "Review & Launch",
 };
 
 function stepValid(plan: PlanV2, step: StepV2): boolean {
@@ -28,10 +30,12 @@ function stepValid(plan: PlanV2, step: StepV2): boolean {
     case 1:
       return !!plan.objective;
     case 2:
-      return plan.targets.length > 0 && plan.budgetAmount > 0;
+      return !!plan.format && plan.creatives.length > 0;
     case 3:
-      return !!plan.format;
+      return plan.targets.length > 0 && plan.budgetAmount > 0;
     case 4:
+      return capCheck(plan).ok;
+    case 5:
       return capCheck(plan).ok;
   }
 }
@@ -44,8 +48,8 @@ export default function LaunchV2Flow() {
   const { plan, step } = flow;
 
   const valid = stepValid(plan, step);
-  const allValid = ([1, 2, 3, 4] as StepV2[]).every((s) => stepValid(plan, s));
-  const twoPane = step === 4;
+  const allValid = ([1, 2, 3, 4, 5] as StepV2[]).every((s) => stepValid(plan, s));
+  const twoPane = step === 5;
 
   const handleLaunch = () => {
     if (!allValid) return;
@@ -65,9 +69,10 @@ export default function LaunchV2Flow() {
       <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
         <div className={cn(twoPane ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
           {step === 1 && <Step1Start flow={flow} />}
-          {step === 2 && <Step2Setup flow={flow} />}
-          {step === 3 && <Step3Spread flow={flow} />}
-          {step === 4 && <Step4Review flow={flow} />}
+          {step === 2 && <Step3Spread flow={flow} />}
+          {step === 3 && <Step2Setup flow={flow} />}
+          {step === 4 && <Step4Distribution flow={flow} />}
+          {step === 5 && <Step4Review flow={flow} />}
         </div>
       </div>
 
@@ -75,7 +80,7 @@ export default function LaunchV2Flow() {
       <div className="flex flex-shrink-0 items-center justify-between border-t border-border bg-background px-5 py-3">
         <Button variant="ghost" onClick={flow.back} disabled={step === 1}>Back</Button>
         <span className="text-xs text-muted-foreground">Autosaved</span>
-        {step < 4 ? (
+        {step < 5 ? (
           <Button onClick={flow.next} disabled={!valid}>Next</Button>
         ) : (
           <Button onClick={handleLaunch} disabled={!allValid}>
@@ -110,7 +115,7 @@ function ContextChips({ flow }: { flow: UseFlowV2 }) {
 function Progress({ step, onJump }: { step: StepV2; onJump: (s: StepV2) => void }) {
   return (
     <div className="flex items-center gap-2">
-      {([1, 2, 3, 4] as StepV2[]).map((s) => {
+      {([1, 2, 3, 4, 5] as StepV2[]).map((s) => {
         const done = step > s;
         const active = step === s;
         return (
@@ -129,7 +134,7 @@ function Progress({ step, onJump }: { step: StepV2; onJump: (s: StepV2) => void 
               {s}
             </span>
             <span className={cn("text-xs", active ? "font-medium text-foreground" : "text-muted-foreground")}>{STEP_TITLES[s]}</span>
-            {s < 4 && <span className={cn("h-px flex-1", done ? "bg-primary/40" : "bg-border")} />}
+            {s < 5 && <span className={cn("h-px flex-1", done ? "bg-primary/40" : "bg-border")} />}
           </button>
         );
       })}

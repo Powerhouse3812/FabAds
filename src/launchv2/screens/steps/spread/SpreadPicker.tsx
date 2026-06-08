@@ -2,6 +2,7 @@
  * SpreadPicker — compact pill row of spread modes.
  * Selected mode's description shows below. DCO toggle inline for stacked.
  */
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { SPREAD_LABELS } from "../../../data";
@@ -13,7 +14,9 @@ export default function SpreadPicker({ flow }: { flow: UseFlowV2 }) {
   const selected = SPREAD_META[plan.spread];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
+      <Label className="text-xs text-muted-foreground">Creative spread (how creatives map to ad sets)</Label>
+
       {/* Pill row */}
       <div className="flex flex-wrap gap-1.5">
         {SPREAD_ORDER.map((mode) => {

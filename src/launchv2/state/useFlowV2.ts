@@ -14,7 +14,7 @@ import {
 } from "../reducer";
 import { TARGETING_TEMPLATES } from "../data";
 
-export type StepV2 = 1 | 2 | 3 | 4;
+export type StepV2 = 1 | 2 | 3 | 4 | 5;
 const SS_KEY = (id: string) => `launchv2:flow:${id}`;
 
 function genId(): string {
@@ -173,7 +173,7 @@ export function useFlowV2(draftId?: string): UseFlowV2 {
 
   const setTargets = useCallback((t: TargetPair[]) => patch({ targets: t }), [patch]);
   const setStep = useCallback((s: StepV2) => setStepState(s), []);
-  const next = useCallback(() => setStepState((s) => Math.min(4, s + 1) as StepV2), []);
+  const next = useCallback(() => setStepState((s) => Math.min(5, s + 1) as StepV2), []);
   const back = useCallback(() => setStepState((s) => Math.max(1, s - 1) as StepV2), []);
   const reset = useCallback(() => {
     setPlan(newPlanV2());
