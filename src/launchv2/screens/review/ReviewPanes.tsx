@@ -33,6 +33,7 @@ import { perPageDemand } from "../../deriveV2";
 import { formatMoney } from "@/launch2/utils/time";
 import {
   buildReviewTree,
+  nodeKindFromId,
   reviewSummary,
   type ReviewIssue,
   type IssueFixKind,
@@ -49,97 +50,143 @@ import {
 } from "./reviewParts";
 
 /* ------------------------------------------------------------------ */
-/*  EDIT pane                                                          */
+/*  EDIT pane — context-aware per selected node kind                   */
 /* ------------------------------------------------------------------ */
 export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<string> }) {
   const { plan } = flow;
   const multi = selected.size > 1;
   const tpl = getTemplate(plan.targetingTemplateId);
-  const sel = [...selected][0];
-  const kind = nodeKindFromId(sel);
+  const firstId = [...selected][0];
+  const kind = nodeKindFromId(firstId);
 
   return (
     <ScrollArea className="h-full">
       <div className="space-y-3 p-4">
+
+        {/* Bulk-edit banner — only when multiple same-kind nodes selected */}
         {multi && (
           <div className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-xs text-foreground">
             <Layers className="h-4 w-4 text-primary" />
-            Bulk edit · {selected.size} nodes selected — changes apply to all matching levels.
+            {selected.size} {kind ?? "nodes"} selected — edits apply to all.
           </div>
         )}
+
+        {/* Safety fallback (tab should be disabled when empty — this is a net) */}
         {!selected.size && (
-          <p className="text-xs text-muted-foreground">
-            Select a node in the tree to edit its fields. Showing campaign-level defaults.
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Select a node in the tree to edit its fields.
           </p>
         )}
 
-        {/* Campaign card */}
-        {(kind === "campaign" || kind === "account" || !selected.size) && (
+        {/* ── Account ─────────────────────────────────────────────── */}
+        {kind === "account" && (
+          <Card className="rounded-2xl">
+            <CardContent className="p-4">
+              <SectionHead icon={Building2} label="Account" />
+              <FieldRow label="Destinations">{plan.targets.length}</FieldRow>
+              <FieldRow label="Pages">
+                {plan.targets.map((t) => t.pageName).join(", ")}
+              </FieldRow>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Campaign ────────────────────────────────────────────── */}
+        {kind === "campaign" && (
           <Card className="rounded-2xl">
             <CardContent className="p-4">
               <SectionHead icon={Megaphone} label="Campaign" />
-              <FieldRow label="Objective">{(plan.objective ?? "").replace("OUTCOME_", "")}</FieldRow>
+              <FieldRow label="Objective">
+                {(plan.objective ?? "").replace("OUTCOME_", "")}
+              </FieldRow>
               <FieldRow label="Budget mode">{plan.budgetMode}</FieldRow>
-              <FieldRow label="Daily budget" mono>{formatMoney(plan.budgetAmount, plan.targets[0]?.currency ?? "USD")}</FieldRow>
+              <FieldRow label="Daily budget" mono>
+                {formatMoney(plan.budgetAmount, plan.targets[0]?.currency ?? "USD")}
+              </FieldRow>
               <FieldRow label="Bid strategy">{BID_LABELS[plan.bidStrategy]}</FieldRow>
               {plan.advantagePlus && <FieldRow label="Advantage+">On</FieldRow>}
+              {plan.abTest && <FieldRow label="A/B test">On</FieldRow>}
             </CardContent>
           </Card>
         )}
 
-        {/* Ad set card */}
-        {(kind === "adset" || !selected.size) && (
+        {/* ── Ad set ──────────────────────────────────────────────── */}
+        {kind === "adset" && (
           <Card className="rounded-2xl">
             <CardContent className="p-4">
               <SectionHead icon={Layers} label="Ad set" />
-              <FieldRow label="Optimization">{(plan.optimizationGoal ?? "—").replace(/_/g, " ").toLowerCase()}</FieldRow>
+              <FieldRow label="Optimization">
+                {(plan.optimizationGoal ?? "—").replace(/_/g, " ").toLowerCase()}
+              </FieldRow>
               <FieldRow label="Audience">{tpl ? tpl.name : "Default"}</FieldRow>
               {tpl && <FieldRow label="Location">{tpl.settings.locations}</FieldRow>}
-              {tpl && <FieldRow label="Age">{tpl.settings.ageMin}–{tpl.settings.ageMax}</FieldRow>}
-              <FieldRow label="Placements">{plan.advantagePlus ? "Advantage+" : tpl?.settings.placements === "manual" ? "Manual" : "Automatic"}</FieldRow>
+              {tpl && (
+                <FieldRow label="Age">
+                  {tpl.settings.ageMin}–{tpl.settings.ageMax}
+                </FieldRow>
+              )}
+              <FieldRow label="Placements">
+                {plan.advantagePlus
+                  ? "Advantage+"
+                  : tpl?.settings.placements === "manual"
+                    ? "Manual"
+                    : "Automatic"}
+              </FieldRow>
             </CardContent>
           </Card>
         )}
 
-        {/* Ad card — copy fields (editable, route through flow.patch) */}
-        <Card className="rounded-2xl">
-          <CardContent className="p-4">
-            <SectionHead icon={ImageIcon} label="Ad copy" />
-            <CopyField
-              label="Primary text"
-              value={plan.adCopy.primaryText}
-              placeholder="Write a hook…"
-              multiline
-              onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, primaryText: v } })}
-            />
-            <CopyField
-              label="Headline"
-              value={plan.adCopy.headline}
-              placeholder="Headline"
-              onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, headline: v } })}
-            />
-            <CopyField
-              label="Description"
-              value={plan.adCopy.description}
-              placeholder="Description"
-              onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, description: v } })}
-            />
-            <div className="grid grid-cols-2 gap-3">
+        {/* ── Ad (leaf) — editable copy fields ────────────────────── */}
+        {kind === "ad" && (
+          <Card className="rounded-2xl">
+            <CardContent className="p-4">
+              <SectionHead icon={ImageIcon} label="Ad copy" />
               <CopyField
-                label="CTA"
-                value={plan.adCopy.cta}
-                onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, cta: v } })}
-                display={ctaLabel(plan.adCopy.cta)}
+                label="Primary text"
+                value={plan.adCopy.primaryText}
+                placeholder="Write a hook…"
+                multiline
+                onChange={(v) =>
+                  flow.patch({ adCopy: { ...plan.adCopy, primaryText: v } })
+                }
               />
               <CopyField
-                label="Destination URL"
-                value={plan.adCopy.destinationUrl}
-                placeholder="https://…"
-                onChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, destinationUrl: v } })}
+                label="Headline"
+                value={plan.adCopy.headline}
+                placeholder="Headline"
+                onChange={(v) =>
+                  flow.patch({ adCopy: { ...plan.adCopy, headline: v } })
+                }
               />
-            </div>
-          </CardContent>
-        </Card>
+              <CopyField
+                label="Description"
+                value={plan.adCopy.description}
+                placeholder="Description"
+                onChange={(v) =>
+                  flow.patch({ adCopy: { ...plan.adCopy, description: v } })
+                }
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <CopyField
+                  label="CTA"
+                  value={plan.adCopy.cta}
+                  onChange={(v) =>
+                    flow.patch({ adCopy: { ...plan.adCopy, cta: v } })
+                  }
+                  display={ctaLabel(plan.adCopy.cta)}
+                />
+                <CopyField
+                  label="Destination URL"
+                  value={plan.adCopy.destinationUrl}
+                  placeholder="https://…"
+                  onChange={(v) =>
+                    flow.patch({ adCopy: { ...plan.adCopy, destinationUrl: v } })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </ScrollArea>
   );
@@ -192,18 +239,11 @@ function CopyField({
   );
 }
 
-function nodeKindFromId(id: string | undefined): "account" | "campaign" | "adset" | "ad" | null {
-  if (!id) return null;
-  if (id.startsWith("acct:")) return "account";
-  if (/:c\d+$/.test(id)) return "campaign";
-  if (/:c\d+:s\d+$/.test(id)) return "adset";
-  return "ad";
-}
-
 /* ------------------------------------------------------------------ */
 /*  DISTRIBUTION pane                                                  */
 /* ------------------------------------------------------------------ */
 const DIST_OPTIONS: { id: PageDistribution; label: string; blurb: string }[] = [
+  { id: "one_page", label: "One page", blurb: "All ads run under a single page." },
   { id: "fill_first", label: "Fill-first", blurb: "Load each Page to its headroom, then spill to the next. Best for cap safety." },
   { id: "equal", label: "Equal split", blurb: "Spread ads evenly across every Page." },
   { id: "duplicate", label: "Duplicate to all", blurb: "Every Page gets the full set — multiplies spend & ad count." },

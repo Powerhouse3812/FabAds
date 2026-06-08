@@ -364,4 +364,20 @@ export function reviewSummary(plan: PlanV2): ReviewSummary {
   };
 }
 
+/**
+ * Derives the NodeKind from a tree node ID.
+ * Formats mirror buildReviewTree:
+ *   account:  "acct:{fbPageId}:{ti}"
+ *   campaign: "{fbPageId}:c{ci}"
+ *   adset:    "{fbPageId}:c{ci}:s{si}"
+ *   ad:       "{fbPageId}:c{ci}:s{si}:a{k}" | "…:more"
+ */
+export function nodeKindFromId(id: string | undefined): NodeKind | null {
+  if (!id) return null;
+  if (id.startsWith("acct:")) return "account";
+  if (/:c\d+$/.test(id)) return "campaign";
+  if (/:c\d+:s\d+$/.test(id)) return "adset";
+  return "ad";
+}
+
 export type { PageDemand };

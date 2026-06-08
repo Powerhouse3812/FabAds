@@ -13,7 +13,7 @@
  * Reads only the frozen contract (deriveV2 / reducer via reviewModel) and writes
  * via flow.patch. Edit ONLY this file + helpers under screens/review/.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,14 @@ type RightTab = "edit" | "distribution" | "preview" | "issues";
 export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [tab, setTab] = useState<RightTab>("edit");
+  const [tab, setTab] = useState<RightTab>("preview");
+
+  // When selection is cleared while Edit tab is open → fall back to Preview
+  useEffect(() => {
+    if (selected.size === 0) {
+      setTab((prev) => (prev === "edit" ? "preview" : prev));
+    }
+  }, [selected.size]);
 
   const issues = useMemo(() => buildIssues(plan), [plan]);
   const ready = useMemo(() => readiness(issues), [issues]);
@@ -99,7 +106,7 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
         <Tabs value={tab} onValueChange={(v) => setTab(v as RightTab)} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-shrink-0 px-4 pt-3">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="edit" disabled={selected.size === 0}>Edit</TabsTrigger>
               <TabsTrigger value="distribution">Distribution</TabsTrigger>
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="issues" className="relative">
