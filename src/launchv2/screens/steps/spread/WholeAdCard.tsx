@@ -46,7 +46,7 @@ export default function WholeAdCard({ creative, onRemove }: WholeAdCardProps) {
       </div>
       {/* Info row */}
       <div className="p-2 space-y-1">
-        <p className="text-xs font-medium text-foreground truncate leading-tight">{creative.name}</p>
+        <p title={creative.name} className="text-xs font-medium text-foreground truncate leading-tight">{creative.name}</p>
         <span className="inline-block rounded-full border border-border/60 bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
           {creative.format.replace(/_/g, " ")}
         </span>

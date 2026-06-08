@@ -4,7 +4,7 @@
  * When all creatives are whole ads, show WholeAdGrid instead of media row + AdContent.
  */
 import { useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -61,6 +61,7 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
     if (plan.creatives.some(c => c.itemType === "media")) return "media";
     return "ads"; // default: whole ads
   });
+  const [pendingMode, setPendingMode] = useState<"ads" | "media" | null>(null);
 
   const handleSheetSave = (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => {
     const updates: Partial<typeof plan> = { creatives: items };
@@ -124,10 +125,11 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
               key={mode}
               type="button"
               onClick={() => {
-                if (mode !== creativeMode) {
-                  // Clear creatives when switching mode
-                  if (plan.creatives.length > 0) flow.patch({ creatives: [] });
-                  setCreativeMode(mode);
+                if (mode === creativeMode) return;
+                if (plan.creatives.length > 0) {
+                  setPendingMode(mode); // show inline confirm
+                } else {
+                  setCreativeMode(mode); // no creatives, safe to switch
                 }
               }}
               aria-pressed={creativeMode === mode}
@@ -142,6 +144,19 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
             </button>
           ))}
         </div>
+
+        {pendingMode && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/30 px-3 py-2 flex items-center gap-2 text-xs">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+            <span className="flex-1 text-amber-700 dark:text-amber-300">
+              Switching modes will clear your {plan.creatives.length} selected {pendingMode === "ads" ? "media item" : "whole ad"}{plan.creatives.length !== 1 ? "s" : ""}.
+            </span>
+            <button onClick={() => { flow.patch({ creatives: [] }); setCreativeMode(pendingMode); setPendingMode(null); }} className="rounded-lg border border-amber-400 bg-white dark:bg-amber-950/50 px-2 py-1 font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40">
+              Clear and switch
+            </button>
+            <button onClick={() => setPendingMode(null)} className="rounded-lg px-2 py-1 text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+        )}
       </div>
 
       {/* ── 1. Ad creative ─────────────────── */}

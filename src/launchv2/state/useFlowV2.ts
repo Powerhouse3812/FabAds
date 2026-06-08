@@ -43,6 +43,7 @@ export function newPlanV2(): PlanV2 {
     advantageAudience: true,
     advantageCreative: true,
     specialAdCategories: [],
+    attribution: "7d_click_1d_view",
     creatives: [
       {
         id: "pre_cr_001",
@@ -156,7 +157,12 @@ export function useFlowV2(draftId?: string): UseFlowV2 {
 
   const chooseObjectiveFormat = useCallback((o: Objective, f: AdFormat | null) => {
     setPlan((prev) => {
-      const dest = defaultDestination(o);
+      const tpl = prev.targetingTemplateId
+        ? TARGETING_TEMPLATES.find((t) => t.id === prev.targetingTemplateId)
+        : undefined;
+      // Prefer template's destinationType when it is valid for this objective.
+      const fallback = defaultDestination(o);
+      const dest = tpl?.destinationType ?? fallback;
       const c = cascade(o, dest);
       return {
         ...prev,

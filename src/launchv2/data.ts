@@ -9,6 +9,7 @@ import type {
   AdFormat,
   BidStrategy,
   CreativeRef,
+  DestinationType,
   Intent,
   Objective,
   SourceType,
@@ -83,6 +84,8 @@ export interface TargetingTemplateV2 {
   summary: string[];
   advantageAudience: boolean;
   advantageCreative: boolean;
+  /** Per-template conversion location — drives the cascade when this template is selected. */
+  destinationType: DestinationType;
   /** Ad-set-level settings (kept light for the mock). */
   settings: {
     locations: string;
@@ -102,6 +105,7 @@ export const TARGETING_TEMPLATES: TargetingTemplateV2[] = [
     summary: ["US", "18–65", "Advantage+ Audience", "Auto placements"],
     advantageAudience: true,
     advantageCreative: true,
+    destinationType: "WEBSITE",
     settings: { locations: "United States", ageMin: 18, ageMax: 65, gender: "all", placements: "advantage", detailedTargeting: [], exclusions: ["Purchasers (90d)"] },
   },
   {
@@ -110,6 +114,7 @@ export const TARGETING_TEMPLATES: TargetingTemplateV2[] = [
     summary: ["US", "18–54", "LAL 1%", "Advantage+ Creative"],
     advantageAudience: true,
     advantageCreative: true,
+    destinationType: "WEBSITE",
     settings: { locations: "United States", ageMin: 18, ageMax: 54, gender: "all", placements: "advantage", detailedTargeting: ["Lookalike 1% – Purchasers"], exclusions: [] },
   },
   {
@@ -118,6 +123,7 @@ export const TARGETING_TEMPLATES: TargetingTemplateV2[] = [
     summary: ["India metros", "18–35", "Manual placements"],
     advantageAudience: false,
     advantageCreative: true,
+    destinationType: "WEBSITE",
     settings: { locations: "Delhi, Mumbai, Bangalore", ageMin: 18, ageMax: 35, gender: "all", placements: "manual", detailedTargeting: ["Engaged shoppers"], exclusions: [] },
   },
 ];

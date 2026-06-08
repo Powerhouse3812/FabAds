@@ -22,7 +22,7 @@ export default function SpreadPicker({ flow }: { flow: UseFlowV2 }) {
         {SPREAD_ORDER.map((mode) => {
           const on = plan.spread === mode;
           const Icon = SPREAD_META[mode].icon;
-          // Short label: just first word ("One", "Round-robin", "Stacked", "Multiply", "Manual")
+          // Short label: just first word ("One", "Round-robin", "Stacked", "Multiply")
           const shortLabel = SPREAD_LABELS[mode].split(" ")[0];
           return (
             <button

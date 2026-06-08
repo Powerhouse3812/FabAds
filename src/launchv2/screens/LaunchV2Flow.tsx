@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useFlowV2, type StepV2, type UseFlowV2 } from "../state/useFlowV2";
 import { useLaunchV2 } from "../state/LaunchV2Context";
-import { capCheck, estimateAds } from "../deriveV2";
+import { estimateAds } from "../deriveV2";
+import { planReady } from "../reducer";
 import type { PlanV2 } from "../types";
 import Step1Start from "./steps/Step1Start";
 import Step2Setup from "./steps/Step2Setup";
@@ -26,18 +27,7 @@ const STEP_TITLES: Record<StepV2, string> = {
 };
 
 function stepValid(plan: PlanV2, step: StepV2): boolean {
-  switch (step) {
-    case 1:
-      return !!plan.objective;
-    case 2:
-      return !!plan.format && plan.creatives.length > 0;
-    case 3:
-      return plan.targets.length > 0 && plan.budgetAmount > 0;
-    case 4:
-      return capCheck(plan).ok;
-    case 5:
-      return capCheck(plan).ok;
-  }
+  return planReady(plan, step);
 }
 
 export default function LaunchV2Flow() {

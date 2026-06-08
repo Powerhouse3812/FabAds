@@ -20,6 +20,7 @@ import type {
   OptimizationGoal,
   PlanV2,
 } from "./types";
+import { capCheck } from "./deriveV2";
 
 /* ------------------------------------------------------------------ */
 /*  §1 Objective → destinations                                        */
@@ -207,7 +208,7 @@ export function intentDefaults(intent: Intent, objective: Objective | null): Int
     return { budgetMode: "CBO", spread: "stacked", bidStrategy: "COST_CAP", structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 6 }, advantagePlus: true, budgetAmount: 100 };
   }
   // custom — no opinion
-  return { budgetMode: defaultBudgetMode(objective, "custom"), spread: "manual", bidStrategy: "LOWEST_COST_WITHOUT_CAP", structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 }, advantagePlus: false, budgetAmount: 20 };
+  return { budgetMode: defaultBudgetMode(objective, "custom"), spread: "one_per_adset", bidStrategy: "LOWEST_COST_WITHOUT_CAP", structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 }, advantagePlus: false, budgetAmount: 20 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -275,4 +276,14 @@ export function softWarnings(plan: PlanV2, adSetCount: number): SoftWarning[] {
     w.push({ code: "FRAGMENT", message: "Many thin ad sets — learning-phase fragmentation risk." });
   }
   return w;
+}
+
+/** Cumulative validation — checks every step UP TO and INCLUDING throughStep is satisfied. */
+export function planReady(plan: PlanV2, throughStep: 1 | 2 | 3 | 4 | 5): boolean {
+  if (throughStep >= 1 && !plan.objective) return false;
+  if (throughStep >= 2 && (!plan.format || plan.creatives.length === 0)) return false;
+  if (throughStep >= 3 && (plan.targets.length === 0 || plan.budgetAmount <= 0)) return false;
+  if (throughStep >= 4 && !capCheck(plan).ok) return false;
+  if (throughStep >= 5 && !capCheck(plan).ok) return false;
+  return true;
 }

@@ -55,7 +55,7 @@ import {
   TARGETING_TEMPLATES,
   getTemplate,
 } from "../../data";
-import type { BidStrategy, SpecialAdCategory } from "../../types";
+import type { AttributionWindow, BidStrategy, SpecialAdCategory } from "../../types";
 import { AccountsPages } from "./setup/AccountsPages";
 import { TemplateModal } from "./setup/TemplateModal";
 
@@ -149,7 +149,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   const policy = fieldPolicy(plan);
   const asc = isAdvantagePlus(plan);
   const special = specialCategoryActive(plan);
-  const needsPixel = requiresPixel(plan);
+  const needsPixel = requiresPixel(plan) && plan.targets.some((t) => !t.pixelId);
   const currency = plan.targets[0]?.currency ?? "USD";
 
   const bidOptions = plan.objective
@@ -173,7 +173,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
       <div className="space-y-4">
         {/* ── 1 · Ad accounts & pages ───────────────────────────── */}
         <SectionCard n={1} title="Ad accounts & pages" hint="pick accounts, then destination pages">
-          <AccountsPages targets={plan.targets} onChange={flow.setTargets} />
+          <AccountsPages plan={plan} targets={plan.targets} onChange={flow.setTargets} />
         </SectionCard>
 
         {/* ── 2 · Budget & bidding ──────────────────────────────── */}
@@ -196,17 +196,23 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               </div>
             </div>
 
-            {/* CBO/ABO indicator — small label (toggle lives in Advanced) */}
+            {/* CBO/ABO toggle — primary altitude, next to budget */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Budget level</Label>
-              <span
-                className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-2xl border border-border bg-muted/40 px-3 text-sm font-medium text-foreground",
-                )}
-              >
-                {plan.budgetMode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
-                {policy.budgetMode.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
-              </span>
+              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                Campaign Budget Optimization
+                {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
+              </Label>
+              <div className="flex h-9 items-center gap-2 rounded-2xl border border-border bg-card px-3">
+                <Switch
+                  checked={plan.budgetMode === "CBO"}
+                  onCheckedChange={(v) => patch({ budgetMode: v ? "CBO" : "ABO" })}
+                  disabled={policy.budgetMode.locked}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {plan.budgetMode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
+                </span>
+              </div>
+              {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
             </div>
           </div>
 
@@ -225,26 +231,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </p>
           )}
 
-          {/* Advanced: ABO/CBO toggle + bid strategy + attribution */}
-          <AdvancedReveal label="Advanced — budget level, bid strategy, attribution">
-            {/* ABO/CBO toggle */}
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <Label className="text-sm text-foreground">Campaign Budget Optimization</Label>
-                <p className="text-[11px] text-muted-foreground">
-                  On = one campaign budget (CBO). Off = per-ad-set budgets (ABO).
-                </p>
-                {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
-              </div>
-              <Switch
-                checked={plan.budgetMode === "CBO"}
-                onCheckedChange={(v) => patch({ budgetMode: v ? "CBO" : "ABO" })}
-                disabled={policy.budgetMode.locked}
-              />
-            </div>
-
-            <Separator />
-
+          {/* Advanced: bid strategy + attribution */}
+          <AdvancedReveal label="Advanced — bid strategy, attribution">
             {/* bid strategy — gated by allowedBidStrategies */}
             {policy.bidStrategy.visibility !== "hidden" && (
               <div className="space-y-1.5">
@@ -293,7 +281,10 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                   <TooltipContent>Conversion window used to credit results.</TooltipContent>
                 </Tooltip>
               </Label>
-              <Select defaultValue="7d_click_1d_view">
+              <Select
+                value={plan.attribution}
+                onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
+              >
                 <SelectTrigger className="h-9 w-full max-w-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -321,14 +312,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               <Label className="text-xs text-muted-foreground">Targeting template</Label>
               <Select
                 value={plan.targetingTemplateId ?? undefined}
-                onValueChange={(v) => {
-                  const t = getTemplate(v);
-                  patch({
-                    targetingTemplateId: v,
-                    advantageAudience: t?.advantageAudience ?? plan.advantageAudience,
-                    advantageCreative: t?.advantageCreative ?? plan.advantageCreative,
-                  });
-                }}
+                onValueChange={(v) => patch({ targetingTemplateId: v })}
               >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Choose a template" />
@@ -424,6 +408,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             onOpenChange={setEditOpen}
             template={tpl}
             specialActive={special}
+            flow={flow}
           />
         )}
       </div>

@@ -55,4 +55,4 @@ export const SPREAD_META: Record<SpreadMode, { icon: LucideIcon; ratio: string; 
   manual: { icon: SlidersHorizontal, ratio: "map", blurb: "Place each creative into a numbered slot yourself." },
 };
 
-export const SPREAD_ORDER: SpreadMode[] = ["one_per_adset", "round_robin", "stacked", "multiply", "manual"];
+export const SPREAD_ORDER: SpreadMode[] = ["one_per_adset", "round_robin", "stacked", "multiply"];

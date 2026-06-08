@@ -213,6 +213,11 @@ export function DistributionPane({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const demand = perPageDemand(plan);
   const sum = reviewSummary(plan);
+  const activeOpt = DIST_OPTIONS.find((o) => o.id === plan.pageDistribution) ?? DIST_OPTIONS[0];
+
+  const handleEditOnStep4 = () => {
+    if (typeof flow.setStep === "function") flow.setStep(4);
+  };
 
   return (
     <ScrollArea className="h-full">
@@ -221,31 +226,26 @@ export function DistributionPane({ flow }: { flow: UseFlowV2 }) {
           <h3 className="text-sm font-semibold">Page distribution</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             How the {sum.adsPerDest} ads per destination map onto your {plan.targets.length} Page
-            {plan.targets.length === 1 ? "" : "s"}. Synced from the Step 3 spread.
+            {plan.targets.length === 1 ? "" : "s"}. Set on Step 4 Distribution.
           </p>
         </div>
 
-        <div className="grid gap-2">
-          {DIST_OPTIONS.map((opt) => {
-            const active = plan.pageDistribution === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => flow.patch({ pageDistribution: opt.id })}
-                className={cn(
-                  "rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  active ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50",
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] font-medium">{opt.label}</span>
-                  {active && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                </div>
-                <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{opt.blurb}</p>
-              </button>
-            );
-          })}
+        {/* Read-only summary of the currently-selected distribution mode */}
+        <div className="space-y-2">
+          <div className="rounded-xl border border-primary bg-primary/10 px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-medium">{activeOpt.label}</span>
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+            </div>
+            <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{activeOpt.blurb}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleEditOnStep4}
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            Edit on Step 4 Distribution →
+          </button>
         </div>
 
         <Separator />

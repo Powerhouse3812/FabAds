@@ -138,6 +138,9 @@ export interface TargetPair {
   pixelId?: string;
 }
 
+/* ---- Attribution window (per-plan setting; default 7-day click + 1-day view) ---- */
+export type AttributionWindow = "1d_click" | "7d_click" | "7d_click_1d_view";
+
 /* ---- The plan ---- */
 export interface PlanV2 {
   id: string;
@@ -164,6 +167,7 @@ export interface PlanV2 {
   advantageAudience: boolean;
   advantageCreative: boolean;
   specialAdCategories: SpecialAdCategory[];
+  attribution: AttributionWindow;
 
   // Step 3 — Creative spread
   creatives: CreativeRef[];
