@@ -2,10 +2,10 @@
  * Step 3 — Creative Spread V2.
  *
  * Philosophy: Creative studio, not a form.
+ * - Creative mode is EXPLICIT — 2-card picker at top of section (Whole Ads vs Individual Media).
  * - Source selection is navigation (2-col card grid, primary 4 visible, rest collapsed).
  * - Format chips only when objective is set; locked hint otherwise.
- * - Creative mode is INFERRED from source type — no toggle in primary UI.
- *   (Escape hatch: subtle "Working with X" pill above grid, clickable to switch.)
+ * - Picking a source can silently auto-switch mode if no creatives exist; warns otherwise.
  * - 2-col layout once items are selected: left = creative thumbnails, right = inline copy.
  * - Ad copy is always visible — never collapsed by default.
  * - SaveBundleRow lives as a footer inside the copy column.
@@ -20,7 +20,9 @@ import {
   FolderOpen,
   HardDrive,
   Hash,
+  Image as ImageIcon,
   Image,
+  Layers,
   Library,
   Link2,
   Plus,
@@ -41,6 +43,66 @@ import { SourceSheet } from "./spread/SourceSheet";
 import { FORMAT_ICON } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
 import { SaveBundleRow } from "./spread/SaveBundleRow";
+
+// ── Creative mode picker ──────────────────────────────────────────────────────
+
+interface CreativeModePicker {
+  creativeMode: "ads" | "media";
+  onSelect: (mode: "ads" | "media") => void;
+}
+
+function CreativeModePicker({ creativeMode, onSelect }: CreativeModePicker) {
+  const modes = [
+    {
+      mode: "ads" as const,
+      label: "Whole Ads",
+      desc: "Use complete saved ads — copy, format and creative are already set.",
+      icon: Layers,
+    },
+    {
+      mode: "media" as const,
+      label: "Individual Media",
+      desc: "Pick images or videos and write copy separately for this campaign.",
+      icon: ImageIcon,
+    },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <p className="text-[13px] font-semibold text-foreground">Creative mode</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
+          How do you want to add creatives to this campaign?
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {modes.map(({ mode, label, desc, icon: Icon }) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => onSelect(mode)}
+            aria-pressed={creativeMode === mode}
+            className={cn(
+              "flex flex-col gap-1.5 rounded-2xl border p-4 text-left transition-colors",
+              creativeMode === mode
+                ? "border-primary bg-primary/5"
+                : "border-border bg-card hover:border-foreground/30",
+            )}
+          >
+            <Icon
+              className={cn(
+                "h-5 w-5",
+                creativeMode === mode ? "text-primary" : "text-muted-foreground",
+              )}
+            />
+            <span className="text-[13px] font-semibold text-foreground">{label}</span>
+            <span className="text-[11px] text-muted-foreground leading-snug">{desc}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Source metadata ───────────────────────────────────────────────────────────
 
@@ -242,10 +304,10 @@ function CreativePanel({
 
   return (
     <div className="space-y-3">
-      {/* Mode indicator — subtle, clickable escape hatch */}
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
-          {creativeMode === "ads" ? "Working with whole ads" : "Working with individual media"}
+      {/* Mode indicator — minimal chip, escape hatch scrolls to picker */}
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+          {creativeMode === "ads" ? "Mode: Whole Ads" : "Mode: Individual Media"}
         </span>
         <button
           type="button"
@@ -254,7 +316,7 @@ function CreativePanel({
           title="Switch creative mode"
         >
           <SwitchCamera className="h-3 w-3" />
-          Switch
+          Change
         </button>
       </div>
 
@@ -529,7 +591,33 @@ export default function Step3SpreadV2({ flow }: { flow: UseFlowV2 }) {
 
       <Separator />
 
-      {/* ── 2. Source card grid ───────────────────────────────────── */}
+      {/* ── 2. Creative mode — explicit picker ───────────────────── */}
+      <CreativeModePicker
+        creativeMode={creativeMode}
+        onSelect={(mode) => {
+          if (mode !== creativeMode) {
+            if (plan.creatives.length > 0) {
+              setPendingMode(mode);
+            } else {
+              setCreativeMode(mode);
+            }
+          }
+        }}
+      />
+
+      {/* Mode-switch warning (appears when mode picker or source change would flip mode) */}
+      {pendingMode && (
+        <ModeSwitchWarning
+          pendingMode={pendingMode}
+          currentCount={plan.creatives.length}
+          onConfirm={confirmModeSwitch}
+          onCancel={() => setPendingMode(null)}
+        />
+      )}
+
+      <div className="border-t border-border/50" />
+
+      {/* ── 3. Source card grid ───────────────────────────────────── */}
       <div className="space-y-2">
         <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
           Pick your source
@@ -540,19 +628,9 @@ export default function Step3SpreadV2({ flow }: { flow: UseFlowV2 }) {
         />
       </div>
 
-      {/* Mode-switch warning (appears when source change would flip mode) */}
-      {pendingMode && (
-        <ModeSwitchWarning
-          pendingMode={pendingMode}
-          currentCount={plan.creatives.length}
-          onConfirm={confirmModeSwitch}
-          onCancel={() => setPendingMode(null)}
-        />
-      )}
+      <div className="border-t border-border/50" />
 
-      <Separator />
-
-      {/* ── 3. Creative + Copy panel ──────────────────────────────── */}
+      {/* ── 4. Creative + Copy panel ──────────────────────────────── */}
       <CreativePanel
         flow={flow}
         creativeMode={creativeMode}

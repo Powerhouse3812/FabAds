@@ -11,11 +11,21 @@
  *  - Page split uses 2-up primary pills (Fill first / Equal — 90% case) +
  *    secondary row (One page / Duplicate — edge cases, lower visual weight).
  *  - Creative mapping uses the same 2+2 priority split.
- *  - Collapsible "Preview full structure" section at the bottom houses AdTreeVisualization.
+ *  - Collapsible "Ad tree preview" section at the bottom houses AdTreeVisualization.
  *  - CapMeterWithFixes stays permanently visible — it's actionable, not decorative.
+ *
+ * Density/readability pass (2nd round):
+ *  - Impact summary strip: py-3 px-4 rounded-2xl border border-border bg-card mb-4
+ *    Each stat: font-mono tabular-nums text-[13px] font-semibold
+ *    Labels: text-[10px] uppercase tracking-wide text-muted-foreground/70
+ *    Vertical dividers between stats
+ *  - Page split: PRIMARY CHOICE / EDGE CASES row labels above each row
+ *  - CapMeterWithFixes: wrapped in rounded-2xl border border-border p-3 space-y-2 with header
+ *  - Section spacing: space-y-6 throughout
+ *  - Collapsible: proper row styling with ChevronDown, "Ad tree preview" label
  */
 import { useState } from "react";
-import { ChevronDown, ChevronRight, LayoutGrid, Layers, Shuffle } from "lucide-react";
+import { ChevronDown, LayoutGrid, Layers, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adSetCount, adsPerDestination, spreadPreview } from "../../deriveV2";
 import { SPREAD_LABELS } from "../../data";
@@ -165,6 +175,16 @@ function OptionCard({
   );
 }
 
+/* ── Row group label ─────────────────────────────────────────────────────── */
+
+function RowLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60 font-semibold">
+      {children}
+    </span>
+  );
+}
+
 /* ── Main component ──────────────────────────────────────────────────────── */
 
 export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
@@ -189,29 +209,52 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
 
         {/* ── Impact summary strip ─────────────────────────────────────── */}
         <div
-          className="rounded-2xl border border-border bg-muted/20 px-4 py-3"
+          className="rounded-2xl border border-border bg-card mb-4 px-4 py-3"
           aria-label="Current distribution output"
         >
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-mono text-xs font-semibold text-foreground tabular-nums">
-              {s.campaigns} campaign{s.campaigns !== 1 ? "s" : ""}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground/50">·</span>
-            <span className="font-mono text-xs font-semibold text-foreground tabular-nums">
-              {s.adSets} ad set{s.adSets !== 1 ? "s" : ""}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground/50">·</span>
-            <span className="font-mono text-xs font-semibold text-foreground tabular-nums">
-              {s.totalAds} total ad{s.totalAds !== 1 ? "s" : ""}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground/50">·</span>
-            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-              {s.pages} page{s.pages !== 1 ? "s" : ""} @ {s.splitLabel}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground/50">·</span>
-            <span className="font-mono text-xs text-muted-foreground capitalize">
-              {s.spreadLabel}
-            </span>
+          <div className="flex flex-wrap items-center gap-0">
+            {/* Campaigns */}
+            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Campaigns</span>
+              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
+                {s.campaigns}
+              </span>
+            </div>
+            {/* Ad sets */}
+            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Ad sets</span>
+              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
+                {s.adSets}
+              </span>
+            </div>
+            {/* Total ads */}
+            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Total ads</span>
+              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
+                {s.totalAds}
+              </span>
+            </div>
+            {/* Pages */}
+            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Pages</span>
+              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
+                {s.pages}
+              </span>
+            </div>
+            {/* Split mode */}
+            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Split</span>
+              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground capitalize">
+                {s.splitLabel}
+              </span>
+            </div>
+            {/* Spread */}
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Spread</span>
+              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground capitalize">
+                {s.spreadLabel}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -222,23 +265,24 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
           chip={<DistributionSectionChip flow={flow} section="pageDistribution" />}
         >
           {/* Primary options — full weight */}
-          <div className="grid grid-cols-2 gap-2">
-            {PAGE_SPLIT_PRIMARY.map((opt) => (
-              <OptionCard
-                key={opt.id}
-                label={opt.label}
-                blurb={opt.blurb}
-                active={plan.pageDistribution === opt.id}
-                onClick={() => patch({ pageDistribution: opt.id })}
-              />
-            ))}
+          <div className="space-y-1.5">
+            <RowLabel>Primary choice</RowLabel>
+            <div className="grid grid-cols-2 gap-2">
+              {PAGE_SPLIT_PRIMARY.map((opt) => (
+                <OptionCard
+                  key={opt.id}
+                  label={opt.label}
+                  blurb={opt.blurb}
+                  active={plan.pageDistribution === opt.id}
+                  onClick={() => patch({ pageDistribution: opt.id })}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Secondary options — reduced weight, labeled row */}
           <div className="space-y-1.5">
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold text-muted-foreground">
-              Edge cases
-            </span>
+            <RowLabel>Edge cases</RowLabel>
             <div className="grid grid-cols-2 gap-2">
               {PAGE_SPLIT_SECONDARY.map((opt) => {
                 const isDupe = opt.id === "duplicate";
@@ -283,23 +327,24 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
           chip={<DistributionSectionChip flow={flow} section="spread" />}
         >
           {/* Primary options */}
-          <div className="grid grid-cols-2 gap-2">
-            {MAPPING_PRIMARY.map((opt) => (
-              <OptionCard
-                key={opt.id}
-                label={opt.label}
-                blurb={opt.blurb}
-                active={plan.spread === opt.id}
-                onClick={() => patch({ spread: opt.id })}
-              />
-            ))}
+          <div className="space-y-1.5">
+            <RowLabel>Primary choice</RowLabel>
+            <div className="grid grid-cols-2 gap-2">
+              {MAPPING_PRIMARY.map((opt) => (
+                <OptionCard
+                  key={opt.id}
+                  label={opt.label}
+                  blurb={opt.blurb}
+                  active={plan.spread === opt.id}
+                  onClick={() => patch({ spread: opt.id })}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Secondary options */}
           <div className="space-y-1.5">
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold text-muted-foreground">
-              Advanced
-            </span>
+            <RowLabel>Advanced</RowLabel>
             <div className="grid grid-cols-2 gap-2">
               {MAPPING_SECONDARY.map((opt) => (
                 <OptionCard
@@ -316,28 +361,24 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
         </Section>
 
         {/* ── Cap status — always visible, actionable ──────────────────── */}
-        <CapMeterWithFixes flow={flow} />
+        <div className="rounded-2xl border border-border p-3 space-y-2">
+          <p className="text-[11px] font-semibold text-foreground">Cap check</p>
+          <CapMeterWithFixes flow={flow} />
+        </div>
 
         {/* ── Collapsible full structure preview ───────────────────────── */}
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <button
             type="button"
             onClick={() => setTreeOpen((v) => !v)}
-            className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-muted/30 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
             aria-expanded={treeOpen}
           >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] uppercase tracking-[0.05em] font-semibold text-muted-foreground">
-                Preview full structure
-              </span>
-              <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums">
-                {s.totalAds} ads
-              </span>
-            </div>
-            {treeOpen
-              ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            }
+            <span className="text-[13px] font-semibold text-foreground">Ad tree preview</span>
+            <ChevronDown className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              treeOpen && "rotate-180"
+            )} />
           </button>
           {treeOpen && (
             <div className="border-t border-border px-4 py-4">

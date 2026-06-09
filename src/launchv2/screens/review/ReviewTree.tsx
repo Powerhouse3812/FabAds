@@ -17,6 +17,7 @@ import {
   Layers,
   ListTree,
   Megaphone,
+  X,
 } from "lucide-react";
 import {
   Collapsible,
@@ -44,6 +45,13 @@ const KIND_ICON: Record<NodeKind, React.ElementType> = {
 /*  ReviewTree                                                          */
 /* ------------------------------------------------------------------ */
 
+const KIND_LABEL: Record<NodeKind, string> = {
+  account: "account",
+  campaign: "campaign",
+  adset: "ad set",
+  ad: "ad",
+};
+
 export function ReviewTree({
   plan,
   selected,
@@ -54,15 +62,24 @@ export function ReviewTree({
   onSelectedChange: (next: Set<string>) => void;
 }) {
   const tree = useMemo(() => buildReviewTree(plan), [plan]);
+  const [typeMismatchHint, setTypeMismatchHint] = useState(false);
 
   /**
    * Toggle selection. Enforces same-NodeKind rule:
    *   – additive + same kind  → toggle this node in the set
+   *   – additive + diff kind  → show hint, do NOT select
    *   – single click OR diff kind → replace with this node (or deselect if sole)
    */
   const toggle = (id: string, additive: boolean, kind: NodeKind) => {
     const currentKind =
       selected.size > 0 ? nodeKindFromId([...selected][0]) : null;
+
+    if (additive && currentKind !== null && currentKind !== kind) {
+      // Type mismatch on ⌘+click — show hint, do not change selection
+      setTypeMismatchHint(true);
+      setTimeout(() => setTypeMismatchHint(false), 2000);
+      return;
+    }
 
     if (additive && (currentKind === null || currentKind === kind)) {
       const next = new Set(selected);
@@ -70,10 +87,15 @@ export function ReviewTree({
       else next.add(id);
       onSelectedChange(next);
     } else {
-      // Non-additive or type switch: replace selection
+      // Non-additive: replace selection (clear hint if visible)
+      setTypeMismatchHint(false);
       onSelectedChange(selected.has(id) && selected.size === 1 ? new Set() : new Set([id]));
     }
   };
+
+  // Derive the selected kind for the count badge label
+  const selectedKind: NodeKind | null =
+    selected.size > 0 ? nodeKindFromId([...selected][0]) : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -83,8 +105,33 @@ export function ReviewTree({
           <ListTree className="h-4 w-4 text-muted-foreground" />
           Structure
         </div>
-        {tree.length > 0 && (
-          <p className="text-[10px] text-muted-foreground/60">⌘+click to multi-select same type</p>
+
+        {/* Multi-select count badge + clear button */}
+        {selected.size >= 2 && selectedKind ? (
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary">
+              {selected.size} {KIND_LABEL[selectedKind]}s selected
+            </span>
+            <button
+              type="button"
+              aria-label="Clear selection"
+              onClick={() => onSelectedChange(new Set())}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          tree.length > 0 && selected.size === 0 && (
+            <p className="text-[10px] text-muted-foreground/60">⌘+click to multi-select same type</p>
+          )
+        )}
+
+        {/* Type mismatch hint */}
+        {typeMismatchHint && (
+          <p className="text-[10px] text-amber-600 dark:text-amber-400 pb-0.5">
+            Only same-type items can be multi-selected
+          </p>
         )}
       </div>
 

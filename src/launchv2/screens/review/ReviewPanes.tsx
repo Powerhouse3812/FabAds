@@ -22,6 +22,7 @@ import {
   Wand2,
   XCircle,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -271,6 +272,30 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* ── Bulk-save footer (multi-select only) ────────────────── */}
+        {multi && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block w-full">
+                  {/* TODO: wire to reducer — bulk-patching individual nodes is out of scope */}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="w-full opacity-50 cursor-not-allowed"
+                    disabled
+                  >
+                    Apply to {N} {kindLabel}s
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Bulk save coming soon
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
     </ScrollArea>

@@ -72,7 +72,7 @@ export default function AdContent({ flow, wholeAdMode = false }: { flow: UseFlow
 
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          {wholeAdMode ? "Campaign settings" : "Ad content"}
+          {wholeAdMode ? "Ad settings" : "Ad content"}
         </h3>
         {/* Use Genie — not relevant for whole ads, copy is baked in */}
         {!wholeAdMode && (
@@ -85,7 +85,7 @@ export default function AdContent({ flow, wholeAdMode = false }: { flow: UseFlow
 
       <p className="text-[11px] text-muted-foreground">
         {wholeAdMode
-          ? "Creative copy is part of your selected ads. Set campaign-level overrides below."
+          ? "Creative copy is part of your selected ads. Set ad-level settings below."
           : "One shared copy block applies to every creative below."}
       </p>
 

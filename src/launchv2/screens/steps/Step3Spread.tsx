@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
+  Check,
   ChevronDown,
   Copy,
   FolderOpen,
@@ -52,11 +53,24 @@ const SOURCE_ICON: Record<SourceType, React.ElementType> = {
 };
 
 // ── SectionCard ───────────────────────────────────────────────────────────────
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
     <Card className="rounded-2xl">
       <CardContent className="space-y-4 p-4">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <div className="space-y-0.5">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {subtitle && (
+            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+          )}
+        </div>
         {children}
       </CardContent>
     </Card>
@@ -70,7 +84,7 @@ function AdCopyCollapsed({ flow, hasAds, wholeAdMode = false }: { flow: UseFlowV
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-        {wholeAdMode ? "Campaign settings" : `Ad copy ${hasAds ? "(pre-filled from selected ads)" : ""}`}
+        {wholeAdMode ? "Ad settings" : `Ad copy ${hasAds ? "(pre-filled from selected ads)" : ""}`}
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">
         <AdContent flow={flow} wholeAdMode={wholeAdMode} />
@@ -145,116 +159,170 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   return (
     <div className="space-y-4">
 
-      {/* ── 1. Format — standalone section ───────────────────────── */}
-      <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">
-          Ad type
-          {plan.catalogueToggle && (
-            <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-              pre-selected from Setup
-            </span>
-          )}
-        </Label>
-
-        {/* V1 fix: hide all chips when no objective, show a single hint */}
-        {!plan.objective ? (
-          <p className="text-[10px] italic text-muted-foreground/60">
-            Select an objective in Step 1 to unlock formats.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {FORMATS.map((f) => {
-              const enabled = formatSet.has(f.id);
-              const selected = plan.format === f.id;
-              const Icon = FORMAT_ICON[f.id];
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  disabled={!enabled}
-                  onClick={() => {
-                    if (!plan.objective || !enabled) return;
-                    flow.chooseObjectiveFormat(plan.objective, f.id);
-                  }}
-                  aria-pressed={selected}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    selected
-                      ? "border-primary bg-primary/5 text-foreground"
-                      : enabled
-                        ? "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        : "cursor-not-allowed border-border/50 text-muted-foreground/40",
-                  )}
-                >
-                  <Icon className="h-3 w-3" />
-                  {f.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── 2. Creative type toggle (moved ABOVE source) ─────────── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5">
-          {(["ads", "media"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => {
-                if (mode === creativeMode) return;
-                if (plan.creatives.length > 0) {
-                  setPendingMode(mode);
-                } else {
-                  setCreativeMode(mode);
-                }
-              }}
-              aria-pressed={creativeMode === mode}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                creativeMode === mode
-                  ? "border-primary bg-primary/5 text-foreground"
-                  : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-              )}
-            >
-              {mode === "ads" ? "Whole Ads" : "Individual Media"}
-            </button>
-          ))}
+      {/* ── 1+2. Creative type — unified card (format + mode) ─────── */}
+      <SectionCard
+        title="Creative type"
+        subtitle="Choose your ad format and how you want to add creatives"
+      >
+        {/* Both-required progress pills */}
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors",
+              plan.format
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {plan.format ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <span className="font-mono">1</span>
+            )}
+            Ad format
+          </span>
+          <span className="text-muted-foreground/40">→</span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors",
+              "bg-primary/10 text-primary",
+            )}
+          >
+            <Check className="h-3 w-3" />
+            Creative mode
+          </span>
         </div>
 
-        {/* V1 fix: design-token-aligned warning banner */}
-        {pendingMode && (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span className="flex-1 text-amber-600 dark:text-amber-400">
-              Switching modes will clear your {plan.creatives.length} selected{" "}
-              {pendingMode === "ads" ? "media item" : "whole ad"}
-              {plan.creatives.length !== 1 ? "s" : ""}.
-            </span>
-            <button
-              onClick={() => {
-                flow.patch({ creatives: [] });
-                setCreativeMode(pendingMode);
-                setPendingMode(null);
-              }}
-              className="rounded-full border border-amber-500/40 bg-card px-2.5 py-1 font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 transition-colors"
-            >
-              Clear and switch
-            </button>
-            <button
-              onClick={() => setPendingMode(null)}
-              className="rounded-full px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
+        {/* Ad format chips */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">
+            Ad type
+            {plan.catalogueToggle && (
+              <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                pre-selected from Setup
+              </span>
+            )}
+          </Label>
+
+          {!plan.objective ? (
+            <p className="text-[10px] italic text-muted-foreground/60">
+              Select an objective in Step 1 to unlock formats.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {FORMATS.map((f) => {
+                const enabled = formatSet.has(f.id);
+                const selected = plan.format === f.id;
+                const Icon = FORMAT_ICON[f.id];
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={!enabled}
+                    onClick={() => {
+                      if (!plan.objective || !enabled) return;
+                      flow.chooseObjectiveFormat(plan.objective, f.id);
+                    }}
+                    aria-pressed={selected}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      selected
+                        ? "border-primary bg-primary/5 text-foreground"
+                        : enabled
+                          ? "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                          : "cursor-not-allowed border-border/50 text-muted-foreground/40",
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-border/40 my-3" />
+
+        {/* Creative mode toggle — richer labels */}
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            {(["ads", "media"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => {
+                  if (mode === creativeMode) return;
+                  if (plan.creatives.length > 0) {
+                    setPendingMode(mode);
+                  } else {
+                    setCreativeMode(mode);
+                  }
+                }}
+                aria-pressed={creativeMode === mode}
+                className={cn(
+                  "flex flex-col items-start gap-0.5 rounded-xl border px-4 py-2.5 text-left transition-colors",
+                  creativeMode === mode
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-card hover:border-foreground/30",
+                )}
+              >
+                <span className="text-xs font-semibold text-foreground">
+                  {mode === "ads" ? "Whole Ads" : "Individual Media"}
+                </span>
+                <span className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                  {mode === "ads"
+                    ? "Use complete saved ads from Genie or Library"
+                    : "Mix images and videos with your own ad copy"}
+                </span>
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+
+          {/* V1 fix: design-token-aligned warning banner */}
+          {pendingMode && (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="flex-1 text-amber-600 dark:text-amber-400">
+                Switching modes will clear your {plan.creatives.length} selected{" "}
+                {pendingMode === "ads" ? "media item" : "whole ad"}
+                {plan.creatives.length !== 1 ? "s" : ""}.
+              </span>
+              <button
+                onClick={() => {
+                  flow.patch({ creatives: [] });
+                  setCreativeMode(pendingMode);
+                  setPendingMode(null);
+                }}
+                className="rounded-full border border-amber-500/40 bg-card px-2.5 py-1 font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 transition-colors"
+              >
+                Clear and switch
+              </button>
+              <button
+                onClick={() => setPendingMode(null)}
+                className="rounded-full px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </SectionCard>
+
+      {/* Disabled Next hint — shown below the card when format not yet chosen */}
+      {!plan.format && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          ↑ Select an ad format above to continue
+        </p>
+      )}
 
       {/* ── 3. Source — chips with icons (V1 fix) ────────────────── */}
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Source</Label>
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-foreground">Creative source</Label>
+          <p className="text-[11px] text-muted-foreground">Where to pull your creatives from</p>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {SOURCES.map((s) => {
             const active = activeSourceId === s.id;
