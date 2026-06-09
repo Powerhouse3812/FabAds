@@ -38,6 +38,7 @@ import type { UseFlowV2 } from "../../state/useFlowV2";
 import type { Objective } from "../../types";
 import { OBJECTIVES, STRATEGIES } from "../../data";
 import { intentDefaults } from "../../reducer";
+import { strategiesService } from "../../services/strategiesService";
 
 /** Map each Meta ODAX objective to a Lucide icon. */
 const OBJECTIVE_ICONS: Record<Objective, React.ReactNode> = {
@@ -80,9 +81,11 @@ export default function Step1Start({ flow, saveAsStrategy, onSaveAsStrategyChang
   const { plan } = flow;
   const { objective, strategyId } = plan;
 
-  // Launch strategy picker state — stub until strategiesService exists
-  const savedStrategies: Array<{ id: string; name: string; summary: string }> = [];
+  // Launch strategy picker — real data from strategiesService
+  const [savedStrategies] = useState(() => strategiesService.list());
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const selectedStrategy = selectedStrategyId ? strategiesService.get(selectedStrategyId) : undefined;
+  const selectedSummary = selectedStrategy ? strategiesService.summarize(selectedStrategy) : undefined;
 
   const chooseObjective = (o: Objective) => flow.chooseObjectiveFormat(o, null);
 
@@ -242,14 +245,29 @@ export default function Step1Start({ flow, saveAsStrategy, onSaveAsStrategyChang
           </p>
         )}
 
-        {/* Overview pills row when strategy is selected */}
-        {selectedStrategyId && (
+        {/* Overview pills — real config values from selected strategy */}
+        {selectedSummary && (
           <div className="flex flex-wrap gap-1.5">
-            {/* These will be real config values once strategiesService exists */}
-            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">Sales</span>
-            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">Scale</span>
-            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">3 accounts</span>
-            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">₹5,000/day</span>
+            {[
+              selectedSummary.objective,
+              selectedSummary.intent,
+              selectedSummary.budgetDisplay,
+              selectedSummary.destinationsCount > 0
+                ? `${selectedSummary.destinationsCount} account${selectedSummary.destinationsCount !== 1 ? "s" : ""}`
+                : null,
+              selectedSummary.format !== "—" ? selectedSummary.format : null,
+              selectedSummary.spreadMode !== "—" ? selectedSummary.spreadMode : null,
+              selectedSummary.audienceSummary !== "—" ? selectedSummary.audienceSummary : null,
+            ]
+              .filter(Boolean)
+              .map((pill) => (
+                <span
+                  key={pill as string}
+                  className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground"
+                >
+                  {pill}
+                </span>
+              ))}
           </div>
         )}
 
