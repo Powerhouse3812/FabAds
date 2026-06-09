@@ -3,6 +3,9 @@
  * centered screens; Step 4 (Review & Launch) is a full-height Meta two-pane.
  * Chrome: running-context chips + step progress + footer (Back/Next/Launch).
  * Step bodies are filled by build agents; this owns the shell + flow control.
+ *
+ * Supports a V1/V2 design variant toggle (top-right of progress row).
+ * V1 = corrected current design; V2 = fresh redesign.
  */
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -19,6 +22,12 @@ import Step2Setup from "./steps/Step2Setup";
 import Step3Spread from "./steps/Step3Spread";
 import Step4Distribution from "./steps/Step4Distribution";
 import Step4Review from "./steps/Step4Review";
+import Step1StartV2 from "./steps/Step1StartV2";
+import Step2SetupV2 from "./steps/Step2SetupV2";
+import Step3SpreadV2 from "./steps/Step3SpreadV2";
+import Step4DistributionV2 from "./steps/Step4DistributionV2";
+import Step4ReviewV2 from "./steps/Step4ReviewV2";
+import { VariantToggle } from "../components/VariantToggle";
 
 const STEP_TITLES: Record<StepV2, string> = {
   1: "Start",
@@ -39,6 +48,7 @@ export default function LaunchV2Flow() {
   const navigate = useNavigate();
   const { plan, step } = flow;
   const [saveAsStrategy, setSaveAsStrategy] = useState(false);
+  const [variant, setVariant] = useState<'v1' | 'v2'>('v1');
 
   const valid = stepValid(plan, step);
   const allValid = ([1, 2, 3, 4, 5] as StepV2[]).every((s) => stepValid(plan, s));
@@ -55,17 +65,22 @@ export default function LaunchV2Flow() {
       {/* Running context + progress */}
       <div className="flex-shrink-0 border-b border-border bg-background px-5 py-3">
         <ContextChips flow={flow} />
-        <Progress step={step} onJump={(s) => s <= step && flow.setStep(s)} />
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Progress step={step} onJump={(s) => s <= step && flow.setStep(s)} />
+          </div>
+          <VariantToggle variant={variant} onToggle={() => setVariant((v) => (v === 'v1' ? 'v2' : 'v1'))} />
+        </div>
       </div>
 
       {/* Body */}
       <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
         <div className={cn(twoPane ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
-          {step === 1 && <Step1Start flow={flow} />}
-          {step === 2 && <Step2Setup flow={flow} />}
-          {step === 3 && <Step3Spread flow={flow} />}
-          {step === 4 && <Step4Distribution flow={flow} />}
-          {step === 5 && <Step4Review flow={flow} />}
+          {step === 1 && (variant === 'v1' ? <Step1Start flow={flow} /> : <Step1StartV2 flow={flow} />)}
+          {step === 2 && (variant === 'v1' ? <Step2Setup flow={flow} /> : <Step2SetupV2 flow={flow} />)}
+          {step === 3 && (variant === 'v1' ? <Step3Spread flow={flow} /> : <Step3SpreadV2 flow={flow} />)}
+          {step === 4 && (variant === 'v1' ? <Step4Distribution flow={flow} /> : <Step4DistributionV2 flow={flow} />)}
+          {step === 5 && (variant === 'v1' ? <Step4Review flow={flow} /> : <Step4ReviewV2 flow={flow} />)}
         </div>
       </div>
 
