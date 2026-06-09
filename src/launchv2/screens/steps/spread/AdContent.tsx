@@ -36,7 +36,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export default function AdContent({ flow }: { flow: UseFlowV2 }) {
+export default function AdContent({ flow, wholeAdMode = false }: { flow: UseFlowV2; wholeAdMode?: boolean }) {
   const { plan } = flow;
   const copy = plan.adCopy;
   const [advanced, setAdvanced] = useState(false);
@@ -62,40 +62,59 @@ export default function AdContent({ flow }: { flow: UseFlowV2 }) {
 
   return (
     <div className="space-y-3">
-      {hasSavedAds && (
+      {/* Pre-filled banner — only for individual media mode */}
+      {!wholeAdMode && hasSavedAds && (
         <div className="flex items-center gap-1.5 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2 text-[11px] text-foreground">
           <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
           Copy pre-filled from selected ads — you can edit or override below.
         </div>
       )}
+
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Ad content</h3>
-        <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => set(GENIE_FILL)}>
-          <Sparkles className="h-3 w-3" />
-          Use Genie
-        </Button>
-      </div>
-      <p className="text-[11px] text-muted-foreground">One shared copy block applies to every creative below.</p>
-
-      <Field label="Primary text">
-        <Textarea
-          rows={3}
-          value={copy.primaryText}
-          onChange={(e) => set({ primaryText: e.target.value })}
-          placeholder="What's the hook? Lead with the benefit…"
-          className="resize-none text-sm"
-        />
-      </Field>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Headline">
-          <Input value={copy.headline} onChange={(e) => set({ headline: e.target.value })} placeholder="Short, bold promise" className="text-sm" />
-        </Field>
-        <Field label="Description">
-          <Input value={copy.description} onChange={(e) => set({ description: e.target.value })} placeholder="Supporting detail" className="text-sm" />
-        </Field>
+        <h3 className="text-sm font-semibold text-foreground">
+          {wholeAdMode ? "Campaign settings" : "Ad content"}
+        </h3>
+        {/* Use Genie — not relevant for whole ads, copy is baked in */}
+        {!wholeAdMode && (
+          <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => set(GENIE_FILL)}>
+            <Sparkles className="h-3 w-3" />
+            Use Genie
+          </Button>
+        )}
       </div>
 
+      <p className="text-[11px] text-muted-foreground">
+        {wholeAdMode
+          ? "Creative copy is part of your selected ads. Set campaign-level overrides below."
+          : "One shared copy block applies to every creative below."}
+      </p>
+
+      {/* Primary text — individual media only */}
+      {!wholeAdMode && (
+        <Field label="Primary text">
+          <Textarea
+            rows={3}
+            value={copy.primaryText}
+            onChange={(e) => set({ primaryText: e.target.value })}
+            placeholder="What's the hook? Lead with the benefit…"
+            className="resize-none text-sm"
+          />
+        </Field>
+      )}
+
+      {/* Headline + Description — individual media only */}
+      {!wholeAdMode && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Field label="Headline">
+            <Input value={copy.headline} onChange={(e) => set({ headline: e.target.value })} placeholder="Short, bold promise" className="text-sm" />
+          </Field>
+          <Field label="Description">
+            <Input value={copy.description} onChange={(e) => set({ description: e.target.value })} placeholder="Supporting detail" className="text-sm" />
+          </Field>
+        </div>
+      )}
+
+      {/* CTA + Display link — shown in both modes */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Call to action">
           <Select value={copy.cta} onValueChange={(v) => set({ cta: v })}>
@@ -116,6 +135,7 @@ export default function AdContent({ flow }: { flow: UseFlowV2 }) {
         </Field>
       </div>
 
+      {/* Destination URL — shown in both modes */}
       <Field label="Destination URL">
         <Input
           value={copy.destinationUrl}
@@ -125,71 +145,85 @@ export default function AdContent({ flow }: { flow: UseFlowV2 }) {
         />
       </Field>
 
-      {/* Advanced: UTM + multiple text variations */}
-      <button
-        type="button"
-        onClick={() => setAdvanced((v) => !v)}
-        className="flex w-full items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ChevronDown className={cn("h-3 w-3 transition-transform", advanced && "rotate-180")} />
-        Advanced — UTM &amp; text variations
-      </button>
-      {advanced && (
-        <div className="space-y-3 rounded-2xl border border-border bg-muted/30 p-3">
-          <Field label="UTM template">
-            <Input
-              value={copy.utmTemplate}
-              onChange={(e) => set({ utmTemplate: e.target.value })}
-              className="font-mono text-[11px]"
-            />
-          </Field>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground">
-                Primary-text variations{" "}
-                {variations.length > 0 && <span className="font-mono tabular-nums">({variations.length})</span>}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 text-[11px]"
-                onClick={() => setVariations([...variations, ""])}
-              >
-                <Plus className="h-3 w-3" />
-                Add
-              </Button>
-            </div>
-            {variations.map((v, i) => (
-              <div key={i} className="flex items-start gap-1.5">
-                <Textarea
-                  rows={2}
-                  value={v}
-                  onChange={(e) => setVariations(variations.map((x, j) => (j === i ? e.target.value : x)))}
-                  placeholder={`Variation ${i + 1}`}
-                  className="resize-none text-xs"
+      {/* Whole-ad mode: UTM shown directly (not buried in Advanced) */}
+      {wholeAdMode ? (
+        <Field label="UTM template">
+          <Input
+            value={copy.utmTemplate}
+            onChange={(e) => set({ utmTemplate: e.target.value })}
+            placeholder="utm_source={{placement}}&utm_campaign={{campaign.name}}"
+            className="font-mono text-[11px]"
+          />
+        </Field>
+      ) : (
+        <>
+          {/* Individual media: Advanced collapsible — UTM + text variations */}
+          <button
+            type="button"
+            onClick={() => setAdvanced((v) => !v)}
+            className="flex w-full items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            <ChevronDown className={cn("h-3 w-3 transition-transform", advanced && "rotate-180")} />
+            Advanced — UTM &amp; text variations
+          </button>
+          {advanced && (
+            <div className="space-y-3 rounded-2xl border border-border bg-muted/30 p-3">
+              <Field label="UTM template">
+                <Input
+                  value={copy.utmTemplate}
+                  onChange={(e) => set({ utmTemplate: e.target.value })}
+                  className="font-mono text-[11px]"
                 />
-                <button
-                  type="button"
-                  onClick={() => setVariations(variations.filter((_, j) => j !== i))}
-                  aria-label="Remove variation"
-                  className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+              </Field>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Primary-text variations{" "}
+                    {variations.length > 0 && <span className="font-mono tabular-nums">({variations.length})</span>}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 text-[11px]"
+                    onClick={() => setVariations([...variations, ""])}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add
+                  </Button>
+                </div>
+                {variations.map((v, i) => (
+                  <div key={i} className="flex items-start gap-1.5">
+                    <Textarea
+                      rows={2}
+                      value={v}
+                      onChange={(e) => setVariations(variations.map((x, j) => (j === i ? e.target.value : x)))}
+                      placeholder={`Variation ${i + 1}`}
+                      className="resize-none text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setVariations(variations.filter((_, j) => j !== i))}
+                      aria-label="Remove variation"
+                      className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {variations.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Add variations to test multiple hooks — used by the combination chooser below.
+                  </p>
+                )}
               </div>
-            ))}
-            {variations.length === 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                Add variations to test multiple hooks — used by the combination chooser below.
-              </p>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Per-creative overrides */}
-      {plan.creatives.length > 0 && (
+      {/* Per-creative overrides — individual media only */}
+      {!wholeAdMode && plan.creatives.length > 0 && (
         <>
           <button
             type="button"

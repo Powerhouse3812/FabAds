@@ -64,16 +64,16 @@ function SectionCard({ title, children }: { title: string; children: React.React
 }
 
 // ── AdCopyCollapsed — open by default (P1 fix) ────────────────────────────────
-function AdCopyCollapsed({ flow, hasAds }: { flow: UseFlowV2; hasAds: boolean }) {
+function AdCopyCollapsed({ flow, hasAds, wholeAdMode = false }: { flow: UseFlowV2; hasAds: boolean; wholeAdMode?: boolean }) {
   const [open, setOpen] = useState(true); // defaultOpen = true
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
-        Ad copy {hasAds ? "(pre-filled from selected ads)" : ""}
+        {wholeAdMode ? "Campaign settings" : `Ad copy ${hasAds ? "(pre-filled from selected ads)" : ""}`}
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">
-        <AdContent flow={flow} />
+        <AdContent flow={flow} wholeAdMode={wholeAdMode} />
       </CollapsibleContent>
     </Collapsible>
   );
@@ -311,8 +311,8 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
               onSaved={() => setAppliedFolder((f) => (f ? { ...f } : f))}
             />
 
-            {/* Ad copy — open by default (P1 fix) */}
-            <AdCopyCollapsed flow={flow} hasAds={plan.creatives.length > 0} />
+            {/* Whole ads: only campaign settings (CTA/URL/UTM), no copy fields */}
+            <AdCopyCollapsed flow={flow} hasAds={plan.creatives.length > 0} wholeAdMode />
           </div>
         ) : (
           <>

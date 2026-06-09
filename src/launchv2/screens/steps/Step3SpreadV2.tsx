@@ -225,6 +225,7 @@ interface CreativePanelProps {
   appliedFolder: { id: string; name: string } | null;
   onRemoveCreative: (id: string) => void;
   onOpenSheet: (preferredSource?: SourceType) => void;
+  wholeAdMode?: boolean;
 }
 
 function CreativePanel({
@@ -234,6 +235,7 @@ function CreativePanel({
   appliedFolder,
   onRemoveCreative,
   onOpenSheet,
+  wholeAdMode = false,
 }: CreativePanelProps) {
   const { plan } = flow;
   const hasCreatives = plan.creatives.length > 0;
@@ -297,7 +299,7 @@ function CreativePanel({
 
           {/* Right — copy + bundle graduation */}
           <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
-            <AdContent flow={flow} />
+            <AdContent flow={flow} wholeAdMode={wholeAdMode} />
             {appliedFolder && (
               <>
                 <Separator />
@@ -558,6 +560,7 @@ export default function Step3SpreadV2({ flow }: { flow: UseFlowV2 }) {
         appliedFolder={appliedFolder}
         onRemoveCreative={handleRemoveCreative}
         onOpenSheet={handleOpenSheet}
+        wholeAdMode={creativeMode === "ads"}
       />
 
       {/* Sheet portal */}
