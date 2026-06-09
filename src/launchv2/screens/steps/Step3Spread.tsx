@@ -1,10 +1,28 @@
 /**
  * Step 3 — Creative. Single-column compact layout.
- * Format = standalone section (no card). Media + Copy = "Ad creative" card.
- * When all creatives are whole ads, show WholeAdGrid instead of media row + AdContent.
+ * V1 corrections applied:
+ *  1. Creative type toggle moved ABOVE source chips (Format → Mode → Source → Card).
+ *  2. Source chips now include Lucide icons.
+ *  3. Ad copy (AdCopyCollapsed) now opens by default (defaultOpen).
+ *  4. Warning banner uses design-token-aligned amber opacity classes.
+ *  5. Format chips hidden when no objective (single locked hint line instead).
  */
 import { useEffect, useState } from "react";
-import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  ChevronDown,
+  Copy,
+  FolderOpen,
+  HardDrive,
+  Hash,
+  Image,
+  Library,
+  Link2,
+  Plus,
+  Sparkles,
+  Upload,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -21,6 +39,19 @@ import { FORMAT_ICON } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
 import { SaveBundleRow } from "./spread/SaveBundleRow";
 
+// ── Source → Lucide icon map ──────────────────────────────────────────────────
+const SOURCE_ICON: Record<SourceType, React.ElementType> = {
+  genie: Sparkles,
+  library: Library,
+  upload: Upload,
+  url: Link2,
+  drive: HardDrive,
+  reports: BarChart3,
+  post_id: Hash,
+  folder: FolderOpen,
+};
+
+// ── SectionCard ───────────────────────────────────────────────────────────────
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card className="rounded-2xl">
@@ -32,11 +63,13 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
+// ── AdCopyCollapsed — open by default (P1 fix) ────────────────────────────────
 function AdCopyCollapsed({ flow, hasAds }: { flow: UseFlowV2; hasAds: boolean }) {
+  const [open, setOpen] = useState(true); // defaultOpen = true
   return (
-    <Collapsible>
+    <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ChevronDown className="h-3.5 w-3.5 transition-transform [[data-state=open]_&]:rotate-180" />
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
         Ad copy {hasAds ? "(pre-filled from selected ads)" : ""}
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">
@@ -46,15 +79,11 @@ function AdCopyCollapsed({ flow, hasAds }: { flow: UseFlowV2; hasAds: boolean })
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [sheetOpen, setSheetOpen] = useState(false);
-  /**
-   * Track the last-applied Creative Library folder so the "Save copy to
-   * folder" graduation row can offer to upgrade a media_only folder into a
-   * bundle once the user types copy. Cleared when the creative list changes
-   * away from the folder's items.
-   */
+
   const [appliedFolder, setAppliedFolder] = useState<{
     id: string;
     name: string;
@@ -68,7 +97,7 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan.catalogueToggle]);
 
-  // Format chips (standalone section above Ad creative card)
+  // Format chips — only shown when objective is set
   const allowedFmts: AdFormat[] = plan.objective
     ? allowedFormats(plan.objective, defaultDestination(plan.objective), null)
     : [];
@@ -87,10 +116,6 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   const handleSheetSave = (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => {
     const updates: Partial<typeof plan> = { creatives: items };
     if (suggestedCopy) {
-      // Explicit bundle apply (folder source) carries a populated primaryText —
-      // pre-fill the shared copy block unconditionally.
-      // Heuristic suggestions (e.g. library saved-ad → headline-only) only
-      // pre-fill when the copy block is still empty so we never clobber typed text.
       const isExplicitBundle =
         typeof suggestedCopy.primaryText === "string" &&
         suggestedCopy.primaryText.trim().length > 0;
@@ -120,83 +145,58 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   return (
     <div className="space-y-4">
 
-      {/* ── Format — standalone section, no card wrapper ─── */}
+      {/* ── 1. Format — standalone section ───────────────────────── */}
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">
           Ad type
-          {!plan.objective && (
-            <span className="ml-1 text-muted-foreground/60">— pick an objective first</span>
-          )}
           {plan.catalogueToggle && (
             <span className="ml-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
               pre-selected from Setup
             </span>
           )}
         </Label>
-        <div className="flex flex-wrap gap-1.5">
-          {FORMATS.map((f) => {
-            const enabled = formatSet.has(f.id);
-            const selected = plan.format === f.id;
-            const Icon = FORMAT_ICON[f.id];
-            return (
-              <button
-                key={f.id}
-                type="button"
-                disabled={!enabled}
-                onClick={() => {
-                  if (!plan.objective || !enabled) return;
-                  flow.chooseObjectiveFormat(plan.objective, f.id);
-                }}
-                aria-pressed={selected}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  selected
-                    ? "border-primary bg-primary/5 text-foreground"
-                    : enabled
-                      ? "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                      : "cursor-not-allowed border-border/50 text-muted-foreground/40",
-                )}
-              >
-                <Icon className="h-3 w-3" />
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
+
+        {/* V1 fix: hide all chips when no objective, show a single hint */}
+        {!plan.objective ? (
+          <p className="text-[10px] italic text-muted-foreground/60">
+            Select an objective in Step 1 to unlock formats.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {FORMATS.map((f) => {
+              const enabled = formatSet.has(f.id);
+              const selected = plan.format === f.id;
+              const Icon = FORMAT_ICON[f.id];
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  disabled={!enabled}
+                  onClick={() => {
+                    if (!plan.objective || !enabled) return;
+                    flow.chooseObjectiveFormat(plan.objective, f.id);
+                  }}
+                  aria-pressed={selected}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    selected
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : enabled
+                        ? "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                        : "cursor-not-allowed border-border/50 text-muted-foreground/40",
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ── Source — 8 chips ─────────────────────────────── */}
+      {/* ── 2. Creative type toggle (moved ABOVE source) ─────────── */}
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Source</Label>
-        <div className="flex flex-wrap gap-1.5">
-          {SOURCES.map((s) => {
-            const active = activeSourceId === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  flow.patch({ source: { type: s.id as SourceType, ref: null } });
-                  setSheetOpen(true);
-                }}
-                aria-pressed={active}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  active
-                    ? "border-primary bg-primary/5 text-foreground"
-                    : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                )}
-              >
-                {s.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Creative type toggle ─────────────────────────── */}
-      <div className="space-y-2">
-        {/* Creative type toggle */}
         <div className="flex items-center gap-1.5">
           {(["ads", "media"] as const).map((mode) => (
             <button
@@ -205,9 +205,9 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
               onClick={() => {
                 if (mode === creativeMode) return;
                 if (plan.creatives.length > 0) {
-                  setPendingMode(mode); // show inline confirm
+                  setPendingMode(mode);
                 } else {
-                  setCreativeMode(mode); // no creatives, safe to switch
+                  setCreativeMode(mode);
                 }
               }}
               aria-pressed={creativeMode === mode}
@@ -223,26 +223,71 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
           ))}
         </div>
 
+        {/* V1 fix: design-token-aligned warning banner */}
         {pendingMode && (
-          <div className="rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/30 px-3 py-2 flex items-center gap-2 text-xs">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-            <span className="flex-1 text-amber-700 dark:text-amber-300">
-              Switching modes will clear your {plan.creatives.length} selected {pendingMode === "ads" ? "media item" : "whole ad"}{plan.creatives.length !== 1 ? "s" : ""}.
+          <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="flex-1 text-amber-600 dark:text-amber-400">
+              Switching modes will clear your {plan.creatives.length} selected{" "}
+              {pendingMode === "ads" ? "media item" : "whole ad"}
+              {plan.creatives.length !== 1 ? "s" : ""}.
             </span>
-            <button onClick={() => { flow.patch({ creatives: [] }); setCreativeMode(pendingMode); setPendingMode(null); }} className="rounded-lg border border-amber-400 bg-white dark:bg-amber-950/50 px-2 py-1 font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40">
+            <button
+              onClick={() => {
+                flow.patch({ creatives: [] });
+                setCreativeMode(pendingMode);
+                setPendingMode(null);
+              }}
+              className="rounded-full border border-amber-500/40 bg-card px-2.5 py-1 font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 transition-colors"
+            >
               Clear and switch
             </button>
-            <button onClick={() => setPendingMode(null)} className="rounded-lg px-2 py-1 text-muted-foreground hover:text-foreground">Cancel</button>
+            <button
+              onClick={() => setPendingMode(null)}
+              className="rounded-full px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         )}
       </div>
 
-      {/* ── 1. Ad creative ─────────────────── */}
+      {/* ── 3. Source — chips with icons (V1 fix) ────────────────── */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Source</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {SOURCES.map((s) => {
+            const active = activeSourceId === s.id;
+            const Icon = SOURCE_ICON[s.id as SourceType] ?? Image;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  flow.patch({ source: { type: s.id as SourceType, ref: null } });
+                  setSheetOpen(true);
+                }}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3 w-3" />
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 4. Ad creative card ───────────────────────────────────── */}
       <SectionCard title="Ad creative">
 
         {creativeMode === "ads" ? (
           <div className="space-y-3">
-            {/* Whole ads display */}
             {plan.creatives.length === 0 ? (
               <button
                 type="button"
@@ -260,19 +305,17 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
               />
             )}
 
-            {/* Graduation: offer to save current copy as the applied folder's bundle */}
             <SaveBundleRow
               appliedFolder={appliedFolder}
               adCopy={plan.adCopy}
               onSaved={() => setAppliedFolder((f) => (f ? { ...f } : f))}
             />
 
-            {/* Ad copy — collapsed by default, pre-filled from selected ads */}
+            {/* Ad copy — open by default (P1 fix) */}
             <AdCopyCollapsed flow={flow} hasAds={plan.creatives.length > 0} />
           </div>
         ) : (
           <>
-            {/* Media row */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-xs text-muted-foreground">Media</Label>
@@ -306,14 +349,12 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
 
             <Separator />
 
-            {/* Graduation: offer to save current copy as the applied folder's bundle */}
             <SaveBundleRow
               appliedFolder={appliedFolder}
               adCopy={plan.adCopy}
               onSaved={() => setAppliedFolder((f) => (f ? { ...f } : f))}
             />
 
-            {/* Copy */}
             <AdContent flow={flow} />
           </>
         )}
@@ -327,8 +368,6 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
         creativeMode={creativeMode}
         onSave={(items, suggestedCopy) => {
           handleSheetSave(items, suggestedCopy);
-          // Any non-folder save clears the applied-folder marker since the
-          // creative set is no longer guaranteed to match the folder.
           setAppliedFolder(null);
         }}
         onApplyFolder={handleApplyFolder}

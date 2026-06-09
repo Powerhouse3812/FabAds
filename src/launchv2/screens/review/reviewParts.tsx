@@ -70,21 +70,32 @@ export function ReadinessChip({
   );
 }
 
-/** Labeled stat for the summary strip — number is hero (mono tabular). */
+/** Labeled stat for the summary strip — KPI-card feel: value hero, label below. */
 export function MiniStat({
   label,
   value,
   sub,
+  last,
 }: {
   label: string;
   value: ReactNode;
   sub?: string;
+  last?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="font-mono text-base font-semibold tabular-nums leading-none">{value}</span>
-      {sub && <span className="text-[11px] leading-tight text-muted-foreground">{sub}</span>}
+    <div
+      className={cn(
+        "flex flex-col gap-1",
+        !last && "border-r border-border pr-8 mr-8",
+      )}
+    >
+      <span className="font-mono text-[18px] font-semibold tabular-nums leading-none tracking-tight">
+        {value}
+      </span>
+      <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-muted-foreground/70">
+        {label}
+        {sub && <span className="normal-case tracking-normal"> · {sub}</span>}
+      </span>
     </div>
   );
 }

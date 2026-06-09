@@ -1,5 +1,5 @@
 /**
- * Step 2 — Setup. Three stacked sections (matrix §6c):
+ * Step 2 — Setup (V1 corrected). Three stacked sections (matrix §6c):
  *   1. Ad accounts & pages (two-step destination picker + live 250-cap meter)
  *   2. Budget & bidding (surfaced budget + CBO/ABO label; ABO/CBO toggle,
  *      bid strategy + attribution under an Advanced reveal; Advantage+ toggle)
@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -126,6 +125,7 @@ function Toggle({
   locked,
   reason,
   icon,
+  noBorder,
 }: {
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
@@ -134,9 +134,16 @@ function Toggle({
   locked?: boolean;
   reason?: string;
   icon?: React.ReactNode;
+  /** When true, suppresses the outer card border (used when Toggle is inside a grouped card container). */
+  noBorder?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card px-3 py-2.5">
+    <div
+      className={cn(
+        "flex items-start justify-between gap-3 bg-card px-3 py-2.5",
+        noBorder ? "first:rounded-t-2xl last:rounded-b-2xl" : "rounded-2xl border border-border",
+      )}
+    >
       <div className="min-w-0">
         <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
           {icon}
@@ -236,44 +243,50 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           </div>
 
-          {/* Advantage+ toggle — surfaced */}
-          <Toggle
-            checked={plan.advantagePlus}
-            onCheckedChange={(v) => patch({ advantagePlus: v })}
-            label="Advantage+"
-            desc="Recommended — let Meta optimize budget, audience and placements."
-            icon={<Sparkles className="h-4 w-4 text-primary" />}
-          />
-          {asc && (
-            <p className="flex items-center gap-1.5 text-[11px] text-primary">
-              <Sparkles className="h-3 w-3" /> Advantage+ active — campaign budget, broad audience and auto
-              placements applied.
-            </p>
-          )}
+          {/* ── Advantage+, A/B Test, Catalogue — grouped card ────── */}
+          <div className="rounded-2xl border border-border divide-y divide-border">
+            {/* Advantage+ toggle — surfaced */}
+            <Toggle
+              checked={plan.advantagePlus}
+              onCheckedChange={(v) => patch({ advantagePlus: v })}
+              label="Advantage+"
+              desc="Recommended — let Meta optimize budget, audience and placements."
+              icon={<Sparkles className="h-4 w-4 text-primary" />}
+              noBorder
+            />
+            {asc && (
+              <p className="flex items-center gap-1.5 px-3 pb-2 text-[11px] text-primary">
+                <Sparkles className="h-3 w-3" /> Advantage+ active — campaign budget, broad audience and auto
+                placements applied.
+              </p>
+            )}
 
-          {/* A/B Test toggle */}
-          <Toggle
-            checked={plan.abTest}
-            onCheckedChange={(v) => patch({ abTest: v })}
-            label="A/B Test"
-            desc="Meta runs the test on their side — no extra inputs required."
-          />
+            {/* A/B Test toggle */}
+            <Toggle
+              checked={plan.abTest}
+              onCheckedChange={(v) => patch({ abTest: v })}
+              label="A/B Test"
+              desc="Meta runs the test on their side — no extra inputs required."
+              noBorder
+            />
 
-          {/* Advantage+ Catalogue toggle */}
-          <Toggle
-            checked={plan.catalogueToggle}
-            onCheckedChange={(v) => {
-              patch({ catalogueToggle: v });
-              // Pre-select Catalogue format in Step 3 when toggled on
-              if (v && plan.objective) {
-                patch({ catalogueToggle: v, format: "dpa" });
-              } else if (!v && plan.format === "dpa") {
-                patch({ catalogueToggle: v, format: null });
-              }
-            }}
-            label="Advantage+ Catalogue"
-            desc="Pre-selects Catalogue (DPA) in the Ad step."
-          />
+            {/* Advantage+ Catalogue toggle */}
+            <Toggle
+              checked={plan.catalogueToggle}
+              onCheckedChange={(v) => {
+                patch({ catalogueToggle: v });
+                // Pre-select Catalogue format in Step 3 when toggled on
+                if (v && plan.objective) {
+                  patch({ catalogueToggle: v, format: "dpa" });
+                } else if (!v && plan.format === "dpa") {
+                  patch({ catalogueToggle: v, format: null });
+                }
+              }}
+              label="Advantage+ Catalogue"
+              desc="Pre-selects Catalogue (DPA) in the Ad step."
+              noBorder
+            />
+          </div>
 
           {/* Advanced: bid strategy only */}
           <AdvancedReveal label="Advanced — bid strategy">
@@ -397,9 +410,12 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               Attribution window
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Info className="h-3 w-3" />
+                  <Info className="h-3 w-3 cursor-help" />
                 </TooltipTrigger>
-                <TooltipContent>Conversion window used to credit results. 28-day view removed Jan 2026.</TooltipContent>
+                <TooltipContent>
+                  Conversion window used to credit results. 28-day view removed Jan 2026.
+                  Full label: "7-day click + 1-day engage-through + 1-day view."
+                </TooltipContent>
               </Tooltip>
             </Label>
             <Select
@@ -412,7 +428,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               <SelectContent>
                 <SelectItem value="1d_click">1-day click</SelectItem>
                 <SelectItem value="7d_click">7-day click</SelectItem>
-                <SelectItem value="7d_click_1d_view">7-day click + 1-day engage-through + 1-day view (default)</SelectItem>
+                <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -514,11 +530,9 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           </AdvancedReveal>
 
-          <Separator />
-
           {/* Special ad category — compliance row */}
           {policy.specialAdCategories.visibility !== "hidden" && (
-            <div className="space-y-2">
+            <div className="mt-4 space-y-2 border-t border-border/50 pt-4">
               <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Shield className="h-3.5 w-3.5" /> Special ad category
               </Label>

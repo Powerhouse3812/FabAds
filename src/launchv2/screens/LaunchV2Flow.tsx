@@ -72,7 +72,7 @@ export default function LaunchV2Flow() {
       {/* Footer */}
       <div className="flex flex-shrink-0 items-center justify-between border-t border-border bg-background px-5 py-3">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={flow.back} disabled={step === 1}>Back</Button>
+          <Button variant="outline" onClick={flow.back} disabled={step === 1}>Back</Button>
           <Button
             variant="ghost"
             size="sm"

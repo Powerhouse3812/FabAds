@@ -17,27 +17,17 @@ import {
   Layers,
   ListTree,
   Megaphone,
-  Table2,
 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { PlanV2 } from "../../types";
 import {
   buildReviewTree,
-  flattenTree,
   nodeKindFromId,
   type NodeKind,
   type TreeNode,
@@ -64,8 +54,6 @@ export function ReviewTree({
   onSelectedChange: (next: Set<string>) => void;
 }) {
   const tree = useMemo(() => buildReviewTree(plan), [plan]);
-  const rows = useMemo(() => flattenTree(tree), [tree]);
-  const [view, setView] = useState<"tree" | "table">("tree");
 
   /**
    * Toggle selection. Enforces same-NodeKind rule:
@@ -89,114 +77,37 @@ export function ReviewTree({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header + view toggle */}
-      <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 py-2.5">
+      {/* Header */}
+      <div className="flex flex-shrink-0 flex-col gap-0.5 px-3 py-2.5">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
           <ListTree className="h-4 w-4 text-muted-foreground" />
           Structure
         </div>
-        <div className="flex items-center rounded-full bg-muted p-0.5">
-          <ViewBtn active={view === "tree"} onClick={() => setView("tree")} icon={ListTree} label="Tree" />
-          <ViewBtn active={view === "table"} onClick={() => setView("table")} icon={Table2} label="Table" />
-        </div>
+        {tree.length > 0 && (
+          <p className="text-[10px] text-muted-foreground/60">⌘+click to multi-select same type</p>
+        )}
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        {view === "tree" ? (
-          <div className="space-y-0.5 px-2 pb-4">
-            {tree.length === 0 ? (
-              <p className="px-2 py-8 text-center text-sm text-muted-foreground">
-                Pick a destination in Setup to see the structure.
-              </p>
-            ) : (
-              tree.map((node) => (
-                <TreeBranch
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  selected={selected}
-                  onToggle={toggle}
-                />
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="px-2 pb-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="h-8 text-[11px]">Campaign</TableHead>
-                  <TableHead className="h-8 text-[11px]">Ad set</TableHead>
-                  <TableHead className="h-8 text-[11px]">Ad</TableHead>
-                  <TableHead className="h-8 text-[11px]">Page</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => {
-                  const active = selected.has(r.id);
-                  return (
-                    <TableRow
-                      key={r.id}
-                      data-state={active ? "selected" : undefined}
-                      onClick={(e) =>
-                        toggle(r.id, e.metaKey || e.ctrlKey || e.shiftKey, "ad")
-                      }
-                      className="cursor-pointer"
-                    >
-                      <TableCell className="py-1.5 text-[12px] text-muted-foreground">
-                        {r.campaign}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-[12px] text-muted-foreground">
-                        {r.adSet}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-[12px] font-medium">
-                        {r.ad}
-                      </TableCell>
-                      <TableCell className="py-1.5 text-[12px] text-muted-foreground">
-                        {r.page}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+        <div className="space-y-0.5 px-2 pb-4">
+          {tree.length === 0 ? (
+            <p className="px-2 py-8 text-center text-sm text-muted-foreground">
+              Pick a destination in Setup to see the structure.
+            </p>
+          ) : (
+            tree.map((node) => (
+              <TreeBranch
+                key={node.id}
+                node={node}
+                depth={0}
+                selected={selected}
+                onToggle={toggle}
+              />
+            ))
+          )}
+        </div>
       </ScrollArea>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  ViewBtn                                                             */
-/* ------------------------------------------------------------------ */
-
-function ViewBtn({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ElementType;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors",
-        active
-          ? "bg-card text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      <Icon className="h-4 w-4" />
-      {label}
-    </button>
   );
 }
 
@@ -284,7 +195,7 @@ function TreeBranch({
           active ? "text-primary" : "text-muted-foreground",
         )}
       />
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={node.label}>
         {node.label}
       </span>
       {node.sub && !node.summary && (

@@ -64,19 +64,19 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
   return (
     <div data-screen="lv2-step4-review" className="flex h-full min-h-0">
       {/* LEFT — tree / table */}
-      <div className="flex w-[340px] shrink-0 flex-col border-r border-border bg-muted/20">
+      <div className="flex w-[260px] shrink-0 flex-col border-r border-border bg-muted/20">
         <ReviewTree plan={plan} selected={selected} onSelectedChange={setSelected} />
       </div>
 
       {/* RIGHT — tabs + readiness */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* header: summary strip + readiness chip */}
-        <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-4 py-4">
+          <div className="flex flex-wrap items-center gap-y-3">
             <MiniStat label="Campaigns" value={sum.campaigns} />
             <MiniStat label="Ad sets" value={sum.adSets} />
             <MiniStat label="Ads" value={sum.totalAds} sub={`${sum.adsPerDest}/dest`} />
-            <MiniStat label="Budget/day" value={formatMoney(sum.budgetPerDay, sum.currency)} />
+            <MiniStat label="Budget/day" value={formatMoney(sum.budgetPerDay, sum.currency)} last />
           </div>
           <TooltipProvider>
             <Tooltip>
@@ -106,17 +106,39 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
         <Tabs value={tab} onValueChange={(v) => setTab(v as RightTab)} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-shrink-0 px-4 pt-3">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="edit" disabled={selected.size === 0}>Edit</TabsTrigger>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {/* Radix disabled triggers swallow pointer events — the wrapper span re-enables them for tooltip */}
+                    <span className={selected.size === 0 ? "cursor-not-allowed" : undefined}>
+                      <TabsTrigger
+                        value="edit"
+                        disabled={selected.size === 0}
+                        className="w-full pointer-events-none data-[disabled]:pointer-events-none"
+                        style={selected.size === 0 ? { pointerEvents: "none" } : undefined}
+                      >
+                        Edit
+                      </TabsTrigger>
+                    </span>
+                  </TooltipTrigger>
+                  {selected.size === 0 && (
+                    <TooltipContent side="bottom">
+                      Select an item in the tree to edit
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
               <TabsTrigger value="distribution">Distribution</TabsTrigger>
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="issues" className="relative">
                 Issues
                 {issues.length > 0 && (
                   <span
-                    className={cn(
-                      "ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums",
-                      ready.errors > 0 ? "bg-[#ff4d4f] text-white" : ready.warnings > 0 ? "bg-[#faad14] text-white" : "bg-muted text-muted-foreground",
-                    )}
+                    className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums text-white"
+                    style={{
+                      backgroundColor: ready.errors > 0 ? "var(--color-error, #ff4d4f)" : ready.warnings > 0 ? "var(--color-warning, #faad14)" : "var(--color-border)",
+                      color: ready.errors > 0 || ready.warnings > 0 ? "white" : "var(--color-text-secondary)",
+                    }}
                   >
                     {issues.length}
                   </span>
