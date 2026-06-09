@@ -1,30 +1,25 @@
 /**
  * AccountsPages — Step 2 §1: dual dropdown pickers for ad accounts + pages.
  *
- * Account picker:  full-width trigger → popover with cmdk search, status-aware rows,
- *                  recently-used chips below.
- * Page picker:     same pattern, grouped by account, enabled only when ≥1 account open.
- * Pixel section:   compact row per selected account with pixel select dropdown.
+ * Flow: Select accounts → pages popover unlocks, shows pages grouped by account
+ *       → select pages → pixel rows appear per account with pages selected.
  *
- * State model: `openAccountIds` tracks accounts visible in the page picker.
- * `targets` (TargetPair[]) is the canonical source of truth for account+page selections.
+ * State model:
+ *   `selectedAccountIds` (local) — accounts ticked in account picker.
+ *   `targets` (prop, TargetPair[]) — source of truth for account+page pairs.
+ *
+ * Search filtering is manual (plain <div> rows, not CommandItem) so that
+ * the Reconnect button inside account rows doesn't conflict with cmdk focus.
  */
 
 import { useState, useMemo } from "react";
-import { Check, ChevronsUpDown, RotateCw, Zap } from "lucide-react";
+import { Check, ChevronsUpDown, RotateCw, Search, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandList,
-} from "@/components/ui/command";
 import {
   Select,
   SelectContent,
@@ -34,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { ACCOUNTS, makeTargetV2, pageActiveAds } from "../../../data";
 import { perPageDemand } from "../../../deriveV2";
-import type { PlanV2, TargetPair, MAX_ADS_PER_PAGE as _MaxType } from "../../../types";
+import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
 
 /* ─── BM display names (mock, keyed by accountId) ─────────────────────────── */
@@ -270,18 +265,20 @@ export function AccountsPages({
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const [pageOpen, setPageOpen] = useState(false);
+  const [accountSearch, setAccountSearch] = useState("");
+  const [pageSearch, setPageSearch] = useState("");
 
-  // Accounts "open" in the page picker — starts with accounts already in targets
-  const [openAccountIds, setOpenAccountIds] = useState<Set<string>>(
+  /**
+   * selectedAccountIds — LOCAL state (independent of targets).
+   * An account is "selected" when the user ticks it in the account picker.
+   * Selecting an account doesn't create targets yet — pages must be ticked too.
+   * Deselecting an account removes ALL targets for that account.
+   */
+  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
     () => new Set(targets.map((t) => t.accountId)),
   );
 
   /* ── Derived ── */
-  const selectedAccountIds = useMemo(
-    () => new Set(targets.map((t) => t.accountId)),
-    [targets],
-  );
-
   const selectedPagesByAccount = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const t of targets) {
@@ -298,103 +295,99 @@ export function AccountsPages({
   }, [plan]);
 
   /* ── Recently used ── */
-  // Top 3 accounts by total activeAds across their pages (desc)
-  const recentAccounts = useMemo(() => {
-    return [...ACCOUNTS]
-      .filter((a) => a.status === "active")
-      .sort(
-        (a, b) =>
-          b.pages.reduce((s, p) => s + p.activeAds, 0) -
-          a.pages.reduce((s, p) => s + p.activeAds, 0),
-      )
-      .slice(0, 3);
-  }, []);
+  const recentAccounts = useMemo(
+    () =>
+      [...ACCOUNTS]
+        .filter((a) => a.status === "active")
+        .sort(
+          (a, b) =>
+            b.pages.reduce((s, p) => s + p.activeAds, 0) -
+            a.pages.reduce((s, p) => s + p.activeAds, 0),
+        )
+        .slice(0, 3),
+    [],
+  );
 
-  // Top 3 pages from open accounts, sorted by activeAds desc
   const recentPages = useMemo(() => {
-    const pages: Array<{ id: string; name: string; accountId: string; fbPageId: string; activeAds: number }> = [];
-    for (const accountId of openAccountIds) {
+    const pages: Array<{
+      id: string;
+      name: string;
+      accountId: string;
+      activeAds: number;
+    }> = [];
+    for (const accountId of selectedAccountIds) {
       const acc = ACCOUNTS.find((a) => a.id === accountId);
       if (!acc) continue;
       for (const pg of acc.pages) {
         const ads = pageActiveAds(pg.fbPageId);
-        if (ads < MAX_ADS_PER_PAGE) {
-          pages.push({ id: pg.id, name: pg.name, accountId, fbPageId: pg.fbPageId, activeAds: ads });
-        }
+        if (ads < MAX_ADS_PER_PAGE) pages.push({ id: pg.id, name: pg.name, accountId, activeAds: ads });
       }
     }
     return pages.sort((a, b) => b.activeAds - a.activeAds).slice(0, 3);
-  }, [openAccountIds]);
+  }, [selectedAccountIds]);
 
-  /* ── Account selection ── */
-  // Combined set: all ids that are either in targets or in openAccountIds
-  const allSelectedIds: Set<string> = useMemo(
-    () => new Set([...selectedAccountIds, ...openAccountIds]),
-    [selectedAccountIds, openAccountIds],
-  );
-
+  /* ── Account toggle ── */
   const toggleAccount = (accountId: string) => {
-    const alreadyOpen = openAccountIds.has(accountId);
-    if (alreadyOpen) {
-      // Deselect: remove from open, remove all targets for this account
-      setOpenAccountIds((prev) => {
-        const next = new Set(prev);
-        next.delete(accountId);
-        return next;
-      });
+    const alreadySelected = selectedAccountIds.has(accountId);
+    setSelectedAccountIds((prev) => {
+      const next = new Set(prev);
+      alreadySelected ? next.delete(accountId) : next.add(accountId);
+      return next;
+    });
+    if (alreadySelected) {
+      // Deselecting: clear all targets for this account
       onChange(targets.filter((t) => t.accountId !== accountId));
-    } else {
-      setOpenAccountIds((prev) => new Set([...prev, accountId]));
-      // Don't auto-add pages — user picks pages explicitly
     }
+    // Selecting: no auto-targets — user picks pages next
   };
 
-  /* ── Page selection ── */
+  /* ── Page toggle ── */
   const togglePage = (accountId: string, pageId: string) => {
     const already = targets.some(
       (t) => t.accountId === accountId && t.pageId === pageId,
     );
     if (already) {
-      onChange(
-        targets.filter(
-          (t) => !(t.accountId === accountId && t.pageId === pageId),
-        ),
-      );
+      onChange(targets.filter((t) => !(t.accountId === accountId && t.pageId === pageId)));
     } else {
       const newTarget = makeTargetV2(accountId, pageId);
       if (newTarget) {
-        const existingPixel = targets.find(
-          (t) => t.accountId === accountId,
-        )?.pixelId;
-        onChange([
-          ...targets,
-          { ...newTarget, pixelId: existingPixel ?? newTarget.pixelId },
-        ]);
+        const existingPixel = targets.find((t) => t.accountId === accountId)?.pixelId;
+        onChange([...targets, { ...newTarget, pixelId: existingPixel ?? newTarget.pixelId }]);
       }
     }
   };
 
-  /* ── Pixel assignment ── */
-  const accountPixelId = (accountId: string): string | undefined =>
+  /* ── Pixel ── */
+  const accountPixelId = (accountId: string) =>
     targets.find((t) => t.accountId === accountId)?.pixelId;
 
   const setPixel = (accountId: string, pixelId: string | undefined) => {
-    onChange(
-      targets.map((t) =>
-        t.accountId === accountId ? { ...t, pixelId } : t,
-      ),
-    );
+    onChange(targets.map((t) => (t.accountId === accountId ? { ...t, pixelId } : t)));
   };
 
+  /* ── Filtered lists (manual search — not cmdk, since rows aren't CommandItems) ── */
+  const q = accountSearch.toLowerCase();
+  const filteredAccounts = q
+    ? ACCOUNTS.filter((a) => a.name.toLowerCase().includes(q))
+    : ACCOUNTS;
+
+  const pq = pageSearch.toLowerCase();
+  const selectedAccountList = ACCOUNTS.filter((a) => selectedAccountIds.has(a.id));
+  const filteredAccountsWithPages = pq
+    ? selectedAccountList
+        .map((acc) => ({
+          ...acc,
+          pages: acc.pages.filter((pg) => pg.name.toLowerCase().includes(pq)),
+        }))
+        .filter((acc) => acc.pages.length > 0)
+    : selectedAccountList;
+
   /* ── Counts ── */
-  const accountCount = openAccountIds.size;
+  const accountCount = selectedAccountIds.size;
   const pageCount = targets.length;
   const hasAccounts = accountCount > 0;
 
-  /* ── Page picker: only pages from open accounts ── */
-  const openAccountList = ACCOUNTS.filter((a) => openAccountIds.has(a.id));
-
-  /* ── All selected page ids as a flat set ── */
+  /* ── Flat page id set for recently used chips ── */
   const allSelectedPageIds = useMemo(
     () => new Set(targets.map((t) => t.pageId)),
     [targets],
@@ -402,19 +395,17 @@ export function AccountsPages({
 
   return (
     <div className="space-y-4">
-      {/* ─── Account picker ──────────────────────────────────────────────── */}
-      <div className="space-y-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          Ad accounts
-        </span>
+      {/* ─── 1. Account picker ───────────────────────────────────────────── */}
+      <div className="space-y-1.5">
+        <span className="text-xs font-medium text-muted-foreground">Ad accounts</span>
 
-        <Popover open={accountOpen} onOpenChange={setAccountOpen}>
+        <Popover open={accountOpen} onOpenChange={(v) => { setAccountOpen(v); if (!v) setAccountSearch(""); }}>
           <PopoverTrigger asChild>
             <button
               type="button"
               className="flex h-9 w-full items-center justify-between rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground hover:border-foreground/30 transition-colors"
             >
-              <span>
+              <span className={accountCount > 0 ? "text-foreground font-medium" : ""}>
                 {accountCount > 0
                   ? `${accountCount} account${accountCount !== 1 ? "s" : ""} selected`
                   : "Select ad accounts…"}
@@ -428,29 +419,38 @@ export function AccountsPages({
             align="start"
             sideOffset={6}
           >
-            <Command>
-              <CommandInput placeholder="Search accounts…" className="h-9" />
-              <CommandList className="max-h-[280px]">
-                <CommandEmpty>No accounts found.</CommandEmpty>
-                <CommandGroup>
-                  {ACCOUNTS.map((account) => (
-                    <AccountRow
-                      key={account.id}
-                      account={account}
-                      selected={allSelectedIds.has(account.id)}
-                      onToggle={() => toggleAccount(account.id)}
-                    />
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
+            {/* Manual search input */}
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+              <input
+                value={accountSearch}
+                onChange={(e) => setAccountSearch(e.target.value)}
+                placeholder="Search accounts…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-[280px] overflow-y-auto py-1">
+              {filteredAccounts.length === 0 ? (
+                <p className="px-3 py-4 text-center text-xs text-muted-foreground">No accounts found.</p>
+              ) : (
+                filteredAccounts.map((account) => (
+                  <AccountRow
+                    key={account.id}
+                    account={account}
+                    selected={selectedAccountIds.has(account.id)}
+                    onToggle={() => toggleAccount(account.id)}
+                  />
+                ))
+              )}
+            </div>
           </PopoverContent>
         </Popover>
 
-        {/* Recently used accounts */}
         <RecentChips
           items={recentAccounts}
-          selectedIds={allSelectedIds}
+          selectedIds={selectedAccountIds}
           onToggle={(id) => {
             const acc = ACCOUNTS.find((a) => a.id === id);
             if (acc && acc.status === "active") toggleAccount(id);
@@ -458,21 +458,17 @@ export function AccountsPages({
         />
       </div>
 
-      {/* ─── Page picker ─────────────────────────────────────────────────── */}
-      <div className="space-y-1">
-        <span
-          className={cn(
-            "text-xs font-medium",
-            hasAccounts ? "text-muted-foreground" : "text-muted-foreground/50",
-          )}
-        >
+      {/* ─── 2. Page picker (unlocks after accounts selected) ────────────── */}
+      <div className="space-y-1.5">
+        <span className={cn("text-xs font-medium", hasAccounts ? "text-muted-foreground" : "text-muted-foreground/40")}>
           Pages
+          {!hasAccounts && <span className="ml-1 text-[10px] font-normal italic">— select accounts first</span>}
         </span>
 
         <Popover
           open={pageOpen}
           onOpenChange={(v) => {
-            if (hasAccounts) setPageOpen(v);
+            if (hasAccounts) { setPageOpen(v); if (!v) setPageSearch(""); }
           }}
         >
           <PopoverTrigger asChild>
@@ -482,11 +478,11 @@ export function AccountsPages({
               className={cn(
                 "flex h-9 w-full items-center justify-between rounded-xl border border-border bg-card px-3 text-sm transition-colors",
                 hasAccounts
-                  ? "text-muted-foreground hover:border-foreground/30"
-                  : "cursor-not-allowed opacity-50 text-muted-foreground",
+                  ? "text-muted-foreground hover:border-foreground/30 cursor-pointer"
+                  : "cursor-not-allowed opacity-40 text-muted-foreground",
               )}
             >
-              <span>
+              <span className={pageCount > 0 ? "text-foreground font-medium" : ""}>
                 {pageCount > 0
                   ? `${pageCount} page${pageCount !== 1 ? "s" : ""} selected`
                   : "Select pages…"}
@@ -500,45 +496,55 @@ export function AccountsPages({
             align="start"
             sideOffset={6}
           >
-            <Command>
-              <CommandInput placeholder="Search pages…" className="h-9" />
-              <CommandList className="max-h-[280px]">
-                <CommandEmpty>No pages found.</CommandEmpty>
-                {openAccountList.map((account) => (
-                  <CommandGroup key={account.id} heading={account.name}>
+            {/* Manual search */}
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+              <input
+                value={pageSearch}
+                onChange={(e) => setPageSearch(e.target.value)}
+                placeholder="Search pages…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-[300px] overflow-y-auto py-1">
+              {filteredAccountsWithPages.length === 0 ? (
+                <p className="px-3 py-4 text-center text-xs text-muted-foreground">No pages found.</p>
+              ) : (
+                filteredAccountsWithPages.map((account) => (
+                  <div key={account.id}>
+                    {/* Account group heading */}
+                    <div className="sticky top-0 bg-card/95 px-3 py-1.5 backdrop-blur-sm">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                        {account.name}
+                      </span>
+                    </div>
                     {account.pages.map((pg) => (
                       <PageRow
                         key={pg.id}
                         page={pg}
                         accountName={account.name}
-                        selected={
-                          selectedPagesByAccount.get(account.id)?.has(pg.id) ??
-                          false
-                        }
+                        selected={selectedPagesByAccount.get(account.id)?.has(pg.id) ?? false}
                         onToggle={() => togglePage(account.id, pg.id)}
                       />
                     ))}
-                  </CommandGroup>
-                ))}
-              </CommandList>
-            </Command>
+                  </div>
+                ))
+              )}
+            </div>
           </PopoverContent>
         </Popover>
 
-        {/* Recently used pages (only pages not at cap) */}
         {hasAccounts && (
           <RecentChips
             items={recentPages}
             selectedIds={allSelectedPageIds}
             onToggle={(id) => {
-              // Find which account this page belongs to
-              for (const accountId of openAccountIds) {
+              for (const accountId of selectedAccountIds) {
                 const acc = ACCOUNTS.find((a) => a.id === accountId);
                 const pg = acc?.pages.find((p) => p.id === id);
-                if (pg) {
-                  togglePage(accountId, id);
-                  break;
-                }
+                if (pg) { togglePage(accountId, id); break; }
               }
             }}
           />
@@ -548,46 +554,29 @@ export function AccountsPages({
       {/* ─── Validation hint ─────────────────────────────────────────────── */}
       {hasAccounts && targets.length === 0 && (
         <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          Select at least one page to continue.
+          Select at least one page above to continue.
         </p>
       )}
 
-      {/* ─── Pixel per account ───────────────────────────────────────────── */}
+      {/* ─── 3. Pixel per account (appears when pages are selected) ─────── */}
       {targets.length > 0 && (
         <div className="space-y-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            Pixel assignment
-          </span>
-
-          {[...openAccountIds].map((accountId) => {
+          <span className="text-xs font-medium text-muted-foreground">Pixel assignment</span>
+          {[...selectedAccountIds].map((accountId) => {
             const account = ACCOUNTS.find((a) => a.id === accountId);
             if (!account) return null;
-            // Only show row if this account has targets
-            const hasTargets = targets.some((t) => t.accountId === accountId);
-            if (!hasTargets) return null;
-
+            if (!targets.some((t) => t.accountId === accountId)) return null;
             const currentPixelId = accountPixelId(accountId);
-
             return (
-              <div
-                key={accountId}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2"
-              >
+              <div key={accountId} className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
                 <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-                  {account.name}
-                </span>
-
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{account.name}</span>
                 {account.pixels.length === 0 ? (
-                  <span className="text-[11px] text-muted-foreground/60">
-                    No pixels connected
-                  </span>
+                  <span className="text-[11px] text-muted-foreground/60">No pixels connected</span>
                 ) : (
                   <Select
                     value={currentPixelId ?? "__none__"}
-                    onValueChange={(v) =>
-                      setPixel(accountId, v === "__none__" ? undefined : v)
-                    }
+                    onValueChange={(v) => setPixel(accountId, v === "__none__" ? undefined : v)}
                   >
                     <SelectTrigger className="h-7 w-[180px] text-xs">
                       <SelectValue placeholder="Select pixel" />
@@ -595,9 +584,7 @@ export function AccountsPages({
                     <SelectContent>
                       <SelectItem value="__none__">No pixel</SelectItem>
                       {account.pixels.map((px) => (
-                        <SelectItem key={px.id} value={px.id}>
-                          {px.name}
-                        </SelectItem>
+                        <SelectItem key={px.id} value={px.id}>{px.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -608,7 +595,6 @@ export function AccountsPages({
         </div>
       )}
 
-      {/* ─── Empty state (no accounts in data) ───────────────────────────── */}
       {ACCOUNTS.length === 0 && (
         <p className="text-xs text-muted-foreground">
           No ad accounts connected. Add an account in Integrations.
