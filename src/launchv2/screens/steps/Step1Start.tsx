@@ -4,13 +4,17 @@
  *   2. Strategy (optional soft accelerator) — pill row: Test · Scale · Custom
  *      + any user-saved strategies. Clicking a preset prefills structure/budget/
  *      spread/bid/advantage+. Visually optional — no "required" marker.
+ *   3. Launch strategy (optional) — saved strategy picker, overview pills,
+ *      and save-as-strategy checkbox.
  *
  * V1 changes:
  *   - Objective cards: Lucide icon per objective (left of label).
  *   - Required/Optional badge styling: pill for Required, dimmer for Optional.
  *   - Strategy prefill hint: wrapped in a callout box instead of bare text.
  *   - Active strategy pill: font-semibold text-foreground for stronger pop.
+ *   - Launch strategy section added below strategy SectionCard.
  */
+import { useState } from "react";
 import {
   Check,
   Eye,
@@ -23,6 +27,13 @@ import {
   Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import type { Objective } from "../../types";
 import { OBJECTIVES, STRATEGIES } from "../../data";
@@ -59,9 +70,19 @@ const STRATEGY_ICONS: Record<string, React.ReactNode> = {
   preset_scale: <Rocket className="h-3.5 w-3.5" />,
 };
 
-export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
+interface Step1StartProps {
+  flow: UseFlowV2;
+  saveAsStrategy: boolean;
+  onSaveAsStrategyChange: (v: boolean) => void;
+}
+
+export default function Step1Start({ flow, saveAsStrategy, onSaveAsStrategyChange }: Step1StartProps) {
   const { plan } = flow;
   const { objective, strategyId } = plan;
+
+  // Launch strategy picker state — stub until strategiesService exists
+  const savedStrategies: Array<{ id: string; name: string; summary: string }> = [];
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
 
   const chooseObjective = (o: Objective) => flow.chooseObjectiveFormat(o, null);
 
@@ -187,6 +208,62 @@ export default function Step1Start({ flow }: { flow: UseFlowV2 }) {
           </div>
         )}
       </Section>
+
+      {/* ── Launch strategy — optional ─────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-foreground">Launch strategy</span>
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Optional</span>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Start from a saved strategy to pre-fill setup, distribution, and audience settings.
+          You can still edit any field after applying.
+        </p>
+
+        {/* Strategy picker select */}
+        <Select
+          value={selectedStrategyId ?? "__none__"}
+          onValueChange={(v) => setSelectedStrategyId(v === "__none__" ? null : v)}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Choose a saved strategy…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No strategy</SelectItem>
+            {savedStrategies.map(s => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {savedStrategies.length === 0 && (
+          <p className="text-[11px] text-muted-foreground/60 italic">
+            No strategies saved yet — complete a launch and save it as a strategy.
+          </p>
+        )}
+
+        {/* Overview pills row when strategy is selected */}
+        {selectedStrategyId && (
+          <div className="flex flex-wrap gap-1.5">
+            {/* These will be real config values once strategiesService exists */}
+            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">Sales</span>
+            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">Scale</span>
+            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">3 accounts</span>
+            <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground">₹5,000/day</span>
+          </div>
+        )}
+
+        {/* Save as strategy row */}
+        <label className="flex cursor-pointer items-center gap-2 select-none">
+          <input
+            type="checkbox"
+            checked={saveAsStrategy}
+            onChange={(e) => onSaveAsStrategyChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded accent-primary"
+          />
+          <span className="text-[11px] text-muted-foreground">Save this launch as a reusable strategy when it completes</span>
+        </label>
+      </div>
     </div>
   );
 }

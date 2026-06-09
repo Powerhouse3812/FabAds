@@ -7,9 +7,9 @@
  * Supports a V1/V2 design variant toggle (top-right of progress row).
  * V1 = corrected current design; V2 = fresh redesign.
  */
-import { useState } from "react";
+import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useFlowV2, type StepV2, type UseFlowV2 } from "../state/useFlowV2";
@@ -28,6 +28,7 @@ import Step3SpreadV2 from "./steps/Step3SpreadV2";
 import Step4DistributionV2 from "./steps/Step4DistributionV2";
 import Step4ReviewV2 from "./steps/Step4ReviewV2";
 import { VariantToggle } from "../components/VariantToggle";
+import RunningOverview from "../components/RunningOverview";
 
 const STEP_TITLES: Record<StepV2, string> = {
   1: "Start",
@@ -71,12 +72,16 @@ export default function LaunchV2Flow() {
           </div>
           <VariantToggle variant={variant} onToggle={() => setVariant((v) => (v === 'v1' ? 'v2' : 'v1'))} />
         </div>
+        <RunningOverview plan={plan} currentStep={step} />
       </div>
 
       {/* Body */}
       <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
         <div className={cn(twoPane ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
-          {step === 1 && (variant === 'v1' ? <Step1Start flow={flow} /> : <Step1StartV2 flow={flow} />)}
+          {step === 1 && (variant === 'v1'
+            ? <Step1Start flow={flow} saveAsStrategy={saveAsStrategy} onSaveAsStrategyChange={setSaveAsStrategy} />
+            : <Step1StartV2 flow={flow} saveAsStrategy={saveAsStrategy} onSaveAsStrategyChange={setSaveAsStrategy} />
+          )}
           {step === 2 && (variant === 'v1' ? <Step2Setup flow={flow} /> : <Step2SetupV2 flow={flow} />)}
           {step === 3 && (variant === 'v1' ? <Step3Spread flow={flow} /> : <Step3SpreadV2 flow={flow} />)}
           {step === 4 && (variant === 'v1' ? <Step4Distribution flow={flow} /> : <Step4DistributionV2 flow={flow} />)}
@@ -103,15 +108,6 @@ export default function LaunchV2Flow() {
           <Button onClick={flow.next} disabled={!valid}>Next</Button>
         ) : (
           <div className="flex items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none">
-              <input
-                type="checkbox"
-                checked={saveAsStrategy}
-                onChange={(e) => setSaveAsStrategy(e.target.checked)}
-                className="h-3.5 w-3.5 rounded accent-primary"
-              />
-              Save as strategy
-            </label>
             <Button onClick={handleLaunch} disabled={!allValid}>
               Launch {estimateAds(plan)} ads
             </Button>
@@ -144,28 +140,44 @@ function ContextChips({ flow }: { flow: UseFlowV2 }) {
 
 function Progress({ step, onJump }: { step: StepV2; onJump: (s: StepV2) => void }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1">
       {([1, 2, 3, 4, 5] as StepV2[]).map((s) => {
         const done = step > s;
         const active = step === s;
         return (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onJump(s)}
-            className="flex flex-1 items-center gap-2 text-left"
-          >
-            <span
-              className={cn(
-                "flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
-                active ? "bg-primary text-primary-foreground" : done ? "bg-primary/20 text-foreground" : "bg-muted text-muted-foreground",
-              )}
+          <React.Fragment key={s}>
+            <button
+              type="button"
+              onClick={() => onJump(s)}
+              className="flex items-center gap-1.5 group min-w-0"
             >
-              {s}
-            </span>
-            <span className={cn("text-xs", active ? "font-medium text-foreground" : "text-muted-foreground")}>{STEP_TITLES[s]}</span>
-            {s < 5 && <span className={cn("h-px flex-1", done ? "bg-primary/40" : "bg-border")} />}
-          </button>
+              <span
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-150",
+                  active
+                    ? "bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-1"
+                    : done
+                      ? "bg-primary/20 text-primary"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {done ? <Check className="h-3 w-3" /> : s}
+              </span>
+              <span
+                className={cn(
+                  "truncate text-xs transition-colors",
+                  active
+                    ? "max-w-[72px] font-semibold text-foreground"
+                    : "max-w-[48px] text-muted-foreground group-hover:text-foreground",
+                )}
+              >
+                {STEP_TITLES[s]}
+              </span>
+            </button>
+            {s < 5 && (
+              <span className={cn("h-px flex-1 min-w-[8px]", done ? "bg-primary/40" : "bg-border")} />
+            )}
+          </React.Fragment>
         );
       })}
     </div>
