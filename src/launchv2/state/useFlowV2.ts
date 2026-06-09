@@ -12,7 +12,16 @@ import {
   defaultDestination,
   intentDefaults,
 } from "../reducer";
-import { TARGETING_TEMPLATES } from "../data";
+import { TARGETING_TEMPLATES, makeTargetV2 } from "../data";
+import { templatesService } from "../templates/service";
+import {
+  extractDistributionPayload,
+  extractSetupPayload,
+} from "../templates/edits";
+import type {
+  DistributionTemplate,
+  SetupTemplate,
+} from "../templates/types";
 
 export type StepV2 = 1 | 2 | 3 | 4 | 5;
 const SS_KEY = (id: string) => `launchv2:flow:${id}`;
@@ -91,6 +100,8 @@ export function newPlanV2(): PlanV2 {
     pageDistribution: "fill_first",
     namingPattern: "{brand}_{intent}_{objective}_{date}",
     scheduledFor: null,
+    appliedSetupTemplateId: null,
+    appliedDistributionTemplateId: null,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -111,6 +122,18 @@ export interface UseFlowV2 {
   chooseObjectiveFormat: (o: Objective, f: AdFormat | null) => void;
   setTargets: (t: TargetPair[]) => void;
   reset: () => void;
+
+  /* ── Templates v2 ─────────────────────────────────────────────────
+   * Apply / unlink / save-as-new for Setup (Step 2) and Distribution (Step 4).
+   * No "update existing template" — fork-only by design.
+   */
+  applySetupTemplate: (id: string) => void;
+  unlinkSetupTemplate: () => void;
+  saveCurrentSetupAsTemplate: (name: string) => SetupTemplate;
+
+  applyDistributionTemplate: (id: string) => void;
+  unlinkDistributionTemplate: () => void;
+  saveCurrentDistributionAsTemplate: (name: string) => DistributionTemplate;
 }
 
 export function useFlowV2(draftId?: string): UseFlowV2 {
@@ -218,5 +241,107 @@ export function useFlowV2(draftId?: string): UseFlowV2 {
     setStepState(1);
   }, []);
 
-  return { plan, step, setStep, next, back, patch, chooseIntent, chooseStrategy, chooseObjectiveFormat, setTargets, reset };
+  /* ── Templates v2: Setup ──────────────────────────────────────── */
+  const applySetupTemplate = useCallback((id: string) => {
+    const tpl = templatesService.getSetup(id);
+    if (!tpl) return;
+    const p = tpl.payload;
+    setPlan((prev) => {
+      // Re-hydrate destinations → TargetPair[] via the existing mock.
+      const nextTargets: TargetPair[] = [];
+      for (const d of p.destinations) {
+        for (const pageId of d.pageIds) {
+          const t = makeTargetV2(d.accountId, pageId);
+          if (t) nextTargets.push({ ...t, pixelId: d.pixelId ?? t.pixelId });
+        }
+      }
+      const budget =
+        p.campaign.dailyBudget ?? p.campaign.lifetimeBudget ?? prev.budgetAmount;
+      return {
+        ...prev,
+        targets: nextTargets.length ? nextTargets : prev.targets,
+        objective: p.campaign.objective ?? prev.objective,
+        format: p.campaign.format ?? prev.format,
+        intent: p.campaign.intent,
+        budgetMode: p.campaign.budgetMode,
+        advantagePlus: p.campaign.advantagePlus,
+        bidStrategy: p.campaign.bidStrategy,
+        budgetAmount: budget,
+        optimizationGoal: p.adset.optimizationGoal ?? prev.optimizationGoal,
+        destinationType: p.adset.destinationType ?? prev.destinationType,
+        conversionEvent: p.adset.conversionEvent,
+        specialAdCategories: [...p.adset.specialAdCategory],
+        attribution: p.adset.attribution,
+        advantageAudience: p.audience.advantageAudience,
+        advantageCreative: p.audience.advantageCreative,
+        // Audience values populate inline; clear the legacy targetingTemplateId
+        // so the inline snapshot wins and Setup-template diffs are accurate.
+        targetingTemplateId: null,
+        appliedSetupTemplateId: tpl.id,
+      };
+    });
+  }, []);
+
+  const unlinkSetupTemplate = useCallback(() => {
+    setPlan((prev) => ({ ...prev, appliedSetupTemplateId: null }));
+  }, []);
+
+  const saveCurrentSetupAsTemplate = useCallback(
+    (name: string): SetupTemplate => {
+      const payload = extractSetupPayload(plan);
+      const saved = templatesService.saveSetup(name, payload);
+      setPlan((prev) => ({ ...prev, appliedSetupTemplateId: saved.id }));
+      return saved;
+    },
+    [plan],
+  );
+
+  /* ── Templates v2: Distribution ───────────────────────────────── */
+  const applyDistributionTemplate = useCallback((id: string) => {
+    const tpl = templatesService.getDistribution(id);
+    if (!tpl) return;
+    const p = tpl.payload;
+    setPlan((prev) => ({
+      ...prev,
+      structure: { ...p.structure },
+      spread: p.spread,
+      pageDistribution: p.pageDistribution,
+      adCopy: { ...prev.adCopy, utmTemplate: p.utmTemplate },
+      appliedDistributionTemplateId: tpl.id,
+    }));
+  }, []);
+
+  const unlinkDistributionTemplate = useCallback(() => {
+    setPlan((prev) => ({ ...prev, appliedDistributionTemplateId: null }));
+  }, []);
+
+  const saveCurrentDistributionAsTemplate = useCallback(
+    (name: string): DistributionTemplate => {
+      const payload = extractDistributionPayload(plan);
+      const saved = templatesService.saveDistribution(name, payload);
+      setPlan((prev) => ({ ...prev, appliedDistributionTemplateId: saved.id }));
+      return saved;
+    },
+    [plan],
+  );
+
+  return {
+    plan,
+    step,
+    setStep,
+    next,
+    back,
+    patch,
+    chooseIntent,
+    chooseStrategy,
+    chooseObjectiveFormat,
+    setTargets,
+    reset,
+    applySetupTemplate,
+    unlinkSetupTemplate,
+    saveCurrentSetupAsTemplate,
+    applyDistributionTemplate,
+    unlinkDistributionTemplate,
+    saveCurrentDistributionAsTemplate,
+  };
 }

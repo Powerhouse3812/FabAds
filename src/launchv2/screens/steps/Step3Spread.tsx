@@ -19,6 +19,7 @@ import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
 import { FORMAT_ICON } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
+import { SaveBundleRow } from "./spread/SaveBundleRow";
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -48,6 +49,16 @@ function AdCopyCollapsed({ flow, hasAds }: { flow: UseFlowV2; hasAds: boolean })
 export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [sheetOpen, setSheetOpen] = useState(false);
+  /**
+   * Track the last-applied Creative Library folder so the "Save copy to
+   * folder" graduation row can offer to upgrade a media_only folder into a
+   * bundle once the user types copy. Cleared when the creative list changes
+   * away from the folder's items.
+   */
+  const [appliedFolder, setAppliedFolder] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Pre-select Catalogue format when catalogueToggle is on from Step 2
   useEffect(() => {
@@ -75,8 +86,18 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
 
   const handleSheetSave = (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => {
     const updates: Partial<typeof plan> = { creatives: items };
-    if (suggestedCopy && !plan.adCopy.headline && !plan.adCopy.primaryText) {
-      updates.adCopy = { ...plan.adCopy, ...suggestedCopy };
+    if (suggestedCopy) {
+      // Explicit bundle apply (folder source) carries a populated primaryText —
+      // pre-fill the shared copy block unconditionally.
+      // Heuristic suggestions (e.g. library saved-ad → headline-only) only
+      // pre-fill when the copy block is still empty so we never clobber typed text.
+      const isExplicitBundle =
+        typeof suggestedCopy.primaryText === "string" &&
+        suggestedCopy.primaryText.trim().length > 0;
+      const copyBlockEmpty = !plan.adCopy.headline && !plan.adCopy.primaryText;
+      if (isExplicitBundle || copyBlockEmpty) {
+        updates.adCopy = { ...plan.adCopy, ...suggestedCopy };
+      }
     }
     flow.patch(updates);
     setSheetOpen(false);
@@ -84,6 +105,16 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
 
   const handleRemoveCreative = (id: string) => {
     flow.patch({ creatives: plan.creatives.filter((c) => c.id !== id) });
+  };
+
+  const handleApplyFolder = (result: {
+    creatives: CreativeRef[];
+    suggestedCopy?: Partial<AdCopy>;
+    folderId: string;
+    folderName: string;
+  }) => {
+    handleSheetSave(result.creatives, result.suggestedCopy);
+    setAppliedFolder({ id: result.folderId, name: result.folderName });
   };
 
   return (
@@ -229,6 +260,13 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
               />
             )}
 
+            {/* Graduation: offer to save current copy as the applied folder's bundle */}
+            <SaveBundleRow
+              appliedFolder={appliedFolder}
+              adCopy={plan.adCopy}
+              onSaved={() => setAppliedFolder((f) => (f ? { ...f } : f))}
+            />
+
             {/* Ad copy — collapsed by default, pre-filled from selected ads */}
             <AdCopyCollapsed flow={flow} hasAds={plan.creatives.length > 0} />
           </div>
@@ -268,6 +306,13 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
 
             <Separator />
 
+            {/* Graduation: offer to save current copy as the applied folder's bundle */}
+            <SaveBundleRow
+              appliedFolder={appliedFolder}
+              adCopy={plan.adCopy}
+              onSaved={() => setAppliedFolder((f) => (f ? { ...f } : f))}
+            />
+
             {/* Copy */}
             <AdContent flow={flow} />
           </>
@@ -280,7 +325,13 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
         source={plan.source.type}
         currentSelections={plan.creatives}
         creativeMode={creativeMode}
-        onSave={handleSheetSave}
+        onSave={(items, suggestedCopy) => {
+          handleSheetSave(items, suggestedCopy);
+          // Any non-folder save clears the applied-folder marker since the
+          // creative set is no longer guaranteed to match the folder.
+          setAppliedFolder(null);
+        }}
+        onApplyFolder={handleApplyFolder}
         onClose={() => setSheetOpen(false)}
       />
     </div>

@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useFlowV2, type StepV2, type UseFlowV2 } from "../state/useFlowV2";
@@ -70,7 +71,18 @@ export default function LaunchV2Flow() {
 
       {/* Footer */}
       <div className="flex flex-shrink-0 items-center justify-between border-t border-border bg-background px-5 py-3">
-        <Button variant="ghost" onClick={flow.back} disabled={step === 1}>Back</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={flow.back} disabled={step === 1}>Back</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/launchv2/settings")}
+            aria-label="Launch settings"
+            title="Launch settings"
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </Button>
+        </div>
         <span className="text-xs text-muted-foreground">Autosaved</span>
         {step < 5 ? (
           <Button onClick={flow.next} disabled={!valid}>Next</Button>

@@ -61,6 +61,7 @@ import {
 import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal, SpecialAdCategory } from "../../types";
 import { AccountsPages } from "./setup/AccountsPages";
 import { TemplateModal } from "./setup/TemplateModal";
+import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
 
 /* ---- small shared bits ---- */
 
@@ -68,11 +69,14 @@ function SectionCard({
   n,
   title,
   hint,
+  headerBadge,
   children,
 }: {
   n: number;
   title: string;
   hint?: string;
+  /** Optional badge rendered next to the section title (e.g. template chip). */
+  headerBadge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -84,6 +88,7 @@ function SectionCard({
           </span>
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           {hint && <span className="text-xs text-muted-foreground">· {hint}</span>}
+          {headerBadge && <span className="ml-1">{headerBadge}</span>}
         </div>
         {children}
       </CardContent>
@@ -174,13 +179,25 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
+        {/* ── Setup template header bar ─────────────────────────── */}
+        <SetupTemplateBar flow={flow} />
+
         {/* ── 1 · Ad accounts & pages ───────────────────────────── */}
-        <SectionCard n={1} title="Ad accounts & pages" hint="pick accounts, then destination pages">
+        <SectionCard
+          n={1}
+          title="Ad accounts & pages"
+          hint="pick accounts, then destination pages"
+          headerBadge={<SetupSectionChip flow={flow} section="destinations" />}
+        >
           <AccountsPages plan={plan} targets={plan.targets} onChange={flow.setTargets} />
         </SectionCard>
 
         {/* ── 2 · Campaign ──────────────────────────────────────── */}
-        <SectionCard n={2} title="Campaign">
+        <SectionCard
+          n={2}
+          title="Campaign"
+          headerBadge={<SetupSectionChip flow={flow} section="campaign" />}
+        >
           <div className="flex flex-wrap items-end gap-4">
             {/* budget amount — surfaced */}
             <div className="space-y-1.5">
@@ -299,7 +316,11 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         </SectionCard>
 
         {/* ── 3 · Ad set ────────────────────────────────────────── */}
-        <SectionCard n={3} title="Ad set">
+        <SectionCard
+          n={3}
+          title="Ad set"
+          headerBadge={<SetupSectionChip flow={flow} section="adset" />}
+        >
           {/* Conversion location — only shown when objective supports it */}
           {plan.objective && showsLocationPicker(plan.objective) && (
             <div className="space-y-1.5">
@@ -398,7 +419,12 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         </SectionCard>
 
         {/* ── 4 · Audience ──────────────────────────────────────── */}
-        <SectionCard n={4} title="Audience" hint="targeting template">
+        <SectionCard
+          n={4}
+          title="Audience"
+          hint="targeting template"
+          headerBadge={<SetupSectionChip flow={flow} section="audience" />}
+        >
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1 space-y-1.5">
               <Label className="text-xs text-muted-foreground">Targeting template</Label>

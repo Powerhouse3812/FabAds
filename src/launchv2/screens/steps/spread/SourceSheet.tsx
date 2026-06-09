@@ -47,6 +47,7 @@ import { SOURCES } from "../../../data";
 import type { AdCopy, CreativeRef, SourceType } from "../../../types";
 import { GenieModal } from "./modals/GenieModal";
 import { LibraryModal } from "./modals/LibraryModal";
+import { FolderPicker, type FolderApplyResult } from "./modals/FolderPicker";
 
 /* ─────────────────────────────────────────────────────────────────
    Placeholder for modals not yet built.
@@ -78,7 +79,7 @@ const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
 };
 
 /** Sources that are stubs (no modal content yet) */
-const STUB_SOURCES = new Set<SourceType>(["url", "drive", "reports", "post_id", "folder"]);
+const STUB_SOURCES = new Set<SourceType>(["url", "drive", "reports", "post_id"]);
 
 /* ─────────────────────────────────────────────────────────────────
    StubPanel — for sources that aren't built yet (url / drive / reports)
@@ -136,6 +137,14 @@ export interface SourceSheetProps {
   creativeMode?: "ads" | "media";
   /** Committed on Save. suggestedCopy derived from first ad-type item. */
   onSave: (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => void;
+  /**
+   * Optional: called when the user applies a Creative Library folder.
+   * Caller receives the same media + suggestedCopy contract as `onSave`,
+   * PLUS folder identity — used to surface the "Save copy to folder"
+   * graduation affordance after apply. If omitted, folder apply falls
+   * back to `onSave`.
+   */
+  onApplyFolder?: (result: FolderApplyResult) => void;
   onClose: () => void;
 }
 
@@ -149,6 +158,7 @@ export function SourceSheet({
   currentSelections,
   creativeMode,
   onSave,
+  onApplyFolder,
   onClose,
 }: SourceSheetProps) {
   /* ── Internal source state — drives which modal renders ──── */
@@ -325,6 +335,24 @@ export function SourceSheet({
             />
           )}
 
+          {activeSource === "folder" && (
+            <FolderPicker
+              search={search}
+              onApply={(result: FolderApplyResult) => {
+                // Folder apply is single-shot: commits creatives + (optional) copy
+                // and closes the sheet immediately. If the caller wants folder
+                // identity (e.g. for the "Save copy to folder" graduation
+                // affordance) it provides `onApplyFolder`; otherwise we fall
+                // back to the generic `onSave` channel.
+                if (onApplyFolder) {
+                  onApplyFolder(result);
+                } else {
+                  onSave(result.creatives, result.suggestedCopy);
+                }
+              }}
+            />
+          )}
+
           {activeSource === "upload" && UploadModal !== null && (
             <UploadModal
               selectedIds={new Set(localSelected.keys())}
@@ -343,21 +371,59 @@ export function SourceSheet({
         </div>
 
         {/* ── Footer ──────────────────────────────────────────── */}
-        <div
-          className={cn(
-            "flex flex-shrink-0 items-center justify-between gap-3",
-            "border-t bg-card px-4 py-3",
-          )}
-        >
-          {/* Selection count */}
-          <span className="font-mono text-sm tabular-nums text-muted-foreground">
-            {selectedCount === 0
-              ? "None selected"
-              : `${selectedCount} selected`}
-          </span>
+        {/* Folder source applies in a single click per card — no batch save. */}
+        {activeSource !== "folder" && (
+          <div
+            className={cn(
+              "flex flex-shrink-0 items-center justify-between gap-3",
+              "border-t bg-card px-4 py-3",
+            )}
+          >
+            {/* Selection count */}
+            <span className="font-mono text-sm tabular-nums text-muted-foreground">
+              {selectedCount === 0
+                ? "None selected"
+                : `${selectedCount} selected`}
+            </span>
 
-          {/* Actions */}
-          <div className="flex gap-2">
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onClose}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={handleSave}
+                className={cn(
+                  "rounded-full",
+                  // FabFunnel primary: lime fill + dark text (R1)
+                  "bg-primary text-[#121212] hover:bg-primary/90",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
+                )}
+              >
+                {selectedCount > 0 ? `Save (${selectedCount})` : "Save"}
+              </Button>
+            </div>
+          </div>
+        )}
+        {activeSource === "folder" && (
+          <div
+            className={cn(
+              "flex flex-shrink-0 items-center justify-between gap-3",
+              "border-t bg-card px-4 py-3",
+            )}
+          >
+            <span className="font-mono text-xs text-muted-foreground">
+              Apply a folder to pre-fill creatives across all ads.
+            </span>
             <Button
               type="button"
               variant="outline"
@@ -365,24 +431,10 @@ export function SourceSheet({
               onClick={onClose}
               className="rounded-full"
             >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={selectedCount === 0}
-              onClick={handleSave}
-              className={cn(
-                "rounded-full",
-                // FabFunnel primary: lime fill + dark text (R1)
-                "bg-primary text-[#121212] hover:bg-primary/90",
-                "disabled:opacity-40 disabled:cursor-not-allowed",
-              )}
-            >
-              {selectedCount > 0 ? `Save (${selectedCount})` : "Save"}
+              Close
             </Button>
           </div>
-        </div>
+        )}
       </SheetContent>
     </Sheet>
   );

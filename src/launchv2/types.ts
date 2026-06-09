@@ -208,6 +208,16 @@ export interface PlanV2 {
   namingPattern: string;
   scheduledFor: string | null;
 
+  /* ── Templates v2 (foundation) ──────────────────────────────────────
+   * Track which Setup / Distribution template (if any) is currently linked
+   * to this plan. Set when the user opts-in to apply a template; remains
+   * set when the user edits values (so the bar can show "linked — Edited");
+   * cleared only when the user "Unlinks". Both default null. The existing
+   * `targetingTemplateId` flow above is separate and untouched.
+   */
+  appliedSetupTemplateId?: string | null;
+  appliedDistributionTemplateId?: string | null;
+
   createdAt: string;
   updatedAt: string;
 }

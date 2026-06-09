@@ -20,6 +20,9 @@ import AdTreeVisualization from "./distribution/AdTreeVisualization";
 import CapMeterWithFixes from "./distribution/CapMeterWithFixes";
 import StructureEditor from "./distribution/StructureEditor";
 import PageSplitPicker from "./distribution/PageSplitPicker";
+import DistributionTemplateBar, {
+  DistributionSectionChip,
+} from "./distribution/DistributionTemplateBar";
 import { formatMoney } from "@/launch2/utils/time";
 
 /* ── ① Page split upgrade: add "One page" pill to PageSplitPicker ── */
@@ -49,15 +52,23 @@ export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
   return (
     <div
       data-screen="lv2-step4-distribution"
-      className="grid h-full min-h-0 gap-4"
-      style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}
+      className="flex h-full min-h-0 flex-col"
     >
+      <DistributionTemplateBar flow={flow} />
+
+      <div
+        className="grid min-h-0 flex-1 gap-4"
+        style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}
+      >
       {/* LEFT — 3 control clusters */}
       <div className="overflow-y-auto space-y-5 pr-1">
 
         {/* ① Page split */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground font-semibold">① Page split</Label>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground font-semibold">① Page split</Label>
+            <DistributionSectionChip flow={flow} section="pageDistribution" />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {PAGE_SPLIT_OPTIONS.map((opt) => {
               const on = plan.pageDistribution === opt.id;
@@ -93,7 +104,10 @@ export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
 
         {/* ② Structure */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground font-semibold">② Structure</Label>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground font-semibold">② Structure</Label>
+            <DistributionSectionChip flow={flow} section="structure" />
+          </div>
           <StructureEditor flow={flow} />
         </div>
 
@@ -101,7 +115,10 @@ export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
 
         {/* ③ Creative mapping */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground font-semibold">③ Creative mapping</Label>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground font-semibold">③ Creative mapping</Label>
+            <DistributionSectionChip flow={flow} section="spread" />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {MAPPING_OPTIONS.map((opt) => {
               const on = plan.spread === opt.id;
@@ -129,6 +146,7 @@ export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
       <div className="overflow-y-auto space-y-4 pl-1 border-l border-border">
         <AdTreeVisualization flow={flow} />
         <CapMeterWithFixes flow={flow} />
+      </div>
       </div>
     </div>
   );
