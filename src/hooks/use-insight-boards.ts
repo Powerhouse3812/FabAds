@@ -61,7 +61,8 @@ export function useInsightBoards() {
       if (values.name !== undefined) updates.name = values.name;
       if (values.description !== undefined) updates.description = values.description;
       if (values.tags !== undefined) updates.tags = values.tags;
-      const { error } = await supabase.from("insight_boards").update(updates).eq("id", values.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from("insight_boards").update(updates as any).eq("id", values.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["insight-boards", wsId] }),

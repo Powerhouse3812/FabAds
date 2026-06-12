@@ -64,7 +64,7 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   // ─── Ads bulk toolbar modal state ───────────────────────────────────────────
   const [adsBulkEditOpen, setAdsBulkEditOpen] = useState(false);
   const [adsScheduleOpen, setAdsScheduleOpen] = useState(false);
-  const [adsScheduleValue, setAdsScheduleValue] = useState<ScheduleValue>({});
+  const [adsScheduleValue, setAdsScheduleValue] = useState<ScheduleValue>({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
   const [adsScheduleError, setAdsScheduleError] = useState(false);
 
   // ─── Ad-groups bulk toolbar modal state ──────────────────────────────────────
