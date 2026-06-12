@@ -8,6 +8,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────────────
+   Cluster 7.2 — `.fab-focus` keyboard focus ring utility.
+
+   shadcn `Button` has its own focus-visible styling, but the FabFunnel
+   codebase has many custom-styled `<button>` elements (chips, pill
+   toggles, format/source pickers, tile selectors) that rely on the
+   Tailwind reset and end up with no visible focus ring. Hard fail for
+   WCAG 2.4.7. Add this class to those custom buttons.
+   ────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .fab-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

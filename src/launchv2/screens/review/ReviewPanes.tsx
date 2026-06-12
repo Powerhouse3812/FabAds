@@ -8,7 +8,7 @@
  * Edits route through `flow.patch` (frozen contract). Distribution writes
  * `pageDistribution`; the Issues fixes call into the supplied `onApplyFix`.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -25,29 +25,27 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { BidStrategy, BudgetMode, PageDistribution, PlanV2 } from "../../types";
+import type { BidStrategy, BudgetMode, PlanV2 } from "../../types";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import { BID_LABELS, getTemplate } from "../../data";
-import { perPageDemand } from "../../deriveV2";
+import { budgetPerDay } from "../../deriveV2";
 import { formatMoney } from "@/launch2/utils/time";
 import {
   buildReviewTree,
   flattenAllNodes,
   nodeKindFromId,
-  reviewSummary,
+  perAccountBreakdown,
+  type AccountBreakdown,
   type IssueFixKind,
   type ReviewIssue,
   type TreeNode,
 } from "./reviewModel";
 import {
-  CapMeter,
   ctaLabel,
   ERR,
   ERR_TEXT,
-  FieldRow,
   OK_TEXT,
   WARN,
   WARN_TEXT,
@@ -94,7 +92,7 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
         {/* Safety fallback */}
         {!selected.size && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Select a node in the tree to edit its fields.
+            Pick a node in the tree to edit its fields.
           </p>
         )}
 
@@ -475,100 +473,18 @@ function EditToggle({
 }
 
 /* ------------------------------------------------------------------ */
-/*  DISTRIBUTION pane                                                  */
-/* ------------------------------------------------------------------ */
-const DIST_OPTIONS: { id: PageDistribution; label: string; blurb: string }[] = [
-  { id: "one_page", label: "One page", blurb: "All ads run under a single page." },
-  { id: "fill_first", label: "Fill-first", blurb: "Load each Page to its headroom, then spill to the next. Best for cap safety." },
-  { id: "equal", label: "Equal split", blurb: "Spread ads evenly across every Page." },
-  { id: "duplicate", label: "Duplicate to all", blurb: "Every Page gets the full set — multiplies spend & ad count." },
-];
-
-export function DistributionPane({ flow }: { flow: UseFlowV2 }) {
-  const { plan } = flow;
-  const demand = perPageDemand(plan);
-  const sum = reviewSummary(plan);
-  const activeOpt = DIST_OPTIONS.find((o) => o.id === plan.pageDistribution) ?? DIST_OPTIONS[0];
-
-  const handleEditOnStep4 = () => {
-    if (typeof flow.setStep === "function") flow.setStep(4);
-  };
-
-  return (
-    <ScrollArea className="h-full">
-      <div className="space-y-4 p-4">
-        <div>
-          <h3 className="text-sm font-semibold">Page distribution</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            How the {sum.adsPerDest} ads per destination map onto your {plan.targets.length} Page
-            {plan.targets.length === 1 ? "" : "s"}. Set on Step 4 Distribution.
-          </p>
-        </div>
-
-        {/* Read-only summary of the currently-selected distribution mode */}
-        <div className="space-y-2">
-          <div className="rounded-xl border border-primary bg-primary/10 px-3 py-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-medium">{activeOpt.label}</span>
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-            </div>
-            <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{activeOpt.blurb}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleEditOnStep4}
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            Edit on Step 4 Distribution →
-          </button>
-        </div>
-
-        <Separator />
-
-        {/* Per-page cap math + headroom */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-foreground">Per-Page cap (250 max)</h4>
-          {demand.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No destinations yet.</p>
-          ) : (
-            demand.map((p) => (
-              <div key={p.fbPageId} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium">{p.pageName}</div>
-                    <div className="truncate text-[10px] text-muted-foreground">{p.accountName}</div>
-                  </div>
-                  {p.over && (
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                      style={{ color: ERR_TEXT, backgroundColor: "rgba(255,77,79,0.12)" }}
-                    >
-                      <AlertTriangle className="h-3 w-3" /> Over cap
-                    </span>
-                  )}
-                </div>
-                <CapMeter current={p.current} demand={p.demand} />
-              </div>
-            ))
-          )}
-        </div>
-
-        <Separator />
-        <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2 text-xs">
-          <span className="text-muted-foreground">Total ads requested</span>
-          <span className="font-mono font-semibold tabular-nums">{sum.totalAds}</span>
-        </div>
-      </div>
-    </ScrollArea>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  PREVIEW pane — Meta-style ad mockup                                */
+/*  PREVIEW pane — per-account breakdown + Meta-style ad mockup        */
 /* ------------------------------------------------------------------ */
 export function PreviewPane({ plan, selected }: { plan: PlanV2; selected: Set<string> }) {
+  // ── NEW state ──
+  const [viewMode, setViewMode] = useState<"rows" | "cards">("rows");
+  const [flightDays, setFlightDays] = useState<7 | 14 | 30>(7);
+  const breakdown = useMemo(() => perAccountBreakdown(plan), [plan]);
+  const totalDaily = budgetPerDay(plan);
+  const currency = plan.targets[0]?.currency ?? "USD";
+
+  // ── existing ad mockup derivations ──
   const tree = buildReviewTree(plan);
-  // find the selected ad leaf, else first ad in the tree
   const allAds = tree.flatMap((a) => a.children ?? []).flatMap((c) => c.children ?? []).flatMap((s) => s.children ?? []);
   const selId = [...selected].find((id) => allAds.some((a) => a.id === id && !a.summary));
   const ad = allAds.find((a) => a.id === selId && !a.summary) ?? allAds.find((a) => !a.summary);
@@ -580,9 +496,78 @@ export function PreviewPane({ plan, selected }: { plan: PlanV2; selected: Set<st
 
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col items-center gap-3 p-4">
-        <p className="self-start text-xs text-muted-foreground">Facebook feed preview · representative</p>
-        <div className="w-full max-w-[340px] overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col gap-4 p-4">
+
+        {/* ── BREAKDOWN SECTION ─────────────────────────────────── */}
+        <div className="space-y-2.5">
+          {/* Header: label + view toggle + flight-days toggle */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground/70">
+              Launch breakdown
+            </span>
+            <div className="flex items-center gap-2">
+              {/* Flight-days toggle */}
+              <div className="flex items-center gap-0.5">
+                {([7, 14, 30] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setFlightDays(d)}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 font-mono text-[10px] transition-colors",
+                      flightDays === d
+                        ? "bg-primary/15 text-primary font-semibold"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {d}d
+                  </button>
+                ))}
+              </div>
+              {/* View mode toggle */}
+              <div className="flex items-center gap-0 rounded-lg border border-border p-0.5">
+                {(["rows", "cards"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    className={cn(
+                      "rounded px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors",
+                      viewMode === mode
+                        ? "bg-muted text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Empty state */}
+          {breakdown.length === 0 ? (
+            <p className="text-[11px] italic text-muted-foreground">
+              No destinations added yet — go to Setup step.
+            </p>
+          ) : viewMode === "rows" ? (
+            <BreakdownRows
+              breakdown={breakdown}
+              flightDays={flightDays}
+              totalDaily={totalDaily}
+              currency={currency}
+            />
+          ) : (
+            <BreakdownCards breakdown={breakdown} flightDays={flightDays} />
+          )}
+        </div>
+
+        {/* ── DIVIDER ───────────────────────────────────────────── */}
+        <div className="border-t border-border" />
+
+        {/* ── EXISTING AD MOCKUP ────────────────────────────────── */}
+        <p className="text-xs text-muted-foreground">Facebook feed preview · representative</p>
+        <div className="w-full max-w-[340px] self-center overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* header */}
           <div className="flex items-center gap-2.5 px-3 py-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -642,13 +627,163 @@ export function PreviewPane({ plan, selected }: { plan: PlanV2; selected: Set<st
           </div>
         </div>
         {creative && (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="self-center text-[11px] text-muted-foreground">
             Showing <span className="font-medium text-foreground">{creative.name}</span>
             {target ? <> on {target.pageName}</> : null}
           </p>
         )}
       </div>
     </ScrollArea>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  BREAKDOWN sub-components                                           */
+/* ------------------------------------------------------------------ */
+
+function BreakdownRows({
+  breakdown,
+  flightDays,
+  totalDaily,
+  currency,
+}: {
+  breakdown: AccountBreakdown[];
+  flightDays: number;
+  totalDaily: number;
+  currency: string;
+}) {
+  const totals = breakdown.reduce(
+    (acc, b) => ({
+      pages: acc.pages + b.pages,
+      campaigns: acc.campaigns + b.campaigns,
+      adSets: acc.adSets + b.adSets,
+      ads: acc.ads + b.ads,
+    }),
+    { pages: 0, campaigns: 0, adSets: 0, ads: 0 },
+  );
+
+  const cols = "grid-cols-[1fr_2.5rem_3.5rem_3.5rem_2.5rem_6.5rem]";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border text-[11px]">
+      {/* Column headers */}
+      <div className={cn("grid gap-x-2 border-b border-border bg-muted/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.05em] text-muted-foreground/70", cols)}>
+        <span>Account</span>
+        <span className="text-right">Pgs</span>
+        <span className="text-right">Camps</span>
+        <span className="text-right">Sets</span>
+        <span className="text-right">Ads</span>
+        <span className="text-right">Budget</span>
+      </div>
+
+      {/* Per-account rows */}
+      {breakdown.map((b) => (
+        <div
+          key={b.accountId}
+          className={cn(
+            "grid items-center gap-x-2 border-b border-border px-3 py-2 last:border-0",
+            cols,
+          )}
+        >
+          <span className="truncate font-medium text-foreground">{b.accountName}</span>
+          <span className="text-right font-mono tabular-nums text-muted-foreground">{b.pages}</span>
+          <span className="text-right font-mono tabular-nums text-muted-foreground">{b.campaigns}</span>
+          <span className="text-right font-mono tabular-nums text-muted-foreground">{b.adSets}</span>
+          <span className="text-right font-mono tabular-nums text-muted-foreground">{b.ads}</span>
+          <div className="text-right">
+            <div className="font-mono tabular-nums text-foreground">{formatMoney(b.dailyBudget, b.currency)}</div>
+            <div className="font-mono tabular-nums text-[10px] text-muted-foreground">
+              {formatMoney(b.dailyBudget * flightDays, b.currency)} / {flightDays}d
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Total row */}
+      {breakdown.length > 1 && (
+        <div className={cn("grid items-center gap-x-2 border-t border-border bg-muted/20 px-3 py-2 font-semibold", cols)}>
+          <span className="text-foreground">Total</span>
+          <span className="text-right font-mono tabular-nums">{totals.pages}</span>
+          <span className="text-right font-mono tabular-nums">{totals.campaigns}</span>
+          <span className="text-right font-mono tabular-nums">{totals.adSets}</span>
+          <span className="text-right font-mono tabular-nums">{totals.ads}</span>
+          <div className="text-right">
+            <div className="font-mono tabular-nums text-foreground">{formatMoney(totalDaily, currency)}</div>
+            <div className="font-mono tabular-nums text-[10px] text-muted-foreground">
+              {formatMoney(totalDaily * flightDays, currency)} / {flightDays}d
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BreakdownCards({
+  breakdown,
+  flightDays,
+}: {
+  breakdown: AccountBreakdown[];
+  flightDays: number;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {breakdown.map((b) => (
+        <div
+          key={b.accountId}
+          className="space-y-2.5 rounded-2xl border border-border bg-card p-3"
+        >
+          {/* Account name */}
+          <div className="space-y-1">
+            <p className="truncate text-[13px] font-semibold text-foreground">{b.accountName}</p>
+            <span className="inline-block rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {b.pages} page{b.pages !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {/* Structure counts */}
+          <div className="space-y-1 text-[11px]">
+            <BStatRow label="Campaigns" value={b.campaigns} />
+            <BStatRow label="Ad sets" value={b.adSets} />
+            <BStatRow label="Ads" value={b.ads} />
+          </div>
+
+          {/* Budget */}
+          <div className="space-y-1 border-t border-border/60 pt-2 text-[11px]">
+            <BStatRow label="Daily" value={`${formatMoney(b.dailyBudget, b.currency)}`} />
+            <BStatRow
+              label={`${flightDays}d est.`}
+              value={formatMoney(b.dailyBudget * flightDays, b.currency)}
+              highlight
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BStatRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string | number;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "font-mono tabular-nums font-medium",
+          highlight ? "text-primary" : "text-foreground",
+        )}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 

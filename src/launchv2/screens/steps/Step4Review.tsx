@@ -23,14 +23,16 @@ import { formatMoney } from "@/launch2/utils/time";
 import { buildIssues, readiness, reviewSummary, type ReviewIssue } from "../review/reviewModel";
 import { MiniStat, ReadinessChip } from "../review/reviewParts";
 import { ReviewTree } from "../review/ReviewTree";
-import { DistributionPane, EditPane, IssuesPane, PreviewPane } from "../review/ReviewPanes";
+import { EditPane, IssuesPane, PreviewPane } from "../review/ReviewPanes";
+import { dailyTotalBudget } from "../../deriveV2";
 
-type RightTab = "edit" | "distribution" | "preview" | "issues";
+type RightTab = "edit" | "preview" | "issues";
 
 export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<RightTab>("preview");
+  const [flightDays, setFlightDays] = useState<7 | 14 | 30>(7);
 
   // When selection is cleared while Edit tab is open → fall back to Preview
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
   const issues = useMemo(() => buildIssues(plan), [plan]);
   const ready = useMemo(() => readiness(issues), [issues]);
   const sum = useMemo(() => reviewSummary(plan), [plan]);
+  const dailyTotal = useMemo(() => dailyTotalBudget(plan), [plan]);
 
   /** Apply a single issue's recommended fix (only distribution is in-place). */
   const applyFix = (issue: ReviewIssue) => {
@@ -70,13 +73,51 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
 
       {/* RIGHT — tabs + readiness */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* hero: total daily budget — the number that matters before launch */}
+        <div className="flex-shrink-0 border-b border-border px-4 pt-4">
+          <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4 mb-3">
+            <div className="font-mono tabular-nums text-[32px] leading-none font-semibold text-foreground">
+              {formatMoney(dailyTotal, sum.currency)}
+              <span className="ml-2 text-[13px] font-normal text-muted-foreground">/ day</span>
+            </div>
+            <div className="mt-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+              ~{formatMoney(dailyTotal * 7, sum.currency)} over 7d est.
+            </div>
+          </div>
+        </div>
         {/* header: summary strip + readiness chip */}
         <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border px-4 py-4">
           <div className="flex flex-wrap items-center gap-y-3">
+            <MiniStat label="Accounts" value={sum.accounts} />
+            <MiniStat label="Pages" value={sum.pages} />
             <MiniStat label="Campaigns" value={sum.campaigns} />
             <MiniStat label="Ad sets" value={sum.adSets} />
             <MiniStat label="Ads" value={sum.totalAds} sub={`${sum.adsPerDest}/dest`} />
-            <MiniStat label="Budget/day" value={formatMoney(sum.budgetPerDay, sum.currency)} last />
+            <MiniStat label="per day" value={formatMoney(sum.budgetPerDay, sum.currency)} />
+            <MiniStat
+              label={`${flightDays}d est.`}
+              value={formatMoney(sum.budgetPerDay * flightDays, sum.currency)}
+              last
+            />
+          </div>
+          {/* Flight-days toggle */}
+          <div className="flex items-center gap-0.5 self-end">
+            <span className="mr-1 font-mono text-[10px] text-muted-foreground/60 uppercase tracking-wide">Est.</span>
+            {([7, 14, 30] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setFlightDays(d)}
+                className={cn(
+                  "fab-focus rounded-full px-2 py-0.5 font-mono text-[10px] transition-colors",
+                  flightDays === d
+                    ? "bg-primary/15 text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {d}d
+              </button>
+            ))}
           </div>
           <TooltipProvider>
             <Tooltip>
@@ -105,30 +146,42 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
         {/* tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as RightTab)} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-shrink-0 px-4 pt-3">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    {/* Radix disabled triggers swallow pointer events — the wrapper span re-enables them for tooltip */}
-                    <span className={selected.size === 0 ? "cursor-not-allowed" : undefined}>
-                      <TabsTrigger
-                        value="edit"
-                        disabled={selected.size === 0}
-                        className="w-full pointer-events-none data-[disabled]:pointer-events-none"
-                        style={selected.size === 0 ? { pointerEvents: "none" } : undefined}
-                      >
-                        Edit
-                      </TabsTrigger>
-                    </span>
+                    {/* 7.6: was `disabled` + `pointer-events-none`, which made the
+                       trigger un-focusable so screen-reader users never got the
+                       tooltip explaining WHY it was disabled. Now we use
+                       `aria-disabled` so the tab stays focusable + announceable,
+                       and we describe it via `aria-describedby`. Clicks are a
+                       no-op via the onClick guard on TabsTrigger; pointer-events
+                       stay enabled so the tooltip still appears on hover. */}
+                    <TabsTrigger
+                      value="edit"
+                      aria-disabled={selected.size === 0}
+                      aria-describedby={selected.size === 0 ? "lv2-edit-tab-hint" : undefined}
+                      onClick={(e) => {
+                        if (selected.size === 0) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }
+                      }}
+                      className={cn(
+                        "w-full",
+                        selected.size === 0 && "cursor-not-allowed opacity-60",
+                      )}
+                    >
+                      Edit
+                    </TabsTrigger>
                   </TooltipTrigger>
                   {selected.size === 0 && (
-                    <TooltipContent side="bottom">
+                    <TooltipContent id="lv2-edit-tab-hint" side="bottom">
                       Select an item in the tree to edit
                     </TooltipContent>
                   )}
                 </Tooltip>
               </TooltipProvider>
-              <TabsTrigger value="distribution">Distribution</TabsTrigger>
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="issues" className="relative">
                 Issues
@@ -150,7 +203,6 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
           {/* panes — only the active one mounts (each owns its scroll) */}
           <div className="min-h-0 flex-1">
             {tab === "edit" && <EditPane flow={flow} selected={selected} />}
-            {tab === "distribution" && <DistributionPane flow={flow} />}
             {tab === "preview" && <PreviewPane plan={plan} selected={selected} />}
             {tab === "issues" && <IssuesPane issues={issues} onApplyFix={applyFix} onAutoFix={autoFix} />}
           </div>
