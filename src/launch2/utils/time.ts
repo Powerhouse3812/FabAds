@@ -42,5 +42,5 @@ export function currencySymbol(code: string): string {
 /** "$50" · "₹1,250" — whole-number money for budgets. */
 export function formatMoney(amount: number, currency: string): string {
   const sym = currencySymbol(currency);
-  return `${sym}${Math.round(amount).toLocaleString("en-IN")}`;
+  return `${sym}${Math.round(amount).toLocaleString("en-US")}`;
 }

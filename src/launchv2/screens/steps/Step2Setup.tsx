@@ -17,13 +17,10 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
-  ExternalLink,
   Lock,
   Sparkles,
   Pencil,
   Info,
-  Upload,
-  Users,
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -58,16 +55,15 @@ import {
 } from "../../reducer";
 import {
   BID_LABELS,
-  CUSTOM_AUDIENCES,
   TARGETING_TEMPLATES,
   getTemplate,
 } from "../../data";
-import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal, PlanV2 } from "../../types";
+import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal } from "../../types";
 import { buildIssues } from "../review/reviewModel";
 import { AccountsPages } from "./setup/AccountsPages";
 import { TemplateModal } from "./setup/TemplateModal";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
-import SpecialAdCategoryField from "./shared/SpecialAdCategoryField";
+// SpecialAdCategoryField moved to AccountsPages (regulated toggle at top of §1, lock #18).
 import CopyFromRunning, {
   runningCampaignItems,
   applyRunningCampaign,
@@ -133,194 +129,7 @@ function StepSection({
   );
 }
 
-/* ---- Sticky overview card ---- */
-
-function SetupOverviewCard({
-  meta,
-  plan,
-}: {
-  meta: { label: string; complete: boolean; summary: string }[];
-  plan: PlanV2;
-}) {
-  const EMPTY_LABELS = new Set(["Not set yet", "Not set", "Defaults applied"]);
-  const [detailOpen, setDetailOpen] = useState(false);
-
-  const humanizeGoal = (s: string) =>
-    s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-
-  const formatAttribution = (a: string): string => {
-    if (a === "1d_click") return "1d click";
-    if (a === "7d_click") return "7d click";
-    if (a === "7d_click_1d_view") return "7d + 1d view";
-    return a;
-  };
-
-  const tplDetail = getTemplate(plan.targetingTemplateId);
-
-  // Row A — Campaign chips
-  const campaignChips: React.ReactNode[] = [];
-  if (plan.budgetAmount > 0) {
-    campaignChips.push(
-      <span key="budgetMode" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {plan.budgetMode}
-      </span>,
-    );
-  }
-  if (plan.advantagePlus === true) {
-    campaignChips.push(
-      <span key="advantagePlus" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        Advantage+
-      </span>,
-    );
-  }
-  if (plan.abTest === true) {
-    campaignChips.push(
-      <span key="abTest" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        A/B Test
-      </span>,
-    );
-  }
-  if (plan.bidStrategy && plan.bidStrategy !== "LOWEST_COST_WITHOUT_CAP") {
-    campaignChips.push(
-      <span key="bidStrategy" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {BID_LABELS[plan.bidStrategy]}
-      </span>,
-    );
-  }
-
-  // Row B — Ad set chips
-  const adSetChips: React.ReactNode[] = [];
-  if (plan.optimizationGoal) {
-    adSetChips.push(
-      <span key="optGoal" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {humanizeGoal(plan.optimizationGoal)}
-      </span>,
-    );
-  }
-  if (plan.attribution) {
-    adSetChips.push(
-      <span key="attribution" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {formatAttribution(plan.attribution)}
-      </span>,
-    );
-  }
-  if (plan.placementMode) {
-    adSetChips.push(
-      <span key="placement" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {plan.placementMode === "advantage" ? "Auto placement" : "Manual placement"}
-      </span>,
-    );
-  }
-  if (plan.advantageAudience === true) {
-    adSetChips.push(
-      <span key="advAudience" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        Adv+ Audience
-      </span>,
-    );
-  }
-
-  // Row C — Audience chips
-  const audienceChips: React.ReactNode[] = [];
-  if (plan.targetingTemplateId && tplDetail) {
-    audienceChips.push(
-      <span key="tplName" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-        {tplDetail.name}
-      </span>,
-    );
-  }
-
-  const hasDetailRows = campaignChips.length > 0 || adSetChips.length > 0 || audienceChips.length > 0;
-
-  return (
-    <div className="sticky top-0 z-20 pb-2 bg-background">
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-        <div className="flex divide-x divide-border/50">
-          {meta.map((item, i) => (
-            <div
-              key={i}
-              className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-2.5 text-left"
-            >
-              <div className="flex items-center gap-1.5">
-                {/* Status dot */}
-                <span
-                  className={cn(
-                    "flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                    item.complete
-                      ? "border-primary bg-primary"
-                      : "border-border bg-muted",
-                  )}
-                >
-                  {item.complete && (
-                    <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
-                      <path d="M0.75 2.5L2.25 4L5.25 1" stroke="#121212" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-[10px] font-mono uppercase tracking-wide text-muted-foreground">
-                  {item.label}
-                </span>
-              </div>
-              <span
-                className={cn(
-                  "truncate pl-4 text-[11px] font-medium leading-tight",
-                  item.complete ? "text-foreground" : "text-muted-foreground/60",
-                )}
-              >
-                {EMPTY_LABELS.has(item.summary) ? "—" : item.summary}
-              </span>
-            </div>
-          ))}
-
-          {/* Expand/collapse toggle button */}
-          {hasDetailRows && (
-            <button
-              type="button"
-              onClick={() => setDetailOpen((v) => !v)}
-              className="flex h-full shrink-0 items-center border-l border-border/50 px-2 text-muted-foreground hover:text-foreground transition-colors"
-              title={detailOpen ? "Collapse" : "Expand overview"}
-            >
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", detailOpen && "rotate-180")} />
-            </button>
-          )}
-        </div>
-
-        {/* Collapsible detail rows */}
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows] duration-300 ease-out",
-            detailOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
-          <div className="overflow-hidden">
-            <div className="border-t border-border/50 px-3 py-2.5 space-y-2">
-              {/* Row A — Campaign */}
-              {campaignChips.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/50 shrink-0 w-20">Campaign</span>
-                  {campaignChips}
-                </div>
-              )}
-              {/* Row B — Ad set */}
-              {adSetChips.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/50 shrink-0 w-20">Ad set</span>
-                  {adSetChips}
-                </div>
-              )}
-              {/* Row C — Audience */}
-              {audienceChips.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/50 shrink-0 w-20">Audience</span>
-                  {audienceChips}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* Overview moved to LaunchV2Flow breadcrumb strip — local sticky card removed. */
 
 function AdvancedReveal({ label, children }: { label: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -331,6 +140,28 @@ function AdvancedReveal({ label, children }: { label: string; children: React.Re
         {label}
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-3 pt-3">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/** Section §3 sub-group with ▸ chevron — surfaced (not Advanced). */
+function Subsection({
+  label,
+  defaultOpen = true,
+  children,
+}: {
+  label: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-[13px] font-medium text-foreground hover:opacity-80">
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+        {label}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-4 pt-3 pl-5">{children}</CollapsibleContent>
     </Collapsible>
   );
 }
@@ -384,30 +215,7 @@ function Toggle({
   );
 }
 
-/* ---- custom audience upload ---- */
-
-function CustomAudienceUpload() {
-  const [file, setFile] = useState<File | null>(null);
-  return (
-    <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-card px-4 py-4 text-center hover:border-primary/40 transition-colors">
-      <Upload className="h-5 w-5 text-muted-foreground/50" />
-      {file ? (
-        <span className="text-xs font-medium text-foreground">{file.name}</span>
-      ) : (
-        <>
-          <span className="text-xs font-medium text-foreground">Drop CSV here or click to browse</span>
-          <span className="text-[11px] text-muted-foreground">Columns: email, phone or MADID</span>
-        </>
-      )}
-      <input
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-      />
-    </label>
-  );
-}
+/* CustomAudienceUpload lives in AccountsPages now; removed local dead copy. */
 
 /* ---- Filter chip (used in template picker) ---- */
 
@@ -644,72 +452,23 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
     },
   ];
 
+  // Non-USD account → show single muted FX hint (currency lock #5)
+  const hasNonUsdAccount = plan.targets.some((t) => t.currency && t.currency !== "USD");
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
-        {/* ── Setup template header bar ─────────────────────────── */}
+        {/* ── Setup template one-liner ──────────────────────────── */}
         <SetupTemplateBar flow={flow} />
 
-        {/* ── Sticky section overview card ──────────────────────── */}
-        <SetupOverviewCard
-          meta={sectionMeta}
-          plan={plan}
-        />
-
-        {/* ── Section progress strip ────────────────────────────── */}
-        {(() => {
-          const completeCount = sectionMeta.filter((s) => s.complete).length;
-          const remainingCount = sectionMeta.length - completeCount;
-          const firstIncomplete = sectionMeta.findIndex((s) => !s.complete);
-          const pct = (completeCount / sectionMeta.length) * 100;
-          return (
-            <button
-              type="button"
-              onClick={() => {
-                if (firstIncomplete !== -1) openSection(firstIncomplete);
-              }}
-              disabled={firstIncomplete === -1}
-              className={cn(
-                "group w-full rounded-xl border border-border bg-card px-3 py-2 text-left transition-colors",
-                firstIncomplete !== -1 && "hover:border-foreground/30 cursor-pointer",
-                firstIncomplete === -1 && "cursor-default",
-              )}
-              aria-label="Jump to next incomplete section"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-mono text-muted-foreground">
-                  <span className="text-foreground font-semibold tabular-nums">{completeCount}</span>
-                  {" of "}
-                  <span className="tabular-nums">{sectionMeta.length}</span>
-                  {" sections complete"}
-                  {remainingCount > 0 && (
-                    <>
-                      {" · "}
-                      <span className="tabular-nums">{remainingCount}</span> remaining
-                    </>
-                  )}
-                </span>
-                {firstIncomplete === -1 && (
-                  <Check className="h-3 w-3 text-primary" aria-hidden="true" />
-                )}
-              </div>
-              <div className="mt-1.5 h-0.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full bg-primary transition-[width] duration-300"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </button>
-          );
-        })()}
+        {/* Overview moved to LaunchV2Flow breadcrumb strip — sticky card + progress strip removed. */}
 
         {/* ── Ant-style vertical Steps spine ────────────────────── */}
         <div className="space-y-0">
         {/* ── 1 · Ad accounts & pages ───────────────────────────── */}
         <StepSection
           index={0}
-          title="Ad accounts & pages"
-          description="Pick ad accounts and the pages that'll run the ads"
+          title="Ad accounts & Pages"
           badge={<SetupSectionChip flow={flow} section="destinations" />}
           complete={sectionMeta[0].complete}
           isLast={false}
@@ -740,7 +499,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         <StepSection
           index={1}
           title="Campaign"
-          description="Budget, bidding and delivery"
           badge={
             <div className="flex items-center gap-2">
               <CopyFromRunning
@@ -756,52 +514,85 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={false}
           sectionRef={sectionRefs[1]}
         >
+          {/* Budget model lock #16: ONE input. Per-account budget split UI deleted.
+              Currency lock #5: $ symbol only, USD as workspace currency. */}
           <div className="flex flex-wrap items-end gap-4">
-            {/* budget amount — surfaced */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">
-                {plan.budgetMode === "CBO" ? "Daily campaign budget" : "Daily budget / ad set"}
+              <Label className="text-[13px] font-medium text-foreground">
+                {plan.budgetMode === "CBO" ? "Daily budget — campaign" : "Daily budget — ad set"}
               </Label>
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-sm text-muted-foreground">{currency}</span>
+                <span className="font-mono text-sm text-muted-foreground">$</span>
                 <Input
                   type="number"
                   min={1}
-                  value={plan.budgetAmount}
+                  placeholder="200"
+                  value={plan.budgetAmount || ""}
                   onChange={(e) => patch({ budgetAmount: Number(e.target.value) || 0 })}
                   className="h-9 w-32 font-mono tabular-nums"
                 />
               </div>
             </div>
 
-            {/* CBO/ABO selection — radio pill buttons */}
+            {/* CBO/ABO pill — 2px foreground border on selected (lock #6).
+                Tooltip on hover spells out (lock #15). */}
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
                 Budget optimization
                 {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
               </Label>
               <div className="flex gap-1.5">
                 {(["CBO", "ABO"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={policy.budgetMode.locked}
-                    onClick={() => patch({ budgetMode: mode })}
-                    className={cn(
-                      "fab-focus rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                      plan.budgetMode === mode
-                        ? "border-primary bg-primary/5 text-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                      policy.budgetMode.locked && "cursor-not-allowed opacity-50",
-                    )}
-                  >
-                    {mode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
-                  </button>
+                  <Tooltip key={mode}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={policy.budgetMode.locked}
+                        onClick={() => patch({ budgetMode: mode })}
+                        className={cn(
+                          "fab-focus rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                          plan.budgetMode === mode
+                            ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
+                            : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                          policy.budgetMode.locked && "cursor-not-allowed opacity-50",
+                        )}
+                      >
+                        {mode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {mode === "CBO"
+                        ? "Campaign Budget Optimization — Meta splits budget across ad sets."
+                        : "Ad Set Budget Optimization — you set a budget per ad set."}
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
               {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
             </div>
           </div>
+
+          {/* N× projection — shown when 2+ accounts selected */}
+          {accountCount >= 2 && plan.budgetAmount > 0 && (
+            <p className="text-[12px] text-muted-foreground">
+              Running in {accountCount} accounts → $
+              <span className="font-mono tabular-nums text-foreground">{plan.budgetAmount.toLocaleString("en-US")}</span>
+              {" × "}
+              <span className="tabular-nums">{accountCount}</span>
+              {" = $"}
+              <span className="font-mono tabular-nums text-foreground">
+                {(plan.budgetAmount * accountCount).toLocaleString("en-US")}
+              </span>
+              /day total
+            </p>
+          )}
+
+          {/* Currency hint — only when a selected account is non-USD */}
+          {hasNonUsdAccount && (
+            <p className="text-[11px] text-muted-foreground">
+              Budget in $. Meta charges in local currency at runtime FX.
+            </p>
+          )}
 
           {/* ── Advantage+, A/B Test — grouped card ────── */}
           <div className="rounded-2xl border border-border divide-y divide-border">
@@ -853,7 +644,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                 </Select>
                 {plan.bidStrategy !== "LOWEST_COST_WITHOUT_CAP" && (
                   <div className="flex items-center gap-1.5 pt-1">
-                    <span className="font-mono text-sm text-muted-foreground">{currency}</span>
+                    <span className="font-mono text-sm text-muted-foreground">$</span>
                     <Input
                       type="number"
                       min={0}
@@ -893,7 +684,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         <StepSection
           index={2}
           title="Ad set & Audience"
-          description="Optimization, attribution and audience"
           badge={
             <div className="flex items-center gap-2">
               <CopyFromRunning
@@ -909,18 +699,10 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={true}
           sectionRef={sectionRefs[2]}
         >
-          {/* Special-category compliance note (lives at the top so it's seen
-              before targeting decisions; the actual toggle is at the section's
-              bottom — moving it disrupts existing functionality). */}
-          <p className="text-[11px] text-muted-foreground italic">
-            If your ads relate to credit, employment, housing, or social issues, set Special Ad Category below before configuring targeting.
-          </p>
+          {/* Regulated category lives in §1 (top of Ad accounts & Pages, lock #18). */}
 
-          {/* ── Sub-group A · Conversion goal ─────────────────────────── */}
-          <div>
-            <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
-              Conversion goal
-            </h4>
+          {/* ── Subsection ▸ Optimization (conv location + perf goal + attribution SURFACED) ── */}
+          <Subsection label="Optimization" defaultOpen>
           {/* Conversion location — only shown when objective supports it */}
           {plan.objective && showsLocationPicker(plan.objective) && (
             <div className="space-y-1.5">
@@ -991,54 +773,45 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           )}
 
-          {/* Attribution — tucked under Advanced reveal to declutter */}
-          <AdvancedReveal label="Advanced — attribution">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                Attribution window
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {/* 7.4: keep only the technical full-label here — the policy
-                       fact about 28-day removal now lives inline below the Select
-                       so keyboard/touch users don't lose critical info. */}
-                    Full label: 7-day click + 1-day engage-through + 1-day view.
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-              <Select
-                value={plan.attribution}
-                onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
-              >
-                <SelectTrigger className="h-9 w-full max-w-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1d_click">1-day click</SelectItem>
-                  <SelectItem value="7d_click">7-day click</SelectItem>
-                  <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* 7.4: policy fact promoted out of the tooltip — applies to all users. */}
-              <p className="text-[11px] text-muted-foreground">
-                Note: 28-day view was removed by Meta in Jan 2026.
-              </p>
-            </div>
-          </AdvancedReveal>
+          {/* Attribution — SURFACED (not Advanced) per restructure */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
+              Attribution window
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Full label: 7-day click + 1-day engage-through + 1-day view.
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <Select
+              value={plan.attribution}
+              onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
+            >
+              <SelectTrigger className="h-9 w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1d_click">1-day click</SelectItem>
+                <SelectItem value="7d_click">7-day click</SelectItem>
+                <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Note: 28-day view was removed by Meta in Jan 2026.
+            </p>
           </div>
-          {/* ── /Sub-group A · Conversion goal ─────────────────────── */}
+          </Subsection>
+          {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
 
-          {/* ── Sub-group B · Targeting ───────────────────────────── */}
-          <div className="mt-6 pt-4 border-t border-border/30">
-            <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
-              Targeting
-            </h4>
-          {/* ── Targeting template ─────────────────────────────────── */}
+          {/* ── Subsection ▸ Audience & Placement (SURFACED) ────────── */}
+          <Subsection label="Audience & Placement" defaultOpen>
+          {/* ── Targeting Template ─────────────────────────────────── */}
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-0 flex-1 space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Targeting template</Label>
+              <Label className="text-[13px] font-medium text-foreground">Targeting Template</Label>
 
               {/* Popover picker with search + filter chips */}
               <Popover
@@ -1064,7 +837,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                       !tpl && "text-muted-foreground",
                     )}
                   >
-                    <span className="truncate">{tpl ? tpl.name : "Choose a template"}</span>
+                    <span className="truncate">{tpl ? tpl.name : "Pick a Targeting Template"}</span>
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
                   </button>
                 </PopoverTrigger>
@@ -1239,15 +1012,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               )}
             </div>
           )}
-          </div>
-          {/* ── /Sub-group B · Targeting ──────────────────────────── */}
-
-          {/* ── Sub-group C · Optimization ────────────────────────── */}
-          <div className="mt-6 pt-4 border-t border-border/30">
-            <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
-              Optimization
-            </h4>
-          {/* 2 quick-toggles */}
+          {/* Advantage+ Audience/Creative quick toggles */}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Toggle
               checked={plan.advantageAudience}
@@ -1264,15 +1029,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               desc="Auto creative enhancements per placement."
             />
           </div>
-          </div>
-          {/* ── /Sub-group C · Optimization ───────────────────────── */}
 
-          {/* ── Sub-group D · Placements ──────────────────────────── */}
-          <div className="mt-6 pt-4 border-t border-border/30">
-            <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
-              Placements
-            </h4>
-          {/* Placements */}
+          {/* Placements — accordion (Facebook expanded default kept) */}
           <AdvancedReveal label="Placements">
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Placement type</Label>
@@ -1284,10 +1042,10 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                     disabled={asc && mode === "manual"}
                     onClick={() => patch({ placementMode: mode })}
                     className={cn(
-                      "fab-focus rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      "fab-focus rounded-full px-3 py-1 text-xs font-medium transition-colors",
                       plan.placementMode === mode
-                        ? "border-primary bg-primary/5 text-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                        ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
+                        : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
                       asc && mode === "manual" && "cursor-not-allowed opacity-40",
                     )}
                   >
@@ -1373,18 +1131,13 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               )}
             </div>
           </AdvancedReveal>
-          </div>
-          {/* ── /Sub-group D · Placements ─────────────────────────── */}
+          </Subsection>
+          {/* ── /Subsection ▸ Audience & Placement ─────────────────── */}
 
-          {/* ── Sub-group E · Special ad category ─────────────────── */}
-          <div className="mt-6 pt-4 border-t border-border/30">
-            <h4 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
-              Special ad category
-            </h4>
-            {/* Special ad category — master toggle + picker */}
-            <SpecialAdCategoryField flow={flow} />
-          </div>
-          {/* ── /Sub-group E · Special ad category ────────────────── */}
+          {/* Regulated category toggle lives in §1 (lock #18). The legacy
+              SpecialAdCategoryField field is no longer rendered here — its
+              state is still patched via plan.specialAdDeclared / .specialAdCategories
+              from AccountsPages. */}
         </StepSection>
         </div>
 

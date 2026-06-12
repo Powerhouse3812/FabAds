@@ -14,6 +14,7 @@
  * via flow.patch. Edit ONLY this file + helpers under screens/review/.
  */
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<RightTab>("preview");
   const [flightDays, setFlightDays] = useState<7 | 14 | 30>(7);
+  const { toast } = useToast();
 
   // When selection is cleared while Edit tab is open → fall back to Preview
   useEffect(() => {
@@ -41,8 +43,30 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
     }
   }, [selected.size]);
 
+  // Listen for footer "blockers" pill → focus Issues tab.
+  useEffect(() => {
+    const handler = () => setTab("issues");
+    window.addEventListener("lv2:open-issues-tab", handler);
+    return () => window.removeEventListener("lv2:open-issues-tab", handler);
+  }, []);
+
+  // When the user returns from an upstream step (via pencil deeplink) and
+  // the error count drops vs the prior visit, toast the delta. Tracks the
+  // last-seen error count in a ref-like state so we only fire on transition.
   const issues = useMemo(() => buildIssues(plan), [plan]);
   const ready = useMemo(() => readiness(issues), [issues]);
+  const [prevErrors, setPrevErrors] = useState<number>(ready.errors);
+  useEffect(() => {
+    if (ready.errors < prevErrors) {
+      const fixed = prevErrors - ready.errors;
+      toast({
+        title: `${fixed} ${fixed === 1 ? "issue" : "issues"} resolved`,
+        duration: 2500,
+      });
+    }
+    setPrevErrors(ready.errors);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready.errors]);
   const sum = useMemo(() => reviewSummary(plan), [plan]);
   const dailyTotal = useMemo(() => dailyTotalBudget(plan), [plan]);
 
@@ -66,8 +90,8 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
 
   return (
     <div data-screen="lv2-step4-review" className="flex h-full min-h-0">
-      {/* LEFT — tree / table */}
-      <div className="flex w-[260px] shrink-0 flex-col border-r border-border bg-muted/20">
+      {/* LEFT — tree / table. Width fixed to 280px (was draggable, nobody resized). */}
+      <div className="flex w-[280px] shrink-0 flex-col border-r border-border bg-muted/20">
         <ReviewTree plan={plan} selected={selected} onSelectedChange={setSelected} />
       </div>
 
@@ -133,10 +157,10 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 {ready.errors > 0
-                  ? `${ready.errors} blocking ${ready.errors === 1 ? "issue" : "issues"} must be fixed before launch.`
+                  ? `Fix ${ready.errors} blocking issue${ready.errors === 1 ? "" : "s"} to launch.`
                   : ready.warnings > 0
                     ? `${ready.warnings} ${ready.warnings === 1 ? "warning" : "warnings"} — you can still launch.`
-                    : "All checks pass. Launch from the footer."}
+                    : "Ready to launch."}
                 {" "}Click to open Issues.
               </TooltipContent>
             </Tooltip>
@@ -183,7 +207,7 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
                 </Tooltip>
               </TooltipProvider>
               <TabsTrigger value="preview">Preview</TabsTrigger>
-              <TabsTrigger value="issues" className="relative">
+              <TabsTrigger value="issues" data-lv2-issues-tab className="relative">
                 Issues
                 {issues.length > 0 && (
                   <span

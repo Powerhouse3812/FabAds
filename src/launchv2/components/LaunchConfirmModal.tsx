@@ -9,7 +9,7 @@
  * caller wires that into `service.launch(plan)` + navigation.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -37,40 +37,6 @@ function toUsdEquivalent(amount: number, currency: string): number {
     case "USD":
     default:
       return amount;
-  }
-}
-
-/** Human-friendly label for spread mode. */
-function spreadLabel(spread: string): string {
-  switch (spread) {
-    case "stacked":
-      return "Stacked";
-    case "one_per_adset":
-      return "One per ad set";
-    case "multiply":
-      return "Multiply";
-    case "round_robin":
-      return "Rotating";
-    case "manual":
-      return "Manual";
-    default:
-      return spread;
-  }
-}
-
-/** Human-friendly label for page-distribution mode. */
-function distributionLabel(d: string): string {
-  switch (d) {
-    case "fill_first":
-      return "Fill first";
-    case "equal":
-      return "Equal split";
-    case "duplicate":
-      return "Duplicate to all";
-    case "one_page":
-      return "One page";
-    default:
-      return d;
   }
 }
 
@@ -146,80 +112,60 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
     <Dialog open={open} onOpenChange={(o) => !launching && onOpenChange(o)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Ready to launch?</DialogTitle>
+          <DialogTitle>Launch {adsTotal} ad{adsTotal === 1 ? "" : "s"} to Meta?</DialogTitle>
         </DialogHeader>
 
-        {/* ── Hero: daily total ─────────────────────────────────── */}
-        <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-4">
-          <div className="font-mono tabular-nums text-[32px] leading-none font-semibold text-foreground">
-            {formatMoney(dailyTotal, currency)}
-            <span className="ml-2 text-[13px] font-normal text-muted-foreground">/ day</span>
-          </div>
-          <div className="mt-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-            ~{formatMoney(dailyTotal * 7, currency)} over 7d est.
-          </div>
-        </div>
-
-        {/* ── What's launching ──────────────────────────────────── */}
-        <Section label="What's launching">
-          <Row>
-            <Num value={adsTotal} /> ads
+        {/* ── Bullet summary ────────────────────────────────────── */}
+        <ul className="space-y-1.5 text-[13px] text-foreground">
+          <Bullet>
+            <Num value={plan.structure.campaigns} /> campaign{plan.structure.campaigns === 1 ? "" : "s"}
             <Dot />
             <Num value={adSets} /> ad set{adSets === 1 ? "" : "s"}
             <Dot />
-            <Num value={plan.structure.campaigns} /> campaign{plan.structure.campaigns === 1 ? "" : "s"}
-          </Row>
-          <Row>
-            <Num value={accountCount} /> account{accountCount === 1 ? "" : "s"}
-            <Dot />
-            <Num value={pageCount} /> Page{pageCount === 1 ? "" : "s"}
-          </Row>
-          <Row>
-            <span className="text-muted-foreground">Objective:</span> {labelize(plan.objective)}
-            <Dot />
-            <span className="text-muted-foreground">Format:</span> {labelize(plan.format)}
-          </Row>
-          {template && (
-            <Row>
-              <span className="text-muted-foreground">Audience:</span> {template.name}
-            </Row>
-          )}
-          <Row>
-            <span className="text-muted-foreground">Spread:</span> {spreadLabel(plan.spread)}
-            <Dot />
-            <span className="text-muted-foreground">Page split:</span> {distributionLabel(plan.pageDistribution)}
-          </Row>
-          <Row>
-            <span className="text-muted-foreground">Structure:</span>{" "}
-            <span className="font-mono tabular-nums">
-              {plan.structure.campaigns}C × {plan.structure.adSetsPerCampaign}AS × {plan.structure.adsPerAdSet}Ad
-            </span>
-          </Row>
-        </Section>
+            <Num value={adsTotal} /> ad{adsTotal === 1 ? "" : "s"}
+          </Bullet>
+          <Bullet>
+            <span className="text-muted-foreground">First-day spend cap:</span>{" "}
+            <span className="font-mono tabular-nums">{formatMoney(plan.budgetAmount, currency)}/account</span>
+            {accountCount > 1 && (
+              <span className="ml-1 text-muted-foreground">× {accountCount} accounts</span>
+            )}
+          </Bullet>
+          <Bullet>
+            <span className="text-muted-foreground">Daily budget:</span>{" "}
+            <span className="font-mono tabular-nums">{formatMoney(dailyTotal, currency)}</span>
+            <span className="ml-1 text-muted-foreground">total</span>
+          </Bullet>
+          <Bullet>
+            <span className="text-muted-foreground">{pageCount} Page{pageCount === 1 ? "" : "s"} · {labelize(plan.objective)}</span>
+            {template && <> · {template.name}</>}
+          </Bullet>
+          <Bullet>
+            <span className="text-muted-foreground">Goes live immediately on publish.</span>
+          </Bullet>
+        </ul>
 
-        {/* ── Cap status ───────────────────────────────────────── */}
-        <Section label="Cap status">
-          {cap.ok ? (
-            <div className="flex items-center gap-2 text-[13px] text-foreground">
-              <Check className="h-4 w-4 text-primary" />
-              All pages under 250 limit
-            </div>
-          ) : (
-            <div className="flex items-start gap-2 text-[13px] text-foreground">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
-              <div className="min-w-0">
-                <div>
-                  {cap.offenders.length} page{cap.offenders.length === 1 ? "" : "s"} over cap
-                </div>
-                <div className="truncate text-[11px] text-muted-foreground">
-                  {cap.offenders[0]?.pageName}
-                  {cap.offenders.length > 1 ? ` + ${cap.offenders.length - 1} more` : ""}
-                  <span className="ml-1">(view in Step 3)</span>
-                </div>
+        {/* Helper text */}
+        <p className="text-[12px] text-muted-foreground">
+          Ads will be reviewed by Meta (1–24 hrs). You can pause anytime.
+        </p>
+
+        {/* Cap status (only when blocking) */}
+        {!cap.ok && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[13px] text-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="min-w-0">
+              <div>
+                {cap.offenders.length} page{cap.offenders.length === 1 ? "" : "s"} over cap
+              </div>
+              <div className="truncate text-[11px] text-muted-foreground">
+                {cap.offenders[0]?.pageName}
+                {cap.offenders.length > 1 ? ` + ${cap.offenders.length - 1} more` : ""}
+                <span className="ml-1">(view in Step 3)</span>
               </div>
             </div>
-          )}
-        </Section>
+          </div>
+        )}
 
         {/* ── Typed-LAUNCH safeguard (only above threshold) ───── */}
         {requiresTypedConfirm && (
@@ -279,10 +225,7 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
                 Launching…
               </>
             ) : (
-              <>
-                Launch <span className="opacity-60">·</span>{" "}
-                <span className="font-mono tabular-nums">{formatMoney(dailyTotal, currency)}</span>
-              </>
+              <>Launch {adsTotal} ad{adsTotal === 1 ? "" : "s"}</>
             )}
           </Button>
         </div>
@@ -293,22 +236,12 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
 
 /* ── small layout helpers ──────────────────────────────────────── */
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function Bullet({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground/70">
-        {label}
-      </div>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-foreground">
-      {children}
-    </div>
+    <li className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+      <span className="mt-1 inline-block h-1 w-1 shrink-0 rounded-full bg-foreground/40" aria-hidden />
+      <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">{children}</span>
+    </li>
   );
 }
 

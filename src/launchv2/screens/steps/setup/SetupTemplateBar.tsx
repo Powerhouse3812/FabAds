@@ -12,7 +12,6 @@
  */
 import { useMemo, useState } from "react";
 import { Zap, X, ChevronDown, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -53,121 +52,97 @@ export function SetupTemplateBar({ flow }: { flow: UseFlowV2 }) {
     setVersion((v) => v + 1);
   };
 
+  // One-line bar: "Template: <name|None applied> · [Apply template ▾] · [Save as…]"
+  // Note: "Templates" word is reserved ONLY for Targeting Templates per strategy lock.
+  // This bar persists "Setup template" wording internally but UI label says "Setup".
   return (
     <>
-      <div className="mb-4 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3">
-        {linked ? (
-          /* ── Linked state ──────────────────────────────────────── */
-          <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-xs text-muted-foreground">Setup template:</span>
-              <span className="text-sm font-medium text-foreground">{linked.name}</span>
-              {edited && (
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
-                  Edited
-                </span>
-              )}
-              <div className="ml-auto flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setSaveOpen(true)}
-                >
-                  Save new
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => flow.unlinkSetupTemplate()}
-                  aria-label="Unlink template"
-                  title="Unlink template (keeps current values)"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+      <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+        <Zap className="h-3.5 w-3.5 text-primary shrink-0" />
+        <span className="shrink-0">Setup:</span>
+        <span className={cn("min-w-0 truncate", linked ? "font-medium text-foreground" : "")}>
+          {linked ? linked.name : "None applied"}
+        </span>
+        {edited && (
+          <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-500">
+            Edited
+          </span>
+        )}
+
+        <span className="text-muted-foreground/40">·</span>
+
+        {templates.length > 0 ? (
+          <Popover open={pickerOpen} onOpenChange={(o) => { setPickerOpen(o); if (!o) setTemplateSearch(""); }}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[12px] text-foreground hover:underline"
+              >
+                Apply Setup
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-0">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search…"
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  className="w-full bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                />
               </div>
-            </div>
-            {edited && (
-              <p className="pl-6 text-[11px] text-muted-foreground">
-                Edited — fork to save changes
-              </p>
-            )}
-          </div>
-        ) : (
-          /* ── Unlinked state ────────────────────────────────────── */
-          <div className="flex flex-wrap items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
-            {templates.length > 0 ? (
-              <Popover open={pickerOpen} onOpenChange={(o) => { setPickerOpen(o); if (!o) setTemplateSearch(""); }}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1 border border-primary/30 bg-card px-3 text-xs font-medium text-foreground hover:bg-primary/10"
-                  >
-                    Apply Setup template
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-72 p-0">
-                  {/* Search */}
-                  <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-                    <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Search templates…"
-                      value={templateSearch}
-                      onChange={(e) => setTemplateSearch(e.target.value)}
-                      className="w-full bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-                    />
+              <div className="max-h-56 overflow-y-auto py-1">
+                {templates.filter((t) =>
+                  !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase())
+                ).length === 0 ? (
+                  <div className="px-3 py-3 text-center text-[11px] font-mono text-muted-foreground">
+                    No matches
                   </div>
-                  {/* Template list */}
-                  <div className="max-h-56 overflow-y-auto py-1">
-                    {templates.filter((t) =>
+                ) : (
+                  templates
+                    .filter((t) =>
                       !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase())
-                    ).length === 0 ? (
-                      <div className="px-3 py-3 text-center text-[11px] font-mono text-muted-foreground">
-                        No templates match "{templateSearch}"
-                      </div>
-                    ) : (
-                      templates
-                        .filter((t) =>
-                          !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase())
-                        )
-                        .map((t) => (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => { handleApply(t.id); setPickerOpen(false); setTemplateSearch(""); }}
-                            className={cn(
-                              "w-full px-3 py-2 text-left text-[12px] text-foreground transition-colors hover:bg-muted/50",
-                            )}
-                          >
-                            {t.name}
-                          </button>
-                        ))
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                No templates yet. Configure this step, then "Save new."
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-7 px-2 text-xs"
-              onClick={() => setSaveOpen(true)}
-            >
-              Save new
-            </Button>
-          </div>
+                    )
+                    .map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => { handleApply(t.id); setPickerOpen(false); setTemplateSearch(""); }}
+                        className="w-full px-3 py-2 text-left text-[12px] text-foreground transition-colors hover:bg-muted/50"
+                      >
+                        {t.name}
+                      </button>
+                    ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : (
+          <span className="text-[12px] text-muted-foreground/70">No Setups saved</span>
+        )}
+
+        <span className="text-muted-foreground/40">·</span>
+        <button
+          type="button"
+          onClick={() => setSaveOpen(true)}
+          className="text-[12px] text-foreground hover:underline"
+        >
+          Save as…
+        </button>
+
+        {linked && (
+          <button
+            type="button"
+            onClick={() => flow.unlinkSetupTemplate()}
+            aria-label="Unlink setup"
+            title="Unlink (keeps current values)"
+            className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3 w-3" />
+          </button>
         )}
       </div>
 

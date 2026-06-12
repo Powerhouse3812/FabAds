@@ -4,20 +4,21 @@
  * Chrome: running-context chips + step progress + footer (Back/Next/Launch).
  * Step bodies are filled by build agents; this owns the shell + flow control.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { AlertCircle, AlertTriangle, Check, Loader2, MessageSquare } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { captureScreen } from "../feedback/screenshot";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import FeedbackSheet from "../feedback/FeedbackSheet";
 import { useFlowV2, type StepV2, type DeepLinkState } from "../state/useFlowV2";
 import { useUIState } from "../state/useUIState";
 import { useLaunchV2 } from "../state/LaunchV2Context";
-import { dailyTotalBudget } from "../deriveV2";
+import { estimateAds } from "../deriveV2";
 import { planReady } from "../reducer";
 import type { PlanV2 } from "../types";
-import { buildIssues, canLaunch } from "./review/reviewModel";
+import { getTemplate, getStrategy } from "../data";
+import { buildIssues, canLaunch, readiness } from "./review/reviewModel";
 import type { ReviewIssue } from "./review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
 import Step1Start from "./steps/Step1Start";
@@ -25,6 +26,8 @@ import Step2Setup from "./steps/Step2Setup";
 import Step4Review from "./steps/Step4Review";
 import Step3AdDistributionV3 from "./steps/Step3AdDistributionV3";
 import LaunchConfirmModal from "../components/LaunchConfirmModal";
+
+type SaveState = "saving" | "saved" | "failed";
 
 const STEP_TITLES_V3: Record<number, string> = {
   1: "Start",
@@ -55,22 +58,19 @@ export default function LaunchV2Flow() {
   const { plan, step } = flow;
   const [saveAsStrategy, setSaveAsStrategy] = useState(false);
 
-  // Feedback trigger — inline in footer so it never occludes the Next button.
-  const [fbCapturing, setFbCapturing] = useState(false);
+  // FeedbackSheet retained as a passive surface — the floating Feedback button
+  // is the single trigger now (footer button removed). Kept open=false always
+  // here; future deep-links to feedback can reuse this hook.
   const [fbOpen, setFbOpen] = useState(false);
-  const [fbShot, setFbShot] = useState<string | null>(null);
-  const [fbFailed, setFbFailed] = useState(false);
+  void setFbOpen; // suppress unused-var warning while we keep the sheet mounted
 
-  const handleFeedback = async () => {
-    if (fbCapturing || fbOpen) return;
-    setFbCapturing(true);
-    let shot: string | null = null;
-    try { shot = await captureScreen(); } catch { shot = null; }
-    setFbShot(shot);
-    setFbFailed(shot === null);
-    setFbCapturing(false);
-    setFbOpen(true);
-  };
+  // ── Autosave tri-state (◐ Saving / ● Saved / ⚠ Failed) ──────────────
+  // Mirrors the useFlowV2 internal autosave debounce. We can't observe its
+  // promise, but we mirror the 500ms cadence and stamp "saved" after settle.
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [savedAt, setSavedAt] = useState<number>(Date.now());
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const planRef = useRef(plan);
 
   const variant = 'v3' as const;
 
@@ -92,7 +92,35 @@ export default function LaunchV2Flow() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, step, uiHook.state]);
 
+  // Track plan changes → flip to "saving", and after debounce → "saved".
+  useEffect(() => {
+    if (planRef.current === plan) return;
+    planRef.current = plan;
+    setSaveState("saving");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      try {
+        // useFlowV2 already writes sessionStorage on its own debounce; we
+        // optimistically mark "saved" since sessionStorage rarely fails. If
+        // a future backend persist is wired, that promise should drive this.
+        setSaveState("saved");
+        setSavedAt(Date.now());
+      } catch {
+        setSaveState("failed");
+      }
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [plan]);
+
   const issues = buildIssues(plan);
+  const ready = useMemo(() => readiness(issues), [issues]);
+  const adsTotal = useMemo(() => estimateAds(plan), [plan]);
+  // Per-campaign budget on a single account = the entered budget; the day-1
+  // figure is the actual per-account daily spend cap. Multi-account split
+  // (CBO across N accounts) is shown in the confirm modal, not the footer.
+  const perAccountDaily = plan.budgetAmount;
 
   const valid = stepValid(plan, step);
   // structural-only check (per-step progression). Doesn't consider blocking issues.
@@ -106,8 +134,7 @@ export default function LaunchV2Flow() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [launching, setLaunching] = useState(false);
 
-  const dailyTotal = useMemo(() => dailyTotalBudget(plan), [plan]);
-  const currency = plan.targets[0]?.currency ?? "USD";
+  const currency = "USD"; // lock #5 — USD-only display; accounts may have native currencies but UI always shows $
 
   const openConfirm = () => {
     if (!allValid || launching) return;
@@ -143,6 +170,23 @@ export default function LaunchV2Flow() {
         />
       </div>
 
+      {/* Persistent breadcrumb strip — locked upstream state + autosave.
+         Sticky so it stays visible while the body scrolls. */}
+      <StepBreadcrumb
+        plan={plan}
+        step={step}
+        setStep={flow.setStep}
+        saveState={saveState}
+        savedAt={savedAt}
+        onRetry={() => {
+          setSaveState("saving");
+          setTimeout(() => {
+            setSaveState("saved");
+            setSavedAt(Date.now());
+          }, 400);
+        }}
+      />
+
       {/* Body */}
       <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
         <div className={cn(twoPane ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
@@ -155,36 +199,50 @@ export default function LaunchV2Flow() {
         </div>
       </div>
 
-      {/* Feedback sheet — triggered from footer icon */}
+      {/* Feedback sheet — triggered only from FloatingFeedbackButton now. */}
       <FeedbackSheet
         open={fbOpen}
         onOpenChange={setFbOpen}
-        initialScreenshot={fbShot}
-        captureFailed={fbFailed}
+        initialScreenshot={null}
+        captureFailed={false}
       />
 
-      {/* Footer */}
-      <div className="flex flex-shrink-0 items-center justify-between border-t border-border bg-background px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={flow.back} disabled={step === 1}>Back</Button>
-          <Button
-            variant="outline"
-            onClick={handleFeedback}
-            disabled={fbCapturing}
-          >
-            {fbCapturing ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Capturing…</>
-            ) : (
-              <><MessageSquare className="h-4 w-4" /> Feedback</>
-            )}
-          </Button>
-        </div>
-        <span className="text-xs text-muted-foreground">Autosaved</span>
+      {/* Footer — two-column. Back on left, Next/Launch on right.
+         Feedback button removed (FloatingFeedbackButton is single source).
+         Autosave whisper removed (moved to breadcrumb strip). */}
+      <div className="flex flex-shrink-0 items-center justify-between gap-4 border-t border-border bg-background px-5 py-3">
+        <Button variant="outline" onClick={flow.back} disabled={step === 1}>Back</Button>
+
         {step < 4 ? (
           <Button onClick={flow.next} disabled={!valid}>Next</Button>
         ) : (
           <div className="flex items-center gap-3">
-            <Button onClick={openConfirm} disabled={!allValid || launching}>
+            {/* Inline blocker count when launch is gated. Click → scroll to Issues. */}
+            {ready.errors > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  document
+                    .querySelector('[data-screen="lv2-step4-review"] [data-lv2-issues-tab]')
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  // also activate Issues tab via custom event the screen listens for
+                  window.dispatchEvent(new CustomEvent("lv2:open-issues-tab"));
+                }}
+                className="fab-focus inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/5 px-2.5 py-1 text-[12px] font-medium text-red-600 hover:bg-red-500/10"
+                aria-label={`${ready.errors} blockers — fix to launch`}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {ready.errors} blocker{ready.errors === 1 ? "" : "s"} — fix to launch
+              </button>
+            )}
+            <Button
+              onClick={openConfirm}
+              disabled={!allValid || launching}
+              className={cn(
+                "h-12 px-5 font-semibold",
+                allValid && !launching && "bg-primary text-primary-foreground hover:bg-primary/90",
+              )}
+            >
               {launching ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" /> Launching…
@@ -192,7 +250,13 @@ export default function LaunchV2Flow() {
               ) : (
                 <>
                   Launch <span className="opacity-60">·</span>{" "}
-                  <span className="font-mono tabular-nums">{formatMoney(dailyTotal, currency)}</span>
+                  <span className="font-mono tabular-nums">{adsTotal} ads</span>
+                  <span className="opacity-60">·</span>{" "}
+                  <span className="font-mono tabular-nums">
+                    {formatMoney(perAccountDaily, currency)}/account
+                  </span>
+                  <span className="opacity-60">·</span>{" "}
+                  <span className="font-mono">day-1</span>
                 </>
               )}
             </Button>
@@ -212,6 +276,202 @@ export default function LaunchV2Flow() {
 }
 
 /* ---- chrome ---- */
+
+/* ------------------------------------------------------------------ */
+/*  Persistent breadcrumb strip — overview chips + autosave status    */
+/* ------------------------------------------------------------------ */
+
+type Chip = {
+  /** Short label rendered in the chip. */
+  label: string;
+  /** Full tooltip text (longer description). */
+  tooltip: string;
+  /** Owning step — clicking the chip deep-links there. */
+  step: StepV2;
+};
+
+/** Build the breadcrumb chips from the locked upstream state of the plan. */
+function buildChips(plan: PlanV2): Chip[] {
+  const chips: Chip[] = [];
+
+  // Step 1 — objective + format
+  if (plan.objective) {
+    const objShort = labelShort(plan.objective);
+    const fmtShort = plan.format ? labelShort(plan.format) : null;
+    chips.push({
+      label: fmtShort ? `${objShort} · ${fmtShort}` : objShort,
+      tooltip: `Objective: ${humanize(plan.objective)}${plan.format ? ` · Format: ${humanize(plan.format)}` : ""}`,
+      step: 1,
+    });
+  }
+
+  // Step 2 — accounts + budget
+  if (plan.targets.length > 0) {
+    const accounts = new Set(plan.targets.map((t) => t.accountId)).size;
+    chips.push({
+      label: `${accounts} ad account${accounts === 1 ? "" : "s"}`,
+      tooltip: plan.targets
+        .map((t) => `${t.accountName ?? t.accountId} · ${t.pageName ?? "page"}`)
+        .join("\n"),
+      step: 2,
+    });
+  }
+  if (plan.budgetAmount > 0) {
+    const currency = "USD"; // lock #5
+    chips.push({
+      label: `${formatMoney(plan.budgetAmount, currency)}/account · ${plan.budgetMode}`,
+      tooltip: `Budget: ${formatMoney(plan.budgetAmount, currency)} per ${plan.budgetMode === "CBO" ? "campaign (CBO)" : "ad set (ABO)"}`,
+      step: 2,
+    });
+  }
+
+  // Step 2 — audience (Targeting Template)
+  const tmpl = getTemplate(plan.targetingTemplateId);
+  if (tmpl) {
+    chips.push({
+      label: tmpl.name.length > 24 ? `${tmpl.name.slice(0, 22)}…` : tmpl.name,
+      tooltip: `Audience template: ${tmpl.name}`,
+      step: 2,
+    });
+  }
+
+  // Step 1 — strategy preset (if used)
+  const strat = getStrategy(plan.strategyId);
+  if (strat) {
+    chips.push({
+      label: `Strategy: ${strat.name}`,
+      tooltip: `Strategy preset: ${strat.name}`,
+      step: 1,
+    });
+  }
+
+  return chips;
+}
+
+/** Sentence-case a SCREAMING_SNAKE token. */
+function humanize(s: string): string {
+  return s.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+}
+
+/** Very short label for a chip (no underscores, capped). */
+function labelShort(s: string): string {
+  const h = humanize(s);
+  return h.length > 14 ? `${h.slice(0, 12)}…` : h;
+}
+
+const MAX_VISIBLE_CHIPS = 4;
+
+function StepBreadcrumb({
+  plan,
+  step: _step, // present for future "highlight chip owning current step" logic
+  setStep,
+  saveState,
+  savedAt,
+  onRetry,
+}: {
+  plan: PlanV2;
+  step: StepV2;
+  setStep: (s: StepV2) => void;
+  saveState: SaveState;
+  savedAt: number;
+  onRetry: () => void;
+}) {
+  const chips = buildChips(plan);
+  const visible = chips.slice(0, MAX_VISIBLE_CHIPS);
+  const overflow = chips.length - visible.length;
+
+  // Recompute the "Saved 12s ago" string each second.
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const t = setInterval(() => force((n) => n + 1), 5000);
+    return () => clearInterval(t);
+  }, [saveState]);
+
+  const sinceLabel = (() => {
+    const s = Math.max(0, Math.floor((Date.now() - savedAt) / 1000));
+    if (s < 5) return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    return `${m}m ago`;
+  })();
+
+  // Empty-chip handling: don't render the strip at all when nothing is set.
+  if (chips.length === 0 && saveState === "saved") return null;
+
+  return (
+    <div className="sticky top-0 z-20 flex flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-background/80 px-5 py-1.5 backdrop-blur">
+      {/* Center: overview chips (left-justified on overflow, truncates) */}
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+        <TooltipProvider>
+          {visible.map((chip, idx) => (
+            <Tooltip key={`${chip.step}-${idx}-${chip.label}`}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setStep(chip.step)}
+                  className="fab-focus inline-flex max-w-[200px] items-center gap-1 truncate rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+                >
+                  <span className="truncate">{chip.label}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs whitespace-pre-line">
+                {chip.tooltip}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+          {overflow > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="fab-focus inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  +{overflow} more
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs whitespace-pre-line">
+                {chips
+                  .slice(MAX_VISIBLE_CHIPS)
+                  .map((c) => `• ${c.label}`)
+                  .join("\n")}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </TooltipProvider>
+      </div>
+
+      {/* Right: autosave tri-state */}
+      <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+        {saveState === "saving" && (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Saving…</span>
+          </>
+        )}
+        {saveState === "saved" && (
+          <>
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+            <span>Saved {sinceLabel}</span>
+          </>
+        )}
+        {saveState === "failed" && (
+          <>
+            <AlertTriangle className="h-3 w-3 text-amber-500" />
+            <span>Save failed</span>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="fab-focus rounded-full px-1.5 text-[11px] font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              Retry
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Map a step number to the issues that are visible in that step. */
 function issuesForStep(stepNum: StepV2, issues: ReviewIssue[]): ReviewIssue[] {

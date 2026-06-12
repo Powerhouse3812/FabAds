@@ -122,7 +122,7 @@ export const MODULES: ModuleDef[] = [
     // Launch v2 — fresh from-scratch redesign of Launch 2.0 (4-step Meta-grounded
     // flow). Own namespace /launchv2; v1 Launch + Launch 2.0 untouched. Ungated
     // for now so it can be reviewed on any plan.
-    key: "launchv2", label: "Launch v2", icon: Sparkles, badge: "Beta",
+    key: "launchv2", label: "Launches", icon: Sparkles, badge: "Beta",
     subItems: [
       { label: "New launch", path: "/launchv2/new", icon: Plus },
       { label: "History", path: "/launchv2", icon: History },

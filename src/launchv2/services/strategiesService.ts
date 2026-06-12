@@ -9,7 +9,7 @@
 import type { PlanV2 } from "../types";
 
 export const DEFAULT_WORKSPACE_ID = "ws_default";
-const STORAGE_KEY = "fabads:launchv2:strategies:v2"; // bumped → forces re-seed with 50 entries
+const STORAGE_KEY = "fabads:launchv2:strategies:v3"; // bumped → adds tags + 5 demo strategies + lastUsedAt/useCount
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -23,6 +23,12 @@ export interface LaunchStrategy {
   workspaceId: string;
   /** Snapshot of the full plan at save time. */
   plan: Partial<PlanV2>;
+  /** Free-form user-defined tags (lowercase kebab/camel, no `#` in storage). */
+  tags?: string[];
+  /** ISO timestamp this strategy was last applied to a launch. */
+  lastUsedAt?: string;
+  /** How many launches have applied this strategy. */
+  useCount?: number;
 }
 
 /** Human-readable summary of a strategy's key config for overview pills. */
@@ -41,6 +47,163 @@ export interface StrategySummary {
 /* ------------------------------------------------------------------ */
 
 const NOW = new Date().toISOString();
+
+/**
+ * Demo strategies — explicitly cover the locked test/scale/partial scenarios
+ * for Launch 2.0 redesign storytelling. These are intentionally partial in
+ * places so testers see "lands at first missing step" behavior in Step 2/3/4.
+ * They appear first so they're easy to find at the top of the seed list.
+ */
+const DEMO_STRATEGIES: Array<{
+  name: string;
+  tags: string[];
+  /** Days ago this was last applied (drives recently-used row + sort). */
+  lastUsedDaysAgo?: number;
+  useCount?: number;
+  plan: Partial<PlanV2>;
+}> = [
+  {
+    name: "ABO test — small audience",
+    tags: ["test", "small-budget"],
+    lastUsedDaysAgo: 1,
+    useCount: 4,
+    // Intentionally partial: no `targets` (account missing) and no creative source.
+    plan: {
+      objective: "OUTCOME_SALES",
+      intent: "test",
+      budgetAmount: 5,
+      budgetMode: "ABO",
+      bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+      format: "single_image",
+      spread: "one_per_adset",
+      advantagePlus: false,
+      targets: [],
+      structure: { campaigns: 1, adSetsPerCampaign: 3, adsPerAdSet: 1 },
+      pageDistribution: "equal",
+    },
+  },
+  {
+    name: "Scale Sales — IN broad",
+    tags: ["scale", "IN"],
+    lastUsedDaysAgo: 0,
+    useCount: 12,
+    plan: {
+      objective: "OUTCOME_SALES",
+      intent: "scale",
+      budgetAmount: 15000,
+      budgetMode: "CBO",
+      bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+      format: "single_video",
+      spread: "stacked",
+      advantagePlus: true,
+      targets: [
+        {
+          accountId: "act_001",
+          accountName: "Idea Clan — IN01",
+          currency: "INR",
+          pageId: "page_001",
+          fbPageId: "fb_001",
+          pageName: "Mamaearth Brand Page",
+          pixelId: "px_001",
+        },
+      ],
+      structure: { campaigns: 2, adSetsPerCampaign: 4, adsPerAdSet: 5 },
+      pageDistribution: "fill_first",
+      targetingTemplateId: "tpl_in_metro",
+    },
+  },
+  {
+    name: "DPA retargeting",
+    tags: ["scale", "DPA"],
+    lastUsedDaysAgo: 2,
+    useCount: 7,
+    // Partial: catalogue source set but no creative selection.
+    plan: {
+      objective: "OUTCOME_SALES",
+      intent: "scale",
+      budgetAmount: 8000,
+      budgetMode: "CBO",
+      bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+      format: "dpa",
+      spread: "multiply",
+      advantagePlus: true,
+      catalogueToggle: true,
+      targets: [
+        {
+          accountId: "act_004",
+          accountName: "Idea Clan — IN04",
+          currency: "INR",
+          pageId: "page_004",
+          fbPageId: "fb_004",
+          pageName: "mCaffeine Page",
+          pixelId: "px_004",
+        },
+      ],
+      structure: { campaigns: 1, adSetsPerCampaign: 3, adsPerAdSet: 6 },
+      pageDistribution: "duplicate",
+    },
+  },
+  {
+    name: "Awareness Reels",
+    tags: ["test", "awareness", "video"],
+    lastUsedDaysAgo: 4,
+    useCount: 3,
+    plan: {
+      objective: "OUTCOME_AWARENESS",
+      intent: "test",
+      budgetAmount: 2000,
+      budgetMode: "ABO",
+      bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+      format: "single_video",
+      spread: "one_per_adset",
+      advantagePlus: false,
+      targets: [
+        {
+          accountId: "act_003",
+          accountName: "Idea Clan — IN03",
+          currency: "INR",
+          pageId: "page_003",
+          fbPageId: "fb_003",
+          pageName: "Noise India",
+        },
+      ],
+      structure: { campaigns: 1, adSetsPerCampaign: 2, adsPerAdSet: 2 },
+      pageDistribution: "equal",
+      targetingTemplateId: "tpl_in_awareness_video",
+    },
+  },
+  {
+    name: "Lead Gen form",
+    tags: ["lead-gen", "instant-form"],
+    lastUsedDaysAgo: 7,
+    useCount: 2,
+    // Partial: no targeting template → user lands on Step 2 audience.
+    plan: {
+      objective: "OUTCOME_LEADS",
+      intent: "scale",
+      budgetAmount: 5000,
+      budgetMode: "CBO",
+      bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+      format: "carousel",
+      spread: "round_robin",
+      advantagePlus: true,
+      destinationType: "ON_AD",
+      targets: [
+        {
+          accountId: "act_006",
+          accountName: "Idea Clan — IN06",
+          currency: "INR",
+          pageId: "page_006",
+          fbPageId: "fb_006",
+          pageName: "Plix Wellness",
+          pixelId: "px_006",
+        },
+      ],
+      structure: { campaigns: 1, adSetsPerCampaign: 3, adsPerAdSet: 3 },
+      pageDistribution: "fill_first",
+    },
+  },
+];
 
 const SEED_STRATEGIES: Array<{ name: string; plan: Partial<PlanV2> }> = [
   // ── OUTCOME_SALES (15) ────────────────────────────────────────────────
@@ -1290,17 +1453,58 @@ function genId(): string {
 
 let seeded = false;
 
+/** Derive tags for the legacy seeded strategies (intent + objective shorthand). */
+function deriveTags(name: string, plan: Partial<PlanV2>): string[] {
+  const tags: string[] = [];
+  if (plan.intent === "scale") tags.push("scale");
+  if (plan.intent === "test") tags.push("test");
+  if (plan.intent === "custom") tags.push("custom");
+  if (plan.budgetMode === "CBO") tags.push("CBO");
+  if (plan.budgetMode === "ABO") tags.push("ABO");
+  if (plan.format === "dpa") tags.push("DPA");
+  if (plan.format === "single_video") tags.push("video");
+  if (plan.objective === "OUTCOME_LEADS") tags.push("lead-gen");
+  if (plan.objective === "OUTCOME_AWARENESS") tags.push("awareness");
+  const ccy = plan.targets?.[0]?.currency;
+  if (ccy === "USD") tags.push("US");
+  if (ccy === "INR") tags.push("IN");
+  // Dedupe
+  return Array.from(new Set(tags));
+}
+
+function daysAgoIso(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
+
 function hydrate(): LaunchStrategy[] {
   let list = readAll();
   if (!seeded && list.length === 0) {
-    list = SEED_STRATEGIES.map(({ name, plan }) => ({
+    const demo: LaunchStrategy[] = DEMO_STRATEGIES.map((d) => ({
+      id: genId(),
+      name: d.name,
+      createdAt: NOW,
+      updatedAt: d.lastUsedDaysAgo != null ? daysAgoIso(d.lastUsedDaysAgo) : NOW,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      plan: d.plan,
+      tags: d.tags,
+      lastUsedAt: d.lastUsedDaysAgo != null ? daysAgoIso(d.lastUsedDaysAgo) : undefined,
+      useCount: d.useCount ?? 0,
+    }));
+    const legacy: LaunchStrategy[] = SEED_STRATEGIES.map(({ name, plan }, i) => ({
       id: genId(),
       name,
       createdAt: NOW,
       updatedAt: NOW,
       workspaceId: DEFAULT_WORKSPACE_ID,
       plan,
+      tags: deriveTags(name, plan),
+      // Stagger useCount so sort-by-most-used has variety
+      useCount: Math.max(0, 8 - Math.floor(i / 6)),
+      lastUsedAt: daysAgoIso(10 + i),
     }));
+    list = [...demo, ...legacy];
     writeAll(list);
     seeded = true;
   } else {

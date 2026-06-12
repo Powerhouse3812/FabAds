@@ -17,19 +17,19 @@ import {
   Info,
   Layers,
   Megaphone,
+  Pencil,
   PlayCircle,
   ThumbsUp,
   Wand2,
   XCircle,
 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { BidStrategy, BudgetMode, PlanV2 } from "../../types";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import { BID_LABELS, getTemplate } from "../../data";
+import { BID_LABELS } from "../../data";
 import { budgetPerDay } from "../../deriveV2";
 import { formatMoney } from "@/launch2/utils/time";
 import {
@@ -100,7 +100,7 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
         {kind === "account" && (
           <Card className="rounded-2xl">
             <CardContent className="p-4">
-              <SectionHead icon={Building2} label="Account" />
+              <SectionHead icon={Building2} label="Account" onEdit={() => flow.setStep(2)} editLabel="Edit accounts in Setup" />
               <EditInput
                 label="Destinations"
                 values={[String(plan.targets.length)]}
@@ -124,13 +124,13 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
         {kind === "campaign" && (
           <Card className="rounded-2xl">
             <CardContent className="p-4">
-              <SectionHead icon={Megaphone} label="Campaign" />
+              <SectionHead icon={Megaphone} label="Campaign" onEdit={() => flow.setStep(2)} editLabel="Edit campaign in Setup" />
               <EditSelect
                 label="Budget mode"
                 values={vals((n) => n.fields?.budgetMode ?? plan.budgetMode)}
                 options={[
-                  { value: "CBO", label: "CBO — Campaign Budget" },
-                  { value: "ABO", label: "ABO — Ad Set Budget" },
+                  { value: "CBO", label: "Campaign budget (CBO)" },
+                  { value: "ABO", label: "Ad set budget (ABO)" },
                 ]}
                 count={N}
                 kind={kindLabel}
@@ -178,7 +178,7 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
         {kind === "adset" && (
           <Card className="rounded-2xl">
             <CardContent className="p-4">
-              <SectionHead icon={Layers} label="Ad set" />
+              <SectionHead icon={Layers} label="Ad set" onEdit={() => flow.setStep(2)} editLabel="Edit ad set in Setup" />
               <EditInput
                 label="Optimization goal"
                 values={vals((n) =>
@@ -222,7 +222,7 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
         {kind === "ad" && (
           <Card className="rounded-2xl">
             <CardContent className="p-4">
-              <SectionHead icon={ImageIcon} label="Ad copy" />
+              <SectionHead icon={ImageIcon} label="Ad copy" onEdit={() => flow.setStep(3)} editLabel="Edit ad copy in Creative step" />
               <EditInput
                 label="Primary text"
                 values={vals((n) => n.fields?.primaryText ?? plan.adCopy.primaryText)}
@@ -272,39 +272,43 @@ export function EditPane({ flow, selected }: { flow: UseFlowV2; selected: Set<st
           </Card>
         )}
 
-        {/* ── Bulk-save footer (multi-select only) ────────────────── */}
-        {multi && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="block w-full">
-                  {/* TODO: wire to reducer — bulk-patching individual nodes is out of scope */}
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="w-full opacity-50 cursor-not-allowed"
-                    disabled
-                  >
-                    Apply to {N} {kindLabel}s
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                Bulk save coming soon
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        {/* TODO: enable when wired — bulk-save footer hidden until reducer
+           supports bulk-patching individual nodes. Was shipping disabled which
+           added noise to the panel; cleaner to omit entirely until functional. */}
       </div>
     </ScrollArea>
   );
 }
 
-function SectionHead({ icon: Icon, label }: { icon: typeof Layers; label: string }) {
+function SectionHead({
+  icon: Icon,
+  label,
+  onEdit,
+  editLabel,
+}: {
+  icon: typeof Layers;
+  label: string;
+  /** Optional deeplink — when present a pencil renders to the right. */
+  onEdit?: () => void;
+  editLabel?: string;
+}) {
   return (
-    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      {label}
+    <div className="mb-2 flex items-center justify-between gap-1.5 text-xs font-semibold text-foreground">
+      <span className="flex items-center gap-1.5">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        {label}
+      </span>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="fab-focus inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label={editLabel ?? `Edit ${label}`}
+          title={editLabel ?? `Edit ${label}`}
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 }
@@ -609,7 +613,7 @@ export function PreviewPane({ plan, selected }: { plan: PlanV2; selected: Set<st
                 {copy.displayLink || displayHost(copy.destinationUrl) || "yourbrand.com"}
               </div>
               <div className="truncate text-[13px] font-semibold leading-tight">
-                {copy.headline || "Your headline goes here"}
+                {copy.headline || "Headline preview"}
               </div>
               {copy.description && (
                 <div className="truncate text-[11px] text-muted-foreground">{copy.description}</div>
@@ -831,9 +835,9 @@ export function IssuesPane({
                 Auto-fix {fixable.length} cap {fixable.length === 1 ? "issue" : "issues"}
               </Button>
             )}
-            {errors.length > 0 && <IssueGroup title="Blocking" issues={errors} onApplyFix={onApplyFix} />}
-            {warnings.length > 0 && <IssueGroup title="Warnings" issues={warnings} onApplyFix={onApplyFix} />}
-            {infos.length > 0 && <IssueGroup title="Suggestions" issues={infos} onApplyFix={onApplyFix} />}
+            {errors.length > 0 && <IssueGroup title="Must fix" issues={errors} onApplyFix={onApplyFix} />}
+            {warnings.length > 0 && <IssueGroup title="Should fix" issues={warnings} onApplyFix={onApplyFix} />}
+            {infos.length > 0 && <IssueGroup title="Could improve" issues={infos} onApplyFix={onApplyFix} />}
           </>
         )}
       </div>

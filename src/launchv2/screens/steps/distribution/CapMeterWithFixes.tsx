@@ -60,7 +60,7 @@ export default function CapMeterWithFixes({ flow }: { flow: UseFlowV2 }) {
             "text-xs",
             cap.ok ? "text-muted-foreground" : "text-amber-700 dark:text-amber-400"
           )}>
-            {cap.ok ? "All pages under the 250-ad cap" : `${cap.offenders.length} page${cap.offenders.length !== 1 ? "s" : ""} over limit`}
+            {cap.ok ? "All Pages under cap (250 ads each)." : `${cap.offenders.length} Page${cap.offenders.length !== 1 ? "s" : ""} over cap`}
           </span>
         </div>
       )}
@@ -98,7 +98,7 @@ export default function CapMeterWithFixes({ flow }: { flow: UseFlowV2 }) {
                   onClick={() => patch({ pageDistribution: "fill_first" })}
                   className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white dark:bg-amber-950/50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors"
                 >
-                  Switch to Fill First
+                  Use Fill first
                 </button>
               )}
               {viableFixes.includes("equal") && (
@@ -107,7 +107,7 @@ export default function CapMeterWithFixes({ flow }: { flow: UseFlowV2 }) {
                   onClick={() => patch({ pageDistribution: "equal" })}
                   className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-white dark:bg-amber-950/50 px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 transition-colors"
                 >
-                  Switch to Equal Split
+                  Use Equal
                 </button>
               )}
             </div>

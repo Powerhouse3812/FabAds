@@ -25,6 +25,7 @@ import {
   Plug,
   RotateCw,
   Search,
+  Shield,
   ShoppingBag,
   Upload,
   Users,
@@ -93,6 +94,84 @@ function Checkbox({
     </span>
   );
 }
+
+/* ─── Account health (mock, cached at module load = session start) ───────────
+ * Per strategy lock #17: parallel fetch at session start, instant on chip click.
+ * Mocked here as a stable map; in real impl this would be a useEffect at flow init.
+ */
+type AccountHealth = {
+  spentTodayUsd: number;
+  capUsd: number;
+  pagesConnected: number;
+  pixelStatus: "active" | "stale" | "none";
+  pagesNearCap: number;
+};
+
+const ACCOUNT_HEALTH: Record<string, AccountHealth> = {
+  act_acme_us: { spentTodayUsd: 412, capUsd: 800, pagesConnected: 2, pixelStatus: "active", pagesNearCap: 0 },
+  act_mamaearth: { spentTodayUsd: 1834, capUsd: 2500, pagesConnected: 2, pixelStatus: "active", pagesNearCap: 1 },
+  act_boat: { spentTodayUsd: 0, capUsd: 0, pagesConnected: 2, pixelStatus: "stale", pagesNearCap: 2 },
+  act_noise: { spentTodayUsd: 96, capUsd: 500, pagesConnected: 1, pixelStatus: "stale", pagesNearCap: 0 },
+  act_sleepy: { spentTodayUsd: 220, capUsd: 600, pagesConnected: 1, pixelStatus: "none", pagesNearCap: 0 },
+};
+
+function AccountHealthCard({ accountId }: { accountId: string }) {
+  const h = ACCOUNT_HEALTH[accountId] ?? { spentTodayUsd: 0, capUsd: 500, pagesConnected: 0, pixelStatus: "none" as const, pagesNearCap: 0 };
+  const pct = h.capUsd > 0 ? Math.min(100, (h.spentTodayUsd / h.capUsd) * 100) : 0;
+  const pixelLabel =
+    h.pixelStatus === "active" ? "✓ Active" :
+    h.pixelStatus === "stale" ? "⚠ Stale" :
+    "✗ None";
+  const pixelColor =
+    h.pixelStatus === "active" ? "text-foreground" :
+    h.pixelStatus === "stale" ? "text-amber-600 dark:text-amber-400" :
+    "text-destructive";
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-[11px]">
+      {/* Spent today */}
+      <div className="space-y-1 min-w-0">
+        <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/70">Spent today</div>
+        <div className="text-foreground font-mono tabular-nums">
+          ${h.spentTodayUsd.toLocaleString("en-US")} / ${h.capUsd.toLocaleString("en-US")}
+        </div>
+        <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              "h-full transition-[width]",
+              pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-foreground/60",
+            )}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+      {/* Pages */}
+      <div className="space-y-1 min-w-0">
+        <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/70">Pages</div>
+        <div className="text-foreground tabular-nums">{h.pagesConnected} connected</div>
+      </div>
+      {/* Pixel */}
+      <div className="space-y-1 min-w-0">
+        <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/70">Pixel</div>
+        <div className={cn("font-medium", pixelColor)}>{pixelLabel}</div>
+      </div>
+      {/* Cap risk — only if >0 */}
+      <div className="space-y-1 min-w-0">
+        <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/70">Cap risk</div>
+        {h.pagesNearCap > 0 ? (
+          <div className="text-amber-600 dark:text-amber-400">⚠ {h.pagesNearCap} Page{h.pagesNearCap !== 1 ? "s" : ""} near cap</div>
+        ) : (
+          <div className="text-muted-foreground/60">—</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Regulated categories — mock list. If any selected Page has a matching category,
+ * show suggestion banner. Toggle stays OFF by default (lock #18).
+ */
+const REGULATED_PAGE_CATEGORIES = new Set(["Finance", "Health", "Real Estate", "Employment", "Insurance"]);
 
 /* ─── AccountPickerRow (plain div — no CommandItem to avoid focus conflicts) ─ */
 function AccountPickerRow({
@@ -287,6 +366,9 @@ function AccountRow({
 
   return (
     <div className="space-y-1.5">
+      {/* ── Inline account health (cached at session start, see lock #17) ── */}
+      <AccountHealthCard accountId={accountId} />
+
       {/* ── Main card with divide-y structure ── */}
       <div className="rounded-xl border border-border bg-muted/5 divide-y divide-border/50">
 
@@ -759,8 +841,84 @@ export function AccountsPages({
   /* ── Suppress unused-variable warning for demandByPage (kept for parity) ── */
   void demandByPage;
 
+  /* ── Regulated suggestion: any selected page in a regulated category? ── */
+  const suggestRegulated = useMemo(() => {
+    if (plan.specialAdDeclared) return false; // already on, suppress
+    for (const t of targets) {
+      const acc = ACCOUNTS.find((a) => a.id === t.accountId);
+      const pg = acc?.pages.find((p) => p.id === t.pageId);
+      // @ts-expect-error optional category on mock page
+      if (pg?.category && REGULATED_PAGE_CATEGORIES.has(pg.category)) return true;
+    }
+    return false;
+  }, [targets, plan.specialAdDeclared]);
+
   return (
     <div className="space-y-4">
+      {/* ─── 0. Regulated category — top of section per lock #18 ────────── */}
+      <div className="space-y-1.5">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+          <div className="min-w-0">
+            <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+              Regulated category?
+            </span>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
+            </p>
+          </div>
+          <Switch
+            checked={plan.specialAdDeclared}
+            onCheckedChange={(v) => onPatch({ specialAdDeclared: v, specialAdCategories: v ? plan.specialAdCategories : [] })}
+            className="shrink-0"
+          />
+        </div>
+
+        {/* Suggestion banner (lock #18) */}
+        {suggestRegulated && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+            <Info className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
+            <p className="text-[11px] text-foreground">
+              One or more selected Pages is in a regulated category. Turn this on if your ads relate to credit, employment, housing or social issues.
+            </p>
+          </div>
+        )}
+
+        {/* Category picker — surfaces when on */}
+        {plan.specialAdDeclared && (
+          <div className="flex flex-wrap gap-2 pl-1 pt-1">
+            {[
+              { id: "HOUSING", label: "Housing" },
+              { id: "EMPLOYMENT", label: "Employment" },
+              { id: "FINANCIAL_PRODUCTS_SERVICES", label: "Financial" },
+              { id: "ISSUES_ELECTIONS_POLITICS", label: "Social issues" },
+            ].map((c) => {
+              const on = plan.specialAdCategories.includes(c.id as any);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    const next = on
+                      ? plan.specialAdCategories.filter((x) => x !== c.id)
+                      : [...plan.specialAdCategories, c.id as any];
+                    onPatch({ specialAdCategories: next });
+                  }}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    on
+                      ? "border-foreground border-2 bg-foreground/[0.03] text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-foreground/30",
+                  )}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* ─── 1. Account picker ───────────────────────────────────────────── */}
       <div className="space-y-1.5">
         <span className="text-xs font-medium text-muted-foreground">Ad accounts</span>
@@ -835,7 +993,7 @@ export function AccountsPages({
       {/* ─── 2. Per-account assignment rows ──────────────────────────────── */}
       {selectedAccountIds.size > 0 && (
         <div className="space-y-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+          <span className="text-[13px] font-medium text-foreground">
             Per-account assignment
           </span>
           <div className="space-y-1.5">
