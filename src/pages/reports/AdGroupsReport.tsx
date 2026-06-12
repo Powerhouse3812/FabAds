@@ -6,7 +6,6 @@ import { GROUPING_OPTIONS, METRIC_COLUMNS, aggregateMetrics, type ReportEntity, 
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
 import { ReportsTable } from "@/components/reports/ReportsTable";
-import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreativeDetailDrawer } from "@/components/reports/CreativeDetailDrawer";
@@ -130,6 +129,9 @@ export default function AdGroupsReport() {
         onRefresh={() => setDateSeed((s) => s + 1)}
         onExport={() => toast.success("CSV exported")}
         onColumnSettings={() => setColSettingsOpen(true)}
+        selectionCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkExport={() => toast.success("CSV exported")}
       />
 
       {isRefreshing ? (
@@ -199,7 +201,6 @@ export default function AdGroupsReport() {
         </div>
       )}
 
-      <ReportsBulkBar selected={selectedEntities} onClearSelection={() => setSelectedIds(new Set())} onExport={() => toast.success("CSV exported")} />
       <CreativeDetailDrawer entity={drawerEntity} open={!!drawerEntity} onOpenChange={(v) => !v && setDrawerEntity(null)} />
       <ColumnSettingsModal open={colSettingsOpen} onOpenChange={setColSettingsOpen} columns={AD_GROUP_COLUMNS} visibleKeys={visibleColumns} onVisibleKeysChange={setVisibleColumns} />
     </div>

@@ -167,7 +167,7 @@ export default function CreativeLibrary() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [folderFormOpen, setFolderFormOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<any>(null);
-  const [moveToFolderItem, setMoveToFolderItem] = useState<{ id: string; type: "media" | "adgroup" } | null>(null);
+  const [moveToFolderItem, setMoveToFolderItem] = useState<{ ids: string[]; type: "media" | "adgroup" } | null>(null);
 
   const { data: folders = [] } = useClFolders();
   const { data: folderStats } = useClFolderStats();
@@ -604,67 +604,49 @@ export default function CreativeLibrary() {
 
         {/* ═══════════ MEDIA TAB ═══════════ */}
         <TabsContent value="media" className="mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-1 data-[state=active]:flex-col">
-          {/* Toolbar */}
-          <div className="flex flex-nowrap items-center gap-3 px-4 py-2.5 border-b border-border">
-            {/* LEFT: Search + Sort */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {SearchInput}
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" disabled>
-                <ArrowUpDown className="h-3.5 w-3.5" />
+          {/* ─── Adaptive Toolbar — morphs between default + selection state ─── */}
+          <div className="relative h-[52px] shrink-0 border-b border-border overflow-hidden">
+            {/* Default state: search / filters / upload — slides left on selection */}
+            <div className={`absolute inset-0 flex flex-nowrap items-center gap-3 px-4 transition-all duration-200 ease-out${selected.size > 0 ? " opacity-0 -translate-x-4 pointer-events-none" : ""}`}>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {SearchInput}
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" disabled>
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex flex-nowrap items-center gap-2 shrink-0">
+                <FilterMultiSelect
+                  label="Offers"
+                  options={offers.map((o) => ({ id: o.id, name: o.name }))}
+                  selected={selectedOfferFilters}
+                  onToggle={handleOfferFilterToggle}
+                  className="w-[140px] lg:w-[170px] xl:w-[200px]"
+                />
+                <FilterMultiSelect
+                  label="Folders"
+                  options={folders.map((f) => ({ id: f.id, name: f.name }))}
+                  selected={selectedFolderFilters}
+                  onToggle={handleFolderFilterToggle}
+                  className="w-[140px] lg:w-[170px] xl:w-[200px]"
+                />
+                <SegmentedControl
+                  options={["image", "video"] as const}
+                  value={mediaType}
+                  onChange={(v) => setMediaType(v)}
+                  labels={{ image: "Images", video: "Videos" }}
+                />
+                <Button size="sm" className="h-8 text-xs rounded-lg" disabled={isReadOnly || uploading} onClick={() => setUploadOpen(true)}>
+                  <Upload className="h-3.5 w-3.5 mr-1" /> Upload
+                </Button>
+              </div>
+            </div>
+
+            {/* Selection state: bulk actions — slides in from right */}
+            <div className={`absolute inset-0 flex items-center gap-2 px-4 transition-all duration-200 ease-out${selected.size === 0 ? " opacity-0 translate-x-4 pointer-events-none" : ""}`}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={clearSelection}>
+                <X className="h-3.5 w-3.5" />
               </Button>
-            </div>
-
-            {/* RIGHT: Filters + Controls */}
-            <div className="flex flex-nowrap items-center gap-2 shrink-0">
-              <FilterMultiSelect
-                label="Offers"
-                options={offers.map((o) => ({ id: o.id, name: o.name }))}
-                selected={selectedOfferFilters}
-                onToggle={handleOfferFilterToggle}
-                className="w-[140px] lg:w-[170px] xl:w-[200px]"
-              />
-
-              <FilterMultiSelect
-                label="Folders"
-                options={folders.map((f) => ({ id: f.id, name: f.name }))}
-                selected={selectedFolderFilters}
-                onToggle={handleFolderFilterToggle}
-                className="w-[140px] lg:w-[170px] xl:w-[200px]"
-              />
-
-              <SegmentedControl
-                options={["image", "video"] as const}
-                value={mediaType}
-                onChange={(v) => setMediaType(v)}
-                labels={{ image: "Images", video: "Videos" }}
-              />
-
-              <Button size="sm" className="h-8 text-xs rounded-lg" disabled={isReadOnly || uploading} onClick={() => setUploadOpen(true)}>
-                <Upload className="h-3.5 w-3.5 mr-1" /> Upload
-              </Button>
-            </div>
-          </div>
-
-          {hasActiveFilters && (
-            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border">
-              <button onClick={clearAllFilters} className="text-[10px] text-muted-foreground hover:text-foreground underline">
-                Clear all filters
-              </button>
-            </div>
-          )}
-
-          {/* Upload progress */}
-          {uploading && (
-            <div className="px-4 pt-2">
-              <Progress value={progress} className="h-1.5" />
-              <p className="text-[10px] text-muted-foreground mt-0.5">Uploading…</p>
-            </div>
-          )}
-
-          {/* Bulk action bar */}
-          {selected.size > 0 && (
-            <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 border-b border-border">
-              <span className="text-xs font-medium text-foreground">{selected.size} media selected</span>
+              <span className="text-xs font-medium text-foreground shrink-0">{selected.size} selected</span>
               <div className="flex-1" />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -681,12 +663,28 @@ export default function CreativeLibrary() {
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLaunchFromMedia([...selected])}>
                 <Rocket className="h-3 w-3 mr-1" /> Launch Adgroup
               </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setMoveToFolderItem({ ids: [...selected], type: "media" })}>
+                <FolderPlus className="h-3 w-3 mr-1" /> Move to Folder
+              </Button>
               <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={isReadOnly || deleteAsset.isPending} onClick={() => setBulkDeleteOpen(true)}>
                 <Trash2 className="h-3 w-3 mr-1" /> Delete
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearSelection}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border shrink-0">
+              <button onClick={clearAllFilters} className="text-[10px] text-muted-foreground hover:text-foreground underline">
+                Clear all filters
+              </button>
+            </div>
+          )}
+
+          {/* Upload progress */}
+          {uploading && (
+            <div className="px-4 pt-2 shrink-0">
+              <Progress value={progress} className="h-1.5" />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Uploading…</p>
             </div>
           )}
 
@@ -748,7 +746,7 @@ export default function CreativeLibrary() {
                               <DropdownMenuItem onClick={() => setPropertiesTarget(asset)}>
                                 <Layers className="h-4 w-4 mr-2" /> Properties
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setMoveToFolderItem({ id: asset.id, type: "media" })}>
+                              <DropdownMenuItem onClick={() => setMoveToFolderItem({ ids: [asset.id], type: "media" })}>
                                 <FolderPlus className="h-4 w-4 mr-2" /> Add to folder
                               </DropdownMenuItem>
                               {!asset.is_dummy && (
@@ -777,70 +775,70 @@ export default function CreativeLibrary() {
 
         {/* ═══════════ ADGROUP TAB ═══════════ */}
         <TabsContent value="adgroup" className="mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-1 data-[state=active]:flex-col">
-          {/* Toolbar */}
-          <div className="flex flex-nowrap items-center gap-3 px-4 py-2.5 border-b border-border">
-            {/* LEFT: Search + Sort */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              {SearchInput}
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" disabled>
-                <ArrowUpDown className="h-3.5 w-3.5" />
-              </Button>
+          {/* ─── Adaptive Toolbar — morphs between default + selection state ─── */}
+          <div className="relative h-[52px] shrink-0 border-b border-border overflow-hidden">
+            {/* Default state: search / filters / create — slides left on selection */}
+            <div className={`absolute inset-0 flex flex-nowrap items-center gap-3 px-4 transition-all duration-200 ease-out${selectedAdgroups.size > 0 ? " opacity-0 -translate-x-4 pointer-events-none" : ""}`}>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {SearchInput}
+                <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" disabled>
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex flex-nowrap items-center gap-2 shrink-0">
+                <FilterMultiSelect
+                  label="Offers"
+                  options={offers.map((o) => ({ id: o.id, name: o.name }))}
+                  selected={selectedOfferFilters}
+                  onToggle={handleOfferFilterToggle}
+                  className="w-[140px] lg:w-[170px] xl:w-[200px]"
+                />
+                <FilterMultiSelect
+                  label="Folders"
+                  options={folders.map((f) => ({ id: f.id, name: f.name }))}
+                  selected={selectedFolderFilters}
+                  onToggle={handleFolderFilterToggle}
+                  className="w-[140px] lg:w-[170px] xl:w-[200px]"
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg" disabled>
+                        <CloudUpload className="h-3.5 w-3.5 mr-1" /> Import from FB ad account
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent><p>📥 Import from FB ad account — coming soon!</p></TooltipContent>
+                </Tooltip>
+                <Button size="sm" className="h-8 text-xs rounded-lg" disabled={isReadOnly} onClick={() => setCreateAdgroupOpen(true)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Create new
+                </Button>
+              </div>
             </div>
 
-            {/* RIGHT: Filters + Controls */}
-            <div className="flex flex-nowrap items-center gap-2 shrink-0">
-              <FilterMultiSelect
-                label="Offers"
-                options={offers.map((o) => ({ id: o.id, name: o.name }))}
-                selected={selectedOfferFilters}
-                onToggle={handleOfferFilterToggle}
-                className="w-[140px] lg:w-[170px] xl:w-[200px]"
-              />
-
-              <FilterMultiSelect
-                label="Folders"
-                options={folders.map((f) => ({ id: f.id, name: f.name }))}
-                selected={selectedFolderFilters}
-                onToggle={handleFolderFilterToggle}
-                className="w-[140px] lg:w-[170px] xl:w-[200px]"
-              />
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg" disabled>
-                      <CloudUpload className="h-3.5 w-3.5 mr-1" /> Import from FB ad account
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent><p>📥 Import from FB ad account — coming soon!</p></TooltipContent>
-              </Tooltip>
-
-              <Button size="sm" className="h-8 text-xs rounded-lg" disabled={isReadOnly} onClick={() => setCreateAdgroupOpen(true)}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Create new
+            {/* Selection state: bulk actions — slides in from right */}
+            <div className={`absolute inset-0 flex items-center gap-2 px-4 transition-all duration-200 ease-out${selectedAdgroups.size === 0 ? " opacity-0 translate-x-4 pointer-events-none" : ""}`}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedAdgroups(new Set())}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-xs font-medium text-foreground shrink-0">
+                {selectedAdgroups.size} adgroup{selectedAdgroups.size !== 1 ? "s" : ""} selected
+              </span>
+              <div className="flex-1" />
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLaunchFromAdgroups([...selectedAdgroups])}>
+                <Rocket className="h-3 w-3 mr-1" /> Launch Adgroup
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setMoveToFolderItem({ ids: [...selectedAdgroups], type: "adgroup" })}>
+                <FolderPlus className="h-3 w-3 mr-1" /> Move to Folder
               </Button>
             </div>
           </div>
 
           {hasActiveFilters && (
-            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border">
+            <div className="flex items-center gap-1 px-4 py-1.5 border-b border-border shrink-0">
               <button onClick={clearAllFilters} className="text-[10px] text-muted-foreground hover:text-foreground underline">
                 Clear all filters
               </button>
-            </div>
-          )}
-
-          {/* Adgroup Bulk action bar */}
-          {selectedAdgroups.size > 0 && (
-            <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 border-b border-border">
-              <span className="text-xs font-medium text-foreground">{selectedAdgroups.size} adgroup{selectedAdgroups.size !== 1 ? "s" : ""} selected</span>
-              <div className="flex-1" />
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleLaunchFromAdgroups([...selectedAdgroups])}>
-                <Rocket className="h-3 w-3 mr-1" /> Launch Adgroup
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedAdgroups(new Set())}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
             </div>
           )}
 
@@ -867,7 +865,7 @@ export default function CreativeLibrary() {
                       <DropdownMenuItem onClick={() => handleDownload(ag.media.url, `${ag.pageName}-ad.jpg`)}>
                         <Download className="h-4 w-4 mr-2" /> Download
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setMoveToFolderItem({ id: ag.id, type: "adgroup" })}>
+                      <DropdownMenuItem onClick={() => setMoveToFolderItem({ ids: [ag.id], type: "adgroup" })}>
                         <FolderPlus className="h-4 w-4 mr-2" /> Add to folder
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -1168,7 +1166,7 @@ export default function CreativeLibrary() {
       <MoveToFolderModal
         open={!!moveToFolderItem}
         onOpenChange={(o) => { if (!o) setMoveToFolderItem(null); }}
-        itemId={moveToFolderItem?.id || ""}
+        itemIds={moveToFolderItem?.ids || []}
         itemType={moveToFolderItem?.type || "media"}
       />
     </div>

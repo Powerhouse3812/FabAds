@@ -11,7 +11,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Filter, ArrowUpDown, Plus, Copy, Bookmark, MoreVertical, Trash2, Pencil, Loader2 } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Plus, Copy, Bookmark, MoreVertical, Trash2, Pencil, Loader2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { type ClTextItem, type TextItemType, useTextItems, useAddTextItem, useDeleteTextItem, useUpdateTextItem } from "@/hooks/use-cl-text-items";
@@ -93,6 +93,7 @@ export function TextItemList({ type, isReadOnly, brandFilter = null }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // Use dummy data if no real items
   const displayItems = useMemo(() => {
@@ -138,6 +139,37 @@ export function TextItemList({ type, isReadOnly, brandFilter = null }: Props) {
     });
   };
 
+  const clearSelection = () => setSelected(new Set());
+
+  const handleBulkCopy = () => {
+    const texts = displayItems
+      .filter((i) => selected.has(i.id))
+      .map((i) => i.text)
+      .join("\n\n");
+    navigator.clipboard.writeText(texts);
+    toast({ title: `Copied ${selected.size} item${selected.size !== 1 ? "s" : ""} to clipboard` });
+    clearSelection();
+  };
+
+  const handleBulkDelete = async () => {
+    const realIds = displayItems
+      .filter((i) => selected.has(i.id) && !(i as any).isDummy)
+      .map((i) => i.id);
+    if (realIds.length === 0) {
+      toast({ title: "No real items to delete (dummy data cannot be deleted)" });
+      setBulkDeleteOpen(false);
+      return;
+    }
+    try {
+      await Promise.all(realIds.map((id) => deleteItem.mutateAsync(id)));
+      toast({ title: `Deleted ${realIds.length} item${realIds.length !== 1 ? "s" : ""}` });
+      clearSelection();
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e.message, variant: "destructive" });
+    }
+    setBulkDeleteOpen(false);
+  };
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copied to clipboard" });
@@ -166,40 +198,53 @@ export function TextItemList({ type, isReadOnly, brandFilter = null }: Props) {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-border">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-10">
-            <button onClick={() => setSearchMode("text")}
-              className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full transition-colors ${searchMode === "text" ? "bg-[hsl(68,100%,45%)] text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-              Text
-            </button>
-            <button onClick={() => setSearchMode("tag")}
-              className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full transition-colors ${searchMode === "tag" ? "bg-[hsl(68,100%,45%)] text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-              Tag
-            </button>
+      {/* ─── Adaptive Toolbar — morphs between default + selection state ─── */}
+      <div className="relative h-[52px] shrink-0 border-b border-border overflow-hidden">
+        {/* Default state: search / filters / add — slides left on selection */}
+        <div className={`absolute inset-0 flex flex-nowrap items-center gap-2 px-4 transition-all duration-200 ease-out${selected.size > 0 ? " opacity-0 -translate-x-4 pointer-events-none" : ""}`}>
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-10">
+              <button onClick={() => setSearchMode("text")}
+                className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full transition-colors ${searchMode === "text" ? "bg-[hsl(68,100%,45%)] text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                Text
+              </button>
+              <button onClick={() => setSearchMode("tag")}
+                className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full transition-colors ${searchMode === "tag" ? "bg-[hsl(68,100%,45%)] text-black" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
+                Tag
+              </button>
+            </div>
+            <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} type="search" autoComplete="off"
+              placeholder={searchMode === "text" ? "Search by text…" : "Search by tag…"} className="pl-[4.5rem] pr-8 h-8 text-xs" />
           </div>
-          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} type="search" autoComplete="off"
-            placeholder={searchMode === "text" ? "Search by text…" : "Search by tag…"} className="pl-[4.5rem] pr-8 h-8 text-xs" />
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" disabled><Filter className="h-3.5 w-3.5" /></Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0" disabled><ArrowUpDown className="h-3.5 w-3.5" /></Button>
+          <div className="flex-1" />
+          <SegmentedControl
+            options={["all", "mine", "favourites"] as const}
+            value={ownerFilter}
+            onChange={(v) => setOwnerFilter(v as "all" | "mine" | "favourites")}
+            labels={{ all: "All", mine: "Mine", favourites: "Favourites" }}
+          />
+          <Button size="sm" className="h-8 text-xs rounded-lg shrink-0" disabled={isReadOnly} onClick={() => setAddOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+          </Button>
         </div>
 
-        <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled><Filter className="h-3.5 w-3.5" /></Button>
-        <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled><ArrowUpDown className="h-3.5 w-3.5" /></Button>
-
-        <div className="flex-1" />
-
-        <SegmentedControl
-          options={["all", "mine", "favourites"] as const}
-          value={ownerFilter}
-          onChange={(v) => setOwnerFilter(v as "all" | "mine" | "favourites")}
-          labels={{ all: "All", mine: "Mine", favourites: "Favourites" }}
-        />
-
-        <Button size="sm" className="h-8 text-xs rounded-lg" disabled={isReadOnly} onClick={() => setAddOpen(true)}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> Add
-        </Button>
+        {/* Selection state: bulk actions — slides in from right */}
+        <div className={`absolute inset-0 flex items-center gap-2 px-4 transition-all duration-200 ease-out${selected.size === 0 ? " opacity-0 translate-x-4 pointer-events-none" : ""}`}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={clearSelection}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-xs font-medium text-foreground shrink-0">{selected.size} selected</span>
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkCopy}>
+            <Copy className="h-3 w-3 mr-1" /> Copy all
+          </Button>
+          <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={isReadOnly} onClick={() => setBulkDeleteOpen(true)}>
+            <Trash2 className="h-3 w-3 mr-1" /> Delete
+          </Button>
+        </div>
       </div>
 
       {/* List */}
@@ -274,7 +319,7 @@ export function TextItemList({ type, isReadOnly, brandFilter = null }: Props) {
         isPending={addItem.isPending}
       />
 
-      {/* Delete Dialog */}
+      {/* Single Delete Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -284,6 +329,20 @@ export function TextItemList({ type, isReadOnly, brandFilter = null }: Props) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.size} {typeLabel}{selected.size !== 1 ? "s" : ""}</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the selected items. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete All</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

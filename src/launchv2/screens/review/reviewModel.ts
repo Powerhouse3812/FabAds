@@ -19,7 +19,7 @@ import {
   perPageDemand,
   type PageDemand,
 } from "../../deriveV2";
-import { softWarnings, type SoftWarning } from "../../reducer";
+import { planReady, requiresPixel, softWarnings, type SoftWarning } from "../../reducer";
 
 /* ------------------------------------------------------------------ */
 /*  Representative tree                                                */
@@ -297,6 +297,7 @@ const DIST_LABEL: Record<PageDistribution, string> = {
   fill_first: "Fill-first",
   equal: "Equal split",
   duplicate: "Duplicate to all",
+  custom: "Custom",
 };
 
 export function buildIssues(plan: PlanV2): ReviewIssue[] {
@@ -321,6 +322,89 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
     });
   }
 
+  // ---- Tier 1b: pixel required but missing on one or more accounts ----
+  if (requiresPixel(plan)) {
+    const missing = plan.targets.filter((t) => !t.pixelId);
+    if (missing.length > 0) {
+      issues.push({
+        id: "err:pixel-attached",
+        tier: "error",
+        title: "Pixel required",
+        detail: "Connect a Meta pixel to selected accounts before launch.",
+      });
+    }
+  }
+
+  // ---- Tier 1c: no destinations selected ----
+  if (plan.targets.length === 0) {
+    issues.push({
+      id: "err:no-targets",
+      tier: "error",
+      title: "No destinations selected",
+      detail: "Pick at least one ad account and Page in Setup.",
+    });
+  }
+
+  // ---- Tier 1d: no creatives selected ----
+  if (plan.creatives.length === 0) {
+    issues.push({
+      id: "err:no-creatives",
+      tier: "error",
+      title: "No creatives selected",
+      detail: "Pick at least one creative (or whole ad) in the Ad step.",
+    });
+  }
+
+  // ---- Tier 1e: DPA / catalogue on but no product set picked ----
+  if (plan.catalogueToggle) {
+    const accountIds = new Set(plan.targets.map((t) => t.accountId));
+    const hasSet = [...accountIds].some(
+      (aid) => (plan.productSetByAccount?.[aid]?.productSetIds?.length ?? 0) > 0,
+    );
+    if (!hasSet) {
+      issues.push({
+        id: "err:dpa-no-set",
+        tier: "error",
+        title: "Catalogue on, but no product set picked",
+        detail: "Pick at least one product set per ad account, else Meta has nothing to serve.",
+      });
+    }
+  }
+
+  // ---- Tier 1i: DPA / catalogue is not supported on APP destination ----
+  if (plan.catalogueToggle && plan.destinationType === "APP") {
+    issues.push({
+      id: "err:dpa-app-dest",
+      tier: "error",
+      title: "Catalogue ads can't run to App destinations",
+      detail: "Meta does not support DPA / catalogue ads for app-install or app-event objectives. Switch destination type to Website or remove catalogue.",
+    });
+  }
+
+  // ---- Tier 1f: A/B test enabled but only one creative ----
+  if (plan.abTest && plan.creatives.length < 2) {
+    issues.push({
+      id: "err:abtest-one-creative",
+      tier: "error",
+      title: "A/B test needs 2+ creatives",
+      detail: "Add at least one more creative — Meta needs two variants to run the test.",
+    });
+  }
+
+  // ---- Tier 1g: custom audience toggled but no audience picked (select mode) ----
+  if (
+    plan.useCustomAudience &&
+    plan.customAudienceMode === "select" &&
+    !plan.customAudienceId
+  ) {
+    issues.push({
+      id: "err:custom-audience-empty",
+      tier: "error",
+      title: "Custom Audience on, none selected",
+      detail: "Pick a custom audience from the dropdown, switch to Upload, or turn off Custom Audience.",
+    });
+  }
+
   // ---- Tier 2: soft warnings (warn, don't block) ----
   const warns: SoftWarning[] = softWarnings(plan, sets);
   for (const w of warns) {
@@ -333,25 +417,107 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
     });
   }
 
-  // ---- Tier 3: info / readiness nudges ----
+  // ---- Tier 2b: destination URL missing when format expects one ----
+  if (urlRequired(plan) && !plan.adCopy.destinationUrl.trim()) {
+    issues.push({
+      id: "warn:destination-url",
+      tier: "warning",
+      title: "Destination URL missing",
+      detail: "This ad format opens an external URL on click — add one in the Override tab.",
+    });
+  }
+
+  // ---- Tier 2c: budget sanity — high daily spend per ad set ----
+  {
+    const perAdSetDaily = plan.budgetAmount * sets;
+    if (perAdSetDaily > 100_000) {
+      const currency = plan.targets[0]?.currency ?? "USD";
+      issues.push({
+        id: "warn:budget-sanity",
+        tier: "warning",
+        title: "High daily spend",
+        detail: `${currency} ${Math.round(perAdSetDaily).toLocaleString("en-IN")}/day across ${sets} ad ${sets === 1 ? "set" : "sets"} — confirm this is intended.`,
+      });
+    }
+  }
+
+  // ---- Tier 2d: duplicate distribution multiplier (upgraded from info) ----
   if (plan.pageDistribution === "duplicate" && plan.targets.length > 1) {
     issues.push({
-      id: "info:duplicate",
-      tier: "info",
-      title: "Duplicating across every Page",
+      id: "warn:duplicate-multiplier",
+      tier: "warning",
+      title: `Duplicate distribution multiplies spend ${plan.targets.length}×`,
       detail: `Each of your ${plan.targets.length} Pages gets the full ${adsPerDestination(plan)} ads, so spend and ad count multiply by ${plan.targets.length}.`,
     });
   }
+
+  // ---- Tier 2e: Leads via Instant Form without CRM integration note ----
+  if (
+    plan.objective === "OUTCOME_LEADS" &&
+    plan.destinationType === "ON_AD"
+  ) {
+    issues.push({
+      id: "warn:leads-no-crm",
+      tier: "warning",
+      title: "Instant Form leads — connect a CRM",
+      detail: "Leads collected via Instant Form are stored in Meta. Connect a CRM (HubSpot, Salesforce, Zapier) or download leads manually to action them.",
+      fix: { label: "Use website destination instead", kind: "none" },
+    });
+  }
+
+  // ---- Tier 1j: Creative format vs. placement incompatibility ----
+  if (plan.format === "single_video" && plan.placementMode === "manual") {
+    // Manual placements that only support static images (e.g. Marketplace, Right Column)
+    // are incompatible with video-only format. Warn the buyer.
+    issues.push({
+      id: "warn:format-placement",
+      tier: "warning",
+      title: "Video format with manual placements",
+      detail: "Some manual placements (Marketplace, Right Column) don't support video. Switch to Automatic placements or use a static image format.",
+      fix: { label: "Switch to Automatic placements", kind: "none" },
+    });
+  }
+
+  // ---- Tier 3: info / readiness nudges ----
   if (!plan.adCopy.primaryText.trim() && plan.creatives.some((c) => !c.savedAd)) {
     issues.push({
       id: "info:copy",
       tier: "info",
       title: "Primary text is empty",
-      detail: "Ads without primary text can still launch, but tend to underperform. Add a hook in the Edit tab.",
+      detail: "Ads without primary text can still launch, but tend to underperform. Add a hook in the Override tab.",
     });
   }
 
   return issues;
+}
+
+/**
+ * The real launch gate. Combines structural readiness (`planReady`) with the
+ * blocking issues from `buildIssues`. Any `tier === "error"` issue blocks.
+ *
+ * This is what the Launch button + confirm modal MUST check — not `planReady`
+ * alone, because planReady only checks 5 coarse conditions and misses things
+ * like DPA-without-product-set, A/B-with-one-creative, etc.
+ */
+export function canLaunch(plan: PlanV2): { ok: boolean; blockingIssues: ReviewIssue[] } {
+  if (!planReady(plan, 5)) {
+    // structural failure — buildIssues will likely surface the same things,
+    // but planReady gives the cleanest yes/no without iterating issues.
+    return { ok: false, blockingIssues: buildIssues(plan).filter((i) => i.tier === "error") };
+  }
+  const blocking = buildIssues(plan).filter((i) => i.tier === "error");
+  return { ok: blocking.length === 0, blockingIssues: blocking };
+}
+
+/** Does the current plan's ad format point to an external URL destination? */
+function urlRequired(plan: PlanV2): boolean {
+  // Catalog/DPA flows resolve URLs from the product feed — skip the check.
+  if (plan.format === "dpa" || plan.destinationType === "PRODUCT_CATALOG_SALES") return false;
+  // Lead forms / messaging destinations don't need a URL.
+  if (plan.destinationType === "ON_AD" || plan.destinationType === "MESSENGER" ||
+      plan.destinationType === "WHATSAPP" || plan.destinationType === "INSTAGRAM_DIRECT" ||
+      plan.destinationType === "PHONE_CALL" || plan.destinationType === "APP") return false;
+  return true;
 }
 
 function warnTitle(code: string): string {
@@ -359,7 +525,7 @@ function warnTitle(code: string): string {
     case "CBO_70":
       return "Over 70 ad sets under CBO";
     case "ADSET_200":
-      return "Approaching the 200 ad-set cap";
+      return "Exceeded the 200 ad-set limit";
     case "FRAGMENT":
       return "Learning-phase fragmentation risk";
     default:
@@ -416,6 +582,8 @@ export interface ReviewSummary {
   totalAds: number;
   budgetPerDay: number;
   currency: string;
+  accounts: number;   // unique ad account count
+  pages: number;      // total destination count (targets.length)
 }
 export function reviewSummary(plan: PlanV2): ReviewSummary {
   return {
@@ -425,7 +593,55 @@ export function reviewSummary(plan: PlanV2): ReviewSummary {
     totalAds: estimateAds(plan),
     budgetPerDay: budgetPerDay(plan),
     currency: plan.targets[0]?.currency ?? "USD",
+    accounts: new Set(plan.targets.map((t) => t.accountId)).size,
+    pages: plan.targets.length,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Per-account breakdown                                               */
+/* ------------------------------------------------------------------ */
+export interface AccountBreakdown {
+  accountId: string;
+  accountName: string;
+  currency: string;
+  pages: number;
+  campaigns: number;
+  adSets: number;
+  ads: number;
+  dailyBudget: number;
+}
+
+export function perAccountBreakdown(plan: PlanV2): AccountBreakdown[] {
+  if (plan.targets.length === 0) return [];
+
+  // Group targets by accountId
+  const groups = new Map<string, typeof plan.targets[number][]>();
+  for (const t of plan.targets) {
+    if (!groups.has(t.accountId)) groups.set(t.accountId, []);
+    groups.get(t.accountId)!.push(t);
+  }
+
+  const totalPages = plan.targets.length;
+  const totalDaily = budgetPerDay(plan);
+  const campaignsPerPage = Math.max(plan.structure.campaigns, 1);
+  const adSetsPerPage = campaignsPerPage * Math.max(plan.structure.adSetsPerCampaign, 1);
+  const adsPerPage = adsPerDestination(plan);
+
+  return Array.from(groups.entries()).map(([accountId, targets]) => {
+    const pages = targets.length;
+    const proportion = totalPages > 0 ? pages / totalPages : 0;
+    return {
+      accountId,
+      accountName: targets[0].accountName,
+      currency: targets[0].currency,
+      pages,
+      campaigns: campaignsPerPage * pages,
+      adSets: adSetsPerPage * pages,
+      ads: adsPerPage * pages,
+      dailyBudget: totalDaily * proportion,
+    };
+  });
 }
 
 /**

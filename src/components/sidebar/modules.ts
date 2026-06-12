@@ -1,14 +1,15 @@
 import {
-  LayoutDashboard, BarChart3, Rocket, Telescope, ImageIcon, Shield,
+  LayoutDashboard, BarChart3, Telescope, ImageIcon, Shield,
   Wand2, Zap, Video, MessageSquare,
   History, Target, Map, Settings,
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Tag, Building2, Package, Boxes,
-  Workflow, Eraser, Scissors, Send,
+  Workflow, Eraser, Scissors,
   Lightbulb,
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss,
+  Plus,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -118,40 +119,22 @@ export const MODULES: ModuleDef[] = [
     ],
   },
   {
-    key: "launch", label: "Launch", icon: Rocket,
-    plans: ["full"],
-    subItems: [
-      // A-9.4: "Launches" renamed to "History"; Clones merged inside History
-      // (history page filters between launches and clones). Sub-item Clones removed.
-      { label: "History", path: "/launch", icon: History },
-      { label: "Targeting Template", path: "/launch/templates", icon: Target },
-      { label: "AutoPilot", path: "/launch/autopilot", icon: Zap },
-      { label: "Launch Settings", path: "/launch/settings", icon: Settings },
-      { label: "RRM", path: "/rrm", icon: Shield },
-    ],
-  },
-
-  {
-    // Launch 2.0 — fresh from-scratch parent module for Meta bulk ad-launching.
-    // Genie-style hub + 5-step guided flow, all behind a mock MetaLaunchService.
-    // FULL-PLAN module — gated like v1 Launch / Reports / Automation: locked on
-    // the AI plan (greyed + Growth badge + upsell on click), available on the
-    // Growth/Full plan. (Maalik: "It was supposed to be in the Full plan.")
-    key: "launch2", label: "Launch 2.0", icon: Send, badge: "Beta",
-    plans: ["full"],
-    subItems: [
-      { label: "Home", path: "/launch2", icon: Home },
-      { label: "Activity", path: "/launch2/activity", icon: History },
-      { label: "Account Health", path: "/launch2/health", icon: Shield },
-      { label: "Settings", path: "/launch2/settings", icon: Settings },
-    ],
-  },
-
-  {
     // Launch v2 — fresh from-scratch redesign of Launch 2.0 (4-step Meta-grounded
     // flow). Own namespace /launchv2; v1 Launch + Launch 2.0 untouched. Ungated
     // for now so it can be reviewed on any plan.
-    key: "launchv2", label: "Launch v2", icon: Sparkles, path: "/launchv2", badge: "Beta",
+    key: "launchv2", label: "Launch v2", icon: Sparkles, badge: "Beta",
+    subItems: [
+      { label: "New launch", path: "/launchv2/new", icon: Plus },
+      { label: "History", path: "/launchv2", icon: History },
+      { label: "Templates", path: "/launchv2/settings", icon: LibraryIcon, subItems: [
+        { label: "Audience", path: "/launchv2/settings/audience" },
+        { label: "Setup", path: "/launchv2/settings/setup" },
+        { label: "Distribution", path: "/launchv2/settings/distribution" },
+        { label: "Strategy", path: "/launchv2/settings/strategy" },
+        { label: "Launch settings", path: "/launchv2/settings/launch" },
+      ]},
+      { label: "Auto launch", path: "/launchv2/auto", icon: Zap, badge: "Soon" },
+    ],
   },
 
   { key: "automation", label: "Automation", icon: Workflow, path: "/automation", plans: ["full"] },
@@ -241,8 +224,6 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   dashboard: "RUN",
   reports: "RUN",
   insights: "RUN",
-  launch: "RUN",
-  launch2: "RUN",
   launchv2: "RUN",
   automation: "RUN",
   // CREATE

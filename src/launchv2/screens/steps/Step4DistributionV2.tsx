@@ -25,7 +25,7 @@
  *  - Collapsible: proper row styling with ChevronDown, "Ad tree preview" label
  */
 import { useState } from "react";
-import { ChevronDown, LayoutGrid, Layers, Shuffle } from "lucide-react";
+import { ChevronDown, LayoutGrid, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adSetCount, adsPerDestination, spreadPreview } from "../../deriveV2";
 import { SPREAD_LABELS } from "../../data";
@@ -45,27 +45,67 @@ type PageSplitId = "one_page" | "fill_first" | "equal" | "duplicate";
 
 /** Primary options — the 90% case. Full-weight pill cards. */
 const PAGE_SPLIT_PRIMARY: { id: PageSplitId; label: string; blurb: string }[] = [
-  { id: "fill_first", label: "Fill first", blurb: "Fill each page to 250, spill to next" },
-  { id: "equal",      label: "Equal",      blurb: "Spread ads evenly across all pages" },
+  { id: "fill_first", label: "Fill first", blurb: "Pack one page first — overflow spills to the next" },
+  { id: "equal",      label: "Equal",      blurb: "Same number of ads on each page" },
 ];
 
 /** Secondary options — edge cases. Smaller, secondary style. */
 const PAGE_SPLIT_SECONDARY: { id: PageSplitId; label: string; blurb: string }[] = [
   { id: "one_page",  label: "One page",  blurb: "All ads go to a single page" },
-  { id: "duplicate", label: "Duplicate", blurb: "Every page gets the full set — multiplies spend" },
+  { id: "duplicate", label: "Duplicate", blurb: "Every page runs the full set — budget multiplies per page" },
 ];
 
 /** Primary mapping options — the most-used. */
-const MAPPING_PRIMARY: { id: SpreadMode; label: string; blurb: string }[] = [
-  { id: "one_per_adset", label: "One per ad set", blurb: "1 creative per ad set — clean 1:1 mapping" },
-  { id: "round_robin",   label: "Round-robin",    blurb: "Cycle creatives evenly across all ad sets" },
+const MAPPING_PRIMARY: { id: SpreadMode; label: string; blurb: string; example: string }[] = [
+  { id: "one_per_adset", label: "One per ad set", blurb: "Each ad set gets exactly one unique creative", example: "e.g. 3 creatives → 3 ad sets, 1 unique each" },
+  { id: "round_robin",   label: "Rotating",       blurb: "Creatives cycle evenly across all ad sets",    example: "e.g. 3 creatives → 5 ad sets, rotates A→B→C→A→B" },
 ];
 
 /** Secondary mapping options — power-user. */
-const MAPPING_SECONDARY: { id: SpreadMode; label: string; blurb: string }[] = [
-  { id: "stacked",  label: "Stacked",  blurb: "All creatives stacked inside each ad set" },
-  { id: "multiply", label: "Multiply", blurb: "One ad set per creative × structure (expands ad sets)" },
+const MAPPING_SECONDARY: { id: SpreadMode; label: string; blurb: string; example: string }[] = [
+  { id: "stacked",  label: "Stacked",  blurb: "Every ad set gets all the creatives",  example: "e.g. 3 creatives → 2 ad sets, both get all 3" },
+  { id: "multiply", label: "Multiply", blurb: "Each creative gets its own ad set",     example: "e.g. 3 creatives → 3 new ad sets, 1 per creative" },
+  { id: "custom",   label: "Custom",   blurb: "Define exact campaign structure yourself", example: "Opens structure editor below ↓" },
 ];
+
+/* ── Live preview helpers ────────────────────────────────────────────────── */
+
+function liveSpreadPreview(mode: SpreadMode, c: number, a: number, adsPerDest: number): string {
+  switch (mode) {
+    case "one_per_adset": return `${c} creative${c !== 1 ? "s" : ""} → ${c} ad set${c !== 1 ? "s" : ""}, 1 unique each`;
+    case "round_robin":   return `${c} creative${c !== 1 ? "s" : ""} → ${a} ad set${a !== 1 ? "s" : ""}, rotates evenly`;
+    case "stacked":       return `${c} creative${c !== 1 ? "s" : ""} → ${a} ad set${a !== 1 ? "s" : ""}, all ${c} in each (${adsPerDest} ads)`;
+    case "multiply":      return `${c} creative${c !== 1 ? "s" : ""} → ${c * a} ad set${c * a !== 1 ? "s" : ""}, 1 per creative`;
+    case "custom":        return "Structure editor below ↑";
+    default:              return "";
+  }
+}
+
+function livePageSplitPreview(id: PageSplitId, totalAds: number, pages: number): string {
+  const p = Math.max(pages, 1);
+  const perPage = Math.floor(totalAds / p);
+  const rem = totalAds - perPage * p;
+  switch (id) {
+    case "fill_first": {
+      const p1 = Math.min(totalAds, 250);
+      const p2 = Math.max(0, totalAds - p1);
+      return p2 > 0 ? `Page 1: ${p1}, Page 2: ${p2} ads` : `All ${totalAds} ads on Page 1`;
+    }
+    case "equal":    return `${perPage}–${perPage + (rem > 0 ? 1 : 0)} ads/page (${totalAds} ÷ ${p})`;
+    case "one_page": return `All ${totalAds} ads → 1 page`;
+    case "duplicate":return `${totalAds} × ${p} pages = ${totalAds * p} ads total`;
+    default:         return "";
+  }
+}
+
+/* ── Friendly spread label map ───────────────────────────────────────────── */
+
+const FRIENDLY_SPREAD_V2: Record<string, string> = {
+  "Round-robin": "Rotating evenly",
+  "One per ad set": "1 per ad set",
+  "Stacked": "All creatives in each",
+  "Multiply": "1 ad set per creative",
+};
 
 /* ── Impact summary derivation ───────────────────────────────────────────── */
 
@@ -212,49 +252,24 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
           className="rounded-2xl border border-border bg-card mb-4 px-4 py-3"
           aria-label="Current distribution output"
         >
-          <div className="flex flex-wrap items-center gap-0">
-            {/* Campaigns */}
-            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Campaigns</span>
-              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
-                {s.campaigns}
-              </span>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-semibold tabular-nums text-foreground">{s.totalAds}</span>
+              <span className="text-xs text-muted-foreground">ads</span>
             </div>
-            {/* Ad sets */}
-            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Ad sets</span>
-              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
-                {s.adSets}
-              </span>
+            <span className="text-muted-foreground/30">·</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-semibold tabular-nums text-foreground">{s.adSets}</span>
+              <span className="text-xs text-muted-foreground">ad sets</span>
             </div>
-            {/* Total ads */}
-            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Total ads</span>
-              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
-                {s.totalAds}
-              </span>
+            <span className="text-muted-foreground/30">·</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-semibold tabular-nums text-foreground">{s.pages}</span>
+              <span className="text-xs text-muted-foreground">page{s.pages !== 1 ? "s" : ""}</span>
             </div>
-            {/* Pages */}
-            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Pages</span>
-              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground">
-                {s.pages}
-              </span>
-            </div>
-            {/* Split mode */}
-            <div className="flex flex-col border-r border-border last:border-0 pr-4 mr-4">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Split</span>
-              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground capitalize">
-                {s.splitLabel}
-              </span>
-            </div>
-            {/* Spread */}
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Spread</span>
-              <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground capitalize">
-                {s.spreadLabel}
-              </span>
-            </div>
+            <span className="ml-auto rounded-full bg-muted px-2.5 py-1 text-[11px] text-foreground capitalize">
+              {FRIENDLY_SPREAD_V2[s.spreadLabel] ?? s.spreadLabel}
+            </span>
           </div>
         </div>
 
@@ -268,15 +283,23 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
           <div className="space-y-1.5">
             <RowLabel>Primary choice</RowLabel>
             <div className="grid grid-cols-2 gap-2">
-              {PAGE_SPLIT_PRIMARY.map((opt) => (
-                <OptionCard
-                  key={opt.id}
-                  label={opt.label}
-                  blurb={opt.blurb}
-                  active={plan.pageDistribution === opt.id}
-                  onClick={() => patch({ pageDistribution: opt.id })}
-                />
-              ))}
+              {PAGE_SPLIT_PRIMARY.map((opt) => {
+                const isActive = plan.pageDistribution === opt.id;
+                return (
+                  <OptionCard
+                    key={opt.id}
+                    label={opt.label}
+                    blurb={opt.blurb}
+                    active={isActive}
+                    onClick={() => patch({ pageDistribution: opt.id })}
+                    footer={isActive ? (
+                      <span className="font-mono text-[11px] text-primary/80 font-medium">
+                        → {livePageSplitPreview(opt.id, s.totalAds, s.pages)}
+                      </span>
+                    ) : undefined}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -286,20 +309,27 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
             <div className="grid grid-cols-2 gap-2">
               {PAGE_SPLIT_SECONDARY.map((opt) => {
                 const isDupe = opt.id === "duplicate";
+                const isActive = plan.pageDistribution === opt.id;
                 return (
                   <OptionCard
                     key={opt.id}
                     label={opt.label}
                     blurb={opt.blurb}
-                    active={plan.pageDistribution === opt.id}
+                    active={isActive}
                     warning={isDupe}
                     secondary
                     onClick={() => patch({ pageDistribution: opt.id })}
                     footer={
-                      isDupe && plan.pageDistribution === "duplicate" ? (
-                        <span className="font-mono text-[10px] text-amber-700 dark:text-amber-400 tabular-nums">
-                          {formatMoney(plan.budgetAmount, currency)} → {formatMoney(plan.budgetAmount * duplicateMultiplier, currency)} ×{duplicateMultiplier}
-                        </span>
+                      isActive ? (
+                        isDupe ? (
+                          <span className="font-mono text-[10px] text-amber-700 dark:text-amber-400 tabular-nums">
+                            {formatMoney(plan.budgetAmount, currency)} → {formatMoney(plan.budgetAmount * duplicateMultiplier, currency)} ×{duplicateMultiplier}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[11px] text-primary/80 font-medium">
+                            → {livePageSplitPreview(opt.id, s.totalAds, s.pages)}
+                          </span>
+                        )
                       ) : undefined
                     }
                   />
@@ -309,36 +339,35 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
           </div>
         </Section>
 
-        {/* ── § 2: Campaign Structure ──────────────────────────────────── */}
-        <Section
-          icon={<Layers className="h-3.5 w-3.5" />}
-          title="Campaign Structure"
-          chip={<DistributionSectionChip flow={flow} section="structure" />}
-        >
-          <div className="rounded-2xl border border-border bg-card px-4 py-3">
-            <StructureEditor flow={flow} />
-          </div>
-        </Section>
-
-        {/* ── § 3: Creative Mapping ────────────────────────────────────── */}
+        {/* ── § 2: Creative Distribution ───────────────────────────────── */}
         <Section
           icon={<Shuffle className="h-3.5 w-3.5" />}
-          title="Creative Mapping"
+          title="Creative distribution"
           chip={<DistributionSectionChip flow={flow} section="spread" />}
         >
           {/* Primary options */}
           <div className="space-y-1.5">
             <RowLabel>Primary choice</RowLabel>
             <div className="grid grid-cols-2 gap-2">
-              {MAPPING_PRIMARY.map((opt) => (
-                <OptionCard
-                  key={opt.id}
-                  label={opt.label}
-                  blurb={opt.blurb}
-                  active={plan.spread === opt.id}
-                  onClick={() => patch({ spread: opt.id })}
-                />
-              ))}
+              {MAPPING_PRIMARY.map((opt) => {
+                const isActive = plan.spread === opt.id;
+                return (
+                  <OptionCard
+                    key={opt.id}
+                    label={opt.label}
+                    blurb={opt.blurb}
+                    active={isActive}
+                    onClick={() => patch({ spread: opt.id })}
+                    footer={isActive ? (
+                      <span className="font-mono text-[11px] text-primary/80 font-medium">
+                        → {liveSpreadPreview(opt.id, s.creatives, s.adSets, s.adsPerDest)}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] text-muted-foreground/70">{opt.example}</span>
+                    )}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -346,18 +375,38 @@ export default function Step4DistributionV2({ flow }: { flow: UseFlowV2 }) {
           <div className="space-y-1.5">
             <RowLabel>Advanced</RowLabel>
             <div className="grid grid-cols-2 gap-2">
-              {MAPPING_SECONDARY.map((opt) => (
-                <OptionCard
-                  key={opt.id}
-                  label={opt.label}
-                  blurb={opt.blurb}
-                  active={plan.spread === opt.id}
-                  secondary
-                  onClick={() => patch({ spread: opt.id })}
-                />
-              ))}
+              {MAPPING_SECONDARY.map((opt) => {
+                const isActive = plan.spread === opt.id;
+                return (
+                  <OptionCard
+                    key={opt.id}
+                    label={opt.label}
+                    blurb={opt.blurb}
+                    active={isActive}
+                    secondary
+                    onClick={() => patch({ spread: opt.id })}
+                    footer={isActive ? (
+                      <span className="font-mono text-[11px] text-primary/80 font-medium">
+                        → {liveSpreadPreview(opt.id, s.creatives, s.adSets, s.adsPerDest)}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] text-muted-foreground/70">{opt.example}</span>
+                    )}
+                  />
+                );
+              })}
             </div>
           </div>
+
+          {/* Custom mode: reveal StructureEditor */}
+          {plan.spread === "custom" && (
+            <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                Define exact structure — campaigns, ad sets per campaign, and ads per ad set.
+              </p>
+              <StructureEditor flow={flow} />
+            </div>
+          )}
         </Section>
 
         {/* ── Cap status — always visible, actionable ──────────────────── */}

@@ -14,6 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
+      launchv2_feedback: {
+        Row: {
+          answers: Json
+          category: string
+          created_at: string
+          deep_link: string | null
+          device: Json | null
+          email: string | null
+          geo: Json | null
+          id: string
+          ip: string | null
+          language: string | null
+          message: string | null
+          page_seconds: number | null
+          screen_path: string | null
+          screenshot: string | null
+          session_seconds: number | null
+          severity: string | null
+          status: string
+          step: string | null
+          timezone: string | null
+          user_agent: string | null
+          variant: string | null
+          tester_name: string | null
+          tester_email: string | null
+          visitor_id: string
+        }
+        Insert: {
+          answers?: Json
+          category: string
+          created_at?: string
+          deep_link?: string | null
+          device?: Json | null
+          email?: string | null
+          geo?: Json | null
+          id?: string
+          ip?: string | null
+          language?: string | null
+          message?: string | null
+          page_seconds?: number | null
+          screen_path?: string | null
+          screenshot?: string | null
+          session_seconds?: number | null
+          severity?: string | null
+          status?: string
+          step?: string | null
+          timezone?: string | null
+          user_agent?: string | null
+          variant?: string | null
+          tester_name?: string | null
+          tester_email?: string | null
+          visitor_id: string
+        }
+        Update: {
+          answers?: Json
+          category?: string
+          created_at?: string
+          deep_link?: string | null
+          device?: Json | null
+          email?: string | null
+          geo?: Json | null
+          id?: string
+          ip?: string | null
+          language?: string | null
+          message?: string | null
+          page_seconds?: number | null
+          screen_path?: string | null
+          screenshot?: string | null
+          session_seconds?: number | null
+          severity?: string | null
+          status?: string
+          step?: string | null
+          timezone?: string | null
+          user_agent?: string | null
+          variant?: string | null
+          tester_name?: string | null
+          tester_email?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
+      launchv2_tester: {
+        Row: {
+          email: string | null
+          first_seen: string
+          last_seen: string
+          name: string | null
+          source: string | null
+          visitor_id: string
+        }
+        Insert: {
+          email?: string | null
+          first_seen?: string
+          last_seen?: string
+          name?: string | null
+          source?: string | null
+          visitor_id: string
+        }
+        Update: {
+          email?: string | null
+          first_seen?: string
+          last_seen?: string
+          name?: string | null
+          source?: string | null
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       account_health_config: {
         Row: {
           created_at: string

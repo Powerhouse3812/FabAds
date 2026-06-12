@@ -6,7 +6,6 @@ import { METRIC_COLUMNS, GROUPING_OPTIONS, type ReportEntity } from "@/lib/repor
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
 import { ReportsTable } from "@/components/reports/ReportsTable";
-import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { ColumnSettingsModal } from "@/components/reports/ColumnSettingsModal";
 import { CreateAdDrawer } from "@/components/reports/CreateAdDrawer";
@@ -76,6 +75,9 @@ export default function AdSetsReport() {
         onRefresh={() => setDateSeed((s) => s + 1)}
         onExport={exportCsv}
         onColumnSettings={() => setColSettingsOpen(true)}
+        selectionCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkExport={exportCsv}
       />
 
       <LaunchScopeChip />
@@ -92,7 +94,6 @@ export default function AdSetsReport() {
         />
       )}
 
-      <ReportsBulkBar selected={selectedEntities} onClearSelection={() => setSelectedIds(new Set())} onExport={exportCsv} />
       <ReportDetailDrawer entity={drawerEntity} open={!!drawerEntity} onOpenChange={(v) => !v && setDrawerEntity(null)} onAddAd={setAdDrawerAdset} />
       <ColumnSettingsModal open={colSettingsOpen} onOpenChange={setColSettingsOpen} columns={METRIC_COLUMNS} visibleKeys={visibleColumns} onVisibleKeysChange={setVisibleColumns} />
       <CreateAdDrawer adset={adDrawerAdset} open={!!adDrawerAdset} onOpenChange={(v) => !v && setAdDrawerAdset(null)} />

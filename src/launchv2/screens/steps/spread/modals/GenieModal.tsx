@@ -1,5 +1,5 @@
 import { Check, Sparkles } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
@@ -59,6 +59,19 @@ const FORMAT_CHIP_LABEL: Record<string, string> = {
 };
 
 /* ─────────────────────────────────────────────────────────────────
+   Format filter type
+───────────────────────────────────────────────────────────────────*/
+
+type GenieFormatFilter = "all" | "single_image" | "single_video" | "carousel";
+
+const FORMAT_FILTER_LABELS: Record<GenieFormatFilter, string> = {
+  all: "All",
+  single_image: "Image",
+  single_video: "Video",
+  carousel: "Carousel",
+};
+
+/* ─────────────────────────────────────────────────────────────────
    Props
 ───────────────────────────────────────────────────────────────────*/
 
@@ -76,33 +89,70 @@ interface GenieModalProps {
 ───────────────────────────────────────────────────────────────────*/
 
 export function GenieModal({ selectedIds, onToggle, search }: GenieModalProps) {
+  const [formatFilter, setFormatFilter] = useState<GenieFormatFilter>("all");
+
   const outputs = useMemo<OutputData[]>(() => {
     const trimmed = search.trim().toLowerCase();
 
     return sampleOutputs.filter((out) => {
-      if (!trimmed) return true;
+      // Text search
+      if (trimmed) {
+        const inHeadline = (out.headline ?? "").toLowerCase().includes(trimmed);
+        const inBrand = (out.brand?.name ?? "").toLowerCase().includes(trimmed);
+        const inId = out.id.toLowerCase().includes(trimmed);
+        if (!inHeadline && !inBrand && !inId) return false;
+      }
 
-      const inHeadline = (out.headline ?? "").toLowerCase().includes(trimmed);
-      const inBrand = (out.brand?.name ?? "").toLowerCase().includes(trimmed);
-      const inId = out.id.toLowerCase().includes(trimmed);
-      return inHeadline || inBrand || inId;
+      // Format filter
+      if (formatFilter !== "all") {
+        const adFormat = deriveAdFormat(out);
+        if (adFormat !== formatFilter) return false;
+      }
+
+      return true;
     });
-  }, [search]);
+  }, [search, formatFilter]);
+
+  /* ── Format filter toolbar ──────────────────────────────────── */
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 pb-3 pt-3 flex-shrink-0">
+      {(["all", "single_image", "single_video", "carousel"] as const).map((fmt) => (
+        <button
+          key={fmt}
+          type="button"
+          onClick={() => setFormatFilter(fmt)}
+          className={cn(
+            "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors",
+            formatFilter === fmt
+              ? "border-primary/30 bg-primary/10 text-foreground"
+              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+          )}
+        >
+          {FORMAT_FILTER_LABELS[fmt]}
+        </button>
+      ))}
+    </div>
+  );
 
   /* ── Empty state ─────────────────────────────────────────────── */
   if (outputs.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center p-8">
-        <p className="text-sm text-muted-foreground font-mono">
-          No Genie outputs match your search.
-        </p>
+      <div className="flex flex-col h-full overflow-hidden">
+        {toolbar}
+        <div className="flex-1 flex items-center justify-center p-8">
+          <p className="text-sm text-muted-foreground font-mono">
+            No Genie outputs match your search.
+          </p>
+        </div>
       </div>
     );
   }
 
   /* ── Grid ────────────────────────────────────────────────────── */
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="flex flex-col h-full overflow-hidden">
+      {toolbar}
+      <div className="flex-1 overflow-y-auto">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4">
         {outputs.map((out) => {
           const selected = selectedIds.has(out.id);
@@ -193,6 +243,7 @@ export function GenieModal({ selectedIds, onToggle, search }: GenieModalProps) {
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );

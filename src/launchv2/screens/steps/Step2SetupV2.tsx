@@ -25,7 +25,6 @@ import {
   Lock,
   Sparkles,
   Pencil,
-  Shield,
   Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,7 +63,6 @@ import {
 } from "../../reducer";
 import {
   BID_LABELS,
-  SPECIAL_CATEGORIES,
   TARGETING_TEMPLATES,
   getTemplate,
 } from "../../data";
@@ -73,11 +71,17 @@ import type {
   BidStrategy,
   DestinationType,
   OptimizationGoal,
-  SpecialAdCategory,
 } from "../../types";
 import { AccountsPages } from "./setup/AccountsPages";
 import { TemplateModal } from "./setup/TemplateModal";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
+import SpecialAdCategoryField from "./shared/SpecialAdCategoryField";
+import CopyFromRunning, {
+  runningCampaignItems,
+  applyRunningCampaign,
+  runningAdSetItems,
+  applyRunningAdSet,
+} from "./shared/CopyFromRunning";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -203,7 +207,7 @@ function DestinationsPanel({ flow }: { flow: UseFlowV2 }) {
         description="Which ad accounts, pages and pixels will run these ads"
         badge={<SetupSectionChip flow={flow} section="destinations" />}
       />
-      <AccountsPages plan={plan} targets={plan.targets} onChange={flow.setTargets} />
+      <AccountsPages plan={plan} targets={plan.targets} onChange={flow.setTargets} flow={flow} onPatch={flow.patch} />
     </div>
   );
 }
@@ -222,7 +226,17 @@ function CampaignPanel({ flow }: { flow: UseFlowV2 }) {
       <PanelHeader
         title="Campaign"
         description="Budget, bidding strategy and campaign-level settings"
-        badge={<SetupSectionChip flow={flow} section="campaign" />}
+        badge={
+          <div className="flex items-center gap-2">
+            <CopyFromRunning
+              triggerLabel="Copy from running"
+              items={runningCampaignItems()}
+              onPick={(id) => applyRunningCampaign(flow, id)}
+              pickerType="campaign"
+            />
+            <SetupSectionChip flow={flow} section="campaign" />
+          </div>
+        }
       />
 
       {/* Budget + CBO/ABO group */}
@@ -370,7 +384,17 @@ function AdSetPanel({ flow }: { flow: UseFlowV2 }) {
       <PanelHeader
         title="Ad Set"
         description="Placement, optimization and delivery settings"
-        badge={<SetupSectionChip flow={flow} section="adset" />}
+        badge={
+          <div className="flex items-center gap-2">
+            <CopyFromRunning
+              triggerLabel="Copy from running"
+              items={runningAdSetItems()}
+              onPick={(id) => applyRunningAdSet(flow, id)}
+              pickerType="adset"
+            />
+            <SetupSectionChip flow={flow} section="adset" />
+          </div>
+        }
       />
 
       {/* Conversion location */}
@@ -495,17 +519,7 @@ function AudiencePanel({
   const { plan, patch } = flow;
   const policy = fieldPolicy(plan);
   const asc = isAdvantagePlus(plan);
-  const special = specialCategoryActive(plan);
   const tpl = getTemplate(plan.targetingTemplateId);
-
-  const toggleSpecial = (id: SpecialAdCategory) => {
-    const on = plan.specialAdCategories.includes(id);
-    patch({
-      specialAdCategories: on
-        ? plan.specialAdCategories.filter((c) => c !== id)
-        : [...plan.specialAdCategories, id],
-    });
-  };
 
   return (
     <div className="space-y-4">
@@ -624,47 +638,7 @@ function AudiencePanel({
       </AdvancedReveal>
 
       {/* Special ad category — compliance */}
-      {policy.specialAdCategories.visibility !== "hidden" && (
-        <div className="border-t border-border/50 pt-3 mt-3 space-y-3">
-          <div className="flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Compliance
-            </span>
-          </div>
-          <FieldGroup>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Special ad category</Label>
-              <div className="flex flex-wrap gap-2">
-                {SPECIAL_CATEGORIES.map((c) => {
-                  const on = plan.specialAdCategories.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleSpecial(c.id)}
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                        on
-                          ? "border-primary bg-primary/5 text-foreground"
-                          : "border-border bg-card text-muted-foreground hover:bg-accent",
-                      )}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {special && (
-                <p className="flex items-center gap-1.5 font-mono text-[11px] text-amber-600">
-                  <Lock className="h-3 w-3 shrink-0" /> Age, gender and lookalikes locked for
-                  compliance.
-                </p>
-              )}
-            </div>
-          </FieldGroup>
-        </div>
-      )}
+      <SpecialAdCategoryField flow={flow} />
     </div>
   );
 }

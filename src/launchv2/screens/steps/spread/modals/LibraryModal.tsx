@@ -7,6 +7,7 @@
  * No format filtering — all items visible; only search text filters.
  */
 
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LIBRARY_MEDIA,
@@ -107,6 +108,12 @@ function EmptyState({ label }: { label: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Media format filter type
+// ─────────────────────────────────────────────────────────────────────────────
+
+type MediaFormatFilter = "all" | "image" | "video";
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Media tab
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -119,16 +126,48 @@ function MediaTab({
   onToggle: (ref: CreativeRef) => void;
   search: string;
 }) {
-  const filtered = LIBRARY_MEDIA.filter((a) =>
-    search ? a.file_name.toLowerCase().includes(search.toLowerCase()) : true,
+  const [formatFilter, setFormatFilter] = useState<MediaFormatFilter>("all");
+
+  const filtered = LIBRARY_MEDIA.filter((a) => {
+    if (search && !a.file_name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (formatFilter === "image" && a.file_type !== "image") return false;
+    if (formatFilter === "video" && a.file_type !== "video") return false;
+    return true;
+  });
+
+  const formatChips = (
+    <div className="flex flex-wrap items-center gap-2 pb-3 mb-1">
+      {(["all", "image", "video"] as const).map((fmt) => (
+        <button
+          key={fmt}
+          type="button"
+          onClick={() => setFormatFilter(fmt)}
+          className={cn(
+            "h-7 rounded-full border px-2.5 text-xs font-medium transition-colors",
+            formatFilter === fmt
+              ? "border-primary/30 bg-primary/10 text-foreground"
+              : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+          )}
+        >
+          {fmt === "all" ? "All" : fmt === "image" ? "Image" : "Video"}
+        </button>
+      ))}
+    </div>
   );
 
   if (filtered.length === 0) {
-    return <EmptyState label="media" />;
+    return (
+      <div>
+        {formatChips}
+        <EmptyState label="media" />
+      </div>
+    );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div>
+      {formatChips}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {filtered.map((asset) => {
         const checked = selectedIds.has(asset.id);
         const isVideo = asset.file_type === "video";
@@ -189,6 +228,7 @@ function MediaTab({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

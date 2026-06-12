@@ -36,17 +36,17 @@ import { adSetCount, adsPerDestination } from "../../deriveV2";
 
 type PageSplitId = "one_page" | "fill_first" | "equal" | "duplicate";
 const PAGE_SPLIT_OPTIONS: { id: PageSplitId; label: string; blurb: string; popular?: boolean }[] = [
-  { id: "fill_first", label: "Fill first", blurb: "Fill to 250, spill to next page", popular: true },
-  { id: "equal",      label: "Equal",      blurb: "Spread evenly across all pages",  popular: true },
+  { id: "fill_first", label: "Fill first", blurb: "Pack one page first — overflow spills to the next", popular: true },
+  { id: "equal",      label: "Equal",      blurb: "Same number of ads on each page",                  popular: true },
   { id: "one_page",   label: "One page",   blurb: "All ads go to a single page" },
-  { id: "duplicate",  label: "Duplicate",  blurb: "Every page gets the full set (×spend)" },
+  { id: "duplicate",  label: "Duplicate",  blurb: "Every page runs the full set — budget multiplies per page" },
 ];
 
 const MAPPING_OPTIONS: { id: SpreadMode; label: string; blurb: string; popular?: boolean }[] = [
-  { id: "round_robin",   label: "Round-robin",    blurb: "Distribute evenly across ad sets", popular: true },
-  { id: "one_per_adset", label: "One per ad set", blurb: "1 creative per ad set (1:1)",      popular: true },
-  { id: "stacked",       label: "Stacked",        blurb: "All creatives stacked in each ad set" },
-  { id: "multiply",      label: "Multiply",       blurb: "One ad set per creative × structure" },
+  { id: "round_robin",   label: "Rotating",       blurb: "Creatives cycle evenly across all ad sets", popular: true },
+  { id: "one_per_adset", label: "One per ad set", blurb: "Each ad set gets exactly one unique creative", popular: true },
+  { id: "stacked",       label: "Stacked",        blurb: "Every ad set gets all the creatives" },
+  { id: "multiply",      label: "Multiply",       blurb: "Each creative gets its own ad set" },
 ];
 
 export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
@@ -144,7 +144,7 @@ export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <span className="text-[13px] font-semibold text-foreground tracking-[-0.01em]">
-                Creative Mapping
+                Creative spread
               </span>
               <DistributionSectionChip flow={flow} section="spread" />
             </div>
@@ -192,7 +192,7 @@ export default function Step4Distribution({ flow }: { flow: UseFlowV2 }) {
           </div>
           <AdTreeVisualization flow={flow} />
           <p className="text-[11px] text-muted-foreground italic">
-            Updates as you change settings on the left
+            Your ad layout — updates live as you adjust settings
           </p>
           <CapMeterWithFixes flow={flow} />
         </div>

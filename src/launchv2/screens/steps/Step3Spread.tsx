@@ -39,6 +39,8 @@ import { SourceSheet } from "./spread/SourceSheet";
 import { FORMAT_ICON } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
 import { SaveBundleRow } from "./spread/SaveBundleRow";
+import CatalogueStructurePreview from "./shared/CatalogueStructurePreview";
+import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFromRunning";
 
 // ── Source → Lucide icon map ──────────────────────────────────────────────────
 const SOURCE_ICON: Record<SourceType, React.ElementType> = {
@@ -90,6 +92,54 @@ function AdCopyCollapsed({ flow, hasAds, wholeAdMode = false }: { flow: UseFlowV
         <AdContent flow={flow} wholeAdMode={wholeAdMode} />
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+// ── CatalogueAdCopy — copy-only block for catalogue mode ─────────────────────
+function CatalogueAdCopy({ flow }: { flow: UseFlowV2 }) {
+  const { plan } = flow;
+  return (
+    <div className="space-y-3">
+      {/* Headline */}
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Headline</label>
+        <input
+          value={plan.adCopy.headline}
+          onChange={(e) => flow.patch({ adCopy: { ...plan.adCopy, headline: e.target.value } })}
+          placeholder="e.g. {{product.name}} — Shop now"
+          className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
+      {/* Description */}
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">
+          Description{" "}
+          <span className="text-muted-foreground/50">(optional)</span>
+        </label>
+        <textarea
+          value={plan.adCopy.description}
+          onChange={(e) => flow.patch({ adCopy: { ...plan.adCopy, description: e.target.value } })}
+          rows={2}
+          placeholder="Short description — supports {{product.*}} tokens"
+          className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+
+      {/* Destination URL — editable, pre-filled hint */}
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">
+          Destination URL{" "}
+          <span className="text-[11px] text-muted-foreground/60">(from catalogue — you can override)</span>
+        </label>
+        <input
+          value={plan.adCopy.destinationUrl ?? ""}
+          onChange={(e) => flow.patch({ adCopy: { ...plan.adCopy, destinationUrl: e.target.value } })}
+          placeholder="https://yourstore.com/product"
+          className="h-9 w-full rounded-lg border border-border bg-background px-2.5 font-mono text-[12px] outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -317,11 +367,30 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
         </p>
       )}
 
+      {plan.catalogueToggle ? (
+        /* Catalogue mode — catalog/product set now selected in §1 (per account).
+           Step 3 only needs copy: headline, description, and editable destination URL. */
+        <SectionCard
+          title="Ad copy"
+          subtitle="Meta fills your creative from the product catalogue — provide copy only."
+        >
+          <CatalogueAdCopy flow={flow} />
+        </SectionCard>
+      ) : (
+        <>
       {/* ── 3. Source — chips with icons (V1 fix) ────────────────── */}
       <div className="space-y-2">
-        <div className="space-y-1">
-          <Label className="text-xs font-semibold text-foreground">Creative source</Label>
-          <p className="text-[11px] text-muted-foreground">Where to pull your creatives from</p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-foreground">Creative source</Label>
+            <p className="text-[11px] text-muted-foreground">Where to pull your creatives from</p>
+          </div>
+          <CopyFromRunning
+            triggerLabel="Use existing post"
+            items={runningAdItems()}
+            onPick={(id) => applyRunningAd(flow, id)}
+            pickerType="ad"
+          />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {SOURCES.map((s) => {
@@ -427,6 +496,8 @@ export default function Step3Spread({ flow }: { flow: UseFlowV2 }) {
           </>
         )}
       </SectionCard>
+        </>
+      )}
 
       {/* Sheet portal */}
       <SourceSheet

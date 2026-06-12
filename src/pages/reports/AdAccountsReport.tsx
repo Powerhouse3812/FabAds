@@ -6,7 +6,6 @@ import { METRIC_COLUMNS, GROUPING_OPTIONS, type ReportEntity } from "@/lib/repor
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
 import { ReportsTable } from "@/components/reports/ReportsTable";
-import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { ColumnSettingsModal } from "@/components/reports/ColumnSettingsModal";
 import { LaunchScopeChip } from "@/components/reports/LaunchScopeChip";
@@ -77,6 +76,9 @@ export default function AdAccountsReport() {
         onRefresh={() => setDateSeed((s) => s + 1)}
         onExport={exportCsv}
         onColumnSettings={() => setColSettingsOpen(true)}
+        selectionCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkExport={exportCsv}
       />
 
       <LaunchScopeChip />
@@ -102,12 +104,6 @@ export default function AdAccountsReport() {
           onPageChange={setPage}
         />
       )}
-
-      <ReportsBulkBar
-        selected={selectedEntities}
-        onClearSelection={() => setSelectedIds(new Set())}
-        onExport={exportCsv}
-      />
 
       <ReportDetailDrawer
         entity={drawerEntity}

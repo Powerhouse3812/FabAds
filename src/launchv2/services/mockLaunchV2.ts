@@ -12,7 +12,7 @@ import {
   type PlanV2,
   type TargetPair,
 } from "../types";
-import { adsPerDestination } from "../deriveV2";
+import { adsPerDestination, budgetPerDay } from "../deriveV2";
 import { pageActiveAds } from "../data";
 
 const FAIL_PCT = 6;
@@ -139,7 +139,7 @@ class MockLaunchV2 {
       failed: 0,
       pending: units.length,
       units,
-      budgetPerDay: plan.budgetAmount,
+      budgetPerDay: budgetPerDay(plan),
       currency: plan.targets[0]?.currency ?? "USD",
       retryCount: 0,
       createdAt: new Date().toISOString(),

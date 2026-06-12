@@ -5,7 +5,6 @@ import { useReportsData } from "@/hooks/use-reports-data";
 import { GROUPING_OPTIONS, type ReportEntity } from "@/lib/reports-dummy-data";
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
-import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { CreativeReportCard } from "@/components/reports/CreativeReportCard";
 import { CreativeDetailDrawer } from "@/components/reports/CreativeDetailDrawer";
 
@@ -59,6 +58,9 @@ export default function VideoReport() {
         onRefresh={() => setDateSeed((s) => s + 1)}
         onExport={() => toast.success("CSV exported")}
         onColumnSettings={() => {}}
+        selectionCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkExport={() => toast.success("CSV exported")}
       />
 
       {isRefreshing ? (
@@ -80,7 +82,6 @@ export default function VideoReport() {
         </div>
       )}
 
-      <ReportsBulkBar selected={selectedEntities} onClearSelection={() => setSelectedIds(new Set())} onExport={() => toast.success("CSV exported")} />
       <CreativeDetailDrawer entity={drawerEntity} open={!!drawerEntity} onOpenChange={(v) => !v && setDrawerEntity(null)} />
     </div>
   );

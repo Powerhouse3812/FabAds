@@ -6,7 +6,6 @@ import { METRIC_COLUMNS, GROUPING_OPTIONS, getLaunchFilterOptions, type ReportEn
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
 import { ReportsTable } from "@/components/reports/ReportsTable";
-import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { ColumnSettingsModal } from "@/components/reports/ColumnSettingsModal";
 
@@ -106,6 +105,9 @@ export default function AdsReport() {
         destinationFbPageId={destinationFbPageId} onDestinationFbPageIdChange={setDestinationFbPageId}
         destinationAdAccountName={destinationAdAccountName} onDestinationAdAccountNameChange={setDestinationAdAccountName}
         sourceAdName={sourceAdName} onSourceAdNameChange={setSourceAdName}
+        selectionCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkExport={exportCsv}
       />
 
       {isRefreshing ? <PageSkeleton /> : (
@@ -119,7 +121,6 @@ export default function AdsReport() {
         />
       )}
 
-      <ReportsBulkBar selected={selectedEntities} onClearSelection={() => setSelectedIds(new Set())} onExport={exportCsv} />
       <ReportDetailDrawer entity={drawerEntity} open={!!drawerEntity} onOpenChange={(v) => !v && setDrawerEntity(null)} />
       <ColumnSettingsModal open={colSettingsOpen} onOpenChange={setColSettingsOpen} columns={METRIC_COLUMNS} visibleKeys={visibleColumns} onVisibleKeysChange={setVisibleColumns} />
     </div>

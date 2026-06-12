@@ -4,15 +4,14 @@
  * Design philosophy:
  *   - Objective = the entry point. Large, icon-led cards dominate the canvas.
  *     2-col grid for visual weight. Linear-style "mode selector" feel.
- *   - Strategy = INTENTS as large pill buttons (Quick start), not a form section.
- *   - Progressive disclosure: INTENTS row locked until objective is picked
- *     (CSS opacity transition only, no JS animation library).
- *   - Launch strategy section: saved strategy picker + overview pills + save-as
- *     checkbox — same as V1 addition.
+ *   - Launch strategy section: custom Popover picker with inline property chips,
+ *     filtered by selected objective, prefill on select + save-as checkbox.
+ *   - Progressive disclosure: strategy picker unlocked after objective is picked.
  */
 import { useState } from "react";
 import {
   Check,
+  ChevronDown,
   Eye,
   MessageSquare,
   MousePointer2,
@@ -21,17 +20,12 @@ import {
   Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import type { Objective } from "../../types";
-import { INTENTS, OBJECTIVES } from "../../data";
+import { OBJECTIVES } from "../../data";
 import { strategiesService } from "../../services/strategiesService";
+import type { LaunchStrategy } from "../../services/strategiesService";
 
 /* ------------------------------------------------------------------ */
 /*  Objective metadata                                                  */
@@ -70,6 +64,102 @@ const OBJECTIVE_META: Record<
 };
 
 /* ------------------------------------------------------------------ */
+/*  Chip helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+function prettifyObjective(o?: string | null): string {
+  if (!o) return "";
+  const raw = o.replace(/^OUTCOME_/, "");
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+function prettifyFormat(f?: string | null): string {
+  if (!f) return "";
+  const MAP: Record<string, string> = {
+    single_image: "Image",
+    single_video: "Video",
+    carousel: "Carousel",
+    collection: "Collection",
+    flexible: "Flexible",
+    dpa: "DPA",
+  };
+  return MAP[f] ?? f;
+}
+
+function formatBudget(plan: LaunchStrategy["plan"]): string {
+  const { budgetAmount, targets, budgetMode: _bm } = plan;
+  if (!budgetAmount) return "";
+  const currency = targets?.[0]?.currency;
+  const SYMBOLS: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+  const sym = currency ? (SYMBOLS[currency] ?? `${currency} `) : "";
+  return `${sym}${Math.round(budgetAmount).toLocaleString("en-IN")}/day`;
+}
+
+/* ---- Filter chip ---- */
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-6 rounded-full border px-2 text-[11px] font-medium transition-colors",
+        active
+          ? "border-primary/30 bg-primary/10 text-foreground"
+          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---- Strategy chips row ---- */
+function StrategyChips({ strategy }: { strategy: LaunchStrategy }) {
+  const { plan } = strategy;
+  const chips: { label: string; accent?: boolean }[] = [];
+
+  const obj = prettifyObjective(plan.objective);
+  if (obj) chips.push({ label: obj });
+
+  const budgetMode = plan.budgetMode;
+  if (budgetMode) chips.push({ label: budgetMode, accent: budgetMode === "CBO" });
+
+  const budget = formatBudget(plan);
+  if (budget) chips.push({ label: budget });
+
+  const fmt = prettifyFormat(plan.format);
+  if (fmt) chips.push({ label: fmt });
+
+  const acctCount = plan.targets?.length ?? 0;
+  if (acctCount > 0) {
+    chips.push({ label: `✓ ${acctCount} account${acctCount !== 1 ? "s" : ""}` });
+  } else {
+    chips.push({ label: "No accounts" });
+  }
+
+  const hasPixel = plan.targets?.some((t) => t.pixelId);
+  if (hasPixel) chips.push({ label: "Pixel ✓" });
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {chips.slice(0, 6).map((chip, i) => (
+        <span
+          key={i}
+          className={cn(
+            "rounded-full border px-2 py-0.5 font-mono text-[10px]",
+            chip.accent
+              ? "border-primary/20 bg-primary/10 text-primary"
+              : "border-border bg-muted/50 text-muted-foreground",
+          )}
+        >
+          {chip.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main screen                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -88,24 +178,42 @@ export default function Step1StartV2({
   // Launch strategy picker — real data from strategiesService
   const [savedStrategies] = useState(() => strategiesService.list());
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
-  const selectedStrategy = selectedStrategyId ? strategiesService.get(selectedStrategyId) : undefined;
-  const selectedSummary = selectedStrategy ? strategiesService.summarize(selectedStrategy) : undefined;
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [prefillNotice, setPrefillNotice] = useState(false);
+
+  // Additional filter state
+  const [budgetModeFilter, setBudgetModeFilter] = useState<"all" | "CBO" | "ABO">("all");
+  const [budgetRangeFilter, setBudgetRangeFilter] = useState<"all" | "lt2k" | "2k10k" | "gt10k">("all");
+  const [formatFilter, setFormatFilter] = useState<"all" | "single_image" | "single_video" | "carousel">("all");
 
   const chooseObjective = (o: Objective) => flow.chooseObjectiveFormat(o, null);
 
-  const applyIntent = (intentId: string) => {
-    // Map INTENTS id → chooseStrategy / chooseIntent
-    const intentMap: Record<string, string | null> = {
-      test: "preset_test",
-      scale: "preset_scale",
-      custom: null,
-    };
-    if (intentId in intentMap) {
-      flow.chooseStrategy(intentMap[intentId]);
+  const strategyUnlocked = objective !== null;
+
+  // Filter strategies: objective + budget mode + budget range + format
+  const filteredStrategies = savedStrategies.filter((s) => {
+    if (s.plan.objective && objective && s.plan.objective !== objective) return false;
+    if (budgetModeFilter !== "all" && s.plan.budgetMode !== budgetModeFilter) return false;
+    if (budgetRangeFilter === "lt2k" && !((s.plan.budgetAmount ?? 0) < 2000)) return false;
+    if (budgetRangeFilter === "2k10k" && !((s.plan.budgetAmount ?? 0) >= 2000 && (s.plan.budgetAmount ?? 0) <= 10000)) return false;
+    if (budgetRangeFilter === "gt10k" && !((s.plan.budgetAmount ?? 0) > 10000)) return false;
+    if (formatFilter !== "all" && s.plan.format !== formatFilter) return false;
+    return true;
+  });
+
+  const selectedStrategy = selectedStrategyId
+    ? savedStrategies.find((s) => s.id === selectedStrategyId)
+    : undefined;
+
+  const handleStrategySelect = (id: string) => {
+    setSelectedStrategyId(id);
+    setPopoverOpen(false);
+    const strategy = savedStrategies.find((s) => s.id === id);
+    if (strategy?.plan) {
+      flow.patch(strategy.plan);
+      setPrefillNotice(true);
     }
   };
-
-  const strategyUnlocked = objective !== null;
 
   return (
     <div data-screen="lv2-step1-start-v2" className="space-y-8">
@@ -169,53 +277,14 @@ export default function Step1StartV2({
         })}
       </div>
 
-      {/* ── Quick start (INTENTS) — progressive reveal ────────────── */}
+      {/* ── Launch strategy — optional, unlocks after objective ───── */}
       <div
         className={cn(
-          "space-y-2 transition-opacity duration-300",
+          "space-y-3 transition-opacity duration-300",
           strategyUnlocked ? "opacity-100" : "pointer-events-none opacity-40",
         )}
         aria-disabled={!strategyUnlocked}
       >
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide font-mono">
-          Quick start
-        </p>
-        <div className="flex gap-2">
-          {INTENTS.map((intent) => {
-            // Derive active state from plan
-            const activeIntentMap: Record<string, string> = {
-              preset_test: "test",
-              preset_scale: "scale",
-            };
-            const currentIntentId = plan.strategyId
-              ? (activeIntentMap[plan.strategyId] ?? "custom")
-              : "custom";
-            const isActive = currentIntentId === intent.id;
-
-            return (
-              <button
-                key={intent.id}
-                type="button"
-                onClick={() => applyIntent(intent.id)}
-                aria-pressed={isActive}
-                disabled={!strategyUnlocked}
-                className={cn(
-                  "flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  isActive
-                    ? "border-primary bg-primary/5"
-                    : "border-border bg-card hover:border-foreground/20",
-                )}
-              >
-                <p className="text-xs font-semibold text-foreground">{intent.label}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{intent.blurb}</p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Launch strategy — optional ─────────────────────────────── */}
-      <div className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground">Launch strategy</span>
           <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -227,55 +296,125 @@ export default function Step1StartV2({
           You can still edit any field after applying.
         </p>
 
-        {/* Strategy picker select */}
-        <Select
-          value={selectedStrategyId ?? "__none__"}
-          onValueChange={(v) =>
-            setSelectedStrategyId(v === "__none__" ? null : v)
-          }
-        >
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="Choose a saved strategy…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">No strategy</SelectItem>
-            {savedStrategies.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Custom strategy picker — Popover */}
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              disabled={!strategyUnlocked}
+              className={cn(
+                "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors",
+                "hover:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-ring",
+                !selectedStrategy && "text-muted-foreground",
+              )}
+            >
+              <span className="truncate">
+                {selectedStrategy ? selectedStrategy.name : "Choose a saved strategy…"}
+              </span>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] p-0"
+            align="start"
+            sideOffset={4}
+          >
+            {/* Filter rows */}
+            <div className="border-b border-border px-3 pb-2 pt-2.5 space-y-2">
+              {/* Budget mode row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0 w-16">Mode</span>
+                {(["all", "CBO", "ABO"] as const).map((mode) => (
+                  <FilterChip
+                    key={mode}
+                    active={budgetModeFilter === mode}
+                    onClick={() => setBudgetModeFilter(mode === budgetModeFilter ? "all" : mode)}
+                  >
+                    {mode === "all" ? "All" : mode}
+                  </FilterChip>
+                ))}
+              </div>
+              {/* Budget range row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0 w-16">Budget</span>
+                {(["all", "lt2k", "2k10k", "gt10k"] as const).map((range) => (
+                  <FilterChip
+                    key={range}
+                    active={budgetRangeFilter === range}
+                    onClick={() => setBudgetRangeFilter(range === budgetRangeFilter ? "all" : range)}
+                  >
+                    {range === "all" ? "All" : range === "lt2k" ? "< ₹2K" : range === "2k10k" ? "₹2K–10K" : "₹10K+"}
+                  </FilterChip>
+                ))}
+              </div>
+              {/* Format row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0 w-16">Format</span>
+                {(["all", "single_image", "single_video", "carousel"] as const).map((fmt) => (
+                  <FilterChip
+                    key={fmt}
+                    active={formatFilter === fmt}
+                    onClick={() => setFormatFilter(fmt === formatFilter ? "all" : fmt)}
+                  >
+                    {fmt === "all" ? "All" : fmt === "single_image" ? "Image" : fmt === "single_video" ? "Video" : "Carousel"}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+            <div className="max-h-60 overflow-y-auto">
+              {savedStrategies.length === 0 ? (
+                <div className="px-3 py-4 text-center text-[11px] font-mono text-muted-foreground">
+                  No saved strategies yet
+                </div>
+              ) : filteredStrategies.length === 0 ? (
+                <div className="px-3 py-4 text-center text-[11px] font-mono text-muted-foreground">
+                  No strategies match the selected filters
+                </div>
+              ) : (
+                filteredStrategies.map((s) => {
+                  const isSelected = selectedStrategyId === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleStrategySelect(s.id)}
+                      className={cn(
+                        "w-full px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
+                        isSelected && "bg-primary/5",
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground">{s.name}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                      </div>
+                      <StrategyChips strategy={s} />
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
 
-        {savedStrategies.length === 0 && (
-          <p className="text-[11px] text-muted-foreground/60 italic">
-            No strategies saved yet — complete a launch and save it as a strategy.
-          </p>
-        )}
-
-        {/* Overview pills — real config values from selected strategy */}
-        {selectedSummary && (
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              selectedSummary.objective,
-              selectedSummary.intent,
-              selectedSummary.budgetDisplay,
-              selectedSummary.destinationsCount > 0
-                ? `${selectedSummary.destinationsCount} account${selectedSummary.destinationsCount !== 1 ? "s" : ""}`
-                : null,
-              selectedSummary.format !== "—" ? selectedSummary.format : null,
-              selectedSummary.spreadMode !== "—" ? selectedSummary.spreadMode : null,
-              selectedSummary.audienceSummary !== "—" ? selectedSummary.audienceSummary : null,
-            ]
-              .filter(Boolean)
-              .map((pill) => (
-                <span
-                  key={pill as string}
-                  className="rounded-full border border-border bg-muted/50 px-2.5 py-1 font-mono text-[11px] text-foreground"
-                >
-                  {pill}
-                </span>
-              ))}
+        {/* Prefill confirmation notice */}
+        {prefillNotice && (
+          <div
+            className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/50 px-3 py-2"
+            role="status"
+            aria-live="polite"
+          >
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+            <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+              Strategy applied — all fields pre-filled. You can still edit any step.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPrefillNotice(false)}
+              className="ml-auto shrink-0 text-[11px] text-muted-foreground/60 hover:text-muted-foreground"
+              aria-label="Dismiss notice"
+            >
+              ✕
+            </button>
           </div>
         )}
 

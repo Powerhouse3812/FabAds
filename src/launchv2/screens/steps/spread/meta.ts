@@ -53,6 +53,11 @@ export const SPREAD_META: Record<SpreadMode, { icon: LucideIcon; ratio: string; 
   stacked: { icon: Layers, ratio: "N in 1", blurb: "All creatives stacked into each ad set — let Meta pick the winner." },
   multiply: { icon: Sparkles, ratio: "×N", blurb: "Duplicate the whole structure once per creative." },
   manual: { icon: SlidersHorizontal, ratio: "map", blurb: "Place each creative into a numbered slot yourself." },
+  custom: {
+    icon: SlidersHorizontal,
+    ratio: "free",
+    blurb: "Define exact structure — campaigns, ad sets, and ads per set.",
+  },
 };
 
-export const SPREAD_ORDER: SpreadMode[] = ["one_per_adset", "round_robin", "stacked", "multiply"];
+export const SPREAD_ORDER: SpreadMode[] = ["one_per_adset", "round_robin", "stacked", "multiply", "custom"];

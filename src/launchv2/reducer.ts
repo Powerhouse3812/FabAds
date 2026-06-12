@@ -147,11 +147,14 @@ export function requiresLeadgenTos(plan: PlanV2): boolean {
 /* ------------------------------------------------------------------ */
 /** ASC is not a mode — it's derived when the 3 levers are all on (+ scale+sales). */
 export function isAdvantagePlus(plan: PlanV2): boolean {
+  // ASC is sales-only + carousel/collection per Meta docs
   return (
     plan.advantagePlus &&
     plan.budgetMode === "CBO" &&
     plan.advantageAudience &&
-    (plan.objective === "OUTCOME_SALES" || plan.objective === "OUTCOME_LEADS" || plan.objective === "OUTCOME_APP_PROMOTION")
+    plan.objective === "OUTCOME_SALES" &&
+    plan.format !== null &&
+    (plan.format === "carousel" || plan.format === "collection")
   );
 }
 
@@ -294,4 +297,9 @@ export function planReady(plan: PlanV2, throughStep: 1 | 2 | 3 | 4 | 5): boolean
   if (throughStep >= 4 && !capCheck(plan).ok) return false;
   if (throughStep >= 5 && !capCheck(plan).ok) return false;
   return true;
+}
+
+/** When catalogue is off, catalog/product-set selections are meaningless. */
+export function catalogActive(plan: PlanV2): boolean {
+  return plan.catalogueToggle === true;
 }

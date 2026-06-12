@@ -90,7 +90,7 @@ export type SpecialAdCategory =
 /* ---- Step 3: creative spread ---- */
 
 /** Creative→ad-set mapping. one_per_adset = "Bruno"/1:1. */
-export type SpreadMode = "one_per_adset" | "round_robin" | "stacked" | "multiply" | "manual";
+export type SpreadMode = "one_per_adset" | "round_robin" | "stacked" | "multiply" | "manual" | "custom";
 
 /** When loose multi-media + multi-text: how they combine. */
 export type CombinationMode = "all" | "paired";
@@ -126,7 +126,7 @@ export interface AdCopy {
 export type MediaScope = "whole_ads" | "individual_media";
 
 /* ---- Step 4: page distribution (ad→page axis) ---- */
-export type PageDistribution = "one_page" | "fill_first" | "equal" | "duplicate";
+export type PageDistribution = "one_page" | "fill_first" | "equal" | "duplicate" | "custom";
 
 /* ---- Strategy entity (bundles campaign defaults + targeting prefill) ---- */
 export interface Strategy {
@@ -153,6 +153,111 @@ export interface TargetPair {
   fbPageId: string;
   pageName: string;
   pixelId?: string;
+}
+
+/* ---- Catalogue ads (mock) ---- */
+export interface ProductV2 {
+  id: string;
+  name: string;
+  thumbnail: string;
+  price: string;        // pre-formatted, e.g. "₹499"
+}
+export interface ProductSetV2 {
+  id: string;
+  name: string;
+  productCount: number;
+  /** Sample products (for card preview). */
+  products: ProductV2[];
+}
+export interface CatalogV2 {
+  id: string;
+  name: string;
+  productCount: number;
+  productSets: ProductSetV2[];
+}
+export type CatalogFormat = "carousel" | "advantage_auto";
+/** A single account's catalogue selection. */
+export interface CatalogSelection {
+  catalogId: string | null;
+  productSetIds: string[];
+}
+
+/* ---- Copy-from-running source entities (mock, Birch-style) ---- */
+export interface RunningCampaignV2 {
+  id: string;
+  name: string;
+  objective: Objective;
+  budgetMode: BudgetMode;
+  budgetAmount: number;
+  bidStrategy: BidStrategy;
+  advantagePlus: boolean;
+  status: "active" | "paused";
+  // optional metrics
+  spend30d?: number;      // INR spend last 30d
+  roas30d?: number;       // e.g. 4.2
+  cpm30d?: number;        // INR CPM
+}
+export interface RunningAdSetV2 {
+  id: string;
+  name: string;
+  campaignName: string;
+  optimizationGoal: OptimizationGoal;
+  audienceName: string;
+  placements: "Automatic" | "Manual — Feed + Stories";
+  status: "active" | "paused";
+  // optional metrics
+  spend30d?: number;
+  cpa30d?: number;        // cost per result
+  reach30d?: number;      // unique reach
+  frequency30d?: number;  // e.g. 3.2
+}
+export interface RunningAdV2 {
+  id: string;
+  name: string;
+  pageName: string;
+  postId: string;        // existing post id (use_existing_post)
+  thumbnail: string;
+  format: AdFormat;
+  // optional metrics
+  spend30d?: number;
+  ctr30d?: number;        // e.g. 2.4 (percentage)
+  roas30d?: number;
+  status?: "active" | "paused";
+}
+
+export interface CustomAudienceV2 {
+  id: string;
+  name: string;
+  type: "lookalike" | "custom_list" | "website_traffic" | "engagement";
+  estimatedSize: number; // e.g. 180000
+  accountId: string;    // which ad account owns it
+}
+
+/* ---- Manual placement selection ---- */
+export interface PlacementSelection {
+  facebook: {
+    feeds: boolean;
+    inStreamVideos: boolean;
+    stories: boolean;
+    reels: boolean;
+    searchResults: boolean;
+    marketplace: boolean;
+  };
+  instagram: {
+    feed: boolean;
+    profileFeed: boolean;
+    stories: boolean;
+    reels: boolean;
+    explore: boolean;
+  };
+  audienceNetwork: {
+    nativeBannerInterstitial: boolean;
+    rewardedVideos: boolean;
+  };
+  messenger: {
+    inbox: boolean;
+    stories: boolean;
+  };
 }
 
 /* ---- Attribution window (per-plan setting; default 7-day click + 1-day view) ---- */
@@ -184,11 +289,17 @@ export interface PlanV2 {
   advantageAudience: boolean;
   advantageCreative: boolean;
   specialAdCategories: SpecialAdCategory[];
+  /** Master toggle for the Special Ad Category declaration. When false, the category picker is hidden and the array is cleared. */
+  specialAdDeclared: boolean;
   attribution: AttributionWindow;
   /** Which strategy preset/saved is active (null = custom, no preset). */
   strategyId: string | null;
   /** Catalogue Ads toggle — if true, Step 3 pre-selects the Catalogue format. */
   catalogueToggle: boolean;
+  /** Catalogue ads: per-account catalog + product-set selection (keyed by accountId). Only used when catalogueToggle is true. */
+  catalogSelections: Record<string, CatalogSelection>;
+  /** Creative format for catalogue ads. */
+  catalogFormat: CatalogFormat;
   /** Campaign-level A/B test signal (Meta handles the split). */
   abTest: boolean;
   /** Whole ads (pre-built) vs individual media assets. */
@@ -205,6 +316,7 @@ export interface PlanV2 {
 
   // Step 4 — Review & Launch
   pageDistribution: PageDistribution;
+  pageWeights: Record<string, number>;
   namingPattern: string;
   scheduledFor: string | null;
 
@@ -217,6 +329,22 @@ export interface PlanV2 {
    */
   appliedSetupTemplateId?: string | null;
   appliedDistributionTemplateId?: string | null;
+
+  // Post ID selections per account
+  postIdsByAccount: Record<string, string[]>; // { accountId: [postId1, postId2, ...] }
+
+  // Custom audience
+  useCustomAudience: boolean;
+  customAudienceId: string | null;
+  customAudienceMode: "select" | "upload";
+
+  // Per-account catalogue (simplified per-account toggle + product-set selection)
+  catalogueByAccount: Record<string, boolean>;
+  productSetByAccount: Record<string, CatalogSelection>;
+
+  // Manual placement
+  placementMode: "advantage" | "manual";
+  placements: PlacementSelection;
 
   createdAt: string;
   updatedAt: string;

@@ -90,7 +90,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     readPlanFromURL(searchParams) ??
     readPlanFromGrowthOnlyParams(searchParams) ??
     readPlanFromSession() ??
-    "ai";
+    "full";
 
   // Hydrate sessionStorage from the resolved plan. Covers both:
   //   - deep-link via ?plan=full (URL → session sync, so subsequent

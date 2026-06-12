@@ -12,7 +12,7 @@ import {
   defaultDestination,
   intentDefaults,
 } from "../reducer";
-import { TARGETING_TEMPLATES, makeTargetV2 } from "../data";
+import { DEFAULT_PLACEMENTS, TARGETING_TEMPLATES, makeTargetV2 } from "../data";
 import { templatesService } from "../templates/service";
 import {
   extractDistributionPayload,
@@ -24,6 +24,17 @@ import type {
 } from "../templates/types";
 
 export type StepV2 = 1 | 2 | 3 | 4 | 5;
+
+export interface DeepLinkState {
+  plan: PlanV2;
+  step: number;
+  variant: 'v1' | 'v2' | 'v3';
+  ui: {
+    openPanels: string[];
+    focusedItems: Record<string, string>;
+  };
+}
+
 const SS_KEY = (id: string) => `launchv2:flow:${id}`;
 
 function genId(): string {
@@ -52,9 +63,12 @@ export function newPlanV2(): PlanV2 {
     advantageAudience: true,
     advantageCreative: true,
     specialAdCategories: [],
+    specialAdDeclared: false,
     attribution: "7d_click_1d_view",
     strategyId: null,
     catalogueToggle: false,
+    catalogSelections: {},
+    catalogFormat: "carousel",
     abTest: false,
     mediaScope: "individual_media" as MediaScope,
     creatives: [
@@ -98,10 +112,19 @@ export function newPlanV2(): PlanV2 {
     copyOverrides: {},
     structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 },
     pageDistribution: "fill_first",
+    pageWeights: {},
     namingPattern: "{brand}_{intent}_{objective}_{date}",
     scheduledFor: null,
     appliedSetupTemplateId: null,
     appliedDistributionTemplateId: null,
+    postIdsByAccount: {},
+    useCustomAudience: false,
+    customAudienceId: null,
+    customAudienceMode: "select",
+    catalogueByAccount: {},
+    productSetByAccount: {},
+    placementMode: "advantage",
+    placements: DEFAULT_PLACEMENTS,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -136,8 +159,12 @@ export interface UseFlowV2 {
   saveCurrentDistributionAsTemplate: (name: string) => DistributionTemplate;
 }
 
-export function useFlowV2(draftId?: string): UseFlowV2 {
+export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFlowV2 {
   const [plan, setPlan] = useState<PlanV2>(() => {
+    // Priority: ?s= deep-link > sessionStorage draft > fresh plan
+    if (initialState?.plan) {
+      return initialState.plan;
+    }
     if (draftId) {
       try {
         const raw = sessionStorage.getItem(SS_KEY(draftId));
@@ -148,7 +175,7 @@ export function useFlowV2(draftId?: string): UseFlowV2 {
     }
     return newPlanV2();
   });
-  const [step, setStepState] = useState<StepV2>(1);
+  const [step, setStepState] = useState<StepV2>(() => (initialState?.step as StepV2) ?? 1);
 
   // autosave
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);

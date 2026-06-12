@@ -8,8 +8,18 @@
  *
  * Visual: Meta-style square checkbox on every selectable row. Chevron is
  * a separate button (expand/collapse only — never triggers selection).
+ *
+ * Accordion behavior:
+ *   • Expanded state is lifted to ReviewTree (expandedIds: Set<string>).
+ *   • Expanding a node collapses all its siblings (exclusive accordion per level).
+ *   • Collapsing a node also removes all its descendants from expandedIds.
+ *
+ * Scroll-spy:
+ *   • As the user scrolls DOWN, the closest visible account/campaign header
+ *     auto-expands (siblings collapse).
+ *   • Headers that scroll above the viewport auto-collapse on scroll UP.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Building2,
   ChevronRight,
@@ -24,7 +34,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { PlanV2 } from "../../types";
 import {
@@ -42,7 +51,48 @@ const KIND_ICON: Record<NodeKind, React.ElementType> = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  ReviewTree                                                          */
+/*  Helpers — descendant removal + sibling lookup                      */
+/* ------------------------------------------------------------------ */
+
+function removeAllChildren(set: Set<string>, node: TreeNode): void {
+  node.children?.forEach((c) => {
+    set.delete(c.id);
+    removeAllChildren(set, c);
+  });
+}
+
+function removeDescendants(
+  set: Set<string>,
+  nodeId: string,
+  allNodes: TreeNode[],
+): void {
+  function findAndRemove(nodes: TreeNode[]): boolean {
+    for (const n of nodes) {
+      if (n.id === nodeId) {
+        removeAllChildren(set, n);
+        return true;
+      }
+      if (n.children && findAndRemove(n.children)) return true;
+    }
+    return false;
+  }
+  findAndRemove(allNodes);
+}
+
+/** Returns the sibling array (same parent's children) that contains nodeId. */
+function findSiblings(nodeId: string, roots: TreeNode[]): TreeNode[] | null {
+  if (roots.some((r) => r.id === nodeId)) return roots;
+  for (const r of roots) {
+    if (r.children) {
+      const found = findSiblings(nodeId, r.children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  KIND_LABEL                                                          */
 /* ------------------------------------------------------------------ */
 
 const KIND_LABEL: Record<NodeKind, string> = {
@@ -51,6 +101,10 @@ const KIND_LABEL: Record<NodeKind, string> = {
   adset: "ad set",
   ad: "ad",
 };
+
+/* ------------------------------------------------------------------ */
+/*  ReviewTree                                                          */
+/* ------------------------------------------------------------------ */
 
 export function ReviewTree({
   plan,
@@ -64,6 +118,118 @@ export function ReviewTree({
   const tree = useMemo(() => buildReviewTree(plan), [plan]);
   const [typeMismatchHint, setTypeMismatchHint] = useState(false);
 
+  // ── Lifted expanded state ──────────────────────────────────────────
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    const set = new Set<string>();
+    const firstAccount = tree[0];
+    if (firstAccount) {
+      set.add(firstAccount.id);
+      const firstCampaign = firstAccount.children?.[0];
+      if (firstCampaign) set.add(firstCampaign.id);
+    }
+    return set;
+  });
+
+  // ── Exclusive-accordion expand callback ───────────────────────────
+  const toggleExpand = useCallback(
+    (nodeId: string, siblings: TreeNode[]) => {
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(nodeId)) {
+          // Collapsing: remove this node + all its descendants
+          removeDescendants(next, nodeId, tree);
+          next.delete(nodeId);
+        } else {
+          // Expanding: close siblings at the same level (exclusive accordion)
+          siblings.forEach((s) => {
+            if (s.id !== nodeId) {
+              removeDescendants(next, s.id, tree);
+              next.delete(s.id);
+            }
+          });
+          next.add(nodeId);
+        }
+        return next;
+      });
+    },
+    [tree],
+  );
+
+  // ── Node-ref registry for scroll-spy ──────────────────────────────
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevScrollTop = useRef(0);
+  const nodeRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  const registerNodeRef = useCallback(
+    (id: string, el: HTMLElement | null) => {
+      if (el) nodeRefs.current.set(id, el);
+      else nodeRefs.current.delete(id);
+    },
+    [],
+  );
+
+  // ── Scroll-spy effect ─────────────────────────────────────────────
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const scrollTop = el.scrollTop;
+      const scrollingDown = scrollTop > prevScrollTop.current;
+      prevScrollTop.current = scrollTop;
+
+      const containerRect = el.getBoundingClientRect();
+      const focusY = containerRect.top + containerRect.height * 0.35;
+
+      // Only auto-expand account + campaign level to avoid over-triggering
+      const isScrollSpyNode = (id: string): boolean => {
+        const kind = nodeKindFromId(id);
+        return kind === "account" || kind === "campaign";
+      };
+
+      if (scrollingDown) {
+        // Find the node header closest to the focus zone
+        let closestNode: { id: string; dist: number } | null = null;
+
+        nodeRefs.current.forEach((headerEl, nodeId) => {
+          if (!isScrollSpyNode(nodeId)) return;
+          const rect = headerEl.getBoundingClientRect();
+          if (rect.top >= containerRect.top && rect.top <= containerRect.bottom) {
+            const dist = Math.abs(rect.top - focusY);
+            if (!closestNode || dist < closestNode.dist) {
+              closestNode = { id: nodeId, dist };
+            }
+          }
+        });
+
+        if (closestNode) {
+          const { id: nodeId } = closestNode as { id: string; dist: number };
+          if (!expandedIds.has(nodeId)) {
+            const siblings = findSiblings(nodeId, tree);
+            if (siblings) {
+              toggleExpand(nodeId, siblings);
+            }
+          }
+        }
+      } else {
+        // Scroll UP: collapse items whose header has exited above the viewport
+        nodeRefs.current.forEach((headerEl, nodeId) => {
+          if (!isScrollSpyNode(nodeId)) return;
+          if (!expandedIds.has(nodeId)) return;
+          const rect = headerEl.getBoundingClientRect();
+          if (rect.bottom < containerRect.top) {
+            const siblings = findSiblings(nodeId, tree) ?? [];
+            toggleExpand(nodeId, siblings);
+          }
+        });
+      }
+    };
+
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [expandedIds, toggleExpand, tree]);
+
+  // ── Selection logic (unchanged) ───────────────────────────────────
   /**
    * Toggle selection. Enforces same-NodeKind rule:
    *   – additive + same kind  → toggle this node in the set
@@ -89,7 +255,9 @@ export function ReviewTree({
     } else {
       // Non-additive: replace selection (clear hint if visible)
       setTypeMismatchHint(false);
-      onSelectedChange(selected.has(id) && selected.size === 1 ? new Set() : new Set([id]));
+      onSelectedChange(
+        selected.has(id) && selected.size === 1 ? new Set() : new Set([id]),
+      );
     }
   };
 
@@ -122,8 +290,11 @@ export function ReviewTree({
             </button>
           </div>
         ) : (
-          tree.length > 0 && selected.size === 0 && (
-            <p className="text-[10px] text-muted-foreground/60">⌘+click to multi-select same type</p>
+          tree.length > 0 &&
+          selected.size === 0 && (
+            <p className="text-[10px] text-muted-foreground/60">
+              ⌘+click to multi-select same type
+            </p>
           )
         )}
 
@@ -135,7 +306,8 @@ export function ReviewTree({
         )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      {/* Scroll container — plain overflow-y-auto div for scroll-spy access */}
+      <div ref={containerRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-0.5 px-2 pb-4">
           {tree.length === 0 ? (
             <p className="px-2 py-8 text-center text-sm text-muted-foreground">
@@ -146,14 +318,18 @@ export function ReviewTree({
               <TreeBranch
                 key={node.id}
                 node={node}
+                siblings={tree}
                 depth={0}
                 selected={selected}
                 onToggle={toggle}
+                expandedIds={expandedIds}
+                onExpand={toggleExpand}
+                registerNodeRef={registerNodeRef}
               />
             ))
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -164,16 +340,24 @@ export function ReviewTree({
 
 function TreeBranch({
   node,
+  siblings,
   depth,
   selected,
   onToggle,
+  expandedIds,
+  onExpand,
+  registerNodeRef,
 }: {
   node: TreeNode;
+  siblings: TreeNode[];
   depth: number;
   selected: Set<string>;
   onToggle: (id: string, additive: boolean, kind: NodeKind) => void;
+  expandedIds: Set<string>;
+  onExpand: (nodeId: string, siblings: TreeNode[]) => void;
+  registerNodeRef: (id: string, el: HTMLElement | null) => void;
 }) {
-  const [open, setOpen] = useState(depth < 2);
+  const open = expandedIds.has(node.id);
   const Icon = KIND_ICON[node.kind];
   const active = selected.has(node.id);
   const hasChildren = !!node.children?.length;
@@ -242,7 +426,10 @@ function TreeBranch({
           active ? "text-primary" : "text-muted-foreground",
         )}
       />
-      <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={node.label}>
+      <span
+        className="min-w-0 flex-1 truncate text-[13px] font-medium"
+        title={node.label}
+      >
         {node.label}
       </span>
       {node.sub && !node.summary && (
@@ -261,7 +448,11 @@ function TreeBranch({
   /* Leaf node — no expand chevron */
   if (!hasChildren) {
     return (
-      <div className="flex items-center" style={indentStyle}>
+      <div
+        ref={(el) => registerNodeRef(node.id, el)}
+        className="flex items-center"
+        style={indentStyle}
+      >
         {/* Spacer to align with chevron on parent rows */}
         <span className="h-7 w-5 shrink-0" />
         {selectionRow}
@@ -271,8 +462,12 @@ function TreeBranch({
 
   /* Parent node — separate chevron (Collapsible) + selection row */
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="flex items-center" style={indentStyle}>
+    <Collapsible open={open} onOpenChange={() => onExpand(node.id, siblings)}>
+      <div
+        ref={(el) => registerNodeRef(node.id, el)}
+        className="flex items-center"
+        style={indentStyle}
+      >
         {/* Chevron: expand/collapse only — never triggers selection */}
         <CollapsibleTrigger asChild>
           <button
@@ -290,13 +485,17 @@ function TreeBranch({
         {selectionRow}
       </div>
       <CollapsibleContent className="space-y-0.5">
-        {node.children!.map((c) => (
+        {node.children!.map((c, _i, arr) => (
           <TreeBranch
             key={c.id}
             node={c}
+            siblings={arr}
             depth={depth + 1}
             selected={selected}
             onToggle={onToggle}
+            expandedIds={expandedIds}
+            onExpand={onExpand}
+            registerNodeRef={registerNodeRef}
           />
         ))}
       </CollapsibleContent>

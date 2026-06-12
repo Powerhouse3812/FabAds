@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ export default function AdContent({ flow, wholeAdMode = false }: { flow: UseFlow
   const copy = plan.adCopy;
   const [advanced, setAdvanced] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  const [showDisplayLink, setShowDisplayLink] = useState(!!copy.displayLink);
 
   const hasSavedAds = plan.creatives.some((c) => c.savedAd || c.itemType === "ad");
 
@@ -114,25 +116,43 @@ export default function AdContent({ flow, wholeAdMode = false }: { flow: UseFlow
         </div>
       )}
 
-      {/* CTA + Display link — shown in both modes */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Call to action">
-          <Select value={copy.cta} onValueChange={(v) => set({ cta: v })}>
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CTA_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-sm">
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="Display link">
-          <Input value={copy.displayLink} onChange={(e) => set({ displayLink: e.target.value })} placeholder="brand.com" className="font-mono text-sm" />
-        </Field>
+      {/* CTA — shown in both modes */}
+      <Field label="Call to action">
+        <Select value={copy.cta} onValueChange={(v) => set({ cta: v })}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CTA_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value} className="text-sm">
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      {/* Display link — optional toggle, shown in both modes */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-muted-foreground">Display link</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-muted-foreground/60">Optional</span>
+            <Switch
+              checked={showDisplayLink}
+              onCheckedChange={setShowDisplayLink}
+              className="scale-75"
+            />
+          </div>
+        </div>
+        {showDisplayLink && (
+          <Input
+            value={copy.displayLink}
+            onChange={(e) => set({ displayLink: e.target.value })}
+            placeholder="e.g. mamaearth.in"
+            className="font-mono text-sm"
+          />
+        )}
       </div>
 
       {/* Destination URL — shown in both modes */}

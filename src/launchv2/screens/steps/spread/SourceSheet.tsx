@@ -5,8 +5,9 @@
  * Routing:
  *   genie   → GenieModal
  *   library → LibraryModal
+ *   reports → ReportsPanel (search + status + date range filters)
  *   upload  → UploadModal    (stub until built)
- *   url | drive | reports → StubPanel
+ *   url | drive → StubPanel
  *
  * State model:
  *   - `activeSource` — internal source state; defaults to prop or "genie".
@@ -19,9 +20,12 @@
  * All modals (GenieModal, LibraryModal) now use this signature directly.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
+  CalendarDays,
+  Check,
+  ChevronDown,
   FolderOpen,
   Hash,
   HardDrive,
@@ -43,8 +47,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { SOURCES } from "../../../data";
-import type { AdCopy, CreativeRef, SourceType } from "../../../types";
+import { RUNNING_ADS, SOURCES } from "../../../data";
+import type { AdCopy, AdFormat, CreativeRef, SourceType } from "../../../types";
 import { GenieModal } from "./modals/GenieModal";
 import { LibraryModal } from "./modals/LibraryModal";
 import { FolderPicker, type FolderApplyResult } from "./modals/FolderPicker";
@@ -79,10 +83,10 @@ const SOURCE_ICONS: Record<SourceType, React.ElementType> = {
 };
 
 /** Sources that are stubs (no modal content yet) */
-const STUB_SOURCES = new Set<SourceType>(["url", "drive", "reports", "post_id"]);
+const STUB_SOURCES = new Set<SourceType>(["url", "drive", "post_id"]);
 
 /* ─────────────────────────────────────────────────────────────────
-   StubPanel — for sources that aren't built yet (url / drive / reports)
+   StubPanel — for sources that aren't built yet (url / drive)
    and as a fallback for unbuilt modal stubs.
 ───────────────────────────────────────────────────────────────────*/
 
@@ -118,6 +122,216 @@ function StubPanel({
         <p className="mt-1 font-mono text-xs text-muted-foreground">
           {copy[source]}
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ReportsPanel — Browse winning ads from running campaigns.
+   Search + status filter + date range (visual only).
+───────────────────────────────────────────────────────────────────*/
+
+type ReportsStatusFilter = "all" | "active" | "paused";
+type ReportsDatePreset = "7d" | "14d" | "30d" | "month";
+
+const DATE_PRESET_LABELS: Record<ReportsDatePreset, string> = {
+  "7d": "Last 7d",
+  "14d": "Last 14d",
+  "30d": "Last 30d",
+  "month": "This month",
+};
+
+const FORMAT_CHIP_LABELS: Partial<Record<AdFormat, string>> = {
+  single_image: "Image",
+  single_video: "Video",
+  carousel: "Carousel",
+};
+
+function ReportsPanel({
+  selectedIds,
+  onToggle,
+  search,
+}: {
+  selectedIds: Set<string>;
+  onToggle: (ref: CreativeRef) => void;
+  search: string;
+}) {
+  const [statusFilter, setStatusFilter] = useState<ReportsStatusFilter>("all");
+  const [datePreset, setDatePreset] = useState<ReportsDatePreset>("30d");
+  const [dateOpen, setDateOpen] = useState(false);
+  const dateRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    return RUNNING_ADS.filter((ad) => {
+      if (search) {
+        const q = search.trim().toLowerCase();
+        if (
+          !ad.name.toLowerCase().includes(q) &&
+          !ad.pageName.toLowerCase().includes(q)
+        ) return false;
+      }
+      if (statusFilter !== "all" && ad.status !== statusFilter) return false;
+      return true;
+    });
+  }, [search, statusFilter]);
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 pb-3 pt-3 flex-shrink-0">
+        {/* Status chips */}
+        {(["all", "active", "paused"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setStatusFilter(s)}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-xs font-medium transition-colors",
+              statusFilter === s
+                ? "border-primary/30 bg-primary/10 text-foreground"
+                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+            )}
+          >
+            {s === "active" && (
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+            )}
+            {s === "paused" && (
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+            )}
+            {s.charAt(0).toUpperCase() + s.slice(1)}
+          </button>
+        ))}
+
+        {/* Date range popover — visual only */}
+        <div className="relative ml-auto" ref={dateRef}>
+          <button
+            type="button"
+            onClick={() => setDateOpen((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1.5 h-7 rounded-full border px-2.5 text-xs font-medium transition-colors",
+              dateOpen
+                ? "border-primary/30 bg-primary/10 text-foreground"
+                : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+            )}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {DATE_PRESET_LABELS[datePreset]}
+            <ChevronDown className={cn("h-3 w-3 transition-transform", dateOpen && "rotate-180")} />
+          </button>
+          {dateOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-36 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
+              {(["7d", "14d", "30d", "month"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => { setDatePreset(p); setDateOpen(false); }}
+                  className={cn(
+                    "flex w-full items-center justify-between px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/40",
+                    datePreset === p ? "text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {DATE_PRESET_LABELS[p]}
+                  {datePreset === p && <Check className="h-3 w-3 text-primary" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex h-full items-center justify-center p-8">
+            <p className="font-mono text-sm text-muted-foreground">No ads match your filters.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
+            {filtered.map((ad) => {
+              const selected = selectedIds.has(ad.id);
+              const chipLabel = FORMAT_CHIP_LABELS[ad.format] ?? ad.format;
+              const ref: CreativeRef = {
+                id: ad.id,
+                name: ad.name,
+                format: ad.format,
+                source: "reports",
+                thumbnail: ad.thumbnail,
+                savedAd: true,
+                itemType: "ad",
+              };
+              return (
+                <button
+                  key={ad.id}
+                  type="button"
+                  onClick={() => onToggle(ref)}
+                  className={cn(
+                    "relative rounded-2xl border bg-card overflow-hidden cursor-pointer group transition-all text-left w-full",
+                    selected
+                      ? "border-primary ring-2 ring-primary bg-primary/5"
+                      : "border-border hover:border-foreground/30 hover:-translate-y-[1px] hover:shadow-md",
+                  )}
+                >
+                  {/* Thumbnail */}
+                  <div className="relative aspect-video overflow-hidden bg-muted">
+                    <img
+                      src={ad.thumbnail}
+                      alt={ad.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                    {/* Format chip */}
+                    <span className="absolute top-2 right-2 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] font-mono text-white uppercase tracking-wide leading-none">
+                      {chipLabel}
+                    </span>
+                    {/* Status dot */}
+                    <span className={cn(
+                      "absolute top-2 left-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono backdrop-blur-sm",
+                      ad.status === "active"
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-amber-500/20 text-amber-400",
+                    )}>
+                      <span className={cn(
+                        "inline-block h-1.5 w-1.5 rounded-full",
+                        ad.status === "active" ? "bg-green-500" : "bg-amber-500",
+                      )} />
+                      {ad.status}
+                    </span>
+                    {/* Selected checkmark */}
+                    {selected && (
+                      <div className="absolute bottom-2 right-2 h-5 w-5 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                        <Check className="h-3 w-3 text-[#121212]" strokeWidth={3} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-2.5 space-y-0.5">
+                    <p className="text-[13px] font-medium text-foreground truncate leading-tight">
+                      {ad.name}
+                    </p>
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
+                      <span>{ad.pageName}</span>
+                      {ad.spend30d !== undefined && (
+                        <>
+                          <span>·</span>
+                          <span>₹{(ad.spend30d / 1000).toFixed(0)}K spend</span>
+                        </>
+                      )}
+                      {ad.ctr30d !== undefined && (
+                        <>
+                          <span>·</span>
+                          <span>{ad.ctr30d}% CTR</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -221,7 +435,7 @@ export function SourceSheet({
   const selectedCount = localSelected.size;
 
   /* ── Derived: should we show search bar? ─────────────────────
-     URL, drive, reports are stub-only — search bar is irrelevant.          */
+     URL, drive, post_id are stub-only — search bar is irrelevant there.    */
   const showSearch = !STUB_SOURCES.has(activeSource);
 
   /* ─────────────────────────────────────────────────────────── */
@@ -363,6 +577,14 @@ export function SourceSheet({
 
           {activeSource === "upload" && UploadModal === null && (
             <StubPanel source="upload" reason="not_built" />
+          )}
+
+          {activeSource === "reports" && (
+            <ReportsPanel
+              selectedIds={new Set(localSelected.keys())}
+              onToggle={handleToggle}
+              search={search}
+            />
           )}
 
           {STUB_SOURCES.has(activeSource) && (

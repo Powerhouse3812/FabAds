@@ -5,7 +5,6 @@ import { useReportsData } from "@/hooks/use-reports-data";
 import { GROUPING_OPTIONS, type ReportEntity } from "@/lib/reports-dummy-data";
 import { PageSkeleton } from "@/components/reports/PageSkeleton";
 import { ReportsToolbar } from "@/components/reports/ReportsToolbar";
-import { ReportsBulkBar } from "@/components/reports/ReportsBulkBar";
 import { CreativeReportCard } from "@/components/reports/CreativeReportCard";
 import { CreativeDetailDrawer } from "@/components/reports/CreativeDetailDrawer";
 import { LaunchScopeChip } from "@/components/reports/LaunchScopeChip";
@@ -68,6 +67,9 @@ export default function ImageReport() {
         onRefresh={() => setDateSeed((s) => s + 1)}
         onExport={exportCsv}
         onColumnSettings={() => {}}
+        selectionCount={selectedIds.size}
+        onClearSelection={() => setSelectedIds(new Set())}
+        onBulkExport={exportCsv}
       />
 
       <LaunchScopeChip />
@@ -91,7 +93,6 @@ export default function ImageReport() {
         </div>
       )}
 
-      <ReportsBulkBar selected={selectedEntities} onClearSelection={() => setSelectedIds(new Set())} onExport={exportCsv} />
       <CreativeDetailDrawer entity={drawerEntity} open={!!drawerEntity} onOpenChange={(v) => !v && setDrawerEntity(null)} />
     </div>
   );

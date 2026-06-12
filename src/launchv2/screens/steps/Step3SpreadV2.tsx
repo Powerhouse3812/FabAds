@@ -43,6 +43,8 @@ import { SourceSheet } from "./spread/SourceSheet";
 import { FORMAT_ICON } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
 import { SaveBundleRow } from "./spread/SaveBundleRow";
+import CatalogueStructurePreview from "./shared/CatalogueStructurePreview";
+import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFromRunning";
 
 // ── Creative mode picker ──────────────────────────────────────────────────────
 
@@ -591,69 +593,172 @@ export default function Step3SpreadV2({ flow }: { flow: UseFlowV2 }) {
 
       <Separator />
 
-      {/* ── 2. Creative mode — explicit picker ───────────────────── */}
-      <CreativeModePicker
-        creativeMode={creativeMode}
-        onSelect={(mode) => {
-          if (mode !== creativeMode) {
-            if (plan.creatives.length > 0) {
-              setPendingMode(mode);
-            } else {
-              setCreativeMode(mode);
-            }
-          }
-        }}
-      />
+      {plan.catalogueToggle ? (
+        /* ── Catalogue mode — format choice, ad copy, structure preview ──── */
+        <>
+          {/* Ad format — Carousel vs Advantage+ auto */}
+          <div className="space-y-2">
+            <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
+              Ad format
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                {
+                  id: "carousel" as const,
+                  label: "Carousel",
+                  desc: "One card per product — users swipe through",
+                },
+                {
+                  id: "advantage_auto" as const,
+                  label: "Advantage+ auto",
+                  desc: "Meta picks the best format per user",
+                },
+              ]).map((opt) => {
+                const active = (plan.catalogFormat ?? "carousel") === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => flow.patch({ catalogFormat: opt.id })}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex flex-col gap-1 rounded-2xl border p-3 text-left transition-colors",
+                      active
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-card hover:border-foreground/30",
+                    )}
+                  >
+                    <span className="text-[13px] font-semibold text-foreground">{opt.label}</span>
+                    <span className="text-[11px] text-muted-foreground leading-snug">{opt.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-      {/* Mode-switch warning (appears when mode picker or source change would flip mode) */}
-      {pendingMode && (
-        <ModeSwitchWarning
-          pendingMode={pendingMode}
-          currentCount={plan.creatives.length}
-          onConfirm={confirmModeSwitch}
-          onCancel={() => setPendingMode(null)}
-        />
+          <div className="border-t border-border/50" />
+
+          {/* Ad copy — headline + description only (primary text auto-fills) */}
+          <div className="space-y-2">
+            <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
+              Ad copy
+            </span>
+            <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">Headline</label>
+                  <input
+                    value={plan.adCopy.headline}
+                    onChange={(e) => flow.patch({ adCopy: { ...plan.adCopy, headline: e.target.value } })}
+                    placeholder="e.g. {{product.name}} — now {{product.price}}"
+                    className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">Description</label>
+                  <textarea
+                    value={plan.adCopy.description}
+                    onChange={(e) => flow.patch({ adCopy: { ...plan.adCopy, description: e.target.value } })}
+                    rows={2}
+                    placeholder="Optional — supports {{product.*}} tokens"
+                    className="w-full resize-none rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border/50" />
+
+          {/* What you'll launch — read-only structure preview */}
+          <div className="space-y-2">
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
+                What you'll launch
+              </span>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Auto-built from your catalog selections in Setup
+              </p>
+            </div>
+            <CatalogueStructurePreview flow={flow} />
+          </div>
+        </>
+      ) : (
+        /* ── Normal mode — explicit creative selection flow ────────── */
+        <>
+          {/* ── 2. Creative mode — explicit picker ───────────────────── */}
+          <CreativeModePicker
+            creativeMode={creativeMode}
+            onSelect={(mode) => {
+              if (mode !== creativeMode) {
+                if (plan.creatives.length > 0) {
+                  setPendingMode(mode);
+                } else {
+                  setCreativeMode(mode);
+                }
+              }
+            }}
+          />
+
+          {/* Mode-switch warning (appears when mode picker or source change would flip mode) */}
+          {pendingMode && (
+            <ModeSwitchWarning
+              pendingMode={pendingMode}
+              currentCount={plan.creatives.length}
+              onConfirm={confirmModeSwitch}
+              onCancel={() => setPendingMode(null)}
+            />
+          )}
+
+          <div className="border-t border-border/50" />
+
+          {/* ── 3. Source card grid ───────────────────────────────────── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
+                Pick your source
+              </span>
+              <CopyFromRunning
+                triggerLabel="Use existing post"
+                pickerType="ad"
+                items={runningAdItems()}
+                onPick={(id) => applyRunningAd(flow, id)}
+              />
+            </div>
+            <SourceCardGrid
+              activeSourceId={activeSourceId}
+              onSelect={handleSourceSelect}
+            />
+          </div>
+
+          <div className="border-t border-border/50" />
+
+          {/* ── 4. Creative + Copy panel ──────────────────────────────── */}
+          <CreativePanel
+            flow={flow}
+            creativeMode={creativeMode}
+            onSwitchMode={handleSwitchMode}
+            appliedFolder={appliedFolder}
+            onRemoveCreative={handleRemoveCreative}
+            onOpenSheet={handleOpenSheet}
+            wholeAdMode={creativeMode === "ads"}
+          />
+
+          {/* Sheet portal */}
+          <SourceSheet
+            open={sheetOpen}
+            source={plan.source.type}
+            currentSelections={plan.creatives}
+            creativeMode={creativeMode}
+            onSave={(items, suggestedCopy) => {
+              handleSheetSave(items, suggestedCopy);
+              setAppliedFolder(null);
+            }}
+            onApplyFolder={handleApplyFolder}
+            onClose={() => setSheetOpen(false)}
+          />
+        </>
       )}
-
-      <div className="border-t border-border/50" />
-
-      {/* ── 3. Source card grid ───────────────────────────────────── */}
-      <div className="space-y-2">
-        <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/60">
-          Pick your source
-        </span>
-        <SourceCardGrid
-          activeSourceId={activeSourceId}
-          onSelect={handleSourceSelect}
-        />
-      </div>
-
-      <div className="border-t border-border/50" />
-
-      {/* ── 4. Creative + Copy panel ──────────────────────────────── */}
-      <CreativePanel
-        flow={flow}
-        creativeMode={creativeMode}
-        onSwitchMode={handleSwitchMode}
-        appliedFolder={appliedFolder}
-        onRemoveCreative={handleRemoveCreative}
-        onOpenSheet={handleOpenSheet}
-        wholeAdMode={creativeMode === "ads"}
-      />
-
-      {/* Sheet portal */}
-      <SourceSheet
-        open={sheetOpen}
-        source={plan.source.type}
-        currentSelections={plan.creatives}
-        creativeMode={creativeMode}
-        onSave={(items, suggestedCopy) => {
-          handleSheetSave(items, suggestedCopy);
-          setAppliedFolder(null);
-        }}
-        onApplyFolder={handleApplyFolder}
-        onClose={() => setSheetOpen(false)}
-      />
     </div>
   );
 }

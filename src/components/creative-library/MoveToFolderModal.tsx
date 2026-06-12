@@ -12,11 +12,11 @@ import { useClFolders, useAddToFolder } from "@/hooks/use-cl-folders";
 interface MoveToFolderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  itemId: string;
+  itemIds: string[];
   itemType: "media" | "adgroup";
 }
 
-export function MoveToFolderModal({ open, onOpenChange, itemId, itemType }: MoveToFolderModalProps) {
+export function MoveToFolderModal({ open, onOpenChange, itemIds, itemType }: MoveToFolderModalProps) {
   const [search, setSearch] = useState("");
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const { data: folders = [] } = useClFolders();
@@ -31,9 +31,9 @@ export function MoveToFolderModal({ open, onOpenChange, itemId, itemType }: Move
     try {
       await addToFolder.mutateAsync({
         folderId: selectedFolder,
-        items: [{ itemId, itemType }],
+        items: itemIds.map((id) => ({ itemId: id, itemType })),
       });
-      toast({ title: "Added to folder" });
+      toast({ title: itemIds.length > 1 ? `Added ${itemIds.length} items to folder` : "Added to folder" });
       onOpenChange(false);
       setSelectedFolder(null);
       setSearch("");
@@ -46,7 +46,7 @@ export function MoveToFolderModal({ open, onOpenChange, itemId, itemType }: Move
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setSelectedFolder(null); setSearch(""); } }}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Add to Folder</DialogTitle>
+          <DialogTitle>{itemIds.length > 1 ? `Add ${itemIds.length} items to Folder` : "Add to Folder"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="relative">

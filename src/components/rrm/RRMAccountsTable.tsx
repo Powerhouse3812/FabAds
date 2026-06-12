@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Settings2, Loader2, ChevronLeft, ChevronRight, Zap, Info } from "lucide-react";
+import { Search, Settings2, Loader2, ChevronLeft, ChevronRight, Zap, Info, X } from "lucide-react";
 import { getHealthBadge, type HealthConfig, type HealthSnapshot } from "@/hooks/use-account-health";
 import type { FbAdAccount } from "@/hooks/use-fb-connection";
 import type { RRMAccountSetting, RRMCampaignUrl, RRMGlobalSettings } from "@/hooks/use-rrm-settings";
@@ -100,6 +100,11 @@ export function RRMAccountsTable({
     setSelected(next);
   };
 
+  const handleBulkToggle = (field: "dilution_enabled" | "replacement_enabled", enabled: boolean) => {
+    [...selected].forEach((id) => onToggle(id, field, enabled));
+    setSelected(new Set());
+  };
+
   const getEffectiveThreshold = (accountId: string, field: "warning" | "rejection") => {
     const setting = rrmSettingsMap[accountId];
     const overrideField = field === "warning" ? "warning_threshold_override" : "rejection_threshold_override";
@@ -127,16 +132,40 @@ export function RRMAccountsTable({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-base">Ad Accounts</CardTitle>
-        <div className="relative w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search accounts..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            className="pl-9"
-          />
+      {/* ─── Adaptive Toolbar ─── */}
+      <CardHeader className="relative h-[68px] p-0 overflow-hidden">
+        {/* Default state: title + search — slides left on selection */}
+        <div className={`absolute inset-0 flex items-center justify-between px-6 transition-all duration-200 ease-out${selected.size > 0 ? " opacity-0 -translate-x-4 pointer-events-none" : ""}`}>
+          <CardTitle className="text-base">Ad Accounts</CardTitle>
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search accounts..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              className="pl-9"
+            />
+          </div>
+        </div>
+        {/* Selection state: bulk actions — slides in from right */}
+        <div className={`absolute inset-0 flex items-center gap-2 px-6 transition-all duration-200 ease-out${selected.size === 0 ? " opacity-0 translate-x-4 pointer-events-none" : ""}`}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelected(new Set())}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-xs font-medium text-foreground shrink-0">{selected.size} selected</span>
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleBulkToggle("dilution_enabled", true)}>
+            <Zap className="h-3 w-3 mr-1" /> Enable Dilution
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleBulkToggle("dilution_enabled", false)}>
+            Disable Dilution
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleBulkToggle("replacement_enabled", true)}>
+            Enable Replace
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleBulkToggle("replacement_enabled", false)}>
+            Disable Replace
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

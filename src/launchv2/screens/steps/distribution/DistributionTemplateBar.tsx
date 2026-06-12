@@ -14,15 +14,10 @@
  * amber for "Edited" warning tone, Geist sans, Lucide icons, dark-mode-first.
  */
 import { useMemo, useState } from "react";
-import { Zap, X, ChevronDown, Check } from "lucide-react";
+import { Zap, X, ChevronDown, Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SaveTemplateDialog } from "../setup/SaveTemplateDialog";
 import { templatesService } from "../../../templates/service";
 import {
@@ -34,6 +29,8 @@ import type { UseFlowV2 } from "../../../state/useFlowV2";
 export default function DistributionTemplateBar({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [saveOpen, setSaveOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
 
   // Re-read the templates list on every render — the service is synchronous and
   // localStorage-backed, so this is cheap and always reflects fresh state.
@@ -100,8 +97,8 @@ export default function DistributionTemplateBar({ flow }: { flow: UseFlowV2 }) {
         ) : (
           <>
             <div className="flex min-w-0 flex-1 items-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <Popover open={pickerOpen} onOpenChange={(o) => { setPickerOpen(o); if (!o) setTemplateSearch(""); }}>
+                <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
@@ -111,28 +108,54 @@ export default function DistributionTemplateBar({ flow }: { flow: UseFlowV2 }) {
                     Apply Distribution template
                     <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
-                  {templates.length === 0 ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      No saved Distribution templates yet
-                    </div>
-                  ) : (
-                    templates.map((t) => (
-                      <DropdownMenuItem
-                        key={t.id}
-                        onClick={() => flow.applyDistributionTemplate(t.id)}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <span className="truncate">{t.name}</span>
-                        {plan.appliedDistributionTemplateId === t.id && (
-                          <Check className="h-3.5 w-3.5 text-primary" />
-                        )}
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72 p-0">
+                  {/* Search */}
+                  <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Search templates…"
+                      value={templateSearch}
+                      onChange={(e) => setTemplateSearch(e.target.value)}
+                      className="w-full bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                    />
+                  </div>
+                  {/* Template list */}
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {templates.length === 0 ? (
+                      <div className="px-3 py-3 text-center text-[11px] font-mono text-muted-foreground">
+                        No saved Distribution templates yet
+                      </div>
+                    ) : templates.filter((t) =>
+                      !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase())
+                    ).length === 0 ? (
+                      <div className="px-3 py-3 text-center text-[11px] font-mono text-muted-foreground">
+                        No templates match "{templateSearch}"
+                      </div>
+                    ) : (
+                      templates
+                        .filter((t) =>
+                          !templateSearch || t.name.toLowerCase().includes(templateSearch.toLowerCase())
+                        )
+                        .map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => { flow.applyDistributionTemplate(t.id); setPickerOpen(false); setTemplateSearch(""); }}
+                            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[12px] text-foreground transition-colors hover:bg-muted/50"
+                          >
+                            <span className="truncate">{t.name}</span>
+                            {plan.appliedDistributionTemplateId === t.id && (
+                              <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                            )}
+                          </button>
+                        ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Button

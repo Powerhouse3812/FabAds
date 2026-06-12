@@ -3,14 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LaunchPreviewModal } from "./LaunchPreviewModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Loader2, X, CalendarClock, ChevronDown, Plus } from "lucide-react";
 import { StepCreativesToolbar } from "./StepCreativesToolbar";
 import { AdAccountsTab } from "./AdAccountsTab";
 import { CampaignsTableTab } from "./CampaignsTableTab";
 import { AdGroupsTableTab } from "./AdGroupsTableTab";
 import { AdsTableTab } from "./AdsTableTab";
-import { AdBulkEditToolbar } from "./AdBulkEditToolbar";
-import { AdGroupBulkToolbar } from "./AdGroupBulkToolbar";
+import { AdBulkEditDialog } from "./AdBulkEditDialog";
+import { AdSchedulePicker } from "./AdSchedulePicker";
+import { readAdSchedules, valueToEntry, type AdScheduleEntry, type ScheduleValue } from "@/lib/ad-schedule";
+import { EditEventPlacementModal } from "./bulk-modals/EditEventPlacementModal";
+import { EditLocationModal } from "./bulk-modals/EditLocationModal";
+import { EditDemographicModal } from "./bulk-modals/EditDemographicModal";
+import { EditDeviceModal } from "./bulk-modals/EditDeviceModal";
+import { EditBiddingBudgetModal } from "./bulk-modals/EditBiddingBudgetModal";
+import { EditScheduleModal } from "./bulk-modals/EditScheduleModal";
+import { SelectCustomAudienceModal } from "./bulk-modals/SelectCustomAudienceModal";
 import { LaunchStrategyBar } from "./LaunchStrategyBar";
 import { LaunchDistributionPreview } from "./LaunchDistributionPreview";
 import { LaunchConfirmDialog } from "./LaunchConfirmDialog";
@@ -20,7 +30,6 @@ import { validateStep3, scrollToFirstError } from "@/lib/launch-validation";
 import { toast } from "@/hooks/use-toast";
 import { useFbConnection } from "@/hooks/use-fb-connection";
 import { getAccountTimezone, DEFAULT_TIMEZONE } from "@/lib/timezones";
-import { readAdSchedules, type AdScheduleEntry } from "@/lib/ad-schedule";
 import { MissingFieldsSummary, type MissingFieldItem } from "./MissingFieldsSummary";
 import type { LaunchFull } from "@/hooks/use-launch-data";
 import { rollupSelection, type SelectionLevel } from "@/lib/launch-selection-rollup";
@@ -51,6 +60,15 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
   const [showDistPreview, setShowDistPreview] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [overflowAsPausedOverride, setOverflowAsPausedOverride] = useState<boolean | null>(null);
+
+  // ─── Ads bulk toolbar modal state ───────────────────────────────────────────
+  const [adsBulkEditOpen, setAdsBulkEditOpen] = useState(false);
+  const [adsScheduleOpen, setAdsScheduleOpen] = useState(false);
+  const [adsScheduleValue, setAdsScheduleValue] = useState<ScheduleValue>({});
+  const [adsScheduleError, setAdsScheduleError] = useState(false);
+
+  // ─── Ad-groups bulk toolbar modal state ──────────────────────────────────────
+  const [adGroupModal, setAdGroupModal] = useState<string | null>(null);
 
   const { data: workspaceTexts } = useWorkspaceTexts();
   const bulkUpdate = useBulkUpdateAds();
@@ -160,8 +178,72 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
       {/* Validation summary — names every incomplete ad; each row jumps to it. */}
       <MissingFieldsSummary items={missingItems} />
 
-      {/* Toolbar */}
-      <StepCreativesToolbar launchData={launchData} search={search} onSearchChange={setSearch} />
+      {/* Adaptive toolbar — morphs between default and selection state in-place */}
+      {(() => {
+        const isSelectionActive =
+          (activeTab === "ads" && selectedAds.size > 0) ||
+          (activeTab === "adgroups" && selectedAdGroups.size > 0);
+
+        const adGroupComingSoon = () => toast({ title: "Coming soon" });
+
+        return (
+          <div className="relative h-[52px] shrink-0 border-b border-border overflow-hidden">
+            {/* Default state */}
+            <div className={`absolute inset-0 flex flex-nowrap items-center gap-3 px-4 transition-all duration-200 ease-out${isSelectionActive ? " opacity-0 -translate-x-4 pointer-events-none" : ""}`}>
+              <StepCreativesToolbar launchData={launchData} search={search} onSearchChange={setSearch} />
+            </div>
+
+            {/* Selection state */}
+            <div className={`absolute inset-0 flex items-center gap-2 px-4 transition-all duration-200 ease-out${!isSelectionActive ? " opacity-0 translate-x-4 pointer-events-none" : ""}`}>
+              {activeTab === "ads" && (
+                <>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedAds(new Set())}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-xs font-medium shrink-0">{selectedAds.size} ad{selectedAds.size !== 1 ? "s" : ""} selected</span>
+                  <div className="flex-1" />
+                  <Button size="sm" className="h-7 text-xs" onClick={() => setAdsBulkEditOpen(true)} disabled={bulkUpdate.isPending}>
+                    Bulk Edit
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAdsScheduleOpen(true)}>
+                    <CalendarClock className="h-3.5 w-3.5 mr-1.5" />
+                    Schedule
+                  </Button>
+                </>
+              )}
+
+              {activeTab === "adgroups" && (
+                <>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedAdGroups(new Set())}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-xs font-medium shrink-0">{selectedAdGroups.size} selected</span>
+                  <div className="flex-1" />
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAdGroupModal("placement")}>Edit Event & Placement</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAdGroupModal("location")}>Edit Location</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setAdGroupModal("demographic")}>Edit Demographic</Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                        Edit more <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setAdGroupModal("device")}>Edit Device</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setAdGroupModal("bidding")}>Edit Bidding & Budget</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setAdGroupModal("schedule")}>Edit Schedule</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setAdGroupModal("audience")}>Custom Audiences</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={adGroupComingSoon}>
+                    <Plus className="h-3 w-3 mr-1" />Add New Ads
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Distribution strategy bar (sticky) — composes ABOVE per-level toolbars. */}
       {showStrategyBar && (
@@ -180,33 +262,66 @@ export function StepCreatives({ launchData, onBack }: StepCreativesProps) {
         />
       )}
 
-      {/* Bulk toolbars (kept intact, rendered below the strategy bar) */}
-      {activeTab === "ads" && selectedAds.size > 0 && (
-        <AdBulkEditToolbar
-          selectedCount={selectedAds.size}
-          ads={launchData.ads.filter(a => selectedAds.has(a.id))}
-          defaultTimezone={defaultTimezone}
-          onApply={handleBulkApply}
-          onSchedule={handleBulkSchedule}
-          onDuplicate={(adId) => dupAd.mutate({ adId, launchId: launchData.id })}
-          onDelete={(adId) => delAd.mutate({ id: adId, launchId: launchData.id })}
-          onClear={() => setSelectedAds(new Set())}
-          applying={bulkUpdate.isPending}
-        />
-      )}
-      {activeTab === "adgroups" && selectedAdGroups.size > 0 && (
-        <AdGroupBulkToolbar
-          selectedCount={selectedAdGroups.size}
-          totalCount={launchData.adsets.length}
-          onClear={() => setSelectedAdGroups(new Set())}
-          onBulkUpdate={(data, applyToAll) => {
-            const ids = applyToAll
-              ? launchData.adsets.map(a => a.id)
-              : Array.from(selectedAdGroups);
-            bulkUpdateAdsets.mutate({ ids, launchId: launchData.id, fields: data });
-          }}
-        />
-      )}
+      {/* ─── Ads bulk dialogs (kept in DOM for modal state) ─────────────────── */}
+      <AdBulkEditDialog
+        open={adsBulkEditOpen}
+        onOpenChange={setAdsBulkEditOpen}
+        ads={launchData.ads.filter(a => selectedAds.has(a.id))}
+        onApply={handleBulkApply}
+        onDuplicate={(adId) => dupAd.mutate({ adId, launchId: launchData.id })}
+        onDelete={(adId) => delAd.mutate({ id: adId, launchId: launchData.id })}
+        applying={bulkUpdate.isPending}
+      />
+      <Dialog open={adsScheduleOpen} onOpenChange={setAdsScheduleOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule {selectedAds.size} ad{selectedAds.size !== 1 ? "s" : ""}</DialogTitle>
+            <DialogDescription>
+              Sets status to Scheduled and applies this date, time, and timezone to all selected ads.
+            </DialogDescription>
+          </DialogHeader>
+          <AdSchedulePicker
+            value={adsScheduleValue}
+            defaultTimezone={defaultTimezone}
+            onChange={(v) => {
+              setAdsScheduleValue(v);
+              setAdsScheduleError(false);
+            }}
+            showError={adsScheduleError}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdsScheduleOpen(false)}>Cancel</Button>
+            <Button onClick={() => {
+              const entry = valueToEntry(adsScheduleValue);
+              if (!entry) { setAdsScheduleError(true); return; }
+              handleBulkSchedule(Array.from(selectedAds), entry);
+              setAdsScheduleOpen(false);
+              setAdsScheduleValue({ timezone: defaultTimezone });
+              setAdsScheduleError(false);
+            }}>Apply schedule</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Ad-groups bulk dialogs (kept in DOM for modal state) ─────────────── */}
+      {(() => {
+        const adGroupsSelected = Array.from(selectedAdGroups);
+        const handleAdGroupBulkUpdate = (data: any, applyToAll: boolean) => {
+          const ids = applyToAll ? launchData.adsets.map(a => a.id) : adGroupsSelected;
+          bulkUpdateAdsets.mutate({ ids, launchId: launchData.id, fields: data });
+        };
+        return (
+          <>
+            <EditEventPlacementModal open={adGroupModal === "placement"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+            <EditLocationModal open={adGroupModal === "location"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+            <EditDemographicModal open={adGroupModal === "demographic"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+            <EditDeviceModal open={adGroupModal === "device"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+            <EditBiddingBudgetModal open={adGroupModal === "bidding"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+            <EditScheduleModal open={adGroupModal === "schedule"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+            <SelectCustomAudienceModal open={adGroupModal === "audience"} onOpenChange={(o) => !o && setAdGroupModal(null)} selectedCount={selectedAdGroups.size} totalCount={launchData.adsets.length} onSave={handleAdGroupBulkUpdate} />
+          </>
+        );
+      })()}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

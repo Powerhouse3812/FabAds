@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClientContext } from "@/contexts/ClientContext";
@@ -74,6 +75,41 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
   // behavior — killed the upsell surface.
   const isAiPlan = plan === "ai";
 
+  // ── Hidden long-press gesture → internal feedback dashboard ───────────────
+  // Short tap on the avatar opens the normal profile menu. A ~650ms press-and-
+  // hold instead opens /launchv2/feedback-panel (no visible affordance — it's
+  // an internal tool entry). We control the menu's open state and suppress
+  // Radix's pointerdown-open so the menu doesn't flash during a long press.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+
+  const clearHold = () => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  };
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault(); // suppress Radix auto-open; we open manually on short tap
+    longPressed.current = false;
+    clearHold();
+    holdTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      setMenuOpen(false);
+      navigate("/launchv2/feedback-panel");
+    }, 650);
+  };
+  const handlePointerUp = () => {
+    const wasLong = longPressed.current;
+    clearHold();
+    if (!wasLong) setMenuOpen(true); // short tap → normal profile menu
+  };
+  const handleOpenChange = (next: boolean) => {
+    if (longPressed.current && next) return; // ignore stray open during long-press
+    setMenuOpen(next);
+  };
+
   // Open the Growth upsell modal for a given preset (`integration` | `team`).
   // The modal is mounted in ParentNavigationRail and reacts to `?upsell=<key>`.
   const openUpsell = (key: "integration" | "team") => {
@@ -100,8 +136,12 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
   const displayActive = displayClients.find((c) => c.id === displayActiveId) ?? displayClients[0];
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={menuOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={clearHold}
+        onPointerCancel={clearHold}
         className="flex items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring px-2 py-1.5 hover:bg-sidebar-accent/40 w-full transition-colors"
       >
         <Avatar className="h-7 w-7 shrink-0">

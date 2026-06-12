@@ -14,9 +14,12 @@ export function useOfferFolderLinks() {
     queryKey: ["offer-folder-links", workspaceId],
     enabled: !!workspaceId,
     queryFn: async (): Promise<OfferFolderLink[]> => {
+      // Table was renamed `offer_cl_folder_links` → `campaign_url_cl_folder_links`
+      // during the offer→campaign-url refactor; alias keeps the consumer shape
+      // (offerFolderLinks.filter(l => l.offer_id === offerId) in CreativeLibrary).
       const { data, error } = await (supabase as any)
-        .from("offer_cl_folder_links")
-        .select("offer_id, cl_folder_id")
+        .from("campaign_url_cl_folder_links")
+        .select("offer_id:campaign_url_id, cl_folder_id")
         .eq("workspace_id", workspaceId);
       if (error) throw error;
       return data || [];
