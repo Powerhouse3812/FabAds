@@ -847,7 +847,6 @@ export function AccountsPages({
     for (const t of targets) {
       const acc = ACCOUNTS.find((a) => a.id === t.accountId);
       const pg = acc?.pages.find((p) => p.id === t.pageId);
-      // @ts-expect-error optional category on mock page
       if (pg?.category && REGULATED_PAGE_CATEGORIES.has(pg.category)) return true;
     }
     return false;

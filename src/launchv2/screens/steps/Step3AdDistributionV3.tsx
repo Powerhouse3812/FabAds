@@ -176,7 +176,7 @@ function LivePreviewCard({ flow, currency }: { flow: UseFlowV2; currency: string
   const preview = spreadPreview(plan);
   const accounts = Math.max(plan.targets.length, 1);
   const campaigns = accounts * Math.max(plan.structure.campaigns, 1);
-  const budgetLabel = `${formatMoney(plan.budgetAmount, currency)}${plan.budgetMode === "daily" ? "/day" : ""}`;
+  const budgetLabel = `${formatMoney(plan.budgetAmount, currency)}/day`;
 
   return (
     <Card className="rounded-2xl border-primary/30 bg-primary/5">
