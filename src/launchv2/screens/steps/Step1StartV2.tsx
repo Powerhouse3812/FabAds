@@ -1,26 +1,27 @@
 /**
- * Step 1 — Start V2 (complete redesign, Genie-studio mode-selector feel).
+ * Step 1 — Start V2  (Objective-first redesign).
  *
- * Design philosophy:
- *   - Objective = the entry point. Large, icon-led cards dominate the canvas.
- *     2-col grid for visual weight. Linear-style "mode selector" feel.
- *   - Launch strategy section: custom Popover picker with inline property chips,
- *     filtered by selected objective, prefill on select + save-as checkbox.
- *   - Progressive disclosure: strategy picker unlocked after objective is picked.
+ * Layout:
+ *   §1  "What's your campaign goal?" — 6 objective cards, 2-col grid. Always visible.
+ *   §2  "Start from a saved setup"  — slides in after objective is picked.
+ *         Contextual subtext + recently-used horizontal scroll strip only.
+ *         No full-grid, no search, no sort — keep Step 1 fast and uncluttered.
  */
-import { useState } from "react";
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
-  ChevronDown,
+  ChevronRight,
   Eye,
   MessageSquare,
   MousePointer2,
+  Pencil,
   Rocket,
   ShoppingCart,
   Smartphone,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import type { Objective } from "../../types";
 import { OBJECTIVES } from "../../data";
@@ -28,18 +29,26 @@ import { strategiesService } from "../../services/strategiesService";
 import type { LaunchStrategy } from "../../services/strategiesService";
 
 /* ------------------------------------------------------------------ */
+/*  Props                                                               */
+/* ------------------------------------------------------------------ */
+
+interface Step1StartV2Props {
+  flow: UseFlowV2;
+  /** Kept for API compatibility — save checkbox lives on Step 4. */
+  saveAsStrategy: boolean;
+  onSaveAsStrategyChange: (v: boolean) => void;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Objective metadata                                                  */
 /* ------------------------------------------------------------------ */
 
 type ObjIcon = React.ComponentType<{ className?: string }>;
 
-const OBJECTIVE_META: Record<
-  Objective,
-  { Icon: ObjIcon; desc: string }
-> = {
+const OBJECTIVE_META: Record<Objective, { Icon: ObjIcon; desc: string }> = {
   OUTCOME_SALES: {
     Icon: ShoppingCart,
-    desc: "Drive purchases on your website or app",
+    desc: "Drive purchases on website or app",
   },
   OUTCOME_AWARENESS: {
     Icon: Eye,
@@ -47,7 +56,7 @@ const OBJECTIVE_META: Record<
   },
   OUTCOME_TRAFFIC: {
     Icon: MousePointer2,
-    desc: "Send people to your website or landing page",
+    desc: "Send people to a website or landing page",
   },
   OUTCOME_ENGAGEMENT: {
     Icon: MessageSquare,
@@ -63,374 +72,401 @@ const OBJECTIVE_META: Record<
   },
 };
 
+const OBJECTIVE_LABEL: Record<Objective, string> = {
+  OUTCOME_SALES: "Sales",
+  OUTCOME_AWARENESS: "Awareness",
+  OUTCOME_TRAFFIC: "Traffic",
+  OUTCOME_ENGAGEMENT: "Engagement",
+  OUTCOME_APP_PROMOTION: "App installs",
+  OUTCOME_LEADS: "Lead gen",
+};
+
 /* ------------------------------------------------------------------ */
-/*  Chip helpers                                                        */
+/*  Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
+const FORMAT_LABELS: Record<string, string> = {
+  single_image: "Image",
+  single_video: "Video",
+  carousel: "Carousel",
+  collection: "Collection",
+  flexible: "Flexible",
+  dpa: "DPA",
+};
+
+const CURRENCY_SYM: Record<string, string> = {
+  INR: "₹",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+};
+
 function prettifyObjective(o?: string | null): string {
-  if (!o) return "";
+  if (!o) return "—";
   const raw = o.replace(/^OUTCOME_/, "");
   return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
 }
 
-function prettifyFormat(f?: string | null): string {
-  if (!f) return "";
-  const MAP: Record<string, string> = {
-    single_image: "Image",
-    single_video: "Video",
-    carousel: "Carousel",
-    collection: "Collection",
-    flexible: "Flexible",
-    dpa: "DPA",
-  };
-  return MAP[f] ?? f;
+function formatBudget(s: LaunchStrategy): string {
+  const { budgetAmount, targets, budgetMode } = s.plan;
+  if (!budgetAmount) return "—";
+  const ccy = targets?.[0]?.currency;
+  const sym = ccy ? (CURRENCY_SYM[ccy] ?? `${ccy} `) : "";
+  return `${sym}${Math.round(budgetAmount).toLocaleString("en-IN")}/d · ${budgetMode ?? "—"}`;
 }
 
-function formatBudget(plan: LaunchStrategy["plan"]): string {
-  const { budgetAmount, targets, budgetMode: _bm } = plan;
-  if (!budgetAmount) return "";
-  const currency = targets?.[0]?.currency;
-  const SYMBOLS: Record<string, string> = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
-  const sym = currency ? (SYMBOLS[currency] ?? `${currency} `) : "";
-  return `${sym}${Math.round(budgetAmount).toLocaleString("en-IN")}/day`;
+function isPartial(s: LaunchStrategy): boolean {
+  return !(s.plan.targets?.length);
 }
 
-/* ---- Filter chip ---- */
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+/** Contextual subtext for §2 based on selected objective + how many recent setups exist. */
+function recentSubtext(objective: Objective | null, count: number): string {
+  if (!objective || count === 0) return "Pre-fills every step. Edit anything on the way.";
+  const label = OBJECTIVE_LABEL[objective] ?? prettifyObjective(objective);
+  if (count === 1) return `1 recent ${label} setup — apply it to skip manual config.`;
+  return `${count} recent ${label} setups — pick one to pre-fill every step.`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Strategy card (compact — strip only)                               */
+/* ------------------------------------------------------------------ */
+
+function StrategyCard({
+  strategy,
+  selected,
+  onSelect,
+}: {
+  strategy: LaunchStrategy;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const objective = prettifyObjective(strategy.plan.objective);
+  const budget = formatBudget(strategy);
+  const fmt = strategy.plan.format ? FORMAT_LABELS[strategy.plan.format] : "—";
+  const partial = isPartial(strategy);
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={onSelect}
+      aria-pressed={selected}
       className={cn(
-        "h-6 rounded-full border px-2 text-[11px] font-medium transition-colors",
-        active
-          ? "border-primary/30 bg-primary/10 text-foreground"
-          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+        "group relative flex h-full flex-col gap-2 rounded-2xl border bg-card p-2.5 text-left transition-colors",
+        selected
+          ? "border-2 border-foreground bg-foreground/[0.03]"
+          : "border border-border hover:border-foreground/30",
       )}
     >
-      {children}
+      {selected && (
+        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-background">
+          <Check className="h-2.5 w-2.5" />
+        </span>
+      )}
+      <div className="min-w-0 pr-5">
+        <h3 className="truncate text-[12px] font-semibold text-foreground">
+          {strategy.name}
+        </h3>
+        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+          {objective} · {fmt} · {budget}
+        </p>
+      </div>
+      {/* Tags — max 2 */}
+      {(strategy.tags ?? []).length > 0 && (
+        <div className="flex flex-wrap items-center gap-1">
+          {(strategy.tags ?? []).slice(0, 2).map((t) => (
+            <span
+              key={t}
+              className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            >
+              #{t}
+            </span>
+          ))}
+          {(strategy.tags ?? []).length > 2 && (
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              +{(strategy.tags ?? []).length - 2}
+            </span>
+          )}
+        </div>
+      )}
+      {partial && (
+        <span className="mt-auto inline-flex w-fit items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          Partial
+        </span>
+      )}
     </button>
   );
 }
 
-/* ---- Strategy chips row ---- */
-function StrategyChips({ strategy }: { strategy: LaunchStrategy }) {
-  const { plan } = strategy;
-  const chips: { label: string; accent?: boolean }[] = [];
-
-  const obj = prettifyObjective(plan.objective);
-  if (obj) chips.push({ label: obj });
-
-  const budgetMode = plan.budgetMode;
-  if (budgetMode) chips.push({ label: budgetMode, accent: budgetMode === "CBO" });
-
-  const budget = formatBudget(plan);
-  if (budget) chips.push({ label: budget });
-
-  const fmt = prettifyFormat(plan.format);
-  if (fmt) chips.push({ label: fmt });
-
-  const acctCount = plan.targets?.length ?? 0;
-  if (acctCount > 0) {
-    chips.push({ label: `✓ ${acctCount} account${acctCount !== 1 ? "s" : ""}` });
-  } else {
-    chips.push({ label: "No accounts" });
-  }
-
-  const hasPixel = plan.targets?.some((t) => t.pixelId);
-  if (hasPixel) chips.push({ label: "Pixel ✓" });
-
-  return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      {chips.slice(0, 6).map((chip, i) => (
-        <span
-          key={i}
-          className={cn(
-            "rounded-full border px-2 py-0.5 font-mono text-[10px]",
-            chip.accent
-              ? "border-primary/20 bg-primary/10 text-primary"
-              : "border-border bg-muted/50 text-muted-foreground",
-          )}
-        >
-          {chip.label}
-        </span>
-      ))}
-    </div>
-  );
-}
+/* ── Custom sentinel — "start from scratch" card always first ── */
+const CUSTOM_ID = "__custom__";
 
 /* ------------------------------------------------------------------ */
 /*  Main screen                                                         */
 /* ------------------------------------------------------------------ */
 
-export default function Step1StartV2({
-  flow,
-  saveAsStrategy,
-  onSaveAsStrategyChange,
-}: {
-  flow: UseFlowV2;
-  saveAsStrategy: boolean;
-  onSaveAsStrategyChange: (v: boolean) => void;
-}) {
+export default function Step1StartV2({ flow }: Step1StartV2Props) {
   const { plan } = flow;
   const { objective } = plan;
 
-  // Launch strategy picker — real data from strategiesService
-  const [savedStrategies] = useState(() => strategiesService.list());
-  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  /* ── strategy data ── */
+  const [strategies, setStrategies] = useState<LaunchStrategy[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setStrategies(strategiesService.list());
+      setLoading(false);
+    }, 180);
+    return () => clearTimeout(t);
+  }, []);
+
+  /* ── selection — Custom is default ── */
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>(CUSTOM_ID);
   const [prefillNotice, setPrefillNotice] = useState(false);
 
-  // Additional filter state
-  const [budgetModeFilter, setBudgetModeFilter] = useState<"all" | "CBO" | "ABO">("all");
-  const [budgetRangeFilter, setBudgetRangeFilter] = useState<"all" | "lt2k" | "2k10k" | "gt10k">("all");
-  const [formatFilter, setFormatFilter] = useState<"all" | "single_image" | "single_video" | "carousel">("all");
+  /* ── section 2 scroll target ── */
+  const section2Ref = useRef<HTMLDivElement>(null);
 
-  const chooseObjective = (o: Objective) => flow.chooseObjectiveFormat(o, null);
+  /* ── reset to Custom when objective changes ── */
+  const prevObjective = useRef<typeof objective>(undefined);
+  useEffect(() => {
+    if (prevObjective.current !== undefined && prevObjective.current !== objective) {
+      setSelectedStrategyId(CUSTOM_ID);
+      setPrefillNotice(false);
+    }
+    prevObjective.current = objective;
+  }, [objective]);
 
-  const strategyUnlocked = objective !== null;
+  /* ── recently used strip — filtered by selected objective ── */
+  const recentlyUsed = useMemo(() => {
+    return [...strategies]
+      .filter((s) => {
+        if (!s.lastUsedAt) return false;
+        if (objective && s.plan.objective && s.plan.objective !== objective) return false;
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.lastUsedAt ?? 0).getTime() -
+          new Date(a.lastUsedAt ?? 0).getTime(),
+      )
+      .slice(0, 8);
+  }, [strategies, objective]);
 
-  // Filter strategies: objective + budget mode + budget range + format
-  const filteredStrategies = savedStrategies.filter((s) => {
-    if (s.plan.objective && objective && s.plan.objective !== objective) return false;
-    if (budgetModeFilter !== "all" && s.plan.budgetMode !== budgetModeFilter) return false;
-    if (budgetRangeFilter === "lt2k" && !((s.plan.budgetAmount ?? 0) < 2000)) return false;
-    if (budgetRangeFilter === "2k10k" && !((s.plan.budgetAmount ?? 0) >= 2000 && (s.plan.budgetAmount ?? 0) <= 10000)) return false;
-    if (budgetRangeFilter === "gt10k" && !((s.plan.budgetAmount ?? 0) > 10000)) return false;
-    if (formatFilter !== "all" && s.plan.format !== formatFilter) return false;
-    return true;
-  });
+  /* ── handlers ── */
 
-  const selectedStrategy = selectedStrategyId
-    ? savedStrategies.find((s) => s.id === selectedStrategyId)
-    : undefined;
+  const handleObjective = (o: Objective) => {
+    flow.chooseObjectiveFormat(o, null);
+    setTimeout(() => {
+      section2Ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 80);
+  };
 
   const handleStrategySelect = (id: string) => {
     setSelectedStrategyId(id);
-    setPopoverOpen(false);
-    const strategy = savedStrategies.find((s) => s.id === id);
-    if (strategy?.plan) {
-      flow.patch(strategy.plan);
+    if (id === CUSTOM_ID) {
+      // Custom — keep objective, clear any prior strategy prefill
+      if (objective) flow.chooseObjectiveFormat(objective as Objective, null);
+      setPrefillNotice(false);
+      return;
+    }
+    const s = strategies.find((x) => x.id === id);
+    if (s?.plan) {
+      flow.patch(s.plan);
       setPrefillNotice(true);
     }
   };
 
-  return (
-    <div data-screen="lv2-step1-start-v2" className="space-y-8">
-      {/* ── Objective heading ─────────────────────────────────────── */}
-      <div>
-        <h2 className="text-[16px] font-semibold text-foreground">
-          What's your campaign goal?
-        </h2>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Choose the objective that matches what you want to achieve
-        </p>
-      </div>
+  /* ── render ── */
 
-      {/* ── Objective cards (hero) ────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3">
-        {OBJECTIVES.map((o) => {
-          const { Icon, desc } = OBJECTIVE_META[o.id];
-          const selected = objective === o.id;
-          return (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => chooseObjective(o.id)}
-              aria-pressed={selected}
-              className={cn(
-                "relative flex flex-col gap-3 rounded-2xl border p-5 text-left transition-all duration-200",
-                selected
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
-              )}
-            >
-              {/* Icon container */}
-              <div
+  return (
+    <div data-screen="lv2-step1-start-v2" className="space-y-7">
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* §1 — Objective                                               */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+              1
+            </span>
+            <h2 className="text-[15px] font-semibold text-foreground">
+              What's your campaign goal?
+            </h2>
+          </div>
+          <p className="pl-7 text-xs text-muted-foreground">
+            Choose the objective that matches what you want to achieve.
+          </p>
+        </div>
+
+        {/* 2-col icon card grid */}
+        <div className="grid grid-cols-2 gap-2.5">
+          {OBJECTIVES.map((o) => {
+            const { Icon, desc } = OBJECTIVE_META[o.id];
+            const selected = objective === o.id;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => handleObjective(o.id)}
+                aria-pressed={selected}
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
-                  selected ? "bg-primary/15" : "bg-muted",
+                  "relative flex flex-col gap-3 rounded-2xl border p-4 text-left transition-all duration-200",
+                  selected
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
                 )}
               >
-                <Icon
+                <div
                   className={cn(
-                    "h-5 w-5",
-                    selected ? "text-primary" : "text-muted-foreground",
+                    "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
+                    selected ? "bg-primary/15" : "bg-muted",
                   )}
-                />
-              </div>
-
-              {/* Label + description */}
-              <div>
-                <p className="text-[14px] font-semibold text-foreground">{o.label}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{desc}</p>
-              </div>
-
-              {/* Selected check — absolute top-right */}
-              {selected && (
-                <div className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
-                  <Check className="h-3 w-3 text-primary-foreground" />
+                >
+                  <Icon
+                    className={cn(
+                      "h-[18px] w-[18px]",
+                      selected ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
                 </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Launch strategy — optional, unlocks after objective ───── */}
-      <div
-        className={cn(
-          "space-y-3 transition-opacity duration-300",
-          strategyUnlocked ? "opacity-100" : "pointer-events-none opacity-40",
-        )}
-        aria-disabled={!strategyUnlocked}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-foreground">Launch strategy</span>
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            Optional
-          </span>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">{o.label}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
+                    {desc}
+                  </p>
+                </div>
+                {selected && (
+                  <div className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+                    <Check className="h-3 w-3 text-primary-foreground" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Start from a saved strategy to pre-fill setup, distribution, and audience settings.
-          You can still edit any field after applying.
-        </p>
+      </section>
 
-        {/* Custom strategy picker — Popover */}
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              disabled={!strategyUnlocked}
-              className={cn(
-                "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors",
-                "hover:border-foreground/30 focus:outline-none focus:ring-1 focus:ring-ring",
-                !selectedStrategy && "text-muted-foreground",
-              )}
-            >
-              <span className="truncate">
-                {selectedStrategy ? selectedStrategy.name : "Choose a saved strategy…"}
-              </span>
-              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-[var(--radix-popover-trigger-width)] p-0"
-            align="start"
-            sideOffset={4}
-          >
-            {/* Filter rows */}
-            <div className="border-b border-border px-3 pb-2 pt-2.5 space-y-2">
-              {/* Budget mode row */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0 w-16">Mode</span>
-                {(["all", "CBO", "ABO"] as const).map((mode) => (
-                  <FilterChip
-                    key={mode}
-                    active={budgetModeFilter === mode}
-                    onClick={() => setBudgetModeFilter(mode === budgetModeFilter ? "all" : mode)}
-                  >
-                    {mode === "all" ? "All" : mode}
-                  </FilterChip>
-                ))}
-              </div>
-              {/* Budget range row */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0 w-16">Budget</span>
-                {(["all", "lt2k", "2k10k", "gt10k"] as const).map((range) => (
-                  <FilterChip
-                    key={range}
-                    active={budgetRangeFilter === range}
-                    onClick={() => setBudgetRangeFilter(range === budgetRangeFilter ? "all" : range)}
-                  >
-                    {range === "all" ? "All" : range === "lt2k" ? "< ₹2K" : range === "2k10k" ? "₹2K–10K" : "₹10K+"}
-                  </FilterChip>
-                ))}
-              </div>
-              {/* Format row */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 shrink-0 w-16">Format</span>
-                {(["all", "single_image", "single_video", "carousel"] as const).map((fmt) => (
-                  <FilterChip
-                    key={fmt}
-                    active={formatFilter === fmt}
-                    onClick={() => setFormatFilter(fmt === formatFilter ? "all" : fmt)}
-                  >
-                    {fmt === "all" ? "All" : fmt === "single_image" ? "Image" : fmt === "single_video" ? "Video" : "Carousel"}
-                  </FilterChip>
-                ))}
-              </div>
-            </div>
-            <div className="max-h-60 overflow-y-auto">
-              {savedStrategies.length === 0 ? (
-                <div className="px-3 py-4 text-center text-[11px] font-mono text-muted-foreground">
-                  No saved strategies yet
-                </div>
-              ) : filteredStrategies.length === 0 ? (
-                <div className="px-3 py-4 text-center text-[11px] font-mono text-muted-foreground">
-                  No strategies match the selected filters
-                </div>
-              ) : (
-                filteredStrategies.map((s) => {
-                  const isSelected = selectedStrategyId === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => handleStrategySelect(s.id)}
-                      className={cn(
-                        "w-full px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
-                        isSelected && "bg-primary/5",
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">{s.name}</span>
-                        {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                      </div>
-                      <StrategyChips strategy={s} />
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* §2 — Recently used setups (reveals after objective pick)    */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <section
+        ref={section2Ref}
+        className={cn(
+          "space-y-3 transition-all duration-300 ease-out",
+          objective
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 translate-y-1.5 pointer-events-none select-none",
+        )}
+        aria-hidden={!objective}
+      >
+        {/* Header */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+              2
+            </span>
+            <h2 className="text-[15px] font-semibold text-foreground">
+              Start from a saved setup
+            </h2>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Optional
+            </span>
+          </div>
+          <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
+            {recentSubtext(objective as Objective | null, recentlyUsed.length)}
+          </p>
+        </div>
 
-        {/* Prefill confirmation notice */}
+        {/* Prefill confirmation */}
         {prefillNotice && (
           <div
-            className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/50 px-3 py-2"
+            className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2"
             role="status"
             aria-live="polite"
           >
             <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-            <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
-              Strategy applied — all fields pre-filled. You can still edit any step.
+            <p className="flex-1 text-[11px] text-muted-foreground leading-relaxed">
+              Setup applied — all fields pre-filled. Edit any step on the way.
             </p>
             <button
               type="button"
               onClick={() => setPrefillNotice(false)}
-              className="ml-auto shrink-0 text-[11px] text-muted-foreground/60 hover:text-muted-foreground"
-              aria-label="Dismiss notice"
+              aria-label="Dismiss"
+              className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground"
             >
-              ✕
+              <X className="h-3 w-3" />
             </button>
           </div>
         )}
 
-        {/* Save as strategy checkbox */}
-        <label className="flex cursor-pointer items-center gap-2 select-none">
-          <input
-            type="checkbox"
-            checked={saveAsStrategy}
-            onChange={(e) => onSaveAsStrategyChange(e.target.checked)}
-            className="h-3.5 w-3.5 rounded accent-primary"
-          />
-          <span className="text-[11px] text-muted-foreground">
-            Save this launch as a reusable strategy when it completes
-          </span>
-        </label>
-      </div>
+        {/* Recently used strip */}
+        {loading ? (
+          <div className="flex gap-2 overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[88px] w-[196px] shrink-0 animate-pulse rounded-2xl border border-border bg-muted/30"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentlyUsed.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Recently used
+                </span>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+              </div>
+            )}
+            <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
+              {/* Custom card — always first, default selected */}
+              <div className="w-[196px] shrink-0 snap-start">
+                <button
+                  type="button"
+                  onClick={() => handleStrategySelect(CUSTOM_ID)}
+                  aria-pressed={selectedStrategyId === CUSTOM_ID}
+                  className={cn(
+                    "flex h-full w-full flex-col gap-2 rounded-2xl border p-2.5 text-left transition-colors",
+                    selectedStrategyId === CUSTOM_ID
+                      ? "border-2 border-foreground bg-foreground/[0.03]"
+                      : "border-dashed border-border bg-card hover:border-foreground/30",
+                  )}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-lg",
+                      selectedStrategyId === CUSTOM_ID ? "bg-foreground/10" : "bg-muted",
+                    )}>
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                    {selectedStrategyId === CUSTOM_ID && (
+                      <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-background">
+                        <Check className="h-2.5 w-2.5" />
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold text-foreground">Custom</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">Configure every step manually</p>
+                  </div>
+                </button>
+              </div>
+              {/* Recently used strategy cards */}
+              {recentlyUsed.map((s) => (
+                <div key={s.id} className="w-[196px] shrink-0 snap-start">
+                  <StrategyCard
+                    strategy={s}
+                    selected={selectedStrategyId === s.id}
+                    onSelect={() => handleStrategySelect(s.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

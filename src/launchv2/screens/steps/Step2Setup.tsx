@@ -156,13 +156,29 @@ function Subsection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-1.5 text-[13px] font-medium text-foreground hover:opacity-80">
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !open && "-rotate-90")} />
-        {label}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-4 pt-3 pl-5">{children}</CollapsibleContent>
-    </Collapsible>
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      {/* Header — click to toggle */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/20"
+      >
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+        <span className="text-[13px] font-semibold text-foreground">{label}</span>
+      </button>
+
+      {/* Body */}
+      {open && (
+        <div className="space-y-4 border-t border-border/50 px-3 pb-3 pt-3">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -183,7 +199,6 @@ function Toggle({
   locked,
   reason,
   icon,
-  noBorder,
 }: {
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
@@ -192,25 +207,35 @@ function Toggle({
   locked?: boolean;
   reason?: string;
   icon?: React.ReactNode;
-  /** When true, suppresses the outer card border (used when Toggle is inside a grouped card container). */
-  noBorder?: boolean;
 }) {
   return (
     <div
+      role="button"
+      tabIndex={locked ? -1 : 0}
+      onClick={() => !locked && onCheckedChange(!checked)}
+      onKeyDown={(e) => { if (!locked && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onCheckedChange(!checked); } }}
       className={cn(
-        "flex items-start justify-between gap-3 bg-card px-3 py-2.5",
-        noBorder ? "first:rounded-t-2xl last:rounded-b-2xl" : "rounded-2xl border border-border",
+        "flex cursor-pointer items-start justify-between gap-3 rounded-2xl border px-3 py-2.5 transition-colors",
+        checked
+          ? "border-primary/40 bg-primary/5"
+          : "border-border bg-card hover:border-foreground/20 hover:bg-muted/20",
+        locked && "cursor-not-allowed opacity-60",
       )}
     >
       <div className="min-w-0">
-        <Label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+        <Label className={cn("flex cursor-pointer items-center gap-1.5 text-sm font-medium", checked ? "text-foreground" : "text-foreground")}>
           {icon}
           {label}
         </Label>
         {desc && <p className="mt-0.5 text-[11px] text-muted-foreground">{desc}</p>}
         {locked && <LockNote reason={reason} />}
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} disabled={locked} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={locked}
+        onClick={(e) => e.stopPropagation()}
+      />
     </div>
   );
 }
@@ -594,31 +619,25 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </p>
           )}
 
-          {/* ── Advantage+, A/B Test — grouped card ────── */}
-          <div className="rounded-2xl border border-border divide-y divide-border">
-            {/* Advantage+ toggle — surfaced */}
+          {/* ── Advantage+, A/B Test — individual feature cards ────── */}
+          <div className="space-y-2">
             <Toggle
               checked={plan.advantagePlus}
               onCheckedChange={(v) => patch({ advantagePlus: v })}
               label="Advantage+"
               desc="Meta optimizes budget, audience and placements automatically."
-              icon={<Sparkles className="h-4 w-4 text-primary" />}
-              noBorder
+              icon={<Sparkles className={cn("h-4 w-4", plan.advantagePlus ? "text-primary" : "text-muted-foreground")} />}
             />
             {asc && (
-              <p className="flex items-center gap-1.5 px-3 pb-2 text-[11px] text-primary">
-                <Sparkles className="h-3 w-3" /> Advantage+ active — campaign budget, broad audience and auto
-                placements applied.
+              <p className="flex items-center gap-1.5 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
+                <Sparkles className="h-3 w-3 shrink-0" /> Advantage+ active — campaign budget, broad audience and auto placements applied.
               </p>
             )}
-
-            {/* A/B Test toggle */}
             <Toggle
               checked={plan.abTest}
               onCheckedChange={(v) => patch({ abTest: v })}
               label="A/B Test"
               desc="Meta auto-splits traffic 50/50 between two variants. No extra setup."
-              noBorder
             />
           </div>
 

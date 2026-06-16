@@ -21,7 +21,7 @@ import { getTemplate, getStrategy } from "../data";
 import { buildIssues, canLaunch, readiness } from "./review/reviewModel";
 import type { ReviewIssue } from "./review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
-import Step1Start from "./steps/Step1Start";
+import Step1Start from "./steps/Step1StartV2";
 import Step2Setup from "./steps/Step2Setup";
 import Step4Review from "./steps/Step4Review";
 import Step3AdDistributionV3 from "./steps/Step3AdDistributionV3";
