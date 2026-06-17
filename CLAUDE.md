@@ -68,12 +68,13 @@ changes. Pick models per task.
   independent units and run them as parallel agents. One agent per **target file**
   (avoids merge conflicts). Cross-file wiring that imports from a new file → do it
   sequentially after the parallel workers finish.
-- **Always run a monitor/reviewer agent.** A dedicated agent verifies the workers'
-  output: runs `tsc`/build, checks design-system + NN/g compliance, hunts
+- **Always end with a monitor/reviewer agent — FINAL GATE only** (not concurrent).
+  Workers all finish, then one dedicated agent does a single adversarial review
+  pass: runs `tsc`/build, checks design-system + NN/g compliance, hunts
   regressions, confirms each worker actually completed its slice. The batch is not
-  "done" until the monitor signs off. Prefer adversarial verification over a
-  rubber stamp. For large orchestration use the Workflow tool (parallel/pipeline
-  workers + a final verify stage = workers + monitor).
+  "done" until the monitor signs off. Adversarial verification, not a rubber stamp.
+  For large orchestration use the Workflow tool (parallel/pipeline workers + a
+  final verify stage = workers + monitor).
 - **Model tiering:**
   - **Opus** — hard reasoning, architecture/design thinking, tricky debugging, the
     monitor/reviewer role. Bring an Opus agent in whenever real thinking is needed.
