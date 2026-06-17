@@ -4,7 +4,7 @@
  * Chrome: running-context chips + step progress + footer (Back/Next/Launch).
  * Step bodies are filled by build agents; this owns the shell + flow control.
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { AlertCircle, AlertTriangle, Check, Loader2, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,27 @@ function stepValid(plan: PlanV2, step: StepV2): boolean {
 export default function LaunchV2Flow() {
   const [sp, setSearchParams] = useSearchParams();
 
+  // ── Draft UUID — stable for this launch session ────────────────────────
+  // Generated once on first visit; read from URL on subsequent visits/refreshes.
+  const draftId = useMemo<string>(() => {
+    const existing = sp.get('draft');
+    if (existing) return existing;
+    return crypto.randomUUID();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — generate once, never re-derive
+
+  // Push draft + step=1 into URL on first mount if ?draft is missing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!sp.get('draft')) {
+      setSearchParams(
+        (prev) => { prev.set('draft', draftId); if (!prev.get('step')) prev.set('step', '1'); return prev; },
+        { replace: true }
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once
+
   // Decode deep-link state ONCE on mount — intentionally not re-run on sp changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialDeepLink = useMemo<DeepLinkState | undefined>(() => {
@@ -51,11 +72,60 @@ export default function LaunchV2Flow() {
     try { return JSON.parse(atob(raw)) as DeepLinkState; } catch { return undefined; }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally run once
 
-  const flow = useFlowV2(sp.get('draft') ?? undefined, initialDeepLink);
+  const flow = useFlowV2(sp.get('draft') ?? draftId, initialDeepLink);
   const uiHook = useUIState(initialDeepLink?.ui);
   const service = useLaunchV2();
   const navigate = useNavigate();
   const { plan, step } = flow;
+
+  // ── localStorage key for this draft ───────────────────────────────────
+  const LS_KEY = `lv2:draft:${draftId}`;
+
+  // Restore from localStorage on mount (only when no ?s= deep-link is active,
+  // so the deep-link always wins). Runs once after draftId is stable.
+  useEffect(() => {
+    if (initialDeepLink) return; // deep-link takes precedence
+    const saved = localStorage.getItem(LS_KEY);
+    if (!saved) return;
+    try {
+      const { plan: savedPlan, step: savedStep } = JSON.parse(saved) as { plan: PlanV2; step: number };
+      if (savedPlan && typeof savedStep === 'number') {
+        flow.restorePlan(savedPlan, savedStep);
+        setSearchParams(
+          (prev) => { prev.set('draft', draftId); prev.set('step', String(savedStep)); return prev; },
+          { replace: true }
+        );
+      }
+    } catch {
+      // corrupted — silently ignore
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  // Save plan + step to localStorage on every change — debounced 300ms.
+  // Keep the draft in localStorage across navigations so a refresh restores state.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({ plan, step }));
+      } catch {
+        // quota exceeded — silently ignore
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, step]);
+
+  // Sync step to URL params on every step change (replace: true — wizard has its own
+  // Back button; browser back should exit the wizard, not step backwards).
+  useEffect(() => {
+    setSearchParams(
+      (prev) => { prev.set('draft', draftId); prev.set('step', String(step)); return prev; },
+      { replace: true }
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   const [saveAsStrategy, setSaveAsStrategy] = useState(false);
 
   // FeedbackSheet retained as a passive surface — the floating Feedback button

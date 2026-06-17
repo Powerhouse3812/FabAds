@@ -171,6 +171,8 @@ export interface UseFlowV2 {
   next: () => void;
   back: () => void;
   patch: (p: Partial<PlanV2>) => void;
+  /** Restore a persisted plan + step (e.g. from localStorage on mount). */
+  restorePlan: (snapshot: PlanV2, s: number) => void;
   /** Intent → prefill structure/budget/spread/bid/advantage+ (the smart reduction). */
   chooseIntent: (i: Intent) => void;
   /** Strategy preset/saved → prefill all budget+structure+spread+advantage fields. */
@@ -358,6 +360,10 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
   const setStep = useCallback((s: StepV2) => setStepState(s), []);
   const next = useCallback(() => setStepState((s) => Math.min(5, s + 1) as StepV2), []);
   const back = useCallback(() => setStepState((s) => Math.max(1, s - 1) as StepV2), []);
+  const restorePlan = useCallback((snapshot: PlanV2, s: number) => {
+    setPlan(snapshot);
+    setStepState(s as StepV2);
+  }, []);
   const reset = useCallback(() => {
     setPlan(newPlanV2());
     setStepState(1);
@@ -454,6 +460,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
     next,
     back,
     patch,
+    restorePlan,
     chooseIntent,
     chooseStrategy,
     applySavedStrategy,
