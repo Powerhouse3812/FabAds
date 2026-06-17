@@ -5,7 +5,7 @@
  * gates downstream. Autosaves to sessionStorage.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AdFormat, Intent, MediaScope, Objective, PlanV2, TargetPair } from "../types";
+import type { AccountDistribution, AdFormat, Intent, MediaScope, NamingPatterns, Objective, PageDistribution, PlanV2, StructureCounts, TargetPair, TargetingSpec } from "../types";
 import {
   cascade,
   defaultBudgetMode,
@@ -110,11 +110,14 @@ export function newPlanV2(): PlanV2 {
       utmTemplate: "utm_source=facebook&utm_medium=paid&utm_campaign={{campaign}}&utm_content={{adset}}",
     },
     copyOverrides: {},
+    carouselCards: [],
+    collectionCoverCreativeId: null,
     structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 },
     pageDistribution: "fill_first",
     pageWeights: {},
     namingPattern: "{brand}_{intent}_{objective}_{date}",
     scheduledFor: null,
+    nodeOverrides: {},
     appliedSetupTemplateId: null,
     appliedDistributionTemplateId: null,
     postIdsByAccount: {},
@@ -125,6 +128,37 @@ export function newPlanV2(): PlanV2 {
     productSetByAccount: {},
     placementMode: "advantage",
     placements: DEFAULT_PLACEMENTS,
+    // Meeting redesign additions
+    flowMode: "custom",
+    fastLaunch: false,
+    accountDistribution: "equal",
+    accountWeights: {},
+    structureByAccount: {},
+    pageDistributionByAccount: {},
+    distVariant: "v1",
+    targeting: {
+      geoLocations: {
+        countries: [],
+        regions: [],
+        cities: [],
+        zips: [],
+        customLocations: [],
+        geoMarkets: [],
+        locationTypes: ["home"],
+      },
+      ageMin: 18,
+      ageMax: 65,
+      genders: [],
+      locales: [],
+      customAudiences: [],
+      excludedCustomAudiences: [],
+      flexibleSpec: [],
+      exclusions: { interests: [], behaviors: [], demographics: [] },
+      advantageAudience: true,
+    },
+    specialAdCountries: [],
+    namingPatterns: { campaign: "", adset: "", ad: "" },
+    reviewVariant: "tree",
     createdAt: ts,
     updatedAt: ts,
   };
@@ -141,6 +175,18 @@ export interface UseFlowV2 {
   chooseIntent: (i: Intent) => void;
   /** Strategy preset/saved → prefill all budget+structure+spread+advantage fields. */
   chooseStrategy: (id: string | null) => void;
+  /**
+   * Apply a saved-setup/strategy snapshot (Step 1, strategy-first flow).
+   * Runs the objective cascade FIRST (so destination/optimization defaults +
+   * downstream locks are correct) then layers the snapshot's explicit values
+   * on top. Sets flowMode = "template". Everything stays editable downstream.
+   */
+  applySavedStrategy: (snapshot: Partial<PlanV2>) => void;
+  /**
+   * Start-fresh / manual path (Step 1 "Custom" card). Resets flowMode to
+   * "custom"; clears any prior strategy snapshot. Objective is chosen after.
+   */
+  chooseCustomFlow: () => void;
   /** Objective+format → set destination + optimization defaults + gate. */
   chooseObjectiveFormat: (o: Objective, f: AdFormat | null) => void;
   setTargets: (t: TargetPair[]) => void;
@@ -235,6 +281,55 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
       }
       return { ...prev, strategyId: id };
     });
+  }, []);
+
+  const applySavedStrategy = useCallback((snapshot: Partial<PlanV2>) => {
+    setPlan((prev) => {
+      // 1) Establish objective from the snapshot (or keep prior) and run the
+      //    SAME cascade chooseObjectiveFormat uses so destination + optimization
+      //    defaults + downstream locks resolve correctly.
+      const objective = (snapshot.objective ?? prev.objective) as Objective | null;
+      let cascaded: Partial<PlanV2> = {};
+      if (objective) {
+        const fallback = defaultDestination(objective);
+        // Snapshot destination wins when present (it's already a valid Meta pick);
+        // else fall back to the objective default.
+        const dest = snapshot.destinationType ?? fallback;
+        const c = cascade(objective, dest);
+        cascaded = {
+          objective,
+          destinationType: dest,
+          optimizationGoal: c.lockedGoal ?? c.optimizationGoals[0] ?? null,
+          conversionEvent: null,
+          budgetMode: defaultBudgetMode(objective, snapshot.intent ?? prev.intent),
+        };
+      }
+      // 2) Layer the snapshot's explicit values on TOP of the cascade so the
+      //    template's budget/structure/spread/bid/etc. take precedence, while
+      //    keeping cascade-derived destination/optimization where the snapshot
+      //    is silent. flowMode flips to "template"; everything stays editable.
+      return {
+        ...prev,
+        ...cascaded,
+        ...snapshot,
+        objective: objective ?? prev.objective,
+        flowMode: "template",
+        name:
+          prev.name === "Untitled launch" && objective
+            ? `${objective.replace("OUTCOME_", "").toLowerCase()} launch`
+            : prev.name,
+      };
+    });
+  }, []);
+
+  const chooseCustomFlow = useCallback(() => {
+    setPlan((prev) => ({
+      ...prev,
+      flowMode: "custom",
+      // Clear any strategy linkage from a prior template pick. Objective is left
+      // as-is so re-selecting Custom doesn't wipe an objective the user kept.
+      strategyId: null,
+    }));
   }, []);
 
   const chooseObjectiveFormat = useCallback((o: Objective, f: AdFormat | null) => {
@@ -361,6 +456,8 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
     patch,
     chooseIntent,
     chooseStrategy,
+    applySavedStrategy,
+    chooseCustomFlow,
     chooseObjectiveFormat,
     setTargets,
     reset,

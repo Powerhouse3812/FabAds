@@ -22,12 +22,10 @@ import {
   FolderOpen,
   HardDrive,
   Hash,
-  HelpCircle,
   Image,
   Library,
   Link2,
   Plus,
-  RotateCw,
   ShoppingBag,
   Sparkles,
   Upload,
@@ -51,7 +49,8 @@ import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFr
 import CapMeterWithFixes from "./distribution/CapMeterWithFixes";
 import StructureEditor from "./distribution/StructureEditor";
 import { DistributionSectionChip } from "./distribution/DistributionTemplateBar";
-import { adSetCount, adsPerDestination, capCheck } from "../../deriveV2";
+import { adSetCount, adsPerDestination, capCheck, spreadPreview } from "../../deriveV2";
+import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
 
 // ── Source → Lucide icon map ──────────────────────────────────────────────────
@@ -112,6 +111,159 @@ function livePageSplitPreviewV3(id: PageSplitId, totalAds: number, pageCount: nu
     case "duplicate":return `${totalAds} × ${p} pages = ${totalAds * p} ads total`;
     default:         return "";
   }
+}
+
+// ── Page-split visual diagram ─────────────────────────────────────────────────
+/**
+ * Tiny page boxes with ad "fill" bars showing how ads land per mode. Two pages
+ * are illustrated (or one for one_page). Lime accent for the filled portion.
+ */
+function PageSplitDiagram({ id, active }: { id: PageSplitId; active: boolean }) {
+  // Each page is a small box; the inner bar height (0–1) shows relative fill.
+  let fills: number[];
+  switch (id) {
+    case "fill_first":
+      fills = [1, 0.35]; // first packed, overflow spills
+      break;
+    case "equal":
+      fills = [0.6, 0.6]; // even
+      break;
+    case "one_page":
+      fills = [1]; // single page
+      break;
+    case "duplicate":
+      fills = [1, 1]; // each page runs the full set
+      break;
+    default:
+      fills = [0.5, 0.5];
+  }
+  return (
+    <div className="flex items-end gap-1.5" aria-hidden>
+      {fills.map((f, i) => (
+        <div
+          key={i}
+          className={cn(
+            "relative flex h-7 w-5 items-end overflow-hidden rounded-[5px] border",
+            active ? "border-foreground/30 bg-foreground/[0.03]" : "border-border bg-muted/30",
+          )}
+        >
+          <div
+            className={cn("w-full", active ? "bg-primary" : "bg-foreground/15")}
+            style={{ height: `${Math.round(f * 100)}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Live preview tree card (top of distribution pane) ─────────────────────────
+function CountStat({ value, label }: { value: number | string; label: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="font-mono text-[15px] font-semibold tabular-nums leading-none text-foreground">
+        {value}
+      </span>
+      <span className="mt-0.5 text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function LivePreviewCard({ flow, currency }: { flow: UseFlowV2; currency: string }) {
+  const { plan } = flow;
+  const preview = spreadPreview(plan);
+  const accounts = Math.max(plan.targets.length, 1);
+  const campaigns = accounts * Math.max(plan.structure.campaigns, 1);
+  const budgetLabel = `${formatMoney(plan.budgetAmount, currency)}/day`;
+
+  return (
+    <Card className="rounded-2xl border-primary/30 bg-primary/5">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-foreground">Live preview</span>
+          <span className="font-mono text-[11px] tabular-nums text-primary">{budgetLabel}</span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          <CountStat value={accounts} label="accts" />
+          <CountStat value={campaigns} label="camps" />
+          <CountStat value={preview.adSets} label="ad sets" />
+          <CountStat value={preview.total} label="ads" />
+        </div>
+        {/* Compact bar showing relative ads-per-tier */}
+        <div className="flex items-center gap-1" aria-hidden>
+          {[
+            { n: accounts, c: "bg-foreground/20" },
+            { n: campaigns, c: "bg-foreground/35" },
+            { n: preview.adSets, c: "bg-foreground/55" },
+            { n: preview.total, c: "bg-primary" },
+          ].map((tier, i) => (
+            <div
+              key={i}
+              className={cn("h-1.5 rounded-full", tier.c)}
+              style={{ flex: Math.max(tier.n, 1) }}
+            />
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          {preview.creatives} creative{preview.creatives !== 1 ? "s" : ""} · {preview.adsPerDest} ad
+          {preview.adsPerDest !== 1 ? "s" : ""} per destination
+        </p>
+
+        {/* Account-on-top read-only tree — structure replicates per account */}
+        <AccountFanoutTree flow={flow} />
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Read-only fan-out tree: account is the OUTERMOST level (a Meta campaign can't
+ * span accounts), so the campaign→ad-set→ad structure replicates under each
+ * selected account/page. Reuses buildReviewTree — no new derivation.
+ */
+function AccountFanoutTree({ flow }: { flow: UseFlowV2 }) {
+  const { plan } = flow;
+  if (plan.targets.length === 0) return null;
+  const tree = buildReviewTree(plan);
+  if (tree.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5 border-t border-primary/15 pt-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+          Fan-out by account
+        </span>
+        <span className="text-[9px] text-muted-foreground/70">replicates per account</span>
+      </div>
+      <div className="space-y-1">
+        {tree.map((acct) => {
+          const campaigns = acct.children?.length ?? 0;
+          const adSets =
+            acct.children?.reduce((n, c) => n + (c.children?.length ?? 0), 0) ?? 0;
+          return (
+            <div key={acct.id} className="rounded-lg border border-border bg-card/60 px-2 py-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <ShoppingBag className="h-3 w-3 shrink-0 text-primary" strokeWidth={1.5} />
+                  <span className="truncate text-[11px] font-medium text-foreground">
+                    {acct.label}
+                  </span>
+                </span>
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {acct.count ?? 0} ads
+                </span>
+              </div>
+              <div className="mt-0.5 pl-[18px] font-mono text-[9px] tabular-nums text-muted-foreground/80">
+                {campaigns} camp{campaigns !== 1 ? "s" : ""} · {adSets} ad set{adSets !== 1 ? "s" : ""}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── SectionCard (left pane) ───────────────────────────────────────────────────
@@ -215,99 +367,6 @@ function CatalogueAdCopy({ flow }: { flow: UseFlowV2 }) {
   );
 }
 
-// ── Gutter rail (right edge quick actions) ────────────────────────────────────
-function GutterRail({
-  flow,
-  onJumpToCap,
-}: {
-  flow: UseFlowV2;
-  onJumpToCap: () => void;
-}) {
-  const { plan, patch } = flow;
-  const cap = capCheck(plan);
-
-  const handleReset = () => {
-    patch({
-      pageDistribution: "fill_first",
-      spread: "round_robin",
-      structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 },
-    });
-  };
-
-  const toggleCatalogue = () => {
-    patch({ catalogueToggle: !plan.catalogueToggle });
-  };
-
-  const items: {
-    icon: React.ElementType;
-    label: string;
-    onClick: () => void;
-    active?: boolean;
-    badge?: boolean;
-  }[] = [
-    {
-      icon: AlertTriangle,
-      label: cap.ok ? "Cap status — all clear" : "Cap meter — issues",
-      onClick: onJumpToCap,
-      badge: !cap.ok,
-    },
-    {
-      icon: ShoppingBag,
-      label: plan.catalogueToggle ? "Catalogue mode (on)" : "Catalogue mode",
-      onClick: toggleCatalogue,
-      active: plan.catalogueToggle,
-    },
-    {
-      icon: RotateCw,
-      label: "Reset distribution",
-      onClick: handleReset,
-    },
-    {
-      icon: HelpCircle,
-      label: "Help",
-      onClick: () => { /* future tooltip / drawer */ },
-    },
-  ];
-
-  return (
-    <aside
-      aria-label="Quick actions"
-      className="hidden lg:flex w-12 shrink-0 flex-col items-center gap-1 border-l border-border bg-card/30 py-4 sticky top-0 h-full"
-    >
-      {items.map((it) => {
-        const Icon = it.icon;
-        return (
-          <button
-            key={it.label}
-            type="button"
-            onClick={it.onClick}
-            title={it.label}
-            aria-label={it.label}
-            className={cn(
-              "fab-focus group relative inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
-              it.active
-                ? "border-foreground bg-foreground/[0.03] text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground",
-            )}
-          >
-            <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            {it.badge && (
-              <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-500" />
-            )}
-            {/* Tooltip */}
-            <span
-              role="tooltip"
-              className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
-            >
-              {it.label}
-            </span>
-          </button>
-        );
-      })}
-    </aside>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const { plan, patch } = flow;
@@ -379,14 +438,11 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const distTotalAds = plan.structure.campaigns * plan.structure.adSetsPerCampaign * plan.structure.adsPerAdSet;
   const distPageCount = Math.max(plan.targets.length, 1);
 
-  // ── Cap-meter quick-jump (anchor + ref) ─────────────────────────────────────
+  // ── Cap-meter anchor ref ─────────────────────────────────────────────────────
   const capRef = useRef<HTMLDivElement>(null);
-  const handleJumpToCap = () => {
-    capRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   // ── Draggable divider ───────────────────────────────────────────────────────
-  const [leftWidth, setLeftWidth] = useState(55); // percentage, clamped 25–80
+  const [leftWidth, setLeftWidth] = useState(70); // percentage, clamped 25–80 (creative 70 / distribution 30)
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -782,6 +838,9 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
               Distribution
             </span>
 
+            {/* ── 0. Live preview — how ads divide ────────────────────────── */}
+            <LivePreviewCard flow={flow} currency={currency} />
+
             {/* ── 1. Page split ───────────────────────────────────────────── */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -818,6 +877,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                           </span>
                         )}
                       </div>
+                      <PageSplitDiagram id={opt.id} active={on} />
                       {on ? (
                         isDupe ? (
                           <span className="font-mono text-[11px] text-amber-700 dark:text-amber-300">
@@ -905,8 +965,6 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         )}
       </div>
 
-      {/* ── Gutter rail (sticky right edge, page gutter usage) ─────────────── */}
-      <GutterRail flow={flow} onJumpToCap={handleJumpToCap} />
     </div>
   );
 }

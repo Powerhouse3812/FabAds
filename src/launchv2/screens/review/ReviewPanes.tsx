@@ -1,12 +1,11 @@
 /**
- * ReviewPanes — the right pane of Step 4's Meta two-pane review. Four tabs:
- *   Edit         — fields of the selected node (bulk hint when multi-select)
- *   Distribution — ad→Page axis: fill-first / equal / duplicate + 250-cap math
- *   Preview       — a Meta-style ad-preview mockup of the selected/first ad
- *   Issues        — 3-tier error→fix list, each with a 1-click recommended fix
+ * ReviewPanes — building blocks for Step 4's Meta master-detail review:
+ *   PreviewPane     — node-aware Meta-style FB feed preview (right rail)
+ *   LaunchBreakdown — per-account counts + budget table (center overview)
+ *   IssuesList      — 3-tier error→fix list (center collapsible region)
  *
- * Edits route through `flow.patch` (frozen contract). Distribution writes
- * `pageDistribution`; the Issues fixes call into the supplied `onApplyFix`.
+ * Edits route through `flow.patch` (frozen contract). The Issues fixes call
+ * into the supplied `onApplyFix` / `onAutoFix`.
  */
 import { useMemo, useState } from "react";
 import {
@@ -477,100 +476,59 @@ function EditToggle({
 }
 
 /* ------------------------------------------------------------------ */
-/*  PREVIEW pane — per-account breakdown + Meta-style ad mockup        */
+/*  PREVIEW pane — node-aware Meta-style FB feed preview               */
 /* ------------------------------------------------------------------ */
-export function PreviewPane({ plan, selected }: { plan: PlanV2; selected: Set<string> }) {
-  // ── NEW state ──
-  const [viewMode, setViewMode] = useState<"rows" | "cards">("rows");
-  const [flightDays, setFlightDays] = useState<7 | 14 | 30>(7);
-  const breakdown = useMemo(() => perAccountBreakdown(plan), [plan]);
-  const totalDaily = budgetPerDay(plan);
-  const currency = plan.targets[0]?.currency ?? "USD";
 
-  // ── existing ad mockup derivations ──
+/** Resolve the representative ad leaf to preview for a given selected node. */
+function resolvePreviewAd(plan: PlanV2, node: TreeNode | null): TreeNode | undefined {
   const tree = buildReviewTree(plan);
-  const allAds = tree.flatMap((a) => a.children ?? []).flatMap((c) => c.children ?? []).flatMap((s) => s.children ?? []);
-  const selId = [...selected].find((id) => allAds.some((a) => a.id === id && !a.summary));
-  const ad = allAds.find((a) => a.id === selId && !a.summary) ?? allAds.find((a) => !a.summary);
+  const allAds = tree
+    .flatMap((a) => a.children ?? [])
+    .flatMap((c) => c.children ?? [])
+    .flatMap((s) => s.children ?? [])
+    .filter((a) => !a.summary);
+
+  if (!node) return allAds[0];
+
+  // Ad node → that exact ad (skip "+N more" summary rows → fall back to first).
+  if (node.kind === "ad") {
+    if (node.summary) return allAds[0];
+    return allAds.find((a) => a.id === node.id) ?? allAds[0];
+  }
+
+  // Container node → first real ad leaf beneath it.
+  const descendants = flattenAllNodes([node]).filter((n) => n.kind === "ad" && !n.summary);
+  const firstId = descendants[0]?.id;
+  return allAds.find((a) => a.id === firstId) ?? allAds[0];
+}
+
+/** Count the real ad leaves under a node (for the container summary line). */
+function countAdsUnder(node: TreeNode): number {
+  return flattenAllNodes([node]).filter((n) => n.kind === "ad" && !n.summary).length;
+}
+
+export function PreviewPane({ plan, node }: { plan: PlanV2; node: TreeNode | null }) {
+  const ad = resolvePreviewAd(plan, node);
   const creative = plan.creatives.find((c) => c.id === ad?.creativeId) ?? plan.creatives[0];
   const target = plan.targets[ad?.targetIndex ?? 0] ?? plan.targets[0];
   const copy = plan.adCopy;
   const isVideo = creative?.format === "single_video";
   const isCarousel = creative?.format === "carousel";
 
+  // Caption: representative for containers / null, exact for an ad node.
+  const isAdNode = node?.kind === "ad" && !node.summary;
+  const caption = !node
+    ? "Facebook feed preview · representative"
+    : isAdNode
+      ? "Facebook feed preview"
+      : `Facebook feed preview · representative of ${countAdsUnder(node)} ad${
+          countAdsUnder(node) === 1 ? "" : "s"
+        } under this ${node.kind}`;
+
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-4 p-4">
-
-        {/* ── BREAKDOWN SECTION ─────────────────────────────────── */}
-        <div className="space-y-2.5">
-          {/* Header: label + view toggle + flight-days toggle */}
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground/70">
-              Launch breakdown
-            </span>
-            <div className="flex items-center gap-2">
-              {/* Flight-days toggle */}
-              <div className="flex items-center gap-0.5">
-                {([7, 14, 30] as const).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setFlightDays(d)}
-                    className={cn(
-                      "rounded-full px-2 py-0.5 font-mono text-[10px] transition-colors",
-                      flightDays === d
-                        ? "bg-primary/15 text-primary font-semibold"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {d}d
-                  </button>
-                ))}
-              </div>
-              {/* View mode toggle */}
-              <div className="flex items-center gap-0 rounded-lg border border-border p-0.5">
-                {(["rows", "cards"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setViewMode(mode)}
-                    className={cn(
-                      "rounded px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors",
-                      viewMode === mode
-                        ? "bg-muted text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Empty state */}
-          {breakdown.length === 0 ? (
-            <p className="text-[11px] italic text-muted-foreground">
-              No destinations added yet — go to Setup step.
-            </p>
-          ) : viewMode === "rows" ? (
-            <BreakdownRows
-              breakdown={breakdown}
-              flightDays={flightDays}
-              totalDaily={totalDaily}
-              currency={currency}
-            />
-          ) : (
-            <BreakdownCards breakdown={breakdown} flightDays={flightDays} />
-          )}
-        </div>
-
-        {/* ── DIVIDER ───────────────────────────────────────────── */}
-        <div className="border-t border-border" />
-
-        {/* ── EXISTING AD MOCKUP ────────────────────────────────── */}
-        <p className="text-xs text-muted-foreground">Facebook feed preview · representative</p>
+      <div className="flex flex-col gap-3 p-4">
+        <p className="text-xs text-muted-foreground">{caption}</p>
         <div className="w-full max-w-[340px] self-center overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           {/* header */}
           <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -638,6 +596,82 @@ export function PreviewPane({ plan, selected }: { plan: PlanV2; selected: Set<st
         )}
       </div>
     </ScrollArea>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAUNCH BREAKDOWN — per-account counts + budget (center overview)   */
+/* ------------------------------------------------------------------ */
+export function LaunchBreakdown({ plan }: { plan: PlanV2 }) {
+  const [viewMode, setViewMode] = useState<"rows" | "cards">("rows");
+  const [flightDays, setFlightDays] = useState<7 | 14 | 30>(7);
+  const breakdown = useMemo(() => perAccountBreakdown(plan), [plan]);
+  const totalDaily = budgetPerDay(plan);
+  const currency = plan.targets[0]?.currency ?? "USD";
+
+  return (
+    <div className="space-y-2.5">
+      {/* Header: label + view toggle + flight-days toggle */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground/70">
+          Launch breakdown
+        </span>
+        <div className="flex items-center gap-2">
+          {/* Flight-days toggle */}
+          <div className="flex items-center gap-0.5">
+            {([7, 14, 30] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setFlightDays(d)}
+                className={cn(
+                  "rounded-full px-2 py-0.5 font-mono text-[10px] transition-colors",
+                  flightDays === d
+                    ? "bg-primary/15 text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+          {/* View mode toggle */}
+          <div className="flex items-center gap-0 rounded-lg border border-border p-0.5">
+            {(["rows", "cards"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  "rounded px-2.5 py-0.5 text-[10px] font-medium capitalize transition-colors",
+                  viewMode === mode
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Empty state */}
+      {breakdown.length === 0 ? (
+        <p className="text-[11px] italic text-muted-foreground">
+          No destinations added yet — go to Setup step.
+        </p>
+      ) : viewMode === "rows" ? (
+        <BreakdownRows
+          breakdown={breakdown}
+          flightDays={flightDays}
+          totalDaily={totalDaily}
+          currency={currency}
+        />
+      ) : (
+        <BreakdownCards breakdown={breakdown} flightDays={flightDays} />
+      )}
+    </div>
   );
 }
 
@@ -800,9 +834,9 @@ function displayHost(url: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  ISSUES pane — 3-tier error→fix                                     */
+/*  ISSUES list — 3-tier error→fix (rendered inside overview region)   */
 /* ------------------------------------------------------------------ */
-export function IssuesPane({
+export function IssuesList({
   issues,
   onApplyFix,
   onAutoFix,
@@ -816,32 +850,32 @@ export function IssuesPane({
   const infos = issues.filter((i) => i.tier === "info");
   const fixable = issues.filter((i) => i.fix && i.fix.kind === "switch_distribution");
 
-  return (
-    <ScrollArea className="h-full">
-      <div className="space-y-4 p-4">
-        {issues.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed bg-card px-4 py-10 text-center">
-            <CheckCircle2 className="h-7 w-7" style={{ color: OK_TEXT }} />
-            <p className="text-sm font-medium">No issues — clear to launch</p>
-            <p className="max-w-[20rem] text-xs text-muted-foreground">
-              Cap checks pass and no soft warnings fired. Use the footer Launch button to ship.
-            </p>
-          </div>
-        ) : (
-          <>
-            {fixable.length > 0 && (
-              <Button variant="outline" size="sm" className="w-full" onClick={onAutoFix}>
-                <Wand2 className="h-4 w-4" />
-                Auto-fix {fixable.length} cap {fixable.length === 1 ? "issue" : "issues"}
-              </Button>
-            )}
-            {errors.length > 0 && <IssueGroup title="Must fix" issues={errors} onApplyFix={onApplyFix} />}
-            {warnings.length > 0 && <IssueGroup title="Should fix" issues={warnings} onApplyFix={onApplyFix} />}
-            {infos.length > 0 && <IssueGroup title="Could improve" issues={infos} onApplyFix={onApplyFix} />}
-          </>
-        )}
+  if (issues.length === 0) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-dashed bg-card px-3 py-3 text-left">
+        <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: OK_TEXT }} />
+        <div>
+          <p className="text-[13px] font-medium">No issues — clear to launch</p>
+          <p className="text-[11px] text-muted-foreground">
+            Cap checks pass and no soft warnings fired.
+          </p>
+        </div>
       </div>
-    </ScrollArea>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {fixable.length > 0 && (
+        <Button variant="outline" size="sm" className="w-full" onClick={onAutoFix}>
+          <Wand2 className="h-4 w-4" />
+          Auto-fix {fixable.length} cap {fixable.length === 1 ? "issue" : "issues"}
+        </Button>
+      )}
+      {errors.length > 0 && <IssueGroup title="Must fix" issues={errors} onApplyFix={onApplyFix} />}
+      {warnings.length > 0 && <IssueGroup title="Should fix" issues={warnings} onApplyFix={onApplyFix} />}
+      {infos.length > 0 && <IssueGroup title="Could improve" issues={infos} onApplyFix={onApplyFix} />}
+    </div>
   );
 }
 

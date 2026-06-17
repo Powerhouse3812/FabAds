@@ -118,8 +118,25 @@ export interface AdCopy {
   destinationUrl: string;
   displayLink: string;
   utmTemplate: string;
-  /** DCO/Advantage+ extra variations (advanced). */
+  /** Advantage+ creative / multiple-text toggle. When on, the *Variations arrays apply (max 5 each). */
+  multiTextEnabled?: boolean;
+  /** DCO/Advantage+ extra PRIMARY-text variations (up to 5 total incl. primaryText). */
   textVariations?: string[];
+  /** Extra HEADLINE variations (up to 5 total incl. headline). */
+  headlineVariations?: string[];
+  /** Extra DESCRIPTION variations (up to 5 total incl. description). */
+  descriptionVariations?: string[];
+}
+
+/** One carousel card (Meta link_data.child_attachments[]). Carousel = 2–10 cards. */
+export interface CarouselCard {
+  id: string;
+  /** selected media creative id for this card. */
+  creativeId?: string;
+  headline: string;
+  description: string;
+  link: string;
+  cta: string;
 }
 
 /* ---- Step 3: media scope ---- */
@@ -260,8 +277,95 @@ export interface PlacementSelection {
   };
 }
 
+/* ---- Distribution redesign (account-wise + page-wise) ---- */
+/** How N ads split across the selected ad accounts. custom = explicit ad counts summing to total. */
+export type AccountDistribution = "equal" | "duplicate" | "custom";
+export type StructureCounts = { campaigns: number; adSetsPerCampaign: number; adsPerAdSet: number };
+
+/* ---- Per-level naming patterns (nomenclature) ---- */
+export interface NamingPatterns {
+  campaign: string;
+  adset: string;
+  ad: string;
+}
+
+/* ---- Audience / targeting spec (Meta parity) ---- */
+export interface GeoEntry {
+  key: string;
+  name?: string;
+  radius?: number;
+  distanceUnit?: "mile" | "kilometer";
+}
+export interface GeoLocations {
+  countries: string[];
+  regions: GeoEntry[];
+  cities: GeoEntry[];
+  zips: GeoEntry[];
+  customLocations: { latitude: number; longitude: number; radius: number; distanceUnit: "mile" | "kilometer"; name?: string }[];
+  geoMarkets: GeoEntry[];
+  locationTypes: ("home" | "recent" | "travel_in" | "recent_and_home")[];
+}
+export interface TargetingTermRef {
+  id: string;
+  name: string;
+}
+/** One OR-group of detailed targeting (interests/behaviors/demographics). */
+export interface TargetingGroup {
+  interests: TargetingTermRef[];
+  behaviors: TargetingTermRef[];
+  demographics: TargetingTermRef[];
+}
+export interface AudienceRef {
+  id: string;
+  name: string;
+  subtype?: string;
+}
+export interface TargetingSpec {
+  geoLocations: GeoLocations;
+  excludedGeoLocations?: Partial<GeoLocations>;
+  ageMin: number;
+  ageMax: number;
+  genders: ("male" | "female")[]; // empty = all
+  locales: TargetingTermRef[];
+  customAudiences: AudienceRef[];
+  excludedCustomAudiences: AudienceRef[];
+  /** AND-groups; entries within a group are OR'd, each extra group narrows ("must also match"). */
+  flexibleSpec: TargetingGroup[];
+  exclusions: TargetingGroup;
+  /** Advantage+ Audience: when true the above act as suggestions, not hard constraints. */
+  advantageAudience: boolean;
+}
+
 /* ---- Attribution window (per-plan setting; default 7-day click + 1-day view) ---- */
 export type AttributionWindow = "1d_click" | "7d_click" | "7d_click_1d_view";
+
+/* ---- Per-node overrides (Review master-detail editor) ----
+ * The plan holds the GLOBAL defaults. Each node in the review tree
+ * (account / campaign / ad set / ad) inherits those defaults unless an entry
+ * exists here. An override is a sparse bag keyed by settings-registry field id
+ * (see settingsRegistry.ts). Absent key = inherited; present key = overridden;
+ * delete key = reset-to-default. The store is keyed by the stable tree node id
+ * produced by buildReviewTree (e.g. "acct:<fbPageId>:<ti>", "<fbPageId>:c0:s1").
+ *
+ * Per-placement asset customization (the crop matrix) is stored under the
+ * reserved field id "__assetCustomization" as an array of rules.
+ */
+export type NodeOverride = Record<string, unknown>;
+
+/** One per-placement asset-customization rule (Meta asset_customization_rules). */
+export interface AssetCustomizationRule {
+  /** stable id for UI keying */
+  id: string;
+  /** placement-group key this rule targets (e.g. "feed", "stories_reels", "instream"). */
+  placementGroup: string;
+  /** specific placement keys when expanded to individual placements (optional). */
+  placements?: string[];
+  /** crop aspect-ratio key applied to the master asset, e.g. "1x1", "9x16", "1.91x1". */
+  cropKey?: string;
+  /** replacement creative id when the user swaps the asset for this placement group. */
+  replacementCreativeId?: string;
+  isDefault?: boolean;
+}
 
 /* ---- The plan ---- */
 export interface PlanV2 {
@@ -312,6 +416,10 @@ export interface PlanV2 {
   combination: CombinationMode;
   adCopy: AdCopy;
   copyOverrides: Record<string, Partial<AdCopy>>;
+  /** Carousel cards (only used when format === "carousel"). 2–10 cards. */
+  carouselCards: CarouselCard[];
+  /** Collection: cover media creative id (the cover card above the product grid). */
+  collectionCoverCreativeId: string | null;
   structure: { campaigns: number; adSetsPerCampaign: number; adsPerAdSet: number };
 
   // Step 4 — Review & Launch
@@ -319,6 +427,9 @@ export interface PlanV2 {
   pageWeights: Record<string, number>;
   namingPattern: string;
   scheduledFor: string | null;
+
+  /** Per-node setting overrides (master-detail editor). Keyed by tree node id. */
+  nodeOverrides: Record<string, NodeOverride>;
 
   /* ── Templates v2 (foundation) ──────────────────────────────────────
    * Track which Setup / Distribution template (if any) is currently linked
@@ -345,6 +456,37 @@ export interface PlanV2 {
   // Manual placement
   placementMode: "advantage" | "manual";
   placements: PlacementSelection;
+
+  /* ── Meeting redesign additions ───────────────────────────────────── */
+  // Flow (Step 1): strategy-first branch + fast launch
+  /** Derived from strategy choice: custom = manual walk, template = prefilled. */
+  flowMode: "custom" | "template";
+  /** Fast launch mode — skip straight to Review. */
+  fastLaunch: boolean;
+
+  // Distribution (Step 3): account-wise split + per-account structure + per-account page split
+  /** How total ads split across selected accounts. */
+  accountDistribution: AccountDistribution;
+  /** custom account split: explicit ad counts keyed by accountId (must sum to total). */
+  accountWeights: Record<string, number>;
+  /** Per-account structure override (fallback to global `structure`). Keyed by accountId. */
+  structureByAccount: Record<string, StructureCounts>;
+  /** Per-account page-split override (fallback to global `pageDistribution`). Keyed by accountId. */
+  pageDistributionByAccount: Record<string, PageDistribution>;
+  /** Step 3 distribution variant: v1 = split panel, v2 = left ad-account panel. */
+  distVariant: "v1" | "v2";
+
+  // Audience / targeting (Meta parity)
+  targeting: TargetingSpec;
+
+  // Special ad category country/region (Meta requirement)
+  specialAdCountries: string[];
+
+  // Nomenclature (per-level naming patterns)
+  namingPatterns: NamingPatterns;
+
+  // Review (Step 4) variant
+  reviewVariant: "tree" | "table";
 
   createdAt: string;
   updatedAt: string;
