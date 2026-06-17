@@ -1,21 +1,14 @@
 /**
- * Step 1 — Start V2  (Strategy-first redesign).
+ * Step 1 — Goal-first layout variant.
  *
- * Locked flow (meeting decisions):
- *   §1  "Start from a strategy"  — MANDATORY, FIRST. Search + filter chips +
- *        overflow "More". A "Custom" card = start fresh / configure manually.
- *        Picking is required to proceed.
- *          • Custom  → flowMode = "custom"; reveals §2 objective picker.
- *          • Saved   → flowMode = "template"; objective taken from the template
- *                      (shown as a read-only chip); no separate objective step.
- *   §2  "Campaign goal" — objective grid. Always visible; interactive only on
- *        the Custom branch (disabled with opacity on Template/none).
+ * §1 Campaign goal — Required, always active. User picks objective first.
+ * §2 Strategy     — Optional. Search + filter + 3-col grid. Prefills everything.
  *
- *   Fast launch: done via footer "Skip & Launch" button — disabled on Custom.
+ * This is a standalone component. Filter utilities are duplicated inline
+ * (they are not exported from Step1StartV2.tsx).
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import GoalFirstLayout from "./Step1GoalFirstLayout";
 import {
   Check,
   Eye,
@@ -46,15 +39,12 @@ import type { LaunchStrategy } from "../../services/strategiesService";
 /*  Props                                                               */
 /* ------------------------------------------------------------------ */
 
-interface Step1StartV2Props {
+interface GoalFirstLayoutProps {
   flow: UseFlowV2;
-  /** Kept for API compatibility — save checkbox lives on Step 4. */
-  saveAsStrategy: boolean;
-  onSaveAsStrategyChange: (v: boolean) => void;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Objective metadata                                                  */
+/*  Objective metadata (duplicated — not exported from Step1StartV2)   */
 /* ------------------------------------------------------------------ */
 
 type ObjIcon = React.ComponentType<{ className?: string }>;
@@ -134,28 +124,25 @@ function isPartial(s: LaunchStrategy): boolean {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Filter model                                                        */
+/*  Filter model (duplicated — not exported from Step1StartV2)         */
 /* ------------------------------------------------------------------ */
 
 type FilterKind = "budgetMode" | "objective" | "tag";
 interface FilterChip {
-  id: string; // unique key e.g. "budgetMode:CBO"
+  id: string;
   kind: FilterKind;
-  label: string; // display label
-  value: string; // raw value matched against strategy
+  label: string;
+  value: string;
 }
 
-/** Build the available filter chips from the strategy corpus (dynamic). */
 function buildFilterChips(strategies: LaunchStrategy[]): FilterChip[] {
   const chips: FilterChip[] = [];
 
-  // Budget mode (CBO / ABO) — fixed order, only if present.
   const modes = new Set(strategies.map((s) => s.plan.budgetMode).filter(Boolean) as string[]);
   for (const m of ["CBO", "ABO"]) {
     if (modes.has(m)) chips.push({ id: `budgetMode:${m}`, kind: "budgetMode", label: m, value: m });
   }
 
-  // Objective — derived from corpus, in OBJECTIVES order.
   const objs = new Set(strategies.map((s) => s.plan.objective).filter(Boolean) as string[]);
   for (const o of OBJECTIVES) {
     if (objs.has(o.id)) {
@@ -163,12 +150,10 @@ function buildFilterChips(strategies: LaunchStrategy[]): FilterChip[] {
     }
   }
 
-  // Strategy tags — the derived test/scale/custom/DPA/video/etc. tags.
   const tagCounts = new Map<string, number>();
   for (const s of strategies) {
     for (const t of s.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
   }
-  // Stable order: most-common first, then alpha.
   const tags = [...tagCounts.entries()].sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
   );
@@ -179,18 +164,12 @@ function buildFilterChips(strategies: LaunchStrategy[]): FilterChip[] {
   return chips;
 }
 
-/** Does a strategy satisfy a single chip? */
 function matchesChip(s: LaunchStrategy, chip: FilterChip): boolean {
   if (chip.kind === "budgetMode") return s.plan.budgetMode === chip.value;
   if (chip.kind === "objective") return s.plan.objective === chip.value;
   return (s.tags ?? []).includes(chip.value);
 }
 
-/**
- * Apply the active filter set. Chips of the SAME kind are OR'd (any match);
- * different kinds are AND'd (must satisfy each active kind). Plus a text query
- * over name + objective + tags.
- */
 function applyFilters(
   strategies: LaunchStrategy[],
   query: string,
@@ -200,7 +179,6 @@ function applyFilters(
   const q = query.trim().toLowerCase();
   const activeChips = [...active].map((id) => chipById.get(id)).filter(Boolean) as FilterChip[];
 
-  // Group active chips by kind for AND-across-kinds / OR-within-kind.
   const byKind = new Map<FilterKind, FilterChip[]>();
   for (const c of activeChips) {
     const arr = byKind.get(c.kind) ?? [];
@@ -209,7 +187,6 @@ function applyFilters(
   }
 
   return strategies.filter((s) => {
-    // Text query
     if (q) {
       const hay = [
         s.name,
@@ -221,7 +198,6 @@ function applyFilters(
         .toLowerCase();
       if (!hay.includes(q)) return false;
     }
-    // Each active kind must have at least one matching chip.
     for (const [, chips] of byKind) {
       if (!chips.some((c) => matchesChip(s, c))) return false;
     }
@@ -230,10 +206,10 @@ function applyFilters(
 }
 
 /* ------------------------------------------------------------------ */
-/*  Strategy card (compact strip card with Fast-launch action)         */
+/*  Strategy grid card (compact, for 3-col grid)                       */
 /* ------------------------------------------------------------------ */
 
-function StrategyCard({
+function StrategyGridCard({
   strategy,
   selected,
   onSelect,
@@ -254,42 +230,38 @@ function StrategyCard({
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        "fab-focus relative flex w-full items-center gap-2 rounded-xl border bg-card px-3 py-2 text-left transition-colors",
+        "fab-focus relative flex flex-col gap-1.5 rounded-xl border bg-card p-2.5 text-left transition-colors",
         selected
           ? "border-primary bg-primary/5 shadow-sm"
           : "border-border hover:border-foreground/20 hover:bg-muted/30",
       )}
     >
-      {/* Selection ring */}
       {selected && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+        <span className="absolute right-1.5 top-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
           <Check className="h-2.5 w-2.5 text-primary-foreground" />
         </span>
       )}
-      {/* Text block */}
-      <div className="min-w-0 flex-1 pr-5">
-        <p className="truncate text-[12px] font-semibold text-foreground leading-tight">
-          {strategy.name}
-        </p>
-        <p className="truncate text-[10px] text-muted-foreground leading-tight mt-0.5">
-          {objective} · {fmt} · {budget}
-        </p>
-      </div>
-      {/* Right-side chips: tags + partial */}
-      <div className="flex shrink-0 items-center gap-1">
+      <p className="truncate pr-5 text-[11px] font-semibold text-foreground leading-tight">
+        {strategy.name}
+      </p>
+      <p className="truncate text-[10px] text-muted-foreground leading-tight">
+        {objective} · {fmt} · {budget}
+      </p>
+      {/* Tags at bottom */}
+      <div className="flex flex-wrap items-center gap-1 mt-0.5">
         {partial && (
           <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">
             Partial
           </span>
         )}
-        {tags.slice(0, 1).map((t) => (
+        {tags.slice(0, 2).map((t) => (
           <span key={t} className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium text-muted-foreground">
             #{t}
           </span>
         ))}
-        {tags.length > 1 && (
+        {tags.length > 2 && (
           <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">
-            +{tags.length - 1}
+            +{tags.length - 2}
           </span>
         )}
       </div>
@@ -297,29 +269,18 @@ function StrategyCard({
   );
 }
 
-/* ── Custom sentinel — "start from scratch" card always first ── */
+/* ── Custom sentinel ── */
 const CUSTOM_ID = "__custom__";
+/** Cards per page before "View more" */
+const PAGE_SIZE = 9;
 
 /* ------------------------------------------------------------------ */
-/*  Main screen                                                         */
+/*  Main component                                                      */
 /* ------------------------------------------------------------------ */
 
-export default function Step1StartV2({ flow }: Step1StartV2Props) {
+export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
   const { plan } = flow;
   const { objective, flowMode } = plan;
-
-  /* ── layout variant toggle ── */
-  const [layoutVariant, setLayoutVariant] = useState<"strategy-first" | "goal-first">(() => {
-    try {
-      return (localStorage.getItem("lv2:step1:layout") as "strategy-first" | "goal-first") || "strategy-first";
-    } catch {
-      return "strategy-first";
-    }
-  });
-  const switchLayout = (v: "strategy-first" | "goal-first") => {
-    setLayoutVariant(v);
-    try { localStorage.setItem("lv2:step1:layout", v); } catch {}
-  };
 
   /* ── strategy data ── */
   const [strategies, setStrategies] = useState<LaunchStrategy[]>([]);
@@ -332,18 +293,14 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
     return () => clearTimeout(t);
   }, []);
 
-  /* ── selection — nothing picked until the user acts (mandatory).
-     Seed from existing plan so returning to Step 1 (e.g. Back from Review)
-     restores the branch the user was on. Custom flow with an objective set,
-     or any objective with flowMode "custom", counts as the Custom branch. */
+  /* ── selection state — seed from existing plan on return ── */
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(() => {
     if (plan.flowMode === "custom" && plan.objective) return CUSTOM_ID;
     return null;
   });
   const [prefillNotice, setPrefillNotice] = useState(false);
 
-  /* When strategies load, if the plan is on a template branch try to match the
-     applied snapshot back to a card so the selection ring restores on return. */
+  /* Restore template selection when strategies load */
   useEffect(() => {
     if (selectedStrategyId !== null || strategies.length === 0) return;
     if (plan.flowMode === "template" && plan.objective) {
@@ -355,15 +312,18 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
       );
       if (match) setSelectedStrategyId(match.id);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once after load
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once after load
   }, [strategies]);
 
   /* ── search + filters ── */
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
-  /* ── objective section scroll target (Custom branch) ── */
-  const objectiveRef = useRef<HTMLDivElement>(null);
+  /* ── "view more" pagination ── */
+  const [showAll, setShowAll] = useState(false);
+
+  /* ── strategy section scroll ref ── */
+  const strategyRef = useRef<HTMLDivElement>(null);
 
   const allFilterChips = useMemo(() => buildFilterChips(strategies), [strategies]);
   const chipById = useMemo(
@@ -371,7 +331,6 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
     [allFilterChips],
   );
 
-  /* Group chips by kind for the filter popover. */
   const chipsByKind = useMemo(() => {
     const groups = new Map<FilterKind, FilterChip[]>();
     for (const c of allFilterChips) {
@@ -382,11 +341,14 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
     return groups;
   }, [allFilterChips]);
 
-  /* ── filtered list (Custom card prepended separately) ── */
   const filtered = useMemo(
     () => applyFilters(strategies, query, activeFilters, chipById),
     [strategies, query, activeFilters, chipById],
   );
+
+  const visibleStrategies = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
+  const hiddenCount = filtered.length - PAGE_SIZE;
+  const filtersActive = activeFilters.size > 0 || query.trim().length > 0;
 
   /* ── handlers ── */
 
@@ -404,21 +366,23 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
     setQuery("");
   };
 
+  /** §1 — objective tile clicked. Always active. */
   const handleObjective = (o: Objective) => {
     flow.chooseObjectiveFormat(o, null);
+    // If no strategy branch selected, set flowMode = "custom" so Next is enabled.
+    if (selectedStrategyId === null) {
+      flow.chooseCustomFlow();
+    }
   };
 
-  /** Pick the Custom card → manual flow, reveal objective picker. */
+  /** §2 — Custom card clicked */
   const handlePickCustom = () => {
     setSelectedStrategyId(CUSTOM_ID);
     setPrefillNotice(false);
     flow.chooseCustomFlow();
-    window.setTimeout(() => {
-      objectiveRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 80);
   };
 
-  /** Pick a saved strategy → template flow (objective comes from the template). */
+  /** §2 — Saved strategy card clicked */
   const handlePickStrategy = (s: LaunchStrategy) => {
     setSelectedStrategyId(s.id);
     flow.applySavedStrategy(s.plan);
@@ -426,74 +390,117 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
   };
 
   const isCustom = selectedStrategyId === CUSTOM_ID;
-  const showObjective = isCustom; // objective picker only on the Custom branch
-  const filtersActive = activeFilters.size > 0 || query.trim().length > 0;
 
   /* ── render ── */
 
   return (
-    <div data-screen="lv2-step1-start-v2" className="space-y-7">
+    <div className="space-y-7">
 
-      {/* ── Layout variant toggle ── */}
-      <div className="flex justify-end mb-5">
-        <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5">
-          {(["strategy-first", "goal-first"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => switchLayout(v)}
-              className={cn(
-                "rounded-full px-3 py-1 text-[11px] font-mono transition-colors",
-                layoutVariant === v
-                  ? "bg-primary/15 text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {v === "strategy-first" ? "Strategy-first" : "Goal-first"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Conditional layout render ── */}
-      {layoutVariant === "goal-first" ? (
-        <GoalFirstLayout flow={flow} />
-      ) : (
-        <>
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* §1 — Strategy (FIRST, mandatory)                             */}
+      {/* §1 — Campaign goal (Required, ALWAYS ACTIVE)                 */}
       {/* ──────────────────────────────────────────────────────────── */}
       <section className="space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
-                1
-              </span>
-              <h2 className="text-[15px] font-semibold text-foreground">
-                Start from a strategy
-              </h2>
-            </div>
-            <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
-              Pick a saved setup to pre-fill every step, or choose Custom to configure manually.
-            </p>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+              1
+            </span>
+            <h2 className="text-[15px] font-semibold text-foreground">
+              Campaign goal
+            </h2>
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+              Required
+            </span>
           </div>
-
+          <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
+            Choose what you want to achieve with this campaign.
+          </p>
         </div>
 
-        {/* Search + filter button row */}
+        {/* 3-per-row objective grid — always interactive */}
+        <div className="grid grid-cols-3 gap-2">
+          {OBJECTIVES.map((o) => {
+            const { Icon, desc } = OBJECTIVE_META[o.id];
+            const selected = objective === o.id;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => handleObjective(o.id)}
+                aria-pressed={selected}
+                className={cn(
+                  "fab-focus relative flex flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-200",
+                  selected
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+                    selected ? "bg-primary/15" : "bg-muted",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-[14px] w-[14px]",
+                      selected ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-foreground leading-tight">
+                    {o.label}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground leading-snug line-clamp-2">
+                    {desc}
+                  </p>
+                </div>
+                {selected && (
+                  <div className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* §2 — Strategy (Optional)                                     */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <section ref={strategyRef} className="space-y-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+              2
+            </span>
+            <h2 className="text-[15px] font-semibold text-foreground">
+              Strategy
+            </h2>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Optional
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              · Prefills all setup fields
+            </span>
+          </div>
+        </div>
+
+        {/* Search + filter row */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search saved setups…"
+              placeholder="Search strategies…"
               className="h-9 rounded-xl pl-8 text-[12px]"
             />
           </div>
 
-          {/* Filter popover — compact chip-group layout */}
+          {/* Filter popover */}
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -568,7 +575,6 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
             </PopoverContent>
           </Popover>
 
-          {/* Inline clear — only when text query is active */}
           {query.trim().length > 0 && (
             <button
               type="button"
@@ -581,7 +587,7 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
           )}
         </div>
 
-        {/* Prefill confirmation (template applied) */}
+        {/* Prefill notice */}
         {prefillNotice && (
           <div
             className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2"
@@ -590,13 +596,14 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
           >
             <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
             <p className="flex-1 text-[11px] text-muted-foreground leading-relaxed">
-              Setup applied — all steps pre-filled.{" "}
-              {objective && (
+              Setup applied — all fields pre-filled.{" "}
+              {plan.objective && (
                 <span className="text-foreground">
-                  Objective: {OBJECTIVE_LABEL[objective] ?? prettifyObjective(objective)}.
+                  Objective:{" "}
+                  {OBJECTIVE_LABEL[plan.objective] ?? prettifyObjective(plan.objective)}.
                 </span>
               )}{" "}
-              Edit any step on the way, or Skip &amp; Launch.
+              Edit any step, or Skip &amp; Launch.
             </p>
             <button
               type="button"
@@ -609,178 +616,100 @@ export default function Step1StartV2({ flow }: Step1StartV2Props) {
           </div>
         )}
 
-        {/* Strategy list — Custom card first, then filtered saved setups */}
-        {/* Fixed height with inner scroll so it never blows out the page */}
-        <div className="max-h-[260px] overflow-y-auto rounded-2xl pr-0.5 scrollbar-thin">
-          {loading ? (
-            <div className="flex flex-col gap-1.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-[44px] animate-pulse rounded-xl border border-border bg-muted/30"
-                />
-              ))}
-            </div>
+        {/* Custom card — hero size, full width */}
+        <button
+          type="button"
+          onClick={handlePickCustom}
+          aria-pressed={isCustom}
+          className={cn(
+            "relative flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left transition-colors",
+            isCustom
+              ? "border-primary bg-primary/5 shadow-sm"
+              : "border-dashed border-primary/40 bg-primary/[0.04] hover:border-primary/60 hover:bg-primary/[0.07]",
+          )}
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15">
+            <Pencil className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold text-primary leading-tight">Custom</p>
+            <p className="mt-0.5 text-[12px] text-muted-foreground font-mono leading-snug">
+              Configure every step manually — no preset applied. Full control over accounts,
+              budget, placements, and audience.
+            </p>
+          </div>
+          {isCustom ? (
+            <span className="absolute right-3 top-3 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+              <Check className="h-2.5 w-2.5 text-primary-foreground" />
+            </span>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {/* Custom card — always first, lime-tinted to stand out */}
+            <span className="shrink-0 border border-primary/30 text-primary/80 text-[11px] rounded-full px-3 py-1 font-mono">
+              Start fresh
+            </span>
+          )}
+        </button>
+
+        {/* Strategy grid — 3-per-row */}
+        {loading ? (
+          <div className="grid grid-cols-3 gap-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[80px] animate-pulse rounded-xl border border-border bg-muted/30"
+              />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-6 text-center">
+            <p className="text-[12px] font-medium text-foreground">No matching strategies</p>
+            <p className="text-[11px] text-muted-foreground">
+              Adjust filters, clear the search, or use Custom above.
+            </p>
+            {filtersActive && (
               <button
                 type="button"
-                onClick={handlePickCustom}
-                aria-pressed={isCustom}
-                className={cn(
-                  "relative flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  isCustom
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-dashed border-primary/40 bg-primary/[0.04] hover:border-primary/60 hover:bg-primary/[0.07]",
-                )}
+                onClick={clearFilters}
+                className="fab-focus mt-1 inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
               >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/15 transition-colors">
-                  <Pencil className="h-3 w-3 text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-semibold text-primary leading-tight">Custom</p>
-                  <p className="truncate text-[10px] text-muted-foreground leading-tight mt-0.5">
-                    Configure every step manually — full control.
-                  </p>
-                </div>
-                {isCustom ? (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
-                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                  </span>
-                ) : (
-                  <span className="shrink-0 text-[10px] font-medium text-primary/70">Start fresh</span>
-                )}
+                <X className="h-3 w-3" /> Clear filters
               </button>
-
-              {/* Filtered saved setups */}
-              {filtered.map((s) => (
-                <StrategyCard
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-1.5 max-h-[220px] overflow-y-auto">
+              {visibleStrategies.map((s) => (
+                <StrategyGridCard
                   key={s.id}
                   strategy={s}
                   selected={selectedStrategyId === s.id}
                   onSelect={() => handlePickStrategy(s)}
                 />
               ))}
-
-              {/* Empty state when filters exclude everything */}
-              {filtered.length === 0 && (
-                <div className="col-span-full flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-6 text-center">
-                  <p className="text-[12px] font-medium text-foreground">No matching setups</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Adjust filters, clear the search, or pick Custom to start fresh.
-                  </p>
-                  {filtersActive && (
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="fab-focus mt-1 inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
-                    >
-                      <X className="h-3 w-3" /> Clear filters
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
-          )}
-        </div>
-      </section>
 
-      {/* ──────────────────────────────────────────────────────────── */}
-      {/* §2 — Campaign goal (always visible)                          */}
-      {/*   • Custom selected  → all 6 cards fully interactive         */}
-      {/*   • Template selected → all 6 cards shown but disabled;      */}
-      {/*     strategy's objective is visually highlighted              */}
-      {/*   • Nothing selected  → disabled, greyed with hint            */}
-      {/* ──────────────────────────────────────────────────────────── */}
-      <section
-        ref={objectiveRef}
-        className="space-y-3 transition-all duration-300 ease-out"
-      >
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
-              2
-            </span>
-            <h2 className="text-[15px] font-semibold text-foreground">
-              Campaign goal
-            </h2>
-            {/* Badge: shows context for why this section is disabled */}
-            {!isCustom && flowMode === "template" && (
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                From strategy
-              </span>
-            )}
-            {selectedStrategyId === null && (
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                Select a strategy first
-              </span>
-            )}
-          </div>
-          <p className="pl-7 text-xs text-muted-foreground">
-            {isCustom
-              ? "Choose the objective that matches what you want to achieve."
-              : "Set by your chosen strategy. Pick Custom above to change it."}
-          </p>
-        </div>
-
-        {/* 3-col compact card grid — disabled overlay when not Custom */}
-        <div
-          className={cn(
-            "grid grid-cols-3 gap-2 transition-opacity duration-200",
-            !isCustom && "pointer-events-none opacity-40",
-          )}
-        >
-          {OBJECTIVES.map((o) => {
-            const { Icon, desc } = OBJECTIVE_META[o.id];
-            const selected = objective === o.id;
-            return (
+            {/* View more / less toggle */}
+            {!showAll && hiddenCount > 0 && (
               <button
-                key={o.id}
                 type="button"
-                onClick={() => isCustom && handleObjective(o.id)}
-                disabled={!isCustom}
-                aria-pressed={selected}
-                tabIndex={isCustom ? 0 : -1}
-                className={cn(
-                  "relative flex flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-200",
-                  selected
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
-                  !isCustom && "cursor-default",
-                )}
+                onClick={() => setShowAll(true)}
+                className="fab-focus w-full rounded-xl border border-dashed border-border py-2 text-[11px] font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
               >
-                <div
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
-                    selected ? "bg-primary/15" : "bg-muted",
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-[14px] w-[14px]",
-                      selected ? "text-primary" : "text-muted-foreground",
-                    )}
-                  />
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-foreground leading-tight">{o.label}</p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground leading-snug line-clamp-2">
-                    {desc}
-                  </p>
-                </div>
-                {selected && (
-                  <div className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                  </div>
-                )}
+                View {hiddenCount} more
               </button>
-            );
-          })}
-        </div>
+            )}
+            {showAll && filtered.length > PAGE_SIZE && (
+              <button
+                type="button"
+                onClick={() => setShowAll(false)}
+                className="fab-focus w-full rounded-xl border border-dashed border-border py-2 text-[11px] font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+              >
+                Show less
+              </button>
+            )}
+          </>
+        )}
       </section>
-        </>
-      )}
     </div>
   );
 }

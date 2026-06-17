@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { AlertCircle, AlertTriangle, Check, Loader2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, Loader2, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -212,6 +212,35 @@ export default function LaunchV2Flow() {
          Autosave whisper removed (moved to breadcrumb strip). */}
       <div className="flex flex-shrink-0 items-center justify-between gap-4 border-t border-border bg-background px-5 py-3">
         <Button variant="outline" onClick={flow.back} disabled={step === 1}>Back</Button>
+
+        {/* Skip & Launch — only on step 1, enabled when a template strategy is applied */}
+        {step === 1 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    onClick={() => flow.setStep(4)}
+                    disabled={plan.flowMode !== "template"}
+                    className={cn(
+                      "rounded-full text-[12px] gap-1.5",
+                      plan.flowMode !== "template" && "cursor-not-allowed opacity-50",
+                    )}
+                  >
+                    <Rocket className="h-3.5 w-3.5" />
+                    Skip &amp; Launch
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-[12px]">
+                {plan.flowMode === "template"
+                  ? "Strategy applied — skip to Review & Launch"
+                  : "Apply a saved strategy first to unlock this shortcut"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         {step < 4 ? (
           <Button onClick={flow.next} disabled={!valid}>Next</Button>
