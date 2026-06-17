@@ -18,7 +18,6 @@ import {
   Check,
   ChevronDown,
   Lock,
-  Sparkles,
   Info,
   Shield,
 } from "lucide-react";
@@ -643,13 +642,62 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={false}
           sectionRef={sectionRefs[1]}
         >
-          {/* Budget model lock #16: ONE input. Per-account budget split UI deleted.
-              Currency lock #5: $ symbol only, USD as workspace currency. */}
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-medium text-foreground">
-                {plan.budgetMode === "CBO" ? "Daily budget — campaign" : "Daily budget — ad set"}
-              </Label>
+          {/* Budget optimization — first */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
+              Budget optimization
+              {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
+            </Label>
+            <div className="flex gap-1.5">
+              {(["CBO", "ABO"] as const).map((mode) => (
+                <Tooltip key={mode}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={policy.budgetMode.locked}
+                      onClick={() => patch({ budgetMode: mode })}
+                      className={cn(
+                        "fab-focus rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                        plan.budgetMode === mode
+                          ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
+                          : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                        policy.budgetMode.locked && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      {mode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {mode === "CBO"
+                      ? "Campaign Budget Optimization — Meta splits budget across ad sets."
+                      : "Ad Set Budget Optimization — you set a budget per ad set."}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+            {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
+          </div>
+
+          {/* Budget amount + period */}
+          <div className="space-y-1.5">
+            <Label className="text-[13px] font-medium text-foreground">
+              Budget ({plan.budgetMode === "CBO" ? "campaign" : "ad set"})
+            </Label>
+            <div className="flex items-center gap-2">
+              {/* Daily / Lifetime period selector */}
+              <Select
+                value={plan.budgetPeriod ?? "daily"}
+                onValueChange={(v) => patch({ budgetPeriod: v as "daily" | "lifetime" })}
+              >
+                <SelectTrigger className="h-9 w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="lifetime">Lifetime</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* Amount */}
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-sm text-muted-foreground">$</span>
                 <Input
@@ -661,43 +709,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                   className="h-9 w-32 font-mono tabular-nums"
                 />
               </div>
-            </div>
-
-            {/* CBO/ABO pill — 2px foreground border on selected (lock #6).
-                Tooltip on hover spells out (lock #15). */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
-                Budget optimization
-                {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
-              </Label>
-              <div className="flex gap-1.5">
-                {(["CBO", "ABO"] as const).map((mode) => (
-                  <Tooltip key={mode}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={policy.budgetMode.locked}
-                        onClick={() => patch({ budgetMode: mode })}
-                        className={cn(
-                          "fab-focus rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                          plan.budgetMode === mode
-                            ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
-                            : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                          policy.budgetMode.locked && "cursor-not-allowed opacity-50",
-                        )}
-                      >
-                        {mode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {mode === "CBO"
-                        ? "Campaign Budget Optimization — Meta splits budget across ad sets."
-                        : "Ad Set Budget Optimization — you set a budget per ad set."}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-              {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
             </div>
           </div>
 
@@ -712,7 +723,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               <span className="font-mono tabular-nums text-foreground">
                 {(plan.budgetAmount * accountCount).toLocaleString("en-US")}
               </span>
-              /day total
+              /{plan.budgetPeriod === "lifetime" ? "lifetime" : "day"} total
             </p>
           )}
 
@@ -723,27 +734,13 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </p>
           )}
 
-          {/* ── Advantage+, A/B Test — individual feature cards ────── */}
-          <div className="space-y-2">
-            <Toggle
-              checked={plan.advantagePlus}
-              onCheckedChange={(v) => patch({ advantagePlus: v })}
-              label="Advantage+"
-              desc="Meta optimizes budget, audience and placements automatically."
-              icon={<Sparkles className={cn("h-4 w-4", plan.advantagePlus ? "text-primary" : "text-muted-foreground")} />}
-            />
-            {asc && (
-              <p className="flex items-center gap-1.5 rounded-xl bg-primary/5 px-3 py-2 text-[11px] text-primary">
-                <Sparkles className="h-3 w-3 shrink-0" /> Advantage+ active — campaign budget, broad audience and auto placements applied.
-              </p>
-            )}
-            <Toggle
-              checked={plan.abTest}
-              onCheckedChange={(v) => patch({ abTest: v })}
-              label="A/B Test"
-              desc="Meta auto-splits traffic 50/50 between two variants. No extra setup."
-            />
-          </div>
+          {/* A/B Test */}
+          <Toggle
+            checked={plan.abTest}
+            onCheckedChange={(v) => patch({ abTest: v })}
+            label="A/B Test"
+            desc="Meta auto-splits traffic 50/50 between two variants. No extra setup."
+          />
 
           {/* Bid strategy */}
           {policy.bidStrategy.visibility !== "hidden" && (
@@ -1006,21 +1003,21 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             open={s3Sub === "audience"}
             onOpenChange={(v) => setS3Sub(v ? "audience" : "optimization")}
           >
-          {/* Targeting template + audience editor */}
+          {/* Targeting template + audience editor (placements injected via slot) */}
           <TargetingTemplateSection
             plan={plan}
             onPatch={patch}
             specialAdCategoryActive={special}
+            placementsSlot={
+              !plan.advantageAudience ? (
+                <PlacementsInline
+                  plan={plan}
+                  asc={asc}
+                  onPatch={patch}
+                />
+              ) : null
+            }
           />
-
-          {/* Placements — shown inline when Advantage+ Audience is OFF */}
-          {!plan.advantageAudience && (
-            <PlacementsInline
-              plan={plan}
-              asc={asc}
-              onPatch={patch}
-            />
-          )}
           </Subsection>
           {/* ── /Subsection ▸ Audience ───────────────────────────────── */}
 

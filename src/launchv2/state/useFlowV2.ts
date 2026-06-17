@@ -56,6 +56,7 @@ export function newPlanV2(): PlanV2 {
     conversionEvent: null,
     budgetMode: "ABO",
     budgetAmount: 20,
+    budgetPeriod: "daily" as const,
     bidStrategy: "LOWEST_COST_WITHOUT_CAP",
     bidValue: null,
     advantagePlus: false,

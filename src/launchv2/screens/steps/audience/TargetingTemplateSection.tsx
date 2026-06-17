@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlanV2 } from "../../../types";
@@ -31,6 +32,8 @@ interface TargetingTemplateSectionProps {
   plan: PlanV2;
   onPatch: (partial: Partial<PlanV2>) => void;
   specialAdCategoryActive?: boolean;
+  /** Rendered between A+ Creative card and Advanced configurations button */
+  placementsSlot?: React.ReactNode;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -79,6 +82,7 @@ export default function TargetingTemplateSection({
   plan,
   onPatch,
   specialAdCategoryActive,
+  placementsSlot,
 }: TargetingTemplateSectionProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [tplSearch, setTplSearch] = useState("");
@@ -119,16 +123,11 @@ export default function TargetingTemplateSection({
     setPickerOpen(false);
   }
 
-  // ── toggle helpers ──────────────────────────────────────────────────────
-
-  const aPlus = !!(plan.advantageAudience && plan.advantageCreative);
-
   // ── demographic preview ────────────────────────────────────────────────
 
   const previewGeo = firstGeoName(plan);
   const previewAge = `${plan.targeting.ageMin}–${plan.targeting.ageMax}`;
   const previewGender = genderLabel(plan.targeting.genders);
-  const previewAPlus = plan.advantageAudience ? "A+ ON" : "A+ OFF";
 
   // ── filtered template list ─────────────────────────────────────────────
 
@@ -278,10 +277,15 @@ export default function TargetingTemplateSection({
         </div>
       )}
 
-      {/* ── 3. Feature toggles — horizontal 2-col grid ───────────────── */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Advantage+ Audience */}
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3">
+      {/* ── 3. Advantage+ Audience — full-width card with inline summary ── */}
+      <div className={cn(
+        "rounded-2xl border bg-background transition-colors",
+        plan.advantageAudience
+          ? "border-[#8FB821]/40 bg-[#F5FBE2] dark:bg-[#1D2A09]"
+          : "border-border"
+      )}>
+        {/* Toggle row */}
+        <div className="flex items-start justify-between gap-3 px-4 pt-3 pb-3">
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-foreground">Advantage+ Audience</p>
             <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
@@ -317,64 +321,77 @@ export default function TargetingTemplateSection({
           </button>
         </div>
 
-        {/* Advantage+ Creative */}
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-foreground">Advantage+ Creative</p>
-            <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-              Allow Meta to enhance your creative for better performance.
-            </p>
+        {/* Summary strip — inside the card */}
+        <div className={cn(
+          "flex flex-col gap-2 border-t px-4 pb-3 pt-2.5",
+          plan.advantageAudience ? "border-[#8FB821]/20" : "border-border/40"
+        )}>
+          {plan.advantageAudience ? (
+            /* A+ ON: info message */
+            <div className="flex items-start gap-1.5">
+              <Info className="h-3 w-3 shrink-0 mt-0.5 text-[#5B7611] dark:text-[#C3E165]" />
+              <p className="text-[11px] font-mono text-[#5B7611] dark:text-[#C3E165]">
+                Meta will automatically expand beyond your targeting suggestions for best results.
+              </p>
+            </div>
+          ) : (
+            /* A+ OFF: demographic preview */
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-mono text-muted-foreground">{previewGeo}</span>
+              <span className="text-[10px] font-mono text-muted-foreground">·</span>
+              <span className="text-[10px] font-mono text-muted-foreground">{previewAge}</span>
+              <span className="text-[10px] font-mono text-muted-foreground">·</span>
+              <span className="text-[10px] font-mono text-muted-foreground">{previewGender} genders</span>
+            </div>
+          )}
+
+          {/* Est. reach — always shown */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground shrink-0">Est. reach</span>
+            <div className="h-1 w-16 overflow-hidden rounded-full bg-muted/60">
+              <div className={cn(
+                "h-full rounded-full transition-all",
+                plan.advantageAudience ? "w-[85%] bg-[#8FB821]" : "w-[55%] bg-[#8FB821]/70"
+              )} />
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {plan.advantageAudience ? "~120M" : "~68M"}
+            </span>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={plan.advantageCreative}
-            onClick={() => onPatch({ advantageCreative: !plan.advantageCreative })}
-            className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-              plan.advantageCreative
-                ? "border-[#8FB821] bg-[#8FB821]"
-                : "border-border bg-muted",
-            )}
-          >
-            <span
-              className={cn(
-                "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                plan.advantageCreative ? "translate-x-5" : "translate-x-0.5",
-              )}
-            />
-          </button>
         </div>
       </div>
 
-      {/* ── 4. Light demographic preview + est. reach bar ─────────────── */}
-      <div className="flex items-center gap-1.5 px-1 flex-wrap">
-        <span className="text-[10px] font-mono text-muted-foreground">{previewGeo}</span>
-        <span className="text-[10px] font-mono text-muted-foreground">·</span>
-        <span className="text-[10px] font-mono text-muted-foreground">{previewAge}</span>
-        <span className="text-[10px] font-mono text-muted-foreground">·</span>
-        <span className="text-[10px] font-mono text-muted-foreground">{previewGender} genders</span>
-        <span className="text-[10px] font-mono text-muted-foreground">·</span>
-        <span
+      {/* ── 4. Advantage+ Creative — compact standalone card ───────────── */}
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-foreground">Advantage+ Creative</p>
+          <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+            Allow Meta to enhance your creative for better performance.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={plan.advantageCreative}
+          onClick={() => onPatch({ advantageCreative: !plan.advantageCreative })}
           className={cn(
-            "text-[10px] font-mono",
-            aPlus
-              ? "text-[#5B7611] dark:text-[#C3E165]"
-              : "text-muted-foreground",
+            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+            plan.advantageCreative
+              ? "border-[#8FB821] bg-[#8FB821]"
+              : "border-border bg-muted",
           )}
         >
-          {previewAPlus}
-        </span>
+          <span
+            className={cn(
+              "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+              plan.advantageCreative ? "translate-x-5" : "translate-x-0.5",
+            )}
+          />
+        </button>
       </div>
 
-      {/* Est. reach bar */}
-      <div className="flex items-center gap-2 px-1">
-        <span className="text-[10px] font-mono text-muted-foreground shrink-0">Est. reach</span>
-        <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-[65%] rounded-full bg-[#8FB821]" />
-        </div>
-        <span className="text-[10px] font-mono text-muted-foreground">~68M</span>
-      </div>
+      {/* Placement slot — injected by parent when A+ Audience is OFF */}
+      {placementsSlot}
 
       {/* ── 5. Advanced configurations — opens modal ─────────────────── */}
       <button

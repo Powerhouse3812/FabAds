@@ -385,6 +385,8 @@ export interface PlanV2 {
   conversionEvent: string | null;
   budgetMode: BudgetMode;
   budgetAmount: number;
+  /** Daily vs Lifetime budget window. */
+  budgetPeriod: "daily" | "lifetime";
   bidStrategy: BidStrategy;
   bidValue: number | null;
   /** The Advantage+ toggle. Scale + the 3 levers ⇒ ASC (derived). */
