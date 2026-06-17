@@ -351,13 +351,27 @@ const CUSTOM_ID = "__custom__";
 /** Cards per page before "View more" */
 const PAGE_SIZE = 9;
 
+/* ── Strategy variant toggle ── */
+type StrategyVariant = "A" | "B";
+const VARIANT_LS_KEY = "lv2:step1:strategy-variant";
+
+function readVariant(): StrategyVariant {
+  try {
+    const v = localStorage.getItem(VARIANT_LS_KEY);
+    if (v === "A" || v === "B") return v;
+  } catch {
+    /* ignore */
+  }
+  return "B";
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main component                                                      */
 /* ------------------------------------------------------------------ */
 
 export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
   const { plan } = flow;
-  const { objective, flowMode } = plan;
+  const { objective } = plan;
 
   /* ── strategy data ── */
   const [strategies, setStrategies] = useState<LaunchStrategy[]>([]);
@@ -503,19 +517,6 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
   };
 
   /* ── strategy variant toggle — A (merged inline) / B (compact card above search) ── */
-  const VARIANT_LS_KEY = "lv2:step1:strategy-variant";
-  type StrategyVariant = "A" | "B";
-
-  function readVariant(): StrategyVariant {
-    try {
-      const v = localStorage.getItem(VARIANT_LS_KEY);
-      if (v === "A" || v === "B") return v;
-    } catch {
-      /* ignore */
-    }
-    return "B";
-  }
-
   const [strategyVariant, setStrategyVariant] = useState<StrategyVariant>(readVariant);
 
   const switchVariant = (v: StrategyVariant) => {
@@ -896,7 +897,9 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
           <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-6 text-center">
             <p className="text-[12px] font-medium text-foreground">No matching strategies</p>
             <p className="text-[11px] text-muted-foreground">
-              Adjust filters, clear the search, or use Custom above.
+              {strategyVariant === "A"
+                ? "Adjust filters, clear the search, or use Skip above."
+                : "Adjust filters, clear the search, or use No strategy above."}
             </p>
             {filtersActive && (
               <button

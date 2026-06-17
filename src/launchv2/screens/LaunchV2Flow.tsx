@@ -70,7 +70,10 @@ export default function LaunchV2Flow() {
   const initialDeepLink = useMemo<DeepLinkState | undefined>(() => {
     const raw = sp.get('s');
     if (!raw) return undefined;
-    try { return JSON.parse(atob(raw)) as DeepLinkState; } catch { return undefined; }
+    try {
+      // Reverse of encodeURIComponent → unescape → btoa to handle Unicode chars.
+      return JSON.parse(decodeURIComponent(escape(atob(raw)))) as DeepLinkState;
+    } catch { return undefined; }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally run once
 
   const flow = useFlowV2(sp.get('draft') ?? draftId, initialDeepLink);
@@ -117,15 +120,28 @@ export default function LaunchV2Flow() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan, step]);
 
-  // Sync step to URL params on every step change (replace: true — wizard has its own
-  // Back button; browser back should exit the wizard, not step backwards).
-  useEffect(() => {
-    setSearchParams(
-      (prev) => { prev.set('draft', draftId); prev.set('step', String(step)); return prev; },
-      { replace: true }
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  // ── Navigation action ref — drives push vs replace in the URL sync ─────
+  // 'next' → push (gives user a meaningful browser Back button entry per step)
+  // 'back' | 'jump' | 'plan' → replace (avoid polluting history)
+  type NavAction = 'next' | 'back' | 'jump' | 'plan';
+  const lastNavAction = useRef<NavAction>('plan');
+
+  // Wrapped nav handlers — set the intent before mutating flow state so the
+  // URL-sync effect below can read the correct replace/push flag.
+  const handleNext = useCallback(() => {
+    lastNavAction.current = 'next';
+    flow.next();
+  }, [flow]);
+
+  const handleBack = useCallback(() => {
+    lastNavAction.current = 'back';
+    flow.back();
+  }, [flow]);
+
+  const handleSetStep = useCallback((s: StepV2) => {
+    lastNavAction.current = 'jump';
+    flow.setStep(s);
+  }, [flow]);
 
   const [saveAsStrategy, setSaveAsStrategy] = useState(false);
 
@@ -156,7 +172,12 @@ export default function LaunchV2Flow() {
     try { localStorage.setItem("lv2:stepper:v", v); } catch {}
   }
 
-  // Write full state to URL on every change so any URL can restore exact state
+  // Write full state to URL on every change so any URL can restore exact state.
+  // Also syncs ?draft and ?step so the URL is human-readable and refresh-safe
+  // without needing to decode the base64 ?s= blob.
+  // Uses push (replace: false) only for forward navigation (Next button) so the
+  // browser Back button gives the user meaningful per-step history entries.
+  // All other mutations (back, jump, plan edits) use replace to avoid pollution.
   useEffect(() => {
     const state: DeepLinkState = {
       plan,
@@ -164,10 +185,27 @@ export default function LaunchV2Flow() {
       variant,
       ui: uiHook.state,
     };
+    const action = lastNavAction.current;
+    // Reset to 'plan' after consuming — prevents stale action on the next plan edit
+    lastNavAction.current = 'plan';
+    const shouldPush = action === 'next';
     try {
-      setSearchParams({ s: btoa(JSON.stringify(state)) }, { replace: true });
+      setSearchParams(
+        (prev) => {
+          prev.set('draft', draftId);
+          prev.set('step', String(step));
+          try {
+            // btoa can't handle non-Latin1 chars (e.g. ₹ in strategy names).
+            // encodeURIComponent → unescape produces a Latin1-safe intermediate.
+            const json = JSON.stringify(state);
+            prev.set('s', btoa(unescape(encodeURIComponent(json))));
+          } catch { /* plan too large or unencodable */ }
+          return prev;
+        },
+        { replace: !shouldPush }
+      );
     } catch {
-      // ignore if plan too large to encode
+      // ignore serialization errors
     }
   // setSearchParams is a stable ref from react-router; uiHook.state is object so
   // we track the individual shape via plan/step/variant triggers intentionally.
@@ -247,7 +285,7 @@ export default function LaunchV2Flow() {
           step={step}
           steps={[1, 2, 3, 4] as StepV2[]}
           titles={STEP_TITLES_V3}
-          onJump={(s) => s <= step && flow.setStep(s)}
+          onJump={(s) => s <= step && handleSetStep(s)}
           issues={issues}
           flow={flow}
           saveState={saveState}
@@ -267,7 +305,7 @@ export default function LaunchV2Flow() {
                 step={step}
                 steps={[1, 2, 3, 4] as StepV2[]}
                 titles={STEP_TITLES_V3}
-                onJump={(s) => s <= step && flow.setStep(s)}
+                onJump={(s) => s <= step && handleSetStep(s)}
                 issues={issues}
               />
               <button
@@ -285,7 +323,7 @@ export default function LaunchV2Flow() {
           <StepBreadcrumb
             plan={plan}
             step={step}
-            setStep={flow.setStep}
+            setStep={handleSetStep}
             saveState={saveState}
             savedAt={savedAt}
             onRetry={() => {
@@ -330,21 +368,21 @@ export default function LaunchV2Flow() {
          Feedback button removed (FloatingFeedbackButton is single source).
          Autosave whisper removed (moved to breadcrumb strip). */}
       <div className="flex flex-shrink-0 items-center justify-between gap-4 border-t border-border bg-background px-5 py-3">
-        <Button variant="outline" onClick={flow.back} disabled={step === 1}>Back</Button>
+        <Button variant="outline" onClick={handleBack} disabled={step === 1}>Back</Button>
 
         {step < 4 ? (
           <div className="flex items-center gap-2">
             {step === 1 && plan.flowMode === "template" && (
               <Button
                 variant="outline"
-                onClick={() => flow.setStep(4)}
+                onClick={() => handleSetStep(4)}
                 className="rounded-full text-[12px] gap-1.5"
               >
                 <Rocket className="h-3.5 w-3.5" />
                 Skip &amp; Launch
               </Button>
             )}
-            <Button onClick={flow.next} disabled={!valid} className="min-w-[90px]">Next</Button>
+            <Button onClick={handleNext} disabled={!valid} className="min-w-[90px]">Next</Button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
