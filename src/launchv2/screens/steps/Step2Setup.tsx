@@ -63,6 +63,9 @@ import { buildIssues } from "../review/reviewModel";
 import { AccountsPages } from "./setup/AccountsPages";
 import { TemplateModal } from "./setup/TemplateModal";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
+import BidStrategyRow from "./setup/BidStrategyRow";
+import AccountCatalogPicker from "./shared/AccountCatalogPicker";
+import CatalogueStructurePreview from "./shared/CatalogueStructurePreview";
 // SpecialAdCategoryField moved to AccountsPages (regulated toggle at top of §1, lock #18).
 import CopyFromRunning, {
   runningCampaignItems,
@@ -645,39 +648,14 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           {/* Advanced: bid strategy only */}
           <AdvancedReveal label="Advanced — bid strategy">
             {policy.bidStrategy.visibility !== "hidden" && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Bid strategy</Label>
-                <Select
-                  value={plan.bidStrategy}
-                  onValueChange={(v) => patch({ bidStrategy: v as BidStrategy })}
-                >
-                  <SelectTrigger className="h-9 w-full max-w-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bidOptions.map((b) => (
-                      <SelectItem key={b} value={b}>
-                        {BID_LABELS[b]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {plan.bidStrategy !== "LOWEST_COST_WITHOUT_CAP" && (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <span className="font-mono text-sm text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      placeholder="Cap / goal"
-                      value={plan.bidValue ?? ""}
-                      onChange={(e) =>
-                        patch({ bidValue: e.target.value === "" ? null : Number(e.target.value) })
-                      }
-                      className="h-9 w-32 font-mono tabular-nums"
-                    />
-                  </div>
-                )}
-              </div>
+              <BidStrategyRow
+                objective={plan.objective}
+                optimizationGoal={plan.optimizationGoal}
+                bidStrategy={plan.bidStrategy}
+                bidValue={plan.bidValue ?? null}
+                onChangeBidStrategy={(v) => patch({ bidStrategy: v })}
+                onChangeBidValue={(v) => patch({ bidValue: v ?? undefined })}
+              />
             )}
           </AdvancedReveal>
 
@@ -696,6 +674,23 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── Catalogue picker + structure preview (B8) ── */}
+          {plan.catalogueToggle && plan.targets.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground px-1">
+                Select catalogue per account
+              </p>
+              {plan.targets.map((target) => (
+                <AccountCatalogPicker
+                  key={target.accountId}
+                  flow={flow}
+                  accountId={target.accountId}
+                />
+              ))}
+              <CatalogueStructurePreview flow={flow} />
             </div>
           )}
         </StepSection>
@@ -1044,22 +1039,43 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             compact
           />
 
-          {/* Advantage+ Audience/Creative quick toggles */}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Toggle
-              checked={plan.advantageAudience}
-              onCheckedChange={(v) => patch({ advantageAudience: v })}
-              label="Advantage+ Audience"
-              desc="Start broad; Meta finds buyers."
-              locked={policy.advantageAudience.locked}
-              reason={policy.advantageAudience.reason}
-            />
-            <Toggle
-              checked={plan.advantageCreative}
-              onCheckedChange={(v) => patch({ advantageCreative: v })}
-              label="Advantage+ Creative"
-              desc="Auto creative enhancements per placement."
-            />
+          {/* Advantage+ Features — single toggle controls both audience + creative */}
+          <div className="rounded-2xl border border-border bg-background px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-foreground">Advantage+ Features</p>
+                <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                  Enable both Advantage+ Audience and Advantage+ Creative automatically.
+                </p>
+                {policy.advantageAudience.locked && (
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
+                    <Lock className="h-3 w-3" /> {policy.advantageAudience.reason}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.advantageAudience && plan.advantageCreative}
+                disabled={policy.advantageAudience.locked}
+                onClick={() => {
+                  const on = !(plan.advantageAudience && plan.advantageCreative);
+                  patch({ advantageAudience: on, advantageCreative: on });
+                }}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+                  (plan.advantageAudience && plan.advantageCreative)
+                    ? "border-[#8FB821] bg-[#8FB821]"
+                    : "border-border bg-muted",
+                  policy.advantageAudience.locked && "pointer-events-none opacity-50",
+                )}
+              >
+                <span className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  (plan.advantageAudience && plan.advantageCreative) ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
           </div>
 
           {/* Placements — accordion (Facebook expanded default kept) */}

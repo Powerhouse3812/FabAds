@@ -52,6 +52,7 @@ import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
 import type { UseFlowV2 } from "../../../state/useFlowV2";
 import RunningPickerModal from "../shared/RunningPickerModal";
+import SpecialAdCountryPicker from "./SpecialAdCountryPicker";
 
 /* ─── BM display names (mock, keyed by accountId) ─────────────────────────── */
 const BM_NAMES: Record<string, string> = {
@@ -914,6 +915,16 @@ export function AccountsPages({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Country picker — required by Meta whenever SAC is active */}
+        {plan.specialAdDeclared && (
+          <div className="pl-1 pt-1">
+            <SpecialAdCountryPicker
+              selected={plan.specialAdCountries ?? []}
+              onChange={(codes) => onPatch({ specialAdCountries: codes })}
+            />
           </div>
         )}
       </div>
