@@ -705,46 +705,85 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
             </SectionCard>
           ) : (
             <>
-              {/* ── 3. Source — chips row with "Copy from running ad" promoted ── */}
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-foreground">Creative source</Label>
-                  <p className="text-[11px] text-muted-foreground">Where to pull your creatives from</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {SOURCES.map((s) => {
-                    const active = activeSourceId === s.id;
-                    const Icon = SOURCE_ICON[s.id as SourceType] ?? Image;
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          flow.patch({ source: { type: s.id as SourceType, ref: null } });
-                          setSheetOpen(true);
-                        }}
-                        aria-pressed={active}
-                        className={cn(
-                          "fab-focus inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                          active
-                            ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
-                            : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                        )}
-                      >
-                        <Icon className="h-3 w-3" />
-                        {s.label}
-                      </button>
-                    );
-                  })}
-                  {/* Copy from running ad — promoted to first-class chip in Source row */}
-                  <CopyFromRunning
-                    triggerLabel="Copy from running ad"
-                    items={runningAdItems()}
-                    onPick={(id) => applyRunningAd(flow, id)}
-                    pickerType="ad"
-                  />
-                </div>
-              </div>
+              {/* ── 3. Source — chips row: labeled left zone + icon-only right zone ── */}
+              {(() => {
+                const LABELED_SOURCES: SourceType[] = ["library", "genie", "upload"];
+                const labeledSources = SOURCES.filter((s) => LABELED_SOURCES.includes(s.id as SourceType));
+                const iconOnlySources = SOURCES.filter((s) => !LABELED_SOURCES.includes(s.id as SourceType));
+                return (
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-semibold text-foreground">Creative source</Label>
+                      <p className="text-[11px] text-muted-foreground">Where to pull your creatives from</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Left zone — labeled chips */}
+                      {labeledSources.map((s) => {
+                        const active = activeSourceId === s.id;
+                        const Icon = SOURCE_ICON[s.id as SourceType] ?? Image;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              flow.patch({ source: { type: s.id as SourceType, ref: null } });
+                              setSheetOpen(true);
+                            }}
+                            aria-pressed={active}
+                            className={cn(
+                              "fab-focus inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors",
+                              active
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-muted-foreground hover:border-foreground hover:text-foreground",
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {s.label}
+                          </button>
+                        );
+                      })}
+
+                      {/* Divider */}
+                      <div className="mx-1 h-5 w-px flex-shrink-0 bg-border/60" />
+
+                      {/* Right zone — icon-only chips */}
+                      {iconOnlySources.map((s) => {
+                        const active = activeSourceId === s.id;
+                        const Icon = SOURCE_ICON[s.id as SourceType] ?? Image;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            title={s.label}
+                            onClick={() => {
+                              flow.patch({ source: { type: s.id as SourceType, ref: null } });
+                              setSheetOpen(true);
+                            }}
+                            aria-pressed={active}
+                            aria-label={s.label}
+                            className={cn(
+                              "fab-focus flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border transition-colors",
+                              active
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-muted-foreground hover:border-foreground hover:text-foreground",
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </button>
+                        );
+                      })}
+
+                      {/* Copy from running ad — icon-only in right zone */}
+                      <CopyFromRunning
+                        triggerLabel="Copy from running ad"
+                        items={runningAdItems()}
+                        onPick={(id) => applyRunningAd(flow, id)}
+                        pickerType="ad"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ── 4. Ad creative card ─────────────────────────────────── */}
               <SectionCard title="Ad creative">

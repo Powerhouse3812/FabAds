@@ -78,16 +78,22 @@ export default function AccountSelectorPanel({
   // ── Toggle handlers ──────────────────────────────────────────────────────────
   function handleSelectAll() {
     if (allSelected) {
-      // Deselect all — keep at least the first account active
-      onSelect(new Set([uniqueAcctIds[0]]));
+      // Deselect all — allow empty selection
+      onSelect(new Set());
     } else {
       onSelect(new Set(uniqueAcctIds));
     }
   }
 
   function handleRowClick(id: string) {
-    // Single-click → select only this account
-    onSelect(new Set([id]));
+    // Toggle this account in/out of the selection
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    onSelect(next);
   }
 
   function handleCheckboxChange(id: string, checked: boolean) {
@@ -96,8 +102,6 @@ export default function AccountSelectorPanel({
       next.add(id);
     } else {
       next.delete(id);
-      // Never allow empty selection
-      if (next.size === 0) next.add(uniqueAcctIds[0]);
     }
     onSelect(next);
   }
