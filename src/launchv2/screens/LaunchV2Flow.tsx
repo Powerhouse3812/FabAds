@@ -345,8 +345,8 @@ export default function LaunchV2Flow() {
       )}
 
       {/* Body */}
-      <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
-        <div className={cn(twoPane ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
+      <div className={cn("flex-1 min-h-0", (twoPane || step === 3) ? "overflow-hidden" : "overflow-y-auto")}>
+        <div className={cn((twoPane || step === 3) ? "h-full" : "mx-auto max-w-4xl px-5 py-6")}>
           <>
             {step === 1 && <Step1Start flow={flow} saveAsStrategy={saveAsStrategy} onSaveAsStrategyChange={setSaveAsStrategy} />}
             {step === 2 && <Step2Setup flow={flow} />}

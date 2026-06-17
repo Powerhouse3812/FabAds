@@ -19,7 +19,6 @@ import {
   ChevronsUpDown,
   ExternalLink,
   FileText,
-  Hash,
   Info,
   Loader2,
   Plug,
@@ -45,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ACCOUNTS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds, RUNNING_ADS } from "../../../data";
+import { ACCOUNTS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds } from "../../../data";
 import { perPageDemand } from "../../../deriveV2";
 import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
@@ -311,8 +310,6 @@ function AccountRow({
   targets,
   onTogglePage,
   onSetPixel,
-  postIds,
-  onSetPostIds,
   catalogueEnabled,
   selectedCatalogId,
   selectedProductSetIds,
@@ -330,8 +327,6 @@ function AccountRow({
   targets: TargetPair[];
   onTogglePage: (accountId: string, pageId: string) => void;
   onSetPixel: (accountId: string, pixelId: string | undefined) => void;
-  postIds: string[];
-  onSetPostIds: (ids: string[]) => void;
   catalogueEnabled: boolean;
   selectedCatalogId: string | null;
   selectedProductSetIds: string[];
@@ -347,8 +342,6 @@ function AccountRow({
 }) {
   const [pagePopoverOpen, setPagePopoverOpen] = useState(false);
   const [pageSearch, setPageSearch] = useState("");
-  const [postHoverOpen, setPostHoverOpen] = useState(false);
-  const [postEnabled, setPostEnabled] = useState(postIds.length > 0);
 
   const account = ACCOUNTS.find((a) => a.id === accountId);
   if (!account) return null;
@@ -512,75 +505,6 @@ function AccountRow({
             )}
           </div>
         </div>
-
-        {/* ── Post ID sub-row ── */}
-        <div className="flex items-center gap-3 px-3 py-2">
-          <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-          <span className="flex-1 text-xs font-medium text-muted-foreground">Use existing posts</span>
-
-          {/* Selected count chip (shown when postIds.length > 0 AND postEnabled) */}
-          {postEnabled && postIds.length > 0 && (
-            <Popover open={postHoverOpen} onOpenChange={setPostHoverOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-xs font-medium text-foreground hover:bg-primary/10 transition-colors"
-                >
-                  <Hash className="h-3 w-3 text-primary" />
-                  {postIds.length} post{postIds.length !== 1 ? "s" : ""}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 rounded-xl p-2" align="end">
-                <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">Selected posts</p>
-                <div className="space-y-1.5">
-                  {postIds.map((id) => {
-                    const ad = RUNNING_ADS.find((a) => a.id === id);
-                    if (!ad) return null;
-                    return (
-                      <div key={id} className="flex items-center gap-2">
-                        <img src={ad.thumbnail} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{ad.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-
-          <Switch
-            checked={postEnabled}
-            onCheckedChange={(v) => {
-              setPostEnabled(v);
-              if (!v) onSetPostIds([]);
-            }}
-            className="scale-90"
-          />
-        </div>
-
-        {/* ── Post ID next-step note (toggle on, none picked yet) ── */}
-        {postEnabled && postIds.length === 0 && (
-          <div className="px-3 py-2.5 flex items-start gap-2 bg-muted/20">
-            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
-            <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
-              Creative selection happens in the next step.
-            </p>
-          </div>
-        )}
-
-        {/* ── Post ID distribution info box ── */}
-        {postEnabled && postIds.length > 0 && (
-          <div className="px-3 py-2.5 flex items-start gap-2 bg-muted/20">
-            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
-            <div className="space-y-0.5">
-              <p className="text-[11px] font-semibold text-foreground">Post ID distribution</p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Each selected post ({postIds.length}) runs as 1 ad per ad set across your selected pages.
-                Distribution is 1:1 — one post maps to one ad, repeated in every ad set.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* ── Catalogue sub-row (toggle only) ── */}
         <div className="flex items-center gap-3 px-3 py-2">
@@ -893,15 +817,6 @@ export function AccountsPages({
                 targets={targets}
                 onTogglePage={togglePage}
                 onSetPixel={setPixel}
-                postIds={plan.postIdsByAccount?.[accountId] ?? []}
-                onSetPostIds={(ids) =>
-                  onPatch({
-                    postIdsByAccount: {
-                      ...(plan.postIdsByAccount ?? {}),
-                      [accountId]: ids,
-                    },
-                  })
-                }
                 catalogueEnabled={plan.catalogueByAccount?.[accountId] ?? false}
                 selectedCatalogId={plan.productSetByAccount?.[accountId]?.catalogId ?? null}
                 selectedProductSetIds={plan.productSetByAccount?.[accountId]?.productSetIds ?? []}

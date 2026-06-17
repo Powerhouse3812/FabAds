@@ -52,7 +52,7 @@ import { DistributionSectionChip } from "./distribution/DistributionTemplateBar"
 import { adSetCount, adsPerDestination, capCheck, spreadPreview } from "../../deriveV2";
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
-import Step3V2Panel from "./distribution/Step3V2Panel";
+import AccountSelectorPanel from "./distribution/AccountSelectorPanel";
 
 // ── Source → Lucide icon map ──────────────────────────────────────────────────
 const SOURCE_ICON: Record<SourceType, React.ElementType> = {
@@ -477,13 +477,15 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     document.body.style.userSelect = "none";
   };
 
-  const forceV2 = plan.catalogueToggle || plan.source.type === "post_id";
+  const forceV2 = plan.catalogueToggle;
   const [distVariant, setDistVariant] = useState<"v1" | "v2">(() =>
-    plan.catalogueToggle || plan.source.type === "post_id" ? "v2" : "v1"
+    plan.catalogueToggle ? "v2" : "v1"
   );
   useEffect(() => {
     if (forceV2) setDistVariant("v2");
   }, [forceV2]);
+
+  const [selectedAcctIds, setSelectedAcctIds] = useState<Set<string>>(() => new Set<string>());
 
   // ── Selection style helpers (Tier-2 lock #6: 2px foreground border, no lime) ─
   const selectedBorder = "border-2 border-foreground bg-foreground/[0.03]";
@@ -496,7 +498,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
       <div className="flex flex-shrink-0 items-center justify-end gap-2 border-b border-border/60 bg-background px-4 py-1.5">
         {forceV2 ? (
           <span className="font-mono text-[10px] text-muted-foreground">
-            Account layout — {plan.catalogueToggle ? "Catalogue" : "Post ID"}
+            Account layout — Catalogue
           </span>
         ) : (
           <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5">
@@ -519,18 +521,27 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         )}
       </div>
 
-      {/* V2 panel — account / catalogue / post-ID variant */}
-      {(distVariant === "v2" || forceV2) && <Step3V2Panel flow={flow} />}
-
-      {/* V1 split pane — hidden (not unmounted) when V2 */}
+      {/* V1/V2 split pane — always rendered; account panel injected as first column in V2 */}
       <div
         ref={containerRef}
-        className={cn("flex min-h-0 flex-1", (distVariant === "v2" || forceV2) && "hidden")}
+        className="flex min-h-0 flex-1"
       >
+        {/* Account selector — V2 mode only */}
+        {(distVariant === "v2" || forceV2) && (
+          <AccountSelectorPanel
+            flow={flow}
+            selectedIds={selectedAcctIds}
+            onSelect={setSelectedAcctIds}
+          />
+        )}
+
       {/* ── Left pane: Ad creative ───────────────────────────────────────── */}
       <div
-        style={{ width: `${leftWidth}%` }}
-        className="h-full overflow-y-auto px-6 py-5 min-w-0"
+        style={(distVariant === "v1" && !forceV2) ? { width: `${leftWidth}%` } : undefined}
+        className={cn(
+          "h-full overflow-y-auto px-5 py-4 min-w-0",
+          (distVariant === "v2" || forceV2) && "flex-1"
+        )}
       >
         <div className="space-y-4">
 
@@ -829,19 +840,24 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         </div>
       </div>
 
-      {/* ── Drag handle ──────────────────────────────────────────────────────── */}
-      <div
-        onMouseDown={handleDividerMouseDown}
-        className={cn(
-          "w-1 cursor-col-resize shrink-0 select-none transition-colors",
-          isDragging ? "bg-foreground/40" : "bg-border hover:bg-foreground/40",
-        )}
-      />
+      {/* ── Drag handle — V1 mode only ───────────────────────────────────────── */}
+      {(distVariant === "v1" && !forceV2) && (
+        <div
+          onMouseDown={handleDividerMouseDown}
+          className={cn(
+            "w-1 cursor-col-resize shrink-0 select-none transition-colors",
+            isDragging ? "bg-foreground/40" : "bg-border hover:bg-foreground/40",
+          )}
+        />
+      )}
 
       {/* ── Right pane: Distribution ─────────────────────────────────────────── */}
       <div
-        style={{ width: `${100 - leftWidth}%` }}
-        className="h-full overflow-y-auto px-6 py-5 min-w-0 border-l border-border"
+        style={(distVariant === "v1" && !forceV2) ? { width: `${100 - leftWidth}%` } : undefined}
+        className={cn(
+          "h-full overflow-y-auto px-5 py-4 min-w-0 border-l border-border",
+          (distVariant === "v2" || forceV2) && "w-[280px] flex-shrink-0"
+        )}
       >
         {plan.catalogueToggle ? (
           /* Catalogue (DPA) mode — collapsed one-line summary card */
