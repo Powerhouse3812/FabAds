@@ -288,8 +288,8 @@ export default function TargetingTemplateSection({
         </div>
       )}
 
-      {/* ── 3. Feature toggles ────────────────────────────────────────── */}
-      <div className="space-y-2">
+      {/* ── 3. Feature toggles — horizontal 2-col grid ───────────────── */}
+      <div className="grid grid-cols-2 gap-2">
         {/* Advantage+ Audience */}
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3">
           <div className="min-w-0">
@@ -357,8 +357,8 @@ export default function TargetingTemplateSection({
         </div>
       </div>
 
-      {/* ── 4. Light demographic preview ──────────────────────────────── */}
-      <div className="flex items-center gap-1.5 px-1">
+      {/* ── 4. Light demographic preview + est. reach bar ─────────────── */}
+      <div className="flex items-center gap-1.5 px-1 flex-wrap">
         <span className="text-[10px] font-mono text-muted-foreground">{previewGeo}</span>
         <span className="text-[10px] font-mono text-muted-foreground">·</span>
         <span className="text-[10px] font-mono text-muted-foreground">{previewAge}</span>
@@ -377,7 +377,16 @@ export default function TargetingTemplateSection({
         </span>
       </div>
 
-      {/* ── 5. Expand to edit button ───────────────────────────────────── */}
+      {/* Est. reach bar */}
+      <div className="flex items-center gap-2 px-1">
+        <span className="text-[10px] font-mono text-muted-foreground shrink-0">Est. reach</span>
+        <div className="h-1 w-16 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-[65%] rounded-full bg-[#8FB821]" />
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground">~68M</span>
+      </div>
+
+      {/* ── 5. Advanced configurations toggle ─────────────────────────── */}
       <button
         type="button"
         onClick={toggleExpanded}
@@ -388,7 +397,7 @@ export default function TargetingTemplateSection({
         ) : (
           <ChevronDown className="h-3.5 w-3.5" />
         )}
-        {expanded ? "Collapse" : "Expand to edit"}
+        Advanced configurations
       </button>
 
       {/* ── 6. Inline edit area ────────────────────────────────────────── */}

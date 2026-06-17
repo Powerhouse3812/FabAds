@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import FeedbackSheet from "../feedback/FeedbackSheet";
-import { useFlowV2, type StepV2, type DeepLinkState } from "../state/useFlowV2";
+import { useFlowV2, type StepV2, type DeepLinkState, type UseFlowV2 } from "../state/useFlowV2";
 import { useUIState } from "../state/useUIState";
 import { useLaunchV2 } from "../state/LaunchV2Context";
 import { estimateAds } from "../deriveV2";
@@ -26,6 +26,7 @@ import Step2Setup from "./steps/Step2Setup";
 import Step4Review from "./steps/Step4Review";
 import Step3AdDistributionV3 from "./steps/Step3AdDistributionV3";
 import LaunchConfirmModal from "../components/LaunchConfirmModal";
+import { SetupTemplateBar } from "./steps/setup/SetupTemplateBar";
 
 type SaveState = "saving" | "saved" | "failed";
 
@@ -144,6 +145,17 @@ export default function LaunchV2Flow() {
 
   const variant = 'v3' as const;
 
+  // ── Stepper variant toggle (V1 / V2) — persisted to localStorage ─────
+  const [stepperVariant, setStepperVariant] = useState<"v1" | "v2">(() => {
+    try { return (localStorage.getItem("lv2:stepper:v") as "v1" | "v2") || "v1"; }
+    catch { return "v1"; }
+  });
+
+  function switchStepperVariant(v: "v1" | "v2") {
+    setStepperVariant(v);
+    try { localStorage.setItem("lv2:stepper:v", v); } catch {}
+  }
+
   // Write full state to URL on every change so any URL can restore exact state
   useEffect(() => {
     const state: DeepLinkState = {
@@ -229,33 +241,70 @@ export default function LaunchV2Flow() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Step progress */}
-      <div className="flex-shrink-0 border-b border-border bg-background px-5 py-3">
-        <Progress
+      {stepperVariant === "v2" ? (
+        <StepperV2
+          plan={plan}
           step={step}
           steps={[1, 2, 3, 4] as StepV2[]}
           titles={STEP_TITLES_V3}
           onJump={(s) => s <= step && flow.setStep(s)}
           issues={issues}
+          flow={flow}
+          saveState={saveState}
+          savedAt={savedAt}
+          onRetry={() => {
+            setSaveState("saving");
+            setTimeout(() => { setSaveState("saved"); setSavedAt(Date.now()); }, 400);
+          }}
+          onSwitchVariant={() => switchStepperVariant("v1")}
         />
-      </div>
+      ) : (
+        <>
+          {/* V1 — Step progress */}
+          <div className="flex-shrink-0 border-b border-border bg-background px-5 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <Progress
+                step={step}
+                steps={[1, 2, 3, 4] as StepV2[]}
+                titles={STEP_TITLES_V3}
+                onJump={(s) => s <= step && flow.setStep(s)}
+                issues={issues}
+              />
+              <button
+                type="button"
+                onClick={() => switchStepperVariant("v2")}
+                className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:text-foreground"
+              >
+                V2
+              </button>
+            </div>
+          </div>
 
-      {/* Persistent breadcrumb strip — locked upstream state + autosave.
-         Sticky so it stays visible while the body scrolls. */}
-      <StepBreadcrumb
-        plan={plan}
-        step={step}
-        setStep={flow.setStep}
-        saveState={saveState}
-        savedAt={savedAt}
-        onRetry={() => {
-          setSaveState("saving");
-          setTimeout(() => {
-            setSaveState("saved");
-            setSavedAt(Date.now());
-          }, 400);
-        }}
-      />
+          {/* V1 — Persistent breadcrumb strip — locked upstream state + autosave.
+             Sticky so it stays visible while the body scrolls. */}
+          <StepBreadcrumb
+            plan={plan}
+            step={step}
+            setStep={flow.setStep}
+            saveState={saveState}
+            savedAt={savedAt}
+            onRetry={() => {
+              setSaveState("saving");
+              setTimeout(() => {
+                setSaveState("saved");
+                setSavedAt(Date.now());
+              }, 400);
+            }}
+          />
+
+          {/* V1 — Setup template bar (step 2 only) */}
+          {step === 2 && (
+            <div className="flex-shrink-0 border-b border-border/60 bg-background px-5 py-2">
+              <SetupTemplateBar flow={flow} />
+            </div>
+          )}
+        </>
+      )}
 
       {/* Body */}
       <div className={cn("flex-1 min-h-0", twoPane ? "overflow-hidden" : "overflow-y-auto")}>
@@ -568,6 +617,118 @@ function StepBreadcrumb({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function StepperV2({
+  plan,
+  step,
+  steps,
+  titles,
+  onJump,
+  issues,
+  flow,
+  saveState,
+  savedAt,
+  onRetry,
+  onSwitchVariant,
+}: {
+  plan: PlanV2;
+  step: StepV2;
+  steps: StepV2[];
+  titles: Record<number, string>;
+  onJump: (s: StepV2) => void;
+  issues: ReviewIssue[];
+  flow: UseFlowV2;
+  saveState: SaveState;
+  savedAt: number;
+  onRetry: () => void;
+  onSwitchVariant: () => void;
+}) {
+  const chips = buildChips(plan);
+  const visible = chips.slice(0, MAX_VISIBLE_CHIPS);
+  const overflow = chips.length - visible.length;
+
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const t = setInterval(() => force((n) => n + 1), 5000);
+    return () => clearInterval(t);
+  }, [saveState]);
+
+  const sinceLabel = (() => {
+    const s = Math.max(0, Math.floor((Date.now() - savedAt) / 1000));
+    if (s < 5) return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    return `${m}m ago`;
+  })();
+
+  return (
+    <div className="sticky top-0 z-20 flex-shrink-0 border-b border-border bg-background/95 backdrop-blur">
+      {/* Row 1: step progress + V1 toggle pill (right) */}
+      <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-1.5">
+        <Progress
+          step={step}
+          steps={steps}
+          titles={titles}
+          onJump={onJump}
+          issues={issues}
+        />
+        <button
+          type="button"
+          onClick={onSwitchVariant}
+          className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:text-foreground"
+        >
+          V1
+        </button>
+      </div>
+
+      {/* Row 2: Overview chips + autosave */}
+      <div className="flex items-center justify-between gap-3 px-5 pb-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="shrink-0 text-[10px] font-mono text-muted-foreground/60 mr-0.5">Overview:</span>
+          <TooltipProvider>
+            {visible.map((chip, idx) => (
+              <Tooltip key={`${chip.step}-${idx}-${chip.label}`}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onJump(chip.step)}
+                    className="fab-focus inline-flex max-w-[180px] items-center gap-1 truncate rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+                  >
+                    <span className="truncate">{chip.label}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-line">
+                  {chip.tooltip}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+            {overflow > 0 && (
+              <button
+                type="button"
+                className="fab-focus inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                +{overflow} more
+              </button>
+            )}
+          </TooltipProvider>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+          {saveState === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /><span>Saving…</span></>}
+          {saveState === "saved" && <><span className="h-1.5 w-1.5 rounded-full bg-primary" /><span>Saved {sinceLabel}</span></>}
+          {saveState === "failed" && <><AlertTriangle className="h-3 w-3 text-amber-500" /><span>Save failed</span><button type="button" onClick={onRetry} className="rounded-full px-1.5 text-[11px] font-medium text-foreground underline-offset-2 hover:underline">Retry</button></>}
+        </div>
+      </div>
+
+      {/* Row 3: Setup template bar — step 2 only */}
+      {step === 2 && (
+        <div className="flex items-center gap-2 border-t border-border/40 px-5 py-2">
+          <SetupTemplateBar flow={flow} />
+        </div>
+      )}
     </div>
   );
 }

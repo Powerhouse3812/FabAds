@@ -102,7 +102,7 @@ function StepSection({
         >
           {complete && <Check className="h-2.5 w-2.5" />}
         </span>
-        {!isLast && <span className="mt-1 w-px flex-1 bg-border" />}
+        {!isLast && <span className={cn("mt-1 w-px flex-1 transition-colors", complete ? "bg-primary/40" : "bg-border")} />}
       </div>
 
       {/* Right content */}
@@ -144,19 +144,32 @@ function AdvancedReveal({ label, children }: { label: string; children: React.Re
 function Subsection({
   label,
   defaultOpen = true,
+  open: controlledOpen,
+  onOpenChange,
   children,
 }: {
   label: string;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (v: boolean) => void;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  function handleToggle() {
+    const next = !open;
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Header — click to toggle */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/20"
       >
         <ChevronDown
@@ -367,6 +380,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   ];
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualIndex, setManualIndex] = useState<number | null>(null);
+  // §3 sub-section accordion — one open at a time
+  const [s3Sub, setS3Sub] = useState<"audience" | "optimization">("audience");
 
   // active section = manual override (if set) else the scroll-driven one
   const expandedIndex = manualIndex ?? activeIndex;
@@ -437,9 +452,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
-        {/* ── Setup template one-liner ──────────────────────────── */}
-        <SetupTemplateBar flow={flow} />
-
         {/* Overview moved to LaunchV2Flow breadcrumb strip — sticky card + progress strip removed. */}
 
         {/* ── Ant-style vertical Steps spine ────────────────────── */}
@@ -646,117 +658,12 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={true}
           sectionRef={sectionRefs[2]}
         >
-          {/* Regulated category lives in §1 (top of Ad accounts & Pages, lock #18). */}
-
-          {/* ── Subsection ▸ Optimization (conv location + perf goal + attribution SURFACED) ── */}
-          <Subsection label="Optimization" defaultOpen>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Conversion location — only shown when objective supports it */}
-            {plan.objective && showsLocationPicker(plan.objective) && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Conversion location</Label>
-                <Select
-                  value={plan.destinationType ?? undefined}
-                  onValueChange={(v) => patch({ destinationType: v as DestinationType })}
-                >
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* Performance goal */}
-            {plan.objective && plan.destinationType && (() => {
-              const c = cascade(plan.objective, plan.destinationType);
-              return (
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    Performance goal
-                    {c.lockedGoal && <Lock className="h-3 w-3" />}
-                  </Label>
-                  {c.lockedGoal ? (
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
-                      <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
-                    </p>
-                  ) : (
-                    <Select
-                      value={plan.optimizationGoal ?? undefined}
-                      onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
-                    >
-                      <SelectTrigger className="h-9 w-full">
-                        <SelectValue placeholder="Select goal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {c.optimizationGoals.map((g) => (
-                          <SelectItem key={g} value={g}>
-                            {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Attribution — SURFACED (not Advanced) per restructure */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
-                Attribution window
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Full label: 7-day click + 1-day engage-through + 1-day view.
-                  </TooltipContent>
-                </Tooltip>
-              </Label>
-              <Select
-                value={plan.attribution}
-                onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
-              >
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1d_click">1-day click</SelectItem>
-                  <SelectItem value="7d_click">7-day click</SelectItem>
-                  <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Note: 28-day view was removed by Meta in Jan 2026.
-              </p>
-            </div>
-          </div>
-
-          {/* Pixel warning — full width, below grid */}
-          {needsPixel && (
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Info className="h-3 w-3 text-amber-500" />
-                Pixel / Dataset required for this goal
-              </Label>
-              <p className="text-[11px] text-amber-600">
-                This goal needs a pixel. Choose accounts with a connected pixel, or change the performance goal.
-              </p>
-            </div>
-          )}
-          </Subsection>
-          {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
-
-          {/* ── Subsection ▸ Audience & Placement (SURFACED) ────────── */}
-          <Subsection label="Audience & Placement" defaultOpen>
+          {/* ── Subsection ▸ Audience & Placement ──────────────────── */}
+          <Subsection
+            label="Audience & Placement"
+            open={s3Sub === "audience"}
+            onOpenChange={(v) => setS3Sub(v ? "audience" : "optimization")}
+          >
           {/* Regulated category — toggle + category type chips */}
           <div className="rounded-2xl border border-border bg-background px-4 py-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -826,7 +733,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             specialAdCategoryActive={special}
           />
 
-          {/* Placements — accordion (Facebook expanded default kept) */}
+          {/* Placements — shown only when Advantage+ Audience is OFF */}
+          {!plan.advantageAudience && (
           <AdvancedReveal label="Placements">
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Placement type</Label>
@@ -927,13 +835,123 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               )}
             </div>
           </AdvancedReveal>
+          )}
           </Subsection>
           {/* ── /Subsection ▸ Audience & Placement ─────────────────── */}
 
-          {/* Regulated category toggle lives in §1 (lock #18). The legacy
-              SpecialAdCategoryField field is no longer rendered here — its
-              state is still patched via plan.specialAdDeclared / .specialAdCategories
-              from AccountsPages. */}
+          {/* ── Subsection ▸ Optimization ────────────────────────────── */}
+          <Subsection
+            label="Optimization"
+            open={s3Sub === "optimization"}
+            onOpenChange={(v) => setS3Sub(v ? "optimization" : "audience")}
+          >
+          {/* Row 1: Conversion location + Performance goal side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Conversion location — only shown when objective supports it */}
+            {plan.objective && showsLocationPicker(plan.objective) ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Conversion location</Label>
+                <Select
+                  value={plan.destinationType ?? undefined}
+                  onValueChange={(v) => patch({ destinationType: v as DestinationType })}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div />
+            )}
+
+            {/* Performance goal */}
+            {plan.objective && plan.destinationType && (() => {
+              const c = cascade(plan.objective, plan.destinationType);
+              return (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    Performance goal
+                    {c.lockedGoal && <Lock className="h-3 w-3" />}
+                  </Label>
+                  {c.lockedGoal ? (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                      <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
+                    </p>
+                  ) : (
+                    <Select
+                      value={plan.optimizationGoal ?? undefined}
+                      onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Select goal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {c.optimizationGoals.map((g) => (
+                          <SelectItem key={g} value={g}>
+                            {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Row 2: Attribution window — full width */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
+              Attribution window
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Full label: 7-day click + 1-day engage-through + 1-day view.
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <Select
+              value={plan.attribution}
+              onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
+            >
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1d_click">1-day click</SelectItem>
+                <SelectItem value="7d_click">7-day click</SelectItem>
+                <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Note: 28-day view was removed by Meta in Jan 2026.
+            </p>
+          </div>
+
+          {/* Pixel warning — full width */}
+          {needsPixel && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Info className="h-3 w-3 text-amber-500" />
+                Pixel / Dataset required for this goal
+              </Label>
+              <p className="text-[11px] text-amber-600">
+                This goal needs a pixel. Choose accounts with a connected pixel, or change the performance goal.
+              </p>
+            </div>
+          )}
+          </Subsection>
+          {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
         </StepSection>
         </div>
 
