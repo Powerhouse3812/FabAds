@@ -28,6 +28,8 @@ interface TargetingTemplateModalProps {
   onChange: (t: TargetingSpec) => void;
   onClose: () => void;
   specialAdCategoryActive?: boolean;
+  /** Optional: called when user wants to persist current edits as a new template. */
+  onSaveAsNew?: (targeting: TargetingSpec) => void;
 }
 
 const LANGUAGE_OPTIONS: TargetingTermRef[] = [
@@ -58,6 +60,7 @@ export default function TargetingTemplateModal({
   onChange,
   onClose,
   specialAdCategoryActive,
+  onSaveAsNew,
 }: TargetingTemplateModalProps) {
   // Local draft — changes are not applied until Save
   const [draft, setDraft] = useState<TargetingSpec>(targeting);
@@ -79,6 +82,21 @@ export default function TargetingTemplateModal({
   function handleCancel() {
     setDraft(targeting); // discard local edits
     onClose();
+  }
+
+  function handleSaveAndApply() {
+    onChange(draft);
+    onClose();
+  }
+
+  function handleSaveAsNew() {
+    if (onSaveAsNew) {
+      onSaveAsNew(draft);
+    } else {
+      // Placeholder — save-as-new wiring is deferred
+      console.log("[TargetingTemplateModal] Save as new template — not yet wired", draft);
+      onClose();
+    }
   }
 
   function toggleLanguage(locale: TargetingTermRef) {
@@ -320,11 +338,18 @@ export default function TargetingTemplateModal({
           </button>
           <button
             type="button"
-            onClick={handleSave}
-            className="flex items-center gap-1.5 rounded-full bg-[#8FB821] px-4 py-1.5 text-[13px] font-medium text-[#121212] transition-colors hover:bg-[#AACF32]"
+            onClick={handleSaveAsNew}
+            className="rounded-full border border-border bg-background px-4 py-2 text-[12px] font-mono text-foreground hover:bg-muted transition-colors"
+          >
+            Save as new template
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveAndApply}
+            className="flex items-center gap-1.5 rounded-full bg-[#8FB821] px-4 py-2 text-[12px] font-mono text-[#121212] font-semibold hover:bg-[#AACF32] transition-colors"
           >
             <Check className="h-4 w-4" />
-            Save targeting
+            Save &amp; apply
           </button>
         </div>
       </div>

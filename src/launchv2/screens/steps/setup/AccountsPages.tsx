@@ -46,12 +46,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ACCOUNTS, CATALOGS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds, RUNNING_ADS } from "../../../data";
+import { ACCOUNTS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds, RUNNING_ADS } from "../../../data";
 import { perPageDemand } from "../../../deriveV2";
 import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
 import type { UseFlowV2 } from "../../../state/useFlowV2";
-import RunningPickerModal from "../shared/RunningPickerModal";
 import SpecialAdCountryPicker from "./SpecialAdCountryPicker";
 
 /* ─── BM display names (mock, keyed by accountId) ─────────────────────────── */
@@ -322,6 +321,12 @@ function AccountRow({
   onSetCatalogue,
   onSetCatalogId,
   onSetProductSetIds,
+  customAudienceEnabled,
+  customAudienceMode,
+  customAudienceId,
+  onSetCustomAudience,
+  onSetCustomAudienceMode,
+  onSetCustomAudienceId,
 }: {
   accountId: string;
   targets: TargetPair[];
@@ -335,13 +340,17 @@ function AccountRow({
   onSetCatalogue: (enabled: boolean) => void;
   onSetCatalogId: (id: string | null) => void;
   onSetProductSetIds: (ids: string[]) => void;
+  customAudienceEnabled: boolean;
+  customAudienceMode: "select" | "upload";
+  customAudienceId: string | null;
+  onSetCustomAudience: (enabled: boolean) => void;
+  onSetCustomAudienceMode: (mode: "select" | "upload") => void;
+  onSetCustomAudienceId: (id: string | null) => void;
 }) {
   const [pagePopoverOpen, setPagePopoverOpen] = useState(false);
   const [pageSearch, setPageSearch] = useState("");
-  const [postPickerOpen, setPostPickerOpen] = useState(false);
   const [postHoverOpen, setPostHoverOpen] = useState(false);
   const [postEnabled, setPostEnabled] = useState(postIds.length > 0);
-  const [productSetPopoverOpen, setProductSetPopoverOpen] = useState(false);
 
   const account = ACCOUNTS.find((a) => a.id === accountId);
   if (!account) return null;
@@ -540,13 +549,6 @@ function AccountRow({
                     );
                   })}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setPostPickerOpen(true); setPostHoverOpen(false); }}
-                  className="mt-2 w-full rounded-lg border border-border py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Change selection
-                </button>
               </PopoverContent>
             </Popover>
           )}
@@ -555,11 +557,7 @@ function AccountRow({
             checked={postEnabled}
             onCheckedChange={(v) => {
               setPostEnabled(v);
-              if (!v) {
-                onSetPostIds([]);
-              } else if (postIds.length === 0) {
-                setPostPickerOpen(true);
-              }
+              if (!v) onSetPostIds([]);
             }}
             className="scale-90"
           />
@@ -579,7 +577,7 @@ function AccountRow({
           </div>
         )}
 
-        {/* ── Catalogue sub-row ── */}
+        {/* ── Catalogue sub-row (toggle only) ── */}
         <div className="flex items-center gap-3 px-3 py-2">
           <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
           <span className="flex-1 text-xs font-medium text-muted-foreground">Advantage+ Catalogue</span>
@@ -590,133 +588,84 @@ function AccountRow({
           />
         </div>
 
-        {/* Catalogue selectors — shown inline when enabled */}
-        {catalogueEnabled && (
-          <div className="px-3 pb-2 space-y-2">
-            {/* Catalog select */}
-            <Select
-              value={selectedCatalogId ?? "__none__"}
-              onValueChange={(v) => {
-                const newCatId = v === "__none__" ? null : v;
-                onSetCatalogId(newCatId);
-                onSetProductSetIds([]); // reset product sets when catalog changes
-              }}
-            >
-              <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue placeholder="Select catalog…" />
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="__none__">Select catalog…</SelectItem>
-                {CATALOGS.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                    <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">
-                      ({c.productCount} products)
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Product set multi-select Popover (shown after catalog selected) */}
-            {selectedCatalogId && (() => {
-              const catalog = CATALOGS.find((c) => c.id === selectedCatalogId);
-              const sets = catalog?.productSets ?? [];
-              const selectedSetIds = new Set(selectedProductSetIds);
-              const count = selectedProductSetIds.length;
-
-              return (
-                <Popover open={productSetPopoverOpen} onOpenChange={setProductSetPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="h-8 w-full flex items-center justify-between gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:border-foreground/20 transition-colors"
-                    >
-                      <span className="flex-1 text-left text-muted-foreground">
-                        {count > 0
-                          ? `${count} product set${count !== 1 ? "s" : ""} selected`
-                          : "Select product sets…"}
-                      </span>
-                      <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[280px] p-0 rounded-xl border border-border bg-card shadow-md" align="start" sideOffset={4}>
-                    <div className="max-h-[200px] overflow-y-auto py-1">
-                      {sets.map((ps) => {
-                        const checked = selectedSetIds.has(ps.id);
-                        return (
-                          <div
-                            key={ps.id}
-                            role="option"
-                            aria-selected={checked}
-                            onClick={() => {
-                              const next = new Set(selectedProductSetIds);
-                              checked ? next.delete(ps.id) : next.add(ps.id);
-                              onSetProductSetIds([...next]);
-                            }}
-                            className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors"
-                          >
-                            <Checkbox checked={checked} />
-                            <span className="flex-1 min-w-0 truncate text-xs font-medium text-foreground">
-                              {ps.name}
-                            </span>
-                            <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
-                              {ps.productCount}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              );
-            })()}
+        {/* ── Custom Audience sub-row ── */}
+        <div className="flex items-center gap-3 px-3 py-2">
+          <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Custom Audience</p>
+            <p className="text-[11px] text-muted-foreground/60">Target a specific custom audience</p>
           </div>
-        )}
+          <Switch
+            checked={customAudienceEnabled}
+            onCheckedChange={onSetCustomAudience}
+            className="scale-90 shrink-0"
+          />
+        </div>
 
-        {/* ── Catalogue distribution info box with calculation ── */}
-        {catalogueEnabled && selectedCatalogId && selectedProductSetIds.length > 0 && (
-          <div className="px-3 py-2.5 flex items-start gap-2 bg-primary/5 border-t border-primary/10">
-            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary/60" />
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold text-foreground">
-                {selectedProductSetIds.length} product set{selectedProductSetIds.length !== 1 ? "s" : ""} →{" "}
-                <span className="text-primary">{selectedProductSetIds.length} ad set{selectedProductSetIds.length !== 1 ? "s" : ""}</span> in this account
-              </p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                1 ad set per product set. Meta assembles ads dynamically from each set's inventory.
-              </p>
-              {/* Per-set calculation row */}
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                {selectedProductSetIds.map((id) => {
-                  const catalog = CATALOGS.find((c) => c.id === selectedCatalogId);
-                  const ps = catalog?.productSets.find((s) => s.id === id);
-                  if (!ps) return null;
-                  return (
-                    <span key={id} className="font-mono text-[10px] text-muted-foreground/80">
-                      {ps.name} ({ps.productCount} items) → 1 ad set
-                    </span>
-                  );
-                })}
-              </div>
+        {/* Custom Audience picker — shown inline when enabled */}
+        {customAudienceEnabled && (
+          <div className="px-3 py-3 space-y-3">
+            {/* Mode chips + BM link */}
+            <div className="flex items-center gap-2">
+              {(["select", "upload"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onSetCustomAudienceMode(mode)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    customAudienceMode === mode
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-foreground/30",
+                  )}
+                >
+                  {mode === "select" ? "Select existing" : "Upload CSV"}
+                </button>
+              ))}
+              <a
+                href="https://business.facebook.com/audiences"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+                title="Create in Business Manager"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             </div>
+
+            {/* Select mode */}
+            {customAudienceMode === "select" && (
+              <Select
+                value={customAudienceId ?? "__none__"}
+                onValueChange={(v) => onSetCustomAudienceId(v === "__none__" ? null : v)}
+              >
+                <SelectTrigger className="h-9 w-full text-xs">
+                  <SelectValue placeholder="Search or select a custom audience…" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="__none__">None selected</SelectItem>
+                  {CUSTOM_AUDIENCES.map((ca) => (
+                    <SelectItem key={ca.id} value={ca.id}>
+                      <span className="flex items-center gap-2">
+                        <span>{ca.name}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {ca.estimatedSize >= 1000000
+                            ? `${(ca.estimatedSize / 1000000).toFixed(1)}M`
+                            : `${(ca.estimatedSize / 1000).toFixed(0)}K`}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Upload mode */}
+            {customAudienceMode === "upload" && <CustomAudienceUpload />}
           </div>
         )}
 
       </div>
-
-      {/* ── Post picker modal ── */}
-      <RunningPickerModal
-        open={postPickerOpen}
-        onOpenChange={setPostPickerOpen}
-        type="ad"
-        multiSelect
-        onPick={() => {}}
-        onPickMultiple={(ids) => {
-          onSetPostIds(ids);
-          setPostEnabled(true);
-        }}
-      />
     </div>
   );
 }
@@ -1063,90 +1012,15 @@ export function AccountsPages({
                     },
                   });
                 }}
+                customAudienceEnabled={plan.useCustomAudience}
+                customAudienceMode={plan.customAudienceMode}
+                customAudienceId={plan.customAudienceId}
+                onSetCustomAudience={(v) => onPatch({ useCustomAudience: v })}
+                onSetCustomAudienceMode={(mode) => onPatch({ customAudienceMode: mode })}
+                onSetCustomAudienceId={(id) => onPatch({ customAudienceId: id })}
               />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* ─── 3. Custom Audience ──────────────────────────────────────────── */}
-      {selectedAccountIds.size > 0 && (
-        <div className="rounded-2xl border border-border divide-y divide-border">
-          {/* Toggle row */}
-          <div className="flex items-center gap-3 px-3 py-2.5">
-            <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-foreground">Custom Audience</p>
-              <p className="text-[11px] text-muted-foreground">Target a specific custom audience or upload a CSV list.</p>
-            </div>
-            <Switch
-              checked={plan.useCustomAudience}
-              onCheckedChange={(v) => onPatch({ useCustomAudience: v })}
-              className="scale-90 shrink-0"
-            />
-          </div>
-
-          {plan.useCustomAudience && (
-            <div className="px-3 py-3 space-y-3">
-              {/* Mode chips + BM link */}
-              <div className="flex items-center gap-2">
-                {(["select", "upload"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => onPatch({ customAudienceMode: mode })}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                      plan.customAudienceMode === mode
-                        ? "border-primary bg-primary/5 text-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-foreground/30",
-                    )}
-                  >
-                    {mode === "select" ? "Select existing" : "Upload CSV"}
-                  </button>
-                ))}
-                <a
-                  href="https://business.facebook.com/audiences"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
-                  title="Create in Business Manager"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-
-              {/* Select mode */}
-              {plan.customAudienceMode === "select" && (
-                <Select
-                  value={plan.customAudienceId ?? "__none__"}
-                  onValueChange={(v) => onPatch({ customAudienceId: v === "__none__" ? null : v })}
-                >
-                  <SelectTrigger className="h-9 w-full text-xs">
-                    <SelectValue placeholder="Search or select a custom audience…" />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    <SelectItem value="__none__">None selected</SelectItem>
-                    {CUSTOM_AUDIENCES.map((ca) => (
-                      <SelectItem key={ca.id} value={ca.id}>
-                        <span className="flex items-center gap-2">
-                          <span>{ca.name}</span>
-                          <span className="font-mono text-[10px] text-muted-foreground">
-                            {ca.estimatedSize >= 1000000
-                              ? `${(ca.estimatedSize / 1000000).toFixed(1)}M`
-                              : `${(ca.estimatedSize / 1000).toFixed(0)}K`}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              {/* Upload mode */}
-              {plan.customAudienceMode === "upload" && <CustomAudienceUpload />}
-            </div>
-          )}
         </div>
       )}
 

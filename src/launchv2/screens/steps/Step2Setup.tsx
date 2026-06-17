@@ -19,11 +19,8 @@ import {
   ChevronDown,
   Lock,
   Sparkles,
-  Pencil,
   Info,
-  Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -40,7 +37,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import {
@@ -54,14 +50,11 @@ import {
   DESTINATIONS_BY_OBJECTIVE,
 } from "../../reducer";
 import {
-  BID_LABELS,
-  TARGETING_TEMPLATES,
   getTemplate,
 } from "../../data";
 import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal } from "../../types";
 import { buildIssues } from "../review/reviewModel";
 import { AccountsPages } from "./setup/AccountsPages";
-import { TemplateModal } from "./setup/TemplateModal";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
 import BidStrategyRow from "./setup/BidStrategyRow";
 import AccountCatalogPicker from "./shared/AccountCatalogPicker";
@@ -73,7 +66,7 @@ import CopyFromRunning, {
   runningAdSetItems,
   applyRunningAdSet,
 } from "./shared/CopyFromRunning";
-import AudienceEditor from "./audience/AudienceEditor";
+import TargetingTemplateSection from "./audience/TargetingTemplateSection";
 
 /* ---- small shared bits ---- */
 
@@ -246,25 +239,6 @@ function Toggle({
 
 /* CustomAudienceUpload lives in AccountsPages now; removed local dead copy. */
 
-/* ---- Filter chip (used in template picker) ---- */
-
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "h-6 rounded-full border px-2 text-[11px] font-medium transition-colors",
-        active
-          ? "border-primary/30 bg-primary/10 text-foreground"
-          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
 /* ---- Manual placement group ---- */
 
 const PLACEMENT_LABELS: Record<string, Record<string, string>> = {
@@ -385,29 +359,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
     : (["LOWEST_COST_WITHOUT_CAP"] as BidStrategy[]);
 
   const tpl = getTemplate(plan.targetingTemplateId);
-  const [editOpen, setEditOpen] = useState(false);
-
-  // Template picker popover state
-  const [tplPickerOpen, setTplPickerOpen] = useState(false);
-  const [templateSearch, setTemplateSearch] = useState("");
-
-  // Filter chip state
-  const [objFilter, setObjFilter] = useState<string>("all");
-  const [ageFilter, setAgeFilter] = useState<string>("all");
-  const [genderFilter, setGenderFilter] = useState<string>("all");
-  const [locFilter, setLocFilter] = useState<string>("all");
-  const [intFilter, setIntFilter] = useState<string>("all");
-
-  // Filtered template list
-  const filteredTemplates = TARGETING_TEMPLATES.filter((t) => {
-    if (templateSearch && !t.name.toLowerCase().includes(templateSearch.toLowerCase())) return false;
-    if (objFilter !== "all" && t.objective && t.objective !== objFilter) return false;
-    if (ageFilter !== "all" && t.ageRange && t.ageRange !== ageFilter) return false;
-    if (genderFilter !== "all" && t.gender && t.gender !== "all" && t.gender !== genderFilter) return false;
-    if (locFilter !== "all" && t.locationType && t.locationType !== locFilter) return false;
-    if (intFilter !== "all" && t.interestCategory && t.interestCategory !== intFilter) return false;
-    return true;
-  });
 
   // ── Ant-style vertical Steps: scrollspy + expand/collapse ──────────────
   const sectionRefs = [
@@ -645,19 +596,17 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             />
           </div>
 
-          {/* Advanced: bid strategy only */}
-          <AdvancedReveal label="Advanced — bid strategy">
-            {policy.bidStrategy.visibility !== "hidden" && (
-              <BidStrategyRow
-                objective={plan.objective}
-                optimizationGoal={plan.optimizationGoal}
-                bidStrategy={plan.bidStrategy}
-                bidValue={plan.bidValue ?? null}
-                onChangeBidStrategy={(v) => patch({ bidStrategy: v })}
-                onChangeBidValue={(v) => patch({ bidValue: v ?? undefined })}
-              />
-            )}
-          </AdvancedReveal>
+          {/* Bid strategy */}
+          {policy.bidStrategy.visibility !== "hidden" && (
+            <BidStrategyRow
+              objective={plan.objective}
+              optimizationGoal={plan.optimizationGoal}
+              bidStrategy={plan.bidStrategy}
+              bidValue={plan.bidValue ?? null}
+              onChangeBidStrategy={(v) => patch({ bidStrategy: v })}
+              onChangeBidValue={(v) => patch({ bidValue: v ?? undefined })}
+            />
+          )}
 
           {/* ── Campaign soft warnings ── */}
           {campaignWarnings.length > 0 && (
@@ -718,64 +667,97 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
 
           {/* ── Subsection ▸ Optimization (conv location + perf goal + attribution SURFACED) ── */}
           <Subsection label="Optimization" defaultOpen>
-          {/* Conversion location — only shown when objective supports it */}
-          {plan.objective && showsLocationPicker(plan.objective) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Conversion location — only shown when objective supports it */}
+            {plan.objective && showsLocationPicker(plan.objective) && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Conversion location</Label>
+                <Select
+                  value={plan.destinationType ?? undefined}
+                  onValueChange={(v) => patch({ destinationType: v as DestinationType })}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Performance goal */}
+            {plan.objective && plan.destinationType && (() => {
+              const c = cascade(plan.objective, plan.destinationType);
+              return (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    Performance goal
+                    {c.lockedGoal && <Lock className="h-3 w-3" />}
+                  </Label>
+                  {c.lockedGoal ? (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                      <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
+                    </p>
+                  ) : (
+                    <Select
+                      value={plan.optimizationGoal ?? undefined}
+                      onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Select goal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {c.optimizationGoals.map((g) => (
+                          <SelectItem key={g} value={g}>
+                            {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Attribution — SURFACED (not Advanced) per restructure */}
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Conversion location</Label>
+              <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
+                Attribution window
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Full label: 7-day click + 1-day engage-through + 1-day view.
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
               <Select
-                value={plan.destinationType ?? undefined}
-                onValueChange={(v) => patch({ destinationType: v as DestinationType })}
+                value={plan.attribution}
+                onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
               >
-                <SelectTrigger className="h-9 w-full max-w-xs">
-                  <SelectValue placeholder="Select location" />
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="1d_click">1-day click</SelectItem>
+                  <SelectItem value="7d_click">7-day click</SelectItem>
+                  <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Note: 28-day view was removed by Meta in Jan 2026.
+              </p>
             </div>
-          )}
+          </div>
 
-          {/* Performance goal */}
-          {plan.objective && plan.destinationType && (() => {
-            const c = cascade(plan.objective, plan.destinationType);
-            return (
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                  Performance goal
-                  {c.lockedGoal && <Lock className="h-3 w-3" />}
-                </Label>
-                {c.lockedGoal ? (
-                  <p className="font-mono text-xs text-muted-foreground">
-                    {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
-                    <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
-                  </p>
-                ) : (
-                  <Select
-                    value={plan.optimizationGoal ?? undefined}
-                    onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
-                  >
-                    <SelectTrigger className="h-9 w-full max-w-xs">
-                      <SelectValue placeholder="Select goal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {c.optimizationGoals.map((g) => (
-                        <SelectItem key={g} value={g}>
-                          {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Pixel — shown when required */}
+          {/* Pixel warning — full width, below grid */}
           {needsPixel && (
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -787,296 +769,17 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               </p>
             </div>
           )}
-
-          {/* Attribution — SURFACED (not Advanced) per restructure */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
-              Attribution window
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3 w-3 cursor-help text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Full label: 7-day click + 1-day engage-through + 1-day view.
-                </TooltipContent>
-              </Tooltip>
-            </Label>
-            <Select
-              value={plan.attribution}
-              onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
-            >
-              <SelectTrigger className="h-9 w-full max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1d_click">1-day click</SelectItem>
-                <SelectItem value="7d_click">7-day click</SelectItem>
-                <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
-              Note: 28-day view was removed by Meta in Jan 2026.
-            </p>
-          </div>
           </Subsection>
           {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
 
           {/* ── Subsection ▸ Audience & Placement (SURFACED) ────────── */}
           <Subsection label="Audience & Placement" defaultOpen>
-          {/* ── Targeting Template ─────────────────────────────────── */}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <Label className="text-[13px] font-medium text-foreground">Targeting Template</Label>
-
-              {/* Popover picker with search + filter chips */}
-              <Popover
-                open={tplPickerOpen}
-                onOpenChange={(o) => {
-                  setTplPickerOpen(o);
-                  if (!o) {
-                    setTemplateSearch("");
-                    setObjFilter("all");
-                    setAgeFilter("all");
-                    setGenderFilter("all");
-                    setLocFilter("all");
-                    setIntFilter("all");
-                  }
-                }}
-              >
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background transition-colors",
-                      "hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                      !tpl && "text-muted-foreground",
-                    )}
-                  >
-                    <span className="truncate">{tpl ? tpl.name : "Pick a Targeting Template"}</span>
-                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
-                </PopoverTrigger>
-
-                <PopoverContent align="start" className="w-80 p-0">
-                  {/* Search */}
-                  <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-                    <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Search templates…"
-                      value={templateSearch}
-                      onChange={(e) => setTemplateSearch(e.target.value)}
-                      className="w-full bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Filter rows */}
-                  <div className="border-b border-border px-3 pb-2 space-y-2 pt-1">
-                    {/* Objective */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 w-16 shrink-0">Goal</span>
-                      {(["all", "OUTCOME_SALES", "OUTCOME_TRAFFIC", "OUTCOME_LEADS", "OUTCOME_AWARENESS"] as const).map((obj) => (
-                        <FilterChip key={obj} active={objFilter === obj} onClick={() => setObjFilter(obj === objFilter ? "all" : obj)}>
-                          {obj === "all" ? "All" : obj === "OUTCOME_SALES" ? "Sales" : obj === "OUTCOME_TRAFFIC" ? "Traffic" : obj === "OUTCOME_LEADS" ? "Leads" : "Awareness"}
-                        </FilterChip>
-                      ))}
-                    </div>
-
-                    {/* Age range */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 w-16 shrink-0">Age</span>
-                      {(["all", "18-24", "25-34", "35-44", "45+"] as const).map((age) => (
-                        <FilterChip key={age} active={ageFilter === age} onClick={() => setAgeFilter(age === ageFilter ? "all" : age)}>
-                          {age}
-                        </FilterChip>
-                      ))}
-                    </div>
-
-                    {/* Gender */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 w-16 shrink-0">Gender</span>
-                      {(["all", "male", "female"] as const).map((g) => (
-                        <FilterChip key={g} active={genderFilter === g} onClick={() => setGenderFilter(g === genderFilter ? "all" : g)}>
-                          {g === "all" ? "All" : g.charAt(0).toUpperCase() + g.slice(1)}
-                        </FilterChip>
-                      ))}
-                    </div>
-
-                    {/* Location */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 w-16 shrink-0">Location</span>
-                      {(["all", "national", "city-level", "tier1", "tier2"] as const).map((loc) => (
-                        <FilterChip key={loc} active={locFilter === loc} onClick={() => setLocFilter(loc === locFilter ? "all" : loc)}>
-                          {loc === "all" ? "All" : loc === "national" ? "National" : loc === "city-level" ? "City" : loc === "tier1" ? "Tier 1" : "Tier 2"}
-                        </FilterChip>
-                      ))}
-                    </div>
-
-                    {/* Interest */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60 w-16 shrink-0">Interest</span>
-                      {(["all", "fashion", "tech", "health", "beauty", "fitness"] as const).map((int) => (
-                        <FilterChip key={int} active={intFilter === int} onClick={() => setIntFilter(int === intFilter ? "all" : int)}>
-                          {int === "all" ? "All" : int.charAt(0).toUpperCase() + int.slice(1)}
-                        </FilterChip>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Template list */}
-                  <div className="max-h-48 overflow-y-auto py-1">
-                    {filteredTemplates.length === 0 ? (
-                      <div className="px-3 py-3 text-center text-[11px] font-mono text-muted-foreground">
-                        No templates match
-                      </div>
-                    ) : (
-                      filteredTemplates.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => {
-                            patch({ targetingTemplateId: t.id });
-                            setTplPickerOpen(false);
-                            setTemplateSearch("");
-                          }}
-                          className={cn(
-                            "w-full px-3 py-2 text-left text-[12px] text-foreground transition-colors hover:bg-muted/50",
-                            plan.targetingTemplateId === t.id && "bg-primary/5 font-medium",
-                          )}
-                        >
-                          {t.name}
-                        </button>
-                      ))
-                    )}
-                    {/* Custom option */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        patch({ targetingTemplateId: "custom" });
-                        setTplPickerOpen(false);
-                      }}
-                      className={cn(
-                        "w-full px-3 py-2 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted/50 border-t border-border/50 mt-1 pt-2",
-                        plan.targetingTemplateId === "custom" && "text-foreground font-medium",
-                      )}
-                    >
-                      Custom (advanced settings)
-                    </button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {tpl && (
-              <Button variant="outline" size="sm" className="h-9" onClick={() => setEditOpen(true)}>
-                <Pencil className="h-4 w-4" /> Edit
-              </Button>
-            )}
-          </div>
-
-          {/* Inline summary chips + metadata overview chips */}
-          {tpl && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {/* Summary chips */}
-              {tpl.summary.map((c) => (
-                <span
-                  key={c}
-                  className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground"
-                >
-                  {c}
-                </span>
-              ))}
-              {/* Metadata overview chips */}
-              {tpl.objective && (
-                <span className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                  {tpl.objective === "OUTCOME_SALES"
-                    ? "Sales"
-                    : tpl.objective === "OUTCOME_TRAFFIC"
-                    ? "Traffic"
-                    : tpl.objective === "OUTCOME_LEADS"
-                    ? "Leads"
-                    : "Awareness"}
-                </span>
-              )}
-              {tpl.ageRange && (
-                <span className="rounded-full bg-muted/60 border border-border px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
-                  {tpl.ageRange}
-                </span>
-              )}
-              {tpl.gender && tpl.gender !== "all" && (
-                <span className="rounded-full bg-muted/60 border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground capitalize">
-                  {tpl.gender}
-                </span>
-              )}
-              {tpl.locationType && (
-                <span className="rounded-full bg-muted/60 border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {tpl.locationType === "national"
-                    ? "National"
-                    : tpl.locationType === "city-level"
-                    ? "City-level"
-                    : tpl.locationType === "tier1"
-                    ? "Tier 1"
-                    : "Tier 2"}
-                </span>
-              )}
-              {tpl.interestCategory && (
-                <span className="rounded-full bg-muted/60 border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground capitalize">
-                  {tpl.interestCategory}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* ── AudienceEditor ─────────────────────────────────────── */}
-          {/* Edits the actual targeting values (locations, age/gender,
-              custom/lookalike audiences, size meter). The template picker
-              above loads presets; this section lets the user fine-tune them. */}
-          <AudienceEditor
-            targeting={plan.targeting}
-            onChange={(t) => patch({ targeting: t })}
+          {/* ── Targeting template + audience editor ────────────────── */}
+          <TargetingTemplateSection
+            plan={plan}
+            onPatch={patch}
             specialAdCategoryActive={special}
-            compact
           />
-
-          {/* Advantage+ Features — single toggle controls both audience + creative */}
-          <div className="rounded-2xl border border-border bg-background px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-foreground">Advantage+ Features</p>
-                <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-                  Enable both Advantage+ Audience and Advantage+ Creative automatically.
-                </p>
-                {policy.advantageAudience.locked && (
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
-                    <Lock className="h-3 w-3" /> {policy.advantageAudience.reason}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={plan.advantageAudience && plan.advantageCreative}
-                disabled={policy.advantageAudience.locked}
-                onClick={() => {
-                  const on = !(plan.advantageAudience && plan.advantageCreative);
-                  patch({ advantageAudience: on, advantageCreative: on });
-                }}
-                className={cn(
-                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-                  (plan.advantageAudience && plan.advantageCreative)
-                    ? "border-[#8FB821] bg-[#8FB821]"
-                    : "border-border bg-muted",
-                  policy.advantageAudience.locked && "pointer-events-none opacity-50",
-                )}
-              >
-                <span className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                  (plan.advantageAudience && plan.advantageCreative) ? "translate-x-5" : "translate-x-0.5"
-                )} />
-              </button>
-            </div>
-          </div>
 
           {/* Placements — accordion (Facebook expanded default kept) */}
           <AdvancedReveal label="Placements">
@@ -1189,15 +892,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         </StepSection>
         </div>
 
-        {tpl && (
-          <TemplateModal
-            open={editOpen}
-            onOpenChange={setEditOpen}
-            template={tpl}
-            specialActive={special}
-            flow={flow}
-          />
-        )}
+
       </div>
     </TooltipProvider>
   );
