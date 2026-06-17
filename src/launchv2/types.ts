@@ -277,6 +277,65 @@ export interface PlacementSelection {
   };
 }
 
+/* ---- Distribution redesign (account-wise + page-wise) ---- */
+/** How N ads split across the selected ad accounts. custom = explicit ad counts summing to total. */
+export type AccountDistribution = "equal" | "duplicate" | "custom";
+export type StructureCounts = { campaigns: number; adSetsPerCampaign: number; adsPerAdSet: number };
+
+/* ---- Per-level naming patterns (nomenclature) ---- */
+export interface NamingPatterns {
+  campaign: string;
+  adset: string;
+  ad: string;
+}
+
+/* ---- Audience / targeting spec (Meta parity) ---- */
+export interface GeoEntry {
+  key: string;
+  name?: string;
+  radius?: number;
+  distanceUnit?: "mile" | "kilometer";
+}
+export interface GeoLocations {
+  countries: string[];
+  regions: GeoEntry[];
+  cities: GeoEntry[];
+  zips: GeoEntry[];
+  customLocations: { latitude: number; longitude: number; radius: number; distanceUnit: "mile" | "kilometer"; name?: string }[];
+  geoMarkets: GeoEntry[];
+  locationTypes: ("home" | "recent" | "travel_in" | "recent_and_home")[];
+}
+export interface TargetingTermRef {
+  id: string;
+  name: string;
+}
+/** One OR-group of detailed targeting (interests/behaviors/demographics). */
+export interface TargetingGroup {
+  interests: TargetingTermRef[];
+  behaviors: TargetingTermRef[];
+  demographics: TargetingTermRef[];
+}
+export interface AudienceRef {
+  id: string;
+  name: string;
+  subtype?: string;
+}
+export interface TargetingSpec {
+  geoLocations: GeoLocations;
+  excludedGeoLocations?: Partial<GeoLocations>;
+  ageMin: number;
+  ageMax: number;
+  genders: ("male" | "female")[]; // empty = all
+  locales: TargetingTermRef[];
+  customAudiences: AudienceRef[];
+  excludedCustomAudiences: AudienceRef[];
+  /** AND-groups; entries within a group are OR'd, each extra group narrows ("must also match"). */
+  flexibleSpec: TargetingGroup[];
+  exclusions: TargetingGroup;
+  /** Advantage+ Audience: when true the above act as suggestions, not hard constraints. */
+  advantageAudience: boolean;
+}
+
 /* ---- Attribution window (per-plan setting; default 7-day click + 1-day view) ---- */
 export type AttributionWindow = "1d_click" | "7d_click" | "7d_click_1d_view";
 
@@ -397,6 +456,37 @@ export interface PlanV2 {
   // Manual placement
   placementMode: "advantage" | "manual";
   placements: PlacementSelection;
+
+  /* ── Meeting redesign additions ───────────────────────────────────── */
+  // Flow (Step 1): strategy-first branch + fast launch
+  /** Derived from strategy choice: custom = manual walk, template = prefilled. */
+  flowMode: "custom" | "template";
+  /** Fast launch mode — skip straight to Review. */
+  fastLaunch: boolean;
+
+  // Distribution (Step 3): account-wise split + per-account structure + per-account page split
+  /** How total ads split across selected accounts. */
+  accountDistribution: AccountDistribution;
+  /** custom account split: explicit ad counts keyed by accountId (must sum to total). */
+  accountWeights: Record<string, number>;
+  /** Per-account structure override (fallback to global `structure`). Keyed by accountId. */
+  structureByAccount: Record<string, StructureCounts>;
+  /** Per-account page-split override (fallback to global `pageDistribution`). Keyed by accountId. */
+  pageDistributionByAccount: Record<string, PageDistribution>;
+  /** Step 3 distribution variant: v1 = split panel, v2 = left ad-account panel. */
+  distVariant: "v1" | "v2";
+
+  // Audience / targeting (Meta parity)
+  targeting: TargetingSpec;
+
+  // Special ad category country/region (Meta requirement)
+  specialAdCountries: string[];
+
+  // Nomenclature (per-level naming patterns)
+  namingPatterns: NamingPatterns;
+
+  // Review (Step 4) variant
+  reviewVariant: "tree" | "table";
 
   createdAt: string;
   updatedAt: string;

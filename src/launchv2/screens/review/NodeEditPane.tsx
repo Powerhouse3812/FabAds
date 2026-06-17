@@ -39,6 +39,8 @@ import type { NodeKind, TreeNode } from "./reviewModel";
 import { FieldRenderer } from "./FieldRenderer";
 import { AdvancedSettingsModal } from "./AdvancedSettingsModal";
 import { PlacementCropModal } from "./PlacementCropModal";
+import AudienceEditor from "../steps/audience/AudienceEditor";
+import type { TargetingSpec } from "../../types";
 
 const KIND_LABEL: Record<NodeKind, string> = {
   account: "Account",
@@ -94,6 +96,8 @@ export function NodeEditPane({
   const { plan } = flow;
   const [advSection, setAdvSection] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
+  // Audience accordion open state (D30)
+  const [audienceOpen, setAudienceOpen] = useState(false);
 
   const currency = plan.targets[0]?.currency ?? "USD";
 
@@ -233,6 +237,69 @@ export function NodeEditPane({
             ))}
           </div>
         ))}
+
+        {/* ── Audience section — adset level only (D30) ────────────── */}
+        {kind === "adset" && (() => {
+          const specialAdCategoryActive =
+            plan.specialAdDeclared && plan.specialAdCategories.length > 0;
+          // Per-node targeting override if present, else fall back to plan.targeting
+          const targeting: TargetingSpec =
+            (plan.nodeOverrides[headId]?.["__targeting__"] as TargetingSpec | undefined) ??
+            plan.targeting;
+          const handleTargetingChange = (t: TargetingSpec) => {
+            flow.patch({
+              nodeOverrides: setManyNodesOverride(
+                plan.nodeOverrides,
+                nodeIds,
+                "__targeting__",
+                t,
+              ),
+            });
+          };
+          const audienceOverridden = nodeIds.some(
+            (id) => !!plan.nodeOverrides[id]?.["__targeting__"],
+          );
+          return (
+            <div className="overflow-hidden rounded-2xl border border-border">
+              {/* Accordion trigger */}
+              <button
+                type="button"
+                onClick={() => setAudienceOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
+                aria-expanded={audienceOpen}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+                    Audience
+                  </span>
+                  {audienceOverridden && (
+                    <span className="rounded-full bg-primary/20 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
+                      overridden
+                    </span>
+                  )}
+                </span>
+                <Settings2
+                  className={cn(
+                    "h-3.5 w-3.5 text-muted-foreground transition-transform",
+                    audienceOpen ? "rotate-90" : "",
+                  )}
+                />
+              </button>
+
+              {/* Accordion body */}
+              {audienceOpen && (
+                <div className="border-t border-border px-4 py-3">
+                  <AudienceEditor
+                    targeting={targeting}
+                    onChange={handleTargetingChange}
+                    specialAdCategoryActive={specialAdCategoryActive}
+                    compact
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Whole-level advanced fallback (sections with only advanced fields,
             or levels that want one general "Advanced" entry). */}

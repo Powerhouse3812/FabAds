@@ -70,6 +70,7 @@ import CopyFromRunning, {
   runningAdSetItems,
   applyRunningAdSet,
 } from "./shared/CopyFromRunning";
+import AudienceEditor from "./audience/AudienceEditor";
 
 /* ---- small shared bits ---- */
 
@@ -1031,6 +1032,18 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               )}
             </div>
           )}
+
+          {/* ── AudienceEditor ─────────────────────────────────────── */}
+          {/* Edits the actual targeting values (locations, age/gender,
+              custom/lookalike audiences, size meter). The template picker
+              above loads presets; this section lets the user fine-tune them. */}
+          <AudienceEditor
+            targeting={plan.targeting}
+            onChange={(t) => patch({ targeting: t })}
+            specialAdCategoryActive={special}
+            compact
+          />
+
           {/* Advantage+ Audience/Creative quick toggles */}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Toggle
