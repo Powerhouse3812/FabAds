@@ -123,6 +123,7 @@ export function newPlanV2(): PlanV2 {
     nodeOverrides: {},
     appliedSetupTemplateId: null,
     appliedDistributionTemplateId: null,
+    useExistingPostByAccount: {},
     postIdsByAccount: {},
     useCustomAudience: false,
     customAudienceId: null,

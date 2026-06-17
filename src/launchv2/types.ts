@@ -458,7 +458,9 @@ export interface PlanV2 {
   appliedSetupTemplateId?: string | null;
   appliedDistributionTemplateId?: string | null;
 
-  // Post ID selections per account
+  // Post ID per account — toggle + selections
+  /** Per-account "Use existing posts" toggle. When true, Step 3 shows the posted-ads picker for that account. */
+  useExistingPostByAccount: Record<string, boolean>;
   postIdsByAccount: Record<string, string[]>; // { accountId: [postId1, postId2, ...] }
 
   // Custom audience

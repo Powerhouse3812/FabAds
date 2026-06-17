@@ -20,9 +20,6 @@ import {
   Lock,
   Info,
   Shield,
-  Image,
-  Grid2x2,
-  Hash,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -253,73 +250,6 @@ function Toggle({
   );
 }
 
-/* ---- Source type selector ---- */
-
-type LaunchSourceType = "media" | "catalogue" | "post_id";
-
-const SOURCE_TYPE_OPTIONS: {
-  id: LaunchSourceType;
-  label: string;
-  desc: string;
-  icon: React.ReactNode;
-}[] = [
-  {
-    id: "media",
-    label: "Media",
-    desc: "Upload or pick creative assets",
-    icon: <Image className="h-3.5 w-3.5" />,
-  },
-  {
-    id: "catalogue",
-    label: "Catalogue",
-    desc: "Dynamic product feed (DPA)",
-    icon: <Grid2x2 className="h-3.5 w-3.5" />,
-  },
-  {
-    id: "post_id",
-    label: "Post ID",
-    desc: "Boost an existing post",
-    icon: <Hash className="h-3.5 w-3.5" />,
-  },
-];
-
-function SourceTypeSelector({
-  value,
-  onChange,
-}: {
-  value: LaunchSourceType;
-  onChange: (v: LaunchSourceType) => void;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[13px] font-medium text-foreground">Source type</Label>
-      <div className="flex gap-2">
-        {SOURCE_TYPE_OPTIONS.map((opt) => {
-          const active = value === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onChange(opt.id)}
-              className={cn(
-                "fab-focus flex flex-1 flex-col items-center gap-1 rounded-xl border px-3 py-2.5 text-center transition-colors",
-                active
-                  ? "border-primary bg-primary/5 text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:bg-muted/20 hover:text-foreground",
-              )}
-            >
-              <span className={cn("transition-colors", active ? "text-primary" : "text-muted-foreground")}>
-                {opt.icon}
-              </span>
-              <span className="text-[12px] font-semibold leading-none">{opt.label}</span>
-              <span className="text-[10px] leading-tight opacity-70">{opt.desc}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 /* CustomAudienceUpload lives in AccountsPages now; removed local dead copy. */
 
@@ -610,35 +540,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
 
   const tpl = getTemplate(plan.targetingTemplateId);
 
-  // Derive the 3-way source type from existing plan fields
-  const launchSourceType: LaunchSourceType =
-    plan.catalogueToggle ? "catalogue" :
-    plan.source?.type === "post_id" ? "post_id" :
-    "media";
-
-  function handleSourceTypeChange(v: LaunchSourceType) {
-    if (v === "catalogue") {
-      patch({
-        catalogueToggle: true,
-        source: { type: "catalogue" as const, ref: plan.source?.ref ?? null },
-        format: plan.objective ? "dpa" : plan.format,
-      });
-    } else if (v === "post_id") {
-      patch({
-        catalogueToggle: false,
-        source: { type: "post_id" as const, ref: plan.source?.ref ?? null },
-        format: plan.format === "dpa" ? null : plan.format,
-      });
-    } else {
-      // media (default)
-      patch({
-        catalogueToggle: false,
-        source: { type: null, ref: null },
-        format: plan.format === "dpa" ? null : plan.format,
-      });
-    }
-  }
-
   // ── Ant-style vertical Steps: scrollspy + expand/collapse ──────────────
   const sectionRefs = [
     useRef<HTMLDivElement>(null),
@@ -886,12 +787,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               onCheckedChange={(v) => patch({ abTest: v })}
             />
           </div>
-
-          {/* ── Source type selector ── */}
-          <SourceTypeSelector
-            value={launchSourceType}
-            onChange={handleSourceTypeChange}
-          />
 
           {/* ── Campaign soft warnings ── */}
           {campaignWarnings.length > 0 && (

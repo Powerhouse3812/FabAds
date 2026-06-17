@@ -25,7 +25,6 @@ import {
   Image,
   Library,
   Link2,
-  Lock,
   Plus,
   ShoppingBag,
   Sparkles,
@@ -36,21 +35,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { allowedFormats, defaultDestination } from "../../reducer";
-import { FORMATS, SOURCES } from "../../data";
+import { FORMATS, SOURCES, RUNNING_ADS } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import type { AdFormat, AdCopy, CreativeRef, SourceType, SpreadMode } from "../../types";
 import AdContent from "./spread/AdContent";
 import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
-import { FORMAT_ICON, CTA_OPTIONS } from "./spread/meta";
+import { FORMAT_ICON } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
 import { SaveBundleRow } from "./spread/SaveBundleRow";
 import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFromRunning";
@@ -376,87 +368,101 @@ function CatalogueAdCopy({ flow }: { flow: UseFlowV2 }) {
   );
 }
 
-// ── PostIdPicker — existing post as ad creative ───────────────────────────────
-function PostIdPicker({ flow }: { flow: UseFlowV2 }) {
+// ── PostedAdsPicker — browse RUNNING_ADS and select as creative ──────────────
+function PostedAdsPicker({
+  flow,
+  selectedAcctIds,
+}: {
+  flow: UseFlowV2;
+  selectedAcctIds: Set<string>;
+}) {
   const { plan } = flow;
-  const postId = plan.source.ref ?? "";
-  const isValid = postId.trim().length > 0;
+
+  // Filter RUNNING_ADS to the selected accounts' pages
+  const selectedAccountNames = plan.targets
+    .filter((t) => selectedAcctIds.has(t.accountId))
+    .map((t) => t.pageName);
+
+  const filtered =
+    selectedAccountNames.length > 0
+      ? RUNNING_ADS.filter((ad) =>
+          selectedAccountNames.some(
+            (name) =>
+              ad.pageName.toLowerCase().includes(name.toLowerCase()) ||
+              name.toLowerCase().includes(ad.pageName.toLowerCase()),
+          ),
+        )
+      : RUNNING_ADS;
+
+  // Fall back to all ads when mock data has no exact match
+  const ads = filtered.length > 0 ? filtered : RUNNING_ADS;
+
+  const selectedIds = new Set(
+    plan.creatives.filter((c) => c.source === "post_id").map((c) => c.id),
+  );
+
+  const toggle = (ad: (typeof RUNNING_ADS)[0]) => {
+    const isSelected = selectedIds.has(ad.id);
+    const next = isSelected
+      ? plan.creatives.filter((c) => c.id !== ad.id)
+      : [
+          ...plan.creatives,
+          {
+            id: ad.id,
+            name: ad.name,
+            format: ad.format,
+            source: "post_id" as const,
+            thumbnail: ad.thumbnail,
+            savedAd: false,
+            itemType: "ad" as const,
+          },
+        ];
+    flow.patch({ creatives: next });
+  };
 
   return (
     <SectionCard
-      title="Existing post"
-      subtitle="Use a published Facebook or Instagram post as your ad creative."
+      title="Select post"
+      subtitle="Pick an existing published post to run as an ad."
     >
-      <div className="space-y-3">
-        {/* Post ID input */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium text-muted-foreground">Post ID</label>
-          <div className="relative">
-            <input
-              value={postId}
-              onChange={(e) =>
-                flow.patch({ source: { type: "post_id", ref: e.target.value } })
-              }
-              placeholder="e.g. 124965744226834_3888007311337206"
-              className="h-9 w-full rounded-lg border border-border bg-background px-2.5 pr-8 font-mono text-[12px] outline-none focus:ring-2 focus:ring-primary/40"
-            />
-            {isValid && (
-              <Check className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
-            )}
-          </div>
-          <p className="font-mono text-[10px] text-muted-foreground">
-            Format: PAGE_ID_POST_ID — find it in Meta Business Suite → Posts.
+      <div className="space-y-2">
+        {selectedAcctIds.size === 0 && (
+          <p className="font-mono text-[11px] text-muted-foreground">
+            Select an account on the left to see its posts.
           </p>
-        </div>
-
-        {/* Locked content notice */}
-        <div className="flex items-start gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
-          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <div className="space-y-0.5">
-            <p className="text-[11px] font-medium text-foreground">Post content is locked</p>
-            <p className="font-mono text-[10px] text-muted-foreground">
-              Meta preserves the original text, image, and video. Likes and comments carry over to all ads using this post.
-            </p>
-          </div>
-        </div>
-
-        {/* CTA override */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium text-muted-foreground">
-            CTA button{" "}
-            <span className="font-normal text-muted-foreground/50">(optional override)</span>
-          </label>
-          <Select
-            value={plan.adCopy.cta || ""}
-            onValueChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, cta: v } })}
-          >
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue placeholder="Keep original" />
-            </SelectTrigger>
-            <SelectContent>
-              {CTA_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-sm">
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Destination URL override */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-medium text-muted-foreground">
-            Destination URL{" "}
-            <span className="font-normal text-muted-foreground/50">(optional override)</span>
-          </label>
-          <input
-            value={plan.adCopy.destinationUrl ?? ""}
-            onChange={(e) =>
-              flow.patch({ adCopy: { ...plan.adCopy, destinationUrl: e.target.value } })
-            }
-            placeholder="https://yourstore.com/product"
-            className="h-9 w-full rounded-lg border border-border bg-background px-2.5 font-mono text-[12px] outline-none focus:ring-2 focus:ring-primary/40"
-          />
+        )}
+        <div className="space-y-2">
+          {ads.map((ad) => {
+            const sel = selectedIds.has(ad.id);
+            return (
+              <button
+                key={ad.id}
+                type="button"
+                onClick={() => toggle(ad)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                  sel
+                    ? "border-foreground/30 bg-primary/5"
+                    : "border-border hover:border-foreground/20",
+                )}
+              >
+                {ad.thumbnail && (
+                  <img
+                    src={ad.thumbnail}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-medium text-foreground">{ad.name}</p>
+                  <p className="font-mono text-[10px] text-muted-foreground">
+                    {ad.pageName} · {ad.format}
+                  </p>
+                </div>
+                {sel && <Check className="h-4 w-4 shrink-0 text-primary" />}
+              </button>
+            );
+          })}
         </div>
       </div>
     </SectionCard>
@@ -581,10 +587,14 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     document.body.style.userSelect = "none";
   };
 
-  const forceV2 = plan.catalogueToggle || plan.source.type === "post_id";
-  const [distVariant, setDistVariant] = useState<"v1" | "v2">(() =>
-    (plan.catalogueToggle || plan.source.type === "post_id") ? "v2" : "v1"
-  );
+  const hasCatalogueAccounts = Object.values(plan.catalogueByAccount ?? {}).some(Boolean);
+  const hasPostIdAccounts = Object.values(plan.useExistingPostByAccount ?? {}).some(Boolean);
+  const forceV2 = hasCatalogueAccounts || hasPostIdAccounts;
+  const [distVariant, setDistVariant] = useState<"v1" | "v2">(() => {
+    const hasCat = Object.values(plan.catalogueByAccount ?? {}).some(Boolean);
+    const hasPost = Object.values(plan.useExistingPostByAccount ?? {}).some(Boolean);
+    return hasCat || hasPost ? "v2" : "v1";
+  });
   useEffect(() => {
     if (forceV2) setDistVariant("v2");
   }, [forceV2]);
@@ -602,7 +612,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
       <div className="flex flex-shrink-0 items-center justify-end gap-2 border-b border-border/60 bg-background px-4 py-1.5">
         {forceV2 ? (
           <span className="font-mono text-[10px] text-muted-foreground">
-            Account layout — {plan.catalogueToggle ? "Catalogue" : "Post ID"}
+            Account layout — {hasCatalogueAccounts ? "Catalogue" : "Post ID"}
           </span>
         ) : (
           <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5">
@@ -799,7 +809,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
             </p>
           )}
 
-          {plan.catalogueToggle ? (
+          {hasCatalogueAccounts ? (
             /* Catalogue mode — copy only */
             <SectionCard
               title="Ad copy"
@@ -807,9 +817,9 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
             >
               <CatalogueAdCopy flow={flow} />
             </SectionCard>
-          ) : plan.source.type === "post_id" ? (
-            /* Post ID mode — locked creative, CTA + URL override only */
-            <PostIdPicker flow={flow} />
+          ) : hasPostIdAccounts ? (
+            /* Post ID mode — browse and select existing published posts */
+            <PostedAdsPicker flow={flow} selectedAcctIds={selectedAcctIds} />
           ) : (
             <>
               {/* ── 3. Source — chips row: labeled left zone + icon-only right zone ── */}
@@ -1006,7 +1016,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
           (distVariant === "v2" || forceV2) && "w-[280px] flex-shrink-0"
         )}
       >
-        {plan.catalogueToggle ? (
+        {hasCatalogueAccounts ? (
           /* Catalogue (DPA) mode — collapsed one-line summary card */
           <div className="space-y-4">
             <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground block">

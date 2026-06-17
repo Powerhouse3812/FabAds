@@ -19,6 +19,7 @@ import {
   ChevronsUpDown,
   ExternalLink,
   FileText,
+  Hash,
   Info,
   Loader2,
   Plug,
@@ -316,6 +317,8 @@ function AccountRow({
   onSetCatalogue,
   onSetCatalogId,
   onSetProductSetIds,
+  postEnabled,
+  onSetPostEnabled,
   customAudienceEnabled,
   customAudienceMode,
   customAudienceId,
@@ -333,6 +336,8 @@ function AccountRow({
   onSetCatalogue: (enabled: boolean) => void;
   onSetCatalogId: (id: string | null) => void;
   onSetProductSetIds: (ids: string[]) => void;
+  postEnabled: boolean;
+  onSetPostEnabled: (enabled: boolean) => void;
   customAudienceEnabled: boolean;
   customAudienceMode: "select" | "upload";
   customAudienceId: string | null;
@@ -342,6 +347,8 @@ function AccountRow({
 }) {
   const [pagePopoverOpen, setPagePopoverOpen] = useState(false);
   const [pageSearch, setPageSearch] = useState("");
+  const [catalogueConflictWarn, setCatalogueConflictWarn] = useState(false);
+  const [postConflictWarn, setPostConflictWarn] = useState(false);
 
   const account = ACCOUNTS.find((a) => a.id === accountId);
   if (!account) return null;
@@ -510,9 +517,22 @@ function AccountRow({
         <div className="flex items-center gap-3 px-3 py-2">
           <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
           <span className="flex-1 text-xs font-medium text-muted-foreground">Advantage+ Catalogue</span>
+          {catalogueConflictWarn && (
+            <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+              Turn off &lsquo;Use existing posts&rsquo; first
+            </span>
+          )}
           <Switch
             checked={catalogueEnabled}
-            onCheckedChange={onSetCatalogue}
+            onCheckedChange={(enabled) => {
+              if (enabled && postEnabled) {
+                setCatalogueConflictWarn(true);
+                setTimeout(() => setCatalogueConflictWarn(false), 3000);
+                return;
+              }
+              setCatalogueConflictWarn(false);
+              onSetCatalogue(enabled);
+            }}
             className="scale-90 shrink-0"
           />
         </div>
@@ -526,6 +546,33 @@ function AccountRow({
             </p>
           </div>
         )}
+
+        {/* ── Use existing posts sub-row ── */}
+        <div className="flex items-center gap-3 px-3 py-2">
+          <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Use existing posts</p>
+            <p className="text-[11px] text-muted-foreground/60">Select a post from this account&apos;s published ads</p>
+          </div>
+          {postConflictWarn && (
+            <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+              Turn off Catalogue first
+            </span>
+          )}
+          <Switch
+            checked={postEnabled}
+            onCheckedChange={(enabled) => {
+              if (enabled && catalogueEnabled) {
+                setPostConflictWarn(true);
+                setTimeout(() => setPostConflictWarn(false), 3000);
+                return;
+              }
+              setPostConflictWarn(false);
+              onSetPostEnabled(enabled);
+            }}
+            className="scale-90 shrink-0"
+          />
+        </div>
 
         {/* ── Custom Audience sub-row ── */}
         <div className="flex items-center gap-3 px-3 py-2">
@@ -810,61 +857,74 @@ export function AccountsPages({
             Per-account assignment
           </span>
           <div className="space-y-1.5">
-            {[...selectedAccountIds].map((accountId) => (
-              <AccountRow
-                key={accountId}
-                accountId={accountId}
-                targets={targets}
-                onTogglePage={togglePage}
-                onSetPixel={setPixel}
-                catalogueEnabled={plan.catalogueByAccount?.[accountId] ?? false}
-                selectedCatalogId={plan.productSetByAccount?.[accountId]?.catalogId ?? null}
-                selectedProductSetIds={plan.productSetByAccount?.[accountId]?.productSetIds ?? []}
-                onSetCatalogue={(enabled) => {
-                  onPatch({
-                    catalogueByAccount: {
-                      ...(plan.catalogueByAccount ?? {}),
-                      [accountId]: enabled,
-                    },
-                    // Keep plan.catalogueToggle synced for backward compat with Step 3
-                    catalogueToggle: enabled
-                      ? true
-                      : Object.entries({
-                          ...(plan.catalogueByAccount ?? {}),
-                          [accountId]: enabled,
-                        }).some(([, v]) => v),
-                  });
-                }}
-                onSetCatalogId={(id) => {
-                  onPatch({
-                    productSetByAccount: {
-                      ...(plan.productSetByAccount ?? {}),
-                      [accountId]: {
-                        catalogId: id,
-                        productSetIds: [], // reset on catalog change
+            {[...selectedAccountIds].map((accountId) => {
+              const handleSetCatalogue = (enabled: boolean) => {
+                const newCatalogueByAccount = {
+                  ...(plan.catalogueByAccount ?? {}),
+                  [accountId]: enabled,
+                };
+                const anyEnabled = Object.values(newCatalogueByAccount).some((v) => v);
+                onPatch({
+                  catalogueByAccount: newCatalogueByAccount,
+                  catalogueToggle: anyEnabled,
+                });
+              };
+
+              const handleSetPostId = (enabled: boolean) => {
+                onPatch({
+                  useExistingPostByAccount: {
+                    ...(plan.useExistingPostByAccount ?? {}),
+                    [accountId]: enabled,
+                  },
+                });
+              };
+
+              const postEnabled = plan.useExistingPostByAccount?.[accountId] ?? false;
+
+              return (
+                <AccountRow
+                  key={accountId}
+                  accountId={accountId}
+                  targets={targets}
+                  onTogglePage={togglePage}
+                  onSetPixel={setPixel}
+                  catalogueEnabled={plan.catalogueByAccount?.[accountId] ?? false}
+                  selectedCatalogId={plan.productSetByAccount?.[accountId]?.catalogId ?? null}
+                  selectedProductSetIds={plan.productSetByAccount?.[accountId]?.productSetIds ?? []}
+                  onSetCatalogue={handleSetCatalogue}
+                  onSetCatalogId={(id) => {
+                    onPatch({
+                      productSetByAccount: {
+                        ...(plan.productSetByAccount ?? {}),
+                        [accountId]: {
+                          catalogId: id,
+                          productSetIds: [], // reset on catalog change
+                        },
                       },
-                    },
-                  });
-                }}
-                onSetProductSetIds={(ids) => {
-                  onPatch({
-                    productSetByAccount: {
-                      ...(plan.productSetByAccount ?? {}),
-                      [accountId]: {
-                        catalogId: plan.productSetByAccount?.[accountId]?.catalogId ?? null,
-                        productSetIds: ids,
+                    });
+                  }}
+                  onSetProductSetIds={(ids) => {
+                    onPatch({
+                      productSetByAccount: {
+                        ...(plan.productSetByAccount ?? {}),
+                        [accountId]: {
+                          catalogId: plan.productSetByAccount?.[accountId]?.catalogId ?? null,
+                          productSetIds: ids,
+                        },
                       },
-                    },
-                  });
-                }}
-                customAudienceEnabled={plan.useCustomAudience}
-                customAudienceMode={plan.customAudienceMode}
-                customAudienceId={plan.customAudienceId}
-                onSetCustomAudience={(v) => onPatch({ useCustomAudience: v })}
-                onSetCustomAudienceMode={(mode) => onPatch({ customAudienceMode: mode })}
-                onSetCustomAudienceId={(id) => onPatch({ customAudienceId: id })}
-              />
-            ))}
+                    });
+                  }}
+                  postEnabled={postEnabled}
+                  onSetPostEnabled={handleSetPostId}
+                  customAudienceEnabled={plan.useCustomAudience}
+                  customAudienceMode={plan.customAudienceMode}
+                  customAudienceId={plan.customAudienceId}
+                  onSetCustomAudience={(v) => onPatch({ useCustomAudience: v })}
+                  onSetCustomAudienceMode={(mode) => onPatch({ customAudienceMode: mode })}
+                  onSetCustomAudienceId={(id) => onPatch({ customAudienceId: id })}
+                />
+              );
+            })}
           </div>
         </div>
       )}
