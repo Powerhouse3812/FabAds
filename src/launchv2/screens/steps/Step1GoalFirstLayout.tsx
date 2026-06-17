@@ -97,6 +97,14 @@ const FORMAT_LABELS: Record<string, string> = {
   dpa: "DPA",
 };
 
+const SPREAD_LABELS: Record<string, string> = {
+  one_per_adset: "1:1",
+  round_robin: "Round-robin",
+  stacked: "Stacked",
+  multiply: "Multiply",
+  manual: "Manual",
+};
+
 const PAGE_DIST_LABELS: Record<string, string> = {
   fill_first: "Fill first",
   equal: "Equal",
@@ -301,21 +309,26 @@ function StrategyGridCard({
           </span>
         )}
       </div>
-      {/* Mini key-value row — accounts · format · page split */}
+      {/* Mini key-value row — spread · structure · page split */}
       <div className="mt-1.5 flex items-center gap-2 border-t border-border/40 pt-1.5">
-        {/* Accounts */}
+        {/* Spread */}
         <div className="flex items-center gap-1">
-          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Accts</span>
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Spread</span>
           <span className="text-[10px] font-mono font-semibold text-foreground/80">
-            {strategy.plan.targets?.length ?? 1}
+            {SPREAD_LABELS[strategy.plan.spread ?? ""] ?? "—"}
           </span>
         </div>
         <span className="text-muted-foreground/30 text-[9px]">·</span>
-        {/* Format */}
+        {/* Structure */}
         <div className="flex items-center gap-1">
-          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Fmt</span>
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Struct</span>
           <span className="text-[10px] font-mono font-semibold text-foreground/80">
-            {strategy.plan.format ? FORMAT_LABELS[strategy.plan.format] ?? strategy.plan.format : "—"}
+            {(() => {
+              const struct = strategy.plan.structure;
+              return struct
+                ? `${struct.campaigns}·${struct.adSetsPerCampaign}·${struct.adsPerAdSet}`
+                : "—";
+            })()}
           </span>
         </div>
         <span className="text-muted-foreground/30 text-[9px]">·</span>
@@ -570,9 +583,12 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
               Optional
             </span>
             <span className="text-[11px] text-muted-foreground">
-              · Prefills all setup fields
+              · prefills all setup fields
             </span>
           </div>
+          <p className="pl-7 text-[11px] text-muted-foreground font-mono leading-relaxed mt-1">
+            Pick a saved setup to pre-fill all steps — accounts, budget, placements, and creative spread. Or skip it entirely and configure each step manually.
+          </p>
         </div>
 
         {/* Search + filter row */}
@@ -750,10 +766,10 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
             <Pencil className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-primary leading-tight">Custom</p>
+            <p className="text-[14px] font-semibold text-primary leading-tight">No strategy — set it up myself</p>
             <p className="mt-0.5 text-[12px] text-muted-foreground font-mono leading-snug">
-              Configure every step manually — no preset applied. Full control over accounts,
-              budget, placements, and audience.
+              Skip the presets and configure every step from scratch — goal, accounts, budget,
+              placements, audience, and creative spread.
             </p>
           </div>
           {isCustom ? (
@@ -762,7 +778,7 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
             </span>
           ) : (
             <span className="shrink-0 border border-primary/30 text-primary/80 text-[11px] rounded-full px-3 py-1 font-mono">
-              Start fresh
+              Skip strategy
             </span>
           )}
         </button>
