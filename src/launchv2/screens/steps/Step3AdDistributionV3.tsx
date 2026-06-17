@@ -52,6 +52,7 @@ import { DistributionSectionChip } from "./distribution/DistributionTemplateBar"
 import { adSetCount, adsPerDestination, capCheck, spreadPreview } from "../../deriveV2";
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
+import Step3V2Panel from "./distribution/Step3V2Panel";
 
 // ── Source → Lucide icon map ──────────────────────────────────────────────────
 const SOURCE_ICON: Record<SourceType, React.ElementType> = {
@@ -476,17 +477,56 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     document.body.style.userSelect = "none";
   };
 
+  const forceV2 = plan.catalogueToggle || plan.source.type === "post_id";
+  const [distVariant, setDistVariant] = useState<"v1" | "v2">(() =>
+    plan.catalogueToggle || plan.source.type === "post_id" ? "v2" : "v1"
+  );
+  useEffect(() => {
+    if (forceV2) setDistVariant("v2");
+  }, [forceV2]);
+
   // ── Selection style helpers (Tier-2 lock #6: 2px foreground border, no lime) ─
   const selectedBorder = "border-2 border-foreground bg-foreground/[0.03]";
   const unselectedBorder = "border border-border";
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div
-      data-screen="lv2-step3-v3"
-      ref={containerRef}
-      className="flex h-full min-h-0"
-    >
+    <div data-screen="lv2-step3" className="flex h-full min-h-0 flex-col">
+      {/* V1/V2 variant toggle strip */}
+      <div className="flex flex-shrink-0 items-center justify-end gap-2 border-b border-border/60 bg-background px-4 py-1.5">
+        {forceV2 ? (
+          <span className="font-mono text-[10px] text-muted-foreground">
+            Account layout — {plan.catalogueToggle ? "Catalogue" : "Post ID"}
+          </span>
+        ) : (
+          <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5">
+            {(["v1", "v2"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setDistVariant(v)}
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-[10px] font-mono transition-colors",
+                  distVariant === v
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {v === "v1" ? "Classic" : "Account"}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* V2 panel — account / catalogue / post-ID variant */}
+      {(distVariant === "v2" || forceV2) && <Step3V2Panel flow={flow} />}
+
+      {/* V1 split pane — hidden (not unmounted) when V2 */}
+      <div
+        ref={containerRef}
+        className={cn("flex min-h-0 flex-1", (distVariant === "v2" || forceV2) && "hidden")}
+      >
       {/* ── Left pane: Ad creative ───────────────────────────────────────── */}
       <div
         style={{ width: `${leftWidth}%` }}
@@ -965,6 +1005,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         )}
       </div>
 
+      </div>
     </div>
   );
 }

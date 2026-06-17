@@ -13,6 +13,7 @@ interface Props {
 }
 
 const PAGE_OPTIONS: { id: PageDistribution; label: string; blurb: string }[] = [
+  { id: "one_page",   label: "One page",    blurb: "All ads run on a single page" },
   { id: "fill_first", label: "Fill first",  blurb: "Pack each page to cap, then spill to next" },
   { id: "equal",      label: "Equal",       blurb: "Same ads on each page for this account" },
   { id: "duplicate",  label: "Duplicate",   blurb: "This account's full set runs on every page" },
@@ -89,9 +90,9 @@ export default function PerAccountPageSplit({ plan, onChangePageDist }: Props) {
 
             {/* Duplicate warning */}
             {isDuplicate && (
-              <div className="mx-3 mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2">
-                <p className="font-mono text-[11px] text-amber-700 dark:text-amber-300">
-                  Duplicate page split will increase campaign count for this account.
+              <div className="mx-3 mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                <p className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                  Duplicate mode: each page gets the full ad set. Budget × pages.
                 </p>
               </div>
             )}

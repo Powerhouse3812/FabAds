@@ -761,14 +761,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </p>
           )}
 
-          {/* A/B Test */}
-          <Toggle
-            checked={plan.abTest}
-            onCheckedChange={(v) => patch({ abTest: v })}
-            label="A/B Test"
-            desc="Meta auto-splits traffic 50/50 between two variants. No extra setup."
-          />
-
           {/* Bid strategy */}
           {policy.bidStrategy.visibility !== "hidden" && (
             <BidStrategyRow
@@ -780,6 +772,20 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               onChangeBidValue={(v) => patch({ bidValue: v ?? undefined })}
             />
           )}
+
+          {/* A/B Test — slim inline toggle, bottom of §2 */}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-foreground">A/B Test</p>
+              <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                Meta auto-splits traffic 50/50 between two variants.
+              </p>
+            </div>
+            <Switch
+              checked={plan.abTest}
+              onCheckedChange={(v) => patch({ abTest: v })}
+            />
+          </div>
 
           {/* ── Campaign soft warnings ── */}
           {campaignWarnings.length > 0 && (

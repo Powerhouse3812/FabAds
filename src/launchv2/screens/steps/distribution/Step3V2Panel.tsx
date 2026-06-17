@@ -52,7 +52,7 @@ function AccountStatusChip({ accountId, plan }: { accountId: string; plan: PlanV
         {adCount} ads
       </span>
       {isConfigured && (
-        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-primary-foreground dark:text-[#C3E165]">
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-[#5B7611] dark:text-[#C3E165]">
           Custom
         </span>
       )}
@@ -199,6 +199,34 @@ export default function Step3V2Panel({ flow }: { flow: UseFlowV2 }) {
                   className="rounded-full border border-border px-4 py-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   No, I&apos;ll set per account
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Zero-creatives prompt — how to add creatives across accounts */}
+        {plan.creatives.length === 0 && creativeDistMode === null && uniqueAcctIds.length > 1 && (
+          <Card className="mb-5 rounded-2xl border-border bg-card">
+            <CardContent className="p-4">
+              <p className="text-[13px] font-medium text-foreground">How do you want to add creatives?</p>
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                Add once and apply to all accounts, or configure each account separately.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCreativeDistMode("auto")}
+                  className="rounded-full bg-foreground px-4 py-1.5 text-[12px] font-medium text-background hover:bg-foreground/90 transition-colors"
+                >
+                  All at once
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreativeDistMode("manual")}
+                  className="rounded-full border border-border px-4 py-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Per account
                 </button>
               </div>
             </CardContent>

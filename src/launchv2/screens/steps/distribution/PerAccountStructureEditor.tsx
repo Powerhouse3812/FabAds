@@ -14,6 +14,8 @@ interface Props {
   onChangeStructure: (byAccount: Record<string, StructureCounts>) => void;
 }
 
+const MAX_AD_SETS = 200;
+
 function getAccountName(plan: PlanV2, accountId: string): string {
   return plan.targets.find((t) => t.accountId === accountId)?.accountName ?? accountId;
 }
@@ -148,6 +150,25 @@ export default function PerAccountStructureEditor({ plan, onChangeStructure }: P
                     onChange={(v) => setAccountStructure(accountId, { ...s, adsPerAdSet: v })}
                   />
                 </div>
+
+                {/* Under-count: fewer ads than creatives */}
+                {product < plan.creatives.length && plan.creatives.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                    <p className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                      Fewer ads ({product}) than creatives ({plan.creatives.length}) — some won't run.
+                    </p>
+                  </div>
+                )}
+
+                {/* Over ad-set limit */}
+                {s.campaigns * s.adSetsPerCampaign > MAX_AD_SETS && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                    <p className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                      Over the {MAX_AD_SETS} ad set limit — this account has{" "}
+                      {s.campaigns * s.adSetsPerCampaign} ad sets.
+                    </p>
+                  </div>
+                )}
 
                 {/* Product vs allocated feedback */}
                 {diff < 0 && (

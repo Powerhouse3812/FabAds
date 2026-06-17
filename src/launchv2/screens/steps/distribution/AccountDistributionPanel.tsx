@@ -179,7 +179,7 @@ export default function AccountDistributionPanel({ plan, onPatch }: Props) {
                 >
                   <span className="flex-1 truncate text-[13px] text-foreground">{name}</span>
                   <span className="shrink-0 font-mono text-[12px] tabular-nums text-foreground font-medium">
-                    Budget: {formatMoney(Math.round(bud), currency)}/day
+                    {formatMoney(Math.round(bud), currency)}/{plan.budgetPeriod === "lifetime" ? "lifetime" : "day"}
                   </span>
                 </div>
               );
