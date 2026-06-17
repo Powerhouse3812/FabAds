@@ -53,7 +53,7 @@ import {
 import {
   getTemplate,
 } from "../../data";
-import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal } from "../../types";
+import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal, PlanV2 } from "../../types";
 import { buildIssues } from "../review/reviewModel";
 import { AccountsPages } from "./setup/AccountsPages";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
@@ -318,13 +318,13 @@ function PlacementGroup({
         </span>
       </button>
 
-      {/* Placement checkboxes */}
+      {/* Placement checkboxes — 3-col grid */}
       {open && (
-        <div className="divide-y divide-border/30 border-t border-border/50">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-0 border-t border-border/50 px-3 py-2.5">
           {Object.entries(placements).map(([key, val]) => (
             <label
               key={key}
-              className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-muted/20 transition-colors"
+              className="flex cursor-pointer items-center gap-2 py-1.5 hover:opacity-80 transition-opacity"
             >
               <span
                 className={cn(
@@ -338,10 +338,148 @@ function PlacementGroup({
                   </svg>
                 )}
               </span>
-              <span className="text-xs text-foreground">{labels[key] ?? key}</span>
+              <span className="text-[11px] font-mono text-foreground leading-none">{labels[key] ?? key}</span>
               <input type="checkbox" checked={val} onChange={() => onToggle(key)} className="sr-only" />
             </label>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlacementsInline({
+  plan,
+  asc,
+  onPatch,
+}: {
+  plan: PlanV2;
+  asc: boolean;
+  onPatch: (partial: Partial<PlanV2>) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      {/* Header */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 hover:bg-muted/20 transition-colors"
+      >
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+        <span className="flex-1 text-left text-[13px] font-semibold text-foreground">Placements</span>
+        {!open && (
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {plan.placementMode === "advantage" ? "Automatic" : "Manual"}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-border/50 px-3 pb-3 pt-3 space-y-3">
+          {/* Placement type pills */}
+          <div className="flex flex-wrap gap-2">
+            {(["advantage", "manual"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={asc && mode === "manual"}
+                onClick={() => onPatch({ placementMode: mode })}
+                className={cn(
+                  "fab-focus rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  plan.placementMode === mode
+                    ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
+                    : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                  asc && mode === "manual" && "cursor-not-allowed opacity-40",
+                )}
+              >
+                {mode === "advantage" ? "Advantage+ (automatic)" : "Manual"}
+              </button>
+            ))}
+          </div>
+          {asc && (
+            <p className="text-[11px] text-muted-foreground">Locked to Advantage+ when ASC is active.</p>
+          )}
+
+          {plan.placementMode === "manual" && !asc && (
+            <div className="space-y-3 pt-1">
+              <PlacementGroup
+                title="Facebook"
+                icon="fb"
+                platform="facebook"
+                defaultOpen={true}
+                placements={plan.placements.facebook}
+                onToggle={(key) =>
+                  onPatch({
+                    placements: {
+                      ...plan.placements,
+                      facebook: {
+                        ...plan.placements.facebook,
+                        [key]: !plan.placements.facebook[key as keyof typeof plan.placements.facebook],
+                      },
+                    },
+                  })
+                }
+              />
+              <PlacementGroup
+                title="Instagram"
+                icon="ig"
+                platform="instagram"
+                placements={plan.placements.instagram}
+                onToggle={(key) =>
+                  onPatch({
+                    placements: {
+                      ...plan.placements,
+                      instagram: {
+                        ...plan.placements.instagram,
+                        [key]: !plan.placements.instagram[key as keyof typeof plan.placements.instagram],
+                      },
+                    },
+                  })
+                }
+              />
+              <PlacementGroup
+                title="Audience Network"
+                icon="an"
+                platform="audienceNetwork"
+                placements={plan.placements.audienceNetwork}
+                onToggle={(key) =>
+                  onPatch({
+                    placements: {
+                      ...plan.placements,
+                      audienceNetwork: {
+                        ...plan.placements.audienceNetwork,
+                        [key]: !plan.placements.audienceNetwork[key as keyof typeof plan.placements.audienceNetwork],
+                      },
+                    },
+                  })
+                }
+              />
+              <PlacementGroup
+                title="Messenger"
+                icon="msg"
+                platform="messenger"
+                placements={plan.placements.messenger}
+                onToggle={(key) =>
+                  onPatch({
+                    placements: {
+                      ...plan.placements,
+                      messenger: {
+                        ...plan.placements.messenger,
+                        [key]: !plan.placements.messenger[key as keyof typeof plan.placements.messenger],
+                      },
+                    },
+                  })
+                }
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -381,7 +519,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualIndex, setManualIndex] = useState<number | null>(null);
   // §3 sub-section accordion — one open at a time
-  const [s3Sub, setS3Sub] = useState<"optimization" | "audience" | "regulated">("optimization");
+  const [s3Sub, setS3Sub] = useState<"optimization" | "audience">("optimization");
 
   // active section = manual override (if set) else the scroll-driven one
   const expandedIndex = manualIndex ?? activeIndex;
@@ -637,6 +775,99 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           )}
 
+          {/* ── Regulated category + authorization (campaign-level) ── */}
+          <AdvancedReveal label="Regulated category">
+            {/* Toggle */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-2.5">
+                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
+                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.specialAdDeclared}
+                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+                  plan.specialAdDeclared
+                    ? "border-[#8FB821] bg-[#8FB821]"
+                    : "border-border bg-muted"
+                )}
+              >
+                <span className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
+
+            {/* Category chips */}
+            {plan.specialAdDeclared && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
+                  const isSelected = plan.specialAdCategories?.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        const current = plan.specialAdCategories ?? [];
+                        const next = isSelected
+                          ? current.filter((c) => c !== cat)
+                          : [...current, cat];
+                        patch({ specialAdCategories: next });
+                      }}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
+                        isSelected
+                          ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
+                          : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
+                      )}
+                    >
+                      {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Beneficiary + Payor — only relevant for ISSUES_ELECTIONS_POLITICS */}
+            {plan.specialAdCategories?.includes("ISSUES_ELECTIONS_POLITICS") && (
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] font-medium text-foreground">
+                    Beneficiary <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Select beneficiary"
+                    value={plan.beneficiary ?? ""}
+                    onChange={(e) => patch({ beneficiary: e.target.value })}
+                    className="h-9 w-full font-mono text-[12px]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] font-medium text-foreground">
+                    Payor <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Select payor"
+                    value={plan.payor ?? ""}
+                    onChange={(e) => patch({ payor: e.target.value })}
+                    className="h-9 w-full font-mono text-[12px]"
+                  />
+                </div>
+              </div>
+            )}
+          </AdvancedReveal>
+
         </StepSection>
 
         {/* ── 3 · Ad set & Audience ──────────────────────────────── */}
@@ -782,178 +1013,17 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             specialAdCategoryActive={special}
           />
 
-          {/* Placements — shown only when Advantage+ Audience is OFF */}
+          {/* Placements — shown inline when Advantage+ Audience is OFF */}
           {!plan.advantageAudience && (
-          <AdvancedReveal label="Placements">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Placement type</Label>
-              <div className="flex flex-wrap gap-2">
-                {(["advantage", "manual"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    disabled={asc && mode === "manual"}
-                    onClick={() => patch({ placementMode: mode })}
-                    className={cn(
-                      "fab-focus rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                      plan.placementMode === mode
-                        ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
-                        : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                      asc && mode === "manual" && "cursor-not-allowed opacity-40",
-                    )}
-                  >
-                    {mode === "advantage" ? "Advantage+ (automatic)" : "Manual"}
-                  </button>
-                ))}
-              </div>
-              {asc && <p className="text-[11px] text-muted-foreground">Locked to Advantage+ when ASC is active.</p>}
-
-              {plan.placementMode === "manual" && !asc && (
-                <div className="space-y-3 pt-1">
-                  <PlacementGroup
-                    title="Facebook"
-                    icon="fb"
-                    platform="facebook"
-                    defaultOpen={true}
-                    placements={plan.placements.facebook}
-                    onToggle={(key) =>
-                      patch({
-                        placements: {
-                          ...plan.placements,
-                          facebook: {
-                            ...plan.placements.facebook,
-                            [key]: !plan.placements.facebook[key as keyof typeof plan.placements.facebook],
-                          },
-                        },
-                      })
-                    }
-                  />
-                  <PlacementGroup
-                    title="Instagram"
-                    icon="ig"
-                    platform="instagram"
-                    placements={plan.placements.instagram}
-                    onToggle={(key) =>
-                      patch({
-                        placements: {
-                          ...plan.placements,
-                          instagram: {
-                            ...plan.placements.instagram,
-                            [key]: !plan.placements.instagram[key as keyof typeof plan.placements.instagram],
-                          },
-                        },
-                      })
-                    }
-                  />
-                  <PlacementGroup
-                    title="Audience Network"
-                    icon="an"
-                    platform="audienceNetwork"
-                    placements={plan.placements.audienceNetwork}
-                    onToggle={(key) =>
-                      patch({
-                        placements: {
-                          ...plan.placements,
-                          audienceNetwork: {
-                            ...plan.placements.audienceNetwork,
-                            [key]: !plan.placements.audienceNetwork[key as keyof typeof plan.placements.audienceNetwork],
-                          },
-                        },
-                      })
-                    }
-                  />
-                  <PlacementGroup
-                    title="Messenger"
-                    icon="msg"
-                    platform="messenger"
-                    placements={plan.placements.messenger}
-                    onToggle={(key) =>
-                      patch({
-                        placements: {
-                          ...plan.placements,
-                          messenger: {
-                            ...plan.placements.messenger,
-                            [key]: !plan.placements.messenger[key as keyof typeof plan.placements.messenger],
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          </AdvancedReveal>
+            <PlacementsInline
+              plan={plan}
+              asc={asc}
+              onPatch={patch}
+            />
           )}
           </Subsection>
           {/* ── /Subsection ▸ Audience ───────────────────────────────── */}
 
-          {/* ── Subsection ▸ Regulated category ──────────────────────── */}
-          <Subsection
-            label="Regulated category"
-            open={s3Sub === "regulated"}
-            onOpenChange={(v) => setS3Sub(v ? "regulated" : "optimization")}
-          >
-          <div className="rounded-2xl border border-border bg-background px-4 py-3 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex items-start gap-2.5">
-                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
-                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={plan.specialAdDeclared}
-                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
-                className={cn(
-                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-                  plan.specialAdDeclared
-                    ? "border-[#8FB821] bg-[#8FB821]"
-                    : "border-border bg-muted"
-                )}
-              >
-                <span className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
-                )} />
-              </button>
-            </div>
-
-            {plan.specialAdDeclared && (
-              <div className="flex flex-wrap gap-1.5">
-                {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
-                  const isSelected = plan.specialAdCategories?.includes(cat);
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        const current = plan.specialAdCategories ?? [];
-                        const next = isSelected
-                          ? current.filter((c) => c !== cat)
-                          : [...current, cat];
-                        patch({ specialAdCategories: next });
-                      }}
-                      className={cn(
-                        "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
-                        isSelected
-                          ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
-                          : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
-                      )}
-                    >
-                      {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          </Subsection>
-          {/* ── /Subsection ▸ Regulated category ─────────────────────── */}
         </StepSection>
         </div>
 

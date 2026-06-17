@@ -395,6 +395,10 @@ export interface PlanV2 {
   specialAdCategories: SpecialAdCategory[];
   /** Master toggle for the Special Ad Category declaration. When false, the category picker is hidden and the array is cleared. */
   specialAdDeclared: boolean;
+  /** Authorization: who paid for the ad (required by Meta for ISSUES_ELECTIONS_POLITICS). */
+  payor?: string;
+  /** Authorization: who the ad benefits (required by Meta for ISSUES_ELECTIONS_POLITICS). */
+  beneficiary?: string;
   attribution: AttributionWindow;
   /** Which strategy preset/saved is active (null = custom, no preset). */
   strategyId: string | null;

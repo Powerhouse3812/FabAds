@@ -64,6 +64,8 @@ export function newPlanV2(): PlanV2 {
     advantageCreative: true,
     specialAdCategories: [],
     specialAdDeclared: false,
+    payor: "",
+    beneficiary: "",
     attribution: "7d_click_1d_view",
     strategyId: null,
     catalogueToggle: false,

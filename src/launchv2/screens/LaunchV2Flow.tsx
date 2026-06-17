@@ -646,10 +646,14 @@ function StepperV2({
   onRetry: () => void;
   onSwitchVariant: () => void;
 }) {
-  const chips = buildChips(plan);
-  const visible = chips.slice(0, MAX_VISIBLE_CHIPS);
-  const overflow = chips.length - visible.length;
+  // Group chips by step
+  const allChips = buildChips(plan);
+  const chipsByStep: Record<number, Chip[]> = {};
+  steps.forEach((s) => {
+    chipsByStep[s] = allChips.filter((c) => c.step === s);
+  });
 
+  // Recompute saved-ago label every 5s
   const [, force] = useState(0);
   useEffect(() => {
     if (saveState !== "saved") return;
@@ -667,68 +671,144 @@ function StepperV2({
 
   return (
     <div className="sticky top-0 z-20 flex-shrink-0 border-b border-border bg-background/95 backdrop-blur">
-      {/* Row 1: step progress + V1 toggle pill (right) */}
-      <div className="flex items-center justify-between gap-3 px-5 pt-3 pb-1.5">
-        <Progress
-          step={step}
-          steps={steps}
-          titles={titles}
-          onJump={onJump}
-          issues={issues}
-        />
-        <button
-          type="button"
-          onClick={onSwitchVariant}
-          className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:text-foreground"
-        >
-          V1
-        </button>
-      </div>
+      {/* ── Step cards rail ─────────────────────────────────────────── */}
+      <TooltipProvider>
+        <div className="flex divide-x divide-border">
+          {steps.map((s) => {
+            const done = s < step;
+            const active = s === step;
+            const pending = s > step;
+            const canJump = done;
+            const stepChips = chipsByStep[s] ?? [];
+            const stepIssues = issuesForStep(s, issues);
+            const hasIssues = stepIssues.length > 0;
 
-      {/* Row 2: Overview chips + autosave */}
-      <div className="flex items-center justify-between gap-3 px-5 pb-1.5">
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          <span className="shrink-0 text-[10px] font-mono text-muted-foreground/60 mr-0.5">Overview:</span>
-          <TooltipProvider>
-            {visible.map((chip, idx) => (
-              <Tooltip key={`${chip.step}-${idx}-${chip.label}`}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onJump(chip.step)}
-                    className="fab-focus inline-flex max-w-[180px] items-center gap-1 truncate rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-foreground/30 hover:bg-muted hover:text-foreground"
-                  >
-                    <span className="truncate">{chip.label}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-line">
-                  {chip.tooltip}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-            {overflow > 0 && (
+            return (
               <button
+                key={s}
                 type="button"
-                className="fab-focus inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+                disabled={pending}
+                onClick={() => canJump && onJump(s)}
+                className={cn(
+                  "group relative flex min-w-0 flex-1 flex-col gap-1.5 px-4 pb-3 pt-3 text-left transition-colors",
+                  active && "bg-[#F5FBE2] dark:bg-[#1D2A09]",
+                  done && "cursor-pointer hover:bg-muted/30",
+                  pending && "cursor-default opacity-40",
+                  active && "border-b-2 border-[#8FB821]",
+                )}
               >
-                +{overflow} more
+                {/* Step badge + title row */}
+                <div className="flex items-center gap-2">
+                  <span className="relative flex-shrink-0">
+                    {/* Badge circle */}
+                    <span
+                      className={cn(
+                        "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-mono font-bold transition-colors",
+                        done
+                          ? "bg-[#8FB821] text-[#121212]"
+                          : active
+                          ? "bg-[#8FB821] text-[#121212]"
+                          : "border border-border bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {done ? (
+                        <Check className="h-2.5 w-2.5" />
+                      ) : (
+                        <span>{s}</span>
+                      )}
+                    </span>
+                    {/* Issues dot */}
+                    {hasIssues && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-1 ring-background" />
+                    )}
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate text-[12px] font-semibold tracking-[-0.01em] transition-colors",
+                      active ? "text-foreground" : done ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {titles[s] ?? `Step ${s}`}
+                  </span>
+                </div>
+
+                {/* Summary data */}
+                <div className="flex flex-col gap-0.5 pl-7">
+                  {stepChips.length > 0 ? (
+                    <>
+                      {stepChips.slice(0, 2).map((chip, i) => (
+                        <Tooltip key={i}>
+                          <TooltipTrigger asChild>
+                            <span className="block truncate text-[10px] font-mono text-muted-foreground">
+                              {chip.label}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs whitespace-pre-line">
+                            {chip.tooltip}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                      {stepChips.length > 2 && (
+                        <span className="text-[10px] font-mono text-muted-foreground/60">
+                          +{stepChips.length - 2} more
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-mono text-muted-foreground/30">—</span>
+                  )}
+                </div>
               </button>
-            )}
-          </TooltipProvider>
+            );
+          })}
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-          {saveState === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /><span>Saving…</span></>}
-          {saveState === "saved" && <><span className="h-1.5 w-1.5 rounded-full bg-primary" /><span>Saved {sinceLabel}</span></>}
-          {saveState === "failed" && <><AlertTriangle className="h-3 w-3 text-amber-500" /><span>Save failed</span><button type="button" onClick={onRetry} className="rounded-full px-1.5 text-[11px] font-medium text-foreground underline-offset-2 hover:underline">Retry</button></>}
+      </TooltipProvider>
+
+      {/* ── Bottom strip: template bar + autosave + variant toggle ─── */}
+      <div className="flex items-center justify-between gap-4 border-t border-border/40 px-4 py-1.5">
+        {/* Left: template bar (step 2 only) or spacer */}
+        <div className="min-w-0 flex-1">
+          {step === 2 ? <SetupTemplateBar flow={flow} /> : null}
+        </div>
+
+        {/* Right: autosave status + V1 toggle */}
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+            {saveState === "saving" && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Saving…</span>
+              </>
+            )}
+            {saveState === "saved" && (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                <span>Saved {sinceLabel}</span>
+              </>
+            )}
+            {saveState === "failed" && (
+              <>
+                <AlertTriangle className="h-3 w-3 text-amber-500" />
+                <span>Save failed</span>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="text-[11px] font-medium text-foreground underline-offset-2 hover:underline"
+                >
+                  Retry
+                </button>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onSwitchVariant}
+            className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:text-foreground"
+          >
+            V1
+          </button>
         </div>
       </div>
-
-      {/* Row 3: Setup template bar — step 2 only */}
-      {step === 2 && (
-        <div className="flex items-center gap-2 border-t border-border/40 px-5 py-2">
-          <SetupTemplateBar flow={flow} />
-        </div>
-      )}
     </div>
   );
 }
