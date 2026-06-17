@@ -173,8 +173,9 @@ export default function RunningOverview({ plan, currentStep }: RunningOverviewPr
       const PAGE_DIST_LABELS: Record<string, string> = {
         one_page: "One page",
         fill_first: "Fill first",
-        equal: "Equal split",
+        equal: "Equal",
         duplicate: "Duplicate",
+        custom: "Custom",
       };
       pills.push(PAGE_DIST_LABELS[plan.pageDistribution] ?? plan.pageDistribution);
     }

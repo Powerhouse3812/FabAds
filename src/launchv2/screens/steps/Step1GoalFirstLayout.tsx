@@ -97,6 +97,12 @@ const FORMAT_LABELS: Record<string, string> = {
   dpa: "DPA",
 };
 
+const PAGE_DIST_LABELS: Record<string, string> = {
+  fill_first: "Fill first",
+  equal: "Equal",
+  duplicate: "Duplicate",
+};
+
 const CURRENCY_SYM: Record<string, string> = {
   INR: "₹",
   USD: "$",
@@ -126,7 +132,7 @@ function isPartial(s: LaunchStrategy): boolean {
 /*  Filter model (duplicated — not exported from Step1StartV2)         */
 /* ------------------------------------------------------------------ */
 
-type FilterKind = "budgetMode" | "objective" | "tag";
+type FilterKind = "budgetMode" | "objective" | "tag" | "pageDist" | "format";
 interface FilterChip {
   id: string;
   kind: FilterKind;
@@ -160,12 +166,43 @@ function buildFilterChips(strategies: LaunchStrategy[]): FilterChip[] {
     chips.push({ id: `tag:${t}`, kind: "tag", label: `#${t}`, value: t });
   }
 
+  // Page distribution — static chips, only show values actually used in corpus
+  const pageDists: Array<{ value: string; label: string }> = [
+    { value: "one_page", label: "One page" },
+    { value: "fill_first", label: "Fill first" },
+    { value: "equal", label: "Equal" },
+    { value: "duplicate", label: "Duplicate" },
+    { value: "custom", label: "Custom" },
+  ];
+  const usedPageDists = new Set(strategies.map(s => s.plan.pageDistribution).filter(Boolean));
+  for (const { value, label } of pageDists) {
+    if (usedPageDists.has(value as typeof strategies[0]["plan"]["pageDistribution"])) {
+      chips.push({ id: `pageDist:${value}`, kind: "pageDist", label, value });
+    }
+  }
+
+  // Format — derive from corpus
+  const formats = new Set(strategies.map(s => s.plan.format).filter(Boolean) as string[]);
+  const formatOrder = ["single_image", "single_video", "carousel", "collection", "dpa", "flexible"];
+  for (const f of formatOrder) {
+    if (formats.has(f)) {
+      chips.push({
+        id: `format:${f}`,
+        kind: "format",
+        label: FORMAT_LABELS[f] ?? f,
+        value: f,
+      });
+    }
+  }
+
   return chips;
 }
 
 function matchesChip(s: LaunchStrategy, chip: FilterChip): boolean {
   if (chip.kind === "budgetMode") return s.plan.budgetMode === chip.value;
   if (chip.kind === "objective") return s.plan.objective === chip.value;
+  if (chip.kind === "pageDist") return s.plan.pageDistribution === chip.value;
+  if (chip.kind === "format") return s.plan.format === chip.value;
   return (s.tags ?? []).includes(chip.value);
 }
 
@@ -263,6 +300,34 @@ function StrategyGridCard({
             +{tags.length - 2}
           </span>
         )}
+      </div>
+      {/* Mini key-value row — accounts · format · page split */}
+      <div className="mt-1.5 flex items-center gap-2 border-t border-border/40 pt-1.5">
+        {/* Accounts */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Accts</span>
+          <span className="text-[10px] font-mono font-semibold text-foreground/80">
+            {strategy.plan.targets?.length ?? 1}
+          </span>
+        </div>
+        <span className="text-muted-foreground/30 text-[9px]">·</span>
+        {/* Format */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Fmt</span>
+          <span className="text-[10px] font-mono font-semibold text-foreground/80">
+            {strategy.plan.format ? FORMAT_LABELS[strategy.plan.format] ?? strategy.plan.format : "—"}
+          </span>
+        </div>
+        <span className="text-muted-foreground/30 text-[9px]">·</span>
+        {/* Page split */}
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Split</span>
+          <span className="text-[10px] font-mono font-semibold text-foreground/80">
+            {strategy.plan.pageDistribution
+              ? PAGE_DIST_LABELS[strategy.plan.pageDistribution] ?? strategy.plan.pageDistribution
+              : "—"}
+          </span>
+        </div>
       </div>
     </button>
   );
@@ -560,12 +625,14 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
                 )}
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-56 p-3">
+            <PopoverContent align="end" className="w-64 p-3">
               <div className="space-y-3">
                 {([
                   { kind: "budgetMode" as FilterKind, label: "Budget mode" },
                   { kind: "objective" as FilterKind, label: "Objective" },
                   { kind: "tag" as FilterKind, label: "Tags" },
+                  { kind: "pageDist" as FilterKind, label: "Page distribution" },
+                  { kind: "format" as FilterKind, label: "Format" },
                 ] as const).map(({ kind, label }, idx) => {
                   const chips = chipsByKind.get(kind);
                   if (!chips?.length) return null;
