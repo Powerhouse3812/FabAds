@@ -233,10 +233,11 @@ export function getTemplate(id: string | null): TargetingTemplateV2 | undefined 
 }
 
 export const DEFAULT_PLACEMENTS: PlacementSelection = {
-  facebook: { feeds: true, inStreamVideos: true, stories: true, reels: true, searchResults: true, marketplace: true },
-  instagram: { feed: true, profileFeed: true, stories: true, reels: true, explore: true },
+  facebook: { feeds: true, profileFeed: true, videoFeeds: true, inStreamVideos: true, stories: true, reels: true, rightColumn: true, marketplace: true, searchResults: true, businessExplore: true, notifications: true },
+  instagram: { feed: true, profileFeed: true, explore: true, exploreHome: true, stories: true, reels: true, searchResults: true },
   audienceNetwork: { nativeBannerInterstitial: true, rewardedVideos: true },
-  messenger: { inbox: true, stories: true },
+  messenger: { inbox: true, stories: true, sponsoredMessages: true },
+  threads: { feed: true },
 };
 
 /* ---- Strategy presets ---- */

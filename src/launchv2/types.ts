@@ -254,18 +254,25 @@ export interface CustomAudienceV2 {
 export interface PlacementSelection {
   facebook: {
     feeds: boolean;
+    profileFeed: boolean;
+    videoFeeds: boolean;
     inStreamVideos: boolean;
     stories: boolean;
     reels: boolean;
-    searchResults: boolean;
+    rightColumn: boolean;
     marketplace: boolean;
+    searchResults: boolean;
+    businessExplore: boolean;
+    notifications: boolean;
   };
   instagram: {
     feed: boolean;
     profileFeed: boolean;
+    explore: boolean;
+    exploreHome: boolean;
     stories: boolean;
     reels: boolean;
-    explore: boolean;
+    searchResults: boolean;
   };
   audienceNetwork: {
     nativeBannerInterstitial: boolean;
@@ -274,6 +281,10 @@ export interface PlacementSelection {
   messenger: {
     inbox: boolean;
     stories: boolean;
+    sponsoredMessages: boolean;
+  };
+  threads: {
+    feed: boolean;
   };
 }
 

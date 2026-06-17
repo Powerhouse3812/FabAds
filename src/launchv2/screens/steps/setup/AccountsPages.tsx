@@ -558,6 +558,16 @@ function AccountRow({
           />
         </div>
 
+        {/* ── Post ID next-step note (toggle on, none picked yet) ── */}
+        {postEnabled && postIds.length === 0 && (
+          <div className="px-3 py-2.5 flex items-start gap-2 bg-muted/20">
+            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
+            <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+              Creative selection happens in the next step.
+            </p>
+          </div>
+        )}
+
         {/* ── Post ID distribution info box ── */}
         {postEnabled && postIds.length > 0 && (
           <div className="px-3 py-2.5 flex items-start gap-2 bg-muted/20">
@@ -582,6 +592,16 @@ function AccountRow({
             className="scale-90 shrink-0"
           />
         </div>
+
+        {/* ── Catalogue next-step note ── */}
+        {catalogueEnabled && (
+          <div className="px-3 py-2.5 flex items-start gap-2 bg-muted/20">
+            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
+            <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+              Select catalogue + creative distribution in the next step.
+            </p>
+          </div>
+        )}
 
         {/* ── Custom Audience sub-row ── */}
         <div className="flex items-center gap-3 px-3 py-2">

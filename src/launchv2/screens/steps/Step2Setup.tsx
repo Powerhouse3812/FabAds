@@ -257,18 +257,25 @@ function Toggle({
 const PLACEMENT_LABELS: Record<string, Record<string, string>> = {
   facebook: {
     feeds: "Feeds",
+    profileFeed: "Profile feed",
+    videoFeeds: "Video feeds",
     inStreamVideos: "In-stream videos",
     stories: "Stories",
     reels: "Reels",
-    searchResults: "Search results",
+    rightColumn: "Right column",
     marketplace: "Marketplace",
+    searchResults: "Search results",
+    businessExplore: "Business Explore",
+    notifications: "Notifications",
   },
   instagram: {
     feed: "Feed",
     profileFeed: "Profile feed",
+    explore: "Explore",
+    exploreHome: "Explore home",
     stories: "Stories",
     reels: "Reels",
-    explore: "Explore",
+    searchResults: "Search results",
   },
   audienceNetwork: {
     nativeBannerInterstitial: "Native, banner & interstitial",
@@ -277,6 +284,10 @@ const PLACEMENT_LABELS: Record<string, Record<string, string>> = {
   messenger: {
     inbox: "Messenger inbox",
     stories: "Stories",
+    sponsoredMessages: "Sponsored messages",
+  },
+  threads: {
+    feed: "Feed",
   },
 };
 
@@ -474,6 +485,23 @@ function PlacementsInline({
                       messenger: {
                         ...plan.placements.messenger,
                         [key]: !plan.placements.messenger[key as keyof typeof plan.placements.messenger],
+                      },
+                    },
+                  })
+                }
+              />
+              <PlacementGroup
+                title="Threads"
+                icon="th"
+                platform="threads"
+                placements={plan.placements.threads}
+                onToggle={(key) =>
+                  onPatch({
+                    placements: {
+                      ...plan.placements,
+                      threads: {
+                        ...plan.placements.threads,
+                        [key]: !plan.placements.threads[key as keyof typeof plan.placements.threads],
                       },
                     },
                   })
