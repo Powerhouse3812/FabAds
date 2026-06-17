@@ -392,14 +392,21 @@ export function SourceSheet({
 
   const [search, setSearch] = useState("");
 
-  // Reset local state whenever the sheet opens or the active source changes.
+  // Reset local state on open (false→true transition only).
+  // We track a prev-open ref so a re-render that keeps `open=true`
+  // but changes `source` or `currentSelections` does NOT wipe
+  // in-progress selections the user has made inside the sheet.
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (open && !wasOpen) {
+      // Sheet just opened — seed from the committed plan selections.
       setLocalSelected(new Map(currentSelections.map((c) => [c.id, c])));
       setSearch("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, source]);
+  }, [open]);
 
   /* ── Toggle handler (canonical signature for child modals) ─── */
   const handleToggle = (ref: CreativeRef) => {

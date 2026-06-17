@@ -25,6 +25,7 @@ import {
   Image,
   Library,
   Link2,
+  Lock,
   Plus,
   ShoppingBag,
   Sparkles,
@@ -35,6 +36,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { allowedFormats, defaultDestination } from "../../reducer";
 import { FORMATS, SOURCES } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
@@ -42,7 +50,7 @@ import type { AdFormat, AdCopy, CreativeRef, SourceType, SpreadMode } from "../.
 import AdContent from "./spread/AdContent";
 import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
-import { FORMAT_ICON } from "./spread/meta";
+import { FORMAT_ICON, CTA_OPTIONS } from "./spread/meta";
 import { WholeAdGrid } from "./spread/WholeAdCard";
 import { SaveBundleRow } from "./spread/SaveBundleRow";
 import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFromRunning";
@@ -368,6 +376,93 @@ function CatalogueAdCopy({ flow }: { flow: UseFlowV2 }) {
   );
 }
 
+// ── PostIdPicker — existing post as ad creative ───────────────────────────────
+function PostIdPicker({ flow }: { flow: UseFlowV2 }) {
+  const { plan } = flow;
+  const postId = plan.source.ref ?? "";
+  const isValid = postId.trim().length > 0;
+
+  return (
+    <SectionCard
+      title="Existing post"
+      subtitle="Use a published Facebook or Instagram post as your ad creative."
+    >
+      <div className="space-y-3">
+        {/* Post ID input */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium text-muted-foreground">Post ID</label>
+          <div className="relative">
+            <input
+              value={postId}
+              onChange={(e) =>
+                flow.patch({ source: { type: "post_id", ref: e.target.value } })
+              }
+              placeholder="e.g. 124965744226834_3888007311337206"
+              className="h-9 w-full rounded-lg border border-border bg-background px-2.5 pr-8 font-mono text-[12px] outline-none focus:ring-2 focus:ring-primary/40"
+            />
+            {isValid && (
+              <Check className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
+            )}
+          </div>
+          <p className="font-mono text-[10px] text-muted-foreground">
+            Format: PAGE_ID_POST_ID — find it in Meta Business Suite → Posts.
+          </p>
+        </div>
+
+        {/* Locked content notice */}
+        <div className="flex items-start gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-medium text-foreground">Post content is locked</p>
+            <p className="font-mono text-[10px] text-muted-foreground">
+              Meta preserves the original text, image, and video. Likes and comments carry over to all ads using this post.
+            </p>
+          </div>
+        </div>
+
+        {/* CTA override */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium text-muted-foreground">
+            CTA button{" "}
+            <span className="font-normal text-muted-foreground/50">(optional override)</span>
+          </label>
+          <Select
+            value={plan.adCopy.cta || ""}
+            onValueChange={(v) => flow.patch({ adCopy: { ...plan.adCopy, cta: v } })}
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Keep original" />
+            </SelectTrigger>
+            <SelectContent>
+              {CTA_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value} className="text-sm">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Destination URL override */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium text-muted-foreground">
+            Destination URL{" "}
+            <span className="font-normal text-muted-foreground/50">(optional override)</span>
+          </label>
+          <input
+            value={plan.adCopy.destinationUrl ?? ""}
+            onChange={(e) =>
+              flow.patch({ adCopy: { ...plan.adCopy, destinationUrl: e.target.value } })
+            }
+            placeholder="https://yourstore.com/product"
+            className="h-9 w-full rounded-lg border border-border bg-background px-2.5 font-mono text-[12px] outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const { plan, patch } = flow;
@@ -395,6 +490,15 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     return "media";
   });
   const [pendingMode, setPendingMode] = useState<"ads" | "media" | null>(null);
+
+  // Sync creativeMode when plan.mediaScope is updated externally (e.g. template apply).
+  // Only fires when mediaScope flips — does not override a user's explicit mode choice
+  // made within the current session if mediaScope stays "individual_media".
+  useEffect(() => {
+    if (plan.mediaScope === "whole_ads") {
+      setCreativeMode("ads");
+    }
+  }, [plan.mediaScope]);
 
   // ── Cap status ──────────────────────────────────────────────────────────
   const cap = capCheck(plan);
@@ -477,9 +581,9 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     document.body.style.userSelect = "none";
   };
 
-  const forceV2 = plan.catalogueToggle;
+  const forceV2 = plan.catalogueToggle || plan.source.type === "post_id";
   const [distVariant, setDistVariant] = useState<"v1" | "v2">(() =>
-    plan.catalogueToggle ? "v2" : "v1"
+    (plan.catalogueToggle || plan.source.type === "post_id") ? "v2" : "v1"
   );
   useEffect(() => {
     if (forceV2) setDistVariant("v2");
@@ -498,7 +602,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
       <div className="flex flex-shrink-0 items-center justify-end gap-2 border-b border-border/60 bg-background px-4 py-1.5">
         {forceV2 ? (
           <span className="font-mono text-[10px] text-muted-foreground">
-            Account layout — Catalogue
+            Account layout — {plan.catalogueToggle ? "Catalogue" : "Post ID"}
           </span>
         ) : (
           <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5">
@@ -703,13 +807,17 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
             >
               <CatalogueAdCopy flow={flow} />
             </SectionCard>
+          ) : plan.source.type === "post_id" ? (
+            /* Post ID mode — locked creative, CTA + URL override only */
+            <PostIdPicker flow={flow} />
           ) : (
             <>
               {/* ── 3. Source — chips row: labeled left zone + icon-only right zone ── */}
               {(() => {
                 const LABELED_SOURCES: SourceType[] = ["library", "genie", "upload"];
                 const labeledSources = SOURCES.filter((s) => LABELED_SOURCES.includes(s.id as SourceType));
-                const iconOnlySources = SOURCES.filter((s) => !LABELED_SOURCES.includes(s.id as SourceType));
+                // post_id is now a per-launch Step 2 selection — excluded from chip row
+                const iconOnlySources = SOURCES.filter((s) => !LABELED_SOURCES.includes(s.id as SourceType) && s.id !== "post_id");
                 return (
                   <div className="space-y-2">
                     <div className="space-y-1">
