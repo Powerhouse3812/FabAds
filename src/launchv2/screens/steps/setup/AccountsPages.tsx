@@ -25,7 +25,6 @@ import {
   Plug,
   RotateCw,
   Search,
-  Shield,
   ShoppingBag,
   Upload,
   Users,
@@ -51,7 +50,6 @@ import { perPageDemand } from "../../../deriveV2";
 import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
 import type { UseFlowV2 } from "../../../state/useFlowV2";
-import SpecialAdCountryPicker from "./SpecialAdCountryPicker";
 
 /* ─── BM display names (mock, keyed by accountId) ─────────────────────────── */
 const BM_NAMES: Record<string, string> = {
@@ -376,9 +374,6 @@ function AccountRow({
 
   return (
     <div className="space-y-1.5">
-      {/* ── Inline account health (cached at session start, see lock #17) ── */}
-      <AccountHealthCard accountId={accountId} />
-
       {/* ── Main card with divide-y structure ── */}
       <div className="rounded-xl border border-border bg-muted/5 divide-y divide-border/50">
 
@@ -791,93 +786,8 @@ export function AccountsPages({
   /* ── Suppress unused-variable warning for demandByPage (kept for parity) ── */
   void demandByPage;
 
-  /* ── Regulated suggestion: any selected page in a regulated category? ── */
-  const suggestRegulated = useMemo(() => {
-    if (plan.specialAdDeclared) return false; // already on, suppress
-    for (const t of targets) {
-      const acc = ACCOUNTS.find((a) => a.id === t.accountId);
-      const pg = acc?.pages.find((p) => p.id === t.pageId);
-      if (pg?.category && REGULATED_PAGE_CATEGORIES.has(pg.category)) return true;
-    }
-    return false;
-  }, [targets, plan.specialAdDeclared]);
-
   return (
     <div className="space-y-4">
-      {/* ─── 0. Regulated category — top of section per lock #18 ────────── */}
-      <div className="space-y-1.5">
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
-          <div className="min-w-0">
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
-              <Shield className="h-3.5 w-3.5 text-muted-foreground" />
-              Regulated category?
-            </span>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
-            </p>
-          </div>
-          <Switch
-            checked={plan.specialAdDeclared}
-            onCheckedChange={(v) => onPatch({ specialAdDeclared: v, specialAdCategories: v ? plan.specialAdCategories : [] })}
-            className="shrink-0"
-          />
-        </div>
-
-        {/* Suggestion banner (lock #18) */}
-        {suggestRegulated && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-            <Info className="h-3.5 w-3.5 shrink-0 text-amber-500 mt-0.5" />
-            <p className="text-[11px] text-foreground">
-              One or more selected Pages is in a regulated category. Turn this on if your ads relate to credit, employment, housing or social issues.
-            </p>
-          </div>
-        )}
-
-        {/* Category picker — surfaces when on */}
-        {plan.specialAdDeclared && (
-          <div className="flex flex-wrap gap-2 pl-1 pt-1">
-            {[
-              { id: "HOUSING", label: "Housing" },
-              { id: "EMPLOYMENT", label: "Employment" },
-              { id: "FINANCIAL_PRODUCTS_SERVICES", label: "Financial" },
-              { id: "ISSUES_ELECTIONS_POLITICS", label: "Social issues" },
-            ].map((c) => {
-              const on = plan.specialAdCategories.includes(c.id as any);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => {
-                    const next = on
-                      ? plan.specialAdCategories.filter((x) => x !== c.id)
-                      : [...plan.specialAdCategories, c.id as any];
-                    onPatch({ specialAdCategories: next });
-                  }}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    on
-                      ? "border-foreground border-2 bg-foreground/[0.03] text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-foreground/30",
-                  )}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Country picker — required by Meta whenever SAC is active */}
-        {plan.specialAdDeclared && (
-          <div className="pl-1 pt-1">
-            <SpecialAdCountryPicker
-              selected={plan.specialAdCountries ?? []}
-              onChange={(codes) => onPatch({ specialAdCountries: codes })}
-            />
-          </div>
-        )}
-      </div>
-
       {/* ─── 1. Account picker ───────────────────────────────────────────── */}
       <div className="space-y-1.5">
         <span className="text-xs font-medium text-muted-foreground">Ad accounts</span>

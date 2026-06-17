@@ -20,6 +20,7 @@ import {
   Lock,
   Sparkles,
   Info,
+  Shield,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,8 +58,6 @@ import { buildIssues } from "../review/reviewModel";
 import { AccountsPages } from "./setup/AccountsPages";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
 import BidStrategyRow from "./setup/BidStrategyRow";
-import AccountCatalogPicker from "./shared/AccountCatalogPicker";
-import CatalogueStructurePreview from "./shared/CatalogueStructurePreview";
 // SpecialAdCategoryField moved to AccountsPages (regulated toggle at top of §1, lock #18).
 import CopyFromRunning, {
   runningCampaignItems,
@@ -626,22 +625,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           )}
 
-          {/* ── Catalogue picker + structure preview (B8) ── */}
-          {plan.catalogueToggle && plan.targets.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground px-1">
-                Select catalogue per account
-              </p>
-              {plan.targets.map((target) => (
-                <AccountCatalogPicker
-                  key={target.accountId}
-                  flow={flow}
-                  accountId={target.accountId}
-                />
-              ))}
-              <CatalogueStructurePreview flow={flow} />
-            </div>
-          )}
         </StepSection>
 
         {/* ── 3 · Ad set & Audience ──────────────────────────────── */}
@@ -774,6 +757,68 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
 
           {/* ── Subsection ▸ Audience & Placement (SURFACED) ────────── */}
           <Subsection label="Audience & Placement" defaultOpen>
+          {/* Regulated category — toggle + category type chips */}
+          <div className="rounded-2xl border border-border bg-background px-4 py-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-2.5">
+                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
+                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.specialAdDeclared}
+                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+                  plan.specialAdDeclared
+                    ? "border-[#8FB821] bg-[#8FB821]"
+                    : "border-border bg-muted"
+                )}
+              >
+                <span className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
+
+            {/* Category type chips — shown when declared */}
+            {plan.specialAdDeclared && (
+              <div className="flex flex-wrap gap-1.5">
+                {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
+                  const isSelected = plan.specialAdCategories?.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        const current = plan.specialAdCategories ?? [];
+                        const next = isSelected
+                          ? current.filter((c) => c !== cat)
+                          : [...current, cat];
+                        patch({ specialAdCategories: next });
+                      }}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
+                        isSelected
+                          ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
+                          : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
+                      )}
+                    >
+                      {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* ── Targeting template + audience editor ────────────────── */}
           <TargetingTemplateSection
             plan={plan}
