@@ -582,12 +582,9 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               Optional
             </span>
-            <span className="text-[11px] text-muted-foreground">
-              · prefills all setup fields
-            </span>
           </div>
-          <p className="pl-7 text-[11px] text-muted-foreground font-mono leading-relaxed mt-1">
-            Pick a saved setup to pre-fill all steps — accounts, budget, placements, and creative spread. Or skip it entirely and configure each step manually.
+          <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+            Choose a saved setup to pre-fill all steps, or skip it and configure manually.
           </p>
         </div>
 
