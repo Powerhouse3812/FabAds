@@ -58,6 +58,34 @@ For **fixes** (bug repairs, copy tweaks, single-line changes), run the
 
 ---
 
+## Orchestration mandate — fan out wide, monitor always, tier models
+
+**Standing rule (Maalik):** Use as many agents as possible for **every** task — fast,
+parallel, no quality loss. Keep **one agent always monitoring** the fleet + the
+changes. Pick models per task.
+
+- **Fan out by default.** Split any non-trivial task into the maximum number of
+  independent units and run them as parallel agents. One agent per **target file**
+  (avoids merge conflicts). Cross-file wiring that imports from a new file → do it
+  sequentially after the parallel workers finish.
+- **Always run a monitor/reviewer agent.** A dedicated agent verifies the workers'
+  output: runs `tsc`/build, checks design-system + NN/g compliance, hunts
+  regressions, confirms each worker actually completed its slice. The batch is not
+  "done" until the monitor signs off. Prefer adversarial verification over a
+  rubber stamp. For large orchestration use the Workflow tool (parallel/pipeline
+  workers + a final verify stage = workers + monitor).
+- **Model tiering:**
+  - **Opus** — hard reasoning, architecture/design thinking, tricky debugging, the
+    monitor/reviewer role. Bring an Opus agent in whenever real thinking is needed.
+  - **Sonnet** — default for normal build/edit/research work.
+  - **Haiku** — minor/basic mechanical tasks (simple edits, data swaps, single-file
+    find-replace, label/format changes).
+  - Pass the model via Agent `model` / Workflow `opts.model`. Decide per task.
+- **Exception:** trivial one-liners don't need a fleet — but still get a quick
+  monitor pass before commit.
+
+---
+
 ## Operating reminders
 
 - **Address Maalik as "Maalik"**. Open or close with "Ji Maalik" when natural.
