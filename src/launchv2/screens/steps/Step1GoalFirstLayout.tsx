@@ -351,20 +351,6 @@ const CUSTOM_ID = "__custom__";
 /** Cards per page before "View more" */
 const PAGE_SIZE = 9;
 
-/* ── Strategy variant toggle ── */
-type StrategyVariant = "A" | "B";
-const VARIANT_LS_KEY = "lv2:step1:strategy-variant";
-
-function readVariant(): StrategyVariant {
-  try {
-    const v = localStorage.getItem(VARIANT_LS_KEY);
-    if (v === "A" || v === "B") return v;
-  } catch {
-    /* ignore */
-  }
-  return "B";
-}
-
 /* ------------------------------------------------------------------ */
 /*  Main component                                                      */
 /* ------------------------------------------------------------------ */
@@ -517,17 +503,6 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
   };
 
   /* ── strategy variant toggle — A (merged inline) / B (compact card above search) ── */
-  const [strategyVariant, setStrategyVariant] = useState<StrategyVariant>(readVariant);
-
-  const switchVariant = (v: StrategyVariant) => {
-    setStrategyVariant(v);
-    try {
-      localStorage.setItem(VARIANT_LS_KEY, v);
-    } catch {
-      /* ignore */
-    }
-  };
-
   /* ── render ── */
 
   return (
@@ -626,102 +601,34 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
             Optional
           </span>
 
-          {/* Variant A — inline skip text link */}
-          {strategyVariant === "A" && (
-            <>
-              <span className="text-[10px] text-muted-foreground/40 select-none">·</span>
-              {isCustom ? (
-                /* Active: lime label + × to deselect */
-                <span className="flex items-center gap-1">
-                  <span className="text-[11px] font-medium text-primary">
-                    Set up myself
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleDeselectCustom}
-                    aria-label="Clear manual setup selection"
-                    className="flex h-3.5 w-3.5 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handlePickCustom}
-                  className="inline-flex items-center rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  Skip — set it up myself
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Spacer — pushes toggle to far right */}
+          {/* Spacer — pushes the manual-setup action to far right */}
           <div className="flex-1" />
 
-          {/* A / B segmented pill toggle */}
-          <div className="flex items-center rounded-full border border-border bg-muted/40 overflow-hidden">
-            {(["A", "B"] as StrategyVariant[]).map((v) => (
+          {/* Set up manually — affirmative manual-config choice (no strategy) */}
+          {isCustom ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/35 bg-primary/[0.07] px-2 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="text-[11px] font-medium text-primary">Setting up manually</span>
               <button
-                key={v}
                 type="button"
-                onClick={() => switchVariant(v)}
-                aria-pressed={strategyVariant === v}
-                className={cn(
-                  "px-2 py-0.5 text-[10px] transition-colors",
-                  strategyVariant === v
-                    ? "bg-foreground/10 text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
+                onClick={handleDeselectCustom}
+                aria-label="Clear manual setup"
+                className="flex h-3.5 w-3.5 items-center justify-center text-primary/60 hover:text-primary transition-colors"
               >
-                {v}
+                <X className="h-2.5 w-2.5" />
               </button>
-            ))}
-          </div>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handlePickCustom}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <Pencil className="h-3 w-3 text-muted-foreground" />
+              Set up manually
+            </button>
+          )}
         </div>
-
-        {/* ── Variant B: compact "No strategy" card above the search row ── */}
-        {strategyVariant === "B" && (
-          <button
-            type="button"
-            onClick={isCustom ? handleDeselectCustom : handlePickCustom}
-            aria-pressed={isCustom}
-            className={cn(
-              "fab-focus flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors",
-              isCustom
-                ? "border-primary/35 bg-primary/[0.07]"
-                : "border-border bg-muted hover:border-foreground/20 hover:bg-muted/70",
-            )}
-          >
-            {/* Icon — lime dot when selected, pencil when not */}
-            {isCustom ? (
-              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-              </span>
-            ) : (
-              <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            )}
-
-            {/* Title */}
-            <span className="text-[12px] font-medium text-foreground shrink-0">
-              No strategy
-            </span>
-
-            {/* Separator dot */}
-            <span className="text-[11px] text-muted-foreground/40 select-none shrink-0">·</span>
-
-            {/* Body */}
-            <span className="text-[11px] text-muted-foreground min-w-0 truncate">
-              Skip presets — configure every step from scratch.
-            </span>
-
-            {/* × deselect when active */}
-            {isCustom && (
-              <X className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-foreground" />
-            )}
-          </button>
-        )}
 
         {/* Search + filter row */}
         <div className="flex items-center gap-2">
@@ -896,9 +803,7 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
           <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-6 text-center">
             <p className="text-[12px] font-medium text-foreground">No matching strategies</p>
             <p className="text-[11px] text-muted-foreground">
-              {strategyVariant === "A"
-                ? "Adjust filters, clear the search, or use Skip above."
-                : "Adjust filters, clear the search, or use No strategy above."}
+              Adjust filters, clear the search, or use “Set up manually” above.
             </p>
             {filtersActive && (
               <button
@@ -912,7 +817,8 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-1.5">
+            {/* Fixed-height scroll frame — keeps §3 (Launch name) visible without page scroll */}
+            <div className="grid grid-cols-3 gap-1.5 max-h-[228px] overflow-y-auto pr-1">
               {visibleStrategies.map((s) => (
                 <StrategyGridCard
                   key={s.id}
@@ -944,6 +850,36 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
             )}
           </>
         )}
+      </section>
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* §3 — Launch name (Optional)                                  */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+              3
+            </span>
+            <h2 className="text-[15px] font-semibold text-foreground">
+              Launch name
+            </h2>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Optional
+            </span>
+          </div>
+          <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
+            Name this launch — its identifier in reports & history. Entity naming templates live in Review.
+          </p>
+        </div>
+
+        <input
+          type="text"
+          value={plan.name ?? ""}
+          onChange={(e) => flow.patch({ name: e.target.value })}
+          placeholder="e.g. Mamaearth June Brand Push"
+          className="h-9 w-full rounded-xl border border-border bg-card px-3 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
+        />
       </section>
     </div>
   );
