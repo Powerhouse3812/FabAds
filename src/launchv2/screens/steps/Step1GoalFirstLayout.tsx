@@ -23,7 +23,6 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -299,6 +298,8 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     return null;
   });
   const [prefillNotice, setPrefillNotice] = useState(false);
+  const [objectiveFilterActive, setObjectiveFilterActive] = useState(true);
+  const [mismatchNotice, setMismatchNotice] = useState<{ from: string; to: string } | null>(null);
 
   /* Restore template selection when strategies load */
   useEffect(() => {
@@ -341,14 +342,24 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     return groups;
   }, [allFilterChips]);
 
+  /* ── effective filters: include auto-applied objective chip ── */
+  const effectiveFilters = useMemo(() => {
+    if (objectiveFilterActive && plan.objective) {
+      const s = new Set(activeFilters);
+      s.add(`objective:${plan.objective}`);
+      return s;
+    }
+    return activeFilters;
+  }, [activeFilters, objectiveFilterActive, plan.objective]);
+
   const filtered = useMemo(
-    () => applyFilters(strategies, query, activeFilters, chipById),
-    [strategies, query, activeFilters, chipById],
+    () => applyFilters(strategies, query, effectiveFilters, chipById),
+    [strategies, query, effectiveFilters, chipById],
   );
 
   const visibleStrategies = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
   const hiddenCount = filtered.length - PAGE_SIZE;
-  const filtersActive = activeFilters.size > 0 || query.trim().length > 0;
+  const filtersActive = activeFilters.size > 0 || query.trim().length > 0 || (objectiveFilterActive && !!plan.objective);
 
   /* ── handlers ── */
 
@@ -373,6 +384,8 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     if (selectedStrategyId === null) {
       flow.chooseCustomFlow();
     }
+    setObjectiveFilterActive(true); // re-enable auto-filter when goal changes
+    setMismatchNotice(null);
   };
 
   /** §2 — Custom card clicked */
@@ -384,9 +397,18 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
 
   /** §2 — Saved strategy card clicked */
   const handlePickStrategy = (s: LaunchStrategy) => {
+    const prevObjective = flow.plan.objective;
     setSelectedStrategyId(s.id);
     flow.applySavedStrategy(s.plan);
     setPrefillNotice(true);
+    setMismatchNotice(null);
+    // Warn if strategy overrides the user's objective selection
+    if (s.plan.objective && prevObjective && s.plan.objective !== prevObjective) {
+      setMismatchNotice({
+        from: OBJECTIVE_LABEL[prevObjective as keyof typeof OBJECTIVE_LABEL] ?? prevObjective,
+        to: OBJECTIVE_LABEL[s.plan.objective as keyof typeof OBJECTIVE_LABEL] ?? s.plan.objective,
+      });
+    }
   };
 
   const isCustom = selectedStrategyId === CUSTOM_ID;
@@ -490,13 +512,30 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
 
         {/* Search + filter row */}
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+          <div className="relative flex-1 flex items-center gap-1.5 h-9 rounded-xl border border-border bg-card px-2.5 focus-within:border-primary/50">
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            {/* Objective chip — shown when filter active */}
+            {objectiveFilterActive && plan.objective && (
+              <div className="flex items-center gap-1 shrink-0 rounded-full bg-primary/15 border border-primary/20 px-2 py-0.5">
+                <span className="text-[10px] font-semibold text-primary font-mono">
+                  {OBJECTIVE_LABEL[plan.objective]}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setObjectiveFilterActive(false)}
+                  className="text-primary/60 hover:text-primary"
+                  aria-label="Remove objective filter"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            {/* Text input — placeholder changes when chip is active */}
+            <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search strategies…"
-              className="h-9 rounded-xl pl-8 text-[12px]"
+              placeholder={objectiveFilterActive && plan.objective ? "Search within…" : "Search saved setups…"}
+              className="flex-1 min-w-0 bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
 
@@ -611,6 +650,18 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
               aria-label="Dismiss"
               className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground"
             >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
+        {/* Mismatch warning pill */}
+        {mismatchNotice && (
+          <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-3 py-2" role="status">
+            <span className="text-[11px] text-yellow-700 dark:text-yellow-400 font-mono">
+              Goal changed: {mismatchNotice.from} → {mismatchNotice.to} (from this strategy)
+            </span>
+            <button type="button" onClick={() => setMismatchNotice(null)} className="ml-auto shrink-0 text-muted-foreground/60 hover:text-muted-foreground">
               <X className="h-3 w-3" />
             </button>
           </div>
