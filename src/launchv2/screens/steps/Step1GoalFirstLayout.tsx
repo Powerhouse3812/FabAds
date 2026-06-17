@@ -646,11 +646,10 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
                   </button>
                 </span>
               ) : (
-                /* Inactive: muted underline text button */
                 <button
                   type="button"
                   onClick={handlePickCustom}
-                  className="text-[11px] text-muted-foreground underline-offset-2 hover:underline hover:text-foreground cursor-pointer transition-colors"
+                  className="inline-flex items-center rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   Skip — set it up myself
                 </button>
@@ -913,7 +912,7 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-1.5 max-h-[220px] overflow-y-auto">
+            <div className="grid grid-cols-3 gap-1.5">
               {visibleStrategies.map((s) => (
                 <StrategyGridCard
                   key={s.id}
