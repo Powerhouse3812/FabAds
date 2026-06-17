@@ -381,7 +381,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualIndex, setManualIndex] = useState<number | null>(null);
   // §3 sub-section accordion — one open at a time
-  const [s3Sub, setS3Sub] = useState<"audience" | "optimization">("audience");
+  const [s3Sub, setS3Sub] = useState<"optimization" | "audience" | "regulated">("optimization");
 
   // active section = manual override (if set) else the scroll-driven one
   const expandedIndex = manualIndex ?? activeIndex;
@@ -658,75 +658,124 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={true}
           sectionRef={sectionRefs[2]}
         >
-          {/* ── Subsection ▸ Audience & Placement ──────────────────── */}
+          {/* ── Subsection ▸ Optimization ────────────────────────────── */}
           <Subsection
-            label="Audience & Placement"
+            label="Optimization"
+            open={s3Sub === "optimization"}
+            onOpenChange={(v) => setS3Sub(v ? "optimization" : "audience")}
+          >
+          {/* Row 1: Conversion location + Performance goal side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            {plan.objective && showsLocationPicker(plan.objective) ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Conversion location</Label>
+                <Select
+                  value={plan.destinationType ?? undefined}
+                  onValueChange={(v) => patch({ destinationType: v as DestinationType })}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div />
+            )}
+
+            {plan.objective && plan.destinationType && (() => {
+              const c = cascade(plan.objective, plan.destinationType);
+              return (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    Performance goal
+                    {c.lockedGoal && <Lock className="h-3 w-3" />}
+                  </Label>
+                  {c.lockedGoal ? (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                      <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
+                    </p>
+                  ) : (
+                    <Select
+                      value={plan.optimizationGoal ?? undefined}
+                      onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Select goal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {c.optimizationGoals.map((g) => (
+                          <SelectItem key={g} value={g}>
+                            {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Row 2: Attribution window — full width */}
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
+              Attribution window
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 cursor-help text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  Full label: 7-day click + 1-day engage-through + 1-day view.
+                </TooltipContent>
+              </Tooltip>
+            </Label>
+            <Select
+              value={plan.attribution}
+              onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
+            >
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1d_click">1-day click</SelectItem>
+                <SelectItem value="7d_click">7-day click</SelectItem>
+                <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Note: 28-day view was removed by Meta in Jan 2026.
+            </p>
+          </div>
+
+          {needsPixel && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Info className="h-3 w-3 text-amber-500" />
+                Pixel / Dataset required for this goal
+              </Label>
+              <p className="text-[11px] text-amber-600">
+                This goal needs a pixel. Choose accounts with a connected pixel, or change the performance goal.
+              </p>
+            </div>
+          )}
+          </Subsection>
+          {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
+
+          {/* ── Subsection ▸ Audience ────────────────────────────────── */}
+          <Subsection
+            label="Audience"
             open={s3Sub === "audience"}
             onOpenChange={(v) => setS3Sub(v ? "audience" : "optimization")}
           >
-          {/* Regulated category — toggle + category type chips */}
-          <div className="rounded-2xl border border-border bg-background px-4 py-3 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex items-start gap-2.5">
-                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
-                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={plan.specialAdDeclared}
-                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
-                className={cn(
-                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-                  plan.specialAdDeclared
-                    ? "border-[#8FB821] bg-[#8FB821]"
-                    : "border-border bg-muted"
-                )}
-              >
-                <span className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
-                )} />
-              </button>
-            </div>
-
-            {/* Category type chips — shown when declared */}
-            {plan.specialAdDeclared && (
-              <div className="flex flex-wrap gap-1.5">
-                {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
-                  const isSelected = plan.specialAdCategories?.includes(cat);
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        const current = plan.specialAdCategories ?? [];
-                        const next = isSelected
-                          ? current.filter((c) => c !== cat)
-                          : [...current, cat];
-                        patch({ specialAdCategories: next });
-                      }}
-                      className={cn(
-                        "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
-                        isSelected
-                          ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
-                          : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
-                      )}
-                    >
-                      {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* ── Targeting template + audience editor ────────────────── */}
+          {/* Targeting template + audience editor */}
           <TargetingTemplateSection
             plan={plan}
             onPatch={patch}
@@ -759,7 +808,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
               </div>
               {asc && <p className="text-[11px] text-muted-foreground">Locked to Advantage+ when ASC is active.</p>}
 
-              {/* Manual placement checklist */}
               {plan.placementMode === "manual" && !asc && (
                 <div className="space-y-3 pt-1">
                   <PlacementGroup
@@ -837,121 +885,75 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           </AdvancedReveal>
           )}
           </Subsection>
-          {/* ── /Subsection ▸ Audience & Placement ─────────────────── */}
+          {/* ── /Subsection ▸ Audience ───────────────────────────────── */}
 
-          {/* ── Subsection ▸ Optimization ────────────────────────────── */}
+          {/* ── Subsection ▸ Regulated category ──────────────────────── */}
           <Subsection
-            label="Optimization"
-            open={s3Sub === "optimization"}
-            onOpenChange={(v) => setS3Sub(v ? "optimization" : "audience")}
+            label="Regulated category"
+            open={s3Sub === "regulated"}
+            onOpenChange={(v) => setS3Sub(v ? "regulated" : "optimization")}
           >
-          {/* Row 1: Conversion location + Performance goal side by side */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Conversion location — only shown when objective supports it */}
-            {plan.objective && showsLocationPicker(plan.objective) ? (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Conversion location</Label>
-                <Select
-                  value={plan.destinationType ?? undefined}
-                  onValueChange={(v) => patch({ destinationType: v as DestinationType })}
-                >
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(DESTINATIONS_BY_OBJECTIVE[plan.objective] ?? []).map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div />
-            )}
-
-            {/* Performance goal */}
-            {plan.objective && plan.destinationType && (() => {
-              const c = cascade(plan.objective, plan.destinationType);
-              return (
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    Performance goal
-                    {c.lockedGoal && <Lock className="h-3 w-3" />}
-                  </Label>
-                  {c.lockedGoal ? (
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {c.lockedGoal.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
-                      <span className="ml-1 text-[10px] opacity-60">(only option for this destination)</span>
-                    </p>
-                  ) : (
-                    <Select
-                      value={plan.optimizationGoal ?? undefined}
-                      onValueChange={(v) => patch({ optimizationGoal: v as OptimizationGoal })}
-                    >
-                      <SelectTrigger className="h-9 w-full">
-                        <SelectValue placeholder="Select goal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {c.optimizationGoals.map((g) => (
-                          <SelectItem key={g} value={g}>
-                            {g.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase())}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+          <div className="rounded-2xl border border-border bg-background px-4 py-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-2.5">
+                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
+                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
+                  </p>
                 </div>
-              );
-            })()}
-          </div>
-
-          {/* Row 2: Attribution window — full width */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
-              Attribution window
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3 w-3 cursor-help text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Full label: 7-day click + 1-day engage-through + 1-day view.
-                </TooltipContent>
-              </Tooltip>
-            </Label>
-            <Select
-              value={plan.attribution}
-              onValueChange={(v) => patch({ attribution: v as AttributionWindow })}
-            >
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1d_click">1-day click</SelectItem>
-                <SelectItem value="7d_click">7-day click</SelectItem>
-                <SelectItem value="7d_click_1d_view">7-day click + 1-day view (default)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground">
-              Note: 28-day view was removed by Meta in Jan 2026.
-            </p>
-          </div>
-
-          {/* Pixel warning — full width */}
-          {needsPixel && (
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Info className="h-3 w-3 text-amber-500" />
-                Pixel / Dataset required for this goal
-              </Label>
-              <p className="text-[11px] text-amber-600">
-                This goal needs a pixel. Choose accounts with a connected pixel, or change the performance goal.
-              </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.specialAdDeclared}
+                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+                  plan.specialAdDeclared
+                    ? "border-[#8FB821] bg-[#8FB821]"
+                    : "border-border bg-muted"
+                )}
+              >
+                <span className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
             </div>
-          )}
+
+            {plan.specialAdDeclared && (
+              <div className="flex flex-wrap gap-1.5">
+                {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
+                  const isSelected = plan.specialAdCategories?.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        const current = plan.specialAdCategories ?? [];
+                        const next = isSelected
+                          ? current.filter((c) => c !== cat)
+                          : [...current, cat];
+                        patch({ specialAdCategories: next });
+                      }}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
+                        isSelected
+                          ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
+                          : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
+                      )}
+                    >
+                      {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           </Subsection>
-          {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
+          {/* ── /Subsection ▸ Regulated category ─────────────────────── */}
         </StepSection>
         </div>
 

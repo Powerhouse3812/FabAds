@@ -19,15 +19,12 @@ import {
   Users,
   Zap,
   ChevronDown,
-  ChevronUp,
   ChevronRight,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlanV2 } from "../../../types";
 import { TARGETING_TEMPLATES, getTemplate } from "../../../data";
-import LocationPicker from "./LocationPicker";
-import AgeGenderRow from "./AgeGenderRow";
 import TargetingTemplateModal from "./TargetingTemplateModal";
 
 interface TargetingTemplateSectionProps {
@@ -83,13 +80,6 @@ export default function TargetingTemplateSection({
   onPatch,
   specialAdCategoryActive,
 }: TargetingTemplateSectionProps) {
-  const [expanded, setExpanded] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("lv2:tpl:expanded") === "1";
-    } catch {
-      return false;
-    }
-  });
   const [modalOpen, setModalOpen] = useState(false);
   const [tplSearch, setTplSearch] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -127,14 +117,6 @@ export default function TargetingTemplateSection({
   function clearTemplate() {
     onPatch({ targetingTemplateId: null });
     setPickerOpen(false);
-  }
-
-  function toggleExpanded() {
-    const next = !expanded;
-    setExpanded(next);
-    try {
-      localStorage.setItem("lv2:tpl:expanded", next ? "1" : "0");
-    } catch {}
   }
 
   // ── toggle helpers ──────────────────────────────────────────────────────
@@ -235,16 +217,24 @@ export default function TargetingTemplateSection({
           )}
         </div>
 
-        {/* Clear chip */}
+        {/* Template CTAs — shown when a template is active */}
         {activeTpl && (
-          <button
-            type="button"
-            onClick={clearTemplate}
-            className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-3 w-3" />
-            Clear
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={clearTemplate}
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Manual
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-[#8FB821]/40 bg-[#F5FBE2] px-2.5 text-[11px] font-mono text-[#5B7611] transition-colors hover:bg-[#EBF6BF] dark:bg-[#1D2A09] dark:border-[#C3E165]/30 dark:text-[#C3E165] dark:hover:bg-[#2C3F10]"
+            >
+              New template
+            </button>
+          </div>
         )}
       </div>
 
@@ -386,65 +376,17 @@ export default function TargetingTemplateSection({
         <span className="text-[10px] font-mono text-muted-foreground">~68M</span>
       </div>
 
-      {/* ── 5. Advanced configurations toggle ─────────────────────────── */}
+      {/* ── 5. Advanced configurations — opens modal ─────────────────── */}
       <button
         type="button"
-        onClick={toggleExpanded}
+        onClick={() => setModalOpen(true)}
         className="flex items-center gap-1.5 text-[11px] font-mono text-[#5B7611] dark:text-[#C3E165] hover:underline"
       >
-        {expanded ? (
-          <ChevronUp className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
-        )}
+        <ChevronRight className="h-3.5 w-3.5" />
         Advanced configurations
       </button>
 
-      {/* ── 6. Inline edit area ────────────────────────────────────────── */}
-      {expanded && (
-        <div className="space-y-4 rounded-2xl border border-border bg-background px-4 py-4">
-          {/* Locations */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
-              Locations
-            </p>
-            <LocationPicker
-              geoLocations={plan.targeting.geoLocations}
-              excludedGeoLocations={plan.targeting.excludedGeoLocations}
-              onChangeIncluded={(g) =>
-                onPatch({ targeting: { ...plan.targeting, geoLocations: g } })
-              }
-              onChangeExcluded={(g) =>
-                onPatch({ targeting: { ...plan.targeting, excludedGeoLocations: g } })
-              }
-              specialAdCategoryActive={specialAdCategoryActive}
-            />
-          </div>
-
-          {/* Age & Gender */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
-              Age &amp; Gender
-            </p>
-            <AgeGenderRow
-              targeting={plan.targeting}
-              onChange={(t) => onPatch({ targeting: t })}
-              specialAdCategoryActive={specialAdCategoryActive}
-            />
-          </div>
-
-          {/* Advanced settings link */}
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 text-[12px] font-mono text-[#5B7611] dark:text-[#C3E165] hover:underline"
-          >
-            Advanced settings <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* ── 7. TargetingTemplateModal (advanced settings) ─────────────── */}
+      {/* ── 6. TargetingTemplateModal (advanced settings) ─────────────── */}
       <TargetingTemplateModal
         open={modalOpen}
         targeting={plan.targeting}
