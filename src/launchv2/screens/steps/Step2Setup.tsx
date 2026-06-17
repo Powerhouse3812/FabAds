@@ -672,13 +672,14 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={false}
           sectionRef={sectionRefs[1]}
         >
-          {/* Budget optimization — first */}
+          {/* Budget — single horizontal row */}
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
               Budget optimization
               {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
             </Label>
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* CBO/ABO pills */}
               {(["CBO", "ABO"] as const).map((mode) => (
                 <Tooltip key={mode}>
                   <TooltipTrigger asChild>
@@ -704,22 +705,16 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                   </TooltipContent>
                 </Tooltip>
               ))}
-            </div>
-            {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
-          </div>
 
-          {/* Budget amount + period */}
-          <div className="space-y-1.5">
-            <Label className="text-[13px] font-medium text-foreground">
-              Budget ({plan.budgetMode === "CBO" ? "campaign" : "ad set"})
-            </Label>
-            <div className="flex items-center gap-2">
+              {/* Divider */}
+              <span className="text-border text-xs select-none">·</span>
+
               {/* Daily / Lifetime period selector */}
               <Select
                 value={plan.budgetPeriod ?? "daily"}
                 onValueChange={(v) => patch({ budgetPeriod: v as "daily" | "lifetime" })}
               >
-                <SelectTrigger className="h-9 w-28">
+                <SelectTrigger className="h-8 w-24 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -727,8 +722,9 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                   <SelectItem value="lifetime">Lifetime</SelectItem>
                 </SelectContent>
               </Select>
-              {/* Amount */}
-              <div className="flex items-center gap-1.5">
+
+              {/* $ + Amount */}
+              <div className="flex items-center gap-1">
                 <span className="font-mono text-sm text-muted-foreground">$</span>
                 <Input
                   type="number"
@@ -736,10 +732,11 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
                   placeholder="200"
                   value={plan.budgetAmount || ""}
                   onChange={(e) => patch({ budgetAmount: Number(e.target.value) || 0 })}
-                  className="h-9 w-32 font-mono tabular-nums"
+                  className="h-8 w-28 font-mono tabular-nums text-xs"
                 />
               </div>
             </div>
+            {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
           </div>
 
           {/* N× projection — shown when 2+ accounts selected */}

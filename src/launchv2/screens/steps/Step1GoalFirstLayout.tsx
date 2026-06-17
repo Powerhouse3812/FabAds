@@ -491,6 +491,42 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
 
   const isCustom = selectedStrategyId === CUSTOM_ID;
 
+  /**
+   * Deselect custom — clears local selection + resets strategyId.
+   * PlanV2.flowMode only allows "custom" | "template" — there is no undefined/
+   * neutral state, so we keep flowMode as "custom" (the plan default) and just
+   * clear the local selectedStrategyId so the UI shows nothing selected.
+   */
+  const handleDeselectCustom = () => {
+    setSelectedStrategyId(null);
+    flow.patch({ strategyId: null });
+  };
+
+  /* ── strategy variant toggle — A (merged inline) / B (compact card above search) ── */
+  const VARIANT_LS_KEY = "lv2:step1:strategy-variant";
+  type StrategyVariant = "A" | "B";
+
+  function readVariant(): StrategyVariant {
+    try {
+      const v = localStorage.getItem(VARIANT_LS_KEY);
+      if (v === "A" || v === "B") return v;
+    } catch {
+      /* ignore */
+    }
+    return "B";
+  }
+
+  const [strategyVariant, setStrategyVariant] = useState<StrategyVariant>(readVariant);
+
+  const switchVariant = (v: StrategyVariant) => {
+    setStrategyVariant(v);
+    try {
+      localStorage.setItem(VARIANT_LS_KEY, v);
+    } catch {
+      /* ignore */
+    }
+  };
+
   /* ── render ── */
 
   return (
@@ -571,22 +607,121 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
       {/* §2 — Strategy (Optional)                                     */}
       {/* ──────────────────────────────────────────────────────────── */}
       <section ref={strategyRef} className="space-y-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
-              2
-            </span>
-            <h2 className="text-[15px] font-semibold text-foreground">
-              Strategy
-            </h2>
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Optional
-            </span>
+
+        {/* ── §2 header row ── */}
+        <div className="flex items-center gap-2">
+          {/* Step badge */}
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+            2
+          </span>
+
+          {/* Title */}
+          <h2 className="text-[15px] font-semibold text-foreground">
+            Strategy
+          </h2>
+
+          {/* Optional badge */}
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            Optional
+          </span>
+
+          {/* Variant A — inline skip text link */}
+          {strategyVariant === "A" && (
+            <>
+              <span className="text-[10px] text-muted-foreground/40 select-none">·</span>
+              {isCustom ? (
+                /* Active: lime label + × to deselect */
+                <span className="flex items-center gap-1">
+                  <span className="text-[11px] font-medium text-primary">
+                    Set up myself
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleDeselectCustom}
+                    aria-label="Clear manual setup selection"
+                    className="flex h-3.5 w-3.5 items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              ) : (
+                /* Inactive: muted underline text button */
+                <button
+                  type="button"
+                  onClick={handlePickCustom}
+                  className="text-[11px] text-muted-foreground underline-offset-2 hover:underline hover:text-foreground cursor-pointer transition-colors"
+                >
+                  Skip — set it up myself
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Spacer — pushes toggle to far right */}
+          <div className="flex-1" />
+
+          {/* A / B segmented pill toggle */}
+          <div className="flex items-center rounded-full border border-border bg-muted/40 overflow-hidden">
+            {(["A", "B"] as StrategyVariant[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => switchVariant(v)}
+                aria-pressed={strategyVariant === v}
+                className={cn(
+                  "px-2 py-0.5 text-[10px] transition-colors",
+                  strategyVariant === v
+                    ? "bg-foreground/10 text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {v}
+              </button>
+            ))}
           </div>
-          <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed mt-0.5">
-            Choose a saved setup to pre-fill all steps, or skip it and configure manually.
-          </p>
         </div>
+
+        {/* ── Variant B: compact "No strategy" card above the search row ── */}
+        {strategyVariant === "B" && (
+          <button
+            type="button"
+            onClick={isCustom ? handleDeselectCustom : handlePickCustom}
+            aria-pressed={isCustom}
+            className={cn(
+              "fab-focus flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors",
+              isCustom
+                ? "border-primary/35 bg-primary/[0.07]"
+                : "border-border bg-muted hover:border-foreground/20 hover:bg-muted/70",
+            )}
+          >
+            {/* Icon — lime dot when selected, pencil when not */}
+            {isCustom ? (
+              <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+              </span>
+            ) : (
+              <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+
+            {/* Title */}
+            <span className="text-[12px] font-medium text-foreground shrink-0">
+              No strategy
+            </span>
+
+            {/* Separator dot */}
+            <span className="text-[11px] text-muted-foreground/40 select-none shrink-0">·</span>
+
+            {/* Body */}
+            <span className="text-[11px] text-muted-foreground min-w-0 truncate">
+              Skip presets — configure every step from scratch.
+            </span>
+
+            {/* × deselect when active */}
+            {isCustom && (
+              <X className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-foreground" />
+            )}
+          </button>
+        )}
 
         {/* Search + filter row */}
         <div className="flex items-center gap-2">
@@ -746,39 +881,6 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
             </button>
           </div>
         )}
-
-        {/* Custom card — hero size, full width */}
-        <button
-          type="button"
-          onClick={handlePickCustom}
-          aria-pressed={isCustom}
-          className={cn(
-            "relative flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left transition-colors",
-            isCustom
-              ? "border-primary bg-primary/5 shadow-sm"
-              : "border-dashed border-primary/40 bg-primary/[0.04] hover:border-primary/60 hover:bg-primary/[0.07]",
-          )}
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15">
-            <Pencil className="h-4 w-4 text-primary" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-primary leading-tight">No strategy — set it up myself</p>
-            <p className="mt-0.5 text-[12px] text-muted-foreground font-mono leading-snug">
-              Skip the presets and configure every step from scratch — goal, accounts, budget,
-              placements, audience, and creative spread.
-            </p>
-          </div>
-          {isCustom ? (
-            <span className="absolute right-3 top-3 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
-              <Check className="h-2.5 w-2.5 text-primary-foreground" />
-            </span>
-          ) : (
-            <span className="shrink-0 border border-primary/30 text-primary/80 text-[11px] rounded-full px-3 py-1 font-mono">
-              Skip strategy
-            </span>
-          )}
-        </button>
 
         {/* Strategy grid — 3-per-row */}
         {loading ? (
