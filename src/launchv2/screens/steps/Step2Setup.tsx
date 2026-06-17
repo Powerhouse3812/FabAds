@@ -65,6 +65,7 @@ import CopyFromRunning, {
   applyRunningAdSet,
 } from "./shared/CopyFromRunning";
 import TargetingTemplateSection from "./audience/TargetingTemplateSection";
+import SpecialAdCountryPicker from "./setup/SpecialAdCountryPicker";
 
 /* ---- small shared bits ---- */
 
@@ -151,6 +152,7 @@ function Subsection({
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
+  complete?: boolean;
   children: React.ReactNode;
 }) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
@@ -518,7 +520,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualIndex, setManualIndex] = useState<number | null>(null);
   // §3 sub-section accordion — one open at a time
-  const [s3Sub, setS3Sub] = useState<"optimization" | "audience">("optimization");
+  const [s3Sub, setS3Sub] = useState<"optimization" | "audience" | "regulated">("optimization");
 
   // active section = manual override (if set) else the scroll-driven one
   const expandedIndex = manualIndex ?? activeIndex;
@@ -772,98 +774,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           )}
 
-          {/* ── Regulated category + authorization (campaign-level) ── */}
-          <AdvancedReveal label="Regulated category">
-            {/* Toggle */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex items-start gap-2.5">
-                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
-                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={plan.specialAdDeclared}
-                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
-                className={cn(
-                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-                  plan.specialAdDeclared
-                    ? "border-[#8FB821] bg-[#8FB821]"
-                    : "border-border bg-muted"
-                )}
-              >
-                <span className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
-                )} />
-              </button>
-            </div>
-
-            {/* Category chips */}
-            {plan.specialAdDeclared && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
-                  const isSelected = plan.specialAdCategories?.includes(cat);
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => {
-                        const current = plan.specialAdCategories ?? [];
-                        const next = isSelected
-                          ? current.filter((c) => c !== cat)
-                          : [...current, cat];
-                        patch({ specialAdCategories: next });
-                      }}
-                      className={cn(
-                        "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
-                        isSelected
-                          ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
-                          : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
-                      )}
-                    >
-                      {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Beneficiary + Payor — only relevant for ISSUES_ELECTIONS_POLITICS */}
-            {plan.specialAdCategories?.includes("ISSUES_ELECTIONS_POLITICS") && (
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                <div className="space-y-1.5">
-                  <Label className="text-[13px] font-medium text-foreground">
-                    Beneficiary <span className="text-muted-foreground font-normal">(optional)</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Select beneficiary"
-                    value={plan.beneficiary ?? ""}
-                    onChange={(e) => patch({ beneficiary: e.target.value })}
-                    className="h-9 w-full font-mono text-[12px]"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[13px] font-medium text-foreground">
-                    Payor <span className="text-muted-foreground font-normal">(optional)</span>
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Select payor"
-                    value={plan.payor ?? ""}
-                    onChange={(e) => patch({ payor: e.target.value })}
-                    className="h-9 w-full font-mono text-[12px]"
-                  />
-                </div>
-              </div>
-            )}
-          </AdvancedReveal>
 
         </StepSection>
 
@@ -1020,6 +930,113 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           />
           </Subsection>
           {/* ── /Subsection ▸ Audience ───────────────────────────────── */}
+
+          {/* ── Subsection ▸ Regulated Category ─────────────────────── */}
+          <Subsection
+            label="Regulated Category"
+            open={s3Sub === "regulated"}
+            onOpenChange={(v) => setS3Sub(v ? "regulated" : "audience")}
+            complete={plan.specialAdDeclared && (plan.specialAdCategories?.length ?? 0) > 0}
+          >
+            {/* Toggle */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-2.5">
+                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
+                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.specialAdDeclared}
+                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+                  plan.specialAdDeclared
+                    ? "border-[#8FB821] bg-[#8FB821]"
+                    : "border-border bg-muted"
+                )}
+              >
+                <span className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
+
+            {plan.specialAdDeclared && (
+              <div className="space-y-4 mt-2">
+                {/* Category type chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
+                    const isSelected = plan.specialAdCategories?.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          const current = plan.specialAdCategories ?? [];
+                          const next = isSelected
+                            ? current.filter((c) => c !== cat)
+                            : [...current, cat];
+                          patch({ specialAdCategories: next });
+                        }}
+                        className={cn(
+                          "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
+                          isSelected
+                            ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
+                            : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
+                        )}
+                      >
+                        {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Country picker */}
+                <SpecialAdCountryPicker
+                  selected={plan.specialAdCountries ?? []}
+                  onChange={(codes) => patch({ specialAdCountries: codes })}
+                />
+
+                {/* Beneficiary + Payor — only for ISSUES_ELECTIONS_POLITICS */}
+                {plan.specialAdCategories?.includes("ISSUES_ELECTIONS_POLITICS") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-medium text-foreground">
+                        Beneficiary <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter beneficiary"
+                        value={plan.beneficiary ?? ""}
+                        onChange={(e) => patch({ beneficiary: e.target.value })}
+                        className="h-9 w-full font-mono text-[12px]"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-medium text-foreground">
+                        Payor <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter payor"
+                        value={plan.payor ?? ""}
+                        onChange={(e) => patch({ payor: e.target.value })}
+                        className="h-9 w-full font-mono text-[12px]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </Subsection>
+          {/* ── /Subsection ▸ Regulated Category ──────────────────────── */}
 
         </StepSection>
         </div>
