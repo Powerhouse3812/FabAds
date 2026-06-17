@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ACCOUNTS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds } from "../../../data";
+import { ACCOUNTS, CATALOGS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds } from "../../../data";
 import { perPageDemand } from "../../../deriveV2";
 import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
@@ -537,13 +537,31 @@ function AccountRow({
           />
         </div>
 
-        {/* ── Catalogue next-step note ── */}
+        {/* ── Inline catalogue picker ── */}
         {catalogueEnabled && (
-          <div className="px-3 py-2.5 flex items-start gap-2 bg-muted/20">
-            <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground/60" />
-            <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
-              Select catalogue + creative distribution in the next step.
-            </p>
+          <div className="mt-2 ml-7 px-3 pb-2.5">
+            <select
+              value={selectedCatalogId ?? ""}
+              onChange={(e) => onSetCatalogId(e.target.value || null)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-1.5 font-mono text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Select catalogue…</option>
+              {CATALOGS.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name} ({cat.productCount} products)
+                </option>
+              ))}
+            </select>
+            {!selectedCatalogId && (
+              <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+                Pick a catalogue to configure product sets in Step 3
+              </p>
+            )}
+            {selectedCatalogId && (
+              <p className="mt-1 font-mono text-[10px] text-primary-text">
+                Product sets configurable in Step 3
+              </p>
+            )}
           </div>
         )}
 

@@ -36,7 +36,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { allowedFormats, defaultDestination } from "../../reducer";
-import { FORMATS, SOURCES, RUNNING_ADS } from "../../data";
+import { FORMATS, SOURCES, RUNNING_ADS, CATALOGS } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
 import type { AdFormat, AdCopy, CreativeRef, SourceType, SpreadMode } from "../../types";
 import AdContent from "./spread/AdContent";
@@ -469,6 +469,96 @@ function PostedAdsPicker({
   );
 }
 
+// ── CatalogueProductSetPicker ─────────────────────────────────────────────────
+function CatalogueProductSetPicker({ flow, selectedAcctId }: { flow: UseFlowV2; selectedAcctId: string | null }) {
+  const { plan, patch } = flow;
+
+  if (!selectedAcctId) {
+    return (
+      <SectionCard title="Product sets" subtitle="Select an account on the left to configure its product sets.">
+        <p className="font-mono text-[11px] text-muted-foreground">No account selected.</p>
+      </SectionCard>
+    );
+  }
+
+  const selection = plan.productSetByAccount?.[selectedAcctId];
+  const catalogId = selection?.catalogId ?? null;
+  const selectedSetIds: string[] = selection?.productSetIds ?? [];
+
+  // Find catalogue from CATALOGS mock data
+  const catalogue = CATALOGS.find(c => c.id === catalogId);
+
+  if (!catalogId || !catalogue) {
+    return (
+      <SectionCard title="Product sets" subtitle="No catalogue selected for this account.">
+        <p className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+          Go back to Step 2 and select a catalogue for this account.
+        </p>
+      </SectionCard>
+    );
+  }
+
+  const productSets = catalogue.productSets ?? [];
+
+  const toggle = (setId: string) => {
+    const current = new Set(selectedSetIds);
+    if (current.has(setId)) current.delete(setId); else current.add(setId);
+    patch({
+      productSetByAccount: {
+        ...(plan.productSetByAccount ?? {}),
+        [selectedAcctId]: { catalogId, productSetIds: [...current] },
+      },
+    });
+  };
+
+  const adSetCount = selectedSetIds.length;
+
+  return (
+    <SectionCard
+      title="Product sets"
+      subtitle={`${catalogue.name} · ${productSets.length} sets available`}
+    >
+      <div className="space-y-2">
+        {productSets.map((ps: any) => {
+          const sel = selectedSetIds.includes(ps.id);
+          return (
+            <button
+              key={ps.id}
+              type="button"
+              onClick={() => toggle(ps.id)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                sel ? "border-foreground/30 bg-primary/5" : "border-border hover:border-foreground/20",
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-medium text-foreground">{ps.name}</p>
+                <p className="font-mono text-[10px] text-muted-foreground">
+                  {ps.productCount ?? ps.products?.length ?? 0} products
+                </p>
+              </div>
+              {sel && <Check className="h-4 w-4 shrink-0 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {adSetCount > 0 && (
+        <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+          <p className="font-mono text-[11px] font-semibold text-primary-text">
+            {adSetCount} product set{adSetCount !== 1 ? "s" : ""} selected
+            → {adSetCount} ad set{adSetCount !== 1 ? "s" : ""}
+            · 1 ad / ad set
+          </p>
+          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+            Under 1 campaign · budget distributable in Review
+          </p>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const { plan, patch } = flow;
@@ -601,6 +691,17 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
 
   const [selectedAcctIds, setSelectedAcctIds] = useState<Set<string>>(() => new Set<string>());
 
+  const handleSelectAccts = (ids: Set<string>) => {
+    if (hasCatalogueAccounts) {
+      // Single-select: keep only the most recently added ID
+      const prev = selectedAcctIds;
+      const newId = [...ids].find(id => !prev.has(id));
+      setSelectedAcctIds(newId ? new Set([newId]) : ids.size > 0 ? new Set([...ids].slice(-1)) : new Set());
+    } else {
+      setSelectedAcctIds(ids);
+    }
+  };
+
   // ── Selection style helpers (Tier-2 lock #6: 2px foreground border, no lime) ─
   const selectedBorder = "border-2 border-foreground bg-foreground/[0.03]";
   const unselectedBorder = "border border-border";
@@ -642,11 +743,18 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
       >
         {/* Account selector — V2 mode only */}
         {(distVariant === "v2" || forceV2) && (
-          <AccountSelectorPanel
-            flow={flow}
-            selectedIds={selectedAcctIds}
-            onSelect={setSelectedAcctIds}
-          />
+          <div className="flex flex-col">
+            <AccountSelectorPanel
+              flow={flow}
+              selectedIds={selectedAcctIds}
+              onSelect={handleSelectAccts}
+            />
+            {hasCatalogueAccounts && (
+              <p className="px-3 py-2 font-mono text-[10px] text-muted-foreground border-t border-border">
+                Select one account at a time to configure its product sets.
+              </p>
+            )}
+          </div>
         )}
 
       {/* ── Left pane: Ad creative ───────────────────────────────────────── */}
@@ -810,13 +918,11 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
           )}
 
           {hasCatalogueAccounts ? (
-            /* Catalogue mode — copy only */
-            <SectionCard
-              title="Ad copy"
-              subtitle="Meta fills your creative from the product catalogue — provide copy only."
-            >
-              <CatalogueAdCopy flow={flow} />
-            </SectionCard>
+            /* Catalogue mode — product set picker */
+            <CatalogueProductSetPicker
+              flow={flow}
+              selectedAcctId={selectedAcctIds.size === 1 ? [...selectedAcctIds][0] : null}
+            />
           ) : hasPostIdAccounts ? (
             /* Post ID mode — browse and select existing published posts */
             <PostedAdsPicker flow={flow} selectedAcctIds={selectedAcctIds} />
@@ -1017,33 +1123,29 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         )}
       >
         {hasCatalogueAccounts ? (
-          /* Catalogue (DPA) mode — collapsed one-line summary card */
-          <div className="space-y-4">
-            <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground block">
-              Distribution
-            </span>
-            <Card className="rounded-2xl">
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-foreground/[0.04]">
-                  <ShoppingBag className="h-[18px] w-[18px] text-foreground" strokeWidth={1.5} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">
-                    Distributed by catalog feed
+          /* Catalogue (DPA) mode — adset count summary card */
+          (() => {
+            // Compute total adsets across all catalogue accounts
+            const totalAdSets = Object.entries(plan.productSetByAccount ?? {})
+              .filter(([id]) => plan.catalogueByAccount?.[id])
+              .reduce((sum, [, sel]) => sum + (sel.productSetIds?.length ?? 0), 0);
+            return (
+              <div className="flex flex-col gap-3 p-4">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Campaign structure</p>
+                <div className="rounded-2xl border border-border bg-background p-3 space-y-1">
+                  <p className="font-mono text-[11px] text-foreground">
+                    <span className="font-semibold text-[15px] tabular-nums">{totalAdSets || "—"}</span>
+                    <span className="ml-1 text-muted-foreground">ad set{totalAdSets !== 1 ? "s" : ""}</span>
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Meta-managed
-                  </p>
+                  <p className="font-mono text-[10px] text-muted-foreground">1 ad / ad set · Meta-managed creative</p>
+                  <p className="font-mono text-[10px] text-muted-foreground">1 campaign · budget shared</p>
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Learn more →
-                </button>
-              </CardContent>
-            </Card>
-          </div>
+                <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+                  Meta fills images, prices, and URLs from your product catalogue automatically.
+                </p>
+              </div>
+            );
+          })()
         ) : (
           <div className="space-y-6">
             {/* Right pane section eyebrow */}
