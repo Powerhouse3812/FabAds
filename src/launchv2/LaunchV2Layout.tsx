@@ -4,7 +4,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Monitor } from "lucide-react";
 import { LaunchV2Provider } from "./state/LaunchV2Context";
 import FloatingFeedbackButton from "./feedback/FloatingFeedbackButton";
-import IdentityGate from "./feedback/IdentityGate";
 import { markAppLoad, markPageView } from "./feedback/telemetry";
 
 export default function LaunchV2Layout() {
@@ -55,7 +54,7 @@ export default function LaunchV2Layout() {
 
   return (
     <LaunchV2Provider>
-      {onPanel ? content : <IdentityGate>{content}</IdentityGate>}
+      {content}
     </LaunchV2Provider>
   );
 }
