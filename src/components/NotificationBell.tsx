@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Bell, X, Package, Tag, Wand2, Layers, CheckCircle2, Clock, UploadCloud } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 /* ------------------------------------------------------------------ */
 /*  Mock data                                                          */
@@ -90,11 +91,44 @@ interface NotificationBellProps {
   compact?: boolean;
 }
 
+const COPY_TEXT = `Let's planout the whole thing first, then I'll tell you to implement when, but remeber some things:
+
+I'll decide everything,
+
+let me choose everything,
+
+ask questions,
+
+don't assume anything.
+
+Spawn mutiple agents
+
+DO it fast and parallel without loosing even 1% of quality`;
+
+const LONG_PRESS_MS = 800;
+
 export function NotificationBell({ compact = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"activity" | "notifications">("activity");
+  const { toast } = useToast();
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const unreadCount = 2; // mock
+
+  function startPress() {
+    pressTimer.current = setTimeout(() => {
+      navigator.clipboard.writeText(COPY_TEXT).then(() => {
+        toast({ title: "Copied", description: "Prompt copied to clipboard." });
+      });
+    }, LONG_PRESS_MS);
+  }
+
+  function cancelPress() {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }
 
   const trigger = (
     <button
@@ -104,6 +138,11 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
         compact ? "w-10 h-10" : "w-9 h-9"
       )}
       aria-label="Notifications"
+      onMouseDown={startPress}
+      onMouseUp={cancelPress}
+      onMouseLeave={cancelPress}
+      onTouchStart={startPress}
+      onTouchEnd={cancelPress}
     >
       <Bell className={cn(compact ? "h-5 w-5" : "h-4 w-4")} />
       {unreadCount > 0 && (
