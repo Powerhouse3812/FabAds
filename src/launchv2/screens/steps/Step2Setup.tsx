@@ -66,6 +66,63 @@ import CopyFromRunning, {
 } from "./shared/CopyFromRunning";
 import TargetingTemplateSection from "./audience/TargetingTemplateSection";
 import SpecialAdCountryPicker from "./setup/SpecialAdCountryPicker";
+import { NomenclatureBuilder } from "../review/NomenclatureBuilder";
+
+/* ---- naming pattern input (campaign / adset level) ---- */
+
+function NamingPatternInput({
+  label,
+  value,
+  onChange,
+  tokens,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  tokens: { key: string; desc: string }[];
+  placeholder?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const insertToken = (token: string) => {
+    const el = inputRef.current;
+    if (!el) { onChange(value + token); return; }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const next = value.slice(0, start) + token + value.slice(end);
+    onChange(next);
+    requestAnimationFrame(() => {
+      el.setSelectionRange(start + token.length, start + token.length);
+      el.focus();
+    });
+  };
+  return (
+    <div className="space-y-2">
+      <Label className="text-[13px] font-medium text-foreground">{label}</Label>
+      <div className="flex flex-wrap gap-1">
+        {tokens.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            title={t.desc}
+            onClick={() => insertToken(t.key)}
+            className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 font-mono text-[11px] cursor-pointer hover:bg-primary/20 transition-colors"
+          >
+            {t.key}
+          </button>
+        ))}
+      </div>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="h-8 min-w-0 w-full rounded-2xl border border-border bg-background px-3 font-mono text-[12px] outline-none focus:ring-2 focus:ring-primary/30"
+      />
+    </div>
+  );
+}
 
 /* ---- small shared bits ---- */
 
@@ -545,11 +602,12 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
     useRef<HTMLDivElement>(null),
     useRef<HTMLDivElement>(null),
     useRef<HTMLDivElement>(null),
+    useRef<HTMLDivElement>(null),
   ];
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualIndex, setManualIndex] = useState<number | null>(null);
-  // §3 sub-section accordion — one open at a time
-  const [s3Sub, setS3Sub] = useState<"optimization" | "audience" | "regulated">("optimization");
+  // §3 sub-sections — multi-open (Set)
+  const [s3Sub, setS3Sub] = useState<Set<string>>(() => new Set(["optimization", "audience", "regulated"]));
 
   // active section = manual override (if set) else the scroll-driven one
   const expandedIndex = manualIndex ?? activeIndex;
@@ -612,6 +670,11 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           ? humanize(plan.optimizationGoal)
           : "Defaults applied",
     },
+    {
+      label: "Ad",
+      complete: true,
+      summary: plan.advantageCreative ? "Advantage+ creative on" : "Standard creative",
+    },
   ];
 
   // Non-USD account → show single muted FX hint (currency lock #5)
@@ -673,6 +736,20 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={false}
           sectionRef={sectionRefs[1]}
         >
+          {/* Campaign name */}
+          <NamingPatternInput
+            label="Campaign name"
+            value={plan.namingPatterns?.campaign ?? ""}
+            onChange={(v) => patch({ namingPatterns: { ...(plan.namingPatterns ?? {}), campaign: v, adset: plan.namingPatterns?.adset ?? "", ad: plan.namingPatterns?.ad ?? "" } })}
+            tokens={[
+              { key: "{brand}", desc: "account brand prefix" },
+              { key: "{intent}", desc: "test / scale / custom" },
+              { key: "{objective}", desc: "e.g. sales" },
+              { key: "{date}", desc: "launch date YYYY-MM-DD" },
+            ]}
+            placeholder="{brand}_{intent}_{objective}"
+          />
+
           {/* Budget — single horizontal row */}
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
@@ -825,14 +902,28 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           }
           complete={sectionMeta[2].complete}
-          isLast={true}
+          isLast={false}
           sectionRef={sectionRefs[2]}
         >
+          {/* Ad set name */}
+          <NamingPatternInput
+            label="Ad set name"
+            value={plan.namingPatterns?.adset ?? ""}
+            onChange={(v) => patch({ namingPatterns: { ...(plan.namingPatterns ?? {}), campaign: plan.namingPatterns?.campaign ?? "", adset: v, ad: plan.namingPatterns?.ad ?? "" } })}
+            tokens={[
+              { key: "{brand}", desc: "account brand prefix" },
+              { key: "{intent}", desc: "test / scale / custom" },
+              { key: "{adset}", desc: "ad set number (01, 02…)" },
+              { key: "{date}", desc: "launch date YYYY-MM-DD" },
+            ]}
+            placeholder="{brand}_{adset}"
+          />
+
           {/* ── Subsection ▸ Optimization ────────────────────────────── */}
           <Subsection
             label="Optimization"
-            open={s3Sub === "optimization"}
-            onOpenChange={(v) => setS3Sub(v ? "optimization" : "audience")}
+            open={s3Sub.has("optimization")}
+            onOpenChange={(v) => setS3Sub((prev) => { const next = new Set(prev); v ? next.add("optimization") : next.delete("optimization"); return next; })}
           >
           {/* Row 1: Conversion location + Performance goal side by side */}
           <div className="grid grid-cols-2 gap-4">
@@ -942,8 +1033,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           {/* ── Subsection ▸ Audience ────────────────────────────────── */}
           <Subsection
             label="Audience"
-            open={s3Sub === "audience"}
-            onOpenChange={(v) => setS3Sub(v ? "audience" : "optimization")}
+            open={s3Sub.has("audience")}
+            onOpenChange={(v) => setS3Sub((prev) => { const next = new Set(prev); v ? next.add("audience") : next.delete("audience"); return next; })}
           >
           {/* Targeting template + audience editor (placements injected via slot) */}
           <TargetingTemplateSection
@@ -966,8 +1057,8 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           {/* ── Subsection ▸ Regulated Category ─────────────────────── */}
           <Subsection
             label="Regulated Category"
-            open={s3Sub === "regulated"}
-            onOpenChange={(v) => setS3Sub(v ? "regulated" : "audience")}
+            open={s3Sub.has("regulated")}
+            onOpenChange={(v) => setS3Sub((prev) => { const next = new Set(prev); v ? next.add("regulated") : next.delete("regulated"); return next; })}
             complete={plan.specialAdDeclared && (plan.specialAdCategories?.length ?? 0) > 0}
           >
             {/* Toggle */}
@@ -1070,6 +1161,29 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           </Subsection>
           {/* ── /Subsection ▸ Regulated Category ──────────────────────── */}
 
+        </StepSection>
+
+        {/* ── 4 · Ad ────────────────────────────────────────────────── */}
+        <StepSection
+          index={3}
+          title="Ad"
+          complete={sectionMeta[3].complete}
+          isLast={true}
+          sectionRef={sectionRefs[3]}
+        >
+          {/* Advantage+ creative toggle */}
+          <Toggle
+            checked={plan.advantageCreative}
+            onCheckedChange={(v) => patch({ advantageCreative: v })}
+            label="Advantage+ creative"
+            desc="Meta auto-optimizes creative assets — crops, aspect ratios, enhancements. Recommended for performance campaigns."
+          />
+
+          {/* Ad naming / nomenclature */}
+          <div className="space-y-2">
+            <Label className="text-[13px] font-medium text-foreground">Ad naming pattern</Label>
+            <NomenclatureBuilder flow={flow} />
+          </div>
         </StepSection>
         </div>
 

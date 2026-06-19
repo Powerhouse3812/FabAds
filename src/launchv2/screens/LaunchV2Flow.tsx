@@ -20,6 +20,7 @@ import type { PlanV2 } from "../types";
 import { getTemplate, getStrategy } from "../data";
 import { buildIssues, canLaunch, readiness } from "./review/reviewModel";
 import type { ReviewIssue } from "./review/reviewModel";
+import { runPreflight } from "../preflight";
 import { formatMoney } from "@/launch2/utils/time";
 import Step1Start from "./steps/Step1StartV2";
 import Step2Setup from "./steps/Step2Setup";
@@ -247,7 +248,11 @@ export default function LaunchV2Flow() {
   const stepsAllValid = ([1, 2, 3, 4] as StepV2[]).every((s) => stepValid(plan, s));
   // the REAL launch gate — structural readiness + zero tier="error" issues.
   const launchGate = canLaunch(plan);
-  const allValid = stepsAllValid && launchGate.ok;
+  // Pre-flight issues — memoised; any tier="error" blocks the confirm modal.
+  const preflightIssues = useMemo(() => runPreflight(plan), [plan]);
+  const preflightBlocked = preflightIssues.some((i) => i.tier === "error");
+  // allValid gates the footer Launch button — must include preflight.
+  const allValid = stepsAllValid && launchGate.ok && !preflightBlocked;
   const twoPane = step === 4;
 
   // ── Launch confirmation modal state ─────────────────────────────────
@@ -439,6 +444,7 @@ export default function LaunchV2Flow() {
         onOpenChange={setConfirmOpen}
         flow={flow}
         onConfirm={handleConfirmLaunch}
+        preflightBlocked={preflightBlocked}
       />
     </div>
   );

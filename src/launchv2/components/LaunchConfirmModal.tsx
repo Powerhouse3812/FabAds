@@ -25,29 +25,16 @@ import type { UseFlowV2 } from "../state/useFlowV2";
 
 const TYPED_LAUNCH_THRESHOLD_USD = 120;
 
-/** Convert a daily amount in `currency` to a USD-equivalent — fixed agency rates. */
-function toUsdEquivalent(amount: number, currency: string): number {
-  switch (currency.toUpperCase()) {
-    case "INR":
-      return amount / 84;
-    case "EUR":
-      return amount * 1.08;
-    case "GBP":
-      return amount * 1.27;
-    case "USD":
-    default:
-      return amount;
-  }
-}
-
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   flow: UseFlowV2;
   onConfirm: () => Promise<void>;
+  /** Pass true when runPreflight returns any tier="error" issue — blocks launch. */
+  preflightBlocked?: boolean;
 }
 
-export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm }: Props) {
+export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm, preflightBlocked = false }: Props) {
   const { plan } = flow;
 
   // ── Derived numbers (memoised on plan reference) ──────────────────
@@ -68,8 +55,8 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
   const cap = useMemo(() => capCheck(plan), [plan]);
 
   // ── Typed-LAUNCH safeguard ────────────────────────────────────────
-  const dailyUsd = toUsdEquivalent(dailyTotal, currency);
-  const requiresTypedConfirm = dailyUsd >= TYPED_LAUNCH_THRESHOLD_USD;
+  // USD-only (lock #5): the daily total is already USD — no conversion.
+  const requiresTypedConfirm = dailyTotal >= TYPED_LAUNCH_THRESHOLD_USD;
   const [confirmText, setConfirmText] = useState("");
   const confirmInputRef = useRef<HTMLInputElement>(null);
   const typedOk = !requiresTypedConfirm || confirmText === "LAUNCH";
@@ -94,9 +81,9 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
     }
   }, [open, requiresTypedConfirm]);
 
-  // ── Block launch when there are cap errors ────────────────────────
+  // ── Block launch when there are cap errors or pre-flight errors ──────
   const blockedByCap = !cap.ok;
-  const canLaunch = typedOk && !blockedByCap && !launching;
+  const canLaunch = typedOk && !blockedByCap && !preflightBlocked && !launching;
 
   const handleConfirm = async () => {
     if (!canLaunch) return;
@@ -149,6 +136,14 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
         <p className="text-[12px] text-muted-foreground">
           Ads will be reviewed by Meta (1–24 hrs). You can pause anytime.
         </p>
+
+        {/* Pre-flight errors (only when blocking) */}
+        {preflightBlocked && (
+          <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2 text-[13px]">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            <span>Pre-launch checks failed — resolve errors in the Review tab before launching.</span>
+          </div>
+        )}
 
         {/* Cap status (only when blocking) */}
         {!cap.ok && (
@@ -212,11 +207,13 @@ export default function LaunchConfirmModal({ open, onOpenChange, flow, onConfirm
             onClick={handleConfirm}
             disabled={!canLaunch}
             title={
-              blockedByCap
-                ? "Resolve cap errors in Step 3 before launching"
-                : !typedOk
-                  ? "Type LAUNCH to confirm"
-                  : undefined
+              preflightBlocked
+                ? "Resolve pre-flight errors before launching"
+                : blockedByCap
+                  ? "Resolve cap errors in Step 3 before launching"
+                  : !typedOk
+                    ? "Type LAUNCH to confirm"
+                    : undefined
             }
           >
             {launching ? (

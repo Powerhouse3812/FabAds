@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { formatMoney } from "@/launch2/utils/time";
 import type { PlanV2 } from "../../types";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import { buildReviewTree, flattenAllNodes, reviewSummary, type NodeKind, type TreeNode } from "./reviewModel";
+import { buildReviewTree, flattenAllNodes, nodeKindFromId, reviewSummary, type NodeKind, type TreeNode } from "./reviewModel";
 import { NodeEditPane } from "./NodeEditPane";
 import { setManyNodesOverride } from "../../nodeOverrides";
 
@@ -265,7 +265,8 @@ function AccountsTable({
                 />
               </td>
               <td className="max-w-[200px] px-3 py-2 text-[13px] font-medium text-foreground">
-                <InlineNameCell node={node} onRename={onRename} />
+                {/* Account names are read-only — sourced from target.accountName, not nodeOverrides */}
+                <span className="truncate">{node.label}</span>
               </td>
               <td className="px-3 py-2">
                 <span className="rounded-full bg-success/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-success-text">
@@ -613,10 +614,15 @@ export function ReviewTable({
 
   const closeDrawer = useCallback(() => setDrawerNodes([]), []);
 
-  // Inline rename — saves to nodeOverrides[id].name
+  // Inline rename — saves to nodeOverrides[id][nameField] keyed per level.
   const handleRename = useCallback((id: string, name: string) => {
+    const kind = nodeKindFromId(id);
+    const nameField =
+      kind === "campaign" ? "campaignName" :
+      kind === "adset"    ? "adSetName"    :
+      "name";
     flow.patch({
-      nodeOverrides: setManyNodesOverride(plan.nodeOverrides, [id], "name", name),
+      nodeOverrides: setManyNodesOverride(plan.nodeOverrides, [id], nameField, name),
     });
   }, [flow, plan.nodeOverrides]);
 

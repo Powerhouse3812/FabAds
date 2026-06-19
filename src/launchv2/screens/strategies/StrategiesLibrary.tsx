@@ -1,0 +1,679 @@
+/**
+ * StrategiesLibrary — Launch v2
+ *
+ * Two-panel layout:
+ *   Left  — searchable, filterable, sortable card grid of saved strategies
+ *   Right — 320px sticky preview rail (selected strategy detail + actions)
+ *
+ * Design: FabFunnel v1.2
+ *   Lime #8FB821 · bg #FAFAF7 light / #18181B dark
+ *   Geist Mono for ALL numbers/metadata · Geist Sans for labels/names
+ */
+
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { strategiesService, type LaunchStrategy, type StrategySummary } from "../../services/strategiesService";
+
+/* ─────────────────────── tiny helpers ───────────────────────── */
+
+function relativeTime(iso?: string): string {
+  if (!iso) return "Never";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}yr ago`;
+}
+
+const OBJECTIVE_COLOURS: Record<string, { bg: string; text: string; darkBg: string; darkText: string }> = {
+  Sales:       { bg: "#EBF6BF", text: "#5B7611", darkBg: "#1D2A09", darkText: "#C3E165" },
+  Awareness:   { bg: "#EFF6FF", text: "#1D4ED8", darkBg: "#1E2A4A", darkText: "#93C5FD" },
+  Traffic:     { bg: "#FDF4FF", text: "#7E22CE", darkBg: "#2D1B4A", darkText: "#C4B5FD" },
+  Leads:       { bg: "#FFF7ED", text: "#C2410C", darkBg: "#3D1E0A", darkText: "#FDB07A" },
+  Engagement:  { bg: "#F0FDF4", text: "#166534", darkBg: "#0D2A1A", darkText: "#86EFAC" },
+  "App promotion": { bg: "#FEF9C3", text: "#854D0E", darkBg: "#2D200A", darkText: "#FDE047" },
+};
+
+function objectivePill(objective: string) {
+  const colours = OBJECTIVE_COLOURS[objective] ?? { bg: "#F0F0EC", text: "#3F3F46", darkBg: "#27272A", darkText: "#A1A1AA" };
+  return colours;
+}
+
+function intentPill(intent: string) {
+  const map: Record<string, { bg: string; text: string; darkBg: string; darkText: string }> = {
+    Scale:  { bg: "#EBF6BF", text: "#5B7611", darkBg: "#1D2A09",  darkText: "#C3E165" },
+    Test:   { bg: "#FEF9C3", text: "#854D0E", darkBg: "#2D200A",  darkText: "#FDE047" },
+    Custom: { bg: "#F0F0EC", text: "#3F3F46", darkBg: "#27272A",  darkText: "#A1A1AA" },
+  };
+  return map[intent] ?? map.Custom;
+}
+
+type SortKey = "recently-used" | "most-used" | "name";
+
+/* ─────────────────────── sub-components ─────────────────────── */
+
+/** Strategy card in the grid */
+function StrategyCard({
+  strategy,
+  selected,
+  onClick,
+}: {
+  strategy: LaunchStrategy;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const summary = strategiesService.summarize(strategy);
+  const isPartial = (strategy.plan.targets?.length ?? 0) === 0;
+  const tags = strategy.tags ?? [];
+  const shownTags = tags.slice(0, 3);
+  const extraTags = tags.length - 3;
+  const objColours = objectivePill(summary.objective);
+  const intColours = intentPill(summary.intent);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "w-full text-left rounded-2xl border p-4 cursor-pointer transition-all duration-200",
+        "hover:shadow-md hover:-translate-y-0.5",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
+        selected
+          ? "border-[#8FB821] bg-[#F5FBE2] dark:bg-[#1D2A09] shadow-sm"
+          : "border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#FAFAF7] dark:bg-[#18181B] hover:border-[#8FB821]/40",
+      ].join(" ")}
+    >
+      {/* Name row */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span
+          className="text-[13px] font-medium leading-snug text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] truncate flex-1 min-w-0"
+          title={strategy.name}
+        >
+          {strategy.name}
+        </span>
+        {isPartial && (
+          <span className="flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 leading-none">
+            Partial
+          </span>
+        )}
+      </div>
+
+      {/* Objective + intent pills */}
+      <div className="flex flex-wrap gap-1 mb-2.5">
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+          style={{ backgroundColor: objColours.bg, color: objColours.text }}
+        >
+          {summary.objective}
+        </span>
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+          style={{ backgroundColor: intColours.bg, color: intColours.text }}
+        >
+          {summary.intent}
+        </span>
+      </div>
+
+      {/* Budget */}
+      <p className="font-mono text-[11px] font-semibold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] mb-2.5 tabular-nums">
+        {summary.budgetDisplay}
+      </p>
+
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {shownTags.map((tag) => (
+            <span
+              key={tag}
+              className="font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-1.5 py-0.5 rounded-full leading-none bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]"
+            >
+              {tag}
+            </span>
+          ))}
+          {extraTags > 0 && (
+            <span className="font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-1.5 py-0.5 rounded-full leading-none bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+              +{extraTags}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center gap-2 font-mono text-[10px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] tabular-nums">
+        <span>{strategy.useCount ?? 0} uses</span>
+        <span className="w-0.5 h-0.5 rounded-full bg-current opacity-40" />
+        <span>{relativeTime(strategy.lastUsedAt)}</span>
+      </div>
+    </button>
+  );
+}
+
+/** Metadata row in preview rail */
+function MetaRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-[#e7e5dc] dark:border-[#2a2a2a] last:border-0">
+      <span className="font-mono text-[11px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] flex-shrink-0">
+        {label}
+      </span>
+      <span className="text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] text-right">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Preview rail — right panel */
+function PreviewRail({
+  strategy,
+  onClose,
+  onRefresh,
+}: {
+  strategy: LaunchStrategy | null;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const navigate = useNavigate();
+  const [duplicating, setDuplicating] = useState(false);
+  const [duplicated, setDuplicated] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset local state when strategy changes
+  useEffect(() => {
+    setDuplicated(false);
+    setRenaming(false);
+    setDeleteConfirm(false);
+    if (strategy) setRenameValue(strategy.name);
+  }, [strategy?.id]);
+
+  useEffect(() => {
+    if (renaming && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renaming]);
+
+  if (!strategy) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
+        {/* dot grid bg */}
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{
+            backgroundImage: "radial-gradient(circle, #8FB821 1px, transparent 1px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        <div className="relative">
+          {/* Bookmark icon in lime circle */}
+          <div className="w-12 h-12 rounded-full bg-[#F5FBE2] dark:bg-[#1D2A09] flex items-center justify-center mb-4 mx-auto">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8FB821" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="10" y1="10" x2="14" y2="10" />
+            </svg>
+          </div>
+          <p className="text-[13px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] mb-1">
+            Select a strategy to preview
+          </p>
+          <p className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] leading-snug">
+            Details, actions, and apply controls
+            <br />appear here on selection
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const summary: StrategySummary = strategiesService.summarize(strategy);
+
+  function handleApply() {
+    strategiesService.markUsed(strategy!.id);
+    sessionStorage.setItem("launchv2:pendingStrategy", JSON.stringify(strategy!.plan));
+    navigate("/launchv2/new");
+  }
+
+  async function handleDuplicate() {
+    if (duplicating) return;
+    setDuplicating(true);
+    const copy = strategiesService.duplicate(strategy!.id);
+    if (copy) {
+      onRefresh();
+      setDuplicated(true);
+      setTimeout(() => setDuplicated(false), 2500);
+    }
+    setDuplicating(false);
+  }
+
+  function handleRenameSubmit() {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== strategy!.name) {
+      strategiesService.rename(strategy!.id, trimmed);
+      onRefresh();
+    }
+    setRenaming(false);
+  }
+
+  function handleRenameKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleRenameSubmit();
+    if (e.key === "Escape") setRenaming(false);
+  }
+
+  function handleDelete() {
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      return;
+    }
+    strategiesService.remove(strategy!.id);
+    onRefresh();
+    onClose();
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-[#e7e5dc] dark:border-[#2a2a2a] flex-shrink-0">
+        <div className="flex-1 min-w-0">
+          {renaming ? (
+            <input
+              ref={renameInputRef}
+              value={renameValue}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setRenameValue(e.target.value)}
+              onBlur={handleRenameSubmit}
+              onKeyDown={handleRenameKey}
+              className="w-full text-[13px] font-semibold bg-transparent border-0 border-b-2 border-[#8FB821] outline-none text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] pb-0.5"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            />
+          ) : (
+            <h2
+              className="text-[13px] font-semibold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] leading-snug line-clamp-2"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              {strategy.name}
+            </h2>
+          )}
+          <p className="font-mono text-[10px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mt-0.5 tabular-nums">
+            {relativeTime(strategy.updatedAt)} · {strategy.useCount ?? 0} uses
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+          aria-label="Close preview"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Metadata */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-0">
+        <MetaRow label="Objective" value={summary.objective} />
+        <MetaRow label="Intent" value={summary.intent} />
+        <MetaRow label="Budget" value={summary.budgetDisplay} />
+        <MetaRow label="Format" value={summary.format} />
+        <MetaRow label="Spread" value={summary.spreadMode} />
+        <MetaRow label="Pages" value={summary.destinationsCount === 0 ? "—" : `${summary.destinationsCount} account${summary.destinationsCount > 1 ? "s" : ""}`} />
+        <MetaRow label="Audience" value={summary.audienceSummary} />
+
+        {/* Tags in preview */}
+        {(strategy.tags ?? []).length > 0 && (
+          <div className="pt-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
+              Tags
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {(strategy.tags ?? []).map((tag) => (
+                <span
+                  key={tag}
+                  className="font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-2 py-1 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex-shrink-0 px-5 py-4 border-t border-[#e7e5dc] dark:border-[#2a2a2a] space-y-2">
+        {/* Apply */}
+        <button
+          type="button"
+          onClick={handleApply}
+          className="w-full h-9 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm"
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          Apply to new launch
+        </button>
+
+        {/* Duplicate */}
+        <button
+          type="button"
+          onClick={handleDuplicate}
+          disabled={duplicating}
+          className="w-full h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors disabled:opacity-50"
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          {duplicated ? (
+            <span className="text-[#5B7611] dark:text-[#C3E165] font-semibold">Duplicated!</span>
+          ) : duplicating ? (
+            "Duplicating..."
+          ) : (
+            "Duplicate"
+          )}
+        </button>
+
+        {/* Rename */}
+        {!renaming && (
+          <button
+            type="button"
+            onClick={() => setRenaming(true)}
+            className="w-full h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+            style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+          >
+            Rename
+          </button>
+        )}
+
+        {/* Delete — two-tap */}
+        <button
+          type="button"
+          onClick={handleDelete}
+          onBlur={() => setTimeout(() => setDeleteConfirm(false), 200)}
+          className={[
+            "w-full h-9 rounded-full border text-[13px] font-medium transition-colors",
+            deleteConfirm
+              ? "border-red-500 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
+              : "border-[#e7e5dc] dark:border-[#2a2a2a] text-red-500 dark:text-red-400 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950",
+          ].join(" ")}
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          {deleteConfirm ? "Confirm delete" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────── Zero-data state ───────────────────── */
+
+function ZeroState() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 px-8 py-16 text-center relative overflow-hidden">
+      {/* dot grid */}
+      <div
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        style={{
+          backgroundImage: "radial-gradient(circle, #8FB821 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+        }}
+      />
+      <div className="relative">
+        <div className="w-14 h-14 rounded-full bg-[#F5FBE2] dark:bg-[#1D2A09] flex items-center justify-center mb-5 mx-auto ring-1 ring-[#8FB821]/20">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8FB821" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="10" y1="10" x2="14" y2="10" />
+          </svg>
+        </div>
+        <h3
+          className="text-[15px] font-bold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] mb-1"
+          style={{ fontFamily: "Geist, system-ui, sans-serif", letterSpacing: "-0.01em" }}
+        >
+          No strategies saved yet
+        </h3>
+        <p className="font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] leading-relaxed max-w-[260px] mb-6">
+          Save one from the Launch flow after configuring your settings — it'll appear here instantly.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate("/launchv2/new")}
+          className="inline-flex items-center gap-1.5 h-9 px-5 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm"
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Start a launch
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────── MAIN COMPONENT ─────────────────────── */
+
+export function StrategiesLibrary() {
+  const [strategies, setStrategies] = useState<LaunchStrategy[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>("recently-used");
+
+  const refresh = () => setStrategies(strategiesService.list());
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  /* Derived: all unique tags */
+  const allTags = Array.from(
+    new Set(strategies.flatMap((s) => s.tags ?? []))
+  ).sort();
+
+  /* Filter + sort */
+  const filtered = strategies
+    .filter((s) => {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        (s.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
+        (s.plan.objective ?? "").toLowerCase().includes(q) ||
+        (s.plan.intent ?? "").toLowerCase().includes(q);
+      const matchesTag = !activeTag || (s.tags ?? []).includes(activeTag);
+      return matchesSearch && matchesTag;
+    })
+    .sort((a, b) => {
+      if (sort === "recently-used") {
+        const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : -Infinity;
+        const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : -Infinity;
+        return bTime - aTime;
+      }
+      if (sort === "most-used") {
+        return (b.useCount ?? 0) - (a.useCount ?? 0);
+      }
+      // name
+      return a.name.localeCompare(b.name);
+    });
+
+  const selected = selectedId ? strategies.find((s) => s.id === selectedId) ?? null : null;
+  const showRail = selectedId !== null;
+
+  // Close rail if selected strategy was deleted
+  useEffect(() => {
+    if (selectedId && !strategies.find((s) => s.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [strategies, selectedId]);
+
+  return (
+    <div className="flex flex-col h-full bg-[#FAFAF7] dark:bg-[#18181B] min-h-[100dvh]">
+      {/* ── Top bar ─────────────────────────────────────────── */}
+      <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-[#e7e5dc] dark:border-[#2a2a2a]">
+        {/* Title row */}
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h1
+            className="text-[29px] font-bold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]"
+            style={{ fontFamily: "Geist, system-ui, sans-serif", letterSpacing: "-0.01em" }}
+          >
+            Strategies
+          </h1>
+          <span className="font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] tabular-nums">
+            {strategies.length} saved
+          </span>
+        </div>
+
+        {/* Search + sort row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] max-w-[380px]">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] pointer-events-none"
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search strategies..."
+              value={search}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              className="w-full h-9 pl-9 pr-4 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] text-[13px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] placeholder:text-[rgba(15,15,12,0.38)] dark:placeholder:text-[rgba(255,255,255,0.38)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 transition-all"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)] hover:text-[rgba(15,15,12,0.62)] dark:hover:text-[rgba(255,255,255,0.62)] transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Sort dropdown */}
+          <div className="relative flex-shrink-0">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="h-9 pl-3 pr-8 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] text-[12px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 appearance-none cursor-pointer transition-all font-mono"
+            >
+              <option value="recently-used">Recently used</option>
+              <option value="most-used">Most used</option>
+              <option value="name">Name</option>
+            </select>
+            <svg
+              className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]"
+              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Tag chips */}
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <button
+              type="button"
+              onClick={() => setActiveTag(null)}
+              className={[
+                "h-7 px-3 rounded-full font-mono text-[10px] uppercase tracking-[0.06em] font-semibold transition-colors leading-none",
+                activeTag === null
+                  ? "bg-[#8FB821] text-[#121212]"
+                  : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50 hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)]",
+              ].join(" ")}
+            >
+              All
+            </button>
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+                className={[
+                  "h-7 px-3 rounded-full font-mono text-[10px] uppercase tracking-[0.06em] font-semibold transition-colors leading-none",
+                  activeTag === tag
+                    ? "bg-[#8FB821] text-[#121212]"
+                    : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50 hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)]",
+                ].join(" ")}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Body: card grid + preview rail ──────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Card grid */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {strategies.length === 0 ? (
+            <ZeroState />
+          ) : filtered.length === 0 ? (
+            /* Empty search state */
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-10 h-10 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] flex items-center justify-center mb-3 mx-auto">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </div>
+              <p className="text-[13px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] mb-1">
+                No strategies match
+              </p>
+              <p className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                Try a different search or clear the tag filter
+              </p>
+              <button
+                type="button"
+                onClick={() => { setSearch(""); setActiveTag(null); }}
+                className="mt-4 h-8 px-4 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[12px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50 hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+                style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filtered.map((strategy) => (
+                <StrategyCard
+                  key={strategy.id}
+                  strategy={strategy}
+                  selected={selectedId === strategy.id}
+                  onClick={() =>
+                    setSelectedId(selectedId === strategy.id ? null : strategy.id)
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Preview rail — 320px fixed right */}
+        {showRail && (
+          <div className="flex-shrink-0 w-[320px] border-l border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden flex flex-col">
+            <PreviewRail
+              strategy={selected}
+              onClose={() => setSelectedId(null)}
+              onRefresh={refresh}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

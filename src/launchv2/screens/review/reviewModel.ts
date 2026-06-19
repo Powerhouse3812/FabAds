@@ -16,10 +16,14 @@ import {
   budgetPerDay,
   capCheck,
   estimateAds,
-  perPageDemand,
+  perTargetCounts,
   type PageDemand,
 } from "../../deriveV2";
+import { pageActiveAds } from "../../data";
+import { MAX_ADS_PER_PAGE } from "../../types";
 import { planReady, requiresPixel, softWarnings, type SoftWarning } from "../../reducer";
+import { buildPlanUnits, type CanonicalUnit } from "../../planUnits";
+import { resolveNodeValue } from "../../nodeOverrides";
 
 /* ------------------------------------------------------------------ */
 /*  Representative tree                                                */
@@ -69,32 +73,6 @@ export interface NodeFields {
 /** How many real ad leaves we render per ad set before summarising "+N more". */
 const MAX_LEAVES = 4;
 
-/**
- * Per-target ad counts under the active page-distribution — mirrors the
- * service's buildUnitsV2 split so the tree count == what will actually launch.
- */
-export function perTargetAdCounts(plan: PlanV2): number[] {
-  const per = adsPerDestination(plan);
-  const n = plan.targets.length;
-  if (n === 0) return [];
-  if (plan.pageDistribution === "duplicate") return plan.targets.map(() => per);
-  if (plan.pageDistribution === "equal") {
-    const q = Math.floor(per / n);
-    const r = per % n;
-    return plan.targets.map((_, i) => q + (i < r ? 1 : 0));
-  }
-  // fill-first — fill each page's headroom in order
-  const demand = perPageDemand(plan);
-  const headByPage = new Map(demand.map((d) => [d.fbPageId, d.available]));
-  let left = per;
-  return plan.targets.map((t) => {
-    const cap = headByPage.get(t.fbPageId) ?? per;
-    const take = Math.max(0, Math.min(cap, left));
-    left -= take;
-    return take;
-  });
-}
-
 /** Demo audience names — rotate per ad set index to show mixed-state variance in Edit pane. */
 const DEMO_AUDIENCES = [
   "Saved — India 25–45",
@@ -102,67 +80,151 @@ const DEMO_AUDIENCES = [
   "Broad — all ages",
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Helpers exported for the tree UI (lazy expand + edit pane)         */
+/* ------------------------------------------------------------------ */
+
 /**
- * Build a representative tree. We model the structure as:
- *   Account (= target) → Campaign(s) → AdSet(s) → Ad leaves
- * The structure counts (campaigns / adSetsPerCampaign) drive grouping; the
- * spread-derived per-target ad count drives how many leaves we distribute.
+ * Recompute the SAME baseline ad-slot count that `buildPlanUnits` uses for a
+ * given ad-set node id (`t{ti}:{fbPageId}:c{ci}:s{si}`).
+ *
+ * This is the value `adsPerAdSet` inherits from when no per-node override
+ * exists — i.e. the "plan default" for this specific slot (NOT the flat
+ * `plan.structure.adsPerAdSet`).
+ *
+ * Falls back to `plan.structure.adsPerAdSet` when the id doesn't match.
+ */
+export function baselineAdCountForAdSet(plan: PlanV2, adSetNodeId: string): number {
+  const m = /^t(\d+):.*:c(\d+):s(\d+)$/.exec(adSetNodeId);
+  if (!m) return plan.structure.adsPerAdSet;
+  const ti = parseInt(m[1], 10);
+  const ci = parseInt(m[2], 10);
+  const si = parseInt(m[3], 10);
+  const total = perTargetCounts(plan)[ti] ?? 0;
+  const adSetsPer = Math.max(plan.structure.adSetsPerCampaign, 1);
+  const campaignsN = Math.max(plan.structure.campaigns, 1);
+  const slots = campaignsN * adSetsPer;
+  const slot = ci * adSetsPer + si;
+  const base = Math.floor(total / slots);
+  const extra = slot < total % slots ? 1 : 0;
+  return base + extra;
+}
+
+/**
+ * Return ALL ad-leaf `TreeNode`s for one ad set.  Used by the tree UI to lazily
+ * expand the "+N more" placeholder without re-running the whole `buildReviewTree`.
+ *
+ * Filters `buildPlanUnits` output to units whose `adSetNodeId` matches, then maps
+ * each to the same ad-leaf shape `buildReviewTree` produces.
+ */
+export function expandAdSetLeaves(plan: PlanV2, adSetNodeId: string): TreeNode[] {
+  const units = buildPlanUnits(plan).filter((u) => u.adSetNodeId === adSetNodeId);
+  return units.map((u) => ({
+    id: u.adNodeId,
+    kind: "ad" as const,
+    label: u.creativeName,
+    sub: u.target.pageName,
+    targetIndex: u.targetIndex,
+    creativeId: u.creativeId,
+    fields: {
+      primaryText: u.resolved.primaryText || "Discover the difference quality makes.",
+      headline: u.resolved.headline,
+      description: plan.adCopy.description,
+      cta: u.resolved.cta,
+      destinationUrl: u.resolved.destinationUrl,
+    },
+  }));
+}
+
+/**
+ * Build the review tree by GROUPING the canonical launch units
+ * (`buildPlanUnits`) into Account → Campaign(s) → AdSet(s) → Ad leaves. Because
+ * the tree summarises the exact same units the launch engine consumes, the tree
+ * count == what actually launches, and every node ID matches a launch unit (so
+ * per-node overrides map cleanly). We still render only `MAX_LEAVES` real ad
+ * leaves per ad set and collapse the rest into a "+N more" placeholder — purely
+ * a display affordance over the real units.
+ *
+ * All campaigns are real and identical in treatment (no synthetic "variant").
  */
 export function buildReviewTree(plan: PlanV2): TreeNode[] {
   if (plan.targets.length === 0) return [];
-  const counts = perTargetAdCounts(plan);
-  const creatives = plan.creatives.length
-    ? plan.creatives
-    : [{ id: "default", name: "Creative" } as { id: string; name: string }];
+  const units = buildPlanUnits(plan);
   const objLabel = (plan.objective ?? "").replace("OUTCOME_", "");
   const adSetsPer = Math.max(plan.structure.adSetsPerCampaign, 1);
   const campaignsN = Math.max(plan.structure.campaigns, 1);
 
+  // Index units per target by "ci:si" slot for O(1) lookup; count per campaign.
+  const byTarget = new Map<number, Map<string, CanonicalUnit[]>>();
+  const campCountByTarget = new Map<number, Map<number, number>>();
+  for (const u of units) {
+    let slots = byTarget.get(u.targetIndex);
+    if (!slots) { slots = new Map(); byTarget.set(u.targetIndex, slots); }
+    const key = `${u.campaignIndex}:${u.adSetIndex}`;
+    const arr = slots.get(key);
+    if (arr) arr.push(u); else slots.set(key, [u]);
+    let cc = campCountByTarget.get(u.targetIndex);
+    if (!cc) { cc = new Map(); campCountByTarget.set(u.targetIndex, cc); }
+    cc.set(u.campaignIndex, (cc.get(u.campaignIndex) ?? 0) + 1);
+  }
+
   return plan.targets.map((target, ti) => {
-    const total = counts[ti] ?? 0;
-    let leafIdx = 0;
+    const slots = byTarget.get(ti);
+    const campCount = campCountByTarget.get(ti);
+    let total = 0;
+
     const campaigns: TreeNode[] = Array.from({ length: campaignsN }, (_, ci) => {
-      // distribute this target's ads across campaign → ad sets round-robin
+      const campaignNodeId = `t${ti}:${target.fbPageId}:c${ci}`;
+      const campaignName = resolveNodeValue(
+        plan,
+        campaignNodeId,
+        "campaignName",
+        `${objLabel} · C${ci + 1}`,
+      );
+      const budgetMode = resolveNodeValue(plan, campaignNodeId, "budgetMode", plan.budgetMode);
+      const budgetAmount = resolveNodeValue(plan, campaignNodeId, "budgetAmount", plan.budgetAmount);
+      const cCount = campCount?.get(ci) ?? 0;
+      total += cCount;
+
       const adSets: TreeNode[] = Array.from({ length: adSetsPer }, (_, si) => {
-        // how many ads land in this ad set (even-ish split of `total`)
-        const slot = ci * adSetsPer + si;
-        const slots = campaignsN * adSetsPer;
-        const base = Math.floor(total / slots);
-        const extra = slot < total % slots ? 1 : 0;
-        const adsHere = base + extra;
-        const shownLeaves = Math.min(adsHere, MAX_LEAVES);
-        const leaves: TreeNode[] = Array.from({ length: shownLeaves }, (_, k) => {
-          const creative = creatives[leafIdx % creatives.length];
-          leafIdx++;
-          return {
-            id: `${target.fbPageId}:c${ci}:s${si}:a${k}`,
-            kind: "ad" as const,
-            label: creative.name,
-            sub: target.pageName,
-            targetIndex: ti,
-            creativeId: creative.id,
-            fields: {
-              primaryText: plan.adCopy.primaryText || "Discover the difference quality makes.",
-              headline: creative.name,
-              description: plan.adCopy.description,
-              cta: plan.adCopy.cta,
-              destinationUrl: plan.adCopy.destinationUrl,
-            },
-          };
-        });
-        if (adsHere > shownLeaves) {
+        const adSetNodeId = `t${ti}:${target.fbPageId}:c${ci}:s${si}`;
+        const sUnits = slots?.get(`${ci}:${si}`) ?? [];
+        const adsHere = sUnits.length;
+        const shown = sUnits.slice(0, MAX_LEAVES);
+
+        const leaves: TreeNode[] = shown.map((u) => ({
+          id: u.adNodeId,
+          kind: "ad" as const,
+          label: u.creativeName,
+          sub: target.pageName,
+          targetIndex: ti,
+          creativeId: u.creativeId,
+          fields: {
+            primaryText: u.resolved.primaryText || "Discover the difference quality makes.",
+            headline: u.resolved.headline,
+            description: plan.adCopy.description,
+            cta: u.resolved.cta,
+            destinationUrl: u.resolved.destinationUrl,
+          },
+        }));
+        if (adsHere > shown.length) {
           leaves.push({
-            id: `${target.fbPageId}:c${ci}:s${si}:more`,
+            id: `t${ti}:${target.fbPageId}:c${ci}:s${si}:more`,
             kind: "ad",
-            label: `+${adsHere - shownLeaves} more ads`,
+            label: `+${adsHere - shown.length} more ads`,
             targetIndex: ti,
             summary: true,
           });
         }
         return {
-          id: `${target.fbPageId}:c${ci}:s${si}`,
+          id: adSetNodeId,
           kind: "adset" as const,
-          label: `Ad set ${String(si + 1).padStart(2, "0")}`,
+          label: resolveNodeValue(
+            plan,
+            adSetNodeId,
+            "adSetName",
+            `Ad set ${String(si + 1).padStart(2, "0")}`,
+          ),
           sub: plan.targetingTemplateId ? "Saved audience" : "Audience",
           count: adsHere,
           targetIndex: ti,
@@ -174,30 +236,26 @@ export function buildReviewTree(plan: PlanV2): TreeNode[] {
           },
         };
       });
-      const isCampaignVariant = campaignsN > 1 && ci === 1;
+
       return {
-        id: `${target.fbPageId}:c${ci}`,
+        id: campaignNodeId,
         kind: "campaign" as const,
-        label: campaignsN > 1 ? `${objLabel} · C${ci + 1}` : `${objLabel} · C1`,
-        sub: plan.budgetMode === "CBO" ? "CBO" : "ABO",
-        count: adSets.reduce((n, s) => n + (s.count ?? 0), 0),
+        label: campaignName,
+        sub: budgetMode === "CBO" ? "CBO" : "ABO",
+        count: cCount,
         targetIndex: ti,
         children: adSets,
         fields: {
-          budgetMode: isCampaignVariant
-            ? (plan.budgetMode === "CBO" ? "ABO" : "CBO")
-            : plan.budgetMode,
-          budgetAmount: isCampaignVariant
-            ? Math.round(plan.budgetAmount * 0.6)
-            : plan.budgetAmount,
+          budgetMode,
+          budgetAmount,
           bidStrategy: plan.bidStrategy,
-          advantagePlus: isCampaignVariant ? !plan.advantagePlus : plan.advantagePlus,
+          advantagePlus: plan.advantagePlus,
           abTest: plan.abTest,
         },
       };
     });
     return {
-      id: `acct:${target.fbPageId}:${ti}`,
+      id: `acct:t${ti}:${target.fbPageId}`,
       kind: "account" as const,
       label: target.accountName,
       sub: target.pageName,
@@ -252,6 +310,50 @@ export function flattenAllNodes(tree: TreeNode[]): TreeNode[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Override-aware per-page demand + cap check (A3)                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Counts ACTUAL `buildPlanUnits` units per `fbPageId`, reflecting any
+ * per-adset `adsPerAdSet` overrides. Returns the same PageDemand[] shape as
+ * deriveV2's `perPageDemand` so callers can swap them transparently.
+ *
+ * Lives here (not in deriveV2) to avoid a circular import: deriveV2 ← planUnits
+ * would be circular since planUnits already imports deriveV2.
+ */
+export function perPageDemandResolved(plan: PlanV2): PageDemand[] {
+  const units = buildPlanUnits(plan);
+  const byPage = new Map<string, PageDemand>();
+  for (const u of units) {
+    const { fbPageId, pageName, accountName } = u.target;
+    const ex = byPage.get(fbPageId);
+    if (ex) {
+      ex.demand += 1;
+    } else {
+      const current = pageActiveAds(fbPageId);
+      byPage.set(fbPageId, {
+        fbPageId,
+        pageName,
+        accountName,
+        current,
+        demand: 1,
+        available: Math.max(0, MAX_ADS_PER_PAGE - current),
+        over: false,
+      });
+    }
+  }
+  const out = [...byPage.values()];
+  out.forEach((p) => (p.over = p.current + p.demand > MAX_ADS_PER_PAGE));
+  return out;
+}
+
+/** Override-aware cap check — use in Review; deriveV2's capCheck stays for Step 3. */
+export function capCheckResolved(plan: PlanV2): { ok: boolean; offenders: PageDemand[] } {
+  const offenders = perPageDemandResolved(plan).filter((p) => p.over);
+  return { ok: offenders.length === 0, offenders };
+}
+
+/* ------------------------------------------------------------------ */
 /*  3-tier issues + recommended fixes                                  */
 /* ------------------------------------------------------------------ */
 
@@ -287,7 +389,7 @@ function recommendedDistribution(plan: PlanV2): PageDistribution | null {
   for (const d of order) {
     if (d === plan.pageDistribution) continue;
     const probe = { ...plan, pageDistribution: d };
-    if (capCheck(probe).ok) return d;
+    if (capCheckResolved(probe).ok) return d;
   }
   return null;
 }
@@ -305,7 +407,8 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
   const sets = adSetCount(plan);
 
   // ---- Tier 1: hard cap-check offenders (block launch) ----
-  const cap = capCheck(plan);
+  // Use capCheckResolved so per-adset adsPerAdSet overrides are reflected.
+  const cap = capCheckResolved(plan);
   for (const off of cap.offenders) {
     const overBy = off.current + off.demand - 250;
     const recDist = recommendedDistribution(plan);
@@ -343,6 +446,19 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
       title: "No destinations selected",
       detail: "Pick at least one ad account and Page in Setup.",
     });
+  }
+
+  // ---- Tier 1c2: mixed account currencies (USD-only / single-currency) ----
+  if (plan.targets.length > 0) {
+    const currencies = new Set(plan.targets.map((t) => t.currency));
+    if (currencies.size > 1) {
+      issues.push({
+        id: "err:mixed-currency",
+        tier: "error",
+        title: "Mixed account currencies",
+        detail: `Selected accounts span ${[...currencies].join(", ")}. Launch is single-currency (USD) — budget totals and the spend safeguard assume one currency. Use accounts of a single currency.`,
+      });
+    }
   }
 
   // ---- Tier 1d: no creatives selected ----
@@ -486,6 +602,32 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
       title: "Primary text is empty",
       detail: "Ads without primary text can still launch, but tend to underperform. Add a hook in the Override tab.",
     });
+  }
+
+  // ---- Tier 1h: per-node override blanked required fields ----
+  {
+    let blankDestinationUrl = 0;
+    let blankPrimaryText = 0;
+    for (const unit of buildPlanUnits(plan)) {
+      if (unit.resolved.destinationUrl === "") blankDestinationUrl++;
+      if (unit.resolved.primaryText === "") blankPrimaryText++;
+    }
+    if (blankDestinationUrl > 0) {
+      issues.push({
+        id: "err:blank-destinationurl-override",
+        tier: "error",
+        title: "Destination URL blanked via override",
+        detail: `${blankDestinationUrl} ${blankDestinationUrl === 1 ? "ad has" : "ads have"} destinationUrl blanked via an override. Restore a value or remove the override before launching.`,
+      });
+    }
+    if (blankPrimaryText > 0) {
+      issues.push({
+        id: "err:blank-primarytext-override",
+        tier: "error",
+        title: "Primary text blanked via override",
+        detail: `${blankPrimaryText} ${blankPrimaryText === 1 ? "ad has" : "ads have"} primaryText blanked via an override. Restore a value or remove the override before launching.`,
+      });
+    }
   }
 
   return issues;
@@ -646,17 +788,26 @@ export function perAccountBreakdown(plan: PlanV2): AccountBreakdown[] {
 
 /**
  * Derives the NodeKind from a tree node ID.
- * Formats mirror buildReviewTree:
- *   account:  "acct:{fbPageId}:{ti}"
- *   campaign: "{fbPageId}:c{ci}"
- *   adset:    "{fbPageId}:c{ci}:s{si}"
- *   ad:       "{fbPageId}:c{ci}:s{si}:a{k}" | "…:more"
+ * Formats mirror buildReviewTree / buildPlanUnits (new ti-inclusive encoding):
+ *   account:  "acct:t{ti}:{fbPageId}"
+ *   campaign: "t{ti}:{fbPageId}:c{ci}"
+ *   adset:    "t{ti}:{fbPageId}:c{ci}:s{si}"
+ *   ad:       "t{ti}:{fbPageId}:c{ci}:s{si}:a{k}" | "…:more"
+ *
+ * Mental test:
+ *   "acct:t0:fb_1"          → "account"
+ *   "t0:fb_1:c0"            → "campaign"
+ *   "t0:fb_1:c0:s1"         → "adset"
+ *   "t0:fb_1:c0:s1:a2"      → "ad"
+ *   "t0:fb_1:c0:s1:more"    → "ad"
  */
 export function nodeKindFromId(id: string | undefined): NodeKind | null {
   if (!id) return null;
   if (id.startsWith("acct:")) return "account";
-  if (/:c\d+$/.test(id)) return "campaign";
-  if (/:c\d+:s\d+$/.test(id)) return "adset";
+  // campaign: ends with :c{digits} (no :s segment after)
+  if (/^t\d+:[^:]+:c\d+$/.test(id)) return "campaign";
+  // adset: ends with :s{digits} (no :a or :more after)
+  if (/^t\d+:[^:]+:c\d+:s\d+$/.test(id)) return "adset";
   return "ad";
 }
 

@@ -14,8 +14,8 @@
  * the frozen contract (deriveV2 / reducer via reviewModel + nodeOverrides) and
  * writes via flow.patch.
  */
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ import { formatMoney } from "@/launch2/utils/time";
 import {
   buildIssues,
   buildReviewTree,
+  capCheckResolved,
   flattenAllNodes,
   nodeKindFromId,
   readiness,
@@ -32,17 +33,46 @@ import {
   type ReviewIssue,
   type TreeNode,
 } from "../review/reviewModel";
+import { capCheck } from "../../deriveV2";
+import { runPreflight } from "../../preflight";
 import { MiniStat, ReadinessChip } from "../review/reviewParts";
 import { NodeTreeRail } from "../review/NodeTreeRail";
+import { ReviewFiltersPopover, type FilterKind } from "../review/ReviewFiltersPopover";
 import { NodeEditPane } from "../review/NodeEditPane";
-import { IssuesList, PreviewPane } from "../review/ReviewPanes";
+import { IssuesList } from "../review/ReviewPanes";
+import { PlacementPreviewTabs } from "../review/PlacementPreviewTabs";
+import { NomenclatureBuilder } from "../review/NomenclatureBuilder";
+import { useLaunchV2, useRehydratedRunId } from "../../state/LaunchV2Context";
+import { computePlanHash } from "../../services/mockLaunchV2";
 
 export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
   const { plan } = flow;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [flightDays, setFlightDays] = useState<7 | 14 | 30>(7);
   const [issuesOpen, setIssuesOpen] = useState(false);
+  const [namingOpen, setNamingOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterKind, setFilterKind] = useState<FilterKind>("all");
   const { toast } = useToast();
+
+  // Stale-detection: compare the rehydrated run's planHash against the current
+  // plan on mount. The context calls rehydrateFromStorage() without a plan arg,
+  // so the stale path is dead there. Step4Review has the plan in scope — we do
+  // the check here, once, on first render.
+  const service = useLaunchV2();
+  const rehydratedRunId = useRehydratedRunId();
+  const staleChecked = useRef(false);
+  useEffect(() => {
+    if (staleChecked.current || !rehydratedRunId) return;
+    staleChecked.current = true;
+    const run = service.getRun(rehydratedRunId);
+    if (!run || run.planHash === undefined) return;
+    const currentHash = computePlanHash(plan);
+    if (currentHash !== run.planHash) {
+      service.markRunStale(rehydratedRunId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rehydratedRunId]);
 
   const tree = useMemo(() => buildReviewTree(plan), [plan]);
   const allNodes = useMemo(() => flattenAllNodes(tree), [tree]);
@@ -90,8 +120,42 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
     });
   };
 
+  /**
+   * Checkbox multi-select handler.
+   * `add=true`  → union: add ids that aren't already selected.
+   * `add=false` → remove: drop all ids in the list from selection.
+   * Mixed-kind subtrees (account checkbox selects campaigns/adsets/ads) are
+   * allowed here — checkbox selection is cross-level by design.
+   */
+  const handleMultiSelect = (ids: string[], add: boolean) => {
+    setSelectedIds((prev) => {
+      if (add) {
+        const existing = new Set(prev);
+        const toAdd = ids.filter((id) => !existing.has(id));
+        return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+      } else {
+        const toRemove = new Set(ids);
+        const next = prev.filter((id) => !toRemove.has(id));
+        return next.length !== prev.length ? next : prev;
+      }
+    });
+  };
+
+  /** Inline rename handler for NodeTreeRail — writes to nodeOverrides. */
+  const handleRename = (id: string, nameField: string, value: string) => {
+    const current = plan.nodeOverrides ?? {};
+    flow.patch({
+      nodeOverrides: {
+        ...current,
+        [id]: { ...(current[id] ?? {}), [nameField]: value },
+      },
+    });
+  };
+
   const issues = useMemo(() => buildIssues(plan), [plan]);
   const ready = useMemo(() => readiness(issues), [issues]);
+  const preflightIssues = useMemo(() => runPreflight(plan), [plan]);
+  const preflightBlocked = preflightIssues.some((i) => i.tier === "error");
   const [prevErrors, setPrevErrors] = useState<number>(ready.errors);
   useEffect(() => {
     if (ready.errors < prevErrors) {
@@ -122,6 +186,39 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
 
   const sum = useMemo(() => reviewSummary(plan), [plan]);
 
+  /**
+   * Task 3 — cap-divergence note.
+   *
+   * Show a small muted line when the Step 4 override-aware cap differs from
+   * the formula baseline used in Step 3. Two ways this can happen:
+   *   1. Any nodeOverrides bag contains an "adsPerAdSet" key (per-adset override).
+   *   2. The offender sets from capCheck (formula) vs capCheckResolved (actual)
+   *      have different membership.
+   *
+   * We check condition 1 first (cheap) and fall back to condition 2 (needs
+   * both derivations) only when no per-adset override is present.
+   */
+  const showCapDivergenceNote = useMemo(() => {
+    // Condition 1 — any per-adset adsPerAdSet override present?
+    const hasAdSetCountOverride = Object.values(plan.nodeOverrides ?? {}).some(
+      (bag) => bag && Object.prototype.hasOwnProperty.call(bag, "adsPerAdSet"),
+    );
+    if (hasAdSetCountOverride) return true;
+
+    // Condition 2 — offender page ids differ between formula and resolved?
+    const formulaOffenderIds = new Set(
+      capCheck(plan).offenders.map((p) => p.fbPageId),
+    );
+    const resolvedOffenderIds = new Set(
+      capCheckResolved(plan).offenders.map((p) => p.fbPageId),
+    );
+    if (formulaOffenderIds.size !== resolvedOffenderIds.size) return true;
+    for (const id of formulaOffenderIds) {
+      if (!resolvedOffenderIds.has(id)) return true;
+    }
+    return false;
+  }, [plan]);
+
   /** Apply a single issue's recommended fix (only distribution is in-place). */
   const applyFix = (issue: ReviewIssue) => {
     if (issue.fix?.kind === "switch_distribution" && issue.fix.distribution) {
@@ -140,22 +237,53 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
     }
   };
 
+  // Total visible issue count includes preflight issues (shown in same panel).
+  const totalIssueCount = issues.length + preflightIssues.length;
+  const hasAnyErrors = ready.errors > 0 || preflightBlocked;
+
   // Issues count badge color (errors red / warnings amber / else neutral).
   const issueBadgeStyle = {
     backgroundColor:
-      ready.errors > 0
+      hasAnyErrors
         ? "var(--color-error, #ff4d4f)"
         : ready.warnings > 0
           ? "var(--color-warning, #faad14)"
           : "var(--color-border)",
-    color: ready.errors > 0 || ready.warnings > 0 ? "white" : "var(--color-text-secondary)",
+    color: hasAnyErrors || ready.warnings > 0 ? "white" : "var(--color-text-secondary)",
   };
 
   return (
-    <div data-screen="lv2-step4-review" className="flex h-full min-h-0">
+    <div data-screen="lv2-step4-review" className="flex h-full min-h-0 flex-col">
+      {/* HEADER */}
+      <div className="flex shrink-0 items-center border-b border-border bg-background px-4 py-2">
+        <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground/70">
+          Review
+        </span>
+      </div>
+
+      {/* MAIN */}
+      <div className="flex min-h-0 flex-1">
+        <>
       {/* LEFT — colour-coded tree rail (master, multi-select). */}
       <div className="flex w-[280px] shrink-0 flex-col border-r border-border bg-muted/20">
-        <NodeTreeRail plan={plan} selectedIds={selectedIds} onSelect={handleSelect} />
+        <div className="shrink-0 border-b border-border">
+          <ReviewFiltersPopover
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            filterKind={filterKind}
+            onFilterKindChange={setFilterKind}
+          />
+        </div>
+        <NodeTreeRail
+          plan={plan}
+          tree={tree}
+          selectedIds={selectedIds}
+          onSelect={handleSelect}
+          onMultiSelect={handleMultiSelect}
+          onRename={handleRename}
+          highlightQuery={searchQuery}
+          filterKind={filterKind}
+        />
       </div>
 
       {/* CENTER — overview (stats + breakdown + issues) over the edit pane. */}
@@ -208,8 +336,8 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
-                  {ready.errors > 0
-                    ? `Fix ${ready.errors} blocking issue${ready.errors === 1 ? "" : "s"} to launch.`
+                  {hasAnyErrors
+                    ? `Fix ${ready.errors + preflightIssues.filter((i) => i.tier === "error").length} blocking issue${(ready.errors + preflightIssues.filter((i) => i.tier === "error").length) === 1 ? "" : "s"} to launch.`
                     : ready.warnings > 0
                       ? `${ready.warnings} ${ready.warnings === 1 ? "warning" : "warnings"} — you can still launch.`
                       : "Ready to launch."}
@@ -239,13 +367,13 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
                   className="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[10px] tabular-nums"
                   style={issueBadgeStyle}
                 >
-                  {issues.length}
+                  {totalIssueCount}
                 </span>
               </span>
-              {!issuesOpen && issues.length > 0 && (
+              {!issuesOpen && totalIssueCount > 0 && (
                 <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                  {ready.errors > 0
-                    ? `${ready.errors} blocking`
+                  {hasAnyErrors
+                    ? `${ready.errors + preflightIssues.filter((i) => i.tier === "error").length} blocking`
                     : ready.warnings > 0
                       ? `${ready.warnings} warning${ready.warnings === 1 ? "" : "s"}`
                       : "review"}
@@ -254,7 +382,62 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
             </button>
             {issuesOpen && (
               <div className="border-t border-border px-3 py-3">
-                <IssuesList issues={issues} onApplyFix={applyFix} onAutoFix={autoFix} />
+                {preflightIssues.length > 0 && (
+                  <div className="mb-3">
+                    <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Pre-launch checks
+                    </p>
+                    <IssuesList issues={preflightIssues} onApplyFix={() => {}} onAutoFix={() => {}} />
+                  </div>
+                )}
+                {issues.length > 0 && (
+                  <>
+                    {preflightIssues.length > 0 && (
+                      <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Campaign checks
+                      </p>
+                    )}
+                    <IssuesList issues={issues} onApplyFix={applyFix} onAutoFix={autoFix} />
+                  </>
+                )}
+                {preflightIssues.length === 0 && issues.length === 0 && (
+                  <p className="text-[13px] text-muted-foreground">No issues.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Cap-divergence note — shown only when per-adset overrides make
+              the Step 4 cap status differ from the Setup step formula. */}
+          {showCapDivergenceNote && (
+            <p className="font-mono text-[11px] text-muted-foreground">
+              Cap reflects your per-ad-set overrides — may differ from the Setup step.
+            </p>
+          )}
+        </div>
+
+        {/* Naming — collapsible nomenclature token builder (D27) */}
+        <div className="shrink-0 border-b border-border px-4 py-2">
+          <div className="rounded-2xl border border-border">
+            <button
+              type="button"
+              onClick={() => setNamingOpen((o) => !o)}
+              aria-expanded={namingOpen}
+              className="fab-focus flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 text-muted-foreground transition-transform",
+                    namingOpen ? "rotate-0" : "-rotate-90",
+                  )}
+                />
+                <span className="text-[13px] font-medium text-foreground">Naming</span>
+              </span>
+            </button>
+            {namingOpen && (
+              <div className="border-t border-border px-3 py-3">
+                <NomenclatureBuilder flow={flow} />
               </div>
             )}
           </div>
@@ -264,14 +447,39 @@ export default function Step4Review({ flow }: { flow: UseFlowV2 }) {
         <div className="min-h-0 flex-1">
           <NodeEditPane flow={flow} nodes={selectedNodes} />
         </div>
+
+        {/* Bulk-selection footer — visible when 2+ nodes are selected */}
+        {selectedIds.length > 1 && (
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-primary/5 px-4 py-2">
+            <span className="font-mono text-[11px] font-semibold text-primary">
+              {selectedIds.length} nodes selected — editing all simultaneously
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(selectedIds.slice(0, 1))}
+              className="fab-focus inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Clear bulk selection"
+            >
+              <X className="h-3 w-3" />
+              Clear selection
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* RIGHT — always-open, node-aware preview rail. */}
-      <div className="flex w-[380px] shrink-0 flex-col">
+      {/* RIGHT — always-open, node-aware preview rail with placement tabs (D25). */}
+      <div className="flex w-[380px] shrink-0 flex-col border-l border-border">
+        <div className="shrink-0 border-b border-border px-3 py-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70">
+            Ad Preview
+          </span>
+        </div>
         <div className="min-h-0 flex-1">
-          <PreviewPane plan={plan} node={previewNode} />
+          <PlacementPreviewTabs plan={plan} node={previewNode} />
         </div>
       </div>
+        </>
+      </div>{/* end MAIN */}
     </div>
   );
 }

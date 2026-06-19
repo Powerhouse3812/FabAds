@@ -13,8 +13,8 @@
  *     ANY selected node overrides the field, and Reset clears it on all of them.
  *     The Advanced + crop modals also fan out to every selected node.
  */
-import { useMemo, useState } from "react";
-import { RotateCcw, Settings2, SlidersHorizontal } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { ChevronDown, ChevronRight, Lock, Monitor, RotateCcw, Settings2, SlidersHorizontal } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,11 +36,15 @@ import {
   setManyNodesOverride,
 } from "../../nodeOverrides";
 import type { NodeKind, TreeNode } from "./reviewModel";
+import { baselineAdCountForAdSet } from "./reviewModel";
 import { FieldRenderer } from "./FieldRenderer";
 import { AdvancedSettingsModal } from "./AdvancedSettingsModal";
 import { PlacementCropModal } from "./PlacementCropModal";
 import AudienceEditor from "../steps/audience/AudienceEditor";
 import type { TargetingSpec } from "../../types";
+import { PlacementPreviewTabs } from "./PlacementPreviewTabs";
+import { AccountDetailPane } from "./AccountDetailPane";
+import { fieldGateAcross, type FieldGate } from "./fieldGating";
 
 const KIND_LABEL: Record<NodeKind, string> = {
   account: "Account",
@@ -98,6 +102,18 @@ export function NodeEditPane({
   const [cropOpen, setCropOpen] = useState(false);
   // Audience accordion open state (D30)
   const [audienceOpen, setAudienceOpen] = useState(false);
+  // Preview accordion open state (D25) — ad-level only
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Multi-open accordion: Set of expanded section ids — all open by default.
+  const [openSection, setOpenSection] = useState<Set<string>>(new Set());
+  const selectionKey = nodes.map((n) => n.id).join(",");
+  useEffect(() => {
+    const reg = SETTINGS_REGISTRY[nodes[0]?.kind];
+    setOpenSection(new Set(reg ? reg.sections.map((s) => s.id) : []));
+    // audienceOpen intentionally left alone — it's a separate accordion (D30).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionKey]);
 
   const currency = plan.targets[0]?.currency ?? "USD";
 
@@ -115,6 +131,28 @@ export function NodeEditPane({
   // The node whose values the modal reads from (its writers fan out to all).
   const headId = nodeIds[0];
 
+  // Account nodes get a bespoke read-only detail panel (identity is set in Setup,
+  // not editable here) + a collapsed per-account distribution control. Account
+  // detail is single-account only — its one editable control (per-account page
+  // split) writes to a single accountId, so a multi-account selection would
+  // silently edit just the first. Show an honest hint instead of pretending.
+  if (kind === "account") {
+    if (bulk) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+          <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/70">
+            {nodes.length} accounts selected
+          </span>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Account details and per-account distribution are edited one account at
+            a time. Select a single account in the tree to view it.
+          </p>
+        </div>
+      );
+    }
+    return <AccountDetailPane flow={flow} node={nodes[0]} />;
+  }
+
   const reg = SETTINGS_REGISTRY[kind];
   const common = commonFields(kind, plan);
   const advanced = advancedFields(kind, plan);
@@ -127,7 +165,9 @@ export function NodeEditPane({
   const grouped = reg.sections
     .map((s) => ({
       section: s,
-      fields: common.filter((f) => f.section === s.id),
+      fields: common.filter(
+        (f) => f.section === s.id && !fieldGateAcross(plan, kind, nodeIds, f.id).hidden,
+      ),
       hasAdvanced: advanced.some((f) => f.section === s.id),
     }))
     .filter((g) => g.fields.length > 0 || g.hasAdvanced);
@@ -206,37 +246,74 @@ export function NodeEditPane({
           )}
         </div>
 
-        {/* ── Sections ────────────────────────────────────────────── */}
-        {grouped.map((g) => (
-          <div key={g.section.id} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground/70">
-                {g.section.label}
-              </h4>
-              {g.hasAdvanced && (
-                <button
-                  type="button"
-                  onClick={() => setAdvSection(g.section.id)}
-                  className="fab-focus inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <SlidersHorizontal className="h-3 w-3" /> More
-                </button>
+        {/* ── Sections — multi-open accordion ─────────────────────── */}
+        {grouped.map((g) => {
+          const isOpen = openSection.has(g.section.id);
+          return (
+            <div key={g.section.id} className="overflow-hidden rounded-2xl border border-border">
+              {/* Accordion trigger */}
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenSection((prev) => {
+                    const next = new Set(prev);
+                    isOpen ? next.delete(g.section.id) : next.add(g.section.id);
+                    return next;
+                  })
+                }
+                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
+                aria-expanded={isOpen}
+              >
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+                  {g.section.label}
+                </span>
+                <span className="flex items-center gap-2">
+                  {g.hasAdvanced && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAdvSection(g.section.id);
+                      }}
+                      className="fab-focus inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <SlidersHorizontal className="h-3 w-3" /> More
+                    </button>
+                  )}
+                  {isOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </span>
+              </button>
+
+              {/* Accordion body */}
+              {isOpen && (
+                <div className="space-y-3 border-t border-border px-4 py-3">
+                  {g.fields.map((field) => {
+                    const gate = fieldGateAcross(plan, kind, nodeIds, field.id);
+                    return (
+                      <EditField
+                        key={field.id}
+                        field={field}
+                        plan={plan}
+                        nodeIds={nodeIds}
+                        headId={headId}
+                        bulk={bulk}
+                        currency={currency}
+                        gate={gate}
+                        onChange={(v) => setField(field, v)}
+                        onReset={() => reset(field)}
+                        onOpenCrop={() => setCropOpen(true)}
+                      />
+                    );
+                  })}
+                </div>
               )}
             </div>
-            {g.fields.map((field) => (
-              <EditField
-                key={field.id}
-                field={field}
-                plan={plan}
-                nodeIds={nodeIds}
-                currency={currency}
-                onChange={(v) => setField(field, v)}
-                onReset={() => reset(field)}
-                onOpenCrop={() => setCropOpen(true)}
-              />
-            ))}
-          </div>
-        ))}
+          );
+        })}
 
         {/* ── Audience section — adset level only (D30) ────────────── */}
         {kind === "adset" && (() => {
@@ -295,6 +372,43 @@ export function NodeEditPane({
                     specialAdCategoryActive={specialAdCategoryActive}
                     compact
                   />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── Preview section — ad level, single-select only (D25) ─── */}
+        {kind === "ad" && !bulk && (() => {
+          // Find the TreeNode for the selected ad so PlacementPreviewTabs can
+          // resolve the representative creative / copy correctly.
+          const headNode = nodes[0] ?? null;
+          return (
+            <div className="overflow-hidden rounded-2xl border border-border">
+              {/* Accordion trigger */}
+              <button
+                type="button"
+                onClick={() => setPreviewOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/30 transition-colors"
+                aria-expanded={previewOpen}
+              >
+                <span className="flex items-center gap-2">
+                  <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+                    Preview
+                  </span>
+                </span>
+                {previewOpen ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </button>
+
+              {/* Accordion body */}
+              {previewOpen && (
+                <div className="border-t border-border">
+                  <PlacementPreviewTabs plan={plan} node={headNode} />
                 </div>
               )}
             </div>
@@ -364,7 +478,10 @@ function EditField({
   field,
   plan,
   nodeIds,
+  headId,
+  bulk,
   currency,
+  gate,
   onChange,
   onReset,
   onOpenCrop,
@@ -373,32 +490,65 @@ function EditField({
   plan: PlanV2;
   /** All selected node ids — length 1 for single-select. */
   nodeIds: string[];
+  /** The first (or only) selected node id — used for per-node baseline lookups. */
+  headId: string;
+  /** True when multiple nodes are selected simultaneously. */
+  bulk: boolean;
   currency: string;
+  gate?: FieldGate;
   onChange: (v: unknown) => void;
   onReset: () => void;
   onOpenCrop: () => void;
 }) {
-  const planDefault = planDefaultFor(plan, field);
+  // For adsPerAdSet (adset level, single-select), show the per-slot baseline
+  // as the inherited default instead of the flat plan.structure.adsPerAdSet,
+  // which is misleading because slots receive unequal counts when the total
+  // doesn't divide evenly. For multi-select (bulk) we fall back to the flat
+  // planDefaultFor value — showing per-node baselines across heterogeneous
+  // selections would need a per-node UI that we don't have yet.
+  const planDefault = useMemo(
+    () =>
+      field.id === "adsPerAdSet" && !bulk
+        ? baselineAdCountForAdSet(plan, headId)
+        : planDefaultFor(plan, field),
+    // field is stable (from static registry); plan + headId + bulk are the real deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plan, headId, bulk, field.id],
+  );
   // Overridden accent if ANY selected node overrides this field.
-  const overridden = nodeIds.some((id) => isOverridden(plan, id, field.id));
-  const resolved = valueAcross(plan, nodeIds, field.id, planDefault);
+  const overridden = useMemo(
+    () => nodeIds.some((id) => isOverridden(plan, id, field.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plan, nodeIds, field.id],
+  );
+  // valueAcross may call JSON.stringify for object-valued fields — memoize to
+  // avoid re-running the comparison on every parent re-render.
+  const resolved = useMemo(
+    () => valueAcross(plan, nodeIds, field.id, planDefault),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plan, nodeIds, field.id, planDefault],
+  );
   const mixed = resolved === MIXED;
   // In a mixed state we feed the renderer the plan default but flag a "Mixed"
   // placeholder so the user knows values vary.
   const value = mixed ? planDefault : resolved;
 
+  // A locked field is owned by a parent decision — suppress the override accent
+  // and Reset button so it reads as inherited/fixed, not user-overridden.
+  const showOverride = overridden && !gate?.locked;
+
   return (
     <div
       className={cn(
         "space-y-1.5 pl-2.5 transition-colors",
-        overridden ? "border-l-2 border-primary" : "border-l-2 border-transparent",
+        showOverride ? "border-l-2 border-primary" : "border-l-2 border-transparent",
       )}
     >
       <div className="flex items-center justify-between gap-2">
         <label
           className={cn(
             "flex items-center gap-1.5 text-[12px]",
-            overridden ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
+            showOverride ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
           )}
         >
           {field.label}
@@ -408,7 +558,7 @@ function EditField({
             </span>
           )}
         </label>
-        {overridden && (
+        {showOverride && (
           <button
             type="button"
             onClick={onReset}
@@ -418,20 +568,32 @@ function EditField({
           </button>
         )}
       </div>
-      <div
-        className={cn(
-          !overridden && field.kind === "readonly" && "opacity-90",
-          mixed && "opacity-70",
-        )}
-      >
-        <FieldRenderer
-          field={field}
-          value={value}
-          currency={currency}
-          onChange={onChange}
-          onOpenCrop={onOpenCrop}
-        />
-      </div>
+      {gate?.locked ? (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-[13px] text-muted-foreground">
+          <Lock className="h-3.5 w-3.5 shrink-0" />
+          <span>{gate.reason ?? "Set on a parent level"}</span>
+          {gate.badge && (
+            <span className="ml-auto rounded-full bg-foreground/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+              {gate.badge}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            !overridden && field.kind === "readonly" && "opacity-90",
+            mixed && "opacity-70",
+          )}
+        >
+          <FieldRenderer
+            field={field}
+            value={value}
+            currency={currency}
+            onChange={onChange}
+            onOpenCrop={onOpenCrop}
+          />
+        </div>
+      )}
       {field.help && <p className="text-[10px] text-muted-foreground/70">{field.help}</p>}
     </div>
   );

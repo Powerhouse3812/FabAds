@@ -86,9 +86,12 @@ export function setManyNodesOverride(
   fieldId: string,
   value: unknown,
 ): Record<string, NodeOverride> {
-  let next = store;
-  for (const id of nodeIds) next = setNodeOverride(next, id, fieldId, value);
-  return next;
+  // Build the result in a single pass to avoid O(n) intermediate spread objects.
+  const result = { ...store };
+  for (const id of nodeIds) {
+    result[id] = result[id] ? { ...result[id], [fieldId]: value } : { [fieldId]: value };
+  }
+  return result;
 }
 
 /** Reset one field on a node back to the plan default (delete the key). */

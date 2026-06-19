@@ -16,6 +16,10 @@ import LaunchV2Settings from "./screens/LaunchV2Settings";
 import LaunchV2Hub from "./screens/LaunchV2Hub";
 import LaunchV2Auto from "./screens/LaunchV2Auto";
 import FeedbackPanel from "./feedback/FeedbackPanel";
+import { LaunchHistory } from "./screens/history/LaunchHistory";
+import { StrategiesLibrary } from "./screens/strategies/StrategiesLibrary";
+import { TemplatesLibrary } from "./screens/templates/TemplatesLibrary";
+import { LaunchSettings } from "./screens/settings/LaunchSettings";
 
 export const launchV2Routes = (
   <Route path="launchv2" element={<LaunchV2Layout />}>
@@ -28,8 +32,11 @@ export const launchV2Routes = (
     <Route path="settings/setup" element={<LaunchV2Settings />} />
     <Route path="settings/distribution" element={<LaunchV2Settings />} />
     <Route path="settings/strategy" element={<LaunchV2Settings />} />
-    <Route path="settings/launch" element={<LaunchV2Settings />} />
+    <Route path="settings/launch" element={<LaunchSettings />} />
     <Route path="auto" element={<LaunchV2Auto />} />
+    <Route path="history" element={<LaunchHistory />} />
+    <Route path="strategies" element={<StrategiesLibrary />} />
+    <Route path="templates" element={<TemplatesLibrary />} />
     <Route path=":id" element={<LaunchV2Detail />} />
   </Route>
 );

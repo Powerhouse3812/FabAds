@@ -181,6 +181,7 @@ const CAMPAIGN: LevelRegistry = {
         { value: "ABO", label: "Ad set (ABO)" },
       ],
     },
+    // visibility/lock now resolved per-node in screens/review/fieldGating.ts
     {
       id: "budgetAmount",
       label: "Daily budget",
@@ -189,7 +190,6 @@ const CAMPAIGN: LevelRegistry = {
       section: "budget",
       planKey: "budgetAmount",
       min: 1,
-      visibleWhen: (p) => p.budgetMode === "CBO",
     },
     {
       id: "advantagePlus",
@@ -263,6 +263,7 @@ const ADSET: LevelRegistry = {
   ],
   fields: [
     // Budget & schedule
+    // visibility/lock now resolved per-node in screens/review/fieldGating.ts
     {
       id: "dailyBudget",
       label: "Daily budget",
@@ -270,7 +271,6 @@ const ADSET: LevelRegistry = {
       tier: "common",
       section: "budget",
       planKey: "budgetAmount",
-      visibleWhen: (p) => p.budgetMode === "ABO",
       min: 1,
     },
     { id: "startTime", label: "Start time", kind: "text", tier: "advanced", section: "budget" },
@@ -302,6 +302,7 @@ const ADSET: LevelRegistry = {
       planKey: "optimizationGoal",
       options: OPT_GOAL_OPTIONS,
     },
+    // visibility/lock now resolved per-node in screens/review/fieldGating.ts
     {
       id: "conversionEvent",
       label: "Conversion event",
@@ -309,8 +310,6 @@ const ADSET: LevelRegistry = {
       tier: "common",
       section: "conversion",
       planKey: "conversionEvent",
-      visibleWhen: (p) =>
-        p.optimizationGoal === "OFFSITE_CONVERSIONS" || p.optimizationGoal === "VALUE",
     },
     {
       id: "attribution",
@@ -369,6 +368,7 @@ const ADSET: LevelRegistry = {
         { value: "manual", label: "Manual" },
       ],
     },
+    // visibility/lock now resolved per-node in screens/review/fieldGating.ts
     {
       id: "placements",
       label: "Manual placements",
@@ -376,7 +376,6 @@ const ADSET: LevelRegistry = {
       tier: "common",
       section: "placements",
       planKey: "placements",
-      visibleWhen: (p) => p.placementMode === "manual",
     },
     { id: "devicePlatforms", label: "Devices", kind: "segmented", tier: "advanced", section: "placements", options: [
       { value: "all", label: "All" },
@@ -407,6 +406,16 @@ const ADSET: LevelRegistry = {
       tier: "advanced",
       section: "optimization",
       help: "Meta mixes assets into combinations.",
+    },
+    {
+      id: "adsPerAdSet",
+      label: "Ads in this ad set",
+      kind: "number",
+      tier: "common",
+      section: "optimization",
+      planKey: "structure.adsPerAdSet",
+      min: 1,
+      help: "Override the number of ads launched into this specific ad set.",
     },
     { id: "frequencyCap", label: "Frequency cap", kind: "text", tier: "advanced", section: "advanced" },
   ],

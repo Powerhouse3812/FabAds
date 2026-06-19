@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AccountDistribution, AdFormat, Intent, MediaScope, NamingPatterns, Objective, PageDistribution, PlanV2, StructureCounts, TargetPair, TargetingSpec } from "../types";
+import { gcNodeOverrides } from "../gcOverrides";
 import {
   cascade,
   defaultBudgetMode,
@@ -22,6 +23,7 @@ import type {
   DistributionTemplate,
   SetupTemplate,
 } from "../templates/types";
+import { loadDefaults } from "../services/defaultsService";
 
 export type StepV2 = 1 | 2 | 3 | 4 | 5;
 
@@ -42,27 +44,28 @@ function genId(): string {
 }
 
 export function newPlanV2(): PlanV2 {
+  const defaults = loadDefaults();
   const ts = new Date().toISOString();
   return {
     id: genId(),
     name: "Untitled launch",
     source: { type: null, ref: null },
-    intent: "custom",
+    intent: defaults.intent,
     objective: null,
     format: null,
     targets: [],
     destinationType: null,
     optimizationGoal: null,
     conversionEvent: null,
-    budgetMode: "ABO",
-    budgetAmount: 20,
+    budgetMode: defaults.budgetMode,
+    budgetAmount: defaults.budgetAmount,
     budgetPeriod: "daily" as const,
-    bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+    bidStrategy: defaults.bidStrategy,
     bidValue: null,
-    advantagePlus: false,
+    advantagePlus: defaults.advantagePlus,
     targetingTemplateId: TARGETING_TEMPLATES[0]?.id ?? null,
-    advantageAudience: true,
-    advantageCreative: true,
+    advantageAudience: defaults.advantageAudience,
+    advantageCreative: defaults.advantageCreative,
     specialAdCategories: [],
     specialAdDeclared: false,
     payor: "",
@@ -118,7 +121,7 @@ export function newPlanV2(): PlanV2 {
     structure: { campaigns: 1, adSetsPerCampaign: 1, adsPerAdSet: 1 },
     pageDistribution: "fill_first",
     pageWeights: {},
-    namingPattern: "{brand}_{intent}_{objective}_{date}",
+    namingPattern: defaults.adNamePattern,
     scheduledFor: null,
     nodeOverrides: {},
     appliedSetupTemplateId: null,
@@ -209,6 +212,7 @@ export interface UseFlowV2 {
   applyDistributionTemplate: (id: string) => void;
   unlinkDistributionTemplate: () => void;
   saveCurrentDistributionAsTemplate: (name: string) => DistributionTemplate;
+
 }
 
 export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFlowV2 {
@@ -229,6 +233,33 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
   });
   const [step, setStepState] = useState<StepV2>(() => (initialState?.step as StepV2) ?? 1);
 
+  // ── Cross-tab sync via BroadcastChannel ───────────────────────────
+  const channel = useRef<BroadcastChannel | null>(null);
+  /** True while applying an incoming broadcast — prevents re-broadcasting. */
+  const isBroadcastUpdate = useRef(false);
+
+  useEffect(() => {
+    const bc = new BroadcastChannel("fabads_launchv2_sync");
+    channel.current = bc;
+
+    bc.onmessage = (evt: MessageEvent) => {
+      if (
+        evt.data?.type === "plan-update" &&
+        evt.data?.planId === plan.id
+      ) {
+        isBroadcastUpdate.current = true;
+        setPlan(evt.data.plan as PlanV2);
+        isBroadcastUpdate.current = false;
+      }
+    };
+
+    return () => {
+      bc.close();
+      channel.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount/unmount only — plan.id is stable after mount
+
   // autosave
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -245,12 +276,33 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
     };
   }, [plan]);
 
-  const patch = useCallback((p: Partial<PlanV2>) => setPlan((prev) => ({ ...prev, ...p })), []);
+  const SHAPE_KEYS = ["structure", "targets", "spread"] as const;
+  const patch = useCallback((updates: Partial<PlanV2>) => {
+    setPlan((prev) => {
+      const merged: PlanV2 = { ...prev, ...updates };
+      const needsGC =
+        (SHAPE_KEYS as readonly string[]).some((k) => k in updates) ||
+        (updates.nodeOverrides !== undefined &&
+          Object.values(updates.nodeOverrides).some((f) => "adsPerAdSet" in f));
+      const newPlan = needsGC ? gcNodeOverrides(merged) : merged;
+
+      // Broadcast to other tabs (skip if this update itself came from a broadcast)
+      if (!isBroadcastUpdate.current) {
+        channel.current?.postMessage({
+          type: "plan-update",
+          planId: newPlan.id,
+          plan: newPlan,
+        });
+      }
+
+      return newPlan;
+    });
+  }, []);
 
   const chooseIntent = useCallback((i: Intent) => {
     setPlan((prev) => {
       const d = intentDefaults(i, prev.objective);
-      return {
+      return gcNodeOverrides({
         ...prev,
         intent: i,
         budgetMode: d.budgetMode,
@@ -259,7 +311,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
         structure: { ...d.structure },
         advantagePlus: d.advantagePlus,
         budgetAmount: d.budgetAmount,
-      };
+      });
     });
   }, []);
 
@@ -273,7 +325,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
       const mappedIntent = intentMap[id] as Intent | undefined;
       if (mappedIntent) {
         const d = intentDefaults(mappedIntent, prev.objective);
-        return {
+        return gcNodeOverrides({
           ...prev,
           strategyId: id,
           intent: mappedIntent,
@@ -283,7 +335,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
           structure: { ...d.structure },
           advantagePlus: d.advantagePlus,
           budgetAmount: d.budgetAmount,
-        };
+        });
       }
       return { ...prev, strategyId: id };
     });
@@ -314,7 +366,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
       //    template's budget/structure/spread/bid/etc. take precedence, while
       //    keeping cascade-derived destination/optimization where the snapshot
       //    is silent. flowMode flips to "template"; everything stays editable.
-      return {
+      return gcNodeOverrides({
         ...prev,
         ...cascaded,
         ...snapshot,
@@ -324,7 +376,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
           prev.name === "Untitled launch" && objective
             ? `${objective.replace("OUTCOME_", "").toLowerCase()} launch`
             : prev.name,
-      };
+      });
     });
   }, []);
 
@@ -389,7 +441,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
       }
       const budget =
         p.campaign.dailyBudget ?? p.campaign.lifetimeBudget ?? prev.budgetAmount;
-      return {
+      return gcNodeOverrides({
         ...prev,
         targets: nextTargets.length ? nextTargets : prev.targets,
         objective: p.campaign.objective ?? prev.objective,
@@ -410,7 +462,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
         // so the inline snapshot wins and Setup-template diffs are accurate.
         targetingTemplateId: null,
         appliedSetupTemplateId: tpl.id,
-      };
+      });
     });
   }, []);
 
@@ -433,7 +485,7 @@ export function useFlowV2(draftId?: string, initialState?: DeepLinkState): UseFl
     const tpl = templatesService.getDistribution(id);
     if (!tpl) return;
     const p = tpl.payload;
-    setPlan((prev) => ({
+    setPlan((prev) => gcNodeOverrides({
       ...prev,
       structure: { ...p.structure },
       spread: p.spread,

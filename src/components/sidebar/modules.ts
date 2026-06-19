@@ -125,14 +125,10 @@ export const MODULES: ModuleDef[] = [
     key: "launchv2", label: "Launches", icon: Sparkles, badge: "Beta",
     subItems: [
       { label: "New launch", path: "/launchv2/new", icon: Plus },
-      { label: "History", path: "/launchv2", icon: History },
-      { label: "Templates", path: "/launchv2/settings", icon: LibraryIcon, subItems: [
-        { label: "Audience", path: "/launchv2/settings/audience" },
-        { label: "Setup", path: "/launchv2/settings/setup" },
-        { label: "Distribution", path: "/launchv2/settings/distribution" },
-        { label: "Strategy", path: "/launchv2/settings/strategy" },
-        { label: "Launch settings", path: "/launchv2/settings/launch" },
-      ]},
+      { label: "History", path: "/launchv2/history", icon: History },
+      { label: "Strategies", path: "/launchv2/strategies", icon: Bookmark },
+      { label: "Templates", path: "/launchv2/templates", icon: LibraryIcon },
+      { label: "Launch settings", path: "/launchv2/settings/launch", icon: Settings },
       { label: "Auto launch", path: "/launchv2/auto", icon: Zap, badge: "Soon" },
     ],
   },

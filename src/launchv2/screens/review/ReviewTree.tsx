@@ -130,9 +130,9 @@ export function ReviewTree({
     return set;
   });
 
-  // ── Exclusive-accordion expand callback ───────────────────────────
+  // ── Multi-expand callback (parallel expand — siblings stay open) ──
   const toggleExpand = useCallback(
-    (nodeId: string, siblings: TreeNode[]) => {
+    (nodeId: string, _siblings: TreeNode[]) => {
       setExpandedIds((prev) => {
         const next = new Set(prev);
         if (next.has(nodeId)) {
@@ -140,13 +140,6 @@ export function ReviewTree({
           removeDescendants(next, nodeId, tree);
           next.delete(nodeId);
         } else {
-          // Expanding: close siblings at the same level (exclusive accordion)
-          siblings.forEach((s) => {
-            if (s.id !== nodeId) {
-              removeDescendants(next, s.id, tree);
-              next.delete(s.id);
-            }
-          });
           next.add(nodeId);
         }
         return next;

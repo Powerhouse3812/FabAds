@@ -9,11 +9,15 @@
  *
  * Mirrors launch2's Detail quality; uses the launchv2 LaunchRunV2 shape.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  AlertCircle,
+  BookmarkPlus,
   CalendarClock,
+  Check,
+  Info,
   RotateCcw,
   Target,
   Wallet,
@@ -22,11 +26,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { useLaunchV2, useRunV2 } from "../state/LaunchV2Context";
+import { useLaunchV2, useRehydratedRunId, useRunV2 } from "../state/LaunchV2Context";
 import { formatMoney, formatRelative } from "@/launch2/utils/time";
-import type { LaunchRunV2, RunStatus } from "../types";
+import type { LaunchRunV2, PlanV2, RunStatus } from "../types";
 import { DetailUnitTree, type UnitFilter } from "./review/DetailUnitTree";
 import { ERR, ERR_TEXT, OK, OK_TEXT, WARN, WARN_TEXT } from "./review/reviewParts";
+import { strategiesService } from "../services/strategiesService";
 
 const FILTERS: { id: UnitFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -35,12 +40,129 @@ const FILTERS: { id: UnitFilter; label: string }[] = [
   { id: "pending", label: "Pending" },
 ];
 
+/** Read the PlanV2 snapshot from sessionStorage (saved by useFlowV2 autosave). */
+function readPlanFromSession(planId: string): Partial<PlanV2> | null {
+  try {
+    const raw = typeof sessionStorage !== "undefined"
+      ? sessionStorage.getItem(`launchv2:flow:${planId}`)
+      : null;
+    if (!raw) return null;
+    return JSON.parse(raw) as PlanV2;
+  } catch {
+    return null;
+  }
+}
+
+/** Build a minimal saveable plan from a run when the full plan isn't in sessionStorage. */
+function minimalPlanFromRun(run: LaunchRunV2): Partial<PlanV2> {
+  const unique = new Map(run.units.map((u) => [u.target.fbPageId, u.target]));
+  const targets = [...unique.values()].map((t) => ({
+    accountId: t.accountId,
+    accountName: t.accountName,
+    currency: run.currency,
+    pageId: t.pageId,
+    fbPageId: t.fbPageId,
+    pageName: t.pageName,
+    pixelId: t.pixelId,
+  }));
+  return {
+    name: run.name,
+    budgetAmount: run.budgetPerDay,
+    budgetMode: "CBO" as const,
+    targets,
+  };
+}
+
+/**
+ * Inline "Save as Strategy" widget — shown in the success / partial card.
+ * Reads the full plan from sessionStorage; falls back to a minimal run-derived snapshot.
+ */
+function SaveAsStrategyRow({ run }: { run: LaunchRunV2 }) {
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const defaultName = `${run.name} · ${new Date().toISOString().slice(0, 10)}`;
+  const [name, setName] = useState(defaultName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleOpen() {
+    setOpen(true);
+    // Focus the input on next tick
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function handleSave() {
+    if (!name.trim()) return;
+    const planSnapshot = readPlanFromSession(run.planId) ?? minimalPlanFromRun(run);
+    strategiesService.save(name.trim(), planSnapshot);
+    setSaved(true);
+    // Reset after 3 s so user can save again with a different name
+    setTimeout(() => {
+      setSaved(false);
+      setOpen(false);
+      setName(defaultName);
+    }, 3000);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleSave();
+    if (e.key === "Escape") { setOpen(false); setName(defaultName); }
+  }
+
+  if (saved) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/8 px-3.5 py-2.5 text-sm text-green-700 dark:text-green-400">
+        <Check className="h-4 w-4 shrink-0" />
+        <span>Strategy saved — find it in <span className="font-medium">Launch v2 → Strategies</span>.</span>
+      </div>
+    );
+  }
+
+  if (open) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Strategy name…"
+          className={cn(
+            "h-8 flex-1 min-w-48 rounded-lg border bg-background px-3 text-sm outline-none",
+            "focus:ring-2 focus:ring-primary/25 focus:border-primary",
+            "placeholder:text-muted-foreground/50",
+          )}
+        />
+        <Button size="sm" onClick={handleSave} disabled={!name.trim()}>
+          Save
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => { setOpen(false); setName(defaultName); }}
+          className="text-muted-foreground"
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleOpen}>
+      <BookmarkPlus className="h-4 w-4" />
+      Save as Strategy
+    </Button>
+  );
+}
+
 export default function LaunchV2Detail() {
   const { id } = useParams();
   const service = useLaunchV2();
   const run = useRunV2(id);
   const navigate = useNavigate();
   const [filter, setFilter] = useState<UnitFilter>("all");
+  const rehydratedRunId = useRehydratedRunId();
+  const wasRehydrated = !!id && id === rehydratedRunId;
 
   /* ---- not found ---- */
   if (!run) {
@@ -113,6 +235,22 @@ export default function LaunchV2Detail() {
         </div>
       </div>
 
+      {/* Re-hydration / stale banners */}
+      {wasRehydrated && run.status !== "stale" && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm text-primary">
+          <Info className="h-4 w-4 shrink-0" />
+          <span>Refreshed from previous session — showing your last launch progress.</span>
+        </div>
+      )}
+      {run.status === "stale" && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            The plan changed since this launch was started — the progress below may not match the current plan.
+          </span>
+        </div>
+      )}
+
       {/* Scheduled state — no progress churn */}
       {isScheduled ? (
         <ScheduledCard scheduledFor={run.scheduledFor} requested={run.requested} />
@@ -168,6 +306,19 @@ export default function LaunchV2Detail() {
                   </div>
                 </>
               )}
+
+              {/* Save as Strategy — shown once the launch has settled (completed or partial) */}
+              {(run.status === "completed" || run.status === "partial") && (
+                <>
+                  <Separator />
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      Reuse this setup for future launches.
+                    </p>
+                    <SaveAsStrategyRow run={run} />
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -214,6 +365,7 @@ function StatusPill({ status }: { status: RunStatus }) {
     failed: { label: "Failed", color: ERR, bg: "rgba(255,77,79,0.12)" },
     scheduled: { label: "Scheduled", color: "rgba(15,15,12,0.55)", bg: "rgba(15,15,12,0.06)" },
     queued: { label: "Queued", color: "rgba(15,15,12,0.55)", bg: "rgba(15,15,12,0.06)" },
+    stale: { label: "Stale", color: WARN, bg: "rgba(250,173,20,0.12)" },
   };
   const m = meta[status];
   return (

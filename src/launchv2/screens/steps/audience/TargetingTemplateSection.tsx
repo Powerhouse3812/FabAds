@@ -38,6 +38,11 @@ interface TargetingTemplateSectionProps {
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
+const COUNTRY_NAMES: Record<string, string> = {
+  IN: "India", US: "United States", GB: "United Kingdom", AU: "Australia",
+  CA: "Canada", DE: "Germany", FR: "France", BR: "Brazil", AE: "UAE", SG: "Singapore",
+};
+
 function genderLabel(genders: ("male" | "female")[]): string {
   if (!genders || genders.length === 0) return "All";
   if (genders.length === 1) return genders[0] === "male" ? "Men" : "Women";
@@ -46,7 +51,10 @@ function genderLabel(genders: ("male" | "female")[]): string {
 
 function firstGeoName(plan: PlanV2): string {
   const { geoLocations } = plan.targeting;
-  if (geoLocations.countries.length > 0) return geoLocations.countries[0];
+  if (geoLocations.countries.length > 0) {
+    const code = geoLocations.countries[0];
+    return COUNTRY_NAMES[code] ?? code;
+  }
   if (geoLocations.cities.length > 0) return geoLocations.cities[0].name ?? geoLocations.cities[0].key;
   if (geoLocations.regions.length > 0) return geoLocations.regions[0].name ?? geoLocations.regions[0].key;
   return "Worldwide";
@@ -361,35 +369,6 @@ export default function TargetingTemplateSection({
         </div>
       </div>
 
-      {/* ── 4. Advantage+ Creative — compact standalone card ───────────── */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-background px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-foreground">Advantage+ Creative</p>
-          <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-            Allow Meta to enhance your creative for better performance.
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={plan.advantageCreative}
-          onClick={() => onPatch({ advantageCreative: !plan.advantageCreative })}
-          className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-            plan.advantageCreative
-              ? "border-[#8FB821] bg-[#8FB821]"
-              : "border-border bg-muted",
-          )}
-        >
-          <span
-            className={cn(
-              "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-              plan.advantageCreative ? "translate-x-5" : "translate-x-0.5",
-            )}
-          />
-        </button>
-      </div>
-
       {/* Placement slot — injected by parent when A+ Audience is OFF */}
       {placementsSlot}
 
@@ -407,7 +386,7 @@ export default function TargetingTemplateSection({
       <TargetingTemplateModal
         open={modalOpen}
         targeting={plan.targeting}
-        onChange={(t) => onPatch({ targeting: t })}
+        onChange={(t) => onPatch({ targeting: t, targetingTemplateId: null })}
         onClose={() => setModalOpen(false)}
         specialAdCategoryActive={specialAdCategoryActive}
       />

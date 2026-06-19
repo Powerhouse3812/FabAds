@@ -5,15 +5,60 @@
  * model. Swap for the real Graph API behind this interface later.
  */
 import {
-  MAX_ADS_PER_PAGE,
   type AdUnitV2,
   type FailureReason,
   type LaunchRunV2,
   type PlanV2,
-  type TargetPair,
 } from "../types";
-import { adsPerDestination, budgetPerDay } from "../deriveV2";
-import { pageActiveAds } from "../data";
+import { budgetPerDay } from "../deriveV2";
+import { buildPlanUnits } from "../planUnits";
+import { saveRun as saveToHistory } from "./runsService";
+
+/* ------------------------------------------------------------------ */
+/*  Run persistence (sessionStorage)                                   */
+/* ------------------------------------------------------------------ */
+
+const RUN_STORAGE_KEY = "fabads_launchv2_run";
+
+/** Compute a stable string hash of the plan's targets + structure for stale-detection. */
+export function computePlanHash(plan: PlanV2): string {
+  try {
+    const targets = JSON.stringify(plan.targets);
+    const campaigns = String(plan.structure.campaigns);
+    return String(hashStr(targets + campaigns));
+  } catch {
+    return "";
+  }
+}
+
+function hashStr(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+export function persistRun(run: LaunchRunV2): void {
+  try {
+    sessionStorage.setItem(RUN_STORAGE_KEY, JSON.stringify(run));
+  } catch { /* quota exceeded or private-mode blocked — ignore */ }
+}
+
+export function hydratePersistentRun(): LaunchRunV2 | null {
+  try {
+    const raw = sessionStorage.getItem(RUN_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as LaunchRunV2;
+  } catch { return null; }
+}
+
+export function clearPersistentRun(): void {
+  try {
+    sessionStorage.removeItem(RUN_STORAGE_KEY);
+  } catch { /* ignore */ }
+}
 
 const FAIL_PCT = 6;
 const RETRY_PERSIST_PCT = 25;
@@ -21,12 +66,7 @@ const BATCH = 5;
 const TICK_MS = 750;
 
 function hash(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
+  return hashStr(s);
 }
 const RETRYABLE: FailureReason[] = [
   { code: "RATE_LIMITED", message: "Throttled by Meta — rate limited", retryable: true },
@@ -41,63 +81,22 @@ function pickFailure(seed: string): FailureReason {
   return h % 100 < 65 ? RETRYABLE[h % RETRYABLE.length] : NON_RETRYABLE[h % NON_RETRYABLE.length];
 }
 
-/** Resolve a naming pattern for a unit. */
-function resolveName(plan: PlanV2, ctx: { brand: string; adset: string; n: number }): string {
-  const map: Record<string, string> = {
-    "{brand}": ctx.brand,
-    "{intent}": plan.intent,
-    "{objective}": (plan.objective ?? "").replace("OUTCOME_", "").toLowerCase(),
-    "{date}": (plan.createdAt || new Date().toISOString()).slice(0, 10),
-    "{adset}": ctx.adset,
-    "{n}": String(ctx.n),
-  };
-  let out = plan.namingPattern || "{brand}_{intent}_{date}";
-  for (const [k, v] of Object.entries(map)) out = out.split(k).join(v);
-  return out.replace(/_{2,}/g, "_").replace(/^_+|_+$/g, "") || "Launch";
-}
-
+/**
+ * Build the launch units from the SHARED canonical expansion (`buildPlanUnits`).
+ * Each unit's id == its review-tree node id, so what the user reviewed (incl.
+ * per-node overrides) is exactly what launches, and a failed unit maps back to
+ * its tree node. Honors `structure.campaigns` (all campaigns real).
+ */
 function buildUnitsV2(plan: PlanV2): AdUnitV2[] {
-  if (plan.targets.length === 0) return [];
-  const creatives = plan.creatives.length ? plan.creatives : [{ id: "default", name: "Creative", format: plan.format ?? "single_image", source: "library" as const }];
-  const perDest = adsPerDestination(plan);
-  const objLabel = (plan.objective ?? "").replace("OUTCOME_", "");
-
-  // per-target counts (page distribution)
-  const n = plan.targets.length;
-  const caps = plan.targets.map((t) => Math.max(0, MAX_ADS_PER_PAGE - pageActiveAds(t.fbPageId)));
-  const counts: number[] = (() => {
-    if (plan.pageDistribution === "duplicate") return plan.targets.map(() => perDest);
-    if (plan.pageDistribution === "equal") {
-      const q = Math.floor(perDest / n), r = perDest % n;
-      return plan.targets.map((_, i) => q + (i < r ? 1 : 0));
-    }
-    let left = perDest;
-    const out = plan.targets.map(() => 0);
-    for (let i = 0; i < n && left > 0; i++) { const take = Math.min(caps[i], left); out[i] = take; left -= take; }
-    if (left > 0) out[n - 1] += left;
-    return out;
-  })();
-
-  const units: AdUnitV2[] = [];
-  plan.targets.forEach((target: TargetPair, ti) => {
-    const brand = target.accountName.split("—")[0].trim();
-    for (let i = 0; i < counts[ti]; i++) {
-      const idx = units.length;
-      const adSetIdx = (i % Math.max(plan.structure.adSetsPerCampaign, 1)) + 1;
-      const creative = creatives[idx % creatives.length];
-      const adSetName = `Ad set ${String(adSetIdx).padStart(2, "0")}`;
-      units.push({
-        id: `${plan.id}:${idx}`,
-        name: resolveName(plan, { brand, adset: String(adSetIdx).padStart(2, "0"), n: idx + 1 }),
-        campaignName: `${objLabel} · C1`,
-        adSetName,
-        creativeName: creative.name,
-        target,
-        status: "pending",
-      });
-    }
-  });
-  return units;
+  return buildPlanUnits(plan).map((u) => ({
+    id: u.adNodeId,
+    name: u.resolved.adName,
+    campaignName: u.resolved.campaignName,
+    adSetName: u.resolved.adSetName,
+    creativeName: u.creativeName,
+    target: u.target,
+    status: "pending",
+  }));
 }
 
 function reconcile(run: LaunchRunV2) {
@@ -144,10 +143,13 @@ class MockLaunchV2 {
       retryCount: 0,
       createdAt: new Date().toISOString(),
       scheduledFor: plan.scheduledFor ?? undefined,
+      planHash: computePlanHash(plan),
     };
     reconcile(run);
     this.runs.set(run.id, run);
     this.byPlan.set(plan.id, run.id);
+    persistRun(run);
+    saveToHistory(run);
     this.emit({ type: "runs-updated" });
     this.emit({ type: "run-updated", run });
     if (!scheduled) this.ensureTimer();
@@ -163,6 +165,8 @@ class MockLaunchV2 {
     failed.forEach((u) => { u.status = "pending"; this.attempt.set(u.id, (this.attempt.get(u.id) ?? 0) + 1); });
     run.status = "launching";
     reconcile(run);
+    persistRun(run);
+    saveToHistory(run);
     this.emit({ type: "run-updated", run });
     this.ensureTimer();
     return run;
@@ -190,6 +194,8 @@ class MockLaunchV2 {
           ? (run.units.every((u) => u.status === "failed") ? "failed" : "partial")
           : "completed";
         reconcile(run);
+        persistRun(run);
+        saveToHistory(run);
         this.emit({ type: "run-updated", run });
         this.emit({ type: "runs-updated" });
         return;
@@ -197,6 +203,8 @@ class MockLaunchV2 {
       any = true;
       pending.slice(0, BATCH).forEach((u) => this.resolve(u));
       reconcile(run);
+      persistRun(run);
+      saveToHistory(run);
       this.emit({ type: "run-updated", run });
     });
     if (!any) this.stop();
@@ -205,6 +213,42 @@ class MockLaunchV2 {
   private stop() { if (this.timer != null) { clearInterval(this.timer); this.timer = null; } }
   resumeLive() { if ([...this.runs.values()].some((r) => r.status === "launching")) this.ensureTimer(); }
   pauseLive() { this.stop(); }
+
+  /** Mark a run as stale (plan changed since the run was created). */
+  markRunStale(runId: string): void {
+    const run = this.runs.get(runId);
+    if (!run || run.status === "stale") return;
+    run.status = "stale";
+    persistRun(run);
+    this.emit({ type: "run-updated", run });
+    this.emit({ type: "runs-updated" });
+  }
+
+  /**
+   * Re-hydrate a persisted run from sessionStorage on app boot.
+   * If the run's planHash differs from the current plan (detected externally),
+   * mark it "stale" before restoring. Returns the re-hydrated run or null.
+   */
+  rehydrateFromStorage(currentPlan?: PlanV2): LaunchRunV2 | null {
+    const run = hydratePersistentRun();
+    if (!run) return null;
+    // Stale-detection: if we have a current plan and its hash differs → stale.
+    if (currentPlan && run.planHash !== undefined) {
+      const currentHash = computePlanHash(currentPlan);
+      if (currentHash !== run.planHash) {
+        run.status = "stale";
+      }
+    }
+    // Restore into in-memory maps (skip if already registered from this session).
+    if (!this.runs.has(run.id)) {
+      this.runs.set(run.id, run);
+      this.byPlan.set(run.planId, run.id);
+      this.emit({ type: "runs-updated" });
+      this.emit({ type: "run-updated", run });
+      if (run.status === "launching") this.ensureTimer();
+    }
+    return run;
+  }
 }
 
 export const launchV2Service = new MockLaunchV2();

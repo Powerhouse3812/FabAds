@@ -1828,4 +1828,32 @@ export const strategiesService = {
       audienceSummary,
     };
   },
+
+  duplicate(id: string): LaunchStrategy | undefined {
+    const original = hydrate().find((s) => s.id === id);
+    if (!original) return undefined;
+    const list = hydrate();
+    const now = new Date().toISOString();
+    const copy: LaunchStrategy = {
+      ...original,
+      id: genId(),
+      name: `Copy of ${original.name}`,
+      createdAt: now,
+      updatedAt: now,
+      useCount: 0,
+      lastUsedAt: undefined,
+    };
+    writeAll([...list, copy]);
+    return copy;
+  },
+
+  markUsed(id: string): void {
+    const now = new Date().toISOString();
+    const list = hydrate().map((s) =>
+      s.id === id
+        ? { ...s, useCount: (s.useCount ?? 0) + 1, lastUsedAt: now, updatedAt: now }
+        : s,
+    );
+    writeAll(list);
+  },
 };

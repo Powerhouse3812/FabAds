@@ -76,7 +76,7 @@ export interface PageDemand {
 }
 
 /** Ads each target receives, given page distribution. */
-function perTargetCounts(plan: PlanV2): number[] {
+export function perTargetCounts(plan: PlanV2): number[] {
   const per = adsPerDestination(plan);
   const n = plan.targets.length;
   if (n === 0) return [];

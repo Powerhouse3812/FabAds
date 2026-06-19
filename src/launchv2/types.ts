@@ -356,7 +356,11 @@ export type AttributionWindow = "1d_click" | "7d_click" | "7d_click_1d_view";
  * exists here. An override is a sparse bag keyed by settings-registry field id
  * (see settingsRegistry.ts). Absent key = inherited; present key = overridden;
  * delete key = reset-to-default. The store is keyed by the stable tree node id
- * produced by buildReviewTree (e.g. "acct:<fbPageId>:<ti>", "<fbPageId>:c0:s1").
+ * produced by buildReviewTree / buildPlanUnits (new ti-inclusive encoding):
+ *   account:  "acct:t{ti}:{fbPageId}"
+ *   campaign: "t{ti}:{fbPageId}:c{ci}"
+ *   adset:    "t{ti}:{fbPageId}:c{ci}:s{si}"
+ *   ad:       "t{ti}:{fbPageId}:c{ci}:s{si}:a{k}"
  *
  * Per-placement asset customization (the crop matrix) is stored under the
  * reserved field id "__assetCustomization" as an array of rules.
@@ -521,7 +525,7 @@ export interface FieldPolicy {
 }
 
 /* ---- Launch run (reliability accounting — same spine as launch2) ---- */
-export type RunStatus = "queued" | "launching" | "partial" | "completed" | "failed" | "scheduled";
+export type RunStatus = "queued" | "launching" | "partial" | "completed" | "failed" | "scheduled" | "stale";
 export type UnitStatus = "pending" | "creating" | "created" | "failed";
 export interface FailureReason { code: string; message: string; retryable: boolean }
 export interface AdUnitV2 {
@@ -549,4 +553,6 @@ export interface LaunchRunV2 {
   retryCount: number;
   createdAt: string;
   scheduledFor?: string;
+  /** Stable hash of the plan's targets + structure used for stale-detection on re-hydration. */
+  planHash?: string;
 }
