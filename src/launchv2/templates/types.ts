@@ -177,15 +177,89 @@ export interface CreativeBundleFolder {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* 4. AudiencePlacementTemplate — adset-level targeting configuration          */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+export interface APLocation {
+  key: string;       // e.g. "IN", "IN:Mumbai"
+  name: string;      // e.g. "India", "Mumbai"
+  type: "country" | "region" | "city" | "zip";
+}
+
+export interface APInterest {
+  id: string;
+  name: string;
+  type: "interest" | "behavior" | "demographic";
+}
+
+export interface APCustomAudience {
+  id: string;
+  name: string;
+  type: "lookalike" | "custom_list" | "website_traffic" | "engagement";
+  estimatedSize?: number;
+}
+
+export interface AudiencePlacementPayload {
+  // Audience
+  ageMin: number;
+  ageMax: number;
+  gender: "all" | "men" | "women";
+  locations: APLocation[];
+  languages: string[];
+  detailedTargeting: APInterest[];
+  customAudiences: APCustomAudience[];
+  exclusions: string[];
+  advantageAudience: boolean;
+  // Placement
+  placementMode: "advantage" | "manual";
+  // manual placement positions (only used when placementMode="manual")
+  manualPlacements: {
+    fbFeed: boolean;
+    fbStories: boolean;
+    fbReels: boolean;
+    fbMarketplace: boolean;
+    fbRightColumn: boolean;
+    fbVideoFeeds: boolean;
+    fbSearch: boolean;
+    igFeed: boolean;
+    igStories: boolean;
+    igReels: boolean;
+    igExplore: boolean;
+    igSearch: boolean;
+    anNative: boolean;
+    anRewarded: boolean;
+    msInbox: boolean;
+    msStories: boolean;
+  };
+  // Optimization & Delivery
+  optimizationGoal: string;
+  attributionClickWindow: number;
+  attributionViewWindow: number;
+  specialAdCategories: string[];
+  // Optional notes
+  notes?: string;
+}
+
+export interface AudiencePlacementTemplate {
+  id: string;
+  name: string;
+  workspaceId: string;
+  createdAt: number;
+  updatedAt: number;
+  payload: AudiencePlacementPayload;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 /* Common                                                                     */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-export type TemplateKind = "setup" | "distribution";
+export type TemplateKind = "setup" | "distribution" | "audience_placement";
 
 /** Persisted shape on localStorage. */
 export interface TemplateStoreV1 {
   setup: SetupTemplate[];
   distribution: DistributionTemplate[];
+  audiencePlacement: AudiencePlacementTemplate[];
 }
 
 export const DEFAULT_WORKSPACE_ID = "default";

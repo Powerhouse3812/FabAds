@@ -1,12 +1,12 @@
 /**
- * TemplatesLibrary — Full-page templates management surface.
+ * TemplatesLibrary — Audience & Placement templates management surface.
  *
- * Layout: Tab bar (Setup | Distribution) + two-panel (card list | preview rail).
+ * Layout: Single view (no tabs) — two-panel (card list left | 320px preview rail right).
  * Design: FabFunnel v1.2 — lime #8FB821, bg #FAFAF7 light / #18181B dark,
- * rounded-2xl cards, Geist Mono for metadata/numbers.
+ * rounded-2xl cards, Geist Mono for metadata/numbers/badges.
  *
- * Data: localStorage-backed via `templatesService`. Read-only from this surface —
- * creation lives in the Launch flow (Step 2 / Step 4). Rename + Delete supported.
+ * Data: localStorage-backed via `templatesService`. Rename + Delete supported.
+ * "Use in launch" is a placeholder CTA — wiring to launch flow is a separate step.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,35 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { templatesService } from "../../templates/service";
-import { summarizeDistribution, summarizeSetup } from "../../templates/summary";
 import type {
-  DistributionTemplate,
-  SetupTemplate,
-  TemplateKind,
+  AudiencePlacementTemplate,
+  APLocation,
+  APInterest,
 } from "../../templates/types";
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Types                                                                       */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-type ActiveTab = "setup" | "distribution";
-
-interface NormalizedTemplate {
-  id: string;
-  kind: TemplateKind;
-  name: string;
-  summary: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-type RenameTarget = { kind: TemplateKind; id: string; name: string } | null;
-type DeleteTarget = { kind: TemplateKind; id: string } | null;
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Helpers                                                                     */
@@ -66,28 +45,27 @@ function formatAbsolute(ts: number): string {
   });
 }
 
-function normalize(
-  setups: SetupTemplate[],
-  dists: DistributionTemplate[],
-): { setup: NormalizedTemplate[]; distribution: NormalizedTemplate[] } {
-  return {
-    setup: setups.map((t) => ({
-      id: t.id,
-      kind: "setup" as TemplateKind,
-      name: t.name,
-      summary: summarizeSetup(t.payload),
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    })),
-    distribution: dists.map((t) => ({
-      id: t.id,
-      kind: "distribution" as TemplateKind,
-      name: t.name,
-      summary: summarizeDistribution(t.payload),
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    })),
+function genderLabel(g: "all" | "men" | "women"): string {
+  return g === "all" ? "All" : g === "men" ? "Men" : "Women";
+}
+
+function placementModeLabel(mode: "advantage" | "manual"): string {
+  return mode === "advantage" ? "Advantage+" : "Manual";
+}
+
+function goalLabel(goal: string): string {
+  const map: Record<string, string> = {
+    OFFSITE_CONVERSIONS: "Conversions",
+    LINK_CLICKS: "Link Clicks",
+    REACH: "Reach",
+    VALUE: "Value",
+    IMPRESSIONS: "Impressions",
+    LANDING_PAGE_VIEWS: "Landing Page Views",
+    VIDEO_VIEWS: "Video Views",
+    POST_ENGAGEMENT: "Post Engagement",
+    APP_INSTALLS: "App Installs",
   };
+  return map[goal] ?? goal;
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -95,75 +73,51 @@ function normalize(
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export function TemplatesLibrary() {
-  const [setups, setSetups] = useState<SetupTemplate[]>([]);
-  const [dists, setDists] = useState<DistributionTemplate[]>([]);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("setup");
+  const [templates, setTemplates] = useState<AudiencePlacementTemplate[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [renameTarget, setRenameTarget] = useState<RenameTarget>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
 
   const refresh = useCallback(() => {
-    setSetups(templatesService.listSetup());
-    setDists(templatesService.listDistribution());
+    setTemplates(templatesService.listAudiencePlacement());
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // When switching tabs, reset selection and search
-  const handleTabSwitch = (tab: ActiveTab) => {
-    setActiveTab(tab);
-    setSelectedId(null);
-    setSearch("");
-  };
-
-  const normalized = normalize(setups, dists);
-  const activeList = normalized[activeTab];
-
-  const filteredList = search.trim()
-    ? activeList.filter((t) =>
+  const filteredTemplates = search.trim()
+    ? templates.filter((t) =>
         t.name.toLowerCase().includes(search.trim().toLowerCase()),
       )
-    : activeList;
+    : templates;
 
-  const selectedItem =
-    selectedId != null
-      ? activeList.find((t) => t.id === selectedId) ?? null
-      : null;
-
-  const bothEmpty = setups.length === 0 && dists.length === 0;
-
-  const handleRename = (kind: TemplateKind, id: string, name: string) => {
-    setRenameTarget({ kind, id, name });
-  };
+  const selectedTemplate =
+    selectedId != null ? templates.find((t) => t.id === selectedId) ?? null : null;
 
   const handleRenameSubmit = (newName: string) => {
     if (!renameTarget) return;
-    templatesService.rename(renameTarget.kind, renameTarget.id, newName);
-    // If the renamed item is selected, the list refresh handles name update
+    templatesService.renameAudiencePlacement(renameTarget.id, newName);
     setRenameTarget(null);
     refresh();
   };
 
-  const handleDeleteRequest = (kind: TemplateKind, id: string) => {
-    setDeleteTarget({ kind, id });
-  };
-
   const handleDeleteConfirm = () => {
     if (!deleteTarget) return;
-    templatesService.remove(deleteTarget.kind, deleteTarget.id);
+    templatesService.removeAudiencePlacement(deleteTarget.id);
     if (selectedId === deleteTarget.id) setSelectedId(null);
     setDeleteTarget(null);
+    setDeleteConfirmed(false);
     refresh();
   };
 
-  /* ── Full-page empty state (both tabs empty) ── */
-  if (bothEmpty) {
+  /* ── Full-page empty state ── */
+  if (templates.length === 0 && search.trim().length === 0) {
     return (
       <div className="flex min-h-[100dvh] flex-col bg-[#FAFAF7] dark:bg-[#18181B]">
-        <PageHeader />
+        <PageHeader count={0} search={search} onSearch={setSearch} />
         <FullEmptyState />
       </div>
     );
@@ -171,95 +125,26 @@ export function TemplatesLibrary() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-[#FAFAF7] dark:bg-[#18181B]">
-      <PageHeader />
-
-      {/* Tab bar */}
-      <div className="sticky top-0 z-10 border-b border-[#e7e5dc] bg-[#FAFAF7] px-8 dark:border-[#2a2a2a] dark:bg-[#18181B]">
-        <div className="flex gap-0">
-          {(["setup", "distribution"] as ActiveTab[]).map((tab) => {
-            const count =
-              tab === "setup" ? setups.length : dists.length;
-            const label = tab === "setup" ? "Setup" : "Distribution";
-            const isActive = activeTab === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => handleTabSwitch(tab)}
-                className={cn(
-                  "relative flex items-center gap-1.5 px-4 py-3 text-[13px] transition-colors",
-                  "focus-visible:outline-none",
-                  isActive
-                    ? "font-semibold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]"
-                    : "font-normal text-[rgba(15,15,12,0.55)] hover:text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.55)] dark:hover:text-[rgba(255,255,255,0.72)]",
-                )}
-              >
-                {label}
-                {count > 0 && (
-                  <span
-                    className={cn(
-                      "font-mono text-[10px] font-600 tabular-nums",
-                      isActive
-                        ? "text-[#5B7611] dark:text-[#C3E165]"
-                        : "text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]",
-                    )}
-                  >
-                    {count}
-                  </span>
-                )}
-                {/* Active underline */}
-                {isActive && (
-                  <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-t-full bg-[#8FB821]" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <PageHeader count={templates.length} search={search} onSearch={setSearch} />
 
       {/* Two-panel body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: card list */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Search */}
-          <div className="px-6 py-4">
-            <div className="relative">
-              <SearchIcon className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
-              <input
-                type="text"
-                placeholder={`Search ${activeTab === "setup" ? "setup" : "distribution"} templates…`}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={cn(
-                  "h-9 w-full rounded-[28px] border border-[#e7e5dc] bg-white pl-9 pr-4",
-                  "font-mono text-[13px] text-[rgba(15,15,12,0.92)] placeholder:text-[rgba(15,15,12,0.45)]",
-                  "transition-all focus:border-[#8FB821] focus:outline-none focus:ring-0",
-                  "focus:shadow-[0_0_0_4px_rgba(143,184,33,0.18)]",
-                  "dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:text-[rgba(255,255,255,0.92)]",
-                  "dark:placeholder:text-[rgba(255,255,255,0.45)] dark:focus:border-[#90BA24]",
-                )}
-              />
-            </div>
-          </div>
-
           {/* Cards scroll region */}
-          <div className="flex-1 overflow-y-auto px-6 pb-6">
-            {filteredList.length === 0 ? (
-              <TabEmptyState
-                tab={activeTab}
-                isFiltered={search.trim().length > 0}
-              />
+          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2">
+            {filteredTemplates.length === 0 ? (
+              <ListEmptyState isFiltered={search.trim().length > 0} />
             ) : (
               <ul className="flex flex-col gap-2">
-                {filteredList.map((item, i) => (
-                  <TemplateCard
-                    key={item.id}
-                    item={item}
-                    isSelected={selectedId === item.id}
+                {filteredTemplates.map((tpl, i) => (
+                  <APTemplateCard
+                    key={tpl.id}
+                    template={tpl}
+                    isSelected={selectedId === tpl.id}
                     animationDelay={i * 30}
                     onClick={() =>
-                      setSelectedId((prev) =>
-                        prev === item.id ? null : item.id,
-                      )
+                      setSelectedId((prev) => (prev === tpl.id ? null : tpl.id))
                     }
                   />
                 ))}
@@ -268,17 +153,17 @@ export function TemplatesLibrary() {
           </div>
         </div>
 
-        {/* Right: preview rail (300px) */}
-        <div className="w-[300px] flex-shrink-0 overflow-y-auto border-l border-[#e7e5dc] dark:border-[#2a2a2a]">
-          {selectedItem ? (
-            <PreviewRail
-              item={selectedItem}
-              onRename={() =>
-                handleRename(selectedItem.kind, selectedItem.id, selectedItem.name)
-              }
-              onDelete={() =>
-                handleDeleteRequest(selectedItem.kind, selectedItem.id)
-              }
+        {/* Right: preview rail (320px) */}
+        <div className="w-[320px] flex-shrink-0 overflow-y-auto border-l border-[#e7e5dc] bg-[#FAFAF7] dark:border-[#2a2a2a] dark:bg-[#18181B]">
+          {selectedTemplate ? (
+            <APPreviewRail
+              template={selectedTemplate}
+              deleteConfirmed={deleteConfirmed}
+              onRename={() => setRenameTarget({ id: selectedTemplate.id, name: selectedTemplate.name })}
+              onDeleteRequest={() => {
+                setDeleteConfirmed(false);
+                setDeleteTarget({ id: selectedTemplate.id });
+              }}
             />
           ) : (
             <RailZeroState />
@@ -294,7 +179,10 @@ export function TemplatesLibrary() {
       />
       <DeleteDialog
         target={deleteTarget}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          setDeleteTarget(null);
+          setDeleteConfirmed(false);
+        }}
         onConfirm={handleDeleteConfirm}
       />
     </div>
@@ -305,96 +193,147 @@ export function TemplatesLibrary() {
 /* Page header                                                                 */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function PageHeader() {
+function PageHeader({
+  count,
+  search,
+  onSearch,
+}: {
+  count: number;
+  search: string;
+  onSearch: (v: string) => void;
+}) {
   return (
     <header className="px-8 pb-4 pt-6">
-      <h1
-        className="text-[19px] font-bold leading-[27px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]"
-      >
-        Templates
-      </h1>
-      <p className="mt-0.5 font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-        Saved Setup &amp; Distribution configurations — apply from the launch flow.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[19px] font-bold leading-[27px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+            Audience Templates
+          </h1>
+          <p className="mt-0.5 font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+            Saved adset-level targeting configs — apply from the launch flow.
+          </p>
+        </div>
+        {count > 0 && (
+          <span className="mt-1 flex-shrink-0 rounded-full bg-[rgba(143,184,33,0.12)] px-2.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-[#5B7611] dark:bg-[rgba(195,225,101,0.12)] dark:text-[#C3E165]">
+            {count}
+          </span>
+        )}
+      </div>
+
+      {/* Search */}
+      <div className="relative mt-4 max-w-[420px]">
+        <SearchIcon className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
+        <input
+          type="text"
+          placeholder="Search audience templates…"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          className={cn(
+            "h-9 w-full rounded-full border border-[#e7e5dc] bg-white pl-9 pr-4",
+            "font-mono text-[13px] text-[rgba(15,15,12,0.92)] placeholder:text-[rgba(15,15,12,0.45)]",
+            "transition-all focus:border-[#8FB821] focus:outline-none focus:ring-0",
+            "focus:shadow-[0_0_0_4px_rgba(143,184,33,0.18)]",
+            "dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:text-[rgba(255,255,255,0.92)]",
+            "dark:placeholder:text-[rgba(255,255,255,0.45)] dark:focus:border-[#90BA24]",
+          )}
+        />
+      </div>
     </header>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Template card                                                               */
+/* AP Template card                                                            */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function TemplateCard({
-  item,
+function APTemplateCard({
+  template,
   isSelected,
   animationDelay,
   onClick,
 }: {
-  item: NormalizedTemplate;
+  template: AudiencePlacementTemplate;
   isSelected: boolean;
   animationDelay: number;
   onClick: () => void;
 }) {
+  const { payload } = template;
+  const visibleLocations = payload.locations.slice(0, 3);
+  const moreCount = Math.max(0, payload.locations.length - 3);
+  const isManual = payload.placementMode === "manual";
+
   return (
     <li
       onClick={onClick}
       style={{ animationDelay: `${animationDelay}ms` }}
       className={cn(
-        "animate-in fade-in slide-in-from-bottom-1 cursor-pointer rounded-2xl border p-4 transition-all duration-220",
-        "hover:-translate-y-0.5 hover:shadow-sm",
+        "animate-in fade-in slide-in-from-bottom-1 cursor-pointer rounded-2xl border p-4 transition-all duration-[220ms]",
+        "hover:-translate-y-0.5",
         isSelected
-          ? "border-[#8FB821] bg-[#F5FBE2] dark:border-[#90BA24] dark:bg-[#1D2A09]"
-          : "border-[#e7e5dc] bg-white hover:border-[#c8c5ba] hover:shadow-md dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:hover:border-[#3a3a3a]",
+          ? "border-[#8FB821] bg-[#F5FBE2] shadow-sm dark:border-[#90BA24] dark:bg-[#1D2A09]"
+          : "border-[#e7e5dc] bg-white hover:border-[rgba(143,184,33,0.4)] hover:shadow-md dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:hover:border-[rgba(144,186,36,0.3)]",
       )}
     >
-      {/* Name + kind badge row */}
+      {/* Name row */}
       <div className="flex items-start justify-between gap-2">
-        <p
+        <p className="min-w-0 flex-1 truncate text-[13px] font-medium leading-[21px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+          {template.name}
+        </p>
+        {/* Placement mode chip */}
+        <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[13px] font-medium leading-[21px]",
-            isSelected
-              ? "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]"
-              : "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
+            "flex-shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]",
+            isManual
+              ? "bg-[rgba(22,119,255,0.1)] text-[#1677ff] dark:bg-[rgba(22,119,255,0.15)] dark:text-[#4096ff]"
+              : "bg-[rgba(143,184,33,0.12)] text-[#5B7611] dark:bg-[rgba(195,225,101,0.12)] dark:text-[#C3E165]",
           )}
         >
-          {item.name}
-        </p>
-        <KindBadge kind={item.kind} />
+          {isManual ? "Manual" : "Auto"}
+        </span>
       </div>
 
-      {/* Summary */}
-      {item.summary && (
-        <p className="mt-1.5 font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-          {item.summary}
-        </p>
+      {/* Location chips */}
+      {payload.locations.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {visibleLocations.map((loc: APLocation) => (
+            <span
+              key={loc.key}
+              className="rounded-full border border-[#efeee7] bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] text-[rgba(15,15,12,0.62)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.62)]"
+            >
+              {loc.name}
+            </span>
+          ))}
+          {moreCount > 0 && (
+            <span className="rounded-full border border-[#efeee7] bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] text-[rgba(15,15,12,0.45)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.45)]">
+              +{moreCount} more
+            </span>
+          )}
+        </div>
       )}
+
+      {/* Metadata row */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        {/* Age range */}
+        <span className="font-mono text-[11px] font-semibold tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+          {payload.ageMin}–{payload.ageMax}
+        </span>
+        <span className="text-[rgba(15,15,12,0.22)] dark:text-[rgba(255,255,255,0.22)]">·</span>
+        {/* Gender */}
+        <span className="rounded-full border border-[#efeee7] bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] font-semibold text-[rgba(15,15,12,0.62)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.62)]">
+          {genderLabel(payload.gender)}
+        </span>
+        <span className="text-[rgba(15,15,12,0.22)] dark:text-[rgba(255,255,255,0.22)]">·</span>
+        {/* Optimization goal */}
+        <span className="font-mono text-[10px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+          {goalLabel(payload.optimizationGoal)}
+        </span>
+      </div>
 
       {/* Footer */}
-      <p className="mt-2.5 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-        Updated {relativeTime(item.updatedAt)}
+      <p className="mt-2.5 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+        Updated {relativeTime(template.updatedAt)}
       </p>
     </li>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Kind badge                                                                  */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function KindBadge({ kind }: { kind: TemplateKind }) {
-  const label = kind === "setup" ? "SETUP" : "DISTRIBUTION";
-  return (
-    <span
-      className={cn(
-        "flex-shrink-0 rounded-full px-2 py-0.5",
-        "font-mono text-[10px] font-semibold uppercase leading-[15px] tracking-[0.06em]",
-        kind === "setup"
-          ? "bg-[rgba(143,184,33,0.1)] text-[#5B7611] dark:bg-[rgba(144,186,36,0.12)] dark:text-[#C3E165]"
-          : "bg-[rgba(15,15,12,0.06)] text-[rgba(15,15,12,0.62)] dark:bg-[rgba(255,255,255,0.06)] dark:text-[rgba(255,255,255,0.62)]",
-      )}
-    >
-      {label}
-    </span>
   );
 }
 
@@ -402,49 +341,209 @@ function KindBadge({ kind }: { kind: TemplateKind }) {
 /* Preview rail                                                                */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function PreviewRail({
-  item,
+function APPreviewRail({
+  template,
+  deleteConfirmed: _deleteConfirmed,
   onRename,
-  onDelete,
+  onDeleteRequest,
 }: {
-  item: NormalizedTemplate;
+  template: AudiencePlacementTemplate;
+  deleteConfirmed: boolean;
   onRename: () => void;
-  onDelete: () => void;
+  onDeleteRequest: () => void;
 }) {
+  const { payload } = template;
+  const activeManualPlacements = payload.placementMode === "manual"
+    ? Object.entries(payload.manualPlacements).filter(([, v]) => v).map(([k]) => k)
+    : [];
+
   return (
     <div className="flex h-full flex-col p-5">
-      {/* Kind eyebrow */}
+      {/* Eyebrow */}
       <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-        {item.kind === "setup" ? "Setup template" : "Distribution template"}
+        Audience Template
       </span>
 
       {/* Name */}
-      <h2 className="mt-2 text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
-        {item.name}
+      <h2 className="mt-1.5 text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+        {template.name}
       </h2>
 
-      {/* Summary */}
-      {item.summary && (
-        <p className="mt-2 font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
-          {item.summary}
-        </p>
-      )}
+      {/* Meta row */}
+      <div className="mt-1 flex items-center gap-1.5">
+        <span className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+          {formatAbsolute(template.createdAt)}
+        </span>
+      </div>
 
-      {/* Divider */}
       <div className="my-4 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
 
-      {/* Metadata rows */}
-      <dl className="space-y-2.5">
-        <MetaRow label="Created" value={formatAbsolute(item.createdAt)} />
-        <MetaRow label="Updated" value={relativeTime(item.updatedAt)} />
-        <MetaRow label="ID" value={item.id} truncate />
-      </dl>
+      {/* ── Section: Audience ── */}
+      <RailSection icon={<UsersIcon className="h-3.5 w-3.5" />} title="Audience">
+        <div className="space-y-2.5">
+          {/* Age + Gender */}
+          <div className="flex items-center gap-2">
+            <RailPill label={`${payload.ageMin}–${payload.ageMax}`} mono />
+            <RailPill label={genderLabel(payload.gender)} />
+            {payload.advantageAudience && (
+              <RailPill label="Adv+ Audience" lime />
+            )}
+          </div>
+
+          {/* Locations */}
+          {payload.locations.length > 0 && (
+            <div>
+              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                Locations
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {payload.locations.map((loc: APLocation) => (
+                  <RailPill key={loc.key} label={loc.name} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Interests / Behaviors */}
+          {payload.detailedTargeting.length > 0 && (
+            <div>
+              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                Targeting
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {payload.detailedTargeting.slice(0, 5).map((item: APInterest) => (
+                  <RailPill key={item.id} label={item.name} />
+                ))}
+                {payload.detailedTargeting.length > 5 && (
+                  <RailPill label={`+${payload.detailedTargeting.length - 5} more`} muted />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Custom audiences */}
+          {payload.customAudiences.length > 0 && (
+            <div>
+              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                Custom Audiences
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {payload.customAudiences.map((ca) => (
+                  <RailPill key={ca.id} label={ca.name} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Languages */}
+          {payload.languages.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                Lang:
+              </span>
+              <span className="font-mono text-[11px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                {payload.languages.join(", ").toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+      </RailSection>
+
+      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+
+      {/* ── Section: Placement ── */}
+      <RailSection icon={<GridIcon className="h-3.5 w-3.5" />} title="Placement">
+        {payload.placementMode === "advantage" ? (
+          <RailPill label="Advantage+ Placement" lime />
+        ) : (
+          <div className="space-y-1.5">
+            <RailPill label="Manual" />
+            {activeManualPlacements.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {activeManualPlacements.map((p) => (
+                  <RailPill key={p} label={friendlyPlacementName(p)} />
+                ))}
+              </div>
+            ) : (
+              <span className="font-mono text-[11px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                No placements selected
+              </span>
+            )}
+          </div>
+        )}
+      </RailSection>
+
+      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+
+      {/* ── Section: Optimization ── */}
+      <RailSection icon={<TargetIcon className="h-3.5 w-3.5" />} title="Optimization">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <RailPill label={goalLabel(payload.optimizationGoal)} lime />
+          </div>
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                Click window
+              </p>
+              <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+                {payload.attributionClickWindow}d
+              </p>
+            </div>
+            <div>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                View window
+              </p>
+              <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+                {payload.attributionViewWindow}d
+              </p>
+            </div>
+          </div>
+          {payload.specialAdCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {payload.specialAdCategories.map((cat) => (
+                <span
+                  key={cat}
+                  className="rounded-full bg-[rgba(250,173,20,0.1)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#874d00] dark:text-[#d89614]"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </RailSection>
+
+      {/* ── Notes ── */}
+      {payload.notes && (
+        <>
+          <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+          <RailSection icon={<NoteIcon className="h-3.5 w-3.5" />} title="Notes">
+            <p className="font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+              {payload.notes}
+            </p>
+          </RailSection>
+        </>
+      )}
 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Actions */}
+      {/* ── Footer actions ── */}
       <div className="mt-6 flex flex-col gap-2">
+        {/* Use in launch — primary CTA */}
+        <button
+          className={cn(
+            "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
+            "bg-[#8FB821] text-[#121212]",
+            "hover:bg-[#AACF32] shadow-sm",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
+          )}
+        >
+          Use in launch
+        </button>
+
+        {/* Rename */}
         <button
           onClick={onRename}
           className={cn(
@@ -458,8 +557,9 @@ function PreviewRail({
           Rename
         </button>
 
+        {/* Delete */}
         <button
-          onClick={onDelete}
+          onClick={onDeleteRequest}
           className={cn(
             "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
             "border border-transparent bg-transparent text-[#cf1322]",
@@ -472,39 +572,78 @@ function PreviewRail({
         </button>
       </div>
 
-      {/* P2 note */}
       <p className="mt-4 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-        Apply this template from within the launch flow — open Step 2 or Step 3 and select a saved template.
+        Apply from Step 2 in the launch flow — select a saved audience template at the adset stage.
       </p>
     </div>
   );
 }
 
-function MetaRow({
-  label,
-  value,
-  truncate,
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Preview sub-components                                                      */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function RailSection({
+  icon,
+  title,
+  children,
 }: {
-  label: string;
-  value: string;
-  truncate?: boolean;
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <dt className="flex-shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-        {label}
-      </dt>
-      <dd
-        className={cn(
-          "font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]",
-          truncate && "min-w-0 truncate text-right",
-        )}
-        title={truncate ? value : undefined}
-      >
-        {value}
-      </dd>
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+        {icon}
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em]">
+          {title}
+        </span>
+      </div>
+      {children}
     </div>
   );
+}
+
+function RailPill({
+  label,
+  lime,
+  mono,
+  muted,
+}: {
+  label: string;
+  lime?: boolean;
+  mono?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold",
+        lime
+          ? "bg-[rgba(143,184,33,0.12)] text-[#5B7611] dark:bg-[rgba(195,225,101,0.12)] dark:text-[#C3E165]"
+          : muted
+            ? "border border-[#efeee7] bg-transparent text-[rgba(15,15,12,0.38)] dark:border-[#1f1f1f] dark:text-[rgba(255,255,255,0.38)]"
+            : "border border-[#efeee7] bg-[#F0F0EC] text-[rgba(15,15,12,0.62)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.62)]",
+        mono && "tabular-nums",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+function friendlyPlacementName(key: string): string {
+  const map: Record<string, string> = {
+    fbFeed: "FB Feed", fbStories: "FB Stories", fbReels: "FB Reels",
+    fbMarketplace: "FB Marketplace", fbRightColumn: "FB Right Col",
+    fbVideoFeeds: "FB Video", fbSearch: "FB Search",
+    igFeed: "IG Feed", igStories: "IG Stories", igReels: "IG Reels",
+    igExplore: "IG Explore", igSearch: "IG Search",
+    anNative: "AN Native", anRewarded: "AN Rewarded",
+    msInbox: "MS Inbox", msStories: "MS Stories",
+  };
+  return map[key] ?? key;
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -514,11 +653,10 @@ function MetaRow({
 function RailZeroState() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      {/* Abstract geometric motif */}
       <div className="relative mb-5 flex h-12 w-12 items-center justify-center">
         <div className="absolute inset-0 rounded-xl border-[1.5px] border-[#e7e5dc] dark:border-[#2a2a2a]" />
         <div className="absolute inset-[6px] rounded-lg border-[1.5px] border-[#c8c5ba] dark:border-[#3a3a3a]" />
-        <LayersIcon className="relative z-10 h-4 w-4 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]" />
+        <UsersIcon className="relative z-10 h-4 w-4 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]" />
       </div>
       <p className="text-[13px] font-medium text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
         Select a template to preview
@@ -530,13 +668,7 @@ function RailZeroState() {
   );
 }
 
-function TabEmptyState({
-  tab,
-  isFiltered,
-}: {
-  tab: ActiveTab;
-  isFiltered: boolean;
-}) {
+function ListEmptyState({ isFiltered }: { isFiltered: boolean }) {
   if (isFiltered) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#e7e5dc] bg-[#F0F0EC]/50 px-6 py-12 text-center dark:border-[#2a2a2a] dark:bg-[#1B1B1F]/50">
@@ -544,43 +676,31 @@ function TabEmptyState({
           No match
         </p>
         <p className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-          Try a different name
+          Try a different search term
         </p>
       </div>
     );
   }
-
-  const hint =
-    tab === "setup"
-      ? "No setup templates yet — save one from Step 2 in the launch flow"
-      : "No distribution templates yet — save one from Step 3 in the launch flow";
-
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#e7e5dc] bg-[#F0F0EC]/50 px-6 py-12 text-center dark:border-[#2a2a2a] dark:bg-[#1B1B1F]/50">
-      <p className="font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-        {hint}
-      </p>
-    </div>
-  );
+  return null;
 }
 
 function FullEmptyState() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 py-24 text-center">
-      {/* Geometric motif — two stacked squares suggesting layers/files */}
+      {/* Geometric motif */}
       <div className="relative mb-6 h-16 w-16">
         <div className="absolute inset-0 rounded-2xl border-[1.5px] border-[#e7e5dc] bg-white dark:border-[#2a2a2a] dark:bg-[#1E1E23]" />
         <div className="absolute inset-[7px] rounded-xl border-[1.5px] border-[#c8c5ba] bg-[#F0F0EC] dark:border-[#3a3a3a] dark:bg-[#1B1B1F]" />
         <div className="absolute inset-[14px] flex items-center justify-center">
-          <FileStackIcon className="h-5 w-5 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]" />
+          <MapPinIcon className="h-5 w-5 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]" />
         </div>
       </div>
 
       <h2 className="text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-        No templates saved yet
+        No audience templates yet
       </h2>
       <p className="mt-2 max-w-[340px] font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-        Templates are created from within the launch flow. Open Step 2 to save a Setup template, or Step 3 to save a Distribution template.
+        Audience & Placement templates are saved from the launch flow. Open Step 2 and configure your adset targeting, then save as a template.
       </p>
     </div>
   );
@@ -595,7 +715,7 @@ function RenameDialog({
   onClose,
   onSubmit,
 }: {
-  target: RenameTarget;
+  target: { id: string; name: string } | null;
   onClose: () => void;
   onSubmit: (newName: string) => void;
 }) {
@@ -606,7 +726,6 @@ function RenameDialog({
   useEffect(() => {
     if (target) {
       setName(target.name);
-      // Focus deferred so the dialog animation doesn't interfere
       setTimeout(() => inputRef.current?.select(), 60);
     }
   }, [target]);
@@ -615,14 +734,8 @@ function RenameDialog({
   const canSave = trimmed.length > 0 && trimmed !== target?.name;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (canSave) onSubmit(trimmed);
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-    }
+    if (e.key === "Enter") { e.preventDefault(); if (canSave) onSubmit(trimmed); }
+    if (e.key === "Escape") { e.preventDefault(); onClose(); }
   };
 
   return (
@@ -699,7 +812,7 @@ function DeleteDialog({
   onClose,
   onConfirm,
 }: {
-  target: DeleteTarget;
+  target: { id: string } | null;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -745,73 +858,64 @@ function DeleteDialog({
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* Inline SVG icons (no emoji, no external deps)                              */
+/* Inline SVG icons                                                            */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function SearchIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
       <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-function LayersIcon({ className }: { className?: string }) {
+function UsersIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M8 2L14 5.5L8 9L2 5.5L8 2Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M2 9L8 12.5L14 9"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M1.5 13.5C1.5 11.015 3.515 9 6 9s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10.5 7C11.88 7 13 5.88 13 4.5S11.88 2 10.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12.5 13.5c0-1.71-.81-3.23-2.07-4.19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
 
-function FileStackIcon({ className }: { className?: string }) {
+function GridIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <rect x="4" y="6" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M7 6V5C7 3.895 7.895 3 9 3H11L14 6"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7 10H13M7 13H11"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function TargetIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 2V4M8 12V14M2 8H4M12 8H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NoteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M5.5 5.5H10.5M5.5 8H10.5M5.5 10.5H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MapPinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M10 2C7.24 2 5 4.24 5 7c0 4.24 5 11 5 11s5-6.76 5-11c0-2.76-2.24-5-5-5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }

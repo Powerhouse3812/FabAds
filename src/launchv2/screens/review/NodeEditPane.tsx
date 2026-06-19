@@ -14,12 +14,14 @@
  *     The Advanced + crop modals also fan out to every selected node.
  */
 import { useMemo, useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, Lock, Monitor, RotateCcw, Settings2, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, ImagePlus, Lock, Monitor, RotateCcw, Settings2, SlidersHorizontal } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { AssetCustomizationRule, PlanV2 } from "../../types";
+import type { AssetCustomizationRule, CreativeRef, PlanV2 } from "../../types";
 import type { UseFlowV2 } from "../../state/useFlowV2";
+import { CREATIVES, creativesForFormat } from "../../data";
+import { MediaSourcePicker } from "./MediaSourcePicker";
 import {
   SETTINGS_REGISTRY,
   advancedFields,
@@ -29,6 +31,7 @@ import {
 } from "../../settingsRegistry";
 import {
   ASSET_CUSTOMIZATION_KEY,
+  CREATIVE_ID_KEY,
   isOverridden,
   resetNodeField,
   resetNode,
@@ -104,6 +107,10 @@ export function NodeEditPane({
   const [audienceOpen, setAudienceOpen] = useState(false);
   // Preview accordion open state (D25) — ad-level only
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Inline advanced expander — campaign level only
+  const [campaignAdvOpen, setCampaignAdvOpen] = useState(false);
+  // Media source picker — ad level only
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
 
   // Multi-open accordion: Set of expanded section ids — all open by default.
   const [openSection, setOpenSection] = useState<Set<string>>(new Set());
@@ -196,6 +203,51 @@ export function NodeEditPane({
     [] as AssetCustomizationRule[],
   ) ?? []) as AssetCustomizationRule[];
 
+  /* --- per-ad creative (media) resolution + swap --- */
+  // Effective creative id: per-ad override → baked round-robin creativeId.
+  const resolvedCreativeId = resolveNodeValue(
+    plan,
+    headId,
+    CREATIVE_ID_KEY,
+    nodes[0]?.creativeId ?? null,
+  ) as string | null;
+  // Library to pick from: plan creatives first, then format-matching library.
+  const creativeLib: CreativeRef[] = (() => {
+    const byId = new Map<string, CreativeRef>();
+    for (const c of plan.creatives) byId.set(c.id, c);
+    for (const c of creativesForFormat(plan.format)) if (!byId.has(c.id)) byId.set(c.id, c);
+    return [...byId.values()];
+  })();
+  const currentCreative =
+    [...plan.creatives, ...CREATIVES].find((c) => c.id === resolvedCreativeId) ?? null;
+  const creativeOverridden = nodeIds.some((id) => isOverridden(plan, id, CREATIVE_ID_KEY));
+
+  // Meta guardrail 2: catalogue/DPA sources its media from the product feed —
+  // library/Genie/upload don't apply, so the media swap is locked.
+  const adAccountId =
+    nodes[0]?.targetIndex != null ? plan.targets[nodes[0].targetIndex]?.accountId : undefined;
+  const mediaLocked =
+    plan.format === "dpa" || !!(adAccountId && plan.catalogueByAccount?.[adAccountId]);
+
+  const pickCreative = (creativeId: string) => {
+    flow.patch({
+      nodeOverrides: setManyNodesOverride(plan.nodeOverrides, nodeIds, CREATIVE_ID_KEY, creativeId),
+    });
+  };
+  const addAndPickCreative = (creative: CreativeRef) => {
+    flow.patch({
+      creatives: plan.creatives.some((c) => c.id === creative.id)
+        ? plan.creatives
+        : [...plan.creatives, creative],
+      nodeOverrides: setManyNodesOverride(plan.nodeOverrides, nodeIds, CREATIVE_ID_KEY, creative.id),
+    });
+  };
+  const resetCreative = () => {
+    let next = plan.nodeOverrides;
+    for (const id of nodeIds) next = resetNodeField(next, id, CREATIVE_ID_KEY);
+    flow.patch({ nodeOverrides: next });
+  };
+
   return (
     <ScrollArea className="h-full">
       <div className="space-y-5 p-4">
@@ -246,6 +298,78 @@ export function NodeEditPane({
           )}
         </div>
 
+        {/* ── Media card — ad level: shows + swaps the ad's creative ── */}
+        {kind === "ad" && (
+          <div
+            className={cn(
+              "overflow-hidden rounded-2xl border transition-colors",
+              creativeOverridden ? "border-primary/40" : "border-border",
+            )}
+          >
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="flex items-center gap-2">
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+                  Media
+                </span>
+                <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground/80">
+                  {plan.format ?? "single image"}
+                </span>
+                {creativeOverridden && (
+                  <span className="rounded-full bg-primary/20 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
+                    {bulk ? "changed" : "swapped"}
+                  </span>
+                )}
+              </span>
+              {creativeOverridden && (
+                <button
+                  type="button"
+                  onClick={resetCreative}
+                  className="fab-focus inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <RotateCcw className="h-3 w-3" /> Reset
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
+                {currentCreative?.thumbnail ? (
+                  <img
+                    src={currentCreative.thumbnail}
+                    alt={currentCreative.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
+                    <ImagePlus className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-foreground">
+                  {mediaLocked ? "Catalogue feed" : currentCreative?.name ?? "No media selected"}
+                </p>
+                <p className="font-mono text-[10px] text-muted-foreground">
+                  {mediaLocked
+                    ? "Media comes from the catalogue product feed"
+                    : currentCreative
+                      ? `${currentCreative.format} · ${currentCreative.source}`
+                      : "Pick from library, Genie, or upload"}
+                  {!mediaLocked && bulk && " · applies to all selected"}
+                </p>
+              </div>
+              {mediaLocked ? (
+                <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-2 font-mono text-[10px] text-muted-foreground">
+                  <Lock className="h-3 w-3" /> Catalogue
+                </span>
+              ) : (
+                <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={() => setMediaPickerOpen(true)}>
+                  Change
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Sections — multi-open accordion ─────────────────────── */}
         {grouped.map((g) => {
           const isOpen = openSection.has(g.section.id);
@@ -268,7 +392,7 @@ export function NodeEditPane({
                   {g.section.label}
                 </span>
                 <span className="flex items-center gap-2">
-                  {g.hasAdvanced && (
+                  {g.hasAdvanced && kind !== "campaign" && kind !== "adset" && kind !== "ad" && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -309,6 +433,74 @@ export function NodeEditPane({
                       />
                     );
                   })}
+
+                  {/* Adset + Ad level: advanced fields rendered inline (no modal) */}
+                  {(kind === "adset" || kind === "ad") && advanced
+                    .filter((f) => f.section === g.section.id && !fieldGateAcross(plan, kind, nodeIds, f.id).hidden)
+                    .map((field) => {
+                      const gate = fieldGateAcross(plan, kind, nodeIds, field.id);
+                      return (
+                        <EditField
+                          key={field.id}
+                          field={field}
+                          plan={plan}
+                          nodeIds={nodeIds}
+                          headId={headId}
+                          bulk={bulk}
+                          currency={currency}
+                          gate={gate}
+                          onChange={(v) => setField(field, v)}
+                          onReset={() => reset(field)}
+                          onOpenCrop={() => setCropOpen(true)}
+                        />
+                      );
+                    })}
+
+                  {/* Campaign-level inline advanced expander — frameless text toggle */}
+                  {kind === "campaign" && (() => {
+                    const advFields = advanced.filter(
+                      (f) => f.section === g.section.id && !fieldGateAcross(plan, kind, nodeIds, f.id).hidden,
+                    );
+                    if (advFields.length === 0) return null;
+                    return (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setCampaignAdvOpen((p) => !p)}
+                          className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+                        >
+                          {campaignAdvOpen ? (
+                            <ChevronDown className="h-3 w-3" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3" />
+                          )}
+                          Advanced
+                        </button>
+                        {campaignAdvOpen && (
+                          <div className="mt-2.5 space-y-3 pl-3 border-l border-border/50">
+                            {advFields.map((field) => {
+                              const gate = fieldGateAcross(plan, kind, nodeIds, field.id);
+                              return (
+                                <EditField
+                                  key={field.id}
+                                  field={field}
+                                  plan={plan}
+                                  nodeIds={nodeIds}
+                                  headId={headId}
+                                  bulk={bulk}
+                                  currency={currency}
+                                  gate={gate}
+                                  onChange={(v) => setField(field, v)}
+                                  onReset={() => reset(field)}
+                                  onOpenCrop={() => setCropOpen(true)}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -378,8 +570,8 @@ export function NodeEditPane({
           );
         })()}
 
-        {/* ── Preview section — ad level, single-select only (D25) ─── */}
-        {kind === "ad" && !bulk && (() => {
+        {/* ── Preview section — ad level (bulk shows representative head ad) ─── */}
+        {kind === "ad" && (() => {
           // Find the TreeNode for the selected ad so PlacementPreviewTabs can
           // resolve the representative creative / copy correctly.
           const headNode = nodes[0] ?? null;
@@ -397,6 +589,11 @@ export function NodeEditPane({
                   <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
                     Preview
                   </span>
+                  {bulk && (
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground/80">
+                      representative
+                    </span>
+                  )}
                 </span>
                 {previewOpen ? (
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -446,6 +643,20 @@ export function NodeEditPane({
           setCropOpen(true);
         }}
       />
+
+      {/* Media source picker (ad level) — swap creative for all selected. */}
+      {kind === "ad" && (
+        <MediaSourcePicker
+          open={mediaPickerOpen}
+          onOpenChange={setMediaPickerOpen}
+          format={plan.format}
+          library={creativeLib}
+          currentId={resolvedCreativeId}
+          bulkCount={nodes.length}
+          onPick={pickCreative}
+          onAddAndPick={addAndPickCreative}
+        />
+      )}
 
       {/* Per-placement crop matrix (ad level) — applies to all selected. */}
       <PlacementCropModal

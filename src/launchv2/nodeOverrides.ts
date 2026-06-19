@@ -15,6 +15,15 @@ import type { NodeOverride, PlanV2 } from "./types";
 /** Reserved field id holding the per-placement asset-customization rule array. */
 export const ASSET_CUSTOMIZATION_KEY = "__assetCustomization";
 
+/** Reserved field id holding a per-ad creative-id override (swap which media an ad uses). */
+export const CREATIVE_ID_KEY = "__creativeId";
+
+/** Reserved field id holding per-ad carousel cards (format === "carousel"). */
+export const CAROUSEL_CARDS_KEY = "__carouselCards";
+
+/** Reserved field id holding a per-ad collection cover creative-id (format === "collection"). */
+export const COLLECTION_COVER_KEY = "__collectionCover";
+
 /** True when this node has an explicit override for `fieldId`. */
 export function isOverridden(plan: PlanV2, nodeId: string, fieldId: string): boolean {
   const bag = plan.nodeOverrides[nodeId];

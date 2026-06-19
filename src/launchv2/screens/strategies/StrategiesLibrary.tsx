@@ -59,6 +59,106 @@ type SortKey = "recently-used" | "most-used" | "name";
 
 /* ─────────────────────── sub-components ─────────────────────── */
 
+/** Accent bar color by objective */
+const ACCENT_COLOURS: Record<string, string> = {
+  Sales:            "#8FB821",
+  Awareness:        "#3B82F6",
+  Traffic:          "#8B5CF6",
+  Leads:            "#F97316",
+  Engagement:       "#22C55E",
+  "App promotion":  "#EAB308",
+};
+
+function accentColour(objective: string): string {
+  return ACCENT_COLOURS[objective] ?? "#94A3B8";
+}
+
+/** Format icon SVGs — 18×18, colored rgba(15,15,12,0.38) */
+function FormatIcon({ format }: { format: string }) {
+  const cls = "flex-shrink-0";
+  const color = "rgba(15,15,12,0.38)";
+
+  switch (format) {
+    case "single_image":
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <rect x="1.5" y="3.5" width="15" height="11" rx="1.5" stroke={color} strokeWidth="1.4" />
+          <path d="M1.5 11.5l4-4 3 3 2.5-2.5 4 4" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "single_video":
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <rect x="1.5" y="3.5" width="15" height="11" rx="1.5" stroke={color} strokeWidth="1.4" />
+          <path d="M7 6.5l5 2.5-5 2.5V6.5z" fill={color} />
+        </svg>
+      );
+    case "carousel":
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <rect x="3.5" y="4" width="9" height="10" rx="1.2" stroke={color} strokeWidth="1.4" />
+          <rect x="5.5" y="5.5" width="9" height="10" rx="1.2" stroke={color} strokeWidth="1.1" strokeDasharray="2 1" />
+          <rect x="7.5" y="7" width="9" height="10" rx="1.2" stroke={color} strokeWidth="0.9" strokeDasharray="2 1.5" />
+        </svg>
+      );
+    case "dpa":
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <rect x="2" y="2" width="6" height="6" rx="1" stroke={color} strokeWidth="1.4" />
+          <rect x="10" y="2" width="6" height="6" rx="1" stroke={color} strokeWidth="1.4" />
+          <rect x="2" y="10" width="6" height="6" rx="1" stroke={color} strokeWidth="1.4" />
+          <rect x="10" y="10" width="6" height="6" rx="1" stroke={color} strokeWidth="1.4" />
+        </svg>
+      );
+    case "collection":
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <rect x="2" y="2" width="14" height="8" rx="1.2" stroke={color} strokeWidth="1.4" />
+          <rect x="2" y="12" width="6" height="4" rx="1" stroke={color} strokeWidth="1.4" />
+          <rect x="10" y="12" width="6" height="4" rx="1" stroke={color} strokeWidth="1.4" />
+        </svg>
+      );
+    case "flexible":
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <path d="M9 2l1.7 3.5 3.8.55-2.75 2.68.65 3.77L9 10.7l-3.4 1.8.65-3.77L3.5 6.05l3.8-.55L9 2z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+        </svg>
+      );
+    default:
+      return (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={cls}>
+          <rect x="2" y="2" width="14" height="14" rx="1.5" stroke={color} strokeWidth="1.4" />
+        </svg>
+      );
+  }
+}
+
+/** Budget amount + mode extracted separately for hero display */
+function parseBudget(plan: LaunchStrategy["plan"]): { amount: string; mode: string } {
+  const raw = plan.budgetAmount;
+  const currency = plan.targets?.[0]?.currency;
+  const mode = plan.budgetMode ?? "";
+  if (!raw) return { amount: "—", mode: mode };
+  const sym = currency === "USD" ? "$" : "₹";
+  return {
+    amount: `${sym}${Math.round(raw).toLocaleString("en-IN")}/day`,
+    mode,
+  };
+}
+
+/** Structure micro-indicator: 2C · 4A · 5Ad */
+function StructureMicro({ plan }: { plan: LaunchStrategy["plan"] }) {
+  const s = plan.structure;
+  if (!s) return null;
+  const totalAdSets = s.campaigns * s.adSetsPerCampaign;
+  const totalAds = totalAdSets * s.adsPerAdSet;
+  return (
+    <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] tabular-nums leading-none">
+      {s.campaigns}C&nbsp;·&nbsp;{totalAdSets}A&nbsp;·&nbsp;{totalAds}Ad
+    </span>
+  );
+}
+
 /** Strategy card in the grid */
 function StrategyCard({
   strategy,
@@ -76,13 +176,16 @@ function StrategyCard({
   const extraTags = tags.length - 3;
   const objColours = objectivePill(summary.objective);
   const intColours = intentPill(summary.intent);
+  const accent = accentColour(summary.objective);
+  const budget = parseBudget(strategy.plan);
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
-        "w-full text-left rounded-2xl border p-4 cursor-pointer transition-all duration-200",
+        "relative w-full text-left rounded-2xl border cursor-pointer transition-all duration-200 overflow-hidden",
+        "pl-7 pr-4 pt-4 pb-3 min-h-[140px]",
         "hover:shadow-md hover:-translate-y-0.5",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
         selected
@@ -90,10 +193,22 @@ function StrategyCard({
           : "border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#FAFAF7] dark:bg-[#18181B] hover:border-[#8FB821]/40",
       ].join(" ")}
     >
+      {/* Left accent bar */}
+      <span
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
+        style={{ backgroundColor: accent }}
+        aria-hidden="true"
+      />
+
+      {/* Format icon — top right */}
+      <span className="absolute top-3 right-3">
+        <FormatIcon format={strategy.plan.format ?? ""} />
+      </span>
+
       {/* Name row */}
-      <div className="flex items-start justify-between gap-2 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-2 pr-6">
         <span
-          className="text-[13px] font-medium leading-snug text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] truncate flex-1 min-w-0"
+          className="text-[13px] font-semibold leading-snug text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] line-clamp-2 flex-1 min-w-0"
           title={strategy.name}
         >
           {strategy.name}
@@ -105,30 +220,41 @@ function StrategyCard({
         )}
       </div>
 
-      {/* Objective + intent pills */}
-      <div className="flex flex-wrap gap-1 mb-2.5">
+      {/* Budget hero */}
+      <p className="font-mono text-[18px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] leading-tight mb-0.5">
+        {budget.amount}
+      </p>
+      {budget.mode && (
+        <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] leading-none mb-3">
+          {budget.mode}
+        </p>
+      )}
+
+      {/* Separator */}
+      <div className="border-b border-[#e7e5dc]/60 dark:border-[#2a2a2a]/60 mb-2.5" />
+
+      {/* Objective + intent pills + structure micro */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-2.5">
         <span
-          className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+          className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-2 py-0.5 rounded-full leading-none"
           style={{ backgroundColor: objColours.bg, color: objColours.text }}
         >
           {summary.objective}
         </span>
         <span
-          className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full leading-none"
+          className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-2 py-0.5 rounded-full leading-none"
           style={{ backgroundColor: intColours.bg, color: intColours.text }}
         >
           {summary.intent}
         </span>
+        <span className="ml-auto">
+          <StructureMicro plan={strategy.plan} />
+        </span>
       </div>
 
-      {/* Budget */}
-      <p className="font-mono text-[11px] font-semibold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] mb-2.5 tabular-nums">
-        {summary.budgetDisplay}
-      </p>
-
-      {/* Tags */}
+      {/* Tags — max 3 */}
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="flex flex-wrap gap-1 mb-2.5">
           {shownTags.map((tag) => (
             <span
               key={tag}
@@ -155,16 +281,89 @@ function StrategyCard({
   );
 }
 
+/** Section eyebrow in preview rail */
+function RailSection({ label }: { label: string }) {
+  return (
+    <div className="pb-2 mb-3 border-b border-[#e7e5dc] dark:border-[#2a2a2a]">
+      <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 /** Metadata row in preview rail */
 function MetaRow({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-2 border-b border-[#e7e5dc] dark:border-[#2a2a2a] last:border-0">
+    <div className="flex items-start justify-between gap-3 py-1.5">
       <span className="font-mono text-[11px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] flex-shrink-0">
         {label}
       </span>
       <span className="text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] text-right">
         {value}
       </span>
+    </div>
+  );
+}
+
+/** Budget progress bar — max 50k INR / 1k USD */
+function BudgetBar({ plan }: { plan: LaunchStrategy["plan"] }) {
+  const amount = plan.budgetAmount ?? 0;
+  const currency = plan.targets?.[0]?.currency;
+  const maxVal = currency === "USD" ? 1000 : 50000;
+  const pct = Math.min(100, Math.round((amount / maxVal) * 100));
+  const sym = currency === "USD" ? "$" : "₹";
+  const mode = plan.budgetMode ?? "";
+
+  return (
+    <div className="rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] p-3 mb-4">
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <span className="font-mono text-[15px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+          {amount ? `${sym}${Math.round(amount).toLocaleString("en-IN")}/day` : "—"}
+        </span>
+        {mode && (
+          <span className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+            {mode}
+          </span>
+        )}
+      </div>
+      {/* Track */}
+      <div className="h-1.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] overflow-hidden">
+        <div
+          className="h-full rounded-full bg-[#8FB821] transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 3-stat structure boxes */
+function StructureStats({ plan }: { plan: LaunchStrategy["plan"] }) {
+  const s = plan.structure;
+  if (!s) return null;
+  const totalAdSets = s.campaigns * s.adSetsPerCampaign;
+  const totalAds = totalAdSets * s.adsPerAdSet;
+  const items = [
+    { num: s.campaigns, label: "camps" },
+    { num: totalAdSets, label: "sets" },
+    { num: totalAds, label: "ads" },
+  ];
+  return (
+    <div className="flex gap-2 mb-4">
+      {items.map(({ num, label }) => (
+        <div
+          key={label}
+          className="flex-1 rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] p-3 text-center"
+        >
+          <p className="font-mono text-[20px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] leading-tight">
+            {num}
+          </p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.06em] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mt-0.5">
+            {label}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -319,22 +518,40 @@ function PreviewRail({
       </div>
 
       {/* Metadata */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-0">
-        <MetaRow label="Objective" value={summary.objective} />
-        <MetaRow label="Intent" value={summary.intent} />
-        <MetaRow label="Budget" value={summary.budgetDisplay} />
-        <MetaRow label="Format" value={summary.format} />
-        <MetaRow label="Spread" value={summary.spreadMode} />
-        <MetaRow label="Pages" value={summary.destinationsCount === 0 ? "—" : `${summary.destinationsCount} account${summary.destinationsCount > 1 ? "s" : ""}`} />
-        <MetaRow label="Audience" value={summary.audienceSummary} />
+      <div className="flex-1 overflow-y-auto px-5 py-4">
 
-        {/* Tags in preview */}
+        {/* Budget bar */}
+        <BudgetBar plan={strategy.plan} />
+
+        {/* Campaign section */}
+        <RailSection label="Campaign" />
+        <div className="mb-4 space-y-0">
+          <MetaRow label="Objective" value={summary.objective} />
+          <MetaRow label="Intent" value={summary.intent} />
+          <MetaRow label="Format" value={summary.format} />
+          <MetaRow label="Spread" value={summary.spreadMode} />
+        </div>
+
+        {/* Structure section */}
+        {strategy.plan.structure && (
+          <>
+            <RailSection label="Structure" />
+            <StructureStats plan={strategy.plan} />
+          </>
+        )}
+
+        {/* Audience section */}
+        <RailSection label="Audience" />
+        <div className="mb-4 space-y-0">
+          <MetaRow label="Pages" value={summary.destinationsCount === 0 ? "—" : `${summary.destinationsCount} account${summary.destinationsCount > 1 ? "s" : ""}`} />
+          <MetaRow label="Audience" value={summary.audienceSummary} />
+        </div>
+
+        {/* Tags section */}
         {(strategy.tags ?? []).length > 0 && (
-          <div className="pt-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
-              Tags
-            </p>
-            <div className="flex flex-wrap gap-1">
+          <>
+            <RailSection label="Tags" />
+            <div className="flex flex-wrap gap-1 mb-4">
               {(strategy.tags ?? []).map((tag) => (
                 <span
                   key={tag}
@@ -344,7 +561,7 @@ function PreviewRail({
                 </span>
               ))}
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -360,34 +577,35 @@ function PreviewRail({
           Apply to new launch
         </button>
 
-        {/* Duplicate */}
-        <button
-          type="button"
-          onClick={handleDuplicate}
-          disabled={duplicating}
-          className="w-full h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors disabled:opacity-50"
-          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-        >
-          {duplicated ? (
-            <span className="text-[#5B7611] dark:text-[#C3E165] font-semibold">Duplicated!</span>
-          ) : duplicating ? (
-            "Duplicating..."
-          ) : (
-            "Duplicate"
-          )}
-        </button>
-
-        {/* Rename */}
-        {!renaming && (
+        {/* Secondary row: Duplicate + Rename */}
+        <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setRenaming(true)}
-            className="w-full h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+            onClick={handleDuplicate}
+            disabled={duplicating}
+            className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors disabled:opacity-50"
             style={{ fontFamily: "Geist, system-ui, sans-serif" }}
           >
-            Rename
+            {duplicated ? (
+              <span className="text-[#5B7611] dark:text-[#C3E165] font-semibold">Copied!</span>
+            ) : duplicating ? (
+              "..."
+            ) : (
+              "Duplicate"
+            )}
           </button>
-        )}
+
+          {!renaming && (
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              Rename
+            </button>
+          )}
+        </div>
 
         {/* Delete — two-tap */}
         <button

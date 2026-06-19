@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PlanV2 } from "../../types";
+import { CREATIVES } from "../../data";
+import { CREATIVE_ID_KEY, resolveNodeValue } from "../../nodeOverrides";
 import { buildReviewTree, flattenAllNodes, type TreeNode } from "./reviewModel";
 import { ctaLabel } from "./reviewParts";
 
@@ -287,7 +289,14 @@ export function PlacementPreviewTabs({
   const [activeTab, setActiveTab] = useState<PlacementTab>("feed");
 
   const ad = resolveAdLeaf(plan, node);
-  const creative = plan.creatives.find((c) => c.id === ad?.creativeId) ?? plan.creatives[0];
+  // Honor a per-ad creative swap (__creativeId override) before the baked id.
+  const effectiveCreativeId = ad
+    ? (resolveNodeValue(plan, ad.id, CREATIVE_ID_KEY, ad.creativeId ?? null) as string | null)
+    : null;
+  const creative =
+    [...plan.creatives, ...CREATIVES].find((c) => c.id === effectiveCreativeId) ??
+    plan.creatives.find((c) => c.id === ad?.creativeId) ??
+    plan.creatives[0];
   const target = plan.targets[ad?.targetIndex ?? 0] ?? plan.targets[0];
   const copy = plan.adCopy;
   const isVideo = creative?.format === "single_video";

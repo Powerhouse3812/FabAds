@@ -196,5 +196,6 @@ export function seedTemplatesIfEmpty(store: TemplateStoreV1): TemplateStoreV1 {
   return {
     setup: needsSetup ? SEED_SETUP : store.setup,
     distribution: needsDist ? SEED_DISTRIBUTION : store.distribution,
+    audiencePlacement: store.audiencePlacement,
   };
 }

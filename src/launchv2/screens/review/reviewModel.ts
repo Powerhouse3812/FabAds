@@ -19,11 +19,11 @@ import {
   perTargetCounts,
   type PageDemand,
 } from "../../deriveV2";
-import { pageActiveAds } from "../../data";
+import { pageActiveAds, CREATIVES } from "../../data";
 import { MAX_ADS_PER_PAGE } from "../../types";
 import { planReady, requiresPixel, softWarnings, type SoftWarning } from "../../reducer";
 import { buildPlanUnits, type CanonicalUnit } from "../../planUnits";
-import { resolveNodeValue } from "../../nodeOverrides";
+import { resolveNodeValue, CREATIVE_ID_KEY } from "../../nodeOverrides";
 
 /* ------------------------------------------------------------------ */
 /*  Representative tree                                                */
@@ -119,13 +119,19 @@ export function baselineAdCountForAdSet(plan: PlanV2, adSetNodeId: string): numb
  */
 export function expandAdSetLeaves(plan: PlanV2, adSetNodeId: string): TreeNode[] {
   const units = buildPlanUnits(plan).filter((u) => u.adSetNodeId === adSetNodeId);
-  return units.map((u) => ({
+  return units.map((u) => {
+    const swappedId = resolveNodeValue(plan, u.adNodeId, CREATIVE_ID_KEY, u.creativeId) as string;
+    const swapped =
+      swappedId !== u.creativeId
+        ? [...plan.creatives, ...CREATIVES].find((c) => c.id === swappedId)
+        : undefined;
+    return {
     id: u.adNodeId,
     kind: "ad" as const,
-    label: u.creativeName,
+    label: swapped?.name ?? u.creativeName,
     sub: u.target.pageName,
     targetIndex: u.targetIndex,
-    creativeId: u.creativeId,
+    creativeId: swappedId,
     fields: {
       primaryText: u.resolved.primaryText || "Discover the difference quality makes.",
       headline: u.resolved.headline,
@@ -133,7 +139,8 @@ export function expandAdSetLeaves(plan: PlanV2, adSetNodeId: string): TreeNode[]
       cta: u.resolved.cta,
       destinationUrl: u.resolved.destinationUrl,
     },
-  }));
+    };
+  });
 }
 
 /**
@@ -192,13 +199,21 @@ export function buildReviewTree(plan: PlanV2): TreeNode[] {
         const adsHere = sUnits.length;
         const shown = sUnits.slice(0, MAX_LEAVES);
 
-        const leaves: TreeNode[] = shown.map((u) => ({
+        const leaves: TreeNode[] = shown.map((u) => {
+          // Honor a per-ad creative swap (__creativeId override) for the node's
+          // creative + label, so the tree stays truthful to what's been edited.
+          const swappedId = resolveNodeValue(plan, u.adNodeId, CREATIVE_ID_KEY, u.creativeId) as string;
+          const swapped =
+            swappedId !== u.creativeId
+              ? [...plan.creatives, ...CREATIVES].find((c) => c.id === swappedId)
+              : undefined;
+          return {
           id: u.adNodeId,
           kind: "ad" as const,
-          label: u.creativeName,
+          label: swapped?.name ?? u.creativeName,
           sub: target.pageName,
           targetIndex: ti,
-          creativeId: u.creativeId,
+          creativeId: swappedId,
           fields: {
             primaryText: u.resolved.primaryText || "Discover the difference quality makes.",
             headline: u.resolved.headline,
@@ -206,7 +221,8 @@ export function buildReviewTree(plan: PlanV2): TreeNode[] {
             cta: u.resolved.cta,
             destinationUrl: u.resolved.destinationUrl,
           },
-        }));
+          };
+        });
         if (adsHere > shown.length) {
           leaves.push({
             id: `t${ti}:${target.fbPageId}:c${ci}:s${si}:more`,
@@ -590,6 +606,67 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
       tier: "warning",
       title: "Video format with manual placements",
       detail: "Some manual placements (Marketplace, Right Column) don't support video. Switch to Automatic placements or use a static image format.",
+      fix: { label: "Switch to Automatic placements", kind: "none" },
+    });
+  }
+
+  // ---- Meta guardrail 1: Collection requires a catalogue + product set ----
+  if (plan.format === "collection") {
+    const anyCatalogue =
+      plan.catalogueToggle || Object.values(plan.catalogueByAccount ?? {}).some(Boolean);
+    const anyProductSet = Object.values(plan.productSetByAccount ?? {}).some(
+      (s) => s?.catalogId && (s.productSetIds?.length ?? 0) > 0,
+    );
+    if (!anyCatalogue || !anyProductSet) {
+      issues.push({
+        id: "err:collection-needs-catalogue",
+        tier: "error",
+        title: "Collection needs a catalogue",
+        detail:
+          "Collection ads show a product grid from a catalogue. Turn on Advantage+ Catalogue and pick a product set in Setup → Ad features.",
+      });
+    }
+  }
+
+  // ---- Meta guardrail 3: Carousel card count + per-card completeness ----
+  if (plan.format === "carousel") {
+    const cards = plan.carouselCards ?? [];
+    if (cards.length < 2) {
+      issues.push({
+        id: "err:carousel-min",
+        tier: "error",
+        title: "Carousel needs 2+ cards",
+        detail: "Meta carousels run 2–10 cards. Add at least 2 cards in the Creative step.",
+      });
+    } else if (cards.length > 10) {
+      issues.push({
+        id: "err:carousel-max",
+        tier: "error",
+        title: "Carousel over the 10-card limit",
+        detail: `Meta allows max 10 carousel cards — you have ${cards.length}. Remove ${cards.length - 10}.`,
+      });
+    }
+    const incomplete = cards.filter(
+      (c) => !c.creativeId || !c.headline?.trim() || !c.link?.trim(),
+    ).length;
+    if (cards.length >= 2 && incomplete > 0) {
+      issues.push({
+        id: "err:carousel-incomplete",
+        tier: "error",
+        title: `${incomplete} carousel card${incomplete === 1 ? "" : "s"} incomplete`,
+        detail: "Every card needs media, a headline, and a link before launch.",
+      });
+    }
+  }
+
+  // ---- Meta guardrail 4: Collection only renders in Feeds/Stories/Reels ----
+  if (plan.format === "collection" && plan.placementMode === "manual") {
+    issues.push({
+      id: "warn:collection-placement",
+      tier: "warning",
+      title: "Collection with manual placements",
+      detail:
+        "Collection ads only render in Feeds, Stories and Reels. Right Column, Search and Audience Network will be skipped. Automatic placements is recommended.",
       fix: { label: "Switch to Automatic placements", kind: "none" },
     });
   }

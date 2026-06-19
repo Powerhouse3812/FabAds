@@ -1,4 +1,5 @@
 import type { LaunchRunV2 } from "../types";
+import { SEED_RUNS } from "./seedRuns";
 
 const KEY = "fabads:launchv2:runs:v1";
 const MAX = 50;
@@ -10,6 +11,18 @@ function load(): LaunchRunV2[] {
     return JSON.parse(raw) as LaunchRunV2[];
   } catch {
     return [];
+  }
+}
+
+/** Seeds localStorage with realistic dummy runs if the store is currently empty. */
+export function seedRunsIfEmpty(): void {
+  const existing = load();
+  if (existing.length > 0) return;
+  const seeded = SEED_RUNS.slice(0, MAX);
+  try {
+    localStorage.setItem(KEY, JSON.stringify(seeded));
+  } catch {
+    // ignore quota errors
   }
 }
 
@@ -33,8 +46,9 @@ export function saveRun(run: LaunchRunV2): void {
   save(runs.slice(0, MAX));
 }
 
-/** Load all persisted runs sorted by createdAt desc. */
+/** Load all persisted runs sorted by createdAt desc. Auto-seeds with dummy data on first call if empty. */
 export function loadRuns(): LaunchRunV2[] {
+  seedRunsIfEmpty();
   return load().sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );

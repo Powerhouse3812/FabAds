@@ -25,7 +25,8 @@
  */
 import type { BudgetMode, CreativeRef, PlanV2, TargetPair } from "./types";
 import { perTargetCounts } from "./deriveV2";
-import { resolveNodeValue } from "./nodeOverrides";
+import { resolveNodeValue, CREATIVE_ID_KEY } from "./nodeOverrides";
+import { CREATIVES } from "./data";
 
 /** Resolve a naming pattern for a unit (was private to mockLaunchV2). */
 export function resolveName(
@@ -148,10 +149,17 @@ export function buildPlanUnits(plan: PlanV2): CanonicalUnit[] {
         const adsHere = resolveNodeValue(plan, adSetNodeId, "adsPerAdSet", baselineSlotCount);
 
         for (let k = 0; k < adsHere; k++) {
-          const creative = creatives[leafIdx % creatives.length];
+          const baseCreative = creatives[leafIdx % creatives.length];
           leafIdx++;
           globalN++;
           const adNodeId = `t${ti}:${target.fbPageId}:c${ci}:s${si}:a${k}`;
+          // Honor a per-ad creative swap (__creativeId override) end-to-end so the
+          // launch unit matches what's shown in the tree/preview/editor.
+          const swappedId = resolveNodeValue(plan, adNodeId, CREATIVE_ID_KEY, baseCreative.id) as string;
+          const creative =
+            swappedId === baseCreative.id
+              ? baseCreative
+              : [...plan.creatives, ...CREATIVES].find((c) => c.id === swappedId) ?? baseCreative;
           const adNameDefault = resolveName(plan, {
             brand,
             adset: String(si + 1).padStart(2, "0"),
