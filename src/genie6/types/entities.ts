@@ -116,6 +116,11 @@ export interface Avatar {
   thumbnail?: string;
   demographic: string; // e.g. "F · 28-34 · South Asian"
   language: string[];
+  /** Short looping preview clip (muted autoplay) shown while the user is
+   *  selecting an avatar in the UGC picker. Plays on hover/focus. Optional —
+   *  avatars without a clip fall back to the static `thumbnail`. (FB-5752
+   *  media-previews.) */
+  previewVideo?: string;
 }
 
 export interface Voice {
