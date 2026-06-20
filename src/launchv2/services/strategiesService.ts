@@ -1856,4 +1856,18 @@ export const strategiesService = {
     );
     writeAll(list);
   },
+
+  updatePlan(id: string, patch: Partial<PlanV2>): void {
+    const list = hydrate().map((s) =>
+      s.id === id ? { ...s, plan: { ...s.plan, ...patch }, updatedAt: new Date().toISOString() } : s
+    );
+    writeAll(list);
+  },
+
+  updateTags(id: string, tags: string[]): void {
+    const list = hydrate().map((s) =>
+      s.id === id ? { ...s, tags, updatedAt: new Date().toISOString() } : s
+    );
+    writeAll(list);
+  },
 };

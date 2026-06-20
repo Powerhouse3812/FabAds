@@ -386,13 +386,34 @@ function PreviewRail({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Edit mode state ──────────────────────────────────────────────
+  const [editing, setEditing] = useState(false);
+  const [localTags, setLocalTags] = useState<string[]>([]);
+  const [localBudget, setLocalBudget] = useState<number>(0);
+  const [localMode, setLocalMode] = useState<string>("CBO");
+  const [localNotes, setLocalNotes] = useState<string>("");
+  const [tagInput, setTagInput] = useState("");
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
   // Reset local state when strategy changes
   useEffect(() => {
     setDuplicated(false);
     setRenaming(false);
     setDeleteConfirm(false);
-    if (strategy) setRenameValue(strategy.name);
+    setEditing(false);
+    if (strategy) {
+      setRenameValue(strategy.name);
+      resetEditState(strategy);
+    }
   }, [strategy?.id]);
+
+  function resetEditState(s: LaunchStrategy) {
+    setLocalTags(s.tags ?? []);
+    setLocalBudget(s.plan.budgetAmount ?? 0);
+    setLocalMode(s.plan.budgetMode ?? "CBO");
+    setLocalNotes((s.plan as { notes?: string }).notes ?? "");
+    setTagInput("");
+  }
 
   useEffect(() => {
     if (renaming && renameInputRef.current) {
@@ -434,6 +455,8 @@ function PreviewRail({
   }
 
   const summary: StrategySummary = strategiesService.summarize(strategy);
+  const currency = strategy.plan.targets?.[0]?.currency;
+  const currSym = currency === "USD" ? "$" : "₹";
 
   function handleApply() {
     strategiesService.markUsed(strategy!.id);
@@ -477,11 +500,68 @@ function PreviewRail({
     onClose();
   }
 
+  // ── Edit mode handlers ───────────────────────────────────────────
+  function handleEditOpen() {
+    resetEditState(strategy!);
+    setEditing(true);
+  }
+
+  function handleEditSave() {
+    if (localBudget < 1) return;
+    strategiesService.updatePlan(strategy!.id, {
+      budgetAmount: localBudget,
+      budgetMode: localMode,
+      notes: localNotes,
+    } as Partial<typeof strategy.plan>);
+    strategiesService.updateTags(strategy!.id, localTags);
+    onRefresh();
+    setEditing(false);
+  }
+
+  function handleEditCancel() {
+    resetEditState(strategy!);
+    setEditing(false);
+  }
+
+  function handleTagKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      commitTag();
+    } else if (e.key === "Escape") {
+      setTagInput("");
+      tagInputRef.current?.blur();
+    }
+  }
+
+  function commitTag() {
+    const val = tagInput.trim().replace(/^,+|,+$/g, "");
+    if (val && !localTags.includes(val) && localTags.length < 8) {
+      setLocalTags([...localTags, val]);
+    }
+    setTagInput("");
+  }
+
+  function removeTag(tag: string) {
+    setLocalTags(localTags.filter((t) => t !== tag));
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-[#e7e5dc] dark:border-[#2a2a2a] flex-shrink-0">
+      <div
+        className={[
+          "flex items-start justify-between gap-2 px-5 py-4 border-b flex-shrink-0 transition-colors",
+          editing
+            ? "border-b-2 border-[#8FB821]"
+            : "border-[#e7e5dc] dark:border-[#2a2a2a]",
+        ].join(" ")}
+      >
         <div className="flex-1 min-w-0">
+          {editing && (
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[#8FB821] mb-0.5">
+              Editing strategy
+            </p>
+          )}
           {renaming ? (
             <input
               ref={renameInputRef}
@@ -504,124 +584,298 @@ function PreviewRail({
             {relativeTime(strategy.updatedAt)} · {strategy.useCount ?? 0} uses
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
-          aria-label="Close preview"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Edit pencil button — hidden during edit mode */}
+          {!editing && (
+            <button
+              type="button"
+              onClick={handleEditOpen}
+              className="w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+              aria-label="Edit strategy"
+              title="Edit strategy"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+            aria-label="Close preview"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* Metadata */}
+      {/* Metadata / Edit form */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
 
-        {/* Budget bar */}
-        <BudgetBar plan={strategy.plan} />
+        {editing ? (
+          /* ── EDIT FORM ────────────────────────────────────── */
+          <div className="space-y-5">
 
-        {/* Campaign section */}
-        <RailSection label="Campaign" />
-        <div className="mb-4 space-y-0">
-          <MetaRow label="Objective" value={summary.objective} />
-          <MetaRow label="Intent" value={summary.intent} />
-          <MetaRow label="Format" value={summary.format} />
-          <MetaRow label="Spread" value={summary.spreadMode} />
-        </div>
-
-        {/* Structure section */}
-        {strategy.plan.structure && (
-          <>
-            <RailSection label="Structure" />
-            <StructureStats plan={strategy.plan} />
-          </>
-        )}
-
-        {/* Audience section */}
-        <RailSection label="Audience" />
-        <div className="mb-4 space-y-0">
-          <MetaRow label="Pages" value={summary.destinationsCount === 0 ? "—" : `${summary.destinationsCount} account${summary.destinationsCount > 1 ? "s" : ""}`} />
-          <MetaRow label="Audience" value={summary.audienceSummary} />
-        </div>
-
-        {/* Tags section */}
-        {(strategy.tags ?? []).length > 0 && (
-          <>
-            <RailSection label="Tags" />
-            <div className="flex flex-wrap gap-1 mb-4">
-              {(strategy.tags ?? []).map((tag) => (
-                <span
-                  key={tag}
-                  className="font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-2 py-1 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]"
-                >
-                  {tag}
+            {/* Budget amount + mode */}
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
+                Budget
+              </p>
+              {/* Amount row */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-mono text-[13px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+                  {currSym}
                 </span>
-              ))}
+                <input
+                  type="number"
+                  min={1}
+                  value={localBudget || ""}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setLocalBudget(parseFloat(e.target.value) || 0)
+                  }
+                  placeholder="0"
+                  className="h-8 w-28 px-2.5 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] font-mono text-[13px] tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 transition-all"
+                  style={{ MozAppearance: "textfield" } as React.CSSProperties}
+                />
+                <span className="font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+                  /day
+                </span>
+              </div>
+              {/* Budget mode toggle */}
+              <div className="flex gap-1.5">
+                {(["ABO", "CBO"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setLocalMode(mode)}
+                    className={[
+                      "h-7 px-3 rounded-full font-mono text-[10px] uppercase tracking-[0.06em] font-semibold transition-colors leading-none border",
+                      localMode === mode
+                        ? "bg-[#8FB821] text-[#121212] border-[#8FB821]"
+                        : "border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
+                    ].join(" ")}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Tags */}
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
+                Tags
+              </p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {localTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-2 py-1 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity leading-none"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {localTags.length < 8 && (
+                <input
+                  ref={tagInputRef}
+                  type="text"
+                  value={tagInput}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  onBlur={commitTag}
+                  placeholder="Add tag..."
+                  className="h-7 px-2.5 rounded-full border border-dashed border-[#e7e5dc] dark:border-[#2a2a2a] bg-transparent font-mono text-[10px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)] placeholder:text-[rgba(15,15,12,0.35)] dark:placeholder:text-[rgba(255,255,255,0.35)] outline-none focus:border-[#8FB821] transition-colors w-full max-w-[160px]"
+                />
+              )}
+            </div>
+
+            {/* Notes */}
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
+                Notes
+              </p>
+              <textarea
+                rows={3}
+                value={localNotes}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setLocalNotes(e.target.value)}
+                placeholder="Add notes about this strategy..."
+                className="w-full px-3 py-2 rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] font-mono text-[11px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] placeholder:text-[rgba(15,15,12,0.35)] dark:placeholder:text-[rgba(255,255,255,0.35)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 transition-all resize-none leading-relaxed"
+              />
+            </div>
+
+            {/* Read-only campaign info */}
+            <div>
+              <RailSection label="Campaign (read-only)" />
+              <div className="space-y-0 opacity-60">
+                <MetaRow label="Objective" value={summary.objective} />
+                <MetaRow label="Intent" value={summary.intent} />
+                <MetaRow label="Format" value={summary.format} />
+                <MetaRow label="Spread" value={summary.spreadMode} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ── READ-ONLY VIEW ───────────────────────────────── */
+          <>
+            {/* Budget bar */}
+            <BudgetBar plan={strategy.plan} />
+
+            {/* Notes — shown if present */}
+            {(strategy.plan as { notes?: string }).notes && (
+              <div className="mb-4 px-3 py-2.5 rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#FAFAF7] dark:bg-[#18181B]">
+                <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mb-1">
+                  Notes
+                </p>
+                <p className="font-mono text-[11px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)] leading-relaxed whitespace-pre-wrap">
+                  {(strategy.plan as { notes?: string }).notes}
+                </p>
+              </div>
+            )}
+
+            {/* Campaign section */}
+            <RailSection label="Campaign" />
+            <div className="mb-4 space-y-0">
+              <MetaRow label="Objective" value={summary.objective} />
+              <MetaRow label="Intent" value={summary.intent} />
+              <MetaRow label="Format" value={summary.format} />
+              <MetaRow label="Spread" value={summary.spreadMode} />
+            </div>
+
+            {/* Structure section */}
+            {strategy.plan.structure && (
+              <>
+                <RailSection label="Structure" />
+                <StructureStats plan={strategy.plan} />
+              </>
+            )}
+
+            {/* Audience section */}
+            <RailSection label="Audience" />
+            <div className="mb-4 space-y-0">
+              <MetaRow label="Pages" value={summary.destinationsCount === 0 ? "—" : `${summary.destinationsCount} account${summary.destinationsCount > 1 ? "s" : ""}`} />
+              <MetaRow label="Audience" value={summary.audienceSummary} />
+            </div>
+
+            {/* Tags section */}
+            {(strategy.tags ?? []).length > 0 && (
+              <>
+                <RailSection label="Tags" />
+                <div className="flex flex-wrap gap-1 mb-4">
+                  {(strategy.tags ?? []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-2 py-1 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
 
       {/* Actions */}
       <div className="flex-shrink-0 px-5 py-4 border-t border-[#e7e5dc] dark:border-[#2a2a2a] space-y-2">
-        {/* Apply */}
-        <button
-          type="button"
-          onClick={handleApply}
-          className="w-full h-9 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm"
-          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-        >
-          Apply to new launch
-        </button>
-
-        {/* Secondary row: Duplicate + Rename */}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleDuplicate}
-            disabled={duplicating}
-            className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors disabled:opacity-50"
-            style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-          >
-            {duplicated ? (
-              <span className="text-[#5B7611] dark:text-[#C3E165] font-semibold">Copied!</span>
-            ) : duplicating ? (
-              "..."
-            ) : (
-              "Duplicate"
-            )}
-          </button>
-
-          {!renaming && (
+        {editing ? (
+          /* Edit mode action buttons */
+          <>
             <button
               type="button"
-              onClick={() => setRenaming(true)}
-              className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+              onClick={handleEditSave}
+              disabled={localBudget < 1}
+              className="w-full h-9 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ fontFamily: "Geist, system-ui, sans-serif" }}
             >
-              Rename
+              Save
             </button>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={handleEditCancel}
+              className="w-full h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          /* Normal action buttons */
+          <>
+            {/* Apply */}
+            <button
+              type="button"
+              onClick={handleApply}
+              className="w-full h-9 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              Apply to new launch
+            </button>
 
-        {/* Delete — two-tap */}
-        <button
-          type="button"
-          onClick={handleDelete}
-          onBlur={() => setTimeout(() => setDeleteConfirm(false), 200)}
-          className={[
-            "w-full h-9 rounded-full border text-[13px] font-medium transition-colors",
-            deleteConfirm
-              ? "border-red-500 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
-              : "border-[#e7e5dc] dark:border-[#2a2a2a] text-red-500 dark:text-red-400 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950",
-          ].join(" ")}
-          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-        >
-          {deleteConfirm ? "Confirm delete" : "Delete"}
-        </button>
+            {/* Secondary row: Duplicate + Rename */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleDuplicate}
+                disabled={duplicating}
+                className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors disabled:opacity-50"
+                style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+              >
+                {duplicated ? (
+                  <span className="text-[#5B7611] dark:text-[#C3E165] font-semibold">Copied!</span>
+                ) : duplicating ? (
+                  "..."
+                ) : (
+                  "Duplicate"
+                )}
+              </button>
+
+              {!renaming && (
+                <button
+                  type="button"
+                  onClick={() => setRenaming(true)}
+                  className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+                  style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+                >
+                  Rename
+                </button>
+              )}
+            </div>
+
+            {/* Delete — two-tap */}
+            <button
+              type="button"
+              onClick={handleDelete}
+              onBlur={() => setTimeout(() => setDeleteConfirm(false), 200)}
+              className={[
+                "w-full h-9 rounded-full border text-[13px] font-medium transition-colors",
+                deleteConfirm
+                  ? "border-red-500 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
+                  : "border-[#e7e5dc] dark:border-[#2a2a2a] text-red-500 dark:text-red-400 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950",
+              ].join(" ")}
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              {deleteConfirm ? "Confirm delete" : "Delete"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
