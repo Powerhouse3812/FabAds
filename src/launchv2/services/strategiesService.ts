@@ -29,6 +29,8 @@ export interface LaunchStrategy {
   lastUsedAt?: string;
   /** How many launches have applied this strategy. */
   useCount?: number;
+  /** Section ids the user chose to leave blank and be prompted for at launch. */
+  askAtLaunch?: string[];
 }
 
 /** Human-readable summary of a strategy's key config for overview pills. */
@@ -1861,6 +1863,19 @@ export const strategiesService = {
     const list = hydrate().map((s) =>
       s.id === id ? { ...s, plan: { ...s.plan, ...patch }, updatedAt: new Date().toISOString() } : s
     );
+    writeAll(list);
+  },
+
+  update(id: string, patch: { name?: string; tags?: string[]; plan?: Partial<PlanV2>; askAtLaunch?: string[] }): void {
+    const list = hydrate().map((s) => {
+      if (s.id !== id) return s;
+      const next = { ...s, updatedAt: new Date().toISOString() };
+      if (patch.name != null && patch.name.trim()) next.name = patch.name.trim();
+      if (patch.tags != null) next.tags = patch.tags;
+      if (patch.askAtLaunch != null) next.askAtLaunch = patch.askAtLaunch;
+      if (patch.plan != null) next.plan = { ...s.plan, ...patch.plan };
+      return next;
+    });
     writeAll(list);
   },
 

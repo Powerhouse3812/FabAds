@@ -13,6 +13,9 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { strategiesService, type LaunchStrategy, type StrategySummary } from "../../services/strategiesService";
+import { StrategyEditor } from "./StrategyEditor";
+import { stepCompletion } from "./strategyEditorModel";
+import { setSubNavCollapsed } from "@/components/shell/useSubNavCollapsed";
 
 /* ─────────────────────── tiny helpers ───────────────────────── */
 
@@ -159,6 +162,41 @@ function StructureMicro({ plan }: { plan: LaunchStrategy["plan"] }) {
   );
 }
 
+/** Launch-step completion strip — which steps this strategy has preset. */
+function StepStrip({ strategy }: { strategy: LaunchStrategy }) {
+  const c = stepCompletion(strategy);
+  const steps: { label: string; done: boolean }[] = [
+    { label: "Start", done: c.step1 },
+    { label: "Setup", done: c.step2 },
+    { label: "Ad&Dist", done: c.step3 },
+    { label: "Review", done: c.step4 },
+  ];
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {steps.map((s, i) => (
+        <span key={s.label} className="flex items-center gap-1">
+          <span
+            className={[
+              "flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.05em] font-semibold px-1.5 py-0.5 rounded-full leading-none",
+              s.done
+                ? "bg-[#F5FBE2] dark:bg-[#1D2A09] text-[#5B7611] dark:text-[#C3E165]"
+                : "bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.4)] dark:text-[rgba(255,255,255,0.4)]",
+            ].join(" ")}
+          >
+            {s.done ? (
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            ) : (
+              <span className="w-[6px] h-[1.5px] rounded-full bg-current opacity-60" />
+            )}
+            {s.label}
+          </span>
+          {i < steps.length - 1 && <span className="text-[rgba(15,15,12,0.2)] dark:text-[rgba(255,255,255,0.2)] text-[9px]">·</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** Strategy card in the grid */
 function StrategyCard({
   strategy,
@@ -271,6 +309,11 @@ function StrategyCard({
         </div>
       )}
 
+      {/* Launch-step completion strip */}
+      <div className="mb-2.5">
+        <StepStrip strategy={strategy} />
+      </div>
+
       {/* Footer */}
       <div className="flex items-center gap-2 font-mono text-[10px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] tabular-nums">
         <span>{strategy.useCount ?? 0} uses</span>
@@ -368,15 +411,17 @@ function StructureStats({ plan }: { plan: LaunchStrategy["plan"] }) {
   );
 }
 
-/** Preview rail — right panel */
+/** Preview rail — right panel (read-only preview + actions). */
 function PreviewRail({
   strategy,
   onClose,
   onRefresh,
+  onEdit,
 }: {
   strategy: LaunchStrategy | null;
   onClose: () => void;
   onRefresh: () => void;
+  onEdit: (id: string) => void;
 }) {
   const navigate = useNavigate();
   const [duplicating, setDuplicating] = useState(false);
@@ -386,34 +431,15 @@ function PreviewRail({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Edit mode state ──────────────────────────────────────────────
-  const [editing, setEditing] = useState(false);
-  const [localTags, setLocalTags] = useState<string[]>([]);
-  const [localBudget, setLocalBudget] = useState<number>(0);
-  const [localMode, setLocalMode] = useState<string>("CBO");
-  const [localNotes, setLocalNotes] = useState<string>("");
-  const [tagInput, setTagInput] = useState("");
-  const tagInputRef = useRef<HTMLInputElement>(null);
-
   // Reset local state when strategy changes
   useEffect(() => {
     setDuplicated(false);
     setRenaming(false);
     setDeleteConfirm(false);
-    setEditing(false);
     if (strategy) {
       setRenameValue(strategy.name);
-      resetEditState(strategy);
     }
   }, [strategy?.id]);
-
-  function resetEditState(s: LaunchStrategy) {
-    setLocalTags(s.tags ?? []);
-    setLocalBudget(s.plan.budgetAmount ?? 0);
-    setLocalMode(s.plan.budgetMode ?? "CBO");
-    setLocalNotes((s.plan as { notes?: string }).notes ?? "");
-    setTagInput("");
-  }
 
   useEffect(() => {
     if (renaming && renameInputRef.current) {
@@ -455,8 +481,6 @@ function PreviewRail({
   }
 
   const summary: StrategySummary = strategiesService.summarize(strategy);
-  const currency = strategy.plan.targets?.[0]?.currency;
-  const currSym = currency === "USD" ? "$" : "₹";
 
   function handleApply() {
     strategiesService.markUsed(strategy!.id);
@@ -500,68 +524,11 @@ function PreviewRail({
     onClose();
   }
 
-  // ── Edit mode handlers ───────────────────────────────────────────
-  function handleEditOpen() {
-    resetEditState(strategy!);
-    setEditing(true);
-  }
-
-  function handleEditSave() {
-    if (localBudget < 1) return;
-    strategiesService.updatePlan(strategy!.id, {
-      budgetAmount: localBudget,
-      budgetMode: localMode,
-      notes: localNotes,
-    } as Partial<typeof strategy.plan>);
-    strategiesService.updateTags(strategy!.id, localTags);
-    onRefresh();
-    setEditing(false);
-  }
-
-  function handleEditCancel() {
-    resetEditState(strategy!);
-    setEditing(false);
-  }
-
-  function handleTagKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      commitTag();
-    } else if (e.key === "Escape") {
-      setTagInput("");
-      tagInputRef.current?.blur();
-    }
-  }
-
-  function commitTag() {
-    const val = tagInput.trim().replace(/^,+|,+$/g, "");
-    if (val && !localTags.includes(val) && localTags.length < 8) {
-      setLocalTags([...localTags, val]);
-    }
-    setTagInput("");
-  }
-
-  function removeTag(tag: string) {
-    setLocalTags(localTags.filter((t) => t !== tag));
-  }
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div
-        className={[
-          "flex items-start justify-between gap-2 px-5 py-4 border-b flex-shrink-0 transition-colors",
-          editing
-            ? "border-b-2 border-[#8FB821]"
-            : "border-[#e7e5dc] dark:border-[#2a2a2a]",
-        ].join(" ")}
-      >
+      <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-[#e7e5dc] dark:border-[#2a2a2a] flex-shrink-0">
         <div className="flex-1 min-w-0">
-          {editing && (
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[#8FB821] mb-0.5">
-              Editing strategy
-            </p>
-          )}
           {renaming ? (
             <input
               ref={renameInputRef}
@@ -585,21 +552,19 @@ function PreviewRail({
           </p>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Edit pencil button — hidden during edit mode */}
-          {!editing && (
-            <button
-              type="button"
-              onClick={handleEditOpen}
-              className="w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
-              aria-label="Edit strategy"
-              title="Edit strategy"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-            </button>
-          )}
+          {/* Edit — opens full strategy editor */}
+          <button
+            type="button"
+            onClick={() => onEdit(strategy.id)}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+            aria-label="Edit strategy"
+            title="Edit strategy"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -617,123 +582,7 @@ function PreviewRail({
       {/* Metadata / Edit form */}
       <div className="flex-1 overflow-y-auto px-5 py-4">
 
-        {editing ? (
-          /* ── EDIT FORM ────────────────────────────────────── */
-          <div className="space-y-5">
-
-            {/* Budget amount + mode */}
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
-                Budget
-              </p>
-              {/* Amount row */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-mono text-[13px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-                  {currSym}
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  value={localBudget || ""}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                    setLocalBudget(parseFloat(e.target.value) || 0)
-                  }
-                  placeholder="0"
-                  className="h-8 w-28 px-2.5 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] font-mono text-[13px] tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 transition-all"
-                  style={{ MozAppearance: "textfield" } as React.CSSProperties}
-                />
-                <span className="font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-                  /day
-                </span>
-              </div>
-              {/* Budget mode toggle */}
-              <div className="flex gap-1.5">
-                {(["ABO", "CBO"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setLocalMode(mode)}
-                    className={[
-                      "h-7 px-3 rounded-full font-mono text-[10px] uppercase tracking-[0.06em] font-semibold transition-colors leading-none border",
-                      localMode === mode
-                        ? "bg-[#8FB821] text-[#121212] border-[#8FB821]"
-                        : "border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
-                    ].join(" ")}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tags */}
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
-                Tags
-              </p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {localTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.05em] font-semibold px-2 py-1 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => removeTag(tag)}
-                      className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity leading-none"
-                      aria-label={`Remove tag ${tag}`}
-                    >
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-              {localTags.length < 8 && (
-                <input
-                  ref={tagInputRef}
-                  type="text"
-                  value={tagInput}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                  onBlur={commitTag}
-                  placeholder="Add tag..."
-                  className="h-7 px-2.5 rounded-full border border-dashed border-[#e7e5dc] dark:border-[#2a2a2a] bg-transparent font-mono text-[10px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)] placeholder:text-[rgba(15,15,12,0.35)] dark:placeholder:text-[rgba(255,255,255,0.35)] outline-none focus:border-[#8FB821] transition-colors w-full max-w-[160px]"
-                />
-              )}
-            </div>
-
-            {/* Notes */}
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] mb-2">
-                Notes
-              </p>
-              <textarea
-                rows={3}
-                value={localNotes}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setLocalNotes(e.target.value)}
-                placeholder="Add notes about this strategy..."
-                className="w-full px-3 py-2 rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] font-mono text-[11px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] placeholder:text-[rgba(15,15,12,0.35)] dark:placeholder:text-[rgba(255,255,255,0.35)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 transition-all resize-none leading-relaxed"
-              />
-            </div>
-
-            {/* Read-only campaign info */}
-            <div>
-              <RailSection label="Campaign (read-only)" />
-              <div className="space-y-0 opacity-60">
-                <MetaRow label="Objective" value={summary.objective} />
-                <MetaRow label="Intent" value={summary.intent} />
-                <MetaRow label="Format" value={summary.format} />
-                <MetaRow label="Spread" value={summary.spreadMode} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* ── READ-ONLY VIEW ───────────────────────────────── */
-          <>
+        <>
             {/* Budget bar */}
             <BudgetBar plan={strategy.plan} />
 
@@ -789,36 +638,12 @@ function PreviewRail({
                 </div>
               </>
             )}
-          </>
-        )}
+        </>
       </div>
 
       {/* Actions */}
       <div className="flex-shrink-0 px-5 py-4 border-t border-[#e7e5dc] dark:border-[#2a2a2a] space-y-2">
-        {editing ? (
-          /* Edit mode action buttons */
-          <>
-            <button
-              type="button"
-              onClick={handleEditSave}
-              disabled={localBudget < 1}
-              className="w-full h-9 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={handleEditCancel}
-              className="w-full h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
-              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
-          /* Normal action buttons */
-          <>
+        <>
             {/* Apply */}
             <button
               type="button"
@@ -874,8 +699,7 @@ function PreviewRail({
             >
               {deleteConfirm ? "Confirm delete" : "Delete"}
             </button>
-          </>
-        )}
+        </>
       </div>
     </div>
   );
@@ -934,6 +758,7 @@ function ZeroState() {
 export function StrategiesLibrary() {
   const [strategies, setStrategies] = useState<LaunchStrategy[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("recently-used");
@@ -942,6 +767,21 @@ export function StrategiesLibrary() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  // Editing expands the workspace: collapse the shell sub-nav, restore on exit.
+  function openEditor(id: string) {
+    setSelectedId(id);
+    setEditingId(id);
+    setSubNavCollapsed(true);
+  }
+  function closeEditor() {
+    setEditingId(null);
+    setSubNavCollapsed(false);
+  }
+  useEffect(() => {
+    // Safety: restore the sub-nav if this screen unmounts mid-edit.
+    return () => setSubNavCollapsed(false);
   }, []);
 
   /* Derived: all unique tags */
@@ -976,14 +816,25 @@ export function StrategiesLibrary() {
     });
 
   const selected = selectedId ? strategies.find((s) => s.id === selectedId) ?? null : null;
-  const showRail = selectedId !== null;
+  const editing = editingId ? strategies.find((s) => s.id === editingId) ?? null : null;
+  const showRail = selectedId !== null && editingId === null;
 
-  // Close rail if selected strategy was deleted
+  // Close rail / editor if the active strategy was deleted
   useEffect(() => {
     if (selectedId && !strategies.find((s) => s.id === selectedId)) {
       setSelectedId(null);
     }
-  }, [strategies, selectedId]);
+    if (editingId && !strategies.find((s) => s.id === editingId)) {
+      closeEditor();
+    }
+  }, [strategies, selectedId, editingId]);
+
+  function handleEditorSave(patch: { name: string; tags: string[]; plan: Partial<LaunchStrategy["plan"]>; askAtLaunch: string[] }) {
+    if (!editingId) return;
+    strategiesService.update(editingId, patch);
+    refresh();
+    closeEditor();
+  }
 
   return (
     <div className="flex flex-col h-full bg-[#FAFAF7] dark:bg-[#18181B] min-h-[100dvh]">
@@ -1089,7 +940,30 @@ export function StrategiesLibrary() {
         )}
       </div>
 
-      {/* ── Body: card grid + preview rail ──────────────────── */}
+      {/* ── Body ──────────────────────────────────────────────── */}
+      {editing ? (
+        /* Edit mode: single-column listing strip + full-width editor */
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-[300px] flex-shrink-0 border-r border-[#e7e5dc] dark:border-[#2a2a2a] overflow-y-auto px-4 py-4 space-y-3">
+            {filtered.map((strategy) => (
+              <StrategyCard
+                key={strategy.id}
+                strategy={strategy}
+                selected={editingId === strategy.id}
+                onClick={() => openEditor(strategy.id)}
+              />
+            ))}
+          </div>
+          <div className="flex-1 min-w-0">
+            <StrategyEditor
+              key={editingId ?? "editor"}
+              strategy={editing}
+              onSave={handleEditorSave}
+              onCancel={closeEditor}
+            />
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Card grid */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -1142,10 +1016,12 @@ export function StrategiesLibrary() {
               strategy={selected}
               onClose={() => setSelectedId(null)}
               onRefresh={refresh}
+              onEdit={openEditor}
             />
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
