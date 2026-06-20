@@ -359,6 +359,18 @@ export const templatesService = {
     return tpl;
   },
 
+  updateAudiencePlacement(id: string, patch: Partial<AudiencePlacementPayload>): void {
+    const store = hydrate();
+    const now = Date.now();
+    const next: TemplateStoreV1 = {
+      ...store,
+      audiencePlacement: store.audiencePlacement.map((t) =>
+        t.id === id ? { ...t, payload: { ...t.payload, ...patch }, updatedAt: now } : t
+      ),
+    };
+    writeStore(next);
+  },
+
   renameAudiencePlacement(id: string, newName: string): void {
     const store = hydrate();
     const now = Date.now();

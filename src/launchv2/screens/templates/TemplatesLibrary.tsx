@@ -9,7 +9,7 @@
  * "Use in launch" is a placeholder CTA — wiring to launch flow is a separate step.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useId } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { templatesService } from "../../templates/service";
 import type {
   AudiencePlacementTemplate,
+  AudiencePlacementPayload,
   APLocation,
   APInterest,
 } from "../../templates/types";
@@ -76,7 +77,6 @@ export function TemplatesLibrary() {
   const [templates, setTemplates] = useState<AudiencePlacementTemplate[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
 
@@ -96,13 +96,6 @@ export function TemplatesLibrary() {
 
   const selectedTemplate =
     selectedId != null ? templates.find((t) => t.id === selectedId) ?? null : null;
-
-  const handleRenameSubmit = (newName: string) => {
-    if (!renameTarget) return;
-    templatesService.renameAudiencePlacement(renameTarget.id, newName);
-    setRenameTarget(null);
-    refresh();
-  };
 
   const handleDeleteConfirm = () => {
     if (!deleteTarget) return;
@@ -159,11 +152,11 @@ export function TemplatesLibrary() {
             <APPreviewRail
               template={selectedTemplate}
               deleteConfirmed={deleteConfirmed}
-              onRename={() => setRenameTarget({ id: selectedTemplate.id, name: selectedTemplate.name })}
               onDeleteRequest={() => {
                 setDeleteConfirmed(false);
                 setDeleteTarget({ id: selectedTemplate.id });
               }}
+              onRefresh={refresh}
             />
           ) : (
             <RailZeroState />
@@ -172,11 +165,6 @@ export function TemplatesLibrary() {
       </div>
 
       {/* Dialogs */}
-      <RenameDialog
-        target={renameTarget}
-        onClose={() => setRenameTarget(null)}
-        onSubmit={handleRenameSubmit}
-      />
       <DeleteDialog
         target={deleteTarget}
         onClose={() => {
@@ -341,198 +329,674 @@ function APTemplateCard({
 /* Preview rail                                                                */
 /* ────────────────────────────────────────────────────────────────────────── */
 
+/* ── Manual placement keys in display order ── */
+const MANUAL_PLACEMENT_KEYS: Array<keyof AudiencePlacementPayload["manualPlacements"]> = [
+  "fbFeed", "fbStories", "fbReels", "fbMarketplace",
+  "igFeed", "igStories", "igReels", "igExplore",
+  "anNative", "anRewarded",
+  "msInbox", "msStories",
+];
+
 function APPreviewRail({
   template,
   deleteConfirmed: _deleteConfirmed,
-  onRename,
   onDeleteRequest,
+  onRefresh,
 }: {
   template: AudiencePlacementTemplate;
   deleteConfirmed: boolean;
-  onRename: () => void;
   onDeleteRequest: () => void;
+  onRefresh: () => void;
 }) {
-  const { payload } = template;
-  const activeManualPlacements = payload.placementMode === "manual"
-    ? Object.entries(payload.manualPlacements).filter(([, v]) => v).map(([k]) => k)
-    : [];
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<AudiencePlacementPayload | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [locInput, setLocInput] = useState("");
+  const [interestInput, setInterestInput] = useState("");
 
+  const { payload } = template;
+
+  /* ── Enter / exit edit mode ── */
+  const enterEdit = () => {
+    setDraft({ ...payload });
+    setDraftName(template.name);
+    setLocInput("");
+    setInterestInput("");
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft(null);
+    setDraftName("");
+  };
+
+  const saveEdit = () => {
+    if (!draft) return;
+    templatesService.updateAudiencePlacement(template.id, draft);
+    if (draftName.trim() && draftName.trim() !== template.name) {
+      templatesService.renameAudiencePlacement(template.id, draftName.trim());
+    }
+    onRefresh();
+    setEditing(false);
+    setDraft(null);
+    setDraftName("");
+  };
+
+  /* ── Draft helpers ── */
+  const patchDraft = (patch: Partial<AudiencePlacementPayload>) => {
+    setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
+  const removeLoc = (key: string) => {
+    setDraft((prev) =>
+      prev ? { ...prev, locations: prev.locations.filter((l) => l.key !== key) } : prev
+    );
+  };
+
+  const addLoc = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const key = trimmed.toUpperCase().replace(/\s+/g, "_");
+      if (prev.locations.some((l) => l.key === key)) return prev;
+      return {
+        ...prev,
+        locations: [...prev.locations, { key, name: trimmed, type: "country" as const }],
+      };
+    });
+  };
+
+  const removeInterest = (id: string) => {
+    setDraft((prev) =>
+      prev ? { ...prev, detailedTargeting: prev.detailedTargeting.filter((i) => i.id !== id) } : prev
+    );
+  };
+
+  const addInterest = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        detailedTargeting: [
+          ...prev.detailedTargeting,
+          { id: Date.now().toString(), name: trimmed, type: "interest" as const },
+        ],
+      };
+    });
+  };
+
+  const toggleManualPlacement = (key: keyof AudiencePlacementPayload["manualPlacements"]) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        manualPlacements: { ...prev.manualPlacements, [key]: !prev.manualPlacements[key] },
+      };
+    });
+  };
+
+  /* ── Shared input class ── */
+  const inputCls = cn(
+    "h-8 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a]",
+    "bg-white dark:bg-[#1E1E23] text-[13px] px-3 font-mono",
+    "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
+    "outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20",
+  );
+
+  const selectCls = cn(inputCls, "appearance-none pr-7 cursor-pointer");
+
+  /* ── Read-only view ── */
+  if (!editing || !draft) {
+    const activeManualPlacements = payload.placementMode === "manual"
+      ? Object.entries(payload.manualPlacements).filter(([, v]) => v).map(([k]) => k)
+      : [];
+
+    return (
+      <div className="flex h-full flex-col p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+              Audience Template
+            </span>
+            <h2 className="mt-1.5 text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+              {template.name}
+            </h2>
+          </div>
+          {/* Edit pencil button */}
+          <button
+            onClick={enterEdit}
+            title="Edit template"
+            className={cn(
+              "mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full",
+              "border border-[#e7e5dc] bg-transparent transition-all",
+              "hover:border-[#8FB821] hover:bg-[rgba(143,184,33,0.08)]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821]",
+              "dark:border-[#2a2a2a] dark:hover:border-[#8FB821]",
+            )}
+          >
+            <PencilIcon className="h-3 w-3 text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]" />
+          </button>
+        </div>
+
+        {/* Meta row */}
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+            {formatAbsolute(template.createdAt)}
+          </span>
+        </div>
+
+        <div className="my-4 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+
+        {/* ── Section: Audience ── */}
+        <RailSection icon={<UsersIcon className="h-3.5 w-3.5" />} title="Audience">
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <RailPill label={`${payload.ageMin}–${payload.ageMax}`} mono />
+              <RailPill label={genderLabel(payload.gender)} />
+              {payload.advantageAudience && (
+                <RailPill label="Adv+ Audience" lime />
+              )}
+            </div>
+            {payload.locations.length > 0 && (
+              <div>
+                <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  Locations
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {payload.locations.map((loc: APLocation) => (
+                    <RailPill key={loc.key} label={loc.name} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {payload.detailedTargeting.length > 0 && (
+              <div>
+                <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  Targeting
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {payload.detailedTargeting.slice(0, 5).map((item: APInterest) => (
+                    <RailPill key={item.id} label={item.name} />
+                  ))}
+                  {payload.detailedTargeting.length > 5 && (
+                    <RailPill label={`+${payload.detailedTargeting.length - 5} more`} muted />
+                  )}
+                </div>
+              </div>
+            )}
+            {payload.customAudiences.length > 0 && (
+              <div>
+                <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  Custom Audiences
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {payload.customAudiences.map((ca) => (
+                    <RailPill key={ca.id} label={ca.name} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {payload.languages.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  Lang:
+                </span>
+                <span className="font-mono text-[11px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                  {payload.languages.join(", ").toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+        </RailSection>
+
+        <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+
+        {/* ── Section: Placement ── */}
+        <RailSection icon={<GridIcon className="h-3.5 w-3.5" />} title="Placement">
+          {payload.placementMode === "advantage" ? (
+            <RailPill label="Advantage+ Placement" lime />
+          ) : (
+            <div className="space-y-1.5">
+              <RailPill label="Manual" />
+              {activeManualPlacements.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {activeManualPlacements.map((p) => (
+                    <RailPill key={p} label={friendlyPlacementName(p)} />
+                  ))}
+                </div>
+              ) : (
+                <span className="font-mono text-[11px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  No placements selected
+                </span>
+              )}
+            </div>
+          )}
+        </RailSection>
+
+        <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+
+        {/* ── Section: Optimization ── */}
+        <RailSection icon={<TargetIcon className="h-3.5 w-3.5" />} title="Optimization">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <RailPill label={goalLabel(payload.optimizationGoal)} lime />
+            </div>
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  Click window
+                </p>
+                <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+                  {payload.attributionClickWindow}d
+                </p>
+              </div>
+              <div>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                  View window
+                </p>
+                <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+                  {payload.attributionViewWindow}d
+                </p>
+              </div>
+            </div>
+            {payload.specialAdCategories.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {payload.specialAdCategories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="rounded-full bg-[rgba(250,173,20,0.1)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#874d00] dark:text-[#d89614]"
+                  >
+                    {cat}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </RailSection>
+
+        {/* ── Notes ── */}
+        {payload.notes && (
+          <>
+            <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+            <RailSection icon={<NoteIcon className="h-3.5 w-3.5" />} title="Notes">
+              <p className="font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                {payload.notes}
+              </p>
+            </RailSection>
+          </>
+        )}
+
+        <div className="flex-1" />
+
+        <div className="mt-6 flex flex-col gap-2">
+          <button
+            className={cn(
+              "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
+              "bg-[#8FB821] text-[#121212]",
+              "hover:bg-[#AACF32] shadow-sm",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
+            )}
+          >
+            Use in launch
+          </button>
+
+          <button
+            onClick={onDeleteRequest}
+            className={cn(
+              "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
+              "border border-transparent bg-transparent text-[#cf1322]",
+              "hover:border-[#ffccc7] hover:bg-[rgba(207,19,34,0.06)]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cf1322]",
+              "dark:text-[#f37370] dark:hover:border-[rgba(243,115,112,0.25)] dark:hover:bg-[rgba(243,115,112,0.06)]",
+            )}
+          >
+            Delete template
+          </button>
+        </div>
+
+        <p className="mt-4 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+          Apply from Step 2 in the launch flow — select a saved audience template at the adset stage.
+        </p>
+      </div>
+    );
+  }
+
+  /* ── Edit mode ── */
   return (
     <div className="flex h-full flex-col p-5">
-      {/* Eyebrow */}
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-        Audience Template
-      </span>
-
-      {/* Name */}
-      <h2 className="mt-1.5 text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
-        {template.name}
-      </h2>
-
-      {/* Meta row */}
-      <div className="mt-1 flex items-center gap-1.5">
-        <span className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-          {formatAbsolute(template.createdAt)}
+      {/* Edit header with lime bottom border accent */}
+      <div className="border-b-2 border-[#8FB821] pb-3">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#5B7611] dark:text-[#C3E165]">
+          Editing Template
         </span>
+        {/* Editable name */}
+        <input
+          type="text"
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          className={cn(
+            "mt-1.5 w-full border-b border-[#e7e5dc] bg-transparent pb-0.5",
+            "text-[15px] font-bold leading-[23px] tracking-[-0.01em]",
+            "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
+            "outline-none focus:border-[#8FB821]",
+            "dark:border-[#2a2a2a]",
+          )}
+          placeholder="Template name"
+        />
       </div>
 
       <div className="my-4 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
 
-      {/* ── Section: Audience ── */}
+      {/* ── EDIT: Audience ── */}
       <RailSection icon={<UsersIcon className="h-3.5 w-3.5" />} title="Audience">
-        <div className="space-y-2.5">
-          {/* Age + Gender */}
-          <div className="flex items-center gap-2">
-            <RailPill label={`${payload.ageMin}–${payload.ageMax}`} mono />
-            <RailPill label={genderLabel(payload.gender)} />
-            {payload.advantageAudience && (
-              <RailPill label="Adv+ Audience" lime />
-            )}
+        <div className="space-y-3">
+          {/* Age range */}
+          <div>
+            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+              Age Range
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={13}
+                max={65}
+                value={draft.ageMin}
+                onChange={(e) => patchDraft({ ageMin: parseInt(e.target.value, 10) || 18 })}
+                className={cn(inputCls, "w-14 text-center tabular-nums")}
+              />
+              <span className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">–</span>
+              <input
+                type="number"
+                min={13}
+                max={65}
+                value={draft.ageMax}
+                onChange={(e) => patchDraft({ ageMax: parseInt(e.target.value, 10) || 65 })}
+                className={cn(inputCls, "w-14 text-center tabular-nums")}
+              />
+            </div>
           </div>
 
-          {/* Locations */}
-          {payload.locations.length > 0 && (
-            <div>
-              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                Locations
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {payload.locations.map((loc: APLocation) => (
-                  <RailPill key={loc.key} label={loc.name} />
+          {/* Gender pills */}
+          <div>
+            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+              Gender
+            </p>
+            <div className="flex gap-1.5">
+              {(["all", "men", "women"] as const).map((g) => (
+                <button
+                  key={g}
+                  onClick={() => patchDraft({ gender: g })}
+                  className={cn(
+                    "rounded-full px-3 py-0.5 font-mono text-[11px] font-semibold transition-all",
+                    draft.gender === g
+                      ? "bg-[#8FB821] text-[#121212]"
+                      : "border border-[#e7e5dc] text-[rgba(15,15,12,0.55)] hover:border-[#8FB821] dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.55)]",
+                  )}
+                >
+                  {genderLabel(g)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Locations chips + input */}
+          <div>
+            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+              Locations
+            </p>
+            {draft.locations.length > 0 && (
+              <div className="mb-1.5 flex flex-wrap gap-1">
+                {draft.locations.map((loc) => (
+                  <span
+                    key={loc.key}
+                    className="flex items-center gap-1 rounded-full bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] dark:bg-[#1B1B1F]"
+                  >
+                    {loc.name}
+                    <button
+                      onClick={() => removeLoc(loc.key)}
+                      className="leading-none text-[rgba(15,15,12,0.45)] hover:text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.45)] dark:hover:text-[rgba(255,255,255,0.92)]"
+                    >
+                      ×
+                    </button>
+                  </span>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+            <input
+              type="text"
+              value={locInput}
+              onChange={(e) => setLocInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addLoc(locInput);
+                  setLocInput("");
+                }
+              }}
+              placeholder="Add location…"
+              className={cn(inputCls, "w-full")}
+            />
+          </div>
 
-          {/* Interests / Behaviors */}
-          {payload.detailedTargeting.length > 0 && (
-            <div>
-              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                Targeting
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {payload.detailedTargeting.slice(0, 5).map((item: APInterest) => (
-                  <RailPill key={item.id} label={item.name} />
+          {/* Interests chips + input */}
+          <div>
+            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+              Detailed Targeting
+            </p>
+            {draft.detailedTargeting.length > 0 && (
+              <div className="mb-1.5 flex flex-wrap gap-1">
+                {draft.detailedTargeting.map((item) => (
+                  <span
+                    key={item.id}
+                    className="flex items-center gap-1 rounded-full bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] dark:bg-[#1B1B1F]"
+                  >
+                    {item.name}
+                    <button
+                      onClick={() => removeInterest(item.id)}
+                      className="leading-none text-[rgba(15,15,12,0.45)] hover:text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.45)] dark:hover:text-[rgba(255,255,255,0.92)]"
+                    >
+                      ×
+                    </button>
+                  </span>
                 ))}
-                {payload.detailedTargeting.length > 5 && (
-                  <RailPill label={`+${payload.detailedTargeting.length - 5} more`} muted />
+              </div>
+            )}
+            <input
+              type="text"
+              value={interestInput}
+              onChange={(e) => setInterestInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addInterest(interestInput);
+                  setInterestInput("");
+                }
+              }}
+              placeholder="Add interest…"
+              className={cn(inputCls, "w-full")}
+            />
+          </div>
+
+          {/* Advantage+ Audience toggle */}
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+              Advantage+ Audience
+            </span>
+            <button
+              role="switch"
+              aria-checked={draft.advantageAudience}
+              onClick={() => patchDraft({ advantageAudience: !draft.advantageAudience })}
+              className={cn(
+                "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                draft.advantageAudience ? "bg-[#8FB821]" : "bg-[#e7e5dc] dark:bg-[#2a2a2a]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-1",
+              )}
+            >
+              <span
+                className={cn(
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform",
+                  draft.advantageAudience ? "translate-x-4" : "translate-x-0",
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* Custom audiences */}
-          {payload.customAudiences.length > 0 && (
-            <div>
-              <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                Custom Audiences
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {payload.customAudiences.map((ca) => (
-                  <RailPill key={ca.id} label={ca.name} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Languages */}
-          {payload.languages.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                Lang:
-              </span>
-              <span className="font-mono text-[11px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
-                {payload.languages.join(", ").toUpperCase()}
-              </span>
-            </div>
-          )}
+              />
+            </button>
+          </div>
         </div>
       </RailSection>
 
       <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
 
-      {/* ── Section: Placement ── */}
+      {/* ── EDIT: Placement ── */}
       <RailSection icon={<GridIcon className="h-3.5 w-3.5" />} title="Placement">
-        {payload.placementMode === "advantage" ? (
-          <RailPill label="Advantage+ Placement" lime />
-        ) : (
-          <div className="space-y-1.5">
-            <RailPill label="Manual" />
-            {activeManualPlacements.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {activeManualPlacements.map((p) => (
-                  <RailPill key={p} label={friendlyPlacementName(p)} />
-                ))}
-              </div>
-            ) : (
-              <span className="font-mono text-[11px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                No placements selected
-              </span>
-            )}
+        <div className="space-y-2.5">
+          {/* Mode toggle */}
+          <div className="flex gap-1.5">
+            {(["advantage", "manual"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => patchDraft({ placementMode: mode })}
+                className={cn(
+                  "rounded-full px-3 py-0.5 font-mono text-[11px] font-semibold transition-all",
+                  draft.placementMode === mode
+                    ? "bg-[#8FB821] text-[#121212]"
+                    : "border border-[#e7e5dc] text-[rgba(15,15,12,0.55)] hover:border-[#8FB821] dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.55)]",
+                )}
+              >
+                {placementModeLabel(mode)}
+              </button>
+            ))}
           </div>
-        )}
-      </RailSection>
 
-      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-
-      {/* ── Section: Optimization ── */}
-      <RailSection icon={<TargetIcon className="h-3.5 w-3.5" />} title="Optimization">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <RailPill label={goalLabel(payload.optimizationGoal)} lime />
-          </div>
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                Click window
-              </p>
-              <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-                {payload.attributionClickWindow}d
-              </p>
-            </div>
-            <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                View window
-              </p>
-              <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-                {payload.attributionViewWindow}d
-              </p>
-            </div>
-          </div>
-          {payload.specialAdCategories.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {payload.specialAdCategories.map((cat) => (
-                <span
-                  key={cat}
-                  className="rounded-full bg-[rgba(250,173,20,0.1)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#874d00] dark:text-[#d89614]"
+          {/* Manual placement checklist */}
+          {draft.placementMode === "manual" && (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {MANUAL_PLACEMENT_KEYS.map((key) => (
+                <label
+                  key={key}
+                  className="flex cursor-pointer items-center gap-1.5"
                 >
-                  {cat}
-                </span>
+                  <input
+                    type="checkbox"
+                    checked={draft.manualPlacements[key]}
+                    onChange={() => toggleManualPlacement(key)}
+                    className="accent-[#8FB821] h-3.5 w-3.5"
+                  />
+                  <span className="font-mono text-[11px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+                    {friendlyPlacementName(key)}
+                  </span>
+                </label>
               ))}
             </div>
           )}
         </div>
       </RailSection>
 
-      {/* ── Notes ── */}
-      {payload.notes && (
-        <>
-          <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-          <RailSection icon={<NoteIcon className="h-3.5 w-3.5" />} title="Notes">
-            <p className="font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
-              {payload.notes}
-            </p>
-          </RailSection>
-        </>
-      )}
+      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
 
-      {/* Spacer */}
+      {/* ── EDIT: Optimization ── */}
+      <RailSection icon={<TargetIcon className="h-3.5 w-3.5" />} title="Optimization">
+        <div className="space-y-2.5">
+          {/* Optimization goal */}
+          <div>
+            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+              Goal
+            </p>
+            <div className="relative">
+              <select
+                value={draft.optimizationGoal}
+                onChange={(e) => patchDraft({ optimizationGoal: e.target.value })}
+                className={cn(selectCls, "w-full")}
+              >
+                {[
+                  "OFFSITE_CONVERSIONS",
+                  "LINK_CLICKS",
+                  "REACH",
+                  "IMPRESSIONS",
+                  "LANDING_PAGE_VIEWS",
+                  "VALUE",
+                  "LEAD_GENERATION",
+                  "APP_INSTALLS",
+                  "VIDEO_VIEWS",
+                ].map((g) => (
+                  <option key={g} value={g}>
+                    {goalLabel(g)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
+            </div>
+          </div>
+
+          {/* Attribution windows */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                Click
+              </p>
+              <div className="relative">
+                <select
+                  value={draft.attributionClickWindow}
+                  onChange={(e) => patchDraft({ attributionClickWindow: parseInt(e.target.value, 10) })}
+                  className={cn(selectCls, "w-full")}
+                >
+                  {[1, 7, 28].map((d) => (
+                    <option key={d} value={d}>{d}d</option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                View
+              </p>
+              <div className="relative">
+                <select
+                  value={draft.attributionViewWindow}
+                  onChange={(e) => patchDraft({ attributionViewWindow: parseInt(e.target.value, 10) })}
+                  className={cn(selectCls, "w-full")}
+                >
+                  {[0, 1].map((d) => (
+                    <option key={d} value={d}>{d}d</option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </RailSection>
+
+      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+
+      {/* ── EDIT: Notes ── */}
+      <RailSection icon={<NoteIcon className="h-3.5 w-3.5" />} title="Notes">
+        <textarea
+          rows={4}
+          value={draft.notes ?? ""}
+          onChange={(e) => patchDraft({ notes: e.target.value })}
+          placeholder="Add notes about this template..."
+          className={cn(
+            "w-full rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a]",
+            "bg-white dark:bg-[#1E1E23] px-3 py-2 font-mono text-[11px]",
+            "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
+            "placeholder:text-[rgba(15,15,12,0.38)] dark:placeholder:text-[rgba(255,255,255,0.38)]",
+            "outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20",
+            "resize-none",
+          )}
+        />
+      </RailSection>
+
       <div className="flex-1" />
 
-      {/* ── Footer actions ── */}
+      {/* ── Edit mode footer actions ── */}
       <div className="mt-6 flex flex-col gap-2">
-        {/* Use in launch — primary CTA */}
         <button
+          onClick={saveEdit}
           className={cn(
             "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
             "bg-[#8FB821] text-[#121212]",
@@ -540,24 +1004,22 @@ function APPreviewRail({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
           )}
         >
-          Use in launch
+          Save changes
         </button>
 
-        {/* Rename */}
         <button
-          onClick={onRename}
+          onClick={cancelEdit}
           className={cn(
             "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
-            "border border-[#e7e5dc] bg-transparent text-[rgba(15,15,12,0.92)]",
+            "border border-[#e7e5dc] bg-transparent text-[rgba(15,15,12,0.72)]",
             "hover:border-[#c8c5ba] hover:bg-[#F0F0EC]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821]",
-            "dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.92)] dark:hover:border-[#3a3a3a] dark:hover:bg-[#1B1B1F]",
+            "dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.72)] dark:hover:border-[#3a3a3a] dark:hover:bg-[#1B1B1F]",
           )}
         >
-          Rename
+          Cancel
         </button>
 
-        {/* Delete */}
         <button
           onClick={onDeleteRequest}
           className={cn(
@@ -571,10 +1033,6 @@ function APPreviewRail({
           Delete template
         </button>
       </div>
-
-      <p className="mt-4 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-        Apply from Step 2 in the launch flow — select a saved audience template at the adset stage.
-      </p>
     </div>
   );
 }
@@ -916,6 +1374,23 @@ function MapPinIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M10 2C7.24 2 5 4.24 5 7c0 4.24 5 11 5 11s5-6.76 5-11c0-2.76-2.24-5-5-5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M11.333 2a1.886 1.886 0 0 1 2.667 2.667L4.667 14H2v-2.667L11.333 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.333 4l2.667 2.667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
