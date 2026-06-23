@@ -199,6 +199,21 @@ export interface CatalogSelection {
   productSetIds: string[];
 }
 
+/** New campaign-level catalogue config (one entry per campaign within an account). */
+export interface CatalogueCampaignConfig {
+  id: string;
+  catalogId: string | null;
+  productSetIds: string[];
+  adSetDuplicates: number;       // how many ad set copies per product set, default 1 min 1
+  collection: boolean;           // "Show as Collection" toggle
+  // Ad copy (only when collection=true):
+  promotedProductPreference: string | null;
+  productSetSuggestion: string | null;
+  primaryText: string;
+  headline: string;
+  description: string;
+}
+
 /* ---- Copy-from-running source entities (mock, Birch-style) ---- */
 export interface RunningCampaignV2 {
   id: string;
@@ -425,6 +440,8 @@ export interface PlanV2 {
   catalogSelections: Record<string, CatalogSelection>;
   /** Creative format for catalogue ads. */
   catalogFormat: CatalogFormat;
+  /** New campaign-level catalogue config: accountId → array of campaign configs */
+  catalogueAccountConfigs: Record<string, CatalogueCampaignConfig[]>;
   /** Campaign-level A/B test signal (Meta handles the split). */
   abTest: boolean;
   /** Whole ads (pre-built) vs individual media assets. */

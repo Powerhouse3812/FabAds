@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ACCOUNTS, CATALOGS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds } from "../../../data";
+import { ACCOUNTS, CUSTOM_AUDIENCES, makeTargetV2, pageActiveAds } from "../../../data";
 import { perPageDemand } from "../../../deriveV2";
 import type { PlanV2, TargetPair } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
@@ -312,11 +312,7 @@ function AccountRow({
   onTogglePage,
   onSetPixel,
   catalogueEnabled,
-  selectedCatalogId,
-  selectedProductSetIds,
   onSetCatalogue,
-  onSetCatalogId,
-  onSetProductSetIds,
   postEnabled,
   onSetPostEnabled,
   customAudienceEnabled,
@@ -331,11 +327,7 @@ function AccountRow({
   onTogglePage: (accountId: string, pageId: string) => void;
   onSetPixel: (accountId: string, pixelId: string | undefined) => void;
   catalogueEnabled: boolean;
-  selectedCatalogId: string | null;
-  selectedProductSetIds: string[];
   onSetCatalogue: (enabled: boolean) => void;
-  onSetCatalogId: (id: string | null) => void;
-  onSetProductSetIds: (ids: string[]) => void;
   postEnabled: boolean;
   onSetPostEnabled: (enabled: boolean) => void;
   customAudienceEnabled: boolean;
@@ -535,35 +527,12 @@ function AccountRow({
             }}
             className="scale-90 shrink-0"
           />
+          {catalogueEnabled && (
+            <p className="ml-6 mt-1 pb-2 font-mono text-[10px] text-primary-text">
+              Configure catalogue and product sets in Step 3 →
+            </p>
+          )}
         </div>
-
-        {/* ── Inline catalogue picker ── */}
-        {catalogueEnabled && (
-          <div className="mt-2 ml-7 px-3 pb-2.5">
-            <select
-              value={selectedCatalogId ?? ""}
-              onChange={(e) => onSetCatalogId(e.target.value || null)}
-              className="w-full rounded-xl border border-border bg-background px-3 py-1.5 font-mono text-[11px] text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Select catalogue…</option>
-              {CATALOGS.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name} ({cat.productCount} products)
-                </option>
-              ))}
-            </select>
-            {!selectedCatalogId && (
-              <p className="mt-1 font-mono text-[10px] text-muted-foreground">
-                Pick a catalogue to configure product sets in Step 3
-              </p>
-            )}
-            {selectedCatalogId && (
-              <p className="mt-1 font-mono text-[10px] text-primary-text">
-                Product sets configurable in Step 3
-              </p>
-            )}
-          </div>
-        )}
 
         {/* ── Use existing posts sub-row ── */}
         <div className="flex items-center gap-3 px-3 py-2">
@@ -712,6 +681,7 @@ export function AccountsPages({
   flow: UseFlowV2;
   onPatch: (partial: Partial<PlanV2>) => void;
 }) {
+  const { toast } = useToast();
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountSearch, setAccountSearch] = useState("");
 
@@ -749,6 +719,20 @@ export function AccountsPages({
   /* ── Account toggle ── */
   const toggleAccount = (accountId: string) => {
     const alreadySelected = selectedAccountIds.has(accountId);
+
+    // Catalogue mode: single account only
+    if (!alreadySelected) {
+      const catalogueActive = Object.values(plan.catalogueByAccount ?? {}).some((v) => v);
+      if (catalogueActive && selectedAccountIds.size >= 1) {
+        toast({
+          title: "Catalogue ads — single account only",
+          description: "Turn off catalogue on the current account before adding another.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setSelectedAccountIds((prev) => {
       const next = new Set(prev);
       alreadySelected ? next.delete(accountId) : next.add(accountId);
@@ -858,6 +842,12 @@ export function AccountsPages({
           </PopoverContent>
         </Popover>
 
+        {Object.values(plan.catalogueByAccount ?? {}).some((v) => v) && (
+          <p className="mt-1 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+            Catalogue mode — single account only. Disable catalogue to add more accounts.
+          </p>
+        )}
+
         <RecentChips
           items={recentAccounts}
           selectedIds={selectedAccountIds}
@@ -907,31 +897,7 @@ export function AccountsPages({
                   onTogglePage={togglePage}
                   onSetPixel={setPixel}
                   catalogueEnabled={plan.catalogueByAccount?.[accountId] ?? false}
-                  selectedCatalogId={plan.productSetByAccount?.[accountId]?.catalogId ?? null}
-                  selectedProductSetIds={plan.productSetByAccount?.[accountId]?.productSetIds ?? []}
                   onSetCatalogue={handleSetCatalogue}
-                  onSetCatalogId={(id) => {
-                    onPatch({
-                      productSetByAccount: {
-                        ...(plan.productSetByAccount ?? {}),
-                        [accountId]: {
-                          catalogId: id,
-                          productSetIds: [], // reset on catalog change
-                        },
-                      },
-                    });
-                  }}
-                  onSetProductSetIds={(ids) => {
-                    onPatch({
-                      productSetByAccount: {
-                        ...(plan.productSetByAccount ?? {}),
-                        [accountId]: {
-                          catalogId: plan.productSetByAccount?.[accountId]?.catalogId ?? null,
-                          productSetIds: ids,
-                        },
-                      },
-                    });
-                  }}
                   postEnabled={postEnabled}
                   onSetPostEnabled={handleSetPostId}
                   customAudienceEnabled={plan.useCustomAudience}

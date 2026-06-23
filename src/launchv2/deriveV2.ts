@@ -181,6 +181,45 @@ export function catalogueDerivation(plan: PlanV2): CatalogueDerivation {
 
   const accounts: CatalogueAccountGroup[] = [];
   for (const a of accountsOrder) {
+    // Try new model first
+    const campaignConfigs = plan.catalogueAccountConfigs?.[a.accountId];
+    if (campaignConfigs && campaignConfigs.length > 0) {
+      const activeCampaigns = campaignConfigs.filter(
+        (c) => c.catalogId && c.productSetIds.length > 0
+      );
+      if (activeCampaigns.length === 0) continue;
+
+      const firstCampaign = activeCampaigns[0];
+      const catalog = getCatalog(firstCampaign.catalogId!);
+
+      const adSets: CatalogueAdSetDerived[] = activeCampaigns.flatMap((c) => {
+        const cat = getCatalog(c.catalogId!);
+        return c.productSetIds.flatMap((psId) => {
+          const ps = cat?.productSets.find((p) => p.id === psId);
+          const base: CatalogueAdSetDerived = {
+            productSetId: psId,
+            productSetName: ps?.name ?? psId,
+            cardCount: ps?.products.length ?? ps?.productCount ?? 0,
+            products: ps?.products ?? [],
+          };
+          return Array.from({ length: c.adSetDuplicates || 1 }, () => base);
+        });
+      });
+
+      if (adSets.length === 0) continue;
+
+      accounts.push({
+        accountId: a.accountId,
+        accountName: a.accountName,
+        catalogId: firstCampaign.catalogId!,
+        catalogName: catalog?.name ?? "Catalog",
+        campaigns: activeCampaigns.length,
+        adSets,
+      });
+      continue;
+    }
+
+    // Fallback: old model (catalogSelections)
     const sel = plan.catalogSelections[a.accountId];
     if (!sel || !sel.catalogId || sel.productSetIds.length === 0) continue;
     const catalog = getCatalog(sel.catalogId);

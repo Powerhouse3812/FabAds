@@ -133,6 +133,7 @@ export function newPlanV2(): PlanV2 {
     customAudienceMode: "select",
     catalogueByAccount: {},
     productSetByAccount: {},
+    catalogueAccountConfigs: {},
     placementMode: "advantage",
     placements: DEFAULT_PLACEMENTS,
     // Meeting redesign additions

@@ -53,6 +53,7 @@ import { adSetCount, adsPerDestination, capCheck, spreadPreview } from "../../de
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
 import AccountSelectorPanel from "./distribution/AccountSelectorPanel";
+import { CatalogueCampaignEditor } from "./shared/CatalogueCampaignEditor";
 
 // ── Source → Lucide icon map ──────────────────────────────────────────────────
 const SOURCE_ICON: Record<SourceType, React.ElementType> = {
@@ -1123,29 +1124,16 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         )}
       >
         {hasCatalogueAccounts ? (
-          /* Catalogue (DPA) mode — adset count summary card */
-          (() => {
-            // Compute total adsets across all catalogue accounts
-            const totalAdSets = Object.entries(plan.productSetByAccount ?? {})
-              .filter(([id]) => plan.catalogueByAccount?.[id])
-              .reduce((sum, [, sel]) => sum + (sel.productSetIds?.length ?? 0), 0);
-            return (
-              <div className="flex flex-col gap-3 p-4">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Campaign structure</p>
-                <div className="rounded-2xl border border-border bg-background p-3 space-y-1">
-                  <p className="font-mono text-[11px] text-foreground">
-                    <span className="font-semibold text-[15px] tabular-nums">{totalAdSets || "—"}</span>
-                    <span className="ml-1 text-muted-foreground">ad set{totalAdSets !== 1 ? "s" : ""}</span>
-                  </p>
-                  <p className="font-mono text-[10px] text-muted-foreground">1 ad / ad set · Meta-managed creative</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">1 campaign · budget shared</p>
-                </div>
-                <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
-                  Meta fills images, prices, and URLs from your product catalogue automatically.
-                </p>
-              </div>
-            );
-          })()
+          /* Catalogue (DPA) mode — editable campaign-based configuration */
+          <div className="p-4 overflow-y-auto">
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              Campaign structure
+            </p>
+            <CatalogueCampaignEditor
+              plan={flow.plan}
+              onPatch={(partial) => flow.patch(partial)}
+            />
+          </div>
         ) : (
           <div className="space-y-6">
             {/* Right pane section eyebrow */}
