@@ -1,11 +1,9 @@
 /**
- * Step 1 — Goal-first layout variant.
+ * Step 1 — Strategy-first layout variant.
  *
- * §1 Campaign goal — Required, always active. User picks objective first.
- * §2 Strategy     — Optional. Search + filter + 3-col grid. Prefills everything.
- *
- * This is a standalone component. Filter utilities are duplicated inline
- * (they are not exported from Step1StartV2.tsx).
+ * §1 Strategy picker  — Always shown at top. Manual card is the default/first card.
+ * §2 Campaign goal    — Conditional: only when manual mode (no strategyId).
+ * §3 Name field       — Conditional: only when objective is set.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +16,7 @@ import {
   Pencil,
   Rocket,
   Search,
+  Settings,
   ShoppingCart,
   Smartphone,
   X,
@@ -33,6 +32,7 @@ import type { Objective } from "../../types";
 import { OBJECTIVES } from "../../data";
 import { strategiesService } from "../../services/strategiesService";
 import type { LaunchStrategy } from "../../services/strategiesService";
+import LaunchNomenclatureModal from "./LaunchNomenclatureModal";
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                               */
@@ -43,7 +43,7 @@ interface GoalFirstLayoutProps {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Objective metadata (duplicated — not exported from Step1StartV2)   */
+/*  Objective metadata                                                  */
 /* ------------------------------------------------------------------ */
 
 type ObjIcon = React.ComponentType<{ className?: string }>;
@@ -136,8 +136,17 @@ function isPartial(s: LaunchStrategy): boolean {
   return !(s.plan.targets?.length);
 }
 
+/** Build the prefix label: "Sales · Jun 2026" */
+function buildPrefix(objective: Objective): string {
+  const label = OBJECTIVE_LABEL[objective] ?? prettifyObjective(objective);
+  const now = new Date();
+  const month = now.toLocaleString("en-US", { month: "short" }); // "Jun"
+  const year = now.getFullYear();
+  return `${label} · ${month} ${year}`;
+}
+
 /* ------------------------------------------------------------------ */
-/*  Filter model (duplicated — not exported from Step1StartV2)         */
+/*  Filter model                                                        */
 /* ------------------------------------------------------------------ */
 
 type FilterKind = "budgetMode" | "objective" | "tag" | "pageDist" | "format";
@@ -174,7 +183,6 @@ function buildFilterChips(strategies: LaunchStrategy[]): FilterChip[] {
     chips.push({ id: `tag:${t}`, kind: "tag", label: `#${t}`, value: t });
   }
 
-  // Page distribution — static chips, only show values actually used in corpus
   const pageDists: Array<{ value: string; label: string }> = [
     { value: "one_page", label: "One page" },
     { value: "fill_first", label: "Fill first" },
@@ -189,7 +197,6 @@ function buildFilterChips(strategies: LaunchStrategy[]): FilterChip[] {
     }
   }
 
-  // Format — derive from corpus
   const formats = new Set(strategies.map(s => s.plan.format).filter(Boolean) as string[]);
   const formatOrder = ["single_image", "single_video", "carousel", "collection", "dpa", "flexible"];
   for (const f of formatOrder) {
@@ -309,9 +316,8 @@ function StrategyGridCard({
           </span>
         )}
       </div>
-      {/* Mini key-value row — spread · structure · page split */}
+      {/* Mini key-value row */}
       <div className="mt-1.5 flex items-center gap-2 border-t border-border/40 pt-1.5">
-        {/* Spread */}
         <div className="flex items-center gap-1">
           <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Spread</span>
           <span className="text-[10px] font-mono font-semibold text-foreground/80">
@@ -319,7 +325,6 @@ function StrategyGridCard({
           </span>
         </div>
         <span className="text-muted-foreground/30 text-[9px]">·</span>
-        {/* Structure */}
         <div className="flex items-center gap-1">
           <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Struct</span>
           <span className="text-[10px] font-mono font-semibold text-foreground/80">
@@ -332,7 +337,6 @@ function StrategyGridCard({
           </span>
         </div>
         <span className="text-muted-foreground/30 text-[9px]">·</span>
-        {/* Page split */}
         <div className="flex items-center gap-1">
           <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">Split</span>
           <span className="text-[10px] font-mono font-semibold text-foreground/80">
@@ -346,7 +350,60 @@ function StrategyGridCard({
   );
 }
 
-/* ── Custom sentinel ── */
+/* ── Manual card — dashed border, muted, Geist Mono label ── */
+function ManualCard({
+  selected,
+  onSelect,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cn(
+        "fab-focus relative flex flex-col gap-2 rounded-xl border-2 border-dashed p-2.5 text-left transition-colors",
+        selected
+          ? "border-primary/50 bg-primary/5 shadow-sm"
+          : "border-border/60 bg-card/50 hover:border-foreground/25 hover:bg-muted/20",
+      )}
+    >
+      {selected && (
+        <span className="absolute right-1.5 top-1.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+          <Check className="h-2.5 w-2.5 text-primary-foreground" />
+        </span>
+      )}
+      <div
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+          selected ? "bg-primary/10" : "bg-muted/50",
+        )}
+      >
+        <Pencil
+          className={cn(
+            "h-[14px] w-[14px]",
+            selected ? "text-primary" : "text-muted-foreground/60",
+          )}
+        />
+      </div>
+      <div>
+        <p className={cn(
+          "text-[10px] font-semibold font-mono uppercase tracking-wider leading-tight",
+          selected ? "text-primary" : "text-muted-foreground",
+        )}>
+          Manual
+        </p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground/60 leading-snug">
+          Configure every field
+        </p>
+      </div>
+    </button>
+  );
+}
+
+/* ── Sentinel ID for the manual card ── */
 const CUSTOM_ID = "__custom__";
 /** Cards per page before "View more" */
 const PAGE_SIZE = 9;
@@ -370,26 +427,20 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     return () => clearTimeout(t);
   }, []);
 
-  /* ── selection state — seed from existing plan on return ── */
-  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(() => {
-    if (plan.flowMode === "custom" && plan.objective) return CUSTOM_ID;
-    return null;
+  /* ── selection state — default to CUSTOM_ID (manual mode) ── */
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>(() => {
+    // If there's an existing template selection, keep it; otherwise default to manual
+    if (plan.flowMode === "template" && plan.strategyId) return plan.strategyId;
+    return CUSTOM_ID;
   });
   const [prefillNotice, setPrefillNotice] = useState(false);
-  const [objectiveFilterActive, setObjectiveFilterActive] = useState(true);
   const [mismatchNotice, setMismatchNotice] = useState<{ from: string; to: string } | null>(null);
 
   /* Restore template selection when strategies load */
   useEffect(() => {
-    if (selectedStrategyId !== null || strategies.length === 0) return;
-    if (plan.flowMode === "template" && plan.objective) {
-      const match = strategies.find(
-        (s) =>
-          s.plan.objective === plan.objective &&
-          s.plan.budgetMode === plan.budgetMode &&
-          s.plan.format === plan.format,
-      );
-      if (match) setSelectedStrategyId(match.id);
+    if (strategies.length === 0) return;
+    if (plan.flowMode === "template" && plan.strategyId) {
+      setSelectedStrategyId(plan.strategyId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once after load
   }, [strategies]);
@@ -403,6 +454,26 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
 
   /* ── strategy section scroll ref ── */
   const strategyRef = useRef<HTMLDivElement>(null);
+
+  /* ── nomenclature modal ── */
+  const [showNomenclature, setShowNomenclature] = useState(false);
+
+  /* ── name suffix local state ── */
+  const [suffix, setSuffix] = useState("");
+
+  /* Reset suffix when objective changes */
+  useEffect(() => {
+    setSuffix("");
+  }, [plan.objective]);
+
+  /* Sync name into plan whenever suffix changes */
+  useEffect(() => {
+    if (!plan.objective) return;
+    const prefix = buildPrefix(plan.objective as Objective);
+    const fullName = (prefix + (suffix ? ` · ${suffix}` : "")).trim() || "Untitled launch";
+    flow.patch({ name: fullName });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only on suffix change
+  }, [suffix]);
 
   const allFilterChips = useMemo(() => buildFilterChips(strategies), [strategies]);
   const chipById = useMemo(
@@ -420,24 +491,17 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     return groups;
   }, [allFilterChips]);
 
-  /* ── effective filters: include auto-applied objective chip ── */
-  const effectiveFilters = useMemo(() => {
-    if (objectiveFilterActive && plan.objective) {
-      const s = new Set(activeFilters);
-      s.add(`objective:${plan.objective}`);
-      return s;
-    }
-    return activeFilters;
-  }, [activeFilters, objectiveFilterActive, plan.objective]);
-
   const filtered = useMemo(
-    () => applyFilters(strategies, query, effectiveFilters, chipById),
-    [strategies, query, effectiveFilters, chipById],
+    () => applyFilters(strategies, query, activeFilters, chipById),
+    [strategies, query, activeFilters, chipById],
   );
 
   const visibleStrategies = showAll ? filtered : filtered.slice(0, PAGE_SIZE);
   const hiddenCount = filtered.length - PAGE_SIZE;
-  const filtersActive = activeFilters.size > 0 || query.trim().length > 0 || (objectiveFilterActive && !!plan.objective);
+  const filtersActive = activeFilters.size > 0 || query.trim().length > 0;
+
+  /* ── derived ── */
+  const isManual = selectedStrategyId === CUSTOM_ID;
 
   /* ── handlers ── */
 
@@ -455,32 +519,22 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     setQuery("");
   };
 
-  /** §1 — objective tile clicked. Always active. */
-  const handleObjective = (o: Objective) => {
-    flow.chooseObjectiveFormat(o, null);
-    // If no strategy branch selected, set flowMode = "custom" so Next is enabled.
-    if (selectedStrategyId === null) {
-      flow.chooseCustomFlow();
-    }
-    setObjectiveFilterActive(true); // re-enable auto-filter when goal changes
-    setMismatchNotice(null);
-  };
-
-  /** §2 — Custom card clicked */
-  const handlePickCustom = () => {
+  /** Manual card clicked */
+  const handlePickManual = () => {
     setSelectedStrategyId(CUSTOM_ID);
     setPrefillNotice(false);
+    setMismatchNotice(null);
     flow.chooseCustomFlow();
+    flow.patch({ strategyId: null, objective: undefined });
   };
 
-  /** §2 — Saved strategy card clicked */
+  /** Saved strategy card clicked */
   const handlePickStrategy = (s: LaunchStrategy) => {
     const prevObjective = flow.plan.objective;
     setSelectedStrategyId(s.id);
     flow.applySavedStrategy(s.plan);
     setPrefillNotice(true);
     setMismatchNotice(null);
-    // Warn if strategy overrides the user's objective selection
     if (s.plan.objective && prevObjective && s.plan.objective !== prevObjective) {
       setMismatchNotice({
         from: OBJECTIVE_LABEL[prevObjective as keyof typeof OBJECTIVE_LABEL] ?? prevObjective,
@@ -489,172 +543,48 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
     }
   };
 
-  const isCustom = selectedStrategyId === CUSTOM_ID;
-
-  /**
-   * Deselect custom — clears local selection + resets strategyId.
-   * PlanV2.flowMode only allows "custom" | "template" — there is no undefined/
-   * neutral state, so we keep flowMode as "custom" (the plan default) and just
-   * clear the local selectedStrategyId so the UI shows nothing selected.
-   */
-  const handleDeselectCustom = () => {
-    setSelectedStrategyId(null);
-    flow.patch({ strategyId: null });
+  /** §2 — objective tile clicked (only shown in manual mode) */
+  const handleObjective = (o: Objective) => {
+    flow.chooseObjectiveFormat(o, null);
+    setMismatchNotice(null);
   };
 
-  /* ── strategy variant toggle — A (merged inline) / B (compact card above search) ── */
   /* ── render ── */
 
   return (
     <div className="space-y-7">
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* §1 — Campaign goal (Required, ALWAYS ACTIVE)                 */}
+      {/* §1 — Strategy (ALWAYS SHOWN, NOW FIRST)                      */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <section className="space-y-3">
+      <section ref={strategyRef} className="space-y-3">
+
+        {/* §1 header row */}
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
               1
             </span>
             <h2 className="text-[15px] font-semibold text-foreground">
-              Campaign goal
+              Strategy
             </h2>
             <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
               Required
             </span>
           </div>
           <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
-            Choose what you want to achieve with this campaign.
+            Pick a saved setup to prefill everything, or configure manually.
           </p>
-        </div>
-
-        {/* 3-per-row objective grid — always interactive */}
-        <div className="grid grid-cols-3 gap-2">
-          {OBJECTIVES.map((o) => {
-            const { Icon, desc } = OBJECTIVE_META[o.id];
-            const selected = objective === o.id;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => handleObjective(o.id)}
-                aria-pressed={selected}
-                className={cn(
-                  "fab-focus relative flex flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-200",
-                  selected
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
-                    selected ? "bg-primary/15" : "bg-muted",
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-[14px] w-[14px]",
-                      selected ? "text-primary" : "text-muted-foreground",
-                    )}
-                  />
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-foreground leading-tight">
-                    {o.label}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground leading-snug line-clamp-2">
-                    {desc}
-                  </p>
-                </div>
-                {selected && (
-                  <div className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ──────────────────────────────────────────────────────────── */}
-      {/* §2 — Strategy (Optional)                                     */}
-      {/* ──────────────────────────────────────────────────────────── */}
-      <section ref={strategyRef} className="space-y-3">
-
-        {/* ── §2 header row ── */}
-        <div className="flex items-center gap-2">
-          {/* Step badge */}
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
-            2
-          </span>
-
-          {/* Title */}
-          <h2 className="text-[15px] font-semibold text-foreground">
-            Strategy
-          </h2>
-
-          {/* Optional badge */}
-          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            Optional
-          </span>
-
-          {/* Spacer — pushes the manual-setup action to far right */}
-          <div className="flex-1" />
-
-          {/* Set up manually — affirmative manual-config choice (no strategy) */}
-          {isCustom ? (
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/35 bg-primary/[0.07] px-2 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <span className="text-[11px] font-medium text-primary">Setting up manually</span>
-              <button
-                type="button"
-                onClick={handleDeselectCustom}
-                aria-label="Clear manual setup"
-                className="flex h-3.5 w-3.5 items-center justify-center text-primary/60 hover:text-primary transition-colors"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={handlePickCustom}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              <Pencil className="h-3 w-3 text-muted-foreground" />
-              Set up manually
-            </button>
-          )}
         </div>
 
         {/* Search + filter row */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 flex items-center gap-1.5 h-9 rounded-xl border border-border bg-card px-2.5 focus-within:border-primary/50">
             <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            {/* Objective chip — shown when filter active */}
-            {objectiveFilterActive && plan.objective && (
-              <div className="flex items-center gap-1 shrink-0 rounded-full bg-primary/15 border border-primary/20 px-2 py-0.5">
-                <span className="text-[10px] font-semibold text-primary font-mono">
-                  {OBJECTIVE_LABEL[plan.objective]}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setObjectiveFilterActive(false)}
-                  className="text-primary/60 hover:text-primary"
-                  aria-label="Remove objective filter"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-            {/* Text input — placeholder changes when chip is active */}
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={objectiveFilterActive && plan.objective ? "Search within…" : "Search saved setups…"}
+              placeholder="Search saved setups…"
               className="flex-1 min-w-0 bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground outline-none"
             />
           </div>
@@ -777,7 +707,7 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
           </div>
         )}
 
-        {/* Mismatch warning pill */}
+        {/* Mismatch warning */}
         {mismatchNotice && (
           <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-3 py-2" role="status">
             <span className="text-[11px] text-yellow-700 dark:text-yellow-400 font-mono">
@@ -789,44 +719,52 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
           </div>
         )}
 
-        {/* Strategy grid — 3-per-row */}
+        {/* Strategy grid — Manual card first, then saved strategies */}
         {loading ? (
           <div className="grid grid-cols-3 gap-1.5">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {/* Manual card skeleton placeholder */}
+            <div className="h-[80px] rounded-xl border-2 border-dashed border-border/40 bg-muted/20 animate-pulse" />
+            {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
                 className="h-[80px] animate-pulse rounded-xl border border-border bg-muted/30"
               />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-6 text-center">
-            <p className="text-[12px] font-medium text-foreground">No matching strategies</p>
-            <p className="text-[11px] text-muted-foreground">
-              Adjust filters, clear the search, or use “Set up manually” above.
-            </p>
-            {filtersActive && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="fab-focus mt-1 inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted"
-              >
-                <X className="h-3 w-3" /> Clear filters
-              </button>
-            )}
-          </div>
         ) : (
           <>
-            {/* Fixed-height scroll frame — keeps §3 (Launch name) visible without page scroll */}
             <div className="grid grid-cols-3 gap-1.5 max-h-[228px] overflow-y-auto pr-1">
-              {visibleStrategies.map((s) => (
-                <StrategyGridCard
-                  key={s.id}
-                  strategy={s}
-                  selected={selectedStrategyId === s.id}
-                  onSelect={() => handlePickStrategy(s)}
-                />
-              ))}
+              {/* Manual card — always first */}
+              <ManualCard
+                selected={isManual}
+                onSelect={handlePickManual}
+              />
+
+              {/* Saved strategy cards */}
+              {filtered.length === 0 && !isManual ? (
+                <div className="col-span-2 flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-card/50 px-3 py-4 text-center">
+                  <p className="text-[11px] font-medium text-foreground">No matching strategies</p>
+                  <p className="text-[10px] text-muted-foreground">Adjust filters or clear search.</p>
+                  {filtersActive && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="fab-focus mt-1 inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                    >
+                      <X className="h-3 w-3" /> Clear
+                    </button>
+                  )}
+                </div>
+              ) : (
+                visibleStrategies.map((s) => (
+                  <StrategyGridCard
+                    key={s.id}
+                    strategy={s}
+                    selected={selectedStrategyId === s.id}
+                    onSelect={() => handlePickStrategy(s)}
+                  />
+                ))
+              )}
             </div>
 
             {/* View more / less toggle */}
@@ -853,34 +791,133 @@ export default function GoalFirstLayout({ flow }: GoalFirstLayoutProps) {
       </section>
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* §3 — Launch name (Optional)                                  */}
+      {/* §2 — Campaign goal (CONDITIONAL: only when manual mode)      */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
-              3
-            </span>
-            <h2 className="text-[15px] font-semibold text-foreground">
-              Launch name
-            </h2>
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Optional
-            </span>
+      {isManual && (
+        <section className="space-y-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+                2
+              </span>
+              <h2 className="text-[15px] font-semibold text-foreground">
+                Campaign goal
+              </h2>
+              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                Required
+              </span>
+            </div>
+            <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
+              Choose what you want to achieve with this campaign.
+            </p>
           </div>
-          <p className="pl-7 text-[11px] text-muted-foreground leading-relaxed">
-            Name this launch — its identifier in reports & history. Entity naming templates live in Review.
-          </p>
-        </div>
 
-        <input
-          type="text"
-          value={plan.name ?? ""}
-          onChange={(e) => flow.patch({ name: e.target.value })}
-          placeholder="e.g. Mamaearth June Brand Push"
-          className="h-9 w-full rounded-xl border border-border bg-card px-3 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
-        />
-      </section>
+          {/* 3-per-row objective grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {OBJECTIVES.map((o) => {
+              const { Icon, desc } = OBJECTIVE_META[o.id];
+              const selected = objective === o.id;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => handleObjective(o.id)}
+                  aria-pressed={selected}
+                  className={cn(
+                    "fab-focus relative flex flex-col gap-2 rounded-xl border p-2.5 text-left transition-all duration-200",
+                    selected
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+                      selected ? "bg-primary/15" : "bg-muted",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-[14px] w-[14px]",
+                        selected ? "text-primary" : "text-muted-foreground",
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground leading-tight">
+                      {o.label}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground leading-snug line-clamp-2">
+                      {desc}
+                    </p>
+                  </div>
+                  {selected && (
+                    <div className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                      <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* §3 — Name field (shown when objective is set)                */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      {!!plan.objective && (
+        <section className="space-y-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground">
+                {isManual ? "3" : "2"}
+              </span>
+              <h2 className="text-[15px] font-semibold text-foreground">
+                Campaign name
+              </h2>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                Optional
+              </span>
+            </div>
+          </div>
+
+          {/* Prefix pill + text input + settings icon */}
+          <div className="flex items-center gap-0 h-9 rounded-xl border border-border bg-card overflow-hidden focus-within:border-primary/50 transition-colors">
+            {/* Read-only prefix pill */}
+            <div className="flex items-center shrink-0 h-full px-2.5 border-r border-border/60 bg-primary/8">
+              <span className="text-[11px] font-semibold text-primary font-mono whitespace-nowrap">
+                {buildPrefix(plan.objective as Objective)}
+              </span>
+            </div>
+
+            {/* Editable suffix */}
+            <input
+              type="text"
+              value={suffix}
+              onChange={(e) => setSuffix(e.target.value)}
+              placeholder="Campaign name…"
+              className="flex-1 min-w-0 h-full bg-transparent px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground outline-none"
+            />
+
+            {/* Settings / nomenclature icon */}
+            <button
+              type="button"
+              onClick={() => setShowNomenclature(true)}
+              aria-label="Open naming rules"
+              className="flex h-full w-9 shrink-0 items-center justify-center border-l border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Nomenclature modal */}
+      <LaunchNomenclatureModal
+        open={showNomenclature}
+        onClose={() => setShowNomenclature(false)}
+      />
     </div>
   );
 }
