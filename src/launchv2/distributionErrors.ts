@@ -48,6 +48,7 @@ export type DistFixKind =
   | "auto_map"
   | "add_page"
   | "swap_page"
+  | "remove_page"
   | "split_launch"
   | "reduce_structure"
   | "reduce_combos"
@@ -138,6 +139,14 @@ const FIX = {
     kind: "swap_page",
     picker: "swap_page",
     swapFrom,
+  }),
+  /** remove the page `fbPageId` from the plan entirely (drops its target(s)).
+   *  Immediate (no picker) — the correct fix when adding a page can't help
+   *  (at-cap / duplicate / one_page): the breaching page must go. */
+  removePage: (fbPageId: string, label = "Remove this Page"): DistFix => ({
+    label,
+    kind: "remove_page",
+    swapFrom: fbPageId,
   }),
   splitLaunch: (): DistFix => ({ label: "Split into two launches", kind: "split_launch" }),
   reduceStructure: (): DistFix => ({ label: "Reduce structure", kind: "reduce_structure" }),
@@ -230,8 +239,11 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         tier: "error",
         anchor: p.fbPageId,
         title: "Page at its ad limit",
-        message: `Page ${p.pageName} is at its 250-ad limit — 0 slots left.`,
-        fixes: [FIX.swapPage(p.fbPageId, "Change this Page"), FIX.addPagePicker("Add a Page")],
+        message: `${p.pageName} is full (250/250) — no room here. Swap it for another Page or remove it; adding Pages won't free this one.`,
+        fixes: [
+          FIX.swapPage(p.fbPageId, "Change this Page"),
+          FIX.removePage(p.fbPageId, "Remove this Page"),
+        ],
       });
     }
   }
@@ -264,8 +276,12 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         tier: "error",
         anchor: "pageSplit",
         title: "Single Page can't hold this launch",
-        message: `Page ${first.pageName} has ${first.available} slots; this launch needs ${perDest} ads.`,
-        fixes: [FIX.useSuggested(), FIX.addPage(), FIX.reduceStructure()],
+        message: `One-Page keeps all ${perDest} ads on ${first.pageName}, but it has only ${first.available} free. Spread across Pages, swap this Page, or trim the structure.`,
+        fixes: [
+          FIX.switchDistribution("fill_first", "Spread across Pages"),
+          FIX.swapPage(first.fbPageId, "Change this Page"),
+          FIX.reduceStructure(),
+        ],
       });
     }
   } else if (method === "equal") {
@@ -278,7 +294,7 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
           tier: "error",
           anchor: p.fbPageId,
           title: "Equal split overflows a Page",
-          message: `Split Equally puts ${p.demand} ads on ${p.pageName}, but it has only ${p.available} slots.`,
+          message: `Equal split puts ${p.demand} ads on ${p.pageName} (only ${p.available} free). Switch to Suggested to pack by room, swap this Page, or add another.`,
           fixes: [
             FIX.switchDistribution(suggestedDistribution(plan), "Use suggested spread"),
             FIX.swapPage(p.fbPageId, "Change this Page"),
@@ -312,7 +328,7 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
           tier: "error",
           anchor: p.fbPageId,
           title: "Custom weight exceeds free slots",
-          message: `Max ${p.available} for ${p.pageName} — that's its free slots.`,
+          message: `${p.pageName} is set to ${p.demand} ads but has only ${p.available} free. Auto-balance to fit the weights to each Page's room.`,
           fixes: [FIX.autoBalance()],
         });
       }
@@ -328,7 +344,7 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         tier: "error",
         anchor: "pageSplit",
         title: "Custom weights don't add up",
-        message: `You've assigned ${assigned} of ${perDest} ads — ${diff} ${dir}.`,
+        message: `Weights total ${assigned} of ${perDest} ads — ${diff} ${dir}. Auto-balance to distribute all ${perDest} across your Pages by room.`,
         fixes: [FIX.autoBalance()],
       });
     }
@@ -342,32 +358,46 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         tier: "error",
         anchor: "pageSplit",
         title: "Not enough free slots",
-        message: `Selected pages have ${totalFree} free slots; launch needs ${pl.requested}. ${pl.unplaceable} won't fit.`,
-        fixes: [
-          FIX.addPagePicker("Add a Page"),
-          FIX.switchDistribution(suggestedDistribution(plan), "Use suggested spread"),
-          FIX.reduceStructure(),
-        ],
+        message: `Your Pages have ${totalFree} free slots but the launch needs ${pl.requested} — ${pl.unplaceable} won't fit. Add another Page to make room, or trim the structure.`,
+        fixes: [FIX.addPagePicker("Add a Page"), FIX.reduceStructure()],
       });
     }
   } else if (method === "duplicate") {
-    // PS-DUP — duplicate & p > 1: full D on every page, count + spend ×p.
     const p = pages.length;
-    if (p > 1) {
+    // PS-15 (duplicate BREACH) — a page can't hold the full duplicated set.
+    // Duplicate runs ALL D on every page, so adding a Page can't help: the
+    // breaching page must be swapped/removed, or Duplicate switched off.
+    const breachedPages = pages.filter((pg) => pg.demand > pg.available);
+    for (const pg of breachedPages) {
+      out.push({
+        id: `ps:duplicate-breach:${pg.fbPageId}`,
+        code: "PS-15",
+        tier: "error",
+        anchor: pg.fbPageId,
+        title: "Duplicate overflows a Page",
+        message: `Duplicate runs all ${perDest} ads on ${pg.pageName}, but it has only ${pg.available} free. Adding Pages won't help — swap this Page, remove it, or switch off Duplicate.`,
+        fixes: [
+          FIX.swapPage(pg.fbPageId, "Change this Page"),
+          FIX.removePage(pg.fbPageId, "Remove this Page"),
+          FIX.switchDistribution("fill_first", "Switch off Duplicate"),
+        ],
+      });
+    }
+    // PS-DUP (duplicate FITS) — no breach, p > 1: budget-multiplier warning.
+    if (p > 1 && breachedPages.length === 0) {
       out.push({
         id: "ps:duplicate",
         code: "PS-DUP",
         tier: "warning",
         anchor: "pageSplit",
         title: "Duplicate multiplies count and spend",
-        message: `Duplicate runs the full ${perDest} ads on each of ${p} Pages — ad count and spend ×${p}.`,
+        message: `Duplicate runs the full ${perDest} ads on each of ${p} Pages — ad count and spend ×${p}. Switch to Fill-first to spread them instead, or keep it.`,
         fixes: [
-          FIX.addPagePicker("Add pages instead"),
-          FIX.switchDistribution("fill_first", "Switch to Fill first"),
+          FIX.switchDistribution("fill_first", "Switch to Fill-first"),
+          FIX.acknowledge(),
         ],
       });
     }
-    // duplicate per-page breaches surface via PS-06 / CC-01 (cross-cutting).
   }
 
   // PS-06 — even optimally spread, still unplaceable. Independent of the current
@@ -384,12 +414,8 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
       tier: "error",
       anchor: "capMeter",
       title: "Pages are out of room",
-      message: `Even optimally spread, ${bestUnplaceable} ads exceed your pages' ${totalFree} free slots.`,
-      fixes: [
-        FIX.addPagePicker("Add a Page"),
-        FIX.switchDistribution(suggestedDistribution(plan), "Use suggested spread"),
-        FIX.reduceStructure(),
-      ],
+      message: `Even packed optimally, ${bestUnplaceable} ads still exceed your Pages' ${totalFree} free slots. Add another Page, or trim the structure.`,
+      fixes: [FIX.addPagePicker("Add a Page"), FIX.reduceStructure()],
     });
   }
 
@@ -420,8 +446,8 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         tier: "error",
         anchor: p.fbPageId,
         title: "Page on a restricted account",
-        message: `Page ${p.pageName} is on a restricted account — can't launch now.`,
-        fixes: [FIX.gotoHealth(), FIX.changePage()],
+        message: `${p.pageName} is on a restricted account and can't launch now. Swap it for a Page on a healthy account, or open account health to resolve.`,
+        fixes: [FIX.swapPage(p.fbPageId, "Change this Page"), FIX.gotoHealth()],
       });
     }
   }
@@ -635,8 +661,17 @@ function crossCuttingErrors(plan: PlanV2): DistError[] {
       tier: "error",
       anchor: "capMeter",
       title: "Final count exceeds free slots",
-      message: `Final count ${pl.requested} exceeds free slots ${totalFree} once creatives expand.`,
-      fixes: [FIX.addPagePicker("Add a Page"), FIX.reduceStructure()],
+      message: `Once creatives expand, the launch needs ${pl.requested} ads but only ${totalFree} slots are free. Trim the structure${
+        plan.pageDistribution === "fill_first" || plan.pageDistribution === "equal"
+          ? ", or add another Page to make room"
+          : ""
+      }.`,
+      fixes: [
+        FIX.reduceStructure(),
+        ...(plan.pageDistribution === "fill_first" || plan.pageDistribution === "equal"
+          ? [FIX.addPagePicker("Add a Page")]
+          : []),
+      ],
     });
   }
 
@@ -909,6 +944,13 @@ export function applyDistFix(plan: PlanV2, fix: DistFix): Partial<PlanV2> {
       if (!added) return {};
       const kept = plan.targets.filter((t) => t.fbPageId !== fix.swapFrom);
       return { targets: [...kept, added] };
+    }
+
+    case "remove_page": {
+      // Drop the target(s) on `swapFrom` entirely — no replacement page. The
+      // correct fix when adding a page can't help (at-cap / duplicate / one_page).
+      if (!fix.swapFrom) return {};
+      return { targets: plan.targets.filter((t) => t.fbPageId !== fix.swapFrom) };
     }
 
     case "split_launch":

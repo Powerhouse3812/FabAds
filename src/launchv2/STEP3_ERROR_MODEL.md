@@ -116,6 +116,27 @@ Creative-side (independent of page-split, but feeds `D`):
 
 ---
 
+## 2.1 Fix-selection rule (CONFIRMED — Maalik)
+
+> "Add a Page" only fixes an overflow when ads can be **REDISTRIBUTED** to the
+> new page — i.e. **Fill-first** (aggregate short) and secondarily **Equal**.
+> For **DUPLICATE** (every page gets the full set), **ONE-PAGE**, or an
+> **AT-CAP page**, adding a page **CANNOT** fix it — the correct fix is
+> **replace/remove the page**, or **change the split method**. Fixes must
+> match the root cause.
+
+Concretely:
+
+| Root cause | Why add-page doesn't help | Correct fix |
+|---|---|---|
+| `one_page` (PS-03) | Method pins all demand onto a single page by design; a new page never receives spillover | Switch method (Use suggested) · Add a Page only helps if paired with a method switch away from `one_page` · Reduce structure |
+| `duplicate` (PS-DUP) | Every page gets the **full** `D`; a new page adds ×1 more full copies, it doesn't relieve any existing page | Change/Remove the breaching Page · Switch off Duplicate (to Fill-first) |
+| at-cap page (PS-02, `free===0`) | The page itself has zero room; nothing lands there regardless of other pages | Change this Page · Remove this Page |
+| `fill_first` aggregate-short (PS-05/06) | Fill-first greedily fills existing pages then spills to the next — a new page **directly absorbs** the shortfall | Add a Page (primary) · Reduce structure |
+| `equal` per-page breach (PS-04) | A new page grows `p`, shrinking each page's share on the next auto-balance — **secondary** redistribution effect | Use suggested · Change this Page · Auto-balance |
+
+---
+
 ## 3. Full error catalog (the implementation + deliverable source)
 
 Namespaces: `ps:` page-split · `cd:` creative-distribution · `cc:` cross-cutting.
@@ -128,16 +149,17 @@ Namespaces: `ps:` page-split · `cd:` creative-distribution · `cc:` cross-cutti
 | code | tier | when (trigger) | message | fixes |
 |---|---|---|---|---|
 | PS-01 | 🔴 | `targets.length===0` | "Select at least one Page to continue." | goto:accounts |
-| PS-02 | 🔴 | any selected page `free===0` | "Page {P} is at its 250-ad limit — 0 slots left." | change_page, add_page |
-| PS-03 | 🔴 | `one_page` & `D>free₁` | "Page {P} has {s} slots; this launch needs {n} ads." | use_suggested, add_page, reduce_structure |
-| PS-04 | 🔴 | `equal` & `∃ share_i>free_i` | "Split Equally puts {a} ads on {P}, but it has only {s} slots." | use_suggested, change_page, auto_balance |
-| PS-05 | 🔴 | `Σdemand>Σfree` (agg short) | "Selected pages have {s} free slots; launch needs {n}. {d} won't fit." | add_page, reduce_structure, split_launch |
-| PS-06 | 🔴 | Suggested best-fit still `unplaceable>0` | "Even optimally spread, {d} ads exceed your pages' {s} free slots." | add_page, reduce_structure |
-| PS-07 | 🔴(field) | `custom` & `weight_i>free_i` | "Max {s} for {P} — that's its free slots." | auto_balance |
-| PS-08 | 🔴 | `custom` & `Σweights≠D` | "You've assigned {x} of {n} ads — {d} {over/under}." | auto_balance |
-| PS-DUP | 🟠 | `duplicate` & `p>1` | "Duplicate runs the full {n} ads on each of {p} Pages — ad count and spend ×{p}." | acknowledge, switch_distribution |
+| PS-02 | 🔴 | any selected page `free===0` | "Page {P} is at its 250-ad limit — change it or remove it to continue." | change_page, remove_page |
+| PS-03 | 🔴 | `one_page` & `D>free₁` | "Page {P} only holds {s} of the {n} ads this launch needs — use the suggested spread, change the Page, or shrink the structure." | use_suggested, change_page, reduce_structure |
+| PS-04 | 🔴 | `equal` & `∃ share_i>free_i` | "Splitting equally puts {a} ads on {P}, which only has {s} slots — spread across Pages, change the Page, or reduce the ad count." | spread_across_pages (use_suggested), change_page, reduce_structure |
+| PS-05 | 🔴 | `Σdemand>Σfree` (agg short) | "Your pages have {s} free slots but this launch needs {n} — add a Page to absorb the {d} that don't fit, or reduce structure." | add_page, reduce_structure |
+| PS-06 | 🔴 | Suggested best-fit still `unplaceable>0` | "Even the best possible spread leaves {d} ads with nowhere to go across {s} free slots — add a Page or reduce structure." | add_page, reduce_structure |
+| PS-07 | 🔴(field) | `custom` & `weight_i>free_i` | "{P} only has {s} free slots — auto-balance to bring every Page's weight within its own limit." | auto_balance |
+| PS-08 | 🔴 | `custom` & `Σweights≠D` | "You've assigned {x} of {n} ads — auto-balance to close the {d}-ad {over/under}." | auto_balance |
+| PS-DUP (breach) | 🔴 | `duplicate` & any page breaches (`activeAds+D>250`) | "Duplicate would push {P} over its 250-ad cap — change or remove that Page, or switch off Duplicate." | change_page, remove_page, switch_off_duplicate (→ fill_first) |
+| PS-DUP (fits) | 🟠 | `duplicate` & `p>1`, no breach | "Duplicate runs the full {n} ads on each of {p} Pages — count and spend ×{p}. Switch to Fill-first to spread instead, or continue." | switch_to_fill_first, acknowledge (budget warn) |
 | PS-10 | 🟠 prov | free-slot read unavailable for a page | "Couldn't check {P}'s remaining slots right now." | retry, acknowledge (re-check at Review) |
-| PS-11 | 🔴 | page on restricted/disabled account | "Page {P} is on a restricted account — can't launch now." | goto:health, change_page |
+| PS-11 | 🔴 | page on restricted/disabled account | "Page {P} is on a restricted account — check Account Health or change the Page." | change_page, goto:health |
 | PS-12 | 🔵 | `equal` & `D%p≠0` | "{n} ads / {p} Pages → {split}. Remainder goes to the Page with most room." | none |
 | PS-13 | 🟠 prov | multi-account & shared/unverified aggregation | "Slots shown are per Page; other accounts on this Page may lower real headroom." | none (re-check at Review) |
 | PS-14 | 🟠 | same `fbPageId` under ≥2 selected accounts | "Page {P} is selected under {k} accounts — their ads share the same 250 cap." | dedupe, acknowledge |
@@ -161,7 +183,7 @@ Namespaces: `ps:` page-split · `cd:` creative-distribution · `cc:` cross-cutti
 
 | code | tier | when | message | fixes |
 |---|---|---|---|---|
-| CC-01 | 🔴 | total (after `n_eff` + page dist) `> Σfree` | "Final count {n} exceeds free slots {s} once creatives expand." | reduce_structure, add_page |
+| CC-01 | 🔴 | total (after `n_eff` + page dist) `> Σfree` | "Creatives expand this to {n} ads, over your {s} free slots — reduce structure, or add a Page if you're on Fill-first/Equal." | reduce_structure, add_page (fill_first/equal only — see §2.1) |
 | CC-02 | 🟠 | `total × perUnitBudget > threshold` | "Count is now {n} ads → est. daily {$}. Confirm or reduce." | confirm, reduce_structure, edit budget |
 | CC-03 | 🔴(Review) | fresh free-slots `<` Step-3 snapshot | "Slots changed since Step 3 — {P} now has {s}. Re-balance before launch." | auto_balance, goto:step3 |
 | CC-04 | 🔵 | retry dispatches failed-only, same idempotency key | "Retrying failed ads only — they won't be recounted against the cap." | none |
@@ -212,8 +234,12 @@ export type DistAnchor =
   | "capMeter" | "accounts" | string /* fbPageId for page-scoped */;
 export type DistFixKind =
   | "use_suggested" | "switch_distribution" | "auto_balance" | "auto_map"
-  | "add_page" | "split_launch" | "reduce_structure" | "reduce_combos"
+  | "add_page" | "remove_page" | "split_launch" | "reduce_structure" | "reduce_combos"
   | "change_page" | "acknowledge" | "retry" | "goto" | "none";
+// NEW: "remove_page" — removes a breaching/at-cap/duplicate-target page from the
+// plan outright (distinct from "change_page", which swaps it for another page via
+// the picker). Root-cause fix for PS-02 (at-cap) and PS-DUP breach (§2.1) where
+// "add_page" cannot help — the offending page must go, not be supplemented.
 export interface DistFix {
   label: string; kind: DistFixKind;
   distribution?: PageDistribution;   // for switch_distribution/use_suggested
