@@ -1,1396 +1,1489 @@
 /**
- * TemplatesLibrary — Audience & Placement templates management surface.
+ * TemplatesLibrary — Audience & Placement templates.
  *
- * Layout: Single view (no tabs) — two-panel (card list left | 320px preview rail right).
- * Design: FabFunnel v1.2 — lime #8FB821, bg #FAFAF7 light / #18181B dark,
- * rounded-2xl cards, Geist Mono for metadata/numbers/badges.
+ * Layout:
+ *   Grid mode  — 2-col card grid (left flex) + 320px sticky preview rail (right)
+ *   Edit mode  — 300px card strip (left) + full-width APTemplateEditor (right)
  *
- * Data: localStorage-backed via `templatesService`. Rename + Delete supported.
- * "Use in launch" is a placeholder CTA — wiring to launch flow is a separate step.
+ * Design: FabFunnel v1.2
+ *   Lime #8FB821 for Advantage+ accent / blue #3B82F6 for Manual
+ *   Age range as hero number · left accent bar on cards
+ *   setSubNavCollapsed wired on edit open / close / unmount
  */
 
-import { useCallback, useEffect, useRef, useState, useId } from "react";
-import { formatDistanceToNow } from "date-fns";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { templatesService } from "../../templates/service";
 import type {
-  AudiencePlacementTemplate,
   AudiencePlacementPayload,
+  AudiencePlacementTemplate,
   APLocation,
   APInterest,
 } from "../../templates/types";
+import { setSubNavCollapsed } from "@/components/shell/useSubNavCollapsed";
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Helpers                                                                     */
-/* ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────── */
+/* Helpers                                                             */
+/* ─────────────────────────────────────────────────────────────────── */
 
-function relativeTime(ts: number): string {
-  const raw = formatDistanceToNow(new Date(ts), { addSuffix: true });
-  return raw.replace(/^about /, "");
+function relativeTime(ts?: number): string {
+  if (!ts) return "Never";
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}yr ago`;
 }
 
-function formatAbsolute(ts: number): string {
-  return new Date(ts).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
+type PlacementFilter = "all" | "advantage" | "manual";
+type SortKey = "recent" | "name" | "placement";
 
-function genderLabel(g: "all" | "men" | "women"): string {
-  return g === "all" ? "All" : g === "men" ? "Men" : "Women";
-}
+/* ─────────────────────────────────────────────────────────────────── */
+/* Static mock data                                                    */
+/* ─────────────────────────────────────────────────────────────────── */
 
-function placementModeLabel(mode: "advantage" | "manual"): string {
-  return mode === "advantage" ? "Advantage+" : "Manual";
-}
+const SAMPLE_LOCATIONS: APLocation[] = [
+  { key: "IN", name: "India", type: "country" },
+  { key: "US", name: "United States", type: "country" },
+  { key: "GB", name: "United Kingdom", type: "country" },
+  { key: "AU", name: "Australia", type: "country" },
+  { key: "CA", name: "Canada", type: "country" },
+  { key: "SG", name: "Singapore", type: "country" },
+  { key: "AE", name: "UAE", type: "country" },
+  { key: "IN:Delhi", name: "Delhi", type: "city" },
+  { key: "IN:Mumbai", name: "Mumbai", type: "city" },
+  { key: "IN:Bangalore", name: "Bangalore", type: "city" },
+  { key: "IN:Chennai", name: "Chennai", type: "city" },
+  { key: "IN:Hyderabad", name: "Hyderabad", type: "city" },
+  { key: "IN:Pune", name: "Pune", type: "city" },
+  { key: "IN:Ahmedabad", name: "Ahmedabad", type: "city" },
+  { key: "IN:Jaipur", name: "Jaipur", type: "city" },
+  { key: "US:NY", name: "New York", type: "city" },
+  { key: "US:LA", name: "Los Angeles", type: "city" },
+];
 
-function goalLabel(goal: string): string {
-  const map: Record<string, string> = {
-    OFFSITE_CONVERSIONS: "Conversions",
-    LINK_CLICKS: "Link Clicks",
-    REACH: "Reach",
-    VALUE: "Value",
-    IMPRESSIONS: "Impressions",
-    LANDING_PAGE_VIEWS: "Landing Page Views",
-    VIDEO_VIEWS: "Video Views",
-    POST_ENGAGEMENT: "Post Engagement",
-    APP_INSTALLS: "App Installs",
+const SAMPLE_LANGUAGES = [
+  { code: "en", name: "English" },
+  { code: "hi", name: "Hindi" },
+  { code: "ta", name: "Tamil" },
+  { code: "te", name: "Telugu" },
+  { code: "mr", name: "Marathi" },
+  { code: "bn", name: "Bengali" },
+  { code: "gu", name: "Gujarati" },
+  { code: "kn", name: "Kannada" },
+  { code: "ml", name: "Malayalam" },
+  { code: "pa", name: "Punjabi" },
+];
+
+const SAMPLE_INTERESTS: APInterest[] = [
+  { id: "i_fashion", name: "Fashion", type: "interest" },
+  { id: "i_beauty", name: "Beauty & Cosmetics", type: "interest" },
+  { id: "i_tech", name: "Consumer Electronics", type: "interest" },
+  { id: "i_ecomm", name: "Online Shopping", type: "behavior" },
+  { id: "i_engaged", name: "Engaged Shoppers", type: "behavior" },
+  { id: "i_fitness", name: "Health & Fitness", type: "interest" },
+  { id: "i_travel", name: "Travel", type: "interest" },
+  { id: "i_food", name: "Food & Dining", type: "interest" },
+  { id: "i_parenting", name: "Parenting", type: "interest" },
+  { id: "i_edu", name: "Education", type: "demographic" },
+  { id: "i_biz", name: "Small Business Owners", type: "demographic" },
+  { id: "i_skincare", name: "Skincare", type: "interest" },
+  { id: "i_gaming", name: "Gaming", type: "interest" },
+  { id: "i_auto", name: "Automotive", type: "interest" },
+];
+
+const OPTIMIZATION_GOALS = [
+  { value: "OFFSITE_CONVERSIONS", label: "Conversions" },
+  { value: "LINK_CLICKS", label: "Link Clicks" },
+  { value: "REACH", label: "Reach" },
+  { value: "IMPRESSIONS", label: "Impressions" },
+  { value: "VALUE", label: "Purchase Value" },
+  { value: "LANDING_PAGE_VIEWS", label: "Landing Page Views" },
+  { value: "VIDEO_VIEWS", label: "Video Views" },
+  { value: "POST_ENGAGEMENT", label: "Post Engagement" },
+  { value: "LEAD_GENERATION", label: "Lead Generation" },
+];
+
+const PLACEMENT_GROUPS: Array<{
+  label: string;
+  keys: Array<{ key: keyof AudiencePlacementPayload["manualPlacements"]; label: string }>;
+}> = [
+  {
+    label: "Facebook",
+    keys: [
+      { key: "fbFeed", label: "Feed" },
+      { key: "fbStories", label: "Stories" },
+      { key: "fbReels", label: "Reels" },
+      { key: "fbMarketplace", label: "Marketplace" },
+      { key: "fbRightColumn", label: "Right Column" },
+      { key: "fbVideoFeeds", label: "Video Feeds" },
+      { key: "fbSearch", label: "Search" },
+    ],
+  },
+  {
+    label: "Instagram",
+    keys: [
+      { key: "igFeed", label: "Feed" },
+      { key: "igStories", label: "Stories" },
+      { key: "igReels", label: "Reels" },
+      { key: "igExplore", label: "Explore" },
+      { key: "igSearch", label: "Search" },
+    ],
+  },
+  {
+    label: "Audience Network",
+    keys: [
+      { key: "anNative", label: "Native" },
+      { key: "anRewarded", label: "Rewarded" },
+    ],
+  },
+  {
+    label: "Messenger",
+    keys: [
+      { key: "msInbox", label: "Inbox" },
+      { key: "msStories", label: "Stories" },
+    ],
+  },
+];
+
+function emptyManualPlacements(): AudiencePlacementPayload["manualPlacements"] {
+  return {
+    fbFeed: false, fbStories: false, fbReels: false, fbMarketplace: false,
+    fbRightColumn: false, fbVideoFeeds: false, fbSearch: false,
+    igFeed: false, igStories: false, igReels: false, igExplore: false, igSearch: false,
+    anNative: false, anRewarded: false,
+    msInbox: false, msStories: false,
   };
-  return map[goal] ?? goal;
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Main export                                                                 */
-/* ────────────────────────────────────────────────────────────────────────── */
+const DEFAULT_PAYLOAD: AudiencePlacementPayload = {
+  ageMin: 18, ageMax: 65, gender: "all",
+  locations: [], languages: [],
+  detailedTargeting: [], customAudiences: [], exclusions: [],
+  advantageAudience: true,
+  placementMode: "advantage",
+  manualPlacements: emptyManualPlacements(),
+  optimizationGoal: "OFFSITE_CONVERSIONS",
+  attributionClickWindow: 7,
+  attributionViewWindow: 1,
+  specialAdCategories: [],
+};
 
-export function TemplatesLibrary() {
-  const [templates, setTemplates] = useState<AudiencePlacementTemplate[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
-  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+function goalLabel(val: string): string {
+  return OPTIMIZATION_GOALS.find((g) => g.value === val)?.label ?? val;
+}
 
-  const refresh = useCallback(() => {
-    setTemplates(templatesService.listAudiencePlacement());
-  }, []);
+function langName(code: string): string {
+  return SAMPLE_LANGUAGES.find((l) => l.code === code)?.name ?? code;
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* SearchItem — normalised item for the chip-search dropdown           */
+/* ─────────────────────────────────────────────────────────────────── */
+
+interface SearchItem {
+  id: string;
+  name: string;
+  meta?: string;
+}
+
+function ChipSearchInput({
+  label,
+  placeholder,
+  options,
+  selected,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  placeholder: string;
+  options: SearchItem[];
+  selected: SearchItem[];
+  onAdd: (item: SearchItem) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const selectedIds = new Set(selected.map((s) => s.id));
+  const filtered = options.filter(
+    (item) =>
+      !selectedIds.has(item.id) &&
+      item.name.toLowerCase().includes(query.toLowerCase())
+  );
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const filteredTemplates = search.trim()
-    ? templates.filter((t) =>
-        t.name.toLowerCase().includes(search.trim().toLowerCase()),
-      )
-    : templates;
-
-  const selectedTemplate =
-    selectedId != null ? templates.find((t) => t.id === selectedId) ?? null : null;
-
-  const handleDeleteConfirm = () => {
-    if (!deleteTarget) return;
-    templatesService.removeAudiencePlacement(deleteTarget.id);
-    if (selectedId === deleteTarget.id) setSelectedId(null);
-    setDeleteTarget(null);
-    setDeleteConfirmed(false);
-    refresh();
-  };
-
-  /* ── Full-page empty state ── */
-  if (templates.length === 0 && search.trim().length === 0) {
-    return (
-      <div className="flex min-h-[100dvh] flex-col bg-[#FAFAF7] dark:bg-[#18181B]">
-        <PageHeader count={0} search={search} onSearch={setSearch} />
-        <FullEmptyState />
-      </div>
-    );
-  }
+    function handleMouseDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, []);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#FAFAF7] dark:bg-[#18181B]">
-      <PageHeader count={templates.length} search={search} onSearch={setSearch} />
-
-      {/* Two-panel body */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: card list */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Cards scroll region */}
-          <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2">
-            {filteredTemplates.length === 0 ? (
-              <ListEmptyState isFiltered={search.trim().length > 0} />
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {filteredTemplates.map((tpl, i) => (
-                  <APTemplateCard
-                    key={tpl.id}
-                    template={tpl}
-                    isSelected={selectedId === tpl.id}
-                    animationDelay={i * 30}
-                    onClick={() =>
-                      setSelectedId((prev) => (prev === tpl.id ? null : tpl.id))
-                    }
-                  />
-                ))}
-              </ul>
-            )}
+    <div className="flex flex-col gap-1.5">
+      <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+        {label}
+      </span>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-0.5">
+          {selected.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onRemove(item.id)}
+              className="flex items-center gap-1 font-mono text-[11px] px-2.5 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)] hover:bg-[#e7e5dc] dark:hover:bg-[#323232] transition-colors"
+            >
+              {item.name}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      )}
+      <div ref={wrapRef} className="relative">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(15,15,12,0.38)" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder={placeholder}
+            className="w-full h-9 pl-8 pr-3 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#FAFAF7] dark:bg-[#18181B] font-mono text-[12px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] placeholder:text-[rgba(15,15,12,0.38)] dark:placeholder:text-[rgba(255,255,255,0.38)] outline-none focus:border-[#8FB821] focus:ring-1 focus:ring-[#8FB821]/20 transition-all"
+          />
+        </div>
+        {open && filtered.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1E1E23] border border-[#e7e5dc] dark:border-[#2a2a2a] rounded-xl shadow-md z-20 overflow-hidden max-h-[180px] overflow-y-auto">
+            {filtered.slice(0, 10).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onAdd(item);
+                  setQuery("");
+                  setOpen(false);
+                }}
+                className="w-full text-left flex items-center justify-between px-4 py-2 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+              >
+                <span className="text-[12px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+                  {item.name}
+                </span>
+                {item.meta && (
+                  <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
+                    {item.meta}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-        </div>
-
-        {/* Right: preview rail (320px) */}
-        <div className="w-[320px] flex-shrink-0 overflow-y-auto border-l border-[#e7e5dc] bg-[#FAFAF7] dark:border-[#2a2a2a] dark:bg-[#18181B]">
-          {selectedTemplate ? (
-            <APPreviewRail
-              template={selectedTemplate}
-              deleteConfirmed={deleteConfirmed}
-              onDeleteRequest={() => {
-                setDeleteConfirmed(false);
-                setDeleteTarget({ id: selectedTemplate.id });
-              }}
-              onRefresh={refresh}
-            />
-          ) : (
-            <RailZeroState />
-          )}
-        </div>
+        )}
       </div>
-
-      {/* Dialogs */}
-      <DeleteDialog
-        target={deleteTarget}
-        onClose={() => {
-          setDeleteTarget(null);
-          setDeleteConfirmed(false);
-        }}
-        onConfirm={handleDeleteConfirm}
-      />
     </div>
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Page header                                                                 */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function PageHeader({
-  count,
-  search,
-  onSearch,
-}: {
-  count: number;
-  search: string;
-  onSearch: (v: string) => void;
-}) {
-  return (
-    <header className="px-8 pb-4 pt-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[19px] font-bold leading-[27px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
-            Audience Templates
-          </h1>
-          <p className="mt-0.5 font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-            Saved adset-level targeting configs — apply from the launch flow.
-          </p>
-        </div>
-        {count > 0 && (
-          <span className="mt-1 flex-shrink-0 rounded-full bg-[rgba(143,184,33,0.12)] px-2.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-[#5B7611] dark:bg-[rgba(195,225,101,0.12)] dark:text-[#C3E165]">
-            {count}
-          </span>
-        )}
-      </div>
-
-      {/* Search */}
-      <div className="relative mt-4 max-w-[420px]">
-        <SearchIcon className="absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
-        <input
-          type="text"
-          placeholder="Search audience templates…"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          className={cn(
-            "h-9 w-full rounded-full border border-[#e7e5dc] bg-white pl-9 pr-4",
-            "font-mono text-[13px] text-[rgba(15,15,12,0.92)] placeholder:text-[rgba(15,15,12,0.45)]",
-            "transition-all focus:border-[#8FB821] focus:outline-none focus:ring-0",
-            "focus:shadow-[0_0_0_4px_rgba(143,184,33,0.18)]",
-            "dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:text-[rgba(255,255,255,0.92)]",
-            "dark:placeholder:text-[rgba(255,255,255,0.45)] dark:focus:border-[#90BA24]",
-          )}
-        />
-      </div>
-    </header>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* AP Template card                                                            */
-/* ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────── */
+/* APTemplateCard                                                      */
+/* ─────────────────────────────────────────────────────────────────── */
 
 function APTemplateCard({
   template,
-  isSelected,
-  animationDelay,
+  selected,
   onClick,
 }: {
   template: AudiencePlacementTemplate;
-  isSelected: boolean;
-  animationDelay: number;
+  selected: boolean;
   onClick: () => void;
 }) {
-  const { payload } = template;
-  const visibleLocations = payload.locations.slice(0, 3);
-  const moreCount = Math.max(0, payload.locations.length - 3);
-  const isManual = payload.placementMode === "manual";
+  const p = template.payload;
+  const accentColor = p.placementMode === "advantage" ? "#8FB821" : "#3B82F6";
+  const shownLocs = p.locations.slice(0, 3);
+  const extraLocs = p.locations.length - 3;
 
   return (
-    <li
+    <button
+      type="button"
       onClick={onClick}
-      style={{ animationDelay: `${animationDelay}ms` }}
-      className={cn(
-        "animate-in fade-in slide-in-from-bottom-1 cursor-pointer rounded-2xl border p-4 transition-all duration-[220ms]",
-        "hover:-translate-y-0.5",
-        isSelected
-          ? "border-[#8FB821] bg-[#F5FBE2] shadow-sm dark:border-[#90BA24] dark:bg-[#1D2A09]"
-          : "border-[#e7e5dc] bg-white hover:border-[rgba(143,184,33,0.4)] hover:shadow-md dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:hover:border-[rgba(144,186,36,0.3)]",
-      )}
+      className={[
+        "relative w-full text-left rounded-2xl border cursor-pointer transition-all duration-200 overflow-hidden",
+        "pl-7 pr-4 pt-4 pb-3 min-h-[140px]",
+        "hover:shadow-md hover:-translate-y-0.5",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
+        selected
+          ? "border-[#8FB821] bg-[#F5FBE2] dark:bg-[#1D2A09] shadow-sm"
+          : "border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#FAFAF7] dark:bg-[#18181B] hover:border-[#8FB821]/40",
+      ].join(" ")}
     >
-      {/* Name row */}
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-medium leading-[21px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+      {/* Left accent bar */}
+      <span
+        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
+        style={{ backgroundColor: accentColor }}
+        aria-hidden="true"
+      />
+
+      {/* Name + placement chip */}
+      <div className="flex items-start justify-between gap-2 mb-2 pr-1">
+        <span className="text-[13px] font-semibold leading-snug text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] line-clamp-2 flex-1 min-w-0">
           {template.name}
-        </p>
-        {/* Placement mode chip */}
+        </span>
         <span
-          className={cn(
-            "flex-shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]",
-            isManual
-              ? "bg-[rgba(22,119,255,0.1)] text-[#1677ff] dark:bg-[rgba(22,119,255,0.15)] dark:text-[#4096ff]"
-              : "bg-[rgba(143,184,33,0.12)] text-[#5B7611] dark:bg-[rgba(195,225,101,0.12)] dark:text-[#C3E165]",
-          )}
+          className={[
+            "flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full leading-none mt-0.5",
+            p.placementMode === "advantage"
+              ? "bg-[#F5FBE2] dark:bg-[#1D2A09] text-[#5B7611] dark:text-[#C3E165]"
+              : "bg-[#EFF6FF] dark:bg-[#1E2A4A] text-[#1D4ED8] dark:text-[#93C5FD]",
+          ].join(" ")}
         >
-          {isManual ? "Manual" : "Auto"}
+          {p.placementMode === "advantage" ? "Auto" : "Manual"}
         </span>
       </div>
 
-      {/* Location chips */}
-      {payload.locations.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {visibleLocations.map((loc: APLocation) => (
+      {/* Age hero */}
+      <p className="font-mono text-[18px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] leading-tight mb-0.5">
+        {p.ageMin}–{p.ageMax}
+      </p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] leading-none mb-3">
+        age range
+      </p>
+
+      {/* Divider */}
+      <div className="border-b border-[#e7e5dc]/60 dark:border-[#2a2a2a]/60 mb-2.5" />
+
+      {/* Goal + gender chips */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-2 py-0.5 rounded-full leading-none bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+          {goalLabel(p.optimizationGoal)}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-2 py-0.5 rounded-full leading-none bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+          {p.gender === "all" ? "All" : p.gender === "men" ? "Men" : "Women"}
+        </span>
+      </div>
+
+      {/* Location chips — max 3 */}
+      {p.locations.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2.5">
+          {shownLocs.map((loc) => (
             <span
               key={loc.key}
-              className="rounded-full border border-[#efeee7] bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] text-[rgba(15,15,12,0.62)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.62)]"
+              className="font-mono text-[10px] px-1.5 py-0.5 rounded-full border border-[#efeee7] dark:border-[#2a2a2a] bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]"
             >
               {loc.name}
             </span>
           ))}
-          {moreCount > 0 && (
-            <span className="rounded-full border border-[#efeee7] bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] text-[rgba(15,15,12,0.45)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.45)]">
-              +{moreCount} more
+          {extraLocs > 0 && (
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full border border-[#efeee7] dark:border-[#2a2a2a] bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+              +{extraLocs}
             </span>
           )}
         </div>
       )}
 
-      {/* Metadata row */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        {/* Age range */}
-        <span className="font-mono text-[11px] font-semibold tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-          {payload.ageMin}–{payload.ageMax}
-        </span>
-        <span className="text-[rgba(15,15,12,0.22)] dark:text-[rgba(255,255,255,0.22)]">·</span>
-        {/* Gender */}
-        <span className="rounded-full border border-[#efeee7] bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] font-semibold text-[rgba(15,15,12,0.62)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.62)]">
-          {genderLabel(payload.gender)}
-        </span>
-        <span className="text-[rgba(15,15,12,0.22)] dark:text-[rgba(255,255,255,0.22)]">·</span>
-        {/* Optimization goal */}
-        <span className="font-mono text-[10px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-          {goalLabel(payload.optimizationGoal)}
-        </span>
+      {/* Footer timestamp */}
+      <div className="font-mono text-[10px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)] tabular-nums">
+        {relativeTime(template.updatedAt)}
       </div>
-
-      {/* Footer */}
-      <p className="mt-2.5 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-        Updated {relativeTime(template.updatedAt)}
-      </p>
-    </li>
+    </button>
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Preview rail                                                                */
-/* ────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────── */
+/* Rail helpers                                                        */
+/* ─────────────────────────────────────────────────────────────────── */
 
-/* ── Manual placement keys in display order ── */
-const MANUAL_PLACEMENT_KEYS: Array<keyof AudiencePlacementPayload["manualPlacements"]> = [
-  "fbFeed", "fbStories", "fbReels", "fbMarketplace",
-  "igFeed", "igStories", "igReels", "igExplore",
-  "anNative", "anRewarded",
-  "msInbox", "msStories",
-];
+function RailSection({ label }: { label: string }) {
+  return (
+    <div className="pb-2 mb-3 border-b border-[#e7e5dc] dark:border-[#2a2a2a]">
+      <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <span className="font-mono text-[11px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] flex-shrink-0">
+        {label}
+      </span>
+      <span className="text-[12px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] text-right" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* APPreviewRail                                                       */
+/* ─────────────────────────────────────────────────────────────────── */
 
 function APPreviewRail({
   template,
-  deleteConfirmed: _deleteConfirmed,
-  onDeleteRequest,
+  onClose,
   onRefresh,
+  onEdit,
 }: {
-  template: AudiencePlacementTemplate;
-  deleteConfirmed: boolean;
-  onDeleteRequest: () => void;
+  template: AudiencePlacementTemplate | null;
+  onClose: () => void;
   onRefresh: () => void;
+  onEdit: (id: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<AudiencePlacementPayload | null>(null);
-  const [draftName, setDraftName] = useState("");
-  const [locInput, setLocInput] = useState("");
-  const [interestInput, setInterestInput] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [duplicated, setDuplicated] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const renameRef = useRef<HTMLInputElement>(null);
 
-  const { payload } = template;
+  useEffect(() => {
+    setRenaming(false);
+    setDuplicated(false);
+    setDeleteConfirm(false);
+    if (template) setRenameValue(template.name);
+  }, [template?.id]);
 
-  /* ── Enter / exit edit mode ── */
-  const enterEdit = () => {
-    setDraft({ ...payload });
-    setDraftName(template.name);
-    setLocInput("");
-    setInterestInput("");
-    setEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setEditing(false);
-    setDraft(null);
-    setDraftName("");
-  };
-
-  const saveEdit = () => {
-    if (!draft) return;
-    templatesService.updateAudiencePlacement(template.id, draft);
-    if (draftName.trim() && draftName.trim() !== template.name) {
-      templatesService.renameAudiencePlacement(template.id, draftName.trim());
+  useEffect(() => {
+    if (renaming && renameRef.current) {
+      renameRef.current.focus();
+      renameRef.current.select();
     }
-    onRefresh();
-    setEditing(false);
-    setDraft(null);
-    setDraftName("");
-  };
+  }, [renaming]);
 
-  /* ── Draft helpers ── */
-  const patchDraft = (patch: Partial<AudiencePlacementPayload>) => {
-    setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
-  };
-
-  const removeLoc = (key: string) => {
-    setDraft((prev) =>
-      prev ? { ...prev, locations: prev.locations.filter((l) => l.key !== key) } : prev
-    );
-  };
-
-  const addLoc = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setDraft((prev) => {
-      if (!prev) return prev;
-      const key = trimmed.toUpperCase().replace(/\s+/g, "_");
-      if (prev.locations.some((l) => l.key === key)) return prev;
-      return {
-        ...prev,
-        locations: [...prev.locations, { key, name: trimmed, type: "country" as const }],
-      };
-    });
-  };
-
-  const removeInterest = (id: string) => {
-    setDraft((prev) =>
-      prev ? { ...prev, detailedTargeting: prev.detailedTargeting.filter((i) => i.id !== id) } : prev
-    );
-  };
-
-  const addInterest = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    setDraft((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        detailedTargeting: [
-          ...prev.detailedTargeting,
-          { id: Date.now().toString(), name: trimmed, type: "interest" as const },
-        ],
-      };
-    });
-  };
-
-  const toggleManualPlacement = (key: keyof AudiencePlacementPayload["manualPlacements"]) => {
-    setDraft((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        manualPlacements: { ...prev.manualPlacements, [key]: !prev.manualPlacements[key] },
-      };
-    });
-  };
-
-  /* ── Shared input class ── */
-  const inputCls = cn(
-    "h-8 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a]",
-    "bg-white dark:bg-[#1E1E23] text-[13px] px-3 font-mono",
-    "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
-    "outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20",
-  );
-
-  const selectCls = cn(inputCls, "appearance-none pr-7 cursor-pointer");
-
-  /* ── Read-only view ── */
-  if (!editing || !draft) {
-    const activeManualPlacements = payload.placementMode === "manual"
-      ? Object.entries(payload.manualPlacements).filter(([, v]) => v).map(([k]) => k)
-      : [];
-
+  if (!template) {
     return (
-      <div className="flex h-full flex-col p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-              Audience Template
-            </span>
-            <h2 className="mt-1.5 text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
-              {template.name}
-            </h2>
+      <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{
+            backgroundImage: "radial-gradient(circle, #8FB821 1px, transparent 1px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full bg-[#F5FBE2] dark:bg-[#1D2A09] flex items-center justify-center mb-4 mx-auto">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8FB821" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
           </div>
-          {/* Edit pencil button */}
-          <button
-            onClick={enterEdit}
-            title="Edit template"
-            className={cn(
-              "mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full",
-              "border border-[#e7e5dc] bg-transparent transition-all",
-              "hover:border-[#8FB821] hover:bg-[rgba(143,184,33,0.08)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821]",
-              "dark:border-[#2a2a2a] dark:hover:border-[#8FB821]",
-            )}
-          >
-            <PencilIcon className="h-3 w-3 text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]" />
-          </button>
+          <p className="text-[13px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] mb-1" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+            Select a template to preview
+          </p>
+          <p className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] leading-snug">
+            Audience, placement & optimisation
+            <br />details appear here
+          </p>
         </div>
-
-        {/* Meta row */}
-        <div className="mt-1 flex items-center gap-1.5">
-          <span className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-            {formatAbsolute(template.createdAt)}
-          </span>
-        </div>
-
-        <div className="my-4 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-
-        {/* ── Section: Audience ── */}
-        <RailSection icon={<UsersIcon className="h-3.5 w-3.5" />} title="Audience">
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2">
-              <RailPill label={`${payload.ageMin}–${payload.ageMax}`} mono />
-              <RailPill label={genderLabel(payload.gender)} />
-              {payload.advantageAudience && (
-                <RailPill label="Adv+ Audience" lime />
-              )}
-            </div>
-            {payload.locations.length > 0 && (
-              <div>
-                <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  Locations
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {payload.locations.map((loc: APLocation) => (
-                    <RailPill key={loc.key} label={loc.name} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {payload.detailedTargeting.length > 0 && (
-              <div>
-                <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  Targeting
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {payload.detailedTargeting.slice(0, 5).map((item: APInterest) => (
-                    <RailPill key={item.id} label={item.name} />
-                  ))}
-                  {payload.detailedTargeting.length > 5 && (
-                    <RailPill label={`+${payload.detailedTargeting.length - 5} more`} muted />
-                  )}
-                </div>
-              </div>
-            )}
-            {payload.customAudiences.length > 0 && (
-              <div>
-                <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  Custom Audiences
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {payload.customAudiences.map((ca) => (
-                    <RailPill key={ca.id} label={ca.name} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {payload.languages.length > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  Lang:
-                </span>
-                <span className="font-mono text-[11px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
-                  {payload.languages.join(", ").toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
-        </RailSection>
-
-        <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-
-        {/* ── Section: Placement ── */}
-        <RailSection icon={<GridIcon className="h-3.5 w-3.5" />} title="Placement">
-          {payload.placementMode === "advantage" ? (
-            <RailPill label="Advantage+ Placement" lime />
-          ) : (
-            <div className="space-y-1.5">
-              <RailPill label="Manual" />
-              {activeManualPlacements.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                  {activeManualPlacements.map((p) => (
-                    <RailPill key={p} label={friendlyPlacementName(p)} />
-                  ))}
-                </div>
-              ) : (
-                <span className="font-mono text-[11px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  No placements selected
-                </span>
-              )}
-            </div>
-          )}
-        </RailSection>
-
-        <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-
-        {/* ── Section: Optimization ── */}
-        <RailSection icon={<TargetIcon className="h-3.5 w-3.5" />} title="Optimization">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <RailPill label={goalLabel(payload.optimizationGoal)} lime />
-            </div>
-            <div className="flex items-center gap-3">
-              <div>
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  Click window
-                </p>
-                <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-                  {payload.attributionClickWindow}d
-                </p>
-              </div>
-              <div>
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                  View window
-                </p>
-                <p className="font-mono text-[11px] tabular-nums text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-                  {payload.attributionViewWindow}d
-                </p>
-              </div>
-            </div>
-            {payload.specialAdCategories.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {payload.specialAdCategories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="rounded-full bg-[rgba(250,173,20,0.1)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#874d00] dark:text-[#d89614]"
-                  >
-                    {cat}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </RailSection>
-
-        {/* ── Notes ── */}
-        {payload.notes && (
-          <>
-            <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-            <RailSection icon={<NoteIcon className="h-3.5 w-3.5" />} title="Notes">
-              <p className="font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
-                {payload.notes}
-              </p>
-            </RailSection>
-          </>
-        )}
-
-        <div className="flex-1" />
-
-        <div className="mt-6 flex flex-col gap-2">
-          <button
-            className={cn(
-              "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
-              "bg-[#8FB821] text-[#121212]",
-              "hover:bg-[#AACF32] shadow-sm",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
-            )}
-          >
-            Use in launch
-          </button>
-
-          <button
-            onClick={onDeleteRequest}
-            className={cn(
-              "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
-              "border border-transparent bg-transparent text-[#cf1322]",
-              "hover:border-[#ffccc7] hover:bg-[rgba(207,19,34,0.06)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cf1322]",
-              "dark:text-[#f37370] dark:hover:border-[rgba(243,115,112,0.25)] dark:hover:bg-[rgba(243,115,112,0.06)]",
-            )}
-          >
-            Delete template
-          </button>
-        </div>
-
-        <p className="mt-4 font-mono text-[10px] leading-[15px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-          Apply from Step 2 in the launch flow — select a saved audience template at the adset stage.
-        </p>
       </div>
     );
   }
 
-  /* ── Edit mode ── */
+  const p = template.payload;
+
+  const activeManualPlacements = p.placementMode === "manual"
+    ? (Object.entries(p.manualPlacements) as Array<[string, boolean]>)
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+    : [];
+
+  function handleRenameSubmit() {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== template!.name) {
+      templatesService.renameAudiencePlacement(template!.id, trimmed);
+      onRefresh();
+    }
+    setRenaming(false);
+  }
+
+  function handleRenameKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleRenameSubmit();
+    if (e.key === "Escape") setRenaming(false);
+  }
+
+  function handleDuplicate() {
+    templatesService.saveAudiencePlacement(`${template!.name} (copy)`, { ...template!.payload });
+    onRefresh();
+    setDuplicated(true);
+    setTimeout(() => setDuplicated(false), 2500);
+  }
+
+  function handleDelete() {
+    if (!deleteConfirm) { setDeleteConfirm(true); return; }
+    templatesService.removeAudiencePlacement(template!.id);
+    onRefresh();
+    onClose();
+  }
+
   return (
-    <div className="flex h-full flex-col p-5">
-      {/* Edit header with lime bottom border accent */}
-      <div className="border-b-2 border-[#8FB821] pb-3">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#5B7611] dark:text-[#C3E165]">
-          Editing Template
-        </span>
-        {/* Editable name */}
-        <input
-          type="text"
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          className={cn(
-            "mt-1.5 w-full border-b border-[#e7e5dc] bg-transparent pb-0.5",
-            "text-[15px] font-bold leading-[23px] tracking-[-0.01em]",
-            "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
-            "outline-none focus:border-[#8FB821]",
-            "dark:border-[#2a2a2a]",
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 px-5 py-4 border-b border-[#e7e5dc] dark:border-[#2a2a2a] flex-shrink-0">
+        <div className="flex-1 min-w-0">
+          {renaming ? (
+            <input
+              ref={renameRef}
+              value={renameValue}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setRenameValue(e.target.value)}
+              onBlur={handleRenameSubmit}
+              onKeyDown={handleRenameKey}
+              className="w-full text-[13px] font-semibold bg-transparent border-0 border-b-2 border-[#8FB821] outline-none text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] pb-0.5"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            />
+          ) : (
+            <h2
+              className="text-[13px] font-semibold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] leading-snug line-clamp-2"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              {template.name}
+            </h2>
           )}
-          placeholder="Template name"
-        />
+          <p className="font-mono text-[10px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mt-0.5 tabular-nums">
+            {relativeTime(template.updatedAt)}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => onEdit(template.id)}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+            aria-label="Edit template"
+            title="Edit template"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-md flex items-center justify-center text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:bg-[#F0F0EC] dark:hover:bg-[#27272A] hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+            aria-label="Close preview"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className="my-4 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-
-      {/* ── EDIT: Audience ── */}
-      <RailSection icon={<UsersIcon className="h-3.5 w-3.5" />} title="Audience">
-        <div className="space-y-3">
-          {/* Age range */}
-          <div>
-            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-              Age Range
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={13}
-                max={65}
-                value={draft.ageMin}
-                onChange={(e) => patchDraft({ ageMin: parseInt(e.target.value, 10) || 18 })}
-                className={cn(inputCls, "w-14 text-center tabular-nums")}
-              />
-              <span className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">–</span>
-              <input
-                type="number"
-                min={13}
-                max={65}
-                value={draft.ageMax}
-                onChange={(e) => patchDraft({ ageMax: parseInt(e.target.value, 10) || 65 })}
-                className={cn(inputCls, "w-14 text-center tabular-nums")}
-              />
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* Audience */}
+        <RailSection label="Audience" />
+        <div className="mb-4">
+          <MetaRow label="Age" value={`${p.ageMin}–${p.ageMax}`} />
+          <MetaRow label="Gender" value={p.gender === "all" ? "All genders" : p.gender === "men" ? "Men" : "Women"} />
+          {p.advantageAudience && (
+            <div className="flex items-start justify-between gap-3 py-1.5">
+              <span className="font-mono text-[11px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] flex-shrink-0">
+                Audience+
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-1.5 py-0.5 rounded-full bg-[#F5FBE2] dark:bg-[#1D2A09] text-[#5B7611] dark:text-[#C3E165]">
+                On
+              </span>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Gender pills */}
-          <div>
-            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-              Gender
+        {p.locations.length > 0 && (
+          <div className="mb-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mb-2">
+              Locations
             </p>
-            <div className="flex gap-1.5">
-              {(["all", "men", "women"] as const).map((g) => (
-                <button
-                  key={g}
-                  onClick={() => patchDraft({ gender: g })}
-                  className={cn(
-                    "rounded-full px-3 py-0.5 font-mono text-[11px] font-semibold transition-all",
-                    draft.gender === g
-                      ? "bg-[#8FB821] text-[#121212]"
-                      : "border border-[#e7e5dc] text-[rgba(15,15,12,0.55)] hover:border-[#8FB821] dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.55)]",
-                  )}
-                >
-                  {genderLabel(g)}
-                </button>
+            <div className="flex flex-wrap gap-1">
+              {p.locations.map((loc) => (
+                <span key={loc.key} className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                  {loc.name}
+                </span>
               ))}
             </div>
           </div>
+        )}
 
-          {/* Locations chips + input */}
-          <div>
-            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-              Locations
+        {p.languages.length > 0 && (
+          <div className="mb-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mb-2">
+              Languages
             </p>
-            {draft.locations.length > 0 && (
-              <div className="mb-1.5 flex flex-wrap gap-1">
-                {draft.locations.map((loc) => (
-                  <span
-                    key={loc.key}
-                    className="flex items-center gap-1 rounded-full bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] dark:bg-[#1B1B1F]"
-                  >
-                    {loc.name}
-                    <button
-                      onClick={() => removeLoc(loc.key)}
-                      className="leading-none text-[rgba(15,15,12,0.45)] hover:text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.45)] dark:hover:text-[rgba(255,255,255,0.92)]"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <input
-              type="text"
-              value={locInput}
-              onChange={(e) => setLocInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addLoc(locInput);
-                  setLocInput("");
-                }
-              }}
-              placeholder="Add location…"
-              className={cn(inputCls, "w-full")}
-            />
+            <div className="flex flex-wrap gap-1">
+              {p.languages.map((code) => (
+                <span key={code} className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                  {langName(code)}
+                </span>
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* Interests chips + input */}
-          <div>
-            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-              Detailed Targeting
+        {p.detailedTargeting.length > 0 && (
+          <div className="mb-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mb-2">
+              Interests
             </p>
-            {draft.detailedTargeting.length > 0 && (
-              <div className="mb-1.5 flex flex-wrap gap-1">
-                {draft.detailedTargeting.map((item) => (
-                  <span
-                    key={item.id}
-                    className="flex items-center gap-1 rounded-full bg-[#F0F0EC] px-2 py-0.5 font-mono text-[10px] dark:bg-[#1B1B1F]"
-                  >
-                    {item.name}
-                    <button
-                      onClick={() => removeInterest(item.id)}
-                      className="leading-none text-[rgba(15,15,12,0.45)] hover:text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.45)] dark:hover:text-[rgba(255,255,255,0.92)]"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <input
-              type="text"
-              value={interestInput}
-              onChange={(e) => setInterestInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addInterest(interestInput);
-                  setInterestInput("");
-                }
-              }}
-              placeholder="Add interest…"
-              className={cn(inputCls, "w-full")}
-            />
-          </div>
-
-          {/* Advantage+ Audience toggle */}
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-              Advantage+ Audience
-            </span>
-            <button
-              role="switch"
-              aria-checked={draft.advantageAudience}
-              onClick={() => patchDraft({ advantageAudience: !draft.advantageAudience })}
-              className={cn(
-                "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                draft.advantageAudience ? "bg-[#8FB821]" : "bg-[#e7e5dc] dark:bg-[#2a2a2a]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-1",
+            <div className="flex flex-wrap gap-1">
+              {p.detailedTargeting.slice(0, 5).map((interest) => (
+                <span key={interest.id} className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                  {interest.name}
+                </span>
+              ))}
+              {p.detailedTargeting.length > 5 && (
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+                  +{p.detailedTargeting.length - 5}
+                </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Placement */}
+        <RailSection label="Placement" />
+        <div className="mb-4">
+          <span
+            className={[
+              "font-mono text-[10px] uppercase tracking-[0.06em] font-semibold px-2 py-0.5 rounded-full leading-none",
+              p.placementMode === "advantage"
+                ? "bg-[#F5FBE2] dark:bg-[#1D2A09] text-[#5B7611] dark:text-[#C3E165]"
+                : "bg-[#EFF6FF] dark:bg-[#1E2A4A] text-[#1D4ED8] dark:text-[#93C5FD]",
+            ].join(" ")}
+          >
+            {p.placementMode === "advantage" ? "Advantage+ Auto" : "Manual"}
+          </span>
+          {p.placementMode === "manual" && activeManualPlacements.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {activeManualPlacements.slice(0, 4).map((k) => (
+                <span key={k} className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]">
+                  {k}
+                </span>
+              ))}
+              {activeManualPlacements.length > 4 && (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
+                  +{activeManualPlacements.length - 4}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Optimization */}
+        <RailSection label="Optimization" />
+        <div className="mb-4">
+          <MetaRow label="Goal" value={goalLabel(p.optimizationGoal)} />
+          <MetaRow label="Click" value={`${p.attributionClickWindow}d`} />
+          <MetaRow label="View" value={`${p.attributionViewWindow}d`} />
+        </div>
+      </div>
+
+      {/* Actions footer */}
+      <div className="flex-shrink-0 px-5 py-4 border-t border-[#e7e5dc] dark:border-[#2a2a2a] space-y-2">
+        <button
+          type="button"
+          className="w-full h-9 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm"
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          Use in launch
+        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+            style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+          >
+            {duplicated ? (
+              <span className="text-[#5B7611] dark:text-[#C3E165] font-semibold">Copied!</span>
+            ) : "Duplicate"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setRenaming(true)}
+            className="flex-1 h-9 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] hover:border-[#8FB821]/60 hover:bg-[#F5FBE2] dark:hover:bg-[#1D2A09] transition-colors"
+            style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+          >
+            Rename
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={handleDelete}
+          onBlur={() => setTimeout(() => setDeleteConfirm(false), 200)}
+          className={[
+            "w-full h-9 rounded-full border text-[13px] font-medium transition-colors",
+            deleteConfirm
+              ? "border-red-500 bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
+              : "border-[#e7e5dc] dark:border-[#2a2a2a] text-red-500 dark:text-red-400 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-950",
+          ].join(" ")}
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          {deleteConfirm ? "Confirm delete" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* APTemplateEditor — full-width 3-tab editor                          */
+/* ─────────────────────────────────────────────────────────────────── */
+
+type EditorTab = "demographics" | "placements" | "optimization";
+
+function APTemplateEditor({
+  template,
+  onSave,
+  onCancel,
+}: {
+  template: AudiencePlacementTemplate;
+  onSave: (name: string, payload: AudiencePlacementPayload) => void;
+  onCancel: () => void;
+}) {
+  const [tab, setTab] = useState<EditorTab>("demographics");
+  const [name, setName] = useState(template.name);
+  const [p, setP] = useState<AudiencePlacementPayload>(template.payload);
+
+  useEffect(() => {
+    setName(template.name);
+    setP(template.payload);
+    setTab("demographics");
+  }, [template.id]);
+
+  function patch(partial: Partial<AudiencePlacementPayload>) {
+    setP((prev) => ({ ...prev, ...partial }));
+  }
+
+  function patchManual(key: keyof AudiencePlacementPayload["manualPlacements"], val: boolean) {
+    setP((prev) => ({
+      ...prev,
+      manualPlacements: { ...prev.manualPlacements, [key]: val },
+    }));
+  }
+
+  /* Location helpers */
+  function addLocation(loc: APLocation) {
+    if (!p.locations.find((l) => l.key === loc.key)) {
+      patch({ locations: [...p.locations, loc] });
+    }
+  }
+  function removeLocation(key: string) {
+    patch({ locations: p.locations.filter((l) => l.key !== key) });
+  }
+
+  /* Exclusion helpers */
+  function addExclusion(key: string) {
+    if (!p.exclusions.includes(key)) {
+      patch({ exclusions: [...p.exclusions, key] });
+    }
+  }
+  function removeExclusion(key: string) {
+    patch({ exclusions: p.exclusions.filter((k) => k !== key) });
+  }
+
+  /* Language helpers */
+  function addLang(code: string) {
+    if (!p.languages.includes(code)) {
+      patch({ languages: [...p.languages, code] });
+    }
+  }
+  function removeLang(code: string) {
+    patch({ languages: p.languages.filter((l) => l !== code) });
+  }
+
+  /* Interest helpers */
+  function addInterest(interest: APInterest) {
+    if (!p.detailedTargeting.find((i) => i.id === interest.id)) {
+      patch({ detailedTargeting: [...p.detailedTargeting, interest] });
+    }
+  }
+  function removeInterest(id: string) {
+    patch({ detailedTargeting: p.detailedTargeting.filter((i) => i.id !== id) });
+  }
+
+  /* Normalise to SearchItem */
+  const locationOptions: SearchItem[] = SAMPLE_LOCATIONS
+    .filter((loc) => !p.exclusions.includes(loc.key))
+    .map((loc) => ({ id: loc.key, name: loc.name, meta: loc.type }));
+
+  const selectedLocItems: SearchItem[] = p.locations.map((l) => ({ id: l.key, name: l.name }));
+
+  const exclusionOptions: SearchItem[] = SAMPLE_LOCATIONS
+    .filter((loc) => !p.locations.find((l) => l.key === loc.key))
+    .map((loc) => ({ id: loc.key, name: loc.name, meta: loc.type }));
+
+  const selectedExclItems: SearchItem[] = p.exclusions.map((key) => {
+    const found = SAMPLE_LOCATIONS.find((l) => l.key === key);
+    return { id: key, name: found?.name ?? key };
+  });
+
+  const langOptions: SearchItem[] = SAMPLE_LANGUAGES
+    .filter((l) => !p.languages.includes(l.code))
+    .map((l) => ({ id: l.code, name: l.name }));
+
+  const selectedLangItems: SearchItem[] = p.languages.map((code) => ({
+    id: code,
+    name: langName(code),
+  }));
+
+  const interestOptions: SearchItem[] = SAMPLE_INTERESTS
+    .filter((i) => !p.detailedTargeting.find((d) => d.id === i.id))
+    .map((i) => ({ id: i.id, name: i.name, meta: i.type }));
+
+  const selectedInterestItems: SearchItem[] = p.detailedTargeting.map((i) => ({
+    id: i.id,
+    name: i.name,
+    meta: i.type,
+  }));
+
+  const tabs: { id: EditorTab; label: string }[] = [
+    { id: "demographics", label: "Demographics" },
+    { id: "placements", label: "Placements" },
+    { id: "optimization", label: "Optimization" },
+  ];
+
+  return (
+    <div className="flex flex-col h-full bg-white dark:bg-[#1E1E23] overflow-hidden">
+      {/* Editor header */}
+      <div className="flex-shrink-0 px-6 pt-5 pb-0 border-b border-[#e7e5dc] dark:border-[#2a2a2a]">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <input
+            type="text"
+            value={name}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+            className="flex-1 min-w-0 text-[19px] font-bold bg-transparent border-0 border-b-2 border-[#8FB821] outline-none text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] pb-1"
+            style={{ fontFamily: "Geist, system-ui, sans-serif", letterSpacing: "-0.01em" }}
+          />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="h-8 px-4 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[12px] font-medium text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)] hover:border-[#8FB821]/50 hover:text-[rgba(15,15,12,0.92)] dark:hover:text-[rgba(255,255,255,0.92)] transition-colors"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
             >
-              <span
-                className={cn(
-                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform",
-                  draft.advantageAudience ? "translate-x-4" : "translate-x-0",
-                )}
-              />
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => onSave(name, p)}
+              className="h-8 px-4 rounded-full bg-[#8FB821] hover:bg-[#AACF32] text-[#121212] text-[12px] font-semibold transition-colors"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              Save changes
             </button>
           </div>
         </div>
-      </RailSection>
+        <div className="flex gap-0">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={[
+                "font-mono text-[11px] uppercase tracking-[0.06em] font-semibold px-4 py-2 border-b-2 transition-colors -mb-px",
+                tab === t.id
+                  ? "border-[#8FB821] text-[#5B7611] dark:text-[#C3E165]"
+                  : "border-transparent text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] hover:text-[rgba(15,15,12,0.72)] dark:hover:text-[rgba(255,255,255,0.72)]",
+              ].join(" ")}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
 
-      {/* ── EDIT: Placement ── */}
-      <RailSection icon={<GridIcon className="h-3.5 w-3.5" />} title="Placement">
-        <div className="space-y-2.5">
-          {/* Mode toggle */}
-          <div className="flex gap-1.5">
-            {(["advantage", "manual"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => patchDraft({ placementMode: mode })}
-                className={cn(
-                  "rounded-full px-3 py-0.5 font-mono text-[11px] font-semibold transition-all",
-                  draft.placementMode === mode
-                    ? "bg-[#8FB821] text-[#121212]"
-                    : "border border-[#e7e5dc] text-[rgba(15,15,12,0.55)] hover:border-[#8FB821] dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.55)]",
-                )}
-              >
-                {placementModeLabel(mode)}
-              </button>
-            ))}
-          </div>
+        {/* ── Demographics ── */}
+        {tab === "demographics" && (
+          <div className="flex flex-col gap-6 max-w-[640px]">
+            {/* Static reach bar */}
+            <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] p-4">
+              <div className="flex items-baseline justify-between gap-2 mb-2">
+                <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                  Estimated Reach
+                </span>
+                <span className="font-mono text-[17px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
+                  ~15.3M
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-[#F0F0EC] dark:bg-[#27272A] overflow-hidden">
+                <div className="h-full w-[62%] rounded-full bg-[#8FB821] opacity-70" />
+              </div>
+              <p className="font-mono text-[10px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)] mt-2">
+                Based on current targeting settings
+              </p>
+            </div>
 
-          {/* Manual placement checklist */}
-          {draft.placementMode === "manual" && (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              {MANUAL_PLACEMENT_KEYS.map((key) => (
-                <label
-                  key={key}
-                  className="flex cursor-pointer items-center gap-1.5"
-                >
+            {/* Age + Gender */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="flex flex-col gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                  Age Range
+                </span>
+                <div className="flex items-center gap-2">
                   <input
-                    type="checkbox"
-                    checked={draft.manualPlacements[key]}
-                    onChange={() => toggleManualPlacement(key)}
-                    className="accent-[#8FB821] h-3.5 w-3.5"
+                    type="number"
+                    min={13}
+                    max={64}
+                    value={p.ageMin}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      patch({ ageMin: Math.max(13, Math.min(Number(e.target.value), p.ageMax - 1)) })
+                    }
+                    className="w-[72px] h-10 text-center rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#18181B] font-mono text-[15px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-1 focus:ring-[#8FB821]/20 transition-all"
                   />
-                  <span className="font-mono text-[11px] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-                    {friendlyPlacementName(key)}
-                  </span>
-                </label>
-              ))}
+                  <span className="font-mono text-[14px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">–</span>
+                  <input
+                    type="number"
+                    min={14}
+                    max={65}
+                    value={p.ageMax}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      patch({ ageMax: Math.max(p.ageMin + 1, Math.min(65, Number(e.target.value))) })
+                    }
+                    className="w-[72px] h-10 text-center rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#18181B] font-mono text-[15px] font-bold tabular-nums text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-1 focus:ring-[#8FB821]/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                  Gender
+                </span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {(["all", "men", "women"] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => patch({ gender: g })}
+                      className={[
+                        "h-9 px-3 rounded-full text-[12px] font-semibold transition-colors capitalize",
+                        p.gender === g
+                          ? "bg-[#8FB821] text-[#121212]"
+                          : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
+                      ].join(" ")}
+                      style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+                    >
+                      {g === "all" ? "All" : g === "men" ? "Men" : "Women"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </RailSection>
 
-      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
+            <ChipSearchInput
+              label="Including Location"
+              placeholder="Search countries, cities…"
+              options={locationOptions}
+              selected={selectedLocItems}
+              onAdd={(item) => {
+                const found = SAMPLE_LOCATIONS.find((l) => l.key === item.id);
+                if (found) addLocation(found);
+              }}
+              onRemove={removeLocation}
+            />
 
-      {/* ── EDIT: Optimization ── */}
-      <RailSection icon={<TargetIcon className="h-3.5 w-3.5" />} title="Optimization">
-        <div className="space-y-2.5">
-          {/* Optimization goal */}
-          <div>
-            <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-              Goal
-            </p>
-            <div className="relative">
-              <select
-                value={draft.optimizationGoal}
-                onChange={(e) => patchDraft({ optimizationGoal: e.target.value })}
-                className={cn(selectCls, "w-full")}
-              >
-                {[
-                  "OFFSITE_CONVERSIONS",
-                  "LINK_CLICKS",
-                  "REACH",
-                  "IMPRESSIONS",
-                  "LANDING_PAGE_VIEWS",
-                  "VALUE",
-                  "LEAD_GENERATION",
-                  "APP_INSTALLS",
-                  "VIDEO_VIEWS",
-                ].map((g) => (
-                  <option key={g} value={g}>
-                    {goalLabel(g)}
-                  </option>
+            <ChipSearchInput
+              label="Excluding Location"
+              placeholder="Search locations to exclude…"
+              options={exclusionOptions}
+              selected={selectedExclItems}
+              onAdd={(item) => addExclusion(item.id)}
+              onRemove={removeExclusion}
+            />
+
+            <ChipSearchInput
+              label="Languages"
+              placeholder="Search languages…"
+              options={langOptions}
+              selected={selectedLangItems}
+              onAdd={(item) => addLang(item.id)}
+              onRemove={removeLang}
+            />
+
+            <ChipSearchInput
+              label="Detailed Targeting"
+              placeholder="Search interests, behaviors…"
+              options={interestOptions}
+              selected={selectedInterestItems}
+              onAdd={(item) => {
+                const found = SAMPLE_INTERESTS.find((i) => i.id === item.id);
+                if (found) addInterest(found);
+              }}
+              onRemove={removeInterest}
+            />
+          </div>
+        )}
+
+        {/* ── Placements ── */}
+        {tab === "placements" && (
+          <div className="flex flex-col gap-6 max-w-[640px]">
+            <div className="flex flex-col gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                Placement Mode
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => patch({ placementMode: "advantage" })}
+                  className={[
+                    "h-9 px-4 rounded-full text-[12px] font-semibold transition-colors",
+                    p.placementMode === "advantage"
+                      ? "bg-[#8FB821] text-[#121212]"
+                      : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
+                  ].join(" ")}
+                  style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+                >
+                  Advantage+ (Auto)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => patch({ placementMode: "manual" })}
+                  className={[
+                    "h-9 px-4 rounded-full text-[12px] font-semibold transition-colors",
+                    p.placementMode === "manual"
+                      ? "bg-[#3B82F6] text-white"
+                      : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#3B82F6]/50",
+                  ].join(" ")}
+                  style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+                >
+                  Manual
+                </button>
+              </div>
+            </div>
+
+            {p.placementMode === "advantage" ? (
+              <div className="rounded-2xl border border-[#8FB821]/30 p-5 bg-[#F5FBE2] dark:bg-[#1D2A09]">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#8FB821]/20 flex-shrink-0 flex items-center justify-center mt-0.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B7611" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-semibold text-[#5B7611] dark:text-[#C3E165] mb-1" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+                      Advantage+ Placements
+                    </p>
+                    <p className="font-mono text-[11px] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] leading-relaxed">
+                      Meta will automatically place your ads across all eligible placements to maximise performance.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-5">
+                {PLACEMENT_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mb-2">
+                      {group.label}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {group.keys.map(({ key, label }) => {
+                        const checked = p.manualPlacements[key];
+                        return (
+                          <label
+                            key={key}
+                            className={[
+                              "flex items-center gap-2.5 h-9 px-3 rounded-xl border cursor-pointer transition-all select-none",
+                              checked
+                                ? "border-[#8FB821] bg-[#F5FBE2] dark:bg-[#1D2A09]"
+                                : "border-[#e7e5dc] dark:border-[#2a2a2a] hover:border-[#8FB821]/40 bg-white dark:bg-[#18181B]",
+                            ].join(" ")}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                                patchManual(key, e.target.checked)
+                              }
+                              className="w-3.5 h-3.5 rounded accent-[#8FB821] flex-shrink-0"
+                            />
+                            <span className="font-mono text-[11px] font-semibold text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
+                              {label}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
-              </select>
-              <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
-            </div>
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Attribution windows */}
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                Click
-              </p>
+        {/* ── Optimization ── */}
+        {tab === "optimization" && (
+          <div className="flex flex-col gap-6 max-w-[480px]">
+            <div className="flex flex-col gap-1.5">
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                Performance Goal
+              </span>
               <div className="relative">
                 <select
-                  value={draft.attributionClickWindow}
-                  onChange={(e) => patchDraft({ attributionClickWindow: parseInt(e.target.value, 10) })}
-                  className={cn(selectCls, "w-full")}
+                  value={p.optimizationGoal}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                    patch({ optimizationGoal: e.target.value })
+                  }
+                  className="w-full h-11 pl-4 pr-10 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#18181B] text-[13px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-1 focus:ring-[#8FB821]/20 appearance-none cursor-pointer transition-all"
+                  style={{ fontFamily: "Geist, system-ui, sans-serif" }}
                 >
-                  {[1, 7, 28].map((d) => (
-                    <option key={d} value={d}>{d}d</option>
+                  {OPTIMIZATION_GOALS.map((g) => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
                   ))}
                 </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
+                <svg
+                  className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]"
+                  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </div>
             </div>
-            <div className="flex-1">
-              <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-                View
+
+            <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] p-4 flex flex-col gap-5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.08em] font-semibold text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
+                Attribution Window
               </p>
-              <div className="relative">
-                <select
-                  value={draft.attributionViewWindow}
-                  onChange={(e) => patchDraft({ attributionViewWindow: parseInt(e.target.value, 10) })}
-                  className={cn(selectCls, "w-full")}
-                >
-                  {[0, 1].map((d) => (
-                    <option key={d} value={d}>{d}d</option>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+                  Click
+                </span>
+                <div className="flex gap-1.5">
+                  {([1, 7, 28] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => patch({ attributionClickWindow: d })}
+                      className={[
+                        "h-9 px-4 rounded-full font-mono text-[12px] font-semibold transition-colors",
+                        p.attributionClickWindow === d
+                          ? "bg-[#8FB821] text-[#121212]"
+                          : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
+                      ].join(" ")}
+                    >
+                      {d}d
+                    </button>
                   ))}
-                </select>
-                <ChevronDownIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)]" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+                  View
+                </span>
+                <div className="flex gap-1.5">
+                  {([0, 1] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => patch({ attributionViewWindow: d })}
+                      className={[
+                        "h-9 px-4 rounded-full font-mono text-[12px] font-semibold transition-colors",
+                        p.attributionViewWindow === d
+                          ? "bg-[#8FB821] text-[#121212]"
+                          : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
+                      ].join(" ")}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* ZeroState                                                           */
+/* ─────────────────────────────────────────────────────────────────── */
+
+function ZeroState({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 px-8 py-16 text-center relative overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        style={{
+          backgroundImage: "radial-gradient(circle, #8FB821 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+        }}
+      />
+      <div className="relative">
+        <div className="w-14 h-14 rounded-full bg-[#F5FBE2] dark:bg-[#1D2A09] flex items-center justify-center mb-5 mx-auto ring-1 ring-[#8FB821]/20">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8FB821" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
         </div>
-      </RailSection>
-
-      <div className="my-3.5 h-px bg-[#e7e5dc] dark:bg-[#2a2a2a]" />
-
-      {/* ── EDIT: Notes ── */}
-      <RailSection icon={<NoteIcon className="h-3.5 w-3.5" />} title="Notes">
-        <textarea
-          rows={4}
-          value={draft.notes ?? ""}
-          onChange={(e) => patchDraft({ notes: e.target.value })}
-          placeholder="Add notes about this template..."
-          className={cn(
-            "w-full rounded-xl border border-[#e7e5dc] dark:border-[#2a2a2a]",
-            "bg-white dark:bg-[#1E1E23] px-3 py-2 font-mono text-[11px]",
-            "text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]",
-            "placeholder:text-[rgba(15,15,12,0.38)] dark:placeholder:text-[rgba(255,255,255,0.38)]",
-            "outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20",
-            "resize-none",
-          )}
-        />
-      </RailSection>
-
-      <div className="flex-1" />
-
-      {/* ── Edit mode footer actions ── */}
-      <div className="mt-6 flex flex-col gap-2">
-        <button
-          onClick={saveEdit}
-          className={cn(
-            "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
-            "bg-[#8FB821] text-[#121212]",
-            "hover:bg-[#AACF32] shadow-sm",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
-          )}
+        <h3
+          className="text-[15px] font-bold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] mb-1"
+          style={{ fontFamily: "Geist, system-ui, sans-serif", letterSpacing: "-0.01em" }}
         >
-          Save changes
-        </button>
-
-        <button
-          onClick={cancelEdit}
-          className={cn(
-            "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
-            "border border-[#e7e5dc] bg-transparent text-[rgba(15,15,12,0.72)]",
-            "hover:border-[#c8c5ba] hover:bg-[#F0F0EC]",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821]",
-            "dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.72)] dark:hover:border-[#3a3a3a] dark:hover:bg-[#1B1B1F]",
-          )}
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={onDeleteRequest}
-          className={cn(
-            "h-9 w-full rounded-full px-4 text-[13px] font-medium transition-all",
-            "border border-transparent bg-transparent text-[#cf1322]",
-            "hover:border-[#ffccc7] hover:bg-[rgba(207,19,34,0.06)]",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cf1322]",
-            "dark:text-[#f37370] dark:hover:border-[rgba(243,115,112,0.25)] dark:hover:bg-[rgba(243,115,112,0.06)]",
-          )}
-        >
-          Delete template
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Preview sub-components                                                      */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function RailSection({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-1.5 text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-        {icon}
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em]">
-          {title}
-        </span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function RailPill({
-  label,
-  lime,
-  mono,
-  muted,
-}: {
-  label: string;
-  lime?: boolean;
-  mono?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold",
-        lime
-          ? "bg-[rgba(143,184,33,0.12)] text-[#5B7611] dark:bg-[rgba(195,225,101,0.12)] dark:text-[#C3E165]"
-          : muted
-            ? "border border-[#efeee7] bg-transparent text-[rgba(15,15,12,0.38)] dark:border-[#1f1f1f] dark:text-[rgba(255,255,255,0.38)]"
-            : "border border-[#efeee7] bg-[#F0F0EC] text-[rgba(15,15,12,0.62)] dark:border-[#1f1f1f] dark:bg-[#1B1B1F] dark:text-[rgba(255,255,255,0.62)]",
-        mono && "tabular-nums",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function friendlyPlacementName(key: string): string {
-  const map: Record<string, string> = {
-    fbFeed: "FB Feed", fbStories: "FB Stories", fbReels: "FB Reels",
-    fbMarketplace: "FB Marketplace", fbRightColumn: "FB Right Col",
-    fbVideoFeeds: "FB Video", fbSearch: "FB Search",
-    igFeed: "IG Feed", igStories: "IG Stories", igReels: "IG Reels",
-    igExplore: "IG Explore", igSearch: "IG Search",
-    anNative: "AN Native", anRewarded: "AN Rewarded",
-    msInbox: "MS Inbox", msStories: "MS Stories",
-  };
-  return map[key] ?? key;
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Zero states                                                                 */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function RailZeroState() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="relative mb-5 flex h-12 w-12 items-center justify-center">
-        <div className="absolute inset-0 rounded-xl border-[1.5px] border-[#e7e5dc] dark:border-[#2a2a2a]" />
-        <div className="absolute inset-[6px] rounded-lg border-[1.5px] border-[#c8c5ba] dark:border-[#3a3a3a]" />
-        <UsersIcon className="relative z-10 h-4 w-4 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]" />
-      </div>
-      <p className="text-[13px] font-medium text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-        Select a template to preview
-      </p>
-      <p className="mt-1 font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]">
-        Click any card on the left
-      </p>
-    </div>
-  );
-}
-
-function ListEmptyState({ isFiltered }: { isFiltered: boolean }) {
-  if (isFiltered) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#e7e5dc] bg-[#F0F0EC]/50 px-6 py-12 text-center dark:border-[#2a2a2a] dark:bg-[#1B1B1F]/50">
-        <p className="text-[13px] font-medium text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-          No match
+          No templates saved yet
+        </h3>
+        <p className="font-mono text-[11px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)] leading-relaxed max-w-[260px] mb-6">
+          Save audience, placement & optimisation settings as reusable templates for faster launches.
         </p>
-        <p className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]">
-          Try a different search term
-        </p>
+        <button
+          type="button"
+          onClick={onCreate}
+          className="inline-flex items-center gap-1.5 h-9 px-5 rounded-full bg-[#8FB821] text-[#121212] text-[13px] font-semibold hover:bg-[#AACF32] active:bg-[#5B7611] transition-colors shadow-sm"
+          style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New template
+        </button>
       </div>
-    );
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* TemplatesLibrary — main export                                      */
+/* ─────────────────────────────────────────────────────────────────── */
+
+export function TemplatesLibrary() {
+  const [templates, setTemplates] = useState<AudiencePlacementTemplate[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>("recent");
+  const [filter, setFilter] = useState<PlacementFilter>("all");
+
+  const refresh = () => setTemplates(templatesService.listAudiencePlacement());
+
+  useEffect(() => { refresh(); }, []);
+
+  function openEditor(id: string) {
+    setSelectedId(id);
+    setEditingId(id);
+    setSubNavCollapsed(true);
   }
-  return null;
-}
 
-function FullEmptyState() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center px-8 py-24 text-center">
-      {/* Geometric motif */}
-      <div className="relative mb-6 h-16 w-16">
-        <div className="absolute inset-0 rounded-2xl border-[1.5px] border-[#e7e5dc] bg-white dark:border-[#2a2a2a] dark:bg-[#1E1E23]" />
-        <div className="absolute inset-[7px] rounded-xl border-[1.5px] border-[#c8c5ba] bg-[#F0F0EC] dark:border-[#3a3a3a] dark:bg-[#1B1B1F]" />
-        <div className="absolute inset-[14px] flex items-center justify-center">
-          <MapPinIcon className="h-5 w-5 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)]" />
-        </div>
-      </div>
-
-      <h2 className="text-[15px] font-bold leading-[23px] tracking-[-0.01em] text-[rgba(15,15,12,0.72)] dark:text-[rgba(255,255,255,0.72)]">
-        No audience templates yet
-      </h2>
-      <p className="mt-2 max-w-[340px] font-mono text-[11px] leading-[19px] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]">
-        Audience & Placement templates are saved from the launch flow. Open Step 2 and configure your adset targeting, then save as a template.
-      </p>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Rename dialog                                                               */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function RenameDialog({
-  target,
-  onClose,
-  onSubmit,
-}: {
-  target: { id: string; name: string } | null;
-  onClose: () => void;
-  onSubmit: (newName: string) => void;
-}) {
-  const open = target !== null;
-  const [name, setName] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  function closeEditor() {
+    setEditingId(null);
+    setSubNavCollapsed(false);
+  }
 
   useEffect(() => {
-    if (target) {
-      setName(target.name);
-      setTimeout(() => inputRef.current?.select(), 60);
+    return () => setSubNavCollapsed(false);
+  }, []);
+
+  /* Clean up stale selection/edit after delete */
+  useEffect(() => {
+    if (selectedId && !templates.find((t) => t.id === selectedId)) {
+      setSelectedId(null);
     }
-  }, [target]);
+    if (editingId && !templates.find((t) => t.id === editingId)) {
+      closeEditor();
+    }
+  }, [templates]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const trimmed = name.trim();
-  const canSave = trimmed.length > 0 && trimmed !== target?.name;
+  const displayList = templates
+    .filter((t) => {
+      if (filter === "advantage") return t.payload.placementMode === "advantage";
+      if (filter === "manual") return t.payload.placementMode === "manual";
+      return true;
+    })
+    .sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "placement")
+        return (a.payload.placementMode === "advantage" ? 0 : 1) - (b.payload.placementMode === "advantage" ? 0 : 1);
+      return b.updatedAt - a.updatedAt;
+    });
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); if (canSave) onSubmit(trimmed); }
-    if (e.key === "Escape") { e.preventDefault(); onClose(); }
-  };
+  const selected = selectedId ? templates.find((t) => t.id === selectedId) ?? null : null;
+  const editing = editingId ? templates.find((t) => t.id === editingId) ?? null : null;
+  const showRail = selectedId !== null && editingId === null;
+
+  function handleCreate() {
+    const blank = templatesService.saveAudiencePlacement("Untitled template", { ...DEFAULT_PAYLOAD });
+    refresh();
+    openEditor(blank.id);
+  }
+
+  function handleEditorSave(name: string, payload: AudiencePlacementPayload) {
+    if (!editingId) return;
+    templatesService.updateAudiencePlacement(editingId, payload);
+    templatesService.renameAudiencePlacement(editingId, name);
+    refresh();
+    closeEditor();
+  }
+
+  const filterChips: { id: PlacementFilter; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "advantage", label: "Advantage+" },
+    { id: "manual", label: "Manual" },
+  ];
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="rounded-2xl sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-[15px] font-bold tracking-[-0.01em]">
-            Rename template
-          </DialogTitle>
-          <DialogDescription className="font-mono text-[11px]">
-            Update the template's display name.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="flex flex-col h-full bg-[#FAFAF7] dark:bg-[#18181B] min-h-[100dvh]">
 
-        <div className="space-y-2 py-1">
-          <Label
-            htmlFor="rename-tpl-name"
-            className="font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-[rgba(15,15,12,0.55)] dark:text-[rgba(255,255,255,0.55)]"
-          >
-            Template name
-          </Label>
-          <input
-            ref={inputRef}
-            id="rename-tpl-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className={cn(
-              "h-9 w-full rounded-[28px] border border-[#e7e5dc] bg-white px-4",
-              "font-mono text-[13px] text-[rgba(15,15,12,0.92)] placeholder:text-[rgba(15,15,12,0.38)]",
-              "transition-all focus:border-[#8FB821] focus:outline-none",
-              "focus:shadow-[0_0_0_4px_rgba(143,184,33,0.18)]",
-              "dark:border-[#2a2a2a] dark:bg-[#1E1E23] dark:text-[rgba(255,255,255,0.92)]",
-            )}
-          />
+      {/* ── Top bar ── */}
+      <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-[#e7e5dc] dark:border-[#2a2a2a]">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <h1
+              className="text-[29px] font-bold text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]"
+              style={{ fontFamily: "Geist, system-ui, sans-serif", letterSpacing: "-0.01em" }}
+            >
+              Templates
+            </h1>
+            <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#F5FBE2] dark:bg-[#1D2A09] text-[#5B7611] dark:text-[#C3E165] tabular-nums">
+              {templates.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Sort */}
+            <div className="relative flex-shrink-0">
+              <select
+                value={sort}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setSort(e.target.value as SortKey)}
+                className="h-9 pl-3 pr-8 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] font-mono text-[12px] font-medium text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 appearance-none cursor-pointer transition-all"
+              >
+                <option value="recent">Recently updated</option>
+                <option value="name">Name</option>
+                <option value="placement">Placement mode</option>
+              </select>
+              <svg
+                className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)]"
+                width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+            {/* New template */}
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#8FB821] hover:bg-[#AACF32] text-[#121212] text-[12px] font-semibold transition-colors"
+              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#121212" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New template
+            </button>
+          </div>
         </div>
 
-        <DialogFooter>
-          <button
-            onClick={onClose}
-            className={cn(
-              "h-9 rounded-full px-4 text-[13px] font-medium transition-all",
-              "border border-[#e7e5dc] text-[rgba(15,15,12,0.72)] hover:bg-[#F0F0EC]",
-              "dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.72)] dark:hover:bg-[#1B1B1F]",
+        {/* Filter chips */}
+        <div className="flex gap-1.5">
+          {filterChips.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFilter(id)}
+              className={[
+                "h-7 px-3 rounded-full font-mono text-[10px] uppercase tracking-[0.06em] font-semibold transition-colors leading-none",
+                filter === id
+                  ? "bg-[#8FB821] text-[#121212]"
+                  : "border border-[#e7e5dc] dark:border-[#2a2a2a] text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50",
+              ].join(" ")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      {editing ? (
+        /* Edit mode: 300px card strip + full-width editor */
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-[300px] flex-shrink-0 border-r border-[#e7e5dc] dark:border-[#2a2a2a] overflow-y-auto px-4 py-4 space-y-3">
+            {templates.map((t) => (
+              <APTemplateCard
+                key={t.id}
+                template={t}
+                selected={editingId === t.id}
+                onClick={() => openEditor(t.id)}
+              />
+            ))}
+          </div>
+          <div className="flex-1 min-w-0">
+            <APTemplateEditor
+              key={editingId ?? "editor"}
+              template={editing}
+              onSave={handleEditorSave}
+              onCancel={closeEditor}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          {/* Card grid */}
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            {templates.length === 0 ? (
+              <ZeroState onCreate={handleCreate} />
+            ) : displayList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <p className="text-[13px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] mb-1" style={{ fontFamily: "Geist, system-ui, sans-serif" }}>
+                  No templates match
+                </p>
+                <p className="font-mono text-[11px] text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] mb-4">
+                  Try a different filter
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFilter("all")}
+                  className="h-8 px-4 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] text-[12px] font-medium text-[rgba(15,15,12,0.62)] dark:text-[rgba(255,255,255,0.62)] hover:border-[#8FB821]/50 transition-colors"
+                  style={{ fontFamily: "Geist, system-ui, sans-serif" }}
+                >
+                  Show all
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {displayList.map((t) => (
+                  <APTemplateCard
+                    key={t.id}
+                    template={t}
+                    selected={selectedId === t.id}
+                    onClick={() => setSelectedId(selectedId === t.id ? null : t.id)}
+                  />
+                ))}
+              </div>
             )}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => canSave && onSubmit(trimmed)}
-            disabled={!canSave}
-            className={cn(
-              "h-9 rounded-full px-4 text-[13px] font-medium transition-all",
-              "bg-[#8FB821] text-[#121212]",
-              "hover:bg-[#AACF32] disabled:cursor-not-allowed disabled:opacity-40",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8FB821] focus-visible:ring-offset-2",
-            )}
-          >
-            Save
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+          </div>
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Delete confirmation dialog                                                  */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function DeleteDialog({
-  target,
-  onClose,
-  onConfirm,
-}: {
-  target: { id: string } | null;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const open = target !== null;
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="rounded-2xl sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-[15px] font-bold tracking-[-0.01em]">
-            Delete template?
-          </DialogTitle>
-          <DialogDescription className="font-mono text-[11px] leading-[19px]">
-            This action cannot be undone. The template will be permanently removed from your saved templates.
-          </DialogDescription>
-        </DialogHeader>
-
-        <DialogFooter>
-          <button
-            onClick={onClose}
-            className={cn(
-              "h-9 rounded-full px-4 text-[13px] font-medium transition-all",
-              "border border-[#e7e5dc] text-[rgba(15,15,12,0.72)] hover:bg-[#F0F0EC]",
-              "dark:border-[#2a2a2a] dark:text-[rgba(255,255,255,0.72)] dark:hover:bg-[#1B1B1F]",
-            )}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className={cn(
-              "h-9 rounded-full px-4 text-[13px] font-medium transition-all",
-              "bg-[#cf1322] text-white hover:bg-[#a8101b]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cf1322] focus-visible:ring-offset-2",
-            )}
-          >
-            Delete
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Inline SVG icons                                                            */
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M10.5 10.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function UsersIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="6" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M1.5 13.5C1.5 11.015 3.515 9 6 9s4.5 2.015 4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M10.5 7C11.88 7 13 5.88 13 4.5S11.88 2 10.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M12.5 13.5c0-1.71-.81-3.23-2.07-4.19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function GridIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function TargetIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 2V4M8 12V14M2 8H4M12 8H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function NoteIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M5.5 5.5H10.5M5.5 8H10.5M5.5 10.5H8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MapPinIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M10 2C7.24 2 5 4.24 5 7c0 4.24 5 11 5 11s5-6.76 5-11c0-2.76-2.24-5-5-5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M11.333 2a1.886 1.886 0 0 1 2.667 2.667L4.667 14H2v-2.667L11.333 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9.333 4l2.667 2.667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+          {/* Preview rail */}
+          {showRail && (
+            <div className="flex-shrink-0 w-[320px] border-l border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden flex flex-col">
+              <APPreviewRail
+                template={selected}
+                onClose={() => setSelectedId(null)}
+                onRefresh={refresh}
+                onEdit={openEditor}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
