@@ -23,7 +23,7 @@ import {
   type PlanV2,
   type SpreadMode,
 } from "./types";
-import { pageActiveAds } from "./data";
+import { pageActiveAds, ACCOUNTS, makeTargetV2 } from "./data";
 
 /* ------------------------------------------------------------------ *
  * §5.1 contract types
@@ -47,6 +47,7 @@ export type DistFixKind =
   | "auto_balance"
   | "auto_map"
   | "add_page"
+  | "swap_page"
   | "split_launch"
   | "reduce_structure"
   | "reduce_combos"
@@ -64,6 +65,29 @@ export interface DistFix {
   /** for switch_spread */
   spread?: SpreadMode;
   goto?: "accounts" | "step3" | "health";
+  /** opens an inline page picker before mutating: "add_page" appends the chosen
+   *  page; "swap_page" replaces `swapFrom` with the chosen page (§6 feature layer). */
+  picker?: "add_page" | "swap_page";
+  /** for swap_page — the fbPageId being replaced. */
+  swapFrom?: string;
+  /** the page the UI chose from the picker (its pageId); set at click time. */
+  pageId?: string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Candidate pages — every (account,page) pair NOT already in the plan,
+ * for the inline "Add / Change page" pickers (§6 feature layer).
+ * ------------------------------------------------------------------ */
+
+export interface CandidatePage {
+  accountId: string;
+  accountName: string;
+  pageId: string;
+  fbPageId: string;
+  pageName: string;
+  activeAds: number;
+  /** free = max(0, 250 − activeAds), pre-demand (one canonical value; §4.4). */
+  free: number;
 }
 
 export interface DistError {
@@ -101,6 +125,20 @@ const FIX = {
   autoBalance: (): DistFix => ({ label: "Auto-balance", kind: "auto_balance" }),
   autoMap: (): DistFix => ({ label: "Auto-map creatives", kind: "auto_map" }),
   addPage: (): DistFix => ({ label: "Add a Page", kind: "add_page" }),
+  /** picker variant of add_page: UI opens the candidate-page dropdown, then sets
+   *  `pageId` on the fix and re-applies (appends a target for the chosen page). */
+  addPagePicker: (label = "Add a Page"): DistFix => ({
+    label,
+    kind: "add_page",
+    picker: "add_page",
+  }),
+  /** swap the full/breaching page `swapFrom` for a chosen page via the dropdown. */
+  swapPage: (swapFrom: string, label = "Change this Page"): DistFix => ({
+    label,
+    kind: "swap_page",
+    picker: "swap_page",
+    swapFrom,
+  }),
   splitLaunch: (): DistFix => ({ label: "Split into two launches", kind: "split_launch" }),
   reduceStructure: (): DistFix => ({ label: "Reduce structure", kind: "reduce_structure" }),
   reduceCombos: (): DistFix => ({ label: "Switch to paired", kind: "reduce_combos" }),
@@ -119,6 +157,11 @@ const FIX = {
 /** free = 250 − activeAds, pre-demand (one canonical value; §4.4). */
 function freeOf(fbPageId: string): number {
   return Math.max(0, MAX_ADS_PER_PAGE - pageActiveAds(fbPageId));
+}
+
+/** account owning a given pageId (for add_page / swap_page target builds). */
+function findAccountForPage(pageId: string) {
+  return ACCOUNTS.find((a) => a.pages.some((p) => p.id === pageId));
 }
 
 /** unique pages (shared fbPageIds summed) — the placement() page list. */
@@ -188,7 +231,7 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         anchor: p.fbPageId,
         title: "Page at its ad limit",
         message: `Page ${p.pageName} is at its 250-ad limit — 0 slots left.`,
-        fixes: [FIX.changePage(), FIX.addPage()],
+        fixes: [FIX.swapPage(p.fbPageId, "Change this Page"), FIX.addPagePicker("Add a Page")],
       });
     }
   }
@@ -236,7 +279,11 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
           anchor: p.fbPageId,
           title: "Equal split overflows a Page",
           message: `Split Equally puts ${p.demand} ads on ${p.pageName}, but it has only ${p.available} slots.`,
-          fixes: [FIX.useSuggested(), FIX.changePage(), FIX.autoBalance()],
+          fixes: [
+            FIX.switchDistribution(suggestedDistribution(plan), "Use suggested spread"),
+            FIX.swapPage(p.fbPageId, "Change this Page"),
+            FIX.addPagePicker("Add a Page"),
+          ],
         });
       }
     }
@@ -296,7 +343,11 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         anchor: "pageSplit",
         title: "Not enough free slots",
         message: `Selected pages have ${totalFree} free slots; launch needs ${pl.requested}. ${pl.unplaceable} won't fit.`,
-        fixes: [FIX.addPage(), FIX.reduceStructure(), FIX.splitLaunch()],
+        fixes: [
+          FIX.addPagePicker("Add a Page"),
+          FIX.switchDistribution(suggestedDistribution(plan), "Use suggested spread"),
+          FIX.reduceStructure(),
+        ],
       });
     }
   } else if (method === "duplicate") {
@@ -310,7 +361,10 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
         anchor: "pageSplit",
         title: "Duplicate multiplies count and spend",
         message: `Duplicate runs the full ${perDest} ads on each of ${p} Pages — ad count and spend ×${p}.`,
-        fixes: [FIX.acknowledge(), FIX.switchDistribution("equal", "Switch to Equal")],
+        fixes: [
+          FIX.addPagePicker("Add pages instead"),
+          FIX.switchDistribution("fill_first", "Switch to Fill first"),
+        ],
       });
     }
     // duplicate per-page breaches surface via PS-06 / CC-01 (cross-cutting).
@@ -331,7 +385,11 @@ function pageSplitErrors(plan: PlanV2): DistError[] {
       anchor: "capMeter",
       title: "Pages are out of room",
       message: `Even optimally spread, ${bestUnplaceable} ads exceed your pages' ${totalFree} free slots.`,
-      fixes: [FIX.addPage(), FIX.reduceStructure()],
+      fixes: [
+        FIX.addPagePicker("Add a Page"),
+        FIX.switchDistribution(suggestedDistribution(plan), "Use suggested spread"),
+        FIX.reduceStructure(),
+      ],
     });
   }
 
@@ -578,7 +636,7 @@ function crossCuttingErrors(plan: PlanV2): DistError[] {
       anchor: "capMeter",
       title: "Final count exceeds free slots",
       message: `Final count ${pl.requested} exceeds free slots ${totalFree} once creatives expand.`,
-      fixes: [FIX.reduceStructure(), FIX.addPage()],
+      fixes: [FIX.addPagePicker("Add a Page"), FIX.reduceStructure()],
     });
   }
 
@@ -663,6 +721,32 @@ export function distributionErrors(plan: PlanV2): DistError[] {
     ...creativeDistErrors(plan),
     ...crossCuttingErrors(plan),
   ];
+}
+
+/**
+ * Every (account,page) pair from the mock accounts that is NOT already in
+ * `plan.targets`, as pickable candidates for the add/swap-page fixes. `free`
+ * is the canonical pre-demand headroom. Sorted most-room-first; 0-free pages
+ * are still included but sort last (Nielsen #9 — never a dead-end).
+ */
+export function availablePages(plan: PlanV2): CandidatePage[] {
+  const used = new Set(plan.targets.map((t) => `${t.accountId}:${t.pageId}`));
+  const out: CandidatePage[] = [];
+  for (const acc of ACCOUNTS) {
+    for (const pg of acc.pages) {
+      if (used.has(`${acc.id}:${pg.id}`)) continue;
+      out.push({
+        accountId: acc.id,
+        accountName: acc.name,
+        pageId: pg.id,
+        fbPageId: pg.fbPageId,
+        pageName: pg.name,
+        activeAds: pg.activeAds,
+        free: Math.max(0, MAX_ADS_PER_PAGE - pg.activeAds),
+      });
+    }
+  }
+  return out.sort((a, b) => b.free - a.free);
 }
 
 /* ------------------------------------------------------------------ *
@@ -806,9 +890,26 @@ export function applyDistFix(plan: PlanV2, fix: DistFix): Partial<PlanV2> {
       // Structural (open the page picker); no pure patch. Return empty flag.
       return {};
 
-    case "add_page":
-      // Adding a page is a Step-2 action; UI opens Accounts. No pure patch.
-      return {};
+    case "add_page": {
+      // With a chosen pageId: append a TargetPair for it. Without one, the UI
+      // opens the candidate-page picker (no pure patch yet — never a dead-end).
+      if (!fix.pageId) return {};
+      const acc = findAccountForPage(fix.pageId);
+      const added = acc ? makeTargetV2(acc.id, fix.pageId) : null;
+      if (!added) return {};
+      return { targets: [...plan.targets, added] };
+    }
+
+    case "swap_page": {
+      // Remove the target(s) on `swapFrom`, append the chosen page. Without a
+      // chosen pageId the UI opens the picker (no pure patch yet).
+      if (!fix.swapFrom || !fix.pageId) return {};
+      const acc = findAccountForPage(fix.pageId);
+      const added = acc ? makeTargetV2(acc.id, fix.pageId) : null;
+      if (!added) return {};
+      const kept = plan.targets.filter((t) => t.fbPageId !== fix.swapFrom);
+      return { targets: [...kept, added] };
+    }
 
     case "split_launch":
       // Splitting spawns a second draft; handled by the flow, not a field patch.

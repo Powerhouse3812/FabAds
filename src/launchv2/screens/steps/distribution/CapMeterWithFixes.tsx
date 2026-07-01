@@ -18,15 +18,10 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { placement, type PageDemand } from "../../../deriveV2";
-import {
-  applyDistFix,
-  distributionErrors,
-  type DistError,
-  type DistFix,
-  type DistTier,
-} from "../../../distributionErrors";
-import { MAX_ADS_PER_PAGE } from "../../../types";
+import { distributionErrors, type DistError, type DistTier } from "../../../distributionErrors";
+import { MAX_ADS_PER_PAGE, type PlanV2 } from "../../../types";
 import type { UseFlowV2 } from "../../../state/useFlowV2";
+import { DistFixControls } from "./DistFixControls";
 
 /* ------------------------------------------------------------------ *
  * Tier → visual language (design-system §8: distinct icon per tier,
@@ -92,8 +87,7 @@ export default function CapMeterWithFixes({ flow }: { flow: UseFlowV2 }) {
 
   const sorted = [...errors].sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier]);
 
-  const runFix = (fix: DistFix) => {
-    const patchObj = applyDistFix(plan, fix);
+  const runApply = (patchObj: Partial<PlanV2>) => {
     if (Object.keys(patchObj).length > 0) patch(patchObj);
     // Structural fixes (add_page / split_launch / change_page / goto / retry /
     // acknowledge) return {} by contract — the surrounding Step-3 screen owns
@@ -192,7 +186,7 @@ export default function CapMeterWithFixes({ flow }: { flow: UseFlowV2 }) {
       {sorted.length > 0 && (
         <div className="space-y-2">
           {sorted.map((err) => (
-            <DistErrorCard key={err.id} error={err} onFix={runFix} />
+            <DistErrorCard key={err.id} error={err} plan={plan} onApply={runApply} />
           ))}
         </div>
       )}
@@ -202,10 +196,12 @@ export default function CapMeterWithFixes({ flow }: { flow: UseFlowV2 }) {
 
 function DistErrorCard({
   error,
-  onFix,
+  plan,
+  onApply,
 }: {
   error: DistError;
-  onFix: (fix: DistFix) => void;
+  plan: PlanV2;
+  onApply: (patch: Partial<PlanV2>) => void;
 }) {
   const styles = TIER_STYLES[error.tier];
   const Icon = TIER_ICON[error.tier];
@@ -238,24 +234,8 @@ function DistErrorCard({
       </div>
 
       {error.fixes.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pl-5">
-          {error.fixes.map((fix, i) => (
-            <button
-              key={`${error.id}:${fix.kind}:${i}`}
-              type="button"
-              onClick={() => onFix(fix)}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-lg border bg-white dark:bg-transparent px-2.5 py-1 text-[11px] font-medium transition-colors hover:brightness-95 dark:hover:brightness-125",
-                error.tier === "error"
-                  ? "border-[#ffa39e] dark:border-[#5c2223] text-[#cf1322] dark:text-[#ff7875] dark:bg-[#2a1215]/50"
-                  : error.tier === "warning"
-                    ? "border-amber-300 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 dark:bg-amber-950/50"
-                    : "border-sky-300 dark:border-sky-800/50 text-sky-800 dark:text-sky-300 dark:bg-sky-950/50"
-              )}
-            >
-              {fix.label}
-            </button>
-          ))}
+        <div className="pl-5">
+          <DistFixControls error={error} plan={plan} onApply={onApply} />
         </div>
       )}
     </div>

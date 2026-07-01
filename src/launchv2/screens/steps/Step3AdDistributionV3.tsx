@@ -40,7 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { allowedFormats, defaultDestination } from "../../reducer";
 import { FORMATS, SOURCES, RUNNING_ADS, CATALOGS } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import type { AdFormat, AdCopy, CreativeRef, SourceType, SpreadMode } from "../../types";
+import type { AdFormat, AdCopy, CreativeRef, PlanV2, SourceType, SpreadMode } from "../../types";
 import AdContent from "./spread/AdContent";
 import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
@@ -53,13 +53,12 @@ import StructureEditor from "./distribution/StructureEditor";
 import { DistributionSectionChip } from "./distribution/DistributionTemplateBar";
 import { adSetCount, adsPerDestination, capCheck, placement, spreadPreview } from "../../deriveV2";
 import {
-  applyDistFix,
   distributionErrors,
   suggestedDistribution,
   type DistError,
-  type DistFix,
   type DistTier,
 } from "../../distributionErrors";
+import { DistFixControls } from "./distribution/DistFixControls";
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
 import AccountSelectorPanel from "./distribution/AccountSelectorPanel";
@@ -163,11 +162,13 @@ const DIST_TIER_STYLES: Record<
 /** Renders a list of DistErrors anchored to a given control. Empty when none. */
 function DistErrorSlot({
   errors,
-  onFix,
+  plan,
+  onApply,
   compact = false,
 }: {
   errors: DistError[];
-  onFix: (fix: DistFix) => void;
+  plan: PlanV2;
+  onApply: (patch: Partial<PlanV2>) => void;
   compact?: boolean;
 }) {
   if (errors.length === 0) return null;
@@ -207,24 +208,8 @@ function DistErrorSlot({
               </div>
             </div>
             {err.fixes.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pl-5">
-                {err.fixes.map((fix, i) => (
-                  <button
-                    key={`${err.id}:${fix.kind}:${i}`}
-                    type="button"
-                    onClick={() => onFix(fix)}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-lg border bg-white dark:bg-transparent px-2 py-0.5 text-[10px] font-medium transition-colors hover:brightness-95 dark:hover:brightness-125",
-                      err.tier === "error"
-                        ? "border-[#ffa39e] dark:border-[#5c2223] text-[#cf1322] dark:text-[#ff7875] dark:bg-[#2a1215]/50"
-                        : err.tier === "warning"
-                          ? "border-amber-300 dark:border-amber-800/50 text-amber-800 dark:text-amber-300 dark:bg-amber-950/50"
-                          : "border-sky-300 dark:border-sky-800/50 text-sky-800 dark:text-sky-300 dark:bg-sky-950/50",
-                    )}
-                  >
-                    {fix.label}
-                  </button>
-                ))}
+              <div className="pl-5">
+                <DistFixControls error={err} plan={plan} onApply={onApply} />
               </div>
             )}
           </div>
@@ -802,13 +787,11 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const structureErrors = errorsByAnchor("structure");
   const combinationErrors = errorsByAnchor("combination");
 
-  const runDistFix = (fix: DistFix) => {
-    const patchObj = applyDistFix(plan, fix);
-    if (Object.keys(patchObj).length > 0) patch(patchObj);
-    // Structural fixes (add_page / change_page / split_launch / goto / retry /
-    // acknowledge) return {} by contract — this screen doesn't yet own those
-    // surfaces, so the tap still registers (never a dead-end, Nielsen #9) even
-    // though there's nothing further to mutate locally here.
+  // Fix application → merge the DistFixControls patch into the plan. The picker
+  // fixes (add_page / swap_page) compute the real target mutation inside
+  // DistFixControls and hand back a ready patch; plain fixes do the same.
+  const onApplyFix = (p: Partial<PlanV2>) => {
+    if (Object.keys(p).length > 0) patch(p);
   };
 
   // ── Cap-meter anchor ref ─────────────────────────────────────────────────────
@@ -1409,7 +1392,8 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                 errors={distErrors.filter(
                   (e) => e.anchor === "pageSplit" || distPlacement.perPage.some((p) => p.fbPageId === e.anchor),
                 )}
-                onFix={runDistFix}
+                plan={plan}
+                onApply={onApplyFix}
               />
             </div>
 
@@ -1461,12 +1445,12 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
 
               {/* Per-control inline error slots — creativeDist anchor (CD-01/02/03/
                   04/05/06/07/08/12). Renders under the mapping-option grid. */}
-              <DistErrorSlot errors={creativeDistErrors} onFix={runDistFix} />
+              <DistErrorSlot errors={creativeDistErrors} plan={plan} onApply={onApplyFix} />
 
               {/* Combination errors (CD-11) — CombinationChooser isn't mounted on
                   this screen; anchor them here next to the section that owns
                   `plan.combination`, only when relevant (media>1 & texts>1). */}
-              <DistErrorSlot errors={combinationErrors} onFix={runDistFix} />
+              <DistErrorSlot errors={combinationErrors} plan={plan} onApply={onApplyFix} />
 
               {plan.spread === "custom" && (
                 <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
@@ -1480,7 +1464,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                   {/* structure anchor — currently no catalog code targets "structure"
                       directly (CD-01/CD-08 use reduce_structure as a *fix*, but anchor
                       at creativeDist); slot kept live for future structure-scoped codes. */}
-                  <DistErrorSlot errors={structureErrors} onFix={runDistFix} />
+                  <DistErrorSlot errors={structureErrors} plan={plan} onApply={onApplyFix} />
                 </div>
               )}
             </div>
