@@ -757,10 +757,15 @@ function balancedWeights(plan: PlanV2): Record<string, number> {
 export function applyDistFix(plan: PlanV2, fix: DistFix): Partial<PlanV2> {
   switch (fix.kind) {
     case "use_suggested":
-      return { pageDistribution: fix.distribution ?? suggestedDistribution(plan) };
-
-    case "switch_distribution":
-      return { pageDistribution: fix.distribution ?? suggestedDistribution(plan) };
+    case "switch_distribution": {
+      const to = fix.distribution ?? suggestedDistribution(plan);
+      // A "custom" resolution needs weights populated, else the plan lands in
+      // custom with an empty pageWeights map → immediate PS-08 (weights don't
+      // add up). Balance it in the same patch so the fix never makes it worse.
+      return to === "custom"
+        ? { pageDistribution: "custom", pageWeights: balancedWeights(plan) }
+        : { pageDistribution: to };
+    }
 
     case "switch_spread":
       return fix.spread ? { spread: fix.spread } : {};
