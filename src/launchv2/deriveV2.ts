@@ -1,10 +1,39 @@
 /** Pure derivations for Launch v2 — ad counts (spread-aware), budget, 250-cap. */
-import { MAX_ADS_PER_PAGE, type PlanV2, type ProductV2 } from "./types";
+import {
+  MAX_ADS_PER_PAGE,
+  type PageDistribution,
+  type PlanV2,
+  type ProductV2,
+  type SpreadMode,
+} from "./types";
 import { pageActiveAds, getCatalog } from "./data";
 
-/** Ad sets produced (spread-aware). */
+/**
+ * Effective creative units — `n_eff` (§1.1, fixes CD-11).
+ *
+ * Folds mix-match (`plan.combination` × loose multi-media + multi-text) into a
+ * single creative-count so the number shown in `CombinationChooser` equals the
+ * downstream cap-meter / budget / Review count.
+ *
+ *   media = max(plan.creatives.length, 1)
+ *   texts = 1 + (non-empty textVariations)
+ *   combinationActive = media > 1 && texts > 1
+ *   n_eff = !combinationActive        → media
+ *           combination === "all"     → media * texts
+ *           else ("paired", default)  → max(media, texts)
+ */
+export function combinationUnits(plan: PlanV2): number {
+  const media = Math.max(plan.creatives.length, 1);
+  const texts = 1 + (plan.adCopy.textVariations?.filter((t) => t.trim().length > 0).length ?? 0);
+  const combinationActive = media > 1 && texts > 1;
+  if (!combinationActive) return media;
+  if (plan.combination === "all") return media * texts;
+  return Math.max(media, texts); // "paired" (default)
+}
+
+/** Ad sets produced (spread-aware, uses n_eff). */
 export function adSetCount(plan: PlanV2): number {
-  const n = Math.max(plan.creatives.length, 1);
+  const n = combinationUnits(plan);
   const base = plan.structure.campaigns * plan.structure.adSetsPerCampaign;
   switch (plan.spread) {
     case "one_per_adset":
@@ -19,9 +48,9 @@ export function adSetCount(plan: PlanV2): number {
   }
 }
 
-/** Ads produced per destination (spread-aware). */
+/** Ads produced per destination (spread-aware, uses n_eff). */
 export function adsPerDestination(plan: PlanV2): number {
-  const n = Math.max(plan.creatives.length, 1);
+  const n = combinationUnits(plan);
   const base = plan.structure.campaigns * plan.structure.adSetsPerCampaign * plan.structure.adsPerAdSet;
   switch (plan.spread) {
     case "one_per_adset":
@@ -75,11 +104,17 @@ export interface PageDemand {
   over: boolean;
 }
 
-/** Ads each target receives, given page distribution. */
+/** Ads each target receives, given page distribution (§1.3). */
 export function perTargetCounts(plan: PlanV2): number[] {
   const per = adsPerDestination(plan);
   const n = plan.targets.length;
   if (n === 0) return [];
+  if (plan.pageDistribution === "one_page") {
+    // dedicated single-page branch: ALL D on the first target, 0 elsewhere.
+    // breach (if D > free₁) surfaces via perPageDemand.over / placement.unplaceable —
+    // never redistributed to other pages.
+    return plan.targets.map((_, i) => (i === 0 ? per : 0));
+  }
   if (plan.pageDistribution === "duplicate") return plan.targets.map(() => per);
   if (plan.pageDistribution === "equal") {
     const q = Math.floor(per / n);
@@ -90,7 +125,8 @@ export function perTargetCounts(plan: PlanV2): number[] {
     // custom: trust pageWeights authored by user (pageId → ad count); default 0 if unset
     return plan.targets.map((t) => plan.pageWeights[t.pageId] ?? 0);
   }
-  // fill-first
+  // fill_first: greedily place D into pages in order, each capped at free(pg_i).
+  // STOP at free — remainder is unplaceable, NOT dumped onto the last page (fixes CD cap-preventer bug).
   const caps = plan.targets.map((t) => Math.max(0, MAX_ADS_PER_PAGE - pageActiveAds(t.fbPageId)));
   let left = per;
   const out = plan.targets.map(() => 0);
@@ -99,7 +135,7 @@ export function perTargetCounts(plan: PlanV2): number[] {
     out[i] = take;
     left -= take;
   }
-  if (left > 0) out[n - 1] += left;
+  // `left` (if > 0) is unplaceable — see placement().unplaceable. Do NOT redistribute.
   return out;
 }
 
@@ -133,14 +169,100 @@ export function capCheck(plan: PlanV2): { ok: boolean; offenders: PageDemand[] }
   return { ok: offenders.length === 0, offenders };
 }
 
-/** Spread preview for Step 3's live mini-tree. */
+/** Spread preview for Step 3's live mini-tree (creatives = n_eff, so tree matches cap-meter/budget). */
 export function spreadPreview(plan: PlanV2): { creatives: number; adSets: number; adsPerDest: number; total: number } {
   return {
-    creatives: plan.creatives.length,
+    creatives: combinationUnits(plan),
     adSets: adSetCount(plan),
     adsPerDest: adsPerDestination(plan),
     total: estimateAds(plan),
   };
+}
+
+/* ---- §5 Creative-fit (CD-01/02/03 source) ---- */
+
+export interface CreativeFit {
+  mode: SpreadMode;
+  nEff: number;
+  slots: number;
+  empty: number;
+  unused: number;
+  uneven: { min: number; max: number } | null;
+}
+
+/**
+ * How the effective creatives (`n_eff`) fit the structure's per-destination slots.
+ * Feeds CD-01 (manual: empty slots), CD-02 (round_robin: unused creatives),
+ * CD-03 (round_robin: uneven per ad set).
+ *
+ *   slots  = adsPerDestination(plan)  (D)
+ *   empty  = manual      → max(0, D − n_eff)   (mapped creatives short of slots)
+ *   unused = round_robin → max(0, n_eff − D)   (creatives that never place)
+ *   uneven = round_robin & n_eff % adSets ≠ 0 → { min, max } per ad set, else null
+ */
+export function creativeFit(plan: PlanV2): CreativeFit {
+  const nEff = combinationUnits(plan);
+  const slots = adsPerDestination(plan);
+  const mode = plan.spread;
+
+  const empty = mode === "manual" ? Math.max(0, slots - nEff) : 0;
+  const unused = mode === "round_robin" ? Math.max(0, nEff - slots) : 0;
+
+  let uneven: { min: number; max: number } | null = null;
+  if (mode === "round_robin") {
+    const adSets = Math.max(adSetCount(plan), 1);
+    if (nEff % adSets !== 0) {
+      uneven = { min: Math.floor(nEff / adSets), max: Math.ceil(nEff / adSets) };
+    }
+  }
+
+  return { mode, nEff, slots, empty, unused, uneven };
+}
+
+/* ---- §5 / §1.3 Placement (cap-respecting) ---- */
+
+export interface Placement {
+  method: PageDistribution;
+  perPage: PageDemand[];
+  requested: number; // = estimateAds
+  placed: number;
+  unplaceable: number; // cap-respecting remainder (PS-05/06/CC-01)
+}
+
+/**
+ * Cap-respecting placement of demand onto unique pages (§1.3).
+ *
+ *   requested   = estimateAds(plan)
+ *   placed      = Σ min(demand_i, free_i)      (what actually fits)
+ *   unplaceable = fill_first → max(0, D − Σfree)
+ *                 else       → Σ over breaches (demand_i − free_i)
+ *
+ * `fill_first` STOPs at each page's free slots — remainder is exposed as
+ * `unplaceable`, never dumped onto the last page. `one_page` puts all D on the
+ * first page; overflow there is unplaceable. Any `unplaceable > 0` is a launch
+ * blocker, not a silent truncation.
+ */
+export function placement(plan: PlanV2): Placement {
+  const method = plan.pageDistribution;
+  const perPage = perPageDemand(plan); // unique pages, shared pages summed
+  const requested = estimateAds(plan);
+
+  let placed = 0;
+  perPage.forEach((p) => {
+    placed += Math.min(p.demand, p.available);
+  });
+
+  let unplaceable: number;
+  if (method === "fill_first") {
+    // aggregate-short: what the ordered greedy fill could not seat across all pages.
+    const totalFree = perPage.reduce((s, p) => s + p.available, 0);
+    unplaceable = Math.max(0, requested - totalFree);
+  } else {
+    // per-page breaches: each page's demand beyond its free slots.
+    unplaceable = perPage.reduce((s, p) => s + Math.max(0, p.demand - p.available), 0);
+  }
+
+  return { method, perPage, requested, placed, unplaceable };
 }
 
 /* ---- Catalogue ads derivation ----

@@ -24,6 +24,7 @@ import { MAX_ADS_PER_PAGE } from "../../types";
 import { planReady, requiresPixel, softWarnings, type SoftWarning } from "../../reducer";
 import { buildPlanUnits, type CanonicalUnit } from "../../planUnits";
 import { resolveNodeValue, CREATIVE_ID_KEY } from "../../nodeOverrides";
+import { distributionErrors, type DistError, type DistFix } from "../../distributionErrors";
 
 /* ------------------------------------------------------------------ */
 /*  Representative tree                                                */
@@ -393,52 +394,86 @@ export interface ReviewIssue {
     /** for switch_distribution */
     distribution?: PageDistribution;
   };
+  /** Catalog code (PS-* / CD-* / CC-* codes) — present on issues sourced from `distributionErrors`. */
+  code?: string;
+  /** Full fix list from `DistError.fixes` — present on issues sourced from `distributionErrors`. */
+  fixes?: DistFix[];
 }
 
 /**
- * Decide the best distribution to recommend given cap offenders.
- * fill-first usually frees the most headroom; if already fill-first and still
- * over, equal spreads load; duplicate is never a fix (it multiplies).
+ * Catalog codes that are page-cap-family (page-split breaches + the cap-meter
+ * cross-cutting overflow). These get an `id` prefixed `cap:` so the existing
+ * `id.startsWith("cap:")` filters in `Step2Setup`/`LaunchV2Flow` (step-2 inline
+ * warnings + step-progress badges) keep matching them, same as the old
+ * hand-rolled `capCheckResolved` offender loop did.
  */
-function recommendedDistribution(plan: PlanV2): PageDistribution | null {
-  const order: PageDistribution[] = ["fill_first", "equal"];
-  for (const d of order) {
-    if (d === plan.pageDistribution) continue;
-    const probe = { ...plan, pageDistribution: d };
-    if (capCheckResolved(probe).ok) return d;
+const CAP_FAMILY_CODES = new Set([
+  "PS-02", "PS-03", "PS-04", "PS-05", "PS-06", "PS-07", "PS-08",
+  "PS-DUP", "PS-14", "CC-01",
+]);
+
+/**
+ * Map a `DistFixKind` (engine-level, richer) down to the `IssueFixKind` the
+ * existing Review UI (`ReviewPanes`/`Step4Review`) already knows how to apply
+ * in-place. Everything else still round-trips via `fixes` (untouched) for
+ * callers that want the full fix list — this is only the *primary* fix shown
+ * by the legacy single-`fix` UI slot.
+ */
+function toIssueFix(fix: DistFix | undefined): ReviewIssue["fix"] {
+  if (!fix) return undefined;
+  switch (fix.kind) {
+    case "switch_distribution":
+    case "use_suggested":
+      return {
+        label: fix.label,
+        kind: "switch_distribution",
+        distribution: fix.distribution,
+      };
+    case "add_page":
+      return { label: fix.label, kind: "add_page" };
+    case "reduce_structure":
+    case "reduce_combos":
+      return { label: fix.label, kind: "reduce_ads" };
+    default:
+      return { label: fix.label, kind: "none" };
   }
-  return null;
 }
 
-const DIST_LABEL: Record<PageDistribution, string> = {
-  one_page: "One page",
-  fill_first: "Fill-first",
-  equal: "Equal split",
-  duplicate: "Duplicate to all",
-  custom: "Custom",
-};
+/**
+ * Map a `DistError` (from the single-source-of-truth `distributionErrors`
+ * engine) onto the existing `ReviewIssue` shape. Carries `code` + the full
+ * `fixes` list through, and picks the first fix as the legacy single `fix`
+ * for the existing UI. Cap-breach codes are unified to tier `"error"` (they
+ * already are, in the engine) and get the `cap:` id prefix for step-2/step-
+ * progress compatibility.
+ */
+function distErrorToReviewIssue(e: DistError): ReviewIssue {
+  const isCapFamily = CAP_FAMILY_CODES.has(e.code);
+  return {
+    id: isCapFamily ? `cap:${e.id}` : `dist:${e.id}`,
+    tier: e.tier,
+    title: e.title,
+    detail: e.message,
+    fix: toIssueFix(e.fixes[0]),
+    code: e.code,
+    fixes: e.fixes,
+  };
+}
 
 export function buildIssues(plan: PlanV2): ReviewIssue[] {
   const issues: ReviewIssue[] = [];
   const sets = adSetCount(plan);
 
-  // ---- Tier 1: hard cap-check offenders (block launch) ----
-  // Use capCheckResolved so per-adset adsPerAdSet overrides are reflected.
-  const cap = capCheckResolved(plan);
-  for (const off of cap.offenders) {
-    const overBy = off.current + off.demand - 250;
-    const recDist = recommendedDistribution(plan);
-    issues.push({
-      id: `cap:${off.fbPageId}`,
-      tier: "error",
-      title: `${off.pageName} exceeds the 250-ad Page cap`,
-      detail: `${off.current} live + ${off.demand} new = ${off.current + off.demand}, over by ${overBy}. Meta will reject the overflow.`,
-      fix: recDist
-        ? { label: `Switch to ${DIST_LABEL[recDist]}`, kind: "switch_distribution", distribution: recDist }
-        : plan.pageDistribution === "duplicate"
-          ? { label: "Switch to Fill-first", kind: "switch_distribution", distribution: "fill_first" }
-          : { label: "Reduce ad count", kind: "reduce_ads" },
-    });
+  // ---- Tier 1: page-split / creative-distribution / cap-meter families ----
+  // SINGLE SOURCE OF TRUTH: reuse `distributionErrors` (deriveV2-grounded) instead
+  // of re-deriving cap offenders here — kills the double-implementation drift the
+  // audit flagged. Hard cap-breach codes (PS-02/03/04/05/06/07/08/CC-01) are
+  // already tier "error" in the engine (unified, not warning); PS-DUP/PS-14 stay
+  // "warning" (confirm, not block) same as the catalog (§3A). This uses the
+  // override-unaware `placement()` view — separate from the override-aware
+  // `capCheckResolved` used by `preflight`'s C11 hardening check.
+  for (const e of distributionErrors(plan)) {
+    issues.push(distErrorToReviewIssue(e));
   }
 
   // ---- Tier 1b: pixel required but missing on one or more accounts ----
@@ -573,15 +608,10 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
     }
   }
 
-  // ---- Tier 2d: duplicate distribution multiplier (upgraded from info) ----
-  if (plan.pageDistribution === "duplicate" && plan.targets.length > 1) {
-    issues.push({
-      id: "warn:duplicate-multiplier",
-      tier: "warning",
-      title: `Duplicate distribution multiplies spend ${plan.targets.length}×`,
-      detail: `Each of your ${plan.targets.length} Pages gets the full ${adsPerDestination(plan)} ads, so spend and ad count multiply by ${plan.targets.length}.`,
-    });
-  }
+  // ---- Tier 2d: duplicate distribution multiplier ----
+  // Superseded by PS-DUP from `distributionErrors` (same trigger: duplicate & p>1,
+  // same "×p spend/count" message) — removed here to kill the double-implementation
+  // the audit flagged. See the `distributionErrors(plan)` loop above (Tier 1).
 
   // ---- Tier 2e: Leads via Instant Form without CRM integration note ----
   if (
