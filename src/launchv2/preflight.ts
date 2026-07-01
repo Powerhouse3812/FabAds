@@ -12,12 +12,13 @@
  *   C4  — Advantage+ only valid for specific objectives
  *   C5  — Pixel/dataset required for conversion objectives
  *   C6  — Page exists + is published + leadgen ToS for OUTCOME_LEADS
- *   C11 — Page 250-ad active-ad cap (harden, using override-aware capCheckResolved)
+ *   C11 — Page 250-ad active-ad cap (page-cap family, via `distributionErrors`
+ *         so preflight and `reviewModel.buildIssues` agree — STEP3_ERROR_MODEL.md §5.1)
  */
 
 import type { PlanV2, CreativeRef } from "./types";
 import type { ReviewIssue } from "./screens/review/reviewModel";
-import { capCheckResolved } from "./screens/review/reviewModel";
+import { distributionErrors } from "./distributionErrors";
 import {
   MOCK_AD_ACCOUNTS,
   MOCK_PAGES,
@@ -26,6 +27,23 @@ import {
   ADVANTAGE_PLUS_OBJECTIVES,
   PIXEL_REQUIRED_OBJECTIVES,
 } from "./services/mockMetaData";
+
+/**
+ * Page-cap family: catalog codes from STEP3_ERROR_MODEL.md §3A that represent
+ * a page/slot overflow (as opposed to PS-01 no-page, PS-10 slot-read, PS-11
+ * restricted-account, PS-14 shared-page, or PS-DUP's warning-tier heads-up).
+ * Kept in sync with the engine's page-split family so preflight and
+ * `buildIssues` never drift out of agreement.
+ */
+const PAGE_CAP_CODES = new Set([
+  "PS-02", // page saturated (0 free)
+  "PS-03", // one_page > free₁
+  "PS-04", // equal-split per-page breach
+  "PS-05", // fill_first aggregate short
+  "PS-06", // best-fit still unplaceable
+  "PS-07", // custom weight > free (field)
+  "PS-08", // custom Σweights ≠ D
+]);
 
 /* ------------------------------------------------------------------ */
 /*  runPreflight                                                        */
@@ -238,14 +256,19 @@ export function runPreflight(plan: PlanV2): ReviewIssue[] {
     }
   }
 
-  /* ---- C11: Page 250-ad active-ad cap (override-aware) ------------ */
-  const cap = capCheckResolved(plan);
-  for (const off of cap.offenders) {
+  /* ---- C11: Page cap / distribution overflow (reuses distributionErrors) */
+  // Reuse the same engine `reviewModel.buildIssues` reuses (STEP3_ERROR_MODEL.md
+  // §5.1) for the page-cap family, instead of a separately-computed cap check —
+  // keeps preflight and buildIssues in agreement on when a launch is blocked.
+  const capFamily = distributionErrors(plan).filter(
+    (e) => e.tier === "error" && PAGE_CAP_CODES.has(e.code),
+  );
+  for (const err of capFamily) {
     issues.push({
-      id: `pre:page-cap-exceeded:${off.fbPageId}`,
+      id: `pre:page-cap-exceeded:${err.id}`,
       tier: "error",
-      title: `Page cap exceeded: "${off.pageName}"`,
-      detail: `"${off.pageName}" currently has ${off.current} active ads. Adding ${off.demand} new ads would total ${off.current + off.demand} — over the 250-ad limit by ${off.current + off.demand - 250}. Reduce the ad count or switch distribution mode.`,
+      title: err.title,
+      detail: err.message,
     });
   }
 

@@ -8,7 +8,7 @@ import { GitMerge, Grid2x2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CombinationMode } from "../../../types";
 import { MAX_ADS_PER_PAGE } from "../../../types";
-import { perPageDemand } from "../../../deriveV2";
+import { perPageDemand, combinationUnits } from "../../../deriveV2";
 import type { UseFlowV2 } from "../../../state/useFlowV2";
 
 /** The text-variant count: shared primary (1) + each non-empty variation. */
@@ -31,12 +31,19 @@ export default function CombinationChooser({ flow }: { flow: UseFlowV2 }) {
   const pages = perPageDemand(plan);
   const worstCurrent = pages.reduce((m, p) => Math.max(m, p.current), 0);
 
+  // Compute authoritative ad counts for each mode based on combinationUnits.
+  const getAdsForMode = (mode: CombinationMode): number => {
+    // Temporarily patch the plan to the mode and compute n_eff.
+    const testPlan = { ...plan, combination: mode };
+    return combinationUnits(testPlan);
+  };
+
   const options: { id: CombinationMode; label: string; icon: typeof GitMerge; ads: number; blurb: string; example: string }[] = [
     {
       id: "all",
       label: "All combinations",
       icon: Grid2x2,
-      ads: media * texts,
+      ads: getAdsForMode("all"),
       blurb: "Every creative paired with every text.",
       example: `${media} media × ${texts} text`,
     },
@@ -44,7 +51,7 @@ export default function CombinationChooser({ flow }: { flow: UseFlowV2 }) {
       id: "paired",
       label: "Paired",
       icon: GitMerge,
-      ads: Math.max(media, texts),
+      ads: getAdsForMode("paired"),
       blurb: "Zip media to text 1:1 (cycles the shorter list).",
       example: `${media} media ↔ ${texts} text`,
     },

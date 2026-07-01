@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
   AlertTriangle,
   BarChart3,
   Check,
@@ -23,6 +24,7 @@ import {
   HardDrive,
   Hash,
   Image,
+  Info,
   Library,
   Link2,
   Plus,
@@ -38,7 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { allowedFormats, defaultDestination } from "../../reducer";
 import { FORMATS, SOURCES, RUNNING_ADS, CATALOGS } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import type { AdFormat, AdCopy, CreativeRef, SourceType, SpreadMode } from "../../types";
+import type { AdFormat, AdCopy, CreativeRef, PlanV2, SourceType, SpreadMode } from "../../types";
 import AdContent from "./spread/AdContent";
 import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
@@ -49,7 +51,14 @@ import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFr
 import CapMeterWithFixes from "./distribution/CapMeterWithFixes";
 import StructureEditor from "./distribution/StructureEditor";
 import { DistributionSectionChip } from "./distribution/DistributionTemplateBar";
-import { adSetCount, adsPerDestination, capCheck, spreadPreview } from "../../deriveV2";
+import { adSetCount, adsPerDestination, capCheck, placement, spreadPreview } from "../../deriveV2";
+import {
+  distributionErrors,
+  suggestedDistribution,
+  type DistError,
+  type DistTier,
+} from "../../distributionErrors";
+import { DistFixControls } from "./distribution/DistFixControls";
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
 import AccountSelectorPanel from "./distribution/AccountSelectorPanel";
@@ -113,6 +122,133 @@ function livePageSplitPreviewV3(id: PageSplitId, totalAds: number, pageCount: nu
     case "duplicate":return `${totalAds} × ${p} pages = ${totalAds * p} ads total`;
     default:         return "";
   }
+}
+
+// ── Inline DistError slots (STEP3_ERROR_MODEL.md §6.3) ────────────────────────
+// Per-control rendering for `distributionErrors(plan)`. Tier styling matches
+// CapMeterWithFixes exactly — one visual language across inline slots + the
+// cap-meter mirror (Nielsen #5 — error prevention shown at the point of entry).
+
+const DIST_TIER_ICON: Record<DistTier, typeof AlertCircle> = {
+  error: AlertCircle,
+  warning: AlertTriangle,
+  info: Info,
+};
+
+const DIST_TIER_STYLES: Record<
+  DistTier,
+  { border: string; bg: string; icon: string; text: string }
+> = {
+  error: {
+    border: "border-[#ffccc7] dark:border-[#5c2223]",
+    bg: "bg-[#fff1f0] dark:bg-[#2a1215]",
+    icon: "text-[#cf1322] dark:text-[#ff7875]",
+    text: "text-[#cf1322] dark:text-[#ff7875]",
+  },
+  warning: {
+    border: "border-amber-300/60 dark:border-amber-800/40",
+    bg: "bg-amber-50/60 dark:bg-amber-950/30",
+    icon: "text-amber-500",
+    text: "text-amber-700 dark:text-amber-400",
+  },
+  info: {
+    border: "border-sky-300/60 dark:border-sky-800/40",
+    bg: "bg-sky-50/60 dark:bg-sky-950/30",
+    icon: "text-sky-500",
+    text: "text-sky-700 dark:text-sky-400",
+  },
+};
+
+/** Renders a list of DistErrors anchored to a given control. Empty when none. */
+function DistErrorSlot({
+  errors,
+  plan,
+  onApply,
+  compact = false,
+}: {
+  errors: DistError[];
+  plan: PlanV2;
+  onApply: (patch: Partial<PlanV2>) => void;
+  compact?: boolean;
+}) {
+  if (errors.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      {errors.map((err) => {
+        const styles = DIST_TIER_STYLES[err.tier];
+        const Icon = DIST_TIER_ICON[err.tier];
+        return (
+          <div
+            key={err.id}
+            className={cn(
+              "rounded-lg border px-2.5 py-2",
+              compact ? "space-y-1" : "space-y-1.5",
+              styles.border,
+              styles.bg,
+            )}
+          >
+            <div className="flex items-start gap-1.5">
+              <Icon className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", styles.icon)} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={cn("text-[11px] font-medium", styles.text)}>{err.title}</span>
+                  <span className="rounded border border-current/20 px-1 py-px font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+                    {err.code}
+                  </span>
+                  {err.provisional && (
+                    <span
+                      className="rounded-full bg-foreground/10 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-muted-foreground"
+                      title="Cross-account aggregation — re-checked at Review"
+                    >
+                      [I]
+                    </span>
+                  )}
+                </div>
+                <p className={cn("text-[11px] mt-0.5", styles.text)}>{err.message}</p>
+              </div>
+            </div>
+            {err.fixes.length > 0 && (
+              <div className="pl-5">
+                <DistFixControls error={err} plan={plan} onApply={onApply} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Always-on slots-left chip (§6 feature layer 1). Renders on every selected
+ * page: green "{free} left" (or neutral when far from cap) → red "{n} over"
+ * once demand breaches. Salvaged 3-state label logic from
+ * AdTreeVisualization.tsx (see extraction note), colors swapped to the
+ * canonical design-system status tokens.
+ */
+function SlotsLeftChip({ available, demand }: { available: number; demand: number }) {
+  const over = demand > available;
+  if (over) {
+    const overBy = demand - available;
+    return (
+      <span className="shrink-0 rounded-full bg-[#ff4d4f] px-2 py-0.5 font-mono text-[10px] tabular-nums text-white">
+        {overBy} over
+      </span>
+    );
+  }
+  const free = available - demand;
+  if (free === 0) {
+    return (
+      <span className="shrink-0 rounded-full bg-[#faad14]/20 px-2 py-0.5 font-mono text-[10px] tabular-nums text-[#874d00]">
+        0 left
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 rounded-full bg-[#52c41a]/15 px-2 py-0.5 font-mono text-[10px] tabular-nums text-[#237804]">
+      {free} left
+    </span>
+  );
 }
 
 // ── Page-split visual diagram ─────────────────────────────────────────────────
@@ -640,6 +776,24 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const distTotalAds = plan.structure.campaigns * plan.structure.adSetsPerCampaign * plan.structure.adsPerAdSet;
   const distPageCount = Math.max(plan.targets.length, 1);
 
+  // ── Distribution error engine (STEP3_ERROR_MODEL.md §5.1/§6) ────────────────
+  // Single source of truth — pure, re-derived every render off `plan`.
+  const distErrors = distributionErrors(plan);
+  const distPlacement = placement(plan);
+  const suggestedMethod = suggestedDistribution(plan);
+
+  const errorsByAnchor = (anchor: string) => distErrors.filter((e) => e.anchor === anchor);
+  const creativeDistErrors = errorsByAnchor("creativeDist");
+  const structureErrors = errorsByAnchor("structure");
+  const combinationErrors = errorsByAnchor("combination");
+
+  // Fix application → merge the DistFixControls patch into the plan. The picker
+  // fixes (add_page / swap_page) compute the real target mutation inside
+  // DistFixControls and hand back a ready patch; plain fixes do the same.
+  const onApplyFix = (p: Partial<PlanV2>) => {
+    if (Object.keys(p).length > 0) patch(p);
+  };
+
   // ── Cap-meter anchor ref ─────────────────────────────────────────────────────
   const capRef = useRef<HTMLDivElement>(null);
 
@@ -1156,7 +1310,10 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                 {PAGE_SPLIT_OPTIONS.map((opt) => {
                   const on = plan.pageDistribution === opt.id;
                   const isDupe = opt.id === "duplicate";
-                  const showRecommended = opt.id === "fill_first" && !on;
+                  // Suggested-as-default (§6 feature layer 4): suggestedDistribution(plan)
+                  // is marked "Suggested" — it's the smart pick that respects free slots,
+                  // not just a hardcoded "fill_first is popular" hint.
+                  const isSuggested = opt.id === suggestedMethod && !on;
                   return (
                     <button
                       key={opt.id}
@@ -1174,9 +1331,9 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[13px] font-semibold text-foreground">{opt.label}</span>
-                        {showRecommended && (
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            Recommended
+                        {isSuggested && (
+                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-text">
+                            Suggested
                           </span>
                         )}
                       </div>
@@ -1200,6 +1357,44 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                   );
                 })}
               </div>
+
+              {/* Always-on slots-left chip — one per selected page (§6 feature layer 1).
+                  Salvaged 3-state label + row shape from AdTreeVisualization.tsx (see
+                  extraction note); zero-data state matches PS-01's empty illustration. */}
+              {plan.targets.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-card/50 px-3 py-2.5 text-[11px] text-muted-foreground italic">
+                  Pick destinations in Setup step to see per-page allocation.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {distPlacement.perPage.map((p) => (
+                    <div
+                      key={p.fbPageId}
+                      className={cn(
+                        "flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5",
+                        p.demand > p.available
+                          ? "border-[#ffccc7] bg-[#fff1f0] dark:border-[#5c2223] dark:bg-[#2a1215]"
+                          : "border-border bg-muted/20",
+                      )}
+                    >
+                      <span className="min-w-0 truncate text-[11px] font-medium text-foreground">
+                        {p.pageName}
+                      </span>
+                      <SlotsLeftChip available={p.available} demand={p.demand} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Per-control inline error slots — pageSplit anchor + any page-scoped
+                  (fbPageId-anchored) errors surfaced right under the grid. */}
+              <DistErrorSlot
+                errors={distErrors.filter(
+                  (e) => e.anchor === "pageSplit" || distPlacement.perPage.some((p) => p.fbPageId === e.anchor),
+                )}
+                plan={plan}
+                onApply={onApplyFix}
+              />
             </div>
 
             {/* ── 2. Creative distribution ──────────────────────────────────── */}
@@ -1247,6 +1442,16 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                   );
                 })}
               </div>
+
+              {/* Per-control inline error slots — creativeDist anchor (CD-01/02/03/
+                  04/05/06/07/08/12). Renders under the mapping-option grid. */}
+              <DistErrorSlot errors={creativeDistErrors} plan={plan} onApply={onApplyFix} />
+
+              {/* Combination errors (CD-11) — CombinationChooser isn't mounted on
+                  this screen; anchor them here next to the section that owns
+                  `plan.combination`, only when relevant (media>1 & texts>1). */}
+              <DistErrorSlot errors={combinationErrors} plan={plan} onApply={onApplyFix} />
+
               {plan.spread === "custom" && (
                 <div className="rounded-2xl border border-border bg-muted/20 p-4 space-y-3">
                   <p className="text-[11px] text-muted-foreground">
@@ -1256,6 +1461,10 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                   <p className="font-mono text-[11px] text-muted-foreground">
                     = {plan.structure.campaigns} campaign{plan.structure.campaigns !== 1 ? "s" : ""} · {plan.structure.adSetsPerCampaign} ad set{plan.structure.adSetsPerCampaign !== 1 ? "s" : ""} · {plan.structure.adsPerAdSet} ad{plan.structure.adsPerAdSet !== 1 ? "s" : ""}
                   </p>
+                  {/* structure anchor — currently no catalog code targets "structure"
+                      directly (CD-01/CD-08 use reduce_structure as a *fix*, but anchor
+                      at creativeDist); slot kept live for future structure-scoped codes. */}
+                  <DistErrorSlot errors={structureErrors} plan={plan} onApply={onApplyFix} />
                 </div>
               )}
             </div>
