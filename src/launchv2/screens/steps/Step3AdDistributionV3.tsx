@@ -49,11 +49,13 @@ import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFr
 import CapMeterWithFixes from "./distribution/CapMeterWithFixes";
 import StructureEditor from "./distribution/StructureEditor";
 import { DistributionSectionChip } from "./distribution/DistributionTemplateBar";
-import { adSetCount, adsPerDestination, capCheck, spreadPreview } from "../../deriveV2";
+import { adSetCount, adsPerDestination, perPageDemand, spreadPreview } from "../../deriveV2";
+import { PageSplitErrorModal } from "./distribution/PageSplitErrorModal";
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
 import AccountSelectorPanel from "./distribution/AccountSelectorPanel";
 import { CatalogueCampaignEditor } from "./shared/CatalogueCampaignEditor";
+import CreativeImportModal from "./shared/CreativeImportModal";
 
 // ── Source → Lucide icon map ──────────────────────────────────────────────────
 const SOURCE_ICON: Record<SourceType, React.ElementType> = {
@@ -279,17 +281,15 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="space-y-4 p-4">
-        <div className="space-y-0.5">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          {subtitle && (
-            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
-          )}
-        </div>
-        {children}
-      </CardContent>
-    </Card>
+    <section className="space-y-4 border-b border-border/50 pb-5 last:border-b-0 last:pb-0">
+      <div className="space-y-0.5">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {subtitle && (
+          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+        )}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -597,8 +597,12 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     }
   }, [plan.mediaScope]);
 
+  const [recentLaunchOpen, setRecentLaunchOpen] = useState(false);
+
   // ── Cap status ──────────────────────────────────────────────────────────
-  const cap = capCheck(plan);
+  const pageDemand = perPageDemand(plan);
+  const capErrors = pageDemand.filter(p => p.over);
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
 
   const activeSourceId = plan.source.type;
 
@@ -640,55 +644,20 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const distTotalAds = plan.structure.campaigns * plan.structure.adSetsPerCampaign * plan.structure.adsPerAdSet;
   const distPageCount = Math.max(plan.targets.length, 1);
 
+  // ── Context bar: which account(s) this step applies to (broadcast model) ──
+  const acctNames = Array.from(
+    new Set(plan.targets.map((t) => t.accountName ?? t.accountId).filter(Boolean)),
+  ) as string[];
+  const acctCount = acctNames.length;
+
   // ── Cap-meter anchor ref ─────────────────────────────────────────────────────
   const capRef = useRef<HTMLDivElement>(null);
 
-  // ── Draggable divider ───────────────────────────────────────────────────────
-  const [leftWidth, setLeftWidth] = useState(70); // percentage, clamped 25–80 (creative 70 / distribution 30)
-  const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-
-  useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const raw = ((e.clientX - rect.left) / rect.width) * 100;
-      setLeftWidth(Math.min(80, Math.max(25, raw)));
-    };
-    const onMouseUp = () => {
-      if (!isDraggingRef.current) return;
-      isDraggingRef.current = false;
-      setIsDragging(false);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-    return () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-  }, []);
-
-  const handleDividerMouseDown = () => {
-    isDraggingRef.current = true;
-    setIsDragging(true);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  };
 
   const hasCatalogueAccounts = Object.values(plan.catalogueByAccount ?? {}).some(Boolean);
   const hasPostIdAccounts = Object.values(plan.useExistingPostByAccount ?? {}).some(Boolean);
   const forceV2 = hasCatalogueAccounts || hasPostIdAccounts;
-  const [distVariant, setDistVariant] = useState<"v1" | "v2">(() => {
-    const hasCat = Object.values(plan.catalogueByAccount ?? {}).some(Boolean);
-    const hasPost = Object.values(plan.useExistingPostByAccount ?? {}).some(Boolean);
-    return hasCat || hasPost ? "v2" : "v1";
-  });
-  useEffect(() => {
-    if (forceV2) setDistVariant("v2");
-  }, [forceV2]);
 
   const [selectedAcctIds, setSelectedAcctIds] = useState<Set<string>>(() => new Set<string>());
 
@@ -710,89 +679,67 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div data-screen="lv2-step3" className="flex h-full min-h-0 flex-col">
-      {/* V1/V2 variant toggle strip */}
-      <div className="flex flex-shrink-0 items-center justify-end gap-2 border-b border-border/60 bg-background px-4 py-1.5">
-        {forceV2 ? (
-          <span className="font-mono text-[10px] text-muted-foreground">
-            Account layout — {hasCatalogueAccounts ? "Catalogue" : "Post ID"}
-          </span>
-        ) : (
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5">
-            {(["v1", "v2"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setDistVariant(v)}
-                className={cn(
-                  "rounded-full px-2.5 py-0.5 text-[10px] font-mono transition-colors",
-                  distVariant === v
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {v === "v1" ? "Classic" : "Account"}
-              </button>
-            ))}
+      {/* ── Context bar — binds everything below to the selected account(s) ── */}
+      <div className="flex-shrink-0 border-b border-border bg-[#F0F0EC] dark:bg-[#1B1B1F] px-5 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="h-8 w-1 flex-shrink-0 rounded-full bg-[#8FB821]" aria-hidden />
+            <div className="min-w-0">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.08em] text-[#5B7611] dark:text-[#C3E165]">
+                Configuring
+              </span>
+              <span className="block truncate text-[13px] font-semibold text-foreground">
+                {acctCount === 0
+                  ? "No account selected"
+                  : acctCount === 1
+                    ? acctNames[0]
+                    : `${acctCount} ad accounts`}
+              </span>
+            </div>
+            {acctCount > 1 && (
+              <span className="ml-1 flex-shrink-0 rounded-full border border-[#8FB821]/40 bg-[#F5FBE2] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#5B7611] dark:bg-[#1D2A09] dark:text-[#C3E165]">
+                applies to all {acctCount} · overrides in distribution
+              </span>
+            )}
           </div>
-        )}
+          {plan.budgetAmount > 0 && (
+            <div className="flex-shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+              {formatMoney(plan.budgetAmount, currency)}/{plan.budgetPeriod === "daily" ? "day" : "total"} · {plan.budgetMode}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* V1/V2 split pane — always rendered; account panel injected as first column in V2 */}
+      {/* Account-mode split pane */}
       <div
         ref={containerRef}
         className="flex min-h-0 flex-1"
       >
-        {/* Account selector — V2 mode only */}
-        {(distVariant === "v2" || forceV2) && (
-          <div className="flex flex-col">
-            <AccountSelectorPanel
-              flow={flow}
-              selectedIds={selectedAcctIds}
-              onSelect={handleSelectAccts}
-            />
-            {hasCatalogueAccounts && (
-              <p className="px-3 py-2 font-mono text-[10px] text-muted-foreground border-t border-border">
-                Select one account at a time to configure its product sets.
-              </p>
-            )}
-          </div>
-        )}
+        {/* Account selector */}
+        <div className="flex flex-col">
+          <AccountSelectorPanel
+            flow={flow}
+            selectedIds={selectedAcctIds}
+            onSelect={handleSelectAccts}
+          />
+          {hasCatalogueAccounts && (
+            <p className="px-3 py-2 font-mono text-[10px] text-muted-foreground border-t border-border">
+              Select one account at a time to configure its product sets.
+            </p>
+          )}
+        </div>
 
       {/* ── Left pane: Ad creative ───────────────────────────────────────── */}
       <div
-        style={(distVariant === "v1" && !forceV2) ? { width: `${leftWidth}%` } : undefined}
-        className={cn(
-          "h-full overflow-y-auto px-5 py-4 min-w-0",
-          (distVariant === "v2" || forceV2) && "flex-1"
-        )}
+        className="h-full overflow-y-auto px-5 py-4 min-w-0 flex-1"
       >
         <div className="space-y-4">
 
           {/* ── 1+2. Creative type — unified card (format + mode) ──────── */}
-          <SectionCard title="Creative type">
-            {/* Progress pills */}
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors",
-                  plan.format
-                    ? "bg-foreground/[0.06] text-foreground"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {plan.format ? (
-                  <Check className="h-3 w-3" />
-                ) : (
-                  <span className="font-mono">1</span>
-                )}
-                Ad format
-              </span>
-              <span className="text-muted-foreground/40">→</span>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium transition-colors bg-foreground/[0.06] text-foreground">
-                <Check className="h-3 w-3" />
-                Creative mode
-              </span>
-            </div>
+          <SectionCard
+            title="Creative type"
+            subtitle="Choose your ad format and how you want to add creatives"
+          >
 
             {/* Ad format chips */}
             <div className="space-y-2">
@@ -828,7 +775,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                         className={cn(
                           "fab-focus inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors",
                           selected
-                            ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
+                            ? "border border-[#8FB821] bg-[#F5FBE2] text-[#5B7611] dark:bg-[#1D2A09] dark:text-[#C3E165]"
                             : enabled
                               ? "border border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                               : "border border-border/50 text-muted-foreground/40 cursor-not-allowed",
@@ -843,11 +790,9 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
               )}
             </div>
 
-            {/* Divider */}
-            <div className="border-t border-border/40 my-3" />
-
-            {/* Creative mode toggle */}
+            {/* Creative option */}
             <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Creative option</Label>
               <div className="grid grid-cols-2 gap-2">
                 {(["ads", "media"] as const).map((mode) => (
                   <button
@@ -865,8 +810,8 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                     className={cn(
                       "fab-focus flex flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-colors",
                       creativeMode === mode
-                        ? selectedBorder
-                        : `${unselectedBorder} bg-card hover:border-foreground/30`,
+                        ? "border border-[#8FB821] bg-[#F5FBE2] dark:bg-[#1D2A09]"
+                        : "border border-border bg-card hover:border-foreground/30",
                     )}
                   >
                     <span className="text-xs font-semibold text-foreground">
@@ -1005,6 +950,18 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                         onPick={(id) => applyRunningAd(flow, id)}
                         pickerType="ad"
                       />
+
+                      {/* Import from recent launch */}
+                      <button
+                        type="button"
+                        onClick={() => setRecentLaunchOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M7 1v4.5m0 0L5 3.5M7 5.5l2-2M2.5 9A4.5 4.5 0 0 0 7 13a4.5 4.5 0 0 0 4.5-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Import from recent launch
+                      </button>
                     </div>
                   </div>
                 );
@@ -1104,24 +1061,9 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
         </div>
       </div>
 
-      {/* ── Drag handle — V1 mode only ───────────────────────────────────────── */}
-      {(distVariant === "v1" && !forceV2) && (
-        <div
-          onMouseDown={handleDividerMouseDown}
-          className={cn(
-            "w-1 cursor-col-resize shrink-0 select-none transition-colors",
-            isDragging ? "bg-foreground/40" : "bg-border hover:bg-foreground/40",
-          )}
-        />
-      )}
-
       {/* ── Right pane: Distribution ─────────────────────────────────────────── */}
       <div
-        style={(distVariant === "v1" && !forceV2) ? { width: `${100 - leftWidth}%` } : undefined}
-        className={cn(
-          "h-full overflow-y-auto px-5 py-4 min-w-0 border-l border-border",
-          (distVariant === "v2" || forceV2) && "w-[280px] flex-shrink-0"
-        )}
+        className="h-full overflow-y-auto px-5 py-4 min-w-0 border-l border-border/50 w-[300px] flex-shrink-0"
       >
         {hasCatalogueAccounts ? (
           /* Catalogue (DPA) mode — editable campaign-based configuration */
@@ -1136,22 +1078,82 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Right pane section eyebrow */}
+            {/* ── Live preview (hero) — how ads divide across the selected account(s) ── */}
+            <LivePreviewCard flow={flow} currency={currency} />
+
+            {/* Distribution controls eyebrow */}
             <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground block">
               Distribution
             </span>
 
-            {/* ── 0. Live preview — how ads divide ────────────────────────── */}
-            <LivePreviewCard flow={flow} currency={currency} />
-
             {/* ── 1. Page split ───────────────────────────────────────────── */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[13px] font-semibold text-foreground tracking-[-0.01em]">
                   Page split
                 </span>
                 <DistributionSectionChip flow={flow} section="pageDistribution" />
+                {capErrors.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSplitModalOpen(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(255,77,79,0.10)] border border-[rgba(255,77,79,0.25)] hover:bg-[rgba(255,77,79,0.16)] transition-colors"
+                  >
+                    <svg
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#cf1322"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden
+                    >
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <span className="font-mono text-[10px] font-bold text-[#cf1322] uppercase tracking-[0.05em]">
+                      {capErrors.length} {capErrors.length === 1 ? "page over cap" : "pages over cap"}
+                    </span>
+                  </button>
+                )}
+                {capErrors.length === 0 && pageDemand.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSplitModalOpen(true)}
+                    className="flex items-center gap-1 text-[rgba(15,15,12,0.35)] dark:text-[rgba(255,255,255,0.35)] hover:text-[rgba(15,15,12,0.55)] dark:hover:text-[rgba(255,255,255,0.55)] transition-colors"
+                    title="View page capacity"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      aria-hidden
+                    >
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="9" y1="21" x2="9" y2="9" />
+                    </svg>
+                    <span className="font-mono text-[9px]">Capacity</span>
+                  </button>
+                )}
               </div>
+
+              {/* Page split error modal */}
+              <PageSplitErrorModal
+                open={splitModalOpen}
+                onClose={() => setSplitModalOpen(false)}
+                pageDemand={pageDemand}
+                currentMode={plan.pageDistribution ?? "fill_first"}
+                onApplyFix={(mode) => patch({ pageDistribution: mode })}
+              />
+
               <div className="grid grid-cols-2 gap-3">
                 {PAGE_SPLIT_OPTIONS.map((opt) => {
                   const on = plan.pageDistribution === opt.id;
@@ -1200,6 +1202,41 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                   );
                 })}
               </div>
+
+              {/* ── Duplicate level sub-option ───────────────────────────────── */}
+              {plan.pageDistribution === 'duplicate' && (
+                <div className="mt-3 space-y-1.5">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[rgba(15,15,12,0.40)] dark:text-[rgba(255,255,255,0.40)] font-semibold">Duplicate at level</p>
+                  <div className="flex gap-1.5">
+                    {([
+                      { value: 'ad', label: 'Ads', desc: 'If ad set has space' },
+                      { value: 'adset', label: 'Ad Sets', desc: 'One ad set per page' },
+                      { value: 'campaign', label: 'Campaigns', desc: 'One campaign per page' },
+                    ] as const).map(opt => {
+                      const active = (plan.duplicateLevel ?? 'ad') === opt.value;
+                      return (
+                        <button key={opt.value} type="button"
+                          onClick={() => patch({ duplicateLevel: opt.value })}
+                          className={cn(
+                            'flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border flex-1 text-center transition-colors',
+                            active
+                              ? 'border-[#8FB821] bg-[#F5FBE2] dark:bg-[#1D2A09]'
+                              : 'border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] hover:border-[#8FB821]/50'
+                          )}>
+                          <span className={cn('text-[11px] font-semibold',
+                            active ? 'text-[#5B7611] dark:text-[#C3E165]' : 'text-[rgba(15,15,12,0.75)] dark:text-[rgba(255,255,255,0.75)]'
+                          )}>
+                            {opt.label}
+                          </span>
+                          <span className="font-mono text-[8px] text-[rgba(15,15,12,0.40)] dark:text-[rgba(255,255,255,0.40)] leading-tight">
+                            {opt.desc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── 2. Creative distribution ──────────────────────────────────── */}
@@ -1209,6 +1246,53 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                   Creative distribution
                 </span>
                 <DistributionSectionChip flow={flow} section="spread" />
+              </div>
+              {/* Creative distribution warning */}
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400">
+                  <circle cx="8" cy="8" r="7.25" stroke="currentColor" strokeWidth="1.25"/>
+                  <path d="M8 4.5v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="8" cy="11" r="0.75" fill="currentColor"/>
+                </svg>
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  <p className="text-[12px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                    Creatives are assigned to slots by position at your chosen distribution level.{" "}
+                    <strong className="font-semibold">Too few → they repeat. Too many → extras are ignored.</strong>
+                  </p>
+                  <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Example</p>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {["5 creatives","1 Campaign","1 Adset","3 Ads"].map(t => (
+                        <span key={t} className="font-mono text-[11px] bg-muted/60 border border-border rounded-md px-2 py-0.5 text-muted-foreground">{t}</span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-muted-foreground">Dist. level</span>
+                      <span className="font-mono text-[10px] font-semibold bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded px-2 py-0.5">Ads</span>
+                      <span className="font-mono text-[10px] text-muted-foreground">→ 3 slots total</span>
+                    </div>
+                    <div className="border-t border-border pt-2 space-y-1">
+                      {[["Slot 1","Creative 1","live"],["Slot 2","Creative 2","live"],["Slot 3","Creative 3","live"]].map(([slot,cr,status]) => (
+                        <div key={slot} className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] text-muted-foreground w-10">{slot}</span>
+                          <span className="text-[10px] text-muted-foreground">→</span>
+                          <span className="font-mono text-[11px] text-foreground/70">{cr}</span>
+                          <span className="ml-auto font-mono text-[9px] bg-green-500/10 text-green-600 dark:text-green-400 rounded px-1.5 py-0.5">{status}</span>
+                        </div>
+                      ))}
+                      <div className="border-t border-dashed border-border my-1" />
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] text-muted-foreground w-10">C4, C5</span>
+                        <span className="text-[10px] text-muted-foreground">→</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">no slot available</span>
+                        <span className="ml-auto font-mono text-[9px] bg-red-500/10 text-red-600 dark:text-red-400 rounded px-1.5 py-0.5">ignored</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="font-mono text-[10px] text-muted-foreground leading-relaxed">
+                    Switch dist. level to <strong className="text-foreground/70">Adset</strong> → 1 slot total, only Creative 1 goes live.
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {MAPPING_OPTIONS.map((opt) => {
@@ -1269,6 +1353,12 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
       </div>
 
       </div>
+
+      <CreativeImportModal
+        open={recentLaunchOpen}
+        onClose={() => setRecentLaunchOpen(false)}
+        onImport={(patch) => flow.patch(patch)}
+      />
     </div>
   );
 }

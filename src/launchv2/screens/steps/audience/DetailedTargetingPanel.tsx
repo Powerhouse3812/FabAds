@@ -1,25 +1,32 @@
 /**
  * DetailedTargetingPanel — Meta flexible_spec interest/behavior/demographic targeting.
  *
- * Three stacked groups:
- *   1. Include — broad interests + behaviors + demographics (OR within group)
- *   2. Narrow — must also match (AND condition)
- *   3. Exclude — exclusion group
+ * Restructured (Figma node 14768-40035) into a 3-row collapsible accordion:
+ *   1. Location   — reuses LocationPicker (same geoLocations draft as the
+ *                    Audience tab; both read/write the same underlying state)
+ *   2. Interest   — interest + demographic terms (OR within group)
+ *   3. Behaviour  — behavior terms (OR within group)
+ * All three rows collapsed by default.
+ *
+ * Below the accordion: optional "Narrow audience" (AND) and "Exclude people"
+ * groups — unchanged from the previous implementation, just relocated.
  *
  * Each item shows: name + category chip + mock reach estimate.
  *
  * Special ad category: entire panel is disabled + amber banner.
  *
- * Writes to: targeting.flexibleSpec and targeting.exclusions
+ * Writes to: targeting.flexibleSpec, targeting.exclusions, and (via the
+ * reused LocationPicker) targeting.geoLocations / excludedGeoLocations.
  *
  * NOTE: Mock interest/behavior/demographic data only. Real Meta targeting-search
  * API wiring is deferred.
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Search, X, AlertTriangle, ChevronDown } from "lucide-react";
+import { Search, X, AlertTriangle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { TargetingGroup, TargetingTermRef } from "../../../types";
+import type { TargetingGroup, TargetingTermRef, GeoLocations } from "../../../types";
+import LocationPicker from "./LocationPicker";
 
 interface DetailedTargetingPanelProps {
   flexibleSpec: TargetingGroup[];
@@ -27,6 +34,11 @@ interface DetailedTargetingPanelProps {
   onChangeFlexibleSpec: (spec: TargetingGroup[]) => void;
   onChangeExclusions: (excl: TargetingGroup) => void;
   specialAdCategoryActive?: boolean;
+  /** Location accordion row reuses the same geoLocations draft as the Audience tab. */
+  geoLocations: GeoLocations;
+  excludedGeoLocations?: Partial<GeoLocations>;
+  onChangeGeoIncluded: (g: GeoLocations) => void;
+  onChangeGeoExcluded: (g: Partial<GeoLocations>) => void;
 }
 
 type TermCategory = "Interest" | "Behavior" | "Demographic";
@@ -106,36 +118,65 @@ function removeFromGroup(group: TargetingGroup, termId: string): TargetingGroup 
   };
 }
 
+/* ── Accordion row shell ─────────────────────────────────────────────────── */
+
+function AccordionRow({
+  label,
+  badge,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  badge?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden">
+      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+        <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <span className="flex-1 text-[13px] font-medium text-foreground">{label}</span>
+        {badge}
+      </button>
+      {open && <div className="border-t border-[#e7e5dc] dark:border-[#2a2a2a] px-4 py-4 space-y-3">{children}</div>}
+    </div>
+  );
+}
+
+/* ── Category-filtered term search + chips ───────────────────────────────── */
+
 function TermSearchBox({
   group,
+  categories,
   existingIds,
   onAdd,
   onRemove,
   disabled,
+  placeholder,
 }: {
   group: TargetingGroup;
+  categories: TermCategory[];
   existingIds: Set<string>;
   onAdd: (id: string, name: string) => void;
   onRemove: (id: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const categorySet = new Set(categories);
 
-  const filtered = MOCK_TERMS.filter(
-    (t) =>
-      !existingIds.has(t.id) &&
-      t.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const pool = MOCK_TERMS.filter((t) => categorySet.has(t.category));
+  const filtered = pool.filter((t) => !existingIds.has(t.id) && t.name.toLowerCase().includes(query.toLowerCase()));
 
-  const allRefs = groupToRefs(group);
+  const chipRefs = groupToRefs(group).filter((r) => categorySet.has(termCategory(r.id)));
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -143,7 +184,7 @@ function TermSearchBox({
 
   return (
     <div ref={wrapRef} className={cn("relative", disabled && "pointer-events-none opacity-40")}>
-      <div className="flex items-center gap-2 rounded-[28px] border border-border bg-background px-3 py-1.5">
+      <div className="flex items-center gap-2 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] px-3 py-1.5">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
           type="text"
@@ -154,71 +195,54 @@ function TermSearchBox({
           }}
           onFocus={() => !disabled && setOpen(true)}
           disabled={disabled}
-          placeholder="Search interests, behaviors, demographics…"
+          placeholder={placeholder}
           className="w-full bg-transparent text-[13px] text-foreground placeholder-muted-foreground focus:outline-none disabled:cursor-not-allowed"
         />
       </div>
 
       {open && !disabled && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-border bg-[#FFFFFF] dark:bg-[#1E1E23] shadow-md">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] shadow-md">
           {filtered.length === 0 ? (
             <p className="px-3 py-3 text-[12px] font-mono text-muted-foreground">
               {query ? `No results for "${query}"` : "All terms added"}
             </p>
           ) : (
-            (["Interest", "Behavior", "Demographic"] as TermCategory[]).map((cat) => {
-              const catTerms = filtered.filter((t) => t.category === cat);
-              if (catTerms.length === 0) return null;
-              return (
-                <div key={cat}>
-                  <div className="px-3 py-1.5 text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground bg-muted/30">
-                    {cat === "Interest" ? "Interests" : cat === "Behavior" ? "Behaviors" : "Demographics"}
-                  </div>
-                  {catTerms.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        onAdd(t.id, t.name);
-                        setQuery("");
-                        setOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted transition-colors"
-                    >
-                      <span className="truncate text-[13px]">{t.name}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-mono tabular-nums text-muted-foreground">{t.reach}</span>
-                        <span className={cn("text-[10px] font-mono font-semibold uppercase tracking-wide", CATEGORY_COLOR[t.category])}>
-                          {t.category}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+            filtered.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  onAdd(t.id, t.name);
+                  setQuery("");
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted transition-colors"
+              >
+                <span className="truncate text-[13px]">{t.name}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-mono tabular-nums text-muted-foreground">{t.reach}</span>
+                  <span className={cn("text-[10px] font-mono font-semibold uppercase tracking-wide", CATEGORY_COLOR[t.category])}>
+                    {t.category}
+                  </span>
                 </div>
-              );
-            })
+              </button>
+            ))
           )}
         </div>
       )}
 
-      {/* Added chips */}
-      {allRefs.length > 0 && (
+      {chipRefs.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
-          {allRefs.map((ref) => {
+          {chipRefs.map((ref) => {
             const opt = MOCK_TERMS.find((t) => t.id === ref.id);
             const cat = opt?.category ?? "Interest";
             return (
               <div
                 key={ref.id}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-sm"
+                className="flex items-center gap-1.5 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#F5FBE2] dark:bg-[#1D2A09] px-3 py-1 text-sm"
               >
-                <span className="text-[12px]">{ref.name}</span>
-                <span className={cn("text-[10px] font-mono font-semibold uppercase", CATEGORY_COLOR[cat])}>
-                  {cat}
-                </span>
-                {opt?.reach && (
-                  <span className="text-[10px] font-mono tabular-nums text-muted-foreground">{opt.reach}</span>
-                )}
+                <span className="text-[12px] text-[#5B7611] dark:text-[#C3E165]">{ref.name}</span>
+                {opt?.reach && <span className="text-[10px] font-mono tabular-nums text-muted-foreground">{opt.reach}</span>}
                 <button
                   type="button"
                   onClick={() => onRemove(ref.id)}
@@ -241,8 +265,13 @@ export default function DetailedTargetingPanel({
   onChangeFlexibleSpec,
   onChangeExclusions,
   specialAdCategoryActive,
+  geoLocations,
+  excludedGeoLocations,
+  onChangeGeoIncluded,
+  onChangeGeoExcluded,
 }: DetailedTargetingPanelProps) {
   const locked = specialAdCategoryActive === true;
+  const [openRow, setOpenRow] = useState<"location" | "interest" | "behaviour" | null>(null);
   const [showNarrow, setShowNarrow] = useState(false);
   const [showExclude, setShowExclude] = useState(false);
 
@@ -250,7 +279,6 @@ export default function DetailedTargetingPanel({
   const includeGroup: TargetingGroup = flexibleSpec[0] ?? emptyGroup();
   const narrowGroup: TargetingGroup = flexibleSpec[1] ?? emptyGroup();
 
-  // Collect all IDs already in include group to prevent double-add in narrow
   const includeIds = new Set(groupToRefs(includeGroup).map((r) => r.id));
   const narrowIds = new Set(groupToRefs(narrowGroup).map((r) => r.id));
   const excludeIds = new Set(groupToRefs(exclusions).map((r) => r.id));
@@ -265,6 +293,9 @@ export default function DetailedTargetingPanel({
     onChangeFlexibleSpec([includeGroup, updated]);
   }
 
+  const interestCount = includeGroup.interests.length + includeGroup.demographics.length;
+  const behaviourCount = includeGroup.behaviors.length;
+
   return (
     <div className="space-y-4">
       {locked && (
@@ -276,19 +307,64 @@ export default function DetailedTargetingPanel({
         </div>
       )}
 
-      {/* Group 1: Include */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
-          Include people who match
-        </p>
+      {/* Row 1: Location */}
+      <AccordionRow
+        label="Location"
+        open={openRow === "location"}
+        onToggle={() => setOpenRow((p) => (p === "location" ? null : "location"))}
+      >
+        <LocationPicker
+          geoLocations={geoLocations}
+          excludedGeoLocations={excludedGeoLocations}
+          onChangeIncluded={onChangeGeoIncluded}
+          onChangeExcluded={onChangeGeoExcluded}
+          specialAdCategoryActive={specialAdCategoryActive}
+        />
+      </AccordionRow>
+
+      {/* Row 2: Interest */}
+      <AccordionRow
+        label="Interest"
+        badge={
+          interestCount > 0 ? (
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{interestCount}</span>
+          ) : undefined
+        }
+        open={openRow === "interest"}
+        onToggle={() => setOpenRow((p) => (p === "interest" ? null : "interest"))}
+      >
         <TermSearchBox
           group={includeGroup}
+          categories={["Interest", "Demographic"]}
           existingIds={includeIds}
           onAdd={(id, name) => updateInclude(addToGroup(includeGroup, id, name))}
           onRemove={(id) => updateInclude(removeFromGroup(includeGroup, id))}
           disabled={locked}
+          placeholder="Search interests, demographics…"
         />
-      </div>
+      </AccordionRow>
+
+      {/* Row 3: Behaviour */}
+      <AccordionRow
+        label="Behaviour"
+        badge={
+          behaviourCount > 0 ? (
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{behaviourCount}</span>
+          ) : undefined
+        }
+        open={openRow === "behaviour"}
+        onToggle={() => setOpenRow((p) => (p === "behaviour" ? null : "behaviour"))}
+      >
+        <TermSearchBox
+          group={includeGroup}
+          categories={["Behavior"]}
+          existingIds={includeIds}
+          onAdd={(id, name) => updateInclude(addToGroup(includeGroup, id, name))}
+          onRemove={(id) => updateInclude(removeFromGroup(includeGroup, id))}
+          disabled={locked}
+          placeholder="Search behaviors…"
+        />
+      </AccordionRow>
 
       {/* Narrow group toggle */}
       {!locked && (
@@ -298,22 +374,21 @@ export default function DetailedTargetingPanel({
           className="flex items-center gap-1 text-[12px] font-mono text-[#5B7611] dark:text-[#C3E165] hover:underline underline-offset-2 transition-colors"
         >
           {showNarrow ? "Remove narrow audience" : "+ Narrow audience (must also match)"}
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showNarrow && "rotate-180")} />
         </button>
       )}
 
-      {/* Group 2: Narrow (AND) */}
       {showNarrow && !locked && (
-        <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
+        <div className="space-y-2 rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-muted/20 px-3 py-3">
           <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
             Narrow audience — must also match
           </p>
           <TermSearchBox
             group={narrowGroup}
+            categories={["Interest", "Behavior", "Demographic"]}
             existingIds={new Set([...includeIds, ...narrowIds])}
             onAdd={(id, name) => updateNarrow(addToGroup(narrowGroup, id, name))}
             onRemove={(id) => updateNarrow(removeFromGroup(narrowGroup, id))}
-            disabled={false}
+            placeholder="Search interests, behaviors, demographics…"
           />
         </div>
       )}
@@ -330,16 +405,17 @@ export default function DetailedTargetingPanel({
       )}
 
       {showExclude && !locked && (
-        <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 px-3 py-3">
+        <div className="space-y-2 rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-muted/20 px-3 py-3">
           <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
             Exclude people who match
           </p>
           <TermSearchBox
             group={exclusions}
+            categories={["Interest", "Behavior", "Demographic"]}
             existingIds={new Set([...includeIds, ...narrowIds, ...excludeIds])}
             onAdd={(id, name) => onChangeExclusions(addToGroup(exclusions, id, name))}
             onRemove={(id) => onChangeExclusions(removeFromGroup(exclusions, id))}
-            disabled={false}
+            placeholder="Search interests, behaviors, demographics…"
           />
         </div>
       )}

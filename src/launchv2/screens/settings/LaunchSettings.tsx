@@ -322,7 +322,7 @@ export function LaunchSettings() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#FAFAF7] dark:bg-[#18181B]">
+    <div className="h-full overflow-y-auto bg-[#FAFAF7] dark:bg-[#18181B]">
       {/* ── Page header ── */}
       <div className="border-b border-[#e7e5dc] dark:border-[#2a2a2a] px-8 py-6">
         <h1 className="text-[19px] font-bold tracking-[-0.01em] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)]">
@@ -415,35 +415,6 @@ export function LaunchSettings() {
                 </option>
               </select>
             </Field>
-          </div>
-
-          {/* ── Section 2: Advantage+ ── */}
-          <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#FAFAF7] dark:bg-[#18181B] p-5 space-y-4">
-            <SectionHeading>Advantage+</SectionHeading>
-
-            <div className="divide-y divide-[#efeee7] dark:divide-[#1f1f1f]">
-              <SwitchRow
-                id="advantagePlus"
-                label="Advantage+ campaign"
-                description="Meta auto-optimises targeting, placements and creative"
-                checked={form.advantagePlus}
-                onCheckedChange={(v) => patch({ advantagePlus: v })}
-              />
-              <SwitchRow
-                id="advantageAudience"
-                label="Advantage audience"
-                description="Meta expands beyond defined audience when it sees signal"
-                checked={form.advantageAudience}
-                onCheckedChange={(v) => patch({ advantageAudience: v })}
-              />
-              <SwitchRow
-                id="advantageCreative"
-                label="Advantage creative"
-                description="Meta applies creative enhancements per placement"
-                checked={form.advantageCreative}
-                onCheckedChange={(v) => patch({ advantageCreative: v })}
-              />
-            </div>
           </div>
 
           {/* ── Section 3: Attribution ── */}

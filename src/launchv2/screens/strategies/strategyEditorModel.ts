@@ -96,6 +96,71 @@ export const ATTRIBUTION_OPTIONS: OptionItem<AttributionWindow>[] = [
 export const SPECIAL_CATEGORY_OPTIONS: OptionItem<SpecialAdCategory>[] =
   SPECIAL_CATEGORIES.map((c) => ({ value: c.id, label: c.label }));
 
+/** Destination type options. */
+export const DESTINATION_TYPE_OPTIONS: OptionItem[] = [
+  { value: "WEBSITE", label: "Website" },
+  { value: "APP", label: "App" },
+  { value: "MESSENGER", label: "Messenger" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+  { value: "INSTAGRAM_DIRECT", label: "Instagram DM" },
+  { value: "ON_AD", label: "Instant Form / On-ad" },
+  { value: "PHONE_CALL", label: "Phone Call" },
+];
+
+/** Optimization goal options. */
+export const OPTIMIZATION_GOAL_OPTIONS: OptionItem[] = [
+  { value: "OFFSITE_CONVERSIONS", label: "Conversions" },
+  { value: "LINK_CLICKS", label: "Link clicks" },
+  { value: "LANDING_PAGE_VIEWS", label: "Landing page views" },
+  { value: "REACH", label: "Reach" },
+  { value: "IMPRESSIONS", label: "Impressions" },
+  { value: "VALUE", label: "Value (ROAS)" },
+  { value: "LEAD_GENERATION", label: "Lead generation" },
+  { value: "POST_ENGAGEMENT", label: "Post engagement" },
+  { value: "VIDEO_VIEWS", label: "Video views" },
+  { value: "APP_INSTALLS", label: "App installs" },
+];
+
+/** Budget period options. */
+export const BUDGET_PERIOD_OPTIONS: OptionItem[] = [
+  { value: "daily", label: "Daily" },
+  { value: "lifetime", label: "Lifetime" },
+];
+
+/** Account distribution options. */
+export const ACCOUNT_DISTRIBUTION_OPTIONS: OptionItem[] = [
+  { value: "equal", label: "Equal split" },
+  { value: "duplicate", label: "Duplicate all" },
+  { value: "custom", label: "Custom weights" },
+];
+
+/** CTA options (from settingsRegistry — most complete list). */
+export const CTA_OPTIONS: OptionItem[] = [
+  { value: "LEARN_MORE", label: "Learn more" },
+  { value: "SHOP_NOW", label: "Shop now" },
+  { value: "BUY_NOW", label: "Buy now" },
+  { value: "SIGN_UP", label: "Sign up" },
+  { value: "BOOK_NOW", label: "Book now" },
+  { value: "GET_OFFER", label: "Get offer" },
+  { value: "DOWNLOAD", label: "Download" },
+  { value: "SUBSCRIBE", label: "Subscribe" },
+  { value: "CONTACT_US", label: "Contact us" },
+  { value: "APPLY_NOW", label: "Apply now" },
+  { value: "GET_QUOTE", label: "Get quote" },
+  { value: "SEND_MESSAGE", label: "Send message" },
+  { value: "WHATSAPP_MESSAGE", label: "WhatsApp" },
+  { value: "CALL_NOW", label: "Call now" },
+  { value: "DONATE_NOW", label: "Donate now" },
+  { value: "WATCH_MORE", label: "Watch more" },
+  { value: "INSTALL_APP", label: "Install app" },
+];
+
+/** Placement mode options. */
+export const PLACEMENT_MODE_OPTIONS: OptionItem[] = [
+  { value: "advantage", label: "Advantage+ placements (Auto)" },
+  { value: "manual", label: "Manual placements" },
+];
+
 /* ------------------------------------------------------------------ */
 /*  Label helpers                                                       */
 /* ------------------------------------------------------------------ */
@@ -157,30 +222,39 @@ export function formatBudget(plan: Partial<PlanV2>): string {
 
 export type SectionId =
   | "objective"
+  | "creative"
+  | "conversion"
   | "budget"
+  | "audience"
+  | "placements"
+  | "accounts"
   | "structure"
   | "distribution"
-  | "audience"
-  | "accounts"
+  | "scheduling"
   | "attribution"
+  | "naming"
   | "special";
 
 export interface TopicSection {
   id: SectionId;
   label: string;
   required: boolean;
-  launchStep: 1 | 2 | 3 | 4;
 }
 
 export const TOPIC_SECTIONS: TopicSection[] = [
-  { id: "objective", label: "Objective & intent", required: true, launchStep: 1 },
-  { id: "budget", label: "Budget & bidding", required: true, launchStep: 2 },
-  { id: "structure", label: "Structure", required: false, launchStep: 3 },
-  { id: "distribution", label: "Creative & page split", required: false, launchStep: 3 },
-  { id: "audience", label: "Audience", required: false, launchStep: 2 },
-  { id: "accounts", label: "Accounts & pages", required: false, launchStep: 2 },
-  { id: "attribution", label: "Attribution window", required: false, launchStep: 2 },
-  { id: "special", label: "Special ad category", required: false, launchStep: 2 },
+  { id: "objective",    label: "Objective & intent",   required: true },
+  { id: "creative",     label: "Creative & copy",       required: false },
+  { id: "conversion",   label: "Conversion & pixel",    required: false },
+  { id: "budget",       label: "Budget & bidding",      required: true },
+  { id: "audience",     label: "Audience",              required: false },
+  { id: "placements",   label: "Placements",            required: false },
+  { id: "accounts",     label: "Accounts & pages",      required: false },
+  { id: "structure",    label: "Structure",             required: false },
+  { id: "distribution", label: "Distribution",          required: false },
+  { id: "scheduling",   label: "Scheduling",            required: false },
+  { id: "attribution",  label: "Attribution",           required: false },
+  { id: "naming",       label: "Naming",                required: false },
+  { id: "special",      label: "Special categories",    required: false },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -210,20 +284,30 @@ export function isSectionPreset(strategy: LaunchStrategy, id: SectionId): boolea
   switch (id) {
     case "objective":
       return !!plan.objective;
+    case "creative":
+      return !!(plan.format || plan.adCopy?.primaryText);
+    case "conversion":
+      return !!(plan.optimizationGoal || plan.destinationType);
     case "budget":
       return (plan.budgetAmount ?? 0) > 0;
+    case "audience":
+      return !!(plan.targetingTemplateId || plan.advantageAudience || plan.useCustomAudience);
+    case "placements":
+      return !!plan.placementMode;
+    case "accounts":
+      return (plan.targets?.length ?? 0) > 0;
     case "structure":
       return !!plan.structure;
     case "distribution":
-      return !!plan.spread || !!plan.pageDistribution;
-    case "audience":
-      return !!plan.targetingTemplateId || plan.advantageAudience === true;
-    case "accounts":
-      return (plan.targets?.length ?? 0) > 0;
+      return !!(plan.spread || plan.pageDistribution);
+    case "scheduling":
+      return !!plan.scheduledFor;
     case "attribution":
       return !!plan.attribution;
+    case "naming":
+      return !!(plan.namingPatterns?.campaign || plan.namingPattern);
     case "special":
-      return plan.specialAdDeclared === true;
+      return (plan.specialAdCategories?.length ?? 0) > 0;
     default:
       return false;
   }
@@ -247,7 +331,7 @@ export function stepCompletion(strategy: LaunchStrategy): StepCompletion {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Summary chips                                                       */
+/*  Summary chips (kept for backwards compat)                          */
 /* ------------------------------------------------------------------ */
 
 export interface SummaryChip {
@@ -258,24 +342,16 @@ export interface SummaryChip {
 
 const ASK_AT_LAUNCH = "ask at launch";
 
-/**
- * Ordered chip list for the editable summary sentence. Each chip names the
- * section it edits; the COMPONENT supplies the connecting words. For sections
- * that are not preset (ask-at-launch / empty), a single muted "ask at launch"
- * chip is emitted instead of the value.
- */
 export function summaryChips(strategy: LaunchStrategy): SummaryChip[] {
   const plan = strategy.plan;
   const chips: SummaryChip[] = [];
 
-  // Objective
   if (isSectionPreset(strategy, "objective")) {
     chips.push({ sectionId: "objective", text: objectiveLabel(plan.objective) });
   } else {
     chips.push({ sectionId: "objective", text: ASK_AT_LAUNCH, muted: true });
   }
 
-  // Budget (amount + mode share the "budget" section)
   if (isSectionPreset(strategy, "budget")) {
     chips.push({ sectionId: "budget", text: formatBudget(plan) });
     if (plan.budgetMode) {
@@ -285,12 +361,10 @@ export function summaryChips(strategy: LaunchStrategy): SummaryChip[] {
     chips.push({ sectionId: "budget", text: ASK_AT_LAUNCH, muted: true });
   }
 
-  // Format lives on the objective/start step — render it as an objective-section chip.
   if (plan.format) {
-    chips.push({ sectionId: "objective", text: formatLabel(plan.format) });
+    chips.push({ sectionId: "creative", text: formatLabel(plan.format) });
   }
 
-  // Structure (campaigns × ad sets × ads)
   if (isSectionPreset(strategy, "structure")) {
     const t = structureTotals(plan);
     chips.push({
@@ -301,18 +375,16 @@ export function summaryChips(strategy: LaunchStrategy): SummaryChip[] {
     chips.push({ sectionId: "structure", text: ASK_AT_LAUNCH, muted: true });
   }
 
-  // Audience
   if (isSectionPreset(strategy, "audience")) {
-    const tplName = plan.targetingTemplateId;
+    const tplId = plan.targetingTemplateId;
     chips.push({
       sectionId: "audience",
-      text: tplName && !plan.advantageAudience ? audienceTemplateLabel(tplName) : "broad",
+      text: tplId && !plan.advantageAudience ? audienceTemplateLabel(tplId) : "broad",
     });
   } else {
     chips.push({ sectionId: "audience", text: ASK_AT_LAUNCH, muted: true });
   }
 
-  // Distribution (spread is the headline value)
   if (isSectionPreset(strategy, "distribution")) {
     chips.push({
       sectionId: "distribution",
@@ -325,11 +397,6 @@ export function summaryChips(strategy: LaunchStrategy): SummaryChip[] {
   return chips;
 }
 
-/**
- * Best-effort human label for a targeting template id. The component owns the
- * real template registry; here we just de-prefix the id so the chip is readable
- * without importing the template list (keeps the model dependency-light).
- */
 function audienceTemplateLabel(templateId: string): string {
   const known: Record<string, string> = {
     tpl_us_broad: "US Broad",

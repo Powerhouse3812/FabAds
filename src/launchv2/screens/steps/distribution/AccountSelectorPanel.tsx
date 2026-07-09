@@ -122,6 +122,14 @@ export default function AccountSelectorPanel({
 
   const budgetLabel = formatBudget(plan);
 
+  // ── Footer totals (broadcast model: per-account budget × selected count) ──
+  const selectedList = uniqueAcctIds.filter((id) => selectedIds.has(id));
+  const totalAds = selectedList.reduce((sum, id) => {
+    const s = plan.structureByAccount[id] ?? plan.structure;
+    return sum + s.campaigns * s.adSetsPerCampaign * s.adsPerAdSet;
+  }, 0);
+  const totalDaily = plan.budgetAmount * selectedList.length;
+
   return (
     <div className="flex h-full min-h-0 w-[240px] flex-shrink-0 flex-col border-r border-border/60 bg-muted/20">
       {/* ── Sticky header ── */}
@@ -160,10 +168,10 @@ export default function AccountSelectorPanel({
                 }
               }}
               className={cn(
-                "group flex min-h-[40px] cursor-pointer items-center gap-2.5 px-3 py-2 transition-colors",
+                "group flex min-h-[44px] cursor-pointer items-center gap-2.5 border-l-2 px-3 py-2 transition-colors",
                 isActive
-                  ? "bg-[#F5FBE2] dark:bg-[#1D2A09]"
-                  : "bg-transparent hover:bg-muted/30",
+                  ? "border-l-[#8FB821] bg-[#F5FBE2] dark:bg-[#1D2A09]"
+                  : "border-l-transparent bg-transparent hover:bg-muted/30",
               )}
             >
               {/* Checkbox — stops propagation so it toggles multi-select */}
@@ -181,6 +189,19 @@ export default function AccountSelectorPanel({
                     : "border-border",
                 )}
               />
+
+              {/* Monogram avatar */}
+              <span
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-semibold uppercase transition-colors",
+                  isActive
+                    ? "bg-[#8FB821] text-[#121212]"
+                    : "bg-foreground/[0.06] text-muted-foreground",
+                )}
+                aria-hidden
+              >
+                {name.charAt(0)}
+              </span>
 
               {/* Name + budget */}
               <div className="min-w-0 flex-1">
@@ -204,11 +225,16 @@ export default function AccountSelectorPanel({
         })}
       </div>
 
-      {/* ── Footer count ── */}
-      <div className="border-t border-border/60 px-3 py-2">
-        <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-          {selectedIds.size} of {uniqueAcctIds.length} selected
+      {/* ── Footer totals ribbon ── */}
+      <div className="flex items-center justify-between gap-2 border-t border-border/60 bg-[#F0F0EC] px-3 py-2 dark:bg-[#1B1B1F]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.05em] tabular-nums text-muted-foreground">
+          {selectedIds.size}/{uniqueAcctIds.length} sel
         </span>
+        {selectedList.length > 0 && (
+          <span className="font-mono text-[10px] tabular-nums text-foreground">
+            ₹{totalDaily.toLocaleString("en-IN")}/day · {totalAds} ads
+          </span>
+        )}
       </div>
     </div>
   );

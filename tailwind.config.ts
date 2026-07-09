@@ -168,7 +168,7 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Inter',
+  				'Geist',
   				'ui-sans-serif',
   				'system-ui',
   				'sans-serif',
@@ -188,6 +188,7 @@ export default {
   				'serif'
   			],
   			mono: [
+  				'Geist Mono',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',

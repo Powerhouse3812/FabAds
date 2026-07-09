@@ -87,7 +87,7 @@ function AudienceCombobox({
 
   return (
     <div ref={wrapRef} className="relative">
-      <div className="flex items-center gap-2 rounded-[28px] border border-border bg-background px-3 py-1.5">
+      <div className="flex items-center gap-2 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#8FB821]/30 transition-shadow">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
           type="text"
@@ -103,7 +103,7 @@ function AudienceCombobox({
       </div>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-2xl border border-border bg-[#FFFFFF] dark:bg-[#1E1E23] shadow-md">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] shadow-md">
           {filtered.length === 0 && query.length > 0 ? (
             <p className="px-3 py-3 text-[12px] font-mono text-muted-foreground">No matches for "{query}"</p>
           ) : filtered.length === 0 ? (
@@ -179,9 +179,14 @@ function AudienceCombobox({
             return (
               <div
                 key={a.id}
-                className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-sm"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm",
+                  isLal
+                    ? "border-blue-500/30 bg-blue-500/10"
+                    : "border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#F5FBE2] dark:bg-[#1D2A09]"
+                )}
               >
-                <span className="text-[12px]">{a.name}</span>
+                <span className={cn("text-[12px]", isLal ? "text-foreground" : "text-[#5B7611] dark:text-[#C3E165]")}>{a.name}</span>
                 {opt && (
                   <span
                     className={cn(
@@ -260,14 +265,14 @@ export default function CustomLookalikeRow({
         <button
           type="button"
           onClick={() => setShowExcluded((p) => !p)}
-          className="text-[12px] font-mono text-[#5B7611] dark:text-[#C3E165] underline-offset-2 hover:underline transition-colors"
+          className="text-[11px] font-mono text-[#5B7611] dark:text-[#C3E165] underline-offset-2 hover:underline transition-colors"
         >
           {showExcluded ? "Hide excluded audiences" : "+ Exclude audiences"}
         </button>
       </div>
 
       {showExcluded && (
-        <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3 space-y-2">
+        <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-muted/30 px-3 py-3 space-y-2">
           <p className="text-[11px] font-mono uppercase tracking-wide text-muted-foreground">Excluded audiences</p>
           <AudienceCombobox
             selected={excludedCustomAudiences}

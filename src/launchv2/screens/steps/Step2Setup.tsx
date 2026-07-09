@@ -20,6 +20,11 @@ import {
   Lock,
   Info,
   Shield,
+  DollarSign,
+  Target,
+  FlaskConical,
+  Tag,
+  Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +47,6 @@ import type { UseFlowV2 } from "../../state/useFlowV2";
 import {
   fieldPolicy,
   allowedBidStrategies,
-  isAdvantagePlus,
   specialCategoryActive,
   requiresPixel,
   cascade,
@@ -52,7 +56,7 @@ import {
 import {
   getTemplate,
 } from "../../data";
-import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal, PlanV2 } from "../../types";
+import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal } from "../../types";
 import { buildIssues } from "../review/reviewModel";
 import { AccountsPages } from "./setup/AccountsPages";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
@@ -67,6 +71,7 @@ import CopyFromRunning, {
 import TargetingTemplateSection from "./audience/TargetingTemplateSection";
 import SpecialAdCountryPicker from "./setup/SpecialAdCountryPicker";
 import { NomenclatureBuilder } from "../review/NomenclatureBuilder";
+import RecentLaunchModal from "./shared/RecentLaunchModal";
 
 /* ---- naming pattern input (campaign / adset level) ---- */
 
@@ -151,9 +156,9 @@ function StepSection({
       <div className="flex flex-col items-center pt-1.5">
         <span
           className={cn(
-            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+            "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 border-white transition-colors",
             complete
-              ? "border-primary bg-primary text-primary-foreground"
+              ? "bg-primary text-primary-foreground"
               : "border-border bg-muted",
           )}
         >
@@ -163,15 +168,15 @@ function StepSection({
       </div>
 
       {/* Right content */}
-      <div className="min-w-0 flex-1 pb-6">
+      <div className="min-w-0 flex-1 pb-8">
         <div className="flex w-full items-start justify-between gap-2 text-left">
           <span className="min-w-0">
             <span className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-foreground">{title}</span>
+              <span className="text-[15px] font-semibold leading-[18px] text-foreground">{title}</span>
               {badge}
             </span>
             {description && (
-              <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span>
+              <span className="mt-0.5 block text-[13px] leading-[18px] text-muted-foreground/80">{description}</span>
             )}
           </span>
         </div>
@@ -200,16 +205,20 @@ function AdvancedReveal({ label, children }: { label: string; children: React.Re
 /** Section §3 sub-group with ▸ chevron — surfaced (not Advanced). */
 function Subsection({
   label,
+  icon,
   defaultOpen = true,
   open: controlledOpen,
   onOpenChange,
+  trailing,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
+  icon?: React.ReactNode;
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
   complete?: boolean;
+  trailing?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
@@ -225,19 +234,23 @@ function Subsection({
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
       {/* Header — click to toggle */}
-      <button
-        type="button"
-        onClick={handleToggle}
-        className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/20"
-      >
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
-            open && "rotate-180",
-          )}
-        />
-        <span className="text-[13px] font-semibold text-foreground">{label}</span>
-      </button>
+      <div className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/20">
+        <button
+          type="button"
+          onClick={handleToggle}
+          className="flex flex-1 items-center gap-2 text-left"
+        >
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
+              open && "rotate-180",
+            )}
+          />
+          {icon}
+          <span className="flex items-baseline gap-1.5 text-[13px] font-semibold text-foreground">{label}</span>
+        </button>
+        {trailing}
+      </div>
 
       {/* Body */}
       {open && (
@@ -310,268 +323,8 @@ function Toggle({
 
 /* CustomAudienceUpload lives in AccountsPages now; removed local dead copy. */
 
-/* ---- Manual placement group ---- */
-
-const PLACEMENT_LABELS: Record<string, Record<string, string>> = {
-  facebook: {
-    feeds: "Feeds",
-    profileFeed: "Profile feed",
-    videoFeeds: "Video feeds",
-    inStreamVideos: "In-stream videos",
-    stories: "Stories",
-    reels: "Reels",
-    rightColumn: "Right column",
-    marketplace: "Marketplace",
-    searchResults: "Search results",
-    businessExplore: "Business Explore",
-    notifications: "Notifications",
-  },
-  instagram: {
-    feed: "Feed",
-    profileFeed: "Profile feed",
-    explore: "Explore",
-    exploreHome: "Explore home",
-    stories: "Stories",
-    reels: "Reels",
-    searchResults: "Search results",
-  },
-  audienceNetwork: {
-    nativeBannerInterstitial: "Native, banner & interstitial",
-    rewardedVideos: "Rewarded videos",
-  },
-  messenger: {
-    inbox: "Messenger inbox",
-    stories: "Stories",
-    sponsoredMessages: "Sponsored messages",
-  },
-  threads: {
-    feed: "Feed",
-  },
-};
-
-function PlacementGroup({
-  title,
-  platform,
-  placements,
-  onToggle,
-  defaultOpen = false,
-}: {
-  title: string;
-  icon: string;
-  platform: string;
-  placements: Record<string, boolean>;
-  onToggle: (key: string) => void;
-  defaultOpen?: boolean;
-}) {
-  const labels = PLACEMENT_LABELS[platform] ?? {};
-  const [open, setOpen] = useState(defaultOpen);
-  const checkedCount = Object.values(placements).filter(Boolean).length;
-  const totalCount = Object.keys(placements).length;
-
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      {/* Platform header row — click to toggle */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 hover:bg-muted/20 transition-colors"
-      >
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
-            open && "rotate-180",
-          )}
-        />
-        <span className="flex-1 text-left text-xs font-semibold text-foreground">{title}</span>
-        <span className="font-mono text-[10px] text-muted-foreground">
-          {checkedCount}/{totalCount}
-        </span>
-      </button>
-
-      {/* Placement checkboxes — 3-col grid */}
-      {open && (
-        <div className="grid grid-cols-3 gap-x-3 gap-y-0 border-t border-border/50 px-3 py-2.5">
-          {Object.entries(placements).map(([key, val]) => (
-            <label
-              key={key}
-              className="flex cursor-pointer items-center gap-2 py-1.5 hover:opacity-80 transition-opacity"
-            >
-              <span
-                className={cn(
-                  "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border-[1.5px] transition-all",
-                  val ? "border-primary bg-primary" : "border-border",
-                )}
-              >
-                {val && (
-                  <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-                    <path d="M1 3L2.8 5L7 1" stroke="#121212" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </span>
-              <span className="text-[11px] font-mono text-foreground leading-none">{labels[key] ?? key}</span>
-              <input type="checkbox" checked={val} onChange={() => onToggle(key)} className="sr-only" />
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PlacementsInline({
-  plan,
-  asc,
-  onPatch,
-}: {
-  plan: PlanV2;
-  asc: boolean;
-  onPatch: (partial: Partial<PlanV2>) => void;
-}) {
-  const [open, setOpen] = useState(true);
-
-  return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      {/* Header */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 hover:bg-muted/20 transition-colors"
-      >
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-200",
-            open && "rotate-180",
-          )}
-        />
-        <span className="flex-1 text-left text-[13px] font-semibold text-foreground">Placements</span>
-        {!open && (
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {plan.placementMode === "advantage" ? "Automatic" : "Manual"}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="border-t border-border/50 px-3 pb-3 pt-3 space-y-3">
-          {/* Placement type pills */}
-          <div className="flex flex-wrap gap-2">
-            {(["advantage", "manual"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                disabled={asc && mode === "manual"}
-                onClick={() => onPatch({ placementMode: mode })}
-                className={cn(
-                  "fab-focus rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                  plan.placementMode === mode
-                    ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
-                    : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                  asc && mode === "manual" && "cursor-not-allowed opacity-40",
-                )}
-              >
-                {mode === "advantage" ? "Advantage+ (automatic)" : "Manual"}
-              </button>
-            ))}
-          </div>
-          {asc && (
-            <p className="text-[11px] text-muted-foreground">Locked to Advantage+ when ASC is active.</p>
-          )}
-
-          {plan.placementMode === "manual" && !asc && (
-            <div className="space-y-3 pt-1">
-              <PlacementGroup
-                title="Facebook"
-                icon="fb"
-                platform="facebook"
-                defaultOpen={true}
-                placements={plan.placements.facebook}
-                onToggle={(key) =>
-                  onPatch({
-                    placements: {
-                      ...plan.placements,
-                      facebook: {
-                        ...plan.placements.facebook,
-                        [key]: !plan.placements.facebook[key as keyof typeof plan.placements.facebook],
-                      },
-                    },
-                  })
-                }
-              />
-              <PlacementGroup
-                title="Instagram"
-                icon="ig"
-                platform="instagram"
-                placements={plan.placements.instagram}
-                onToggle={(key) =>
-                  onPatch({
-                    placements: {
-                      ...plan.placements,
-                      instagram: {
-                        ...plan.placements.instagram,
-                        [key]: !plan.placements.instagram[key as keyof typeof plan.placements.instagram],
-                      },
-                    },
-                  })
-                }
-              />
-              <PlacementGroup
-                title="Audience Network"
-                icon="an"
-                platform="audienceNetwork"
-                placements={plan.placements.audienceNetwork}
-                onToggle={(key) =>
-                  onPatch({
-                    placements: {
-                      ...plan.placements,
-                      audienceNetwork: {
-                        ...plan.placements.audienceNetwork,
-                        [key]: !plan.placements.audienceNetwork[key as keyof typeof plan.placements.audienceNetwork],
-                      },
-                    },
-                  })
-                }
-              />
-              <PlacementGroup
-                title="Messenger"
-                icon="msg"
-                platform="messenger"
-                placements={plan.placements.messenger}
-                onToggle={(key) =>
-                  onPatch({
-                    placements: {
-                      ...plan.placements,
-                      messenger: {
-                        ...plan.placements.messenger,
-                        [key]: !plan.placements.messenger[key as keyof typeof plan.placements.messenger],
-                      },
-                    },
-                  })
-                }
-              />
-              <PlacementGroup
-                title="Threads"
-                icon="th"
-                platform="threads"
-                placements={plan.placements.threads}
-                onToggle={(key) =>
-                  onPatch({
-                    placements: {
-                      ...plan.placements,
-                      threads: {
-                        ...plan.placements.threads,
-                        [key]: !plan.placements.threads[key as keyof typeof plan.placements.threads],
-                      },
-                    },
-                  })
-                }
-              />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+/* Inline placement checkbox-tree (PlacementGroup / PlacementsInline) removed —
+   placements now live inside the Edit Targeting modal (TargetingTemplateModal.tsx). */
 
 /* ---- screen ---- */
 
@@ -586,7 +339,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   );
 
   const policy = fieldPolicy(plan);
-  const asc = isAdvantagePlus(plan);
   const special = specialCategoryActive(plan);
   const needsPixel = requiresPixel(plan) && plan.targets.some((t) => !t.pixelId);
   const currency = plan.targets[0]?.currency ?? "USD";
@@ -604,10 +356,11 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
     useRef<HTMLDivElement>(null),
     useRef<HTMLDivElement>(null),
   ];
+  const [recentLaunchOpen, setRecentLaunchOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [manualIndex, setManualIndex] = useState<number | null>(null);
   // §3 sub-sections — multi-open (Set)
-  const [s3Sub, setS3Sub] = useState<Set<string>>(() => new Set(["optimization", "audience", "regulated"]));
+  const [s3Sub, setS3Sub] = useState<Set<string>>(() => new Set(["optimization", "audience"]));
 
   // active section = manual override (if set) else the scroll-driven one
   const expandedIndex = manualIndex ?? activeIndex;
@@ -683,7 +436,17 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
-        {/* Overview moved to LaunchV2Flow breadcrumb strip — sticky card + progress strip removed. */}
+        {/* ── Fill from recent launch — top shortcut ─────────────── */}
+        <button
+          type="button"
+          onClick={() => setRecentLaunchOpen(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[#8FB821]/40 bg-[#F5FBE2]/60 px-4 py-2.5 text-[12px] font-semibold text-[#5B7611] transition-colors hover:bg-[#F5FBE2] hover:border-[#8FB821]/70 dark:border-[#8FB821]/30 dark:bg-[#1D2A09]/60 dark:text-[#C3E165] dark:hover:bg-[#1D2A09]"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 1v4.5m0 0L5 3.5M7 5.5l2-2M2.5 9A4.5 4.5 0 0 0 7 13a4.5 4.5 0 0 0 4.5-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Fill from recent launch
+        </button>
 
         {/* ── Ant-style vertical Steps spine ────────────────────── */}
         <div className="space-y-0">
@@ -691,7 +454,22 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         <StepSection
           index={0}
           title="Ad accounts & Pages"
-          badge={<SetupSectionChip flow={flow} section="destinations" />}
+          description="Pick ad accounts and destination pages"
+          badge={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRecentLaunchOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <svg width="11" height="11" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 1v4.5m0 0L5 3.5M7 5.5l2-2M2.5 9A4.5 4.5 0 0 0 7 13a4.5 4.5 0 0 0 4.5-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Recent launch
+              </button>
+              <SetupSectionChip flow={flow} section="destinations" />
+            </div>
+          }
           complete={sectionMeta[0].complete}
           isLast={false}
           sectionRef={sectionRefs[0]}
@@ -721,6 +499,7 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
         <StepSection
           index={1}
           title="Campaign"
+          description="Budget and delivery"
           badge={
             <div className="flex items-center gap-2">
               <CopyFromRunning
@@ -736,133 +515,121 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={false}
           sectionRef={sectionRefs[1]}
         >
-          {/* Campaign name */}
-          <NamingPatternInput
-            label="Campaign name"
-            value={plan.namingPatterns?.campaign ?? ""}
-            onChange={(v) => patch({ namingPatterns: { ...(plan.namingPatterns ?? {}), campaign: v, adset: plan.namingPatterns?.adset ?? "", ad: plan.namingPatterns?.ad ?? "" } })}
-            tokens={[
-              { key: "{brand}", desc: "account brand prefix" },
-              { key: "{intent}", desc: "test / scale / custom" },
-              { key: "{objective}", desc: "e.g. sales" },
-              { key: "{date}", desc: "launch date YYYY-MM-DD" },
-            ]}
-            placeholder="{brand}_{intent}_{objective}"
-          />
+          {/* Budget & Bid — two cards side by side (Figma: Campaign Budget & Bid Optimization | Bid strategy) */}
+          <div className={cn("grid gap-4", policy.bidStrategy.visibility !== "hidden" ? "sm:grid-cols-2" : "sm:grid-cols-1")}>
+            {/* Left card — Campaign Budget & Bid Optimization */}
+            <div className="space-y-3 rounded-2xl border border-border bg-card px-3.5 py-3">
+              <div className="flex items-center gap-1.5">
+                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-[13px] font-medium text-foreground">Campaign Budget & Bid Optimization</p>
+              </div>
 
-          {/* Budget — single horizontal row */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1 text-[13px] font-medium text-foreground">
-              Budget optimization
-              {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
-            </Label>
-            <div className="flex flex-wrap items-center gap-2">
               {/* CBO/ABO pills */}
-              {(["CBO", "ABO"] as const).map((mode) => (
-                <Tooltip key={mode}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={policy.budgetMode.locked}
-                      onClick={() => patch({ budgetMode: mode })}
-                      className={cn(
-                        "fab-focus rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                        plan.budgetMode === mode
-                          ? "border-2 border-foreground bg-foreground/[0.03] text-foreground"
-                          : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                        policy.budgetMode.locked && "cursor-not-allowed opacity-50",
-                      )}
-                    >
-                      {mode === "CBO" ? "Campaign (CBO)" : "Ad set (ABO)"}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {mode === "CBO"
-                      ? "Campaign Budget Optimization — Meta splits budget across ad sets."
-                      : "Ad Set Budget Optimization — you set a budget per ad set."}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+              <div className="flex flex-wrap items-center gap-2">
+                {(["ABO", "CBO"] as const).map((mode) => (
+                  <Tooltip key={mode}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={policy.budgetMode.locked}
+                        onClick={() => patch({ budgetMode: mode })}
+                        className={cn(
+                          "fab-focus rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                          plan.budgetMode === mode
+                            ? "border border-[#8FB821] bg-[#8FB821]/10 text-[#5B7611] dark:text-[#C3E165]"
+                            : "border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                          policy.budgetMode.locked && "cursor-not-allowed opacity-50",
+                        )}
+                      >
+                        {mode}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {mode === "CBO"
+                        ? "Campaign Budget Optimization — Meta splits budget across ad sets."
+                        : "Ad Set Budget Optimization — you set a budget per ad set."}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
+              </div>
 
-              {/* Divider */}
-              <span className="text-border text-xs select-none">·</span>
+              {/* Budget period + amount */}
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1 text-[12px] font-normal text-foreground">
+                  {plan.budgetPeriod === "lifetime" ? "Lifetime" : "Daily"} budget / {plan.budgetMode === "ABO" ? "ad set" : "campaign"}
+                  {policy.budgetMode.locked && <Lock className="h-3 w-3" />}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={plan.budgetPeriod ?? "daily"}
+                    onValueChange={(v) => patch({ budgetPeriod: v as "daily" | "lifetime" })}
+                  >
+                    <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-full text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="lifetime">Lifetime</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex h-8 min-w-0 flex-1 items-center overflow-hidden rounded-full border border-border bg-background pr-3">
+                    <span className="h-full shrink-0 border-r border-border bg-muted/30 px-2.5 font-mono text-[11px] leading-8 text-muted-foreground">
+                      {currency}
+                    </span>
+                    <span className="pl-2 font-mono text-[12px] text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="200"
+                      value={plan.budgetAmount || ""}
+                      onChange={(e) => patch({ budgetAmount: Number(e.target.value) || 0 })}
+                      className="h-full flex-1 border-none bg-transparent px-1 font-mono tabular-nums text-[12px] shadow-none focus-visible:ring-0"
+                    />
+                  </div>
+                </div>
 
-              {/* Daily / Lifetime period selector */}
-              <Select
-                value={plan.budgetPeriod ?? "daily"}
-                onValueChange={(v) => patch({ budgetPeriod: v as "daily" | "lifetime" })}
-              >
-                <SelectTrigger className="h-8 w-24 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="lifetime">Lifetime</SelectItem>
-                </SelectContent>
-              </Select>
+                {/* N× projection — shown when 2+ accounts selected */}
+                {accountCount >= 2 && plan.budgetAmount > 0 && (
+                  <p className="font-mono text-[11px] text-muted-foreground">
+                    Running in {accountCount} accounts → $
+                    <span className="tabular-nums text-foreground">{plan.budgetAmount.toLocaleString("en-US")}</span>
+                    {" × "}
+                    <span className="tabular-nums">{accountCount}</span>
+                    {" = $"}
+                    <span className="tabular-nums text-foreground">
+                      {(plan.budgetAmount * accountCount).toLocaleString("en-US")}
+                    </span>
+                    /{plan.budgetPeriod === "lifetime" ? "lifetime" : "day"} total
+                  </p>
+                )}
 
-              {/* $ + Amount */}
-              <div className="flex items-center gap-1">
-                <span className="font-mono text-sm text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="200"
-                  value={plan.budgetAmount || ""}
-                  onChange={(e) => patch({ budgetAmount: Number(e.target.value) || 0 })}
-                  className="h-8 w-28 font-mono tabular-nums text-xs"
-                />
+                {/* Currency hint — only when a selected account is non-USD */}
+                {hasNonUsdAccount && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Budget in $. Meta charges in local currency at runtime FX.
+                  </p>
+                )}
               </div>
             </div>
-            {policy.budgetMode.locked && <LockNote reason={policy.budgetMode.reason} />}
-          </div>
 
-          {/* N× projection — shown when 2+ accounts selected */}
-          {accountCount >= 2 && plan.budgetAmount > 0 && (
-            <p className="text-[12px] text-muted-foreground">
-              Running in {accountCount} accounts → $
-              <span className="font-mono tabular-nums text-foreground">{plan.budgetAmount.toLocaleString("en-US")}</span>
-              {" × "}
-              <span className="tabular-nums">{accountCount}</span>
-              {" = $"}
-              <span className="font-mono tabular-nums text-foreground">
-                {(plan.budgetAmount * accountCount).toLocaleString("en-US")}
-              </span>
-              /{plan.budgetPeriod === "lifetime" ? "lifetime" : "day"} total
-            </p>
-          )}
-
-          {/* Currency hint — only when a selected account is non-USD */}
-          {hasNonUsdAccount && (
-            <p className="text-[11px] text-muted-foreground">
-              Budget in $. Meta charges in local currency at runtime FX.
-            </p>
-          )}
-
-          {/* Bid strategy */}
-          {policy.bidStrategy.visibility !== "hidden" && (
-            <BidStrategyRow
-              objective={plan.objective}
-              optimizationGoal={plan.optimizationGoal}
-              bidStrategy={plan.bidStrategy}
-              bidValue={plan.bidValue ?? null}
-              onChangeBidStrategy={(v) => patch({ bidStrategy: v })}
-              onChangeBidValue={(v) => patch({ bidValue: v ?? undefined })}
-            />
-          )}
-
-          {/* A/B Test — slim inline toggle, bottom of §2 */}
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-foreground">A/B Test</p>
-              <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-                Meta auto-splits traffic 50/50 between two variants.
-              </p>
-            </div>
-            <Switch
-              checked={plan.abTest}
-              onCheckedChange={(v) => patch({ abTest: v })}
-            />
+            {/* Right card — Bid strategy */}
+            {policy.bidStrategy.visibility !== "hidden" && (
+              <div className="space-y-3 rounded-2xl border border-border bg-card px-3.5 py-3">
+                <div className="flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-[13px] font-medium text-foreground">Bid strategy</p>
+                </div>
+                <BidStrategyRow
+                  objective={plan.objective}
+                  optimizationGoal={plan.optimizationGoal}
+                  bidStrategy={plan.bidStrategy}
+                  bidValue={plan.bidValue ?? null}
+                  onChangeBidStrategy={(v) => patch({ bidStrategy: v })}
+                  onChangeBidValue={(v) => patch({ bidValue: v ?? undefined })}
+                />
+              </div>
+            )}
           </div>
 
           {/* ── Campaign soft warnings ── */}
@@ -883,13 +650,155 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
             </div>
           )}
 
+          {/* A/B Test — slim inline toggle */}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-3.5 py-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+                <FlaskConical className="h-3.5 w-3.5 text-muted-foreground" />
+                A/B Test
+              </p>
+              <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                Meta runs the test on their side — no extra inputs required.
+              </p>
+            </div>
+            <Switch
+              checked={plan.abTest}
+              onCheckedChange={(v) => patch({ abTest: v })}
+            />
+          </div>
 
+          {/* ── Regulated category? (moved up from Ad set — matches Figma IA) ── */}
+          <div className="space-y-4 rounded-2xl border border-border bg-card px-3.5 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex items-start gap-2.5">
+                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
+                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
+                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.specialAdDeclared}
+                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
+                className={cn(
+                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
+                  plan.specialAdDeclared
+                    ? "border-[#8FB821] bg-[#8FB821]"
+                    : "border-border bg-muted"
+                )}
+              >
+                <span className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
+
+            {plan.specialAdDeclared && (
+              <div className="space-y-4">
+                {/* Category type chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
+                    const isSelected = plan.specialAdCategories?.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          const current = plan.specialAdCategories ?? [];
+                          const next = isSelected
+                            ? current.filter((c) => c !== cat)
+                            : [...current, cat];
+                          patch({ specialAdCategories: next });
+                        }}
+                        className={cn(
+                          "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
+                          isSelected
+                            ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
+                            : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
+                        )}
+                      >
+                        {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Special ad category — applicable countries / regions */}
+                <div className="space-y-1.5">
+                  <p className="text-[13px] font-medium text-foreground">Special ad category — applicable countries / regions</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Meta requires you to declare the countries where this special ad category applies.
+                  </p>
+                  <SpecialAdCountryPicker
+                    selected={plan.specialAdCountries ?? []}
+                    onChange={(codes) => patch({ specialAdCountries: codes })}
+                  />
+                </div>
+
+                {/* Beneficiary + Payor — only for ISSUES_ELECTIONS_POLITICS */}
+                {plan.specialAdCategories?.includes("ISSUES_ELECTIONS_POLITICS") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-medium text-foreground">
+                        Beneficiary <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter beneficiary"
+                        value={plan.beneficiary ?? ""}
+                        onChange={(e) => patch({ beneficiary: e.target.value })}
+                        className="h-9 w-full font-mono text-[12px]"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px] font-medium text-foreground">
+                        Payor <span className="text-muted-foreground font-normal">(optional)</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter payor"
+                        value={plan.payor ?? ""}
+                        onChange={(e) => patch({ payor: e.target.value })}
+                        className="h-9 w-full font-mono text-[12px]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Naming (nomenclature) — campaign-level, expanded by default ── */}
+          <Subsection
+            label={<>Naming <span className="text-[11px] font-normal text-muted-foreground">(nomenclature)</span></>}
+            icon={<Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />}
+            defaultOpen={true}
+          >
+            <NamingPatternInput
+              label="Campaign name"
+              value={plan.namingPatterns?.campaign ?? ""}
+              onChange={(v) => patch({ namingPatterns: { ...(plan.namingPatterns ?? {}), campaign: v, adset: plan.namingPatterns?.adset ?? "", ad: plan.namingPatterns?.ad ?? "" } })}
+              tokens={[
+                { key: "{brand}", desc: "account brand prefix" },
+                { key: "{intent}", desc: "test / scale / custom" },
+                { key: "{objective}", desc: "e.g. sales" },
+                { key: "{date}", desc: "launch date YYYY-MM-DD" },
+              ]}
+              placeholder="{brand}_{intent}_{objective}"
+            />
+          </Subsection>
         </StepSection>
 
-        {/* ── 3 · Ad set & Audience ──────────────────────────────── */}
+        {/* ── 3 · Ad set ──────────────────────────────────────────── */}
         <StepSection
           index={2}
-          title="Ad set & Audience"
+          title="Ad set"
+          description="Set audience, placement and optimisation"
           badge={
             <div className="flex items-center gap-2">
               <CopyFromRunning
@@ -905,20 +814,6 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={false}
           sectionRef={sectionRefs[2]}
         >
-          {/* Ad set name */}
-          <NamingPatternInput
-            label="Ad set name"
-            value={plan.namingPatterns?.adset ?? ""}
-            onChange={(v) => patch({ namingPatterns: { ...(plan.namingPatterns ?? {}), campaign: plan.namingPatterns?.campaign ?? "", adset: v, ad: plan.namingPatterns?.ad ?? "" } })}
-            tokens={[
-              { key: "{brand}", desc: "account brand prefix" },
-              { key: "{intent}", desc: "test / scale / custom" },
-              { key: "{adset}", desc: "ad set number (01, 02…)" },
-              { key: "{date}", desc: "launch date YYYY-MM-DD" },
-            ]}
-            placeholder="{brand}_{adset}"
-          />
-
           {/* ── Subsection ▸ Optimization ────────────────────────────── */}
           <Subsection
             label="Optimization"
@@ -1030,143 +925,48 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           </Subsection>
           {/* ── /Subsection ▸ Optimization ─────────────────────────── */}
 
-          {/* ── Subsection ▸ Audience ────────────────────────────────── */}
+          {/* ── Subsection ▸ Targeting ───────────────────────────────── */}
           <Subsection
-            label="Audience"
+            label="Targeting"
             open={s3Sub.has("audience")}
             onOpenChange={(v) => setS3Sub((prev) => { const next = new Set(prev); v ? next.add("audience") : next.delete("audience"); return next; })}
           >
-          {/* Targeting template + audience editor (placements injected via slot) */}
+          {/* Targeting template + audience editor — placements now live inside
+              the Edit Targeting modal (TargetingTemplateModal.tsx), not inline here. */}
           <TargetingTemplateSection
             plan={plan}
             onPatch={patch}
             specialAdCategoryActive={special}
-            placementsSlot={
-              !plan.advantageAudience ? (
-                <PlacementsInline
-                  plan={plan}
-                  asc={asc}
-                  onPatch={patch}
-                />
-              ) : null
-            }
           />
           </Subsection>
-          {/* ── /Subsection ▸ Audience ───────────────────────────────── */}
+          {/* ── /Subsection ▸ Targeting ──────────────────────────────── */}
 
-          {/* ── Subsection ▸ Regulated Category ─────────────────────── */}
+          {/* ── Naming (nomenclature) — ad set-level, collapsed by default ── */}
           <Subsection
-            label="Regulated Category"
-            open={s3Sub.has("regulated")}
-            onOpenChange={(v) => setS3Sub((prev) => { const next = new Set(prev); v ? next.add("regulated") : next.delete("regulated"); return next; })}
-            complete={plan.specialAdDeclared && (plan.specialAdCategories?.length ?? 0) > 0}
+            label={<>Naming <span className="text-[11px] font-normal text-muted-foreground">(nomenclature)</span></>}
+            icon={<Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />}
+            defaultOpen={false}
           >
-            {/* Toggle */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex items-start gap-2.5">
-                <Shield className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground">Regulated category?</p>
-                  <p className="mt-0.5 text-[11px] font-mono text-muted-foreground">
-                    Credit, employment, housing, or social/political. Off by default — turn on only if it applies.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={plan.specialAdDeclared}
-                onClick={() => patch({ specialAdDeclared: !plan.specialAdDeclared })}
-                className={cn(
-                  "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-[1.5px] transition-colors focus:outline-none focus:ring-4 focus:ring-[#8FB821]/30",
-                  plan.specialAdDeclared
-                    ? "border-[#8FB821] bg-[#8FB821]"
-                    : "border-border bg-muted"
-                )}
-              >
-                <span className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                  plan.specialAdDeclared ? "translate-x-5" : "translate-x-0.5"
-                )} />
-              </button>
-            </div>
-
-            {plan.specialAdDeclared && (
-              <div className="space-y-4 mt-2">
-                {/* Category type chips */}
-                <div className="flex flex-wrap gap-1.5">
-                  {(["FINANCIAL_PRODUCTS_SERVICES", "EMPLOYMENT", "HOUSING", "ISSUES_ELECTIONS_POLITICS"] as const).map((cat) => {
-                    const isSelected = plan.specialAdCategories?.includes(cat);
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          const current = plan.specialAdCategories ?? [];
-                          const next = isSelected
-                            ? current.filter((c) => c !== cat)
-                            : [...current, cat];
-                          patch({ specialAdCategories: next });
-                        }}
-                        className={cn(
-                          "rounded-full border px-2.5 py-0.5 text-[11px] font-mono transition-colors",
-                          isSelected
-                            ? "border-[#8FB821] bg-[#1D2A09] text-[#C3E165]"
-                            : "border-border bg-muted text-muted-foreground hover:border-[#8FB821]/50"
-                        )}
-                      >
-                        {cat === "FINANCIAL_PRODUCTS_SERVICES" ? "Credit / Finance" : cat === "EMPLOYMENT" ? "Employment" : cat === "HOUSING" ? "Housing" : "Social/Political"}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Country picker */}
-                <SpecialAdCountryPicker
-                  selected={plan.specialAdCountries ?? []}
-                  onChange={(codes) => patch({ specialAdCountries: codes })}
-                />
-
-                {/* Beneficiary + Payor — only for ISSUES_ELECTIONS_POLITICS */}
-                {plan.specialAdCategories?.includes("ISSUES_ELECTIONS_POLITICS") && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[13px] font-medium text-foreground">
-                        Beneficiary <span className="text-muted-foreground font-normal">(optional)</span>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter beneficiary"
-                        value={plan.beneficiary ?? ""}
-                        onChange={(e) => patch({ beneficiary: e.target.value })}
-                        className="h-9 w-full font-mono text-[12px]"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[13px] font-medium text-foreground">
-                        Payor <span className="text-muted-foreground font-normal">(optional)</span>
-                      </Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter payor"
-                        value={plan.payor ?? ""}
-                        onChange={(e) => patch({ payor: e.target.value })}
-                        className="h-9 w-full font-mono text-[12px]"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <NamingPatternInput
+              label="Ad set name"
+              value={plan.namingPatterns?.adset ?? ""}
+              onChange={(v) => patch({ namingPatterns: { ...(plan.namingPatterns ?? {}), campaign: plan.namingPatterns?.campaign ?? "", adset: v, ad: plan.namingPatterns?.ad ?? "" } })}
+              tokens={[
+                { key: "{brand}", desc: "account brand prefix" },
+                { key: "{intent}", desc: "test / scale / custom" },
+                { key: "{adset}", desc: "ad set number (01, 02…)" },
+                { key: "{date}", desc: "launch date YYYY-MM-DD" },
+              ]}
+              placeholder="{brand}_{adset}"
+            />
           </Subsection>
-          {/* ── /Subsection ▸ Regulated Category ──────────────────────── */}
-
         </StepSection>
 
         {/* ── 4 · Ad ────────────────────────────────────────────────── */}
         <StepSection
           index={3}
           title="Ad"
+          description="Set audience, placement and optimisation"
           complete={sectionMeta[3].complete}
           isLast={true}
           sectionRef={sectionRefs[3]}
@@ -1175,20 +975,35 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           <Toggle
             checked={plan.advantageCreative}
             onCheckedChange={(v) => patch({ advantageCreative: v })}
-            label="Advantage+ creative"
-            desc="Meta auto-optimizes creative assets — crops, aspect ratios, enhancements. Recommended for performance campaigns."
+            label="Advantage+ Creative"
+            desc="Drive sales using your product information by showing relevant products to the right people."
+            icon={<Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
           />
 
-          {/* Ad naming / nomenclature */}
-          <div className="space-y-2">
-            <Label className="text-[13px] font-medium text-foreground">Ad naming pattern</Label>
+          {/* ── Naming (nomenclature) — ad-level, collapsed by default ── */}
+          <Subsection
+            label={<>Naming <span className="text-[11px] font-normal text-muted-foreground">(nomenclature)</span></>}
+            icon={<Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />}
+            defaultOpen={false}
+          >
             <NomenclatureBuilder flow={flow} />
-          </div>
+          </Subsection>
         </StepSection>
         </div>
 
 
       </div>
+
+      <RecentLaunchModal
+        open={recentLaunchOpen}
+        onClose={() => setRecentLaunchOpen(false)}
+        mode="setup"
+        onImport={(patch) => {
+          // Exclude objective/intent — those are Step 1 scope; import setup fields only
+          const { objective: _obj, intent: _intent, ...setupPatch } = patch;
+          flow.patch(setupPatch);
+        }}
+      />
     </TooltipProvider>
   );
 }

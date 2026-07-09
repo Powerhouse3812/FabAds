@@ -16,6 +16,9 @@ import { strategiesService, type LaunchStrategy, type StrategySummary } from "..
 import { StrategyEditor } from "./StrategyEditor";
 import { stepCompletion } from "./strategyEditorModel";
 import { setSubNavCollapsed } from "@/components/shell/useSubNavCollapsed";
+import { LayoutGrid, List } from 'lucide-react';
+import StrategyPanelView from './StrategyPanelView';
+import StrategyFilterModal, { type StrategyFilters } from './StrategyFilterModal';
 
 /* ─────────────────────── tiny helpers ───────────────────────── */
 
@@ -762,6 +765,13 @@ export function StrategiesLibrary() {
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("recently-used");
+  const [viewMode, setViewMode] = useState<'grid' | 'panel'>(() => {
+    return (localStorage.getItem('fabads.strategies.viewMode') as 'grid' | 'panel') ?? 'grid';
+  });
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [panelFilters, setPanelFilters] = useState<StrategyFilters>({
+    objectives: [], budgetModes: [], tags: [], hasAllSteps: false,
+  });
 
   const refresh = () => setStrategies(strategiesService.list());
 
@@ -853,39 +863,8 @@ export function StrategiesLibrary() {
           </span>
         </div>
 
-        {/* Search + sort row */}
+        {/* Sort + controls row */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-[380px]">
-            <svg
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[rgba(15,15,12,0.45)] dark:text-[rgba(255,255,255,0.45)] pointer-events-none"
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search strategies..."
-              value={search}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] text-[13px] text-[rgba(15,15,12,0.92)] dark:text-[rgba(255,255,255,0.92)] placeholder:text-[rgba(15,15,12,0.38)] dark:placeholder:text-[rgba(255,255,255,0.38)] outline-none focus:border-[#8FB821] focus:ring-2 focus:ring-[#8FB821]/20 transition-all"
-              style={{ fontFamily: "Geist, system-ui, sans-serif" }}
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[rgba(15,15,12,0.38)] dark:text-[rgba(255,255,255,0.38)] hover:text-[rgba(15,15,12,0.62)] dark:hover:text-[rgba(255,255,255,0.62)] transition-colors"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            )}
-          </div>
-
           {/* Sort dropdown */}
           <div className="relative flex-shrink-0">
             <select
@@ -903,6 +882,47 @@ export function StrategiesLibrary() {
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
+          </div>
+
+          {/* New strategy button */}
+          <button
+            type="button"
+            onClick={() => {
+              // Create a blank strategy and open it in the editor
+              const blank = strategiesService.save("Untitled strategy", {});
+              refresh();
+              openEditor(blank.id);
+            }}
+            className="flex items-center gap-1.5 h-9 px-4 rounded-full bg-[#8FB821] hover:bg-[#AACF32] text-[#121212] text-[12px] font-semibold transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#121212" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New strategy
+          </button>
+
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border border-[#e7e5dc] dark:border-[#2a2a2a] overflow-hidden shrink-0">
+            <button
+              onClick={() => { setViewMode('grid'); localStorage.setItem('fabads.strategies.viewMode', 'grid'); }}
+              className={[
+                "flex h-8 w-8 items-center justify-center transition-colors",
+                viewMode === 'grid' ? "bg-[#8FB821] text-[#121212]" : "bg-transparent text-[rgba(15,15,12,0.55)] hover:text-foreground",
+              ].join(" ")}
+              title="Grid view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => { setViewMode('panel'); localStorage.setItem('fabads.strategies.viewMode', 'panel'); }}
+              className={[
+                "flex h-8 w-8 items-center justify-center transition-colors border-l border-[#e7e5dc] dark:border-[#2a2a2a]",
+                viewMode === 'panel' ? "bg-[#8FB821] text-[#121212]" : "bg-transparent text-[rgba(15,15,12,0.55)] hover:text-foreground",
+              ].join(" ")}
+              title="Panel view"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
@@ -963,6 +983,39 @@ export function StrategiesLibrary() {
             />
           </div>
         </div>
+      ) : viewMode === 'panel' ? (
+        <>
+          <StrategyPanelView
+            strategies={filtered}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onApply={(s) => {
+              strategiesService.markUsed(s.id);
+              sessionStorage.setItem('launchv2:pendingStrategy', JSON.stringify(s.plan));
+            }}
+            onDuplicate={(id) => {
+              strategiesService.duplicate(id);
+              refresh();
+            }}
+            onDelete={(id) => {
+              strategiesService.remove(id);
+              setSelectedId(null);
+              refresh();
+            }}
+            onSave={(id, patch) => {
+              strategiesService.update(id, patch);
+              refresh();
+            }}
+            onFilterOpen={() => setFilterModalOpen(true)}
+          />
+          <StrategyFilterModal
+            open={filterModalOpen}
+            onClose={() => setFilterModalOpen(false)}
+            filters={panelFilters}
+            onChange={(f) => { setPanelFilters(f); setFilterModalOpen(false); }}
+            availableTags={[...new Set(strategies.flatMap(s => s.tags ?? []))]}
+          />
+        </>
       ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Card grid */}

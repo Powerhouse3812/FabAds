@@ -34,8 +34,8 @@ type SaveState = "saving" | "saved" | "failed";
 const STEP_TITLES_V3: Record<number, string> = {
   1: "Start",
   2: "Setup",
-  3: "Ad & Dist.",
-  4: "Review",
+  3: "Ad & Distribution",
+  4: "Review & Launch",
 };
 
 function stepValid(plan: PlanV2, step: StepV2): boolean {
@@ -162,17 +162,6 @@ export default function LaunchV2Flow() {
 
   const variant = 'v3' as const;
 
-  // ── Stepper variant toggle (V1 / V2) — persisted to localStorage ─────
-  const [stepperVariant, setStepperVariant] = useState<"v1" | "v2">(() => {
-    try { return (localStorage.getItem("lv2:stepper:v") as "v1" | "v2") || "v1"; }
-    catch { return "v1"; }
-  });
-
-  function switchStepperVariant(v: "v1" | "v2") {
-    setStepperVariant(v);
-    try { localStorage.setItem("lv2:stepper:v", v); } catch {}
-  }
-
   // Write full state to URL on every change so any URL can restore exact state.
   // Also syncs ?draft and ?step so the URL is human-readable and refresh-safe
   // without needing to decode the base64 ?s= blob.
@@ -284,69 +273,39 @@ export default function LaunchV2Flow() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {stepperVariant === "v2" ? (
-        <StepperV2
-          plan={plan}
+      {/* Step progress — single canonical stepper (Figma-aligned) */}
+      <div className="flex-shrink-0 border-b border-border bg-background px-6 py-3">
+        <Progress
           step={step}
           steps={[1, 2, 3, 4] as StepV2[]}
           titles={STEP_TITLES_V3}
           onJump={(s) => s <= step && handleSetStep(s)}
           issues={issues}
-          flow={flow}
-          saveState={saveState}
-          savedAt={savedAt}
-          onRetry={() => {
-            setSaveState("saving");
-            setTimeout(() => { setSaveState("saved"); setSavedAt(Date.now()); }, 400);
-          }}
-          onSwitchVariant={() => switchStepperVariant("v1")}
         />
-      ) : (
-        <>
-          {/* V1 — Step progress */}
-          <div className="flex-shrink-0 border-b border-border bg-background px-5 py-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <Progress
-                step={step}
-                steps={[1, 2, 3, 4] as StepV2[]}
-                titles={STEP_TITLES_V3}
-                onJump={(s) => s <= step && handleSetStep(s)}
-                issues={issues}
-              />
-              <button
-                type="button"
-                onClick={() => switchStepperVariant("v2")}
-                className="shrink-0 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:text-foreground"
-              >
-                V2
-              </button>
-            </div>
-          </div>
+      </div>
 
-          {/* V1 — Persistent breadcrumb strip — locked upstream state + autosave.
-             Sticky so it stays visible while the body scrolls. */}
-          <StepBreadcrumb
-            plan={plan}
-            step={step}
-            setStep={handleSetStep}
-            saveState={saveState}
-            savedAt={savedAt}
-            onRetry={() => {
-              setSaveState("saving");
-              setTimeout(() => {
-                setSaveState("saved");
-                setSavedAt(Date.now());
-              }, 400);
-            }}
-          />
+      {/* Persistent breadcrumb strip — locked upstream state + autosave.
+         Sticky so it stays visible while the body scrolls. */}
+      <StepBreadcrumb
+        plan={plan}
+        step={step}
+        setStep={handleSetStep}
+        saveState={saveState}
+        savedAt={savedAt}
+        onRetry={() => {
+          setSaveState("saving");
+          setTimeout(() => {
+            setSaveState("saved");
+            setSavedAt(Date.now());
+          }, 400);
+        }}
+      />
 
-          {/* V1 — Setup template bar (step 2 only) */}
-          {step === 2 && (
-            <div className="flex-shrink-0 border-b border-border/60 bg-background px-5 py-2">
-              <SetupTemplateBar flow={flow} />
-            </div>
-          )}
-        </>
+      {/* Setup template bar (step 2 only) */}
+      {step === 2 && (
+        <div className="flex-shrink-0 border-b border-border/60 bg-background px-5 py-2">
+          <SetupTemplateBar flow={flow} />
+        </div>
       )}
 
       {/* Body */}
@@ -648,198 +607,6 @@ function StepBreadcrumb({
   );
 }
 
-function StepperV2({
-  plan,
-  step,
-  steps,
-  titles,
-  onJump,
-  issues,
-  flow,
-  saveState,
-  savedAt,
-  onRetry,
-  onSwitchVariant,
-}: {
-  plan: PlanV2;
-  step: StepV2;
-  steps: StepV2[];
-  titles: Record<number, string>;
-  onJump: (s: StepV2) => void;
-  issues: ReviewIssue[];
-  flow: UseFlowV2;
-  saveState: SaveState;
-  savedAt: number;
-  onRetry: () => void;
-  onSwitchVariant: () => void;
-}) {
-  // Group chips by step
-  const allChips = buildChips(plan);
-  const chipsByStep: Record<number, Chip[]> = {};
-  steps.forEach((s) => {
-    chipsByStep[s] = allChips.filter((c) => c.step === s);
-  });
-
-  // Recompute saved-ago label every 5s
-  const [, force] = useState(0);
-  useEffect(() => {
-    if (saveState !== "saved") return;
-    const t = setInterval(() => force((n) => n + 1), 5000);
-    return () => clearInterval(t);
-  }, [saveState]);
-
-  const sinceLabel = (() => {
-    const s = Math.max(0, Math.floor((Date.now() - savedAt) / 1000));
-    if (s < 5) return "just now";
-    if (s < 60) return `${s}s ago`;
-    const m = Math.floor(s / 60);
-    return `${m}m ago`;
-  })();
-
-  return (
-    <div className="sticky top-0 z-20 flex-shrink-0 border-b border-border bg-background/95 backdrop-blur">
-      {/* ── Step cards rail ─────────────────────────────────────────── */}
-      <TooltipProvider>
-        <div className="flex divide-x divide-border">
-          {steps.map((s) => {
-            const done = s < step;
-            const active = s === step;
-            const pending = s > step;
-            const canJump = done;
-            const stepChips = chipsByStep[s] ?? [];
-            const stepIssues = issuesForStep(s, issues);
-            const hasIssues = stepIssues.length > 0;
-
-            return (
-              <button
-                key={s}
-                type="button"
-                disabled={pending}
-                onClick={() => canJump && onJump(s)}
-                className={cn(
-                  "group relative flex min-w-0 flex-1 flex-col gap-1.5 px-4 pb-3 pt-3 text-left transition-colors",
-                  active && "bg-[#F5FBE2] dark:bg-[#1D2A09]",
-                  done && "cursor-pointer hover:bg-muted/30",
-                  pending && "cursor-default opacity-40",
-                  active && "border-b-2 border-[#8FB821]",
-                )}
-              >
-                {/* Step badge + title row */}
-                <div className="flex items-center gap-2">
-                  <span className="relative flex-shrink-0">
-                    {/* Badge circle */}
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-mono font-bold transition-colors",
-                        done
-                          ? "bg-[#8FB821] text-[#121212]"
-                          : active
-                          ? "bg-[#8FB821] text-[#121212]"
-                          : "border border-border bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {done ? (
-                        <Check className="h-2.5 w-2.5" />
-                      ) : (
-                        <span>{s}</span>
-                      )}
-                    </span>
-                    {/* Issues dot */}
-                    {hasIssues && (
-                      <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-1 ring-background" />
-                    )}
-                  </span>
-                  <span
-                    className={cn(
-                      "truncate text-[12px] font-semibold tracking-[-0.01em] transition-colors",
-                      active ? "text-foreground" : done ? "text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    {titles[s] ?? `Step ${s}`}
-                  </span>
-                </div>
-
-                {/* Summary data */}
-                <div className="flex flex-col gap-0.5 pl-7">
-                  {stepChips.length > 0 ? (
-                    <>
-                      {stepChips.slice(0, 2).map((chip, i) => (
-                        <Tooltip key={i}>
-                          <TooltipTrigger asChild>
-                            <span className="block truncate text-[10px] font-mono text-muted-foreground">
-                              {chip.label}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs whitespace-pre-line">
-                            {chip.tooltip}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                      {stepChips.length > 2 && (
-                        <span className="text-[10px] font-mono text-muted-foreground/60">
-                          +{stepChips.length - 2} more
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-[10px] font-mono text-muted-foreground/30">—</span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </TooltipProvider>
-
-      {/* ── Bottom strip: template bar + autosave + variant toggle ─── */}
-      <div className="flex items-center justify-between gap-4 border-t border-border/40 px-4 py-1.5">
-        {/* Left: template bar (step 2 only) or spacer */}
-        <div className="min-w-0 flex-1">
-          {step === 2 ? <SetupTemplateBar flow={flow} /> : null}
-        </div>
-
-        {/* Right: autosave status + V1 toggle */}
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
-            {saveState === "saving" && (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Saving…</span>
-              </>
-            )}
-            {saveState === "saved" && (
-              <>
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                <span>Saved {sinceLabel}</span>
-              </>
-            )}
-            {saveState === "failed" && (
-              <>
-                <AlertTriangle className="h-3 w-3 text-amber-500" />
-                <span>Save failed</span>
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="text-[11px] font-medium text-foreground underline-offset-2 hover:underline"
-                >
-                  Retry
-                </button>
-              </>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onSwitchVariant}
-            className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:text-foreground"
-          >
-            V1
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /** Map a step number to the issues that are visible in that step. */
 function issuesForStep(stepNum: StepV2, issues: ReviewIssue[]): ReviewIssue[] {
   switch (stepNum) {
@@ -865,10 +632,11 @@ function Progress({ step, steps, titles, onJump, issues }: {
 }) {
   const lastStep = steps[steps.length - 1];
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex w-full items-center">
       {steps.map((s) => {
         const done = step > s;
         const active = step === s;
+        const clickable = s <= step;
         const stepIssues = done ? issuesForStep(s, issues) : [];
         const hasError = stepIssues.some((i) => i.tier === "error");
         const hasWarning = stepIssues.some((i) => i.tier === "warning" || i.tier === "info");
@@ -877,23 +645,27 @@ function Progress({ step, steps, titles, onJump, issues }: {
             <button
               type="button"
               onClick={() => onJump(s)}
-              className="fab-focus flex items-center gap-1.5 group min-w-0 rounded-md"
+              disabled={!clickable}
+              className={cn(
+                "fab-focus group flex shrink-0 items-center gap-2 rounded-full",
+                clickable ? "cursor-pointer" : "cursor-default",
+              )}
             >
               <span
                 className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-150",
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold transition-all duration-150",
                   active
-                    ? "bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-1"
+                    ? "bg-[#8FB821] text-[#121212]"
                     : done && hasError
-                      ? "bg-red-500/20 text-red-500 ring-2 ring-red-500/40 ring-offset-1"
+                      ? "bg-red-500/15 text-red-500 ring-1 ring-red-500/40"
                       : done && hasWarning
-                        ? "bg-amber-500/20 text-amber-600 ring-2 ring-amber-500/40 ring-offset-1"
+                        ? "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/40"
                         : done
-                          ? "bg-primary/20 text-primary"
-                          : "bg-muted text-muted-foreground",
+                          ? "bg-[#8FB821] text-[#121212]"
+                          : "border border-border bg-muted text-muted-foreground",
                 )}
               >
-                {/* 7.3: each state has a distinct glyph so it's not color-only —
+                {/* Each state has a distinct glyph so it's not color-only —
                    done = Check, error = AlertTriangle (red), warning = AlertCircle
                    (amber), active/pending = step number. */}
                 {done && hasError ? (
@@ -908,17 +680,24 @@ function Progress({ step, steps, titles, onJump, issues }: {
               </span>
               <span
                 className={cn(
-                  "truncate text-xs transition-colors",
+                  "whitespace-nowrap text-[13px] tracking-[-0.01em] transition-colors",
                   active
-                    ? "max-w-[72px] font-semibold text-foreground"
-                    : "max-w-[48px] text-muted-foreground group-hover:text-foreground",
+                    ? "font-semibold text-foreground"
+                    : done
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground group-hover:text-foreground",
                 )}
               >
                 {titles[s]}
               </span>
             </button>
             {s < lastStep && (
-              <span className={cn("h-px flex-1 min-w-[8px]", done ? "bg-primary/40" : "bg-border")} />
+              <span
+                className={cn(
+                  "mx-3 h-px min-w-[16px] flex-1 transition-colors",
+                  done ? "bg-[#8FB821]/50" : "bg-border",
+                )}
+              />
             )}
           </React.Fragment>
         );

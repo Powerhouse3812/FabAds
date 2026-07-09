@@ -1,5 +1,5 @@
 /**
- * AgeGenderRow — inline age min/max + gender chip selector.
+ * AgeGenderRow — age min/max stepper inputs + gender radio group.
  *
  * Writes to: targeting.ageMin, targeting.ageMax, targeting.genders
  *
@@ -9,7 +9,7 @@
  *   - Shows amber restriction banner
  */
 
-import { AlertTriangle } from "lucide-react";
+import { ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TargetingSpec } from "../../../types";
 
@@ -19,15 +19,75 @@ interface AgeGenderRowProps {
   specialAdCategoryActive?: boolean;
 }
 
-const AGE_MIN_OPTIONS = Array.from({ length: 48 }, (_, i) => i + 18); // 18–65
-const AGE_MAX_OPTIONS = [...Array.from({ length: 48 }, (_, i) => i + 18), 65]; // 18–65, then "65+"
+const AGE_MIN = 18;
+const AGE_MAX = 65;
 
 type GenderValue = "male" | "female";
-const GENDER_CHIPS: { label: string; value: GenderValue | "all" }[] = [
+const GENDER_OPTIONS: { label: string; value: GenderValue | "all" }[] = [
   { label: "All", value: "all" },
-  { label: "Men", value: "male" },
-  { label: "Women", value: "female" },
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
 ];
+
+function clamp(v: number) {
+  if (Number.isNaN(v)) return AGE_MIN;
+  return Math.min(AGE_MAX, Math.max(AGE_MIN, v));
+}
+
+function AgeStepper({
+  value,
+  onChange,
+  disabled,
+  label,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  const display = value >= AGE_MAX ? "65+" : String(value);
+
+  return (
+    <div
+      className={cn(
+        "flex h-9 items-center overflow-hidden rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23]",
+        disabled && "opacity-40"
+      )}
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        aria-label={label}
+        value={display}
+        disabled={disabled}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/[^\d]/g, "");
+          if (raw === "") return;
+          onChange(clamp(Number(raw)));
+        }}
+        className="w-12 bg-transparent px-3 text-[13px] font-mono tabular-nums text-foreground focus:outline-none disabled:cursor-not-allowed"
+      />
+      <div className="flex h-full flex-col border-l border-[#e7e5dc] dark:border-[#2a2a2a]">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(clamp(value + 1))}
+          className="flex h-1/2 w-6 items-center justify-center text-muted-foreground hover:bg-muted disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronUp className="h-2.5 w-2.5" />
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(clamp(value - 1))}
+          className="flex h-1/2 w-6 items-center justify-center border-t border-[#e7e5dc] dark:border-[#2a2a2a] text-muted-foreground hover:bg-muted disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronDown className="h-2.5 w-2.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AgeGenderRow({ targeting, onChange, specialAdCategoryActive }: AgeGenderRowProps) {
   const locked = specialAdCategoryActive === true;
@@ -41,7 +101,7 @@ export default function AgeGenderRow({ targeting, onChange, specialAdCategoryAct
 
   function setAgeMin(val: number) {
     if (locked) return;
-    const safeMin = Math.max(18, val);
+    const safeMin = Math.max(AGE_MIN, val);
     const safeMax = Math.max(safeMin, targeting.ageMax);
     onChange({ ...targeting, ageMin: safeMin, ageMax: safeMax });
   }
@@ -58,11 +118,8 @@ export default function AgeGenderRow({ targeting, onChange, specialAdCategoryAct
     onChange({ ...targeting, genders });
   }
 
-  const inputBase =
-    "h-8 rounded-[28px] border border-border bg-background px-3 text-[13px] font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-[#8FB821]/40 transition-shadow";
-
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {locked && (
         <div className="flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-3 py-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -72,86 +129,58 @@ export default function AgeGenderRow({ targeting, onChange, specialAdCategoryAct
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Age min */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wide">Age</span>
-          <div className="relative">
-            <select
-              value={locked ? 18 : targeting.ageMin}
-              onChange={(e) => setAgeMin(Number(e.target.value))}
-              disabled={locked}
-              title={locked ? "Age is fixed at 18–65 for Special Ad Categories" : undefined}
-              className={cn(
-                inputBase,
-                "appearance-none pr-6",
-                locked && "cursor-not-allowed opacity-40"
-              )}
-            >
-              {AGE_MIN_OPTIONS.map((age) => (
-                <option key={age} value={age}>
-                  {age}
-                </option>
-              ))}
-            </select>
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">▾</span>
-          </div>
-          <span className="text-[11px] text-muted-foreground">–</span>
-          {/* Age max */}
-          <div className="relative">
-            <select
-              value={locked ? 65 : targeting.ageMax}
-              onChange={(e) => setAgeMax(Number(e.target.value))}
-              disabled={locked}
-              title={locked ? "Age is fixed at 18–65 for Special Ad Categories" : undefined}
-              className={cn(
-                inputBase,
-                "appearance-none pr-6",
-                locked && "cursor-not-allowed opacity-40"
-              )}
-            >
-              {AGE_MAX_OPTIONS.map((age, i) => {
-                const isLast = i === AGE_MAX_OPTIONS.length - 1;
-                return (
-                  <option key={`max-${age}-${i}`} value={age}>
-                    {isLast ? "65+" : age}
-                  </option>
-                );
-              })}
-            </select>
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">▾</span>
-          </div>
+      {/* Age range */}
+      <div className="space-y-1.5">
+        <p className="text-[13px] text-foreground">Age range</p>
+        <div className="flex items-center gap-3.5">
+          <AgeStepper
+            label="Minimum age"
+            value={locked ? AGE_MIN : targeting.ageMin}
+            onChange={setAgeMin}
+            disabled={locked}
+          />
+          <span className="text-[11px] text-muted-foreground">to</span>
+          <AgeStepper
+            label="Maximum age"
+            value={locked ? AGE_MAX : targeting.ageMax}
+            onChange={setAgeMax}
+            disabled={locked}
+          />
         </div>
+      </div>
 
-        {/* Gender chips */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wide">Gender</span>
-          <div className="flex items-center gap-1 rounded-full border border-border bg-background p-0.5">
-            {GENDER_CHIPS.map((chip) => {
-              const isActive =
-                locked
-                  ? chip.value === "all"
-                  : currentGender === chip.value;
-              return (
-                <button
-                  key={chip.value}
-                  type="button"
-                  onClick={() => setGender(chip.value)}
-                  disabled={locked}
-                  title={locked ? "Gender is fixed to All for Special Ad Categories" : undefined}
+      {/* Gender */}
+      <div className="space-y-1.5">
+        <p className="text-[13px] text-foreground">Gender</p>
+        <div className="flex items-center gap-4">
+          {GENDER_OPTIONS.map((opt) => {
+            const isActive = locked ? opt.value === "all" : currentGender === opt.value;
+            return (
+              <label
+                key={opt.value}
+                className={cn("flex items-center gap-2 cursor-pointer", locked && "cursor-not-allowed opacity-40")}
+                title={locked ? "Gender is fixed to All for Special Ad Categories" : undefined}
+              >
+                <span
                   className={cn(
-                    "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
-                    isActive
-                      ? "bg-[#F5FBE2] text-[#5B7611] dark:bg-[#2C3F10] dark:text-[#C3E165]"
-                      : "text-muted-foreground hover:bg-muted",
-                    locked && "cursor-not-allowed opacity-40"
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
+                    isActive ? "border-[#8FB821] dark:border-[#90BA24]" : "border-[#e7e5dc] dark:border-[#2a2a2a]"
                   )}
                 >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
+                  {isActive && <span className="h-2 w-2 rounded-full bg-[#8FB821] dark:bg-[#90BA24]" />}
+                </span>
+                <span className="text-[13px] text-foreground">{opt.label}</span>
+                <input
+                  type="radio"
+                  name="gender"
+                  className="sr-only"
+                  checked={isActive}
+                  disabled={locked}
+                  onChange={() => setGender(opt.value)}
+                />
+              </label>
+            );
+          })}
         </div>
       </div>
     </div>

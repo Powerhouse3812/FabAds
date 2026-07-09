@@ -183,7 +183,7 @@ function SearchBox({
   return (
     <div ref={wrapRef} className="relative">
       {/* Input */}
-      <div className="flex items-center gap-2 rounded-[28px] border border-border bg-background px-3 py-1.5">
+      <div className="flex items-center gap-2 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#8FB821]/30 transition-shadow">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
           type="text"
@@ -200,7 +200,7 @@ function SearchBox({
 
       {/* Dropdown */}
       {open && query.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-2xl border border-border bg-[#FFFFFF] dark:bg-[#1E1E23] shadow-md">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] shadow-md">
           {filtered.length === 0 ? (
             <p className="px-3 py-3 text-[12px] font-mono text-muted-foreground">No results for "{query}"</p>
           ) : (
@@ -237,9 +237,9 @@ function SearchBox({
           {selected.map((s) => (
             <div
               key={s.option.key}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-sm"
+              className="flex items-center gap-1.5 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] px-3 py-1 text-sm"
             >
-              <span className="text-[12px]">{s.option.name}</span>
+              <span className="text-[12px] text-foreground">{s.option.name}</span>
               <span className={cn("text-[10px] font-mono font-semibold uppercase", TYPE_COLOR[s.option.type])}>
                 {TYPE_LABEL[s.option.type]}
               </span>
@@ -249,7 +249,7 @@ function SearchBox({
                 <select
                   value={s.radius ?? 25}
                   onChange={(e) => onRadiusChange(s.option.key, Number(e.target.value))}
-                  className="ml-1 rounded-full border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono focus:outline-none"
+                  className="ml-1 rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-background px-1.5 py-0.5 text-[11px] font-mono focus:outline-none"
                   title="Radius"
                 >
                   {radiusOptions.map((r) => {
@@ -347,29 +347,32 @@ export default function LocationPicker({
       )}
 
       {/* Included locations */}
-      <SearchBox
-        selected={includedSelected}
-        onAdd={addIncluded}
-        onRemove={removeIncluded}
-        onRadiusChange={changeIncludedRadius}
-        specialAdCategoryActive={specialAdCategoryActive}
-        placeholder="Search countries, cities, regions, or DMA…"
-      />
+      <div className="space-y-1.5">
+        <p className="text-[13px] text-foreground">Including location</p>
+        <SearchBox
+          selected={includedSelected}
+          onAdd={addIncluded}
+          onRemove={removeIncluded}
+          onRadiusChange={changeIncludedRadius}
+          specialAdCategoryActive={specialAdCategoryActive}
+          placeholder="Search countries, cities, regions, or DMA…"
+        />
+      </div>
 
       {/* Excluded locations toggle */}
       <div>
         <button
           type="button"
           onClick={() => setShowExcluded((p) => !p)}
-          className="text-[12px] font-mono text-[#5B7611] dark:text-[#C3E165] underline-offset-2 hover:underline transition-colors"
+          className="text-[11px] font-mono text-[#5B7611] dark:text-[#C3E165] underline-offset-2 hover:underline transition-colors"
         >
-          {showExcluded ? "Hide excluded locations" : "+ Exclude locations"}
+          {showExcluded ? "Hide excluding location" : "+ Add excluding location"}
         </button>
       </div>
 
       {showExcluded && (
-        <div className="rounded-2xl border border-border/60 bg-muted/30 px-3 py-3 space-y-2">
-          <p className="text-[11px] font-mono uppercase tracking-wide text-muted-foreground">Excluded locations</p>
+        <div className="space-y-2">
+          <p className="text-[13px] text-foreground">Excluding location</p>
           <SearchBox
             selected={excludedSelected}
             onAdd={addExcluded}

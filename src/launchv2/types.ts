@@ -159,7 +159,7 @@ export interface Strategy {
   targetingTemplateId?: string | null;
 }
 
-export const MAX_ADS_PER_PAGE = 250;
+export const MAX_ADS_PER_PAGE = 250;           // existing — firm Meta limit, per Facebook Page
 
 /* ---- Destinations (account → page) ---- */
 export interface TargetPair {
@@ -527,6 +527,9 @@ export interface PlanV2 {
 
   // Review (Step 4) variant
   reviewVariant: "tree" | "table";
+
+  /** When pageDistribution === 'duplicate', which level gets duplicated. Default 'ad'. */
+  duplicateLevel?: 'ad' | 'adset' | 'campaign';
 
   createdAt: string;
   updatedAt: string;

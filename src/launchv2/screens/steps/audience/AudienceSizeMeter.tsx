@@ -102,7 +102,7 @@ export default function AudienceSizeMeter({ targeting }: AudienceSizeMeterProps)
           Estimated reach
         </span>
         {updating || displayReach === null ? (
-          <span className="h-4 w-16 animate-pulse rounded bg-muted" />
+          <span className="h-4 w-16 animate-pulse rounded-full bg-muted" />
         ) : (
           <span className={cn("text-[13px] font-mono font-semibold tabular-nums", labelColor)}>
             {formatReach(displayReach)} people
@@ -111,7 +111,7 @@ export default function AudienceSizeMeter({ targeting }: AudienceSizeMeterProps)
       </div>
 
       {/* Bar */}
-      <div className="h-2 w-full rounded-full bg-muted">
+      <div className="h-2 w-full rounded-full border border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#F0F0EC] dark:bg-[#1B1B1F]">
         {updating || displayReach === null ? (
           <div className="h-full w-1/3 animate-pulse rounded-full bg-muted-foreground/20" />
         ) : (

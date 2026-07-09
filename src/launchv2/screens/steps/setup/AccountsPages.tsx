@@ -71,7 +71,7 @@ function Checkbox({
   return (
     <span
       className={cn(
-        "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border-[1.5px] transition-all",
+        "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-all",
         checked
           ? "border-primary bg-primary"
           : "border-border",
@@ -79,10 +79,10 @@ function Checkbox({
       )}
     >
       {checked && (
-        <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className="shrink-0">
+        <svg width="8" height="6" viewBox="0 0 8 6" fill="none" className="shrink-0 text-primary-foreground">
           <path
             d="M1 3L2.8 5L7 1"
-            stroke="white"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -209,7 +209,10 @@ function AccountPickerRow({
         if (!inactive) onToggle();
       }}
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors",
+        "flex items-center gap-3 border-l-2 px-3 py-2.5 transition-colors",
+        selected && !inactive
+          ? "border-l-primary bg-[#F5FBE2] dark:bg-[#1D2A09]"
+          : "border-l-transparent hover:bg-muted/40",
         inactive ? "cursor-not-allowed" : "cursor-pointer",
       )}
     >
@@ -218,7 +221,7 @@ function AccountPickerRow({
       {/* Name */}
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-sm font-medium",
+          "min-w-0 flex-1 truncate text-[13px] font-medium",
           inactive ? "text-muted-foreground" : "text-foreground",
         )}
       >
@@ -226,14 +229,14 @@ function AccountPickerRow({
       </span>
 
       {/* Currency badge */}
-      <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+      <span className="shrink-0 rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
         {account.currency}
       </span>
 
       {/* Right side — status / BM */}
       {isRestricted ? (
         <div className="flex shrink-0 items-center gap-2">
-          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          <span className="rounded-full border border-[hsl(var(--warning-text))]/30 bg-[hsl(var(--warning-text))]/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wide text-[hsl(var(--warning-text))]">
             Disconnected
           </span>
           <button
@@ -241,7 +244,7 @@ function AccountPickerRow({
             onClick={handleReconnect}
             disabled={reconnecting}
             aria-busy={reconnecting}
-            className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-70 disabled:cursor-wait"
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-wait disabled:opacity-70"
           >
             {reconnecting ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -256,7 +259,7 @@ function AccountPickerRow({
           Disabled
         </span>
       ) : bmName ? (
-        <span className="shrink-0 text-xs text-muted-foreground">{bmName}</span>
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{bmName}</span>
       ) : (
         <span className="shrink-0 text-[11px] text-muted-foreground/60">
           No BM assigned
@@ -290,13 +293,13 @@ function RecentChips<T extends { id: string; name: string }>({
             type="button"
             onClick={() => onToggle(item.id)}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+              "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
               on
-                ? "border-primary bg-primary/5 text-foreground"
+                ? "border-[hsl(var(--primary-text))]/50 bg-[#F5FBE2] text-foreground dark:bg-[#1D2A09]"
                 : "border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground",
             )}
           >
-            {on && <Check className="h-3 w-3 text-primary" />}
+            {on && <Check className="h-3 w-3 text-[hsl(var(--primary-text))]" />}
             {item.name.split(" — ")[0]}
           </button>
         );
@@ -367,16 +370,16 @@ function AccountRow({
   return (
     <div className="space-y-1.5">
       {/* ── Main card with divide-y structure ── */}
-      <div className="rounded-xl border border-border bg-muted/5 divide-y divide-border/50">
+      <div className="rounded-2xl border border-border bg-card divide-y divide-border/60">
 
         {/* ── Main row (account info + pages + pixel) ── */}
-        <div className="px-3 py-2.5 flex items-center gap-3">
+        <div className="px-3.5 py-3 flex items-center gap-3">
           {/* ── Left: status dot + account name + currency chip ── */}
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#52c41a] dark:bg-[#49aa19] shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
             {account.name}
           </span>
-          <span className="font-mono text-[10px] text-muted-foreground/60 bg-muted/40 border border-border/60 rounded-full px-1.5 py-0.5 shrink-0">
+          <span className="font-mono text-[10px] text-muted-foreground bg-muted/40 border border-border/60 rounded-full px-1.5 py-0.5 shrink-0">
             {account.currency}
           </span>
 
@@ -393,9 +396,9 @@ function AccountRow({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="h-8 min-w-[110px] flex items-center justify-between gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:border-foreground/20 transition-colors"
+                  className="h-7 min-w-[110px] flex items-center justify-between gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-foreground hover:border-primary transition-colors"
                 >
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
                   <span className="flex-1 text-left">
                     {selectedCount > 0 ? `${selectedCount} page${selectedCount !== 1 ? "s" : ""}` : "Pages…"}
                   </span>
@@ -404,7 +407,7 @@ function AccountRow({
               </PopoverTrigger>
 
               <PopoverContent
-                className="w-[280px] p-0 rounded-xl border border-border bg-card shadow-md"
+                className="w-[280px] p-0 rounded-2xl border border-border bg-card shadow-md"
                 align="end"
                 sideOffset={6}
               >
@@ -445,11 +448,13 @@ function AccountRow({
                             "flex items-center gap-2.5 px-3 py-2 transition-colors",
                             atCap
                               ? "cursor-not-allowed opacity-50"
+                              : isChecked
+                              ? "cursor-pointer bg-[#F5FBE2] dark:bg-[#1D2A09] hover:bg-[#EBF6BF] dark:hover:bg-[#2C3F10]"
                               : "cursor-pointer hover:bg-muted/30",
                           )}
                         >
                           <Checkbox checked={isChecked} disabled={atCap} />
-                          <span className="flex-1 min-w-0 truncate text-xs font-medium text-foreground">
+                          <span className="flex-1 min-w-0 truncate text-[12px] font-medium text-foreground">
                             {page.name}
                           </span>
                           <span
@@ -458,8 +463,8 @@ function AccountRow({
                               atCap
                                 ? "text-destructive"
                                 : nearCap
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-muted-foreground/40",
+                                ? "text-[hsl(var(--warning-text))]"
+                                : "text-muted-foreground/50",
                             )}
                           >
                             {activeAds}/{MAX_ADS_PER_PAGE}
@@ -477,7 +482,7 @@ function AccountRow({
               <button
                 type="button"
                 disabled
-                className="h-8 w-[160px] flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-mono text-muted-foreground opacity-50 cursor-default"
+                className="h-7 w-[160px] flex items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-mono text-muted-foreground opacity-50 cursor-default"
               >
                 <Zap className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                 <span>No pixel</span>
@@ -489,7 +494,7 @@ function AccountRow({
                   onSetPixel(accountId, v === "__none__" ? undefined : v)
                 }
               >
-                <SelectTrigger className="h-8 w-[160px] text-xs font-mono">
+                <SelectTrigger className="h-7 w-[160px] rounded-full border-border bg-card text-[12px] font-mono hover:border-primary">
                   <SelectValue placeholder="Select pixel" />
                 </SelectTrigger>
                 <SelectContent>
@@ -506,11 +511,11 @@ function AccountRow({
         </div>
 
         {/* ── Catalogue sub-row (toggle only) ── */}
-        <div className="flex items-center gap-3 px-3 py-2">
-          <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-          <span className="flex-1 text-xs font-medium text-muted-foreground">Advantage+ Catalogue</span>
+        <div className="flex items-center gap-3 px-3.5 py-2.5">
+          <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+          <span className="flex-1 text-[12px] font-medium text-muted-foreground">Advantage+ Catalogue</span>
           {catalogueConflictWarn && (
-            <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+            <span className="mr-2 rounded-full border border-[hsl(var(--warning-text))]/30 bg-[hsl(var(--warning-text))]/10 px-2 py-0.5 font-mono text-[10px] font-medium text-[hsl(var(--warning-text))] shrink-0">
               Turn off &lsquo;Use existing posts&rsquo; first
             </span>
           )}
@@ -528,21 +533,21 @@ function AccountRow({
             className="scale-90 shrink-0"
           />
           {catalogueEnabled && (
-            <p className="ml-6 mt-1 pb-2 font-mono text-[10px] text-primary-text">
+            <p className="ml-6 mt-1 pb-1 font-mono text-[10px] text-[hsl(var(--primary-text))]">
               Configure catalogue and product sets in Step 3 →
             </p>
           )}
         </div>
 
         {/* ── Use existing posts sub-row ── */}
-        <div className="flex items-center gap-3 px-3 py-2">
-          <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+        <div className="flex items-center gap-3 px-3.5 py-2.5">
+          <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">Use existing posts</p>
+            <p className="text-[12px] font-medium text-muted-foreground">Use existing posts</p>
             <p className="text-[11px] text-muted-foreground/60">Select a post from this account&apos;s published ads</p>
           </div>
           {postConflictWarn && (
-            <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+            <span className="mr-2 rounded-full border border-[hsl(var(--warning-text))]/30 bg-[hsl(var(--warning-text))]/10 px-2 py-0.5 font-mono text-[10px] font-medium text-[hsl(var(--warning-text))] shrink-0">
               Turn off Catalogue first
             </span>
           )}
@@ -561,12 +566,32 @@ function AccountRow({
           />
         </div>
 
-        {/* ── Custom Audience sub-row ── */}
-        <div className="flex items-center gap-3 px-3 py-2">
-          <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+        {/* ── Custom Audience sub-row — icon+label left, mode-pills + switch right ── */}
+        <div className="flex items-center gap-3 px-3.5 py-2.5">
+          <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">Custom Audience</p>
+            <p className="text-[12px] font-medium text-muted-foreground">Custom Audience</p>
             <p className="text-[11px] text-muted-foreground/60">Target a specific custom audience</p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {(["select", "upload"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={!customAudienceEnabled}
+                onClick={() => onSetCustomAudienceMode(mode)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  !customAudienceEnabled
+                    ? "border-border/60 text-muted-foreground/40 cursor-not-allowed"
+                    : customAudienceMode === mode
+                    ? "border-[hsl(var(--primary-text))]/50 bg-[#F5FBE2] text-[hsl(var(--primary-text))] dark:bg-[#1D2A09]"
+                    : "border-border bg-card text-muted-foreground hover:border-foreground/30 cursor-pointer",
+                )}
+              >
+                {mode === "select" ? "Select existing" : "Upload CSV"}
+              </button>
+            ))}
           </div>
           <Switch
             checked={customAudienceEnabled}
@@ -577,32 +602,17 @@ function AccountRow({
 
         {/* Custom Audience picker — shown inline when enabled */}
         {customAudienceEnabled && (
-          <div className="px-3 py-3 space-y-3">
-            {/* Mode chips + BM link */}
-            <div className="flex items-center gap-2">
-              {(["select", "upload"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => onSetCustomAudienceMode(mode)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    customAudienceMode === mode
-                      ? "border-primary bg-primary/5 text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-foreground/30",
-                  )}
-                >
-                  {mode === "select" ? "Select existing" : "Upload CSV"}
-                </button>
-              ))}
+          <div className="px-3.5 py-3 space-y-3">
+            <div className="flex items-center justify-end">
               <a
                 href="https://business.facebook.com/audiences"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
                 title="Create in Business Manager"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink className="h-3 w-3" />
+                Create in Business Manager
               </a>
             </div>
 
@@ -612,7 +622,7 @@ function AccountRow({
                 value={customAudienceId ?? "__none__"}
                 onValueChange={(v) => onSetCustomAudienceId(v === "__none__" ? null : v)}
               >
-                <SelectTrigger className="h-9 w-full text-xs">
+                <SelectTrigger className="h-9 w-full rounded-full border-border bg-card text-[12px] hover:border-primary">
                   <SelectValue placeholder="Search or select a custom audience…" />
                 </SelectTrigger>
                 <SelectContent position="popper">
@@ -647,14 +657,14 @@ function AccountRow({
 function CustomAudienceUpload() {
   const [file, setFile] = useState<File | null>(null);
   return (
-    <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-border bg-card px-4 py-4 text-center hover:border-primary/40 transition-colors">
+    <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-border bg-muted/10 px-4 py-4 text-center transition-colors hover:border-primary hover:bg-[#F5FBE2]/40 dark:hover:bg-[#1D2A09]/40">
       <Upload className="h-5 w-5 text-muted-foreground/50" />
       {file ? (
-        <span className="text-xs font-medium text-foreground">{file.name}</span>
+        <span className="text-[12px] font-medium text-foreground">{file.name}</span>
       ) : (
         <>
-          <span className="text-xs font-medium text-foreground">Drop CSV here or click to browse</span>
-          <span className="text-[11px] text-muted-foreground">Columns: email, phone or MADID</span>
+          <span className="text-[12px] font-medium text-foreground">Drop CSV here or click to browse</span>
+          <span className="font-mono text-[11px] text-muted-foreground">Columns: email, phone or MADID</span>
         </>
       )}
       <input
@@ -780,10 +790,10 @@ export function AccountsPages({
   void demandByPage;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* ─── 1. Account picker ───────────────────────────────────────────── */}
       <div className="space-y-1.5">
-        <span className="text-xs font-medium text-muted-foreground">Ad accounts</span>
+        <span className="text-[12px] font-medium text-muted-foreground">Ad accounts</span>
 
         <Popover
           open={accountOpen}
@@ -795,7 +805,7 @@ export function AccountsPages({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex h-9 w-full items-center justify-between rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground hover:border-foreground/30 transition-colors"
+              className="flex h-9 w-full items-center justify-between rounded-full border border-border bg-card px-3.5 text-[13px] text-muted-foreground transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
             >
               <span className={accountCount > 0 ? "text-foreground font-medium" : ""}>
                 {accountCount > 0
@@ -843,7 +853,7 @@ export function AccountsPages({
         </Popover>
 
         {Object.values(plan.catalogueByAccount ?? {}).some((v) => v) && (
-          <p className="mt-1 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+          <p className="mt-1 font-mono text-[10px] text-[hsl(var(--warning-text))]">
             Catalogue mode — single account only. Disable catalogue to add more accounts.
           </p>
         )}
@@ -860,11 +870,11 @@ export function AccountsPages({
 
       {/* ─── 2. Per-account assignment rows ──────────────────────────────── */}
       {selectedAccountIds.size > 0 && (
-        <div className="space-y-1.5">
-          <span className="text-[13px] font-medium text-foreground">
+        <div className="space-y-2">
+          <span className="text-[13px] font-semibold text-foreground">
             Per-account assignment
           </span>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {[...selectedAccountIds].map((accountId) => {
               const handleSetCatalogue = (enabled: boolean) => {
                 const newCatalogueByAccount = {
@@ -913,27 +923,32 @@ export function AccountsPages({
         </div>
       )}
 
-      {/* ─── Validation hint ─────────────────────────────────────────────── */}
+      {/* ─── Validation hint — inline warning banner ─────────────────────── */}
       {hasAccounts && targets.length === 0 && (
-        <p className="text-[11px] text-amber-600 dark:text-amber-400">
-          Select at least one page above to continue.
-        </p>
+        <div className="flex items-center gap-2.5 rounded-2xl border border-[hsl(var(--warning-text))]/25 bg-[hsl(var(--warning-text))]/[0.06] px-3.5 py-2.5">
+          <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#faad14] dark:bg-[#d89614]">
+            <Info className="h-3 w-3 text-[#121212]" aria-hidden="true" />
+          </span>
+          <p className="font-mono text-[12px] text-[hsl(var(--warning-text))]">
+            Select at least one page above to continue.
+          </p>
+        </div>
       )}
 
       {ACCOUNTS.length === 0 && (
         <div className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 px-6 py-8 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Plug className="h-6 w-6 text-primary" aria-hidden="true" />
+            <Plug className="h-6 w-6 text-[hsl(var(--primary-text))]" aria-hidden="true" />
           </span>
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">No ad accounts connected</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[14px] font-semibold text-foreground">No ad accounts connected</p>
+            <p className="text-[12px] text-muted-foreground">
               Connect a Meta ad account to start launching.
             </p>
           </div>
           <Link
             to="/integrations"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Plug className="h-3.5 w-3.5" />
             Connect Meta account
