@@ -42,6 +42,13 @@ export default {
   			ring: 'hsl(var(--ring))',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			/* DS v1.2 accessible-text tokens (WCAG-checked fg colors defined in
+  			   index.css but previously unreachable as utilities — text-error-text
+  			   etc. silently no-opped). Registered so both light/dark values apply. */
+  			'primary-text': 'hsl(var(--primary-text))',
+  			'error-text': 'hsl(var(--error-text))',
+  			'warning-text': 'hsl(var(--warning-text))',
+  			'success-text': 'hsl(var(--success-text))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'

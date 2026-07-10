@@ -1,191 +1,180 @@
-import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Github } from "lucide-react";
+import { LoginView } from "@/components/auth/LoginView";
+import { ForgotPasswordView } from "@/components/auth/ForgotPasswordView";
+import { SetNewPasswordView } from "@/components/auth/SetNewPasswordView";
+import { ResetSuccessModal } from "@/components/auth/ResetSuccessModal";
+import { SignupWizard } from "@/components/auth/SignupWizard";
+import { SignupLinkExpired } from "@/components/auth/SignupLinkExpired";
+import { TwoFactorModal } from "@/components/auth/TwoFactorModal";
+
+/**
+ * Auth — pure-UI rebuild of the login / signup / password flows from the
+ * Onboard-UMS Figma ("Login & Signup/ONboarding" section, node 9431:53324).
+ *
+ * Every state is URL-driven so each Figma frame is deep-linkable for review
+ * (same "show=" philosophy as the rest of the app):
+ *
+ *   /auth                      → login            (Figma 9431:53325)
+ *   /auth?view=forgot          → forgot password  (9431:53497)
+ *   /auth?view=reset           → set new password (9431:53619)
+ *   /auth?view=signup&step=1-3 → signup wizard    (9431:54018 / 54707 / 55392)
+ *   /auth?view=expired         → link expired     (9431:53859)
+ *   /auth?modal=2fa            → 2FA setup modal  (9431:56264)
+ *   /auth?modal=reset-success  → reset success    (9431:53749)
+ *
+ * NO backend calls here — submits only navigate between views (UMS + Supabase
+ * wiring comes later). The demo auto-login in AuthContext is untouched; since
+ * a session therefore always exists, this page must NOT redirect to /dashboard
+ * (the old behavior) — instead it shows a "Back to dashboard" chip so
+ * reviewers coming from the nav rail can return to the app.
+ */
+
+export type AuthView = "login" | "forgot" | "reset" | "signup" | "expired";
+export type AuthModal = "2fa" | "reset-success";
+/** Signup is the 2-step plan-first flow: 1 = Plan selection, 2 = Profile setup. */
+export type SignupStep = 1 | 2;
+
+export interface AuthNav {
+  view: AuthView;
+  step: SignupStep;
+  modal: AuthModal | null;
+  goTo: (view: AuthView, opts?: { step?: SignupStep }) => void;
+  openModal: (modal: AuthModal) => void;
+  closeModal: () => void;
+}
+
+function parseView(raw: string | null): AuthView {
+  const views: AuthView[] = ["login", "forgot", "reset", "signup", "expired"];
+  return views.includes(raw as AuthView) ? (raw as AuthView) : "login";
+}
+
+function parseStep(raw: string | null): SignupStep {
+  return Number(raw) === 2 ? 2 : 1;
+}
+
+function parseModal(raw: string | null): AuthModal | null {
+  return raw === "2fa" || raw === "reset-success" ? raw : null;
+}
 
 export default function Auth() {
-  const { session, loading } = useAuth();
-  const { toast } = useToast();
+  const { session } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const view = parseView(searchParams.get("view"));
+  const step = parseStep(searchParams.get("step"));
+  const modal = parseModal(searchParams.get("modal"));
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (session) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
-    } else {
-      navigate("/dashboard");
-    }
-    setSubmitting(false);
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: fullName || email.split("@")[0] },
-      },
-    });
-    if (error) {
-      if (error.message?.includes("already registered") || (error as any).code === "user_already_exists") {
-        toast({ title: "Already registered", description: "This email already has an account. Use the Login tab.", variant: "destructive" });
-      } else {
-        toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+  const goTo = useCallback(
+    (nextView: AuthView, opts?: { step?: SignupStep }) => {
+      const next = new URLSearchParams();
+      if (nextView !== "login") next.set("view", nextView);
+      if (nextView === "signup" && opts?.step && opts.step > 1) {
+        next.set("step", String(opts.step));
       }
-    } else {
-      // Auto sign-in after successful signup (since auto-confirm is enabled)
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (!signInError) {
-        navigate("/dashboard");
-      } else {
-        toast({ title: "Account created", description: "Please check your email to verify, then log in." });
-      }
-    }
-    setSubmitting(false);
-  };
+      setSearchParams(next);
+    },
+    [setSearchParams],
+  );
 
-  const handleGitHubLogin = async () => {
-    setSubmitting(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-    if (error) {
-      toast({
-        title: "GitHub sign-in failed",
-        description: error.message,
-        variant: "destructive",
+  const openModal = useCallback(
+    (m: AuthModal) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("modal", m);
+        return next;
       });
-      setSubmitting(false);
-    }
-    // On success the OAuth provider handles redirect; no further action needed.
-  };
+    },
+    [setSearchParams],
+  );
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      toast({ title: "Enter your email first", description: "Type your email in the field above, then click Forgot Password.", variant: "destructive" });
-      return;
-    }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+  const closeModal = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("modal");
+      return next;
     });
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Check your email", description: "A password reset link has been sent." });
-    }
-  };
+  }, [setSearchParams]);
+
+  const nav: AuthNav = { view, step, modal, goTo, openModal, closeModal };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">FabAds</CardTitle>
-          <CardDescription>Sign in to your account or create a new one</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* GitHub OAuth — primary path (A-10.15). Email/password tabs below
-              remain as fallback for users who prefer not to use GitHub. */}
-          <Button
+    <div className="relative min-h-screen bg-background">
+      {/* Reviewer escape hatch — only shown when a session exists (always true
+          while the demo auto-login is active). Positioned above the screens
+          so it never collides with the Figma layouts. */}
+      {session && (
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="fixed left-4 top-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to dashboard
+        </button>
+      )}
+
+      {view === "login" && <LoginView nav={nav} />}
+      {view === "forgot" && <ForgotPasswordView nav={nav} />}
+      {view === "reset" && <SetNewPasswordView nav={nav} />}
+      {view === "signup" && <SignupWizard nav={nav} />}
+      {view === "expired" && <SignupLinkExpired nav={nav} />}
+
+      {modal === "2fa" && <TwoFactorModal nav={nav} />}
+      {modal === "reset-success" && <ResetSuccessModal nav={nav} />}
+
+      <StatePicker nav={nav} />
+    </div>
+  );
+}
+
+/**
+ * StatePicker — review-only floating chip (bottom-right) that jumps between
+ * every screen state in the module, mirroring the Figma frames 1:1. Lets
+ * design review walk all 9 states without hand-editing the URL. Remove (or
+ * gate) when the flows get wired for real.
+ */
+const PICKER_STATES: { label: string; view: AuthView; step?: SignupStep; modal?: AuthModal }[] = [
+  { label: "Login", view: "login" },
+  { label: "2FA", view: "login", modal: "2fa" },
+  { label: "Forgot", view: "forgot" },
+  { label: "Reset", view: "reset" },
+  { label: "Reset ✓", view: "reset", modal: "reset-success" },
+  { label: "Plans", view: "signup", step: 1 },
+  { label: "Profile", view: "signup", step: 2 },
+  { label: "Expired", view: "expired" },
+];
+
+function StatePicker({ nav }: { nav: AuthNav }) {
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex max-w-[260px] flex-wrap justify-end gap-1 rounded-xl border border-border bg-card/90 p-1.5 shadow-md backdrop-blur">
+      {PICKER_STATES.map((s) => {
+        const active =
+          nav.view === s.view &&
+          (s.view !== "signup" || nav.step === (s.step ?? 1)) &&
+          nav.modal === (s.modal ?? null);
+        return (
+          <button
+            key={s.label}
             type="button"
-            variant="outline"
-            className="w-full mb-4"
-            onClick={handleGitHubLogin}
-            disabled={submitting}
+            onClick={() => {
+              nav.goTo(s.view, { step: s.step });
+              if (s.modal) nav.openModal(s.modal);
+            }}
+            className={
+              "rounded-md px-2 py-1 text-[11px] font-medium transition-colors " +
+              (active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground")
+            }
           >
-            <Github className="mr-2 h-4 w-4" strokeWidth={2} aria-hidden />
-            {submitting ? "Redirecting…" : "Continue with GitHub"}
-          </Button>
-          <div className="relative mb-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or with email</span>
-            </div>
-          </div>
-          <Tabs defaultValue="login">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-                </div>
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? "Signing in..." : "Sign In"}
-                </Button>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="w-full text-sm text-muted-foreground hover:text-primary underline mt-2"
-                >
-                  Forgot password?
-                </button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <Input id="signup-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-                </div>
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? "Creating account..." : "Create Account"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            {s.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -290,7 +290,7 @@ export default function TerminalDashboard() {
   const queueTotal = recentlyFetched.length + newAdsFetched.length + recentWork.length;
 
   return (
-    <div className="min-h-screen w-full bg-[#0C0C0C] font-mono text-[#F2F2EE]">
+    <div className="h-full min-h-0 w-full overflow-y-auto bg-[#0C0C0C] font-mono text-[#F2F2EE]">
       <style>{`
         @keyframes terminalCursorBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
         .term-cursor { animation: terminalCursorBlink 1s steps(2, start) infinite; }

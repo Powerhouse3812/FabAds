@@ -432,7 +432,7 @@ export default function TonalDashboard() {
   });
 
   return (
-    <div className="min-h-screen w-full bg-[#EFEEEC] font-sans text-[#2A2925]">
+    <div className="h-full min-h-0 w-full overflow-y-auto bg-[#EFEEEC] font-sans text-[#2A2925]">
       <div className="mx-auto flex max-w-[1080px] flex-col gap-4 px-6 py-10 sm:px-10">
         {/* header */}
         <div className="mb-2 flex items-start justify-between gap-4">

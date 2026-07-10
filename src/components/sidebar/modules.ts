@@ -95,6 +95,8 @@ export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
 export const MODULES: ModuleDef[] = [
   /* RUN */
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  /* Dashboard visual-variant showcase (editorial/terminal/tonal/classic) — exploration, not final IA */
+  { key: "dashboard-variants", label: "Dash Variants", icon: Layers, path: "/dashboard-variants/editorial" },
   {
     key: "reports", label: "Reports", icon: BarChart3,
     plans: ["full"],
@@ -187,6 +189,11 @@ export const MODULES: ModuleDef[] = [
   /* TOOLS — flat top-level modules (no parent "Tools" label) */
   { key: "video-sage", label: "Video Sage", icon: Video, path: "/iq/video-sage" },
   { key: "copilot", label: "Copilot", icon: MessageSquare, path: "/iq/copilot" },
+  // Auth screens module — the new Figma login/signup/2FA flows (Onboard-UMS
+  // file, "Login & Signup/ONboarding" section). Pure-UI preview: /auth renders
+  // outside the app shell; the page shows a "Back to dashboard" chip so
+  // reviewers can return without logging out (demo auto-login stays active).
+  { key: "auth-screens", label: "Auth", icon: Shield, path: "/auth", badge: "New" },
   { key: "bg-remover", label: "BG Remover", icon: Eraser, path: "/tools/bg-remover", comingSoon: true },
   { key: "obj-remover", label: "Object Remover", icon: Scissors, path: "/tools/obj-remover", comingSoon: true },
   // Brand Book is intentionally NOT in the nav rail. The slideshow itself
@@ -218,6 +225,7 @@ export const SYSTEM_MODULES: ModuleDef[] = [];
 export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   // RUN
   dashboard: "RUN",
+  "dashboard-variants": "RUN",
   reports: "RUN",
   insights: "RUN",
   launchv2: "RUN",
@@ -231,6 +239,7 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   copilot: "TOOLS",
   "bg-remover": "TOOLS",
   "obj-remover": "TOOLS",
+  "auth-screens": "TOOLS",
 };
 
 export const GROUP_ORDER: ModuleGroup[] = ["RUN", "CREATE", "TOOLS"];

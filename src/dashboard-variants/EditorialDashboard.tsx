@@ -258,7 +258,7 @@ export default function EditorialDashboard() {
 
   return (
     <div
-      className="relative min-h-screen w-full text-[#1C1B19]"
+      className="relative h-full min-h-0 w-full overflow-y-auto text-[#1C1B19]"
       style={{ background: PAPER }}
     >
       {/* Vertical editorial spine — left edge, full height */}

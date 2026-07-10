@@ -2,24 +2,30 @@
  * ClassicDarkDashboard — "Classic Dark Analytics" variant.
  *
  * A COINTALKER-style crypto-dashboard skin: full-bleed dark canvas, a single
- * green accent for everything positive/primary, mono numerals everywhere,
+ * lime accent for everything positive/primary, mono numerals everywhere,
  * a borderless hero line chart, and a dense transactions-style activity
- * table. This is a fully self-contained, literal-styled variant — it does
- * NOT use the Fabfunnel design system tokens (--g6-*, shadcn `card`, etc).
- * Every color/spacing value below is intentionally hardcoded to this
- * variant's own dark palette.
+ * table. This is a self-contained variant that renders literal hex/rgba
+ * values (matching FabFunnel DS v1.2's dark-mode token values) rather than
+ * semantic Tailwind classes — consistent with the other 3 dashboard-variant
+ * pages and with VariantSwitcher, none of which read ancestor `.dark` state.
+ * Recharts SVG props always take literal hexes regardless.
  *
  * Zones (top to bottom / left to right):
- *   1. Header bar        — wordmark, fake nav, greeting, primary CTA
- *   2. Left rail (~340px)— genie KPIs, industry KPIs, credits card,
- *                          creative distribution bars, trending keywords,
- *                          6-tile quick-action grid (modes)
- *   3. Main column       — time-range chips, borderless hero LineChart,
- *                          full-width "Recent activity" table (round-robin
- *                          merge of activity + recentWork + newAdsFetched,
- *                          truncated to 10 rows so every source shows up)
+ *   1. Header bar        — wordmark (page h1), greeting, single primary CTA
+ *      ("New Launch" → /launchv2/new)
+ *   2. Left rail (~340px)— genie KPIs, industry KPIs, credits card
+ *      ("Add Credits" → /plans-v2, the real upgrade/billing route), creative
+ *      distribution bars, trending keywords (decorative chips), 6-tile
+ *      quick-action grid (modes, each a real Link into
+ *      /iq/genie6/studio-alpha?mode=…, mirroring ModeLauncherBar)
+ *   3. Main column       — functional 7D / 14D / 22D time-range chips that
+ *      re-slice the hero series, borderless hero LineChart pinned to a fixed
+ *      snapshot date, full-width "Recent activity" table (round-robin merge
+ *      of activity + recentWork + newAdsFetched, truncated to 10 rows so
+ *      every source shows up)
  */
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CartesianGrid,
   Line,
@@ -30,7 +36,7 @@ import {
   YAxis,
   type TooltipProps,
 } from "recharts";
-import { Zap } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getDashboardVariantData,
@@ -43,21 +49,28 @@ import {
 import VariantSwitcher from "./VariantSwitcher";
 
 // ─────────────────────────────────────────────────────────────────────────
-// Palette (literal — this variant does not use design-system tokens)
+// Palette (literal — FabFunnel DS v1.2 dark-mode token values, hardcoded)
 // ─────────────────────────────────────────────────────────────────────────
-const BG = "#17181A";
-const CARD_BG = "#1F2124";
-const CARD_BORDER = "#2A2C30";
-const ROW_BORDER = "#26282B";
-const TEXT = "#E8E9EA";
-const TEXT_MUTED = "#9CA0A6";
-const TEXT_DIM = "#6B6F76";
-const GREEN = "#4ADE80";
-const RED = "#F87171";
-const GREEN_BTN_FG = "#0B0F0C";
+const BG = "#121212"; // --background
+const CARD_BG = "#1c1c1c"; // --card
+const CARD_BORDER = "#2a2a2a";
+const ROW_BORDER = "#1f1f1f"; // row/section dividers, axis + grid lines
+const SPOTLIGHT = "#1B1B1F"; // progress-bar wells / table thead bg
+const TEXT = "rgba(255,255,255,.92)";
+const TEXT_MUTED = "rgba(255,255,255,.62)";
+const TEXT_DIM = "rgba(255,255,255,.55)"; // tertiary
+const LIME = "#90BA24"; // accent FILL/stroke (chart line, progress fills, icons)
+const LIME_TEXT = "#C3E165"; // lime-as-TEXT (chart tooltip/floating badge values)
+const SUCCESS_TEXT = "#49aa19"; // positive delta text
+const ERROR_TEXT = "#f37370"; // negative delta text / negative minispark stroke
+const WARNING_TEXT = "#d89614"; // pending/queued status text
+const BTN_FG = "#121212"; // primary button text-on-lime
 
-const RANGE_CHIPS = ["Day", "Week", "Month", "Quarter", "Year", "All"] as const;
-const ACTIVITY_TABS = ["Week", "Month"] as const;
+const SNAPSHOT_DATE = new Date("2026-07-10");
+
+const RANGE_CHIPS = ["7D", "14D", "22D"] as const;
+type RangeKey = (typeof RANGE_CHIPS)[number];
+const RANGE_TO_DAYS: Record<RangeKey, number> = { "7D": 7, "14D": 14, "22D": 22 };
 
 // ─────────────────────────────────────────────────────────────────────────
 // Local output type — the merged "Recent activity" table row. Row-level
@@ -71,16 +84,19 @@ interface MergedRow {
   item: string;
   detail: string;
   status: string;
+  /** Entity TYPE (Brand/Competitor/Category) — never a status; rendered as
+   *  a separate neutral chip in the Detail column. See buildActivityRows. */
+  typeTag?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Mix GREEN → TEXT_DIM across `count` steps (used for distribution bars). */
+/** Mix LIME → dim-gray across `count` steps (used for distribution bars). */
 function greenToGray(index: number, count: number): string {
   const t = count <= 1 ? 0 : index / (count - 1);
-  const from = { r: 0x4a, g: 0xde, b: 0x80 };
+  const from = { r: 0x90, g: 0xba, b: 0x24 };
   const to = { r: 0x6b, g: 0x6f, b: 0x76 };
   const r = Math.round(from.r + (to.r - from.r) * t);
   const g = Math.round(from.g + (to.g - from.g) * t);
@@ -88,18 +104,49 @@ function greenToGray(index: number, count: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-/** Positive / negative / neutral pill styling for the activity table. */
-function statusPillClass(status: string): string {
-  const s = status.toLowerCase();
-  const negative = ["destructive", "failed", "error", "removed", "declined"];
-  if (negative.some((p) => s.includes(p))) {
-    return "bg-[#F87171]/15 text-[#F87171]";
-  }
-  const positive = ["active", "done", "success", "completed", "live", "delivered"];
-  if (positive.some((p) => s.includes(p))) {
-    return "bg-[#4ADE80]/15 text-[#4ADE80]";
-  }
-  return "bg-[#9CA0A6]/12 text-[#9CA0A6]";
+type PillVariant = "success" | "error" | "warning" | "info" | "neutral";
+
+const PILL_VARIANT_CLASS: Record<PillVariant, string> = {
+  success: "border-[#49aa19]/30 bg-[#49aa19]/10 text-[#49aa19]",
+  error: "border-[#f37370]/30 bg-[#f37370]/10 text-[#f37370]",
+  warning: "border-[#d89614]/30 bg-[#d89614]/10 text-[#d89614]",
+  info: "border-white/15 bg-white/[0.08] text-white/70",
+  neutral: "border-white/15 bg-white/[0.08] text-white/60",
+};
+
+/**
+ * Closed status→(label, pill variant) lookup for the activity table — a
+ * fixed set of 5 variants, not a fuzzy substring match. "destructive" (a
+ * routine profile-removal audit log) intentionally maps to NEUTRAL, not
+ * error: red is reserved for genuine failures.
+ */
+const STATUS_META: Record<string, { label: string; variant: PillVariant }> = {
+  destructive: { label: "Removed", variant: "neutral" },
+  failed: { label: "Failed", variant: "error" },
+  error: { label: "Failed", variant: "error" },
+  declined: { label: "Declined", variant: "error" },
+  "in-progress": { label: "In progress", variant: "info" },
+  queued: { label: "Queued", variant: "warning" },
+  success: { label: "Done", variant: "success" },
+  done: { label: "Done", variant: "success" },
+  completed: { label: "Done", variant: "success" },
+  active: { label: "Active", variant: "success" },
+  live: { label: "Live", variant: "success" },
+  delivered: { label: "Delivered", variant: "success" },
+  info: { label: "Info", variant: "info" },
+  fetched: { label: "Fetched", variant: "neutral" },
+};
+
+function statusMeta(status: string): { label: string; variant: PillVariant } {
+  return STATUS_META[status.toLowerCase()] ?? { label: status, variant: "neutral" };
+}
+
+/** DS pill recipe: 10% alpha status fill + 30% alpha border + -text token text. */
+function statusPillClass(variant: PillVariant): string {
+  return cn(
+    "rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide",
+    PILL_VARIANT_CLASS[variant],
+  );
 }
 
 /** Tiny inline sparkline for KPI rows — plain SVG, no recharts. */
@@ -116,7 +163,14 @@ function MiniSpark({ points, positive }: { points: number[]; positive: boolean }
     .join(" ");
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="shrink-0">
-      <path d={d} fill="none" stroke={positive ? GREEN : RED} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={d}
+        fill="none"
+        stroke={positive ? LIME : ERROR_TEXT}
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -154,11 +208,14 @@ function Panel({
 }) {
   return (
     <div
-      className={cn("rounded-xl p-4", className)}
+      className={cn("rounded-2xl p-4", className)}
       style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
     >
       {title && (
-        <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
+        <h3
+          className="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.05em]"
+          style={{ color: TEXT_DIM }}
+        >
           {title}
         </h3>
       )}
@@ -184,9 +241,14 @@ function KpiRow({ item }: { item: VariantKpi }) {
         </span>
         {delta && (
           <span
-            className="min-w-[46px] text-right font-mono text-[10px] font-medium tabular-nums"
-            style={{ color: delta.isDown ? RED : GREEN }}
+            className="inline-flex min-w-[46px] items-center justify-end gap-0.5 font-mono text-[10px] font-medium tabular-nums"
+            style={{ color: delta.isDown ? ERROR_TEXT : SUCCESS_TEXT }}
           >
+            {delta.isDown ? (
+              <ArrowDownRight className="h-3 w-3 shrink-0" aria-hidden />
+            ) : (
+              <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden />
+            )}
             {delta.label}
           </span>
         )}
@@ -222,10 +284,13 @@ function CreditsCard({
 }) {
   const remaining = Math.max(total - used, 0);
   return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+    <div className="rounded-2xl p-4" style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
       <div className="mb-2 flex items-center gap-1.5">
-        <Zap className="h-3 w-3" style={{ color: GREEN }} strokeWidth={2.5} />
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
+        <Zap className="h-3 w-3" style={{ color: LIME }} strokeWidth={2.5} aria-hidden />
+        <span
+          className="font-mono text-[11px] font-semibold uppercase tracking-[0.05em]"
+          style={{ color: TEXT_DIM }}
+        >
           Estimated credits left
         </span>
       </div>
@@ -237,22 +302,24 @@ function CreditsCard({
           ({used}/{total})
         </span>
       </div>
-      <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: ROW_BORDER }}>
+      <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: SPOTLIGHT }}>
         <div
           className="h-full rounded-full"
-          style={{ width: `${Math.min(Math.max(pct, 0), 100)}%`, backgroundColor: GREEN }}
+          style={{ width: `${Math.min(Math.max(pct, 0), 100)}%`, backgroundColor: LIME }}
         />
       </div>
       <p className="mb-3 font-mono text-[10px] tabular-nums" style={{ color: TEXT_MUTED }}>
-        ~{burnPerDay}/day burn · {daysLeft}d left
+        est. burn ≈{burnPerDay}/day · ~{daysLeft}d left
       </p>
-      <button
-        type="button"
-        className="w-full rounded-md py-2 text-[12px] font-semibold"
-        style={{ backgroundColor: GREEN, color: GREEN_BTN_FG }}
+      {/* Real upgrade/billing route — mirrors UpsellCornerPill.tsx's CTA,
+          demoted to secondary since "New Launch" is the single primary CTA. */}
+      <Link
+        to="/plans-v2?tier=growth&view=trial"
+        className="fab-focus flex w-full items-center justify-center rounded-full border bg-transparent py-2 text-[12px] font-medium transition-colors hover:bg-[#C3E165]/10"
+        style={{ borderColor: `${LIME_TEXT}66`, color: LIME_TEXT }}
       >
         Add Credits
-      </button>
+      </Link>
     </div>
   );
 }
@@ -274,7 +341,7 @@ function DistributionBars({ data }: { data: VariantDonutSlice[] }) {
                   {pct}%
                 </span>
               </div>
-              <div className="h-1 w-full overflow-hidden rounded-full" style={{ backgroundColor: ROW_BORDER }}>
+              <div className="h-1 w-full overflow-hidden rounded-full" style={{ backgroundColor: SPOTLIGHT }}>
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${pct}%`, backgroundColor: greenToGray(i, data.length) }}
@@ -310,44 +377,52 @@ function ModesGrid({ modes }: { modes: VariantModeAction[] }) {
   return (
     <Panel title="Quick actions">
       <div className="grid grid-cols-2 gap-2">
-        {modes.map((m) => (
-          <button
-            key={m.key}
-            type="button"
-            className="flex flex-col items-start gap-0.5 rounded-lg p-2.5 text-left transition-colors hover:bg-white/[0.03]"
-            style={{ border: `1px solid ${ROW_BORDER}` }}
-          >
-            <span className="text-[11px] font-semibold" style={{ color: TEXT }}>
-              {m.label}
-            </span>
-            <span className="text-[11px] leading-tight" style={{ color: TEXT_DIM }}>
-              {m.desc}
-            </span>
-          </button>
-        ))}
+        {modes.map((m) => {
+          // Mirrors ModeLauncherBar.tsx: /iq/genie6/studio-alpha?mode=<OUTSIDE_CTAS id>,
+          // with "variation" appending &skipGate=1 (skipGate: true on that CTA).
+          const dest = `/iq/genie6/studio-alpha?mode=${m.key}${m.key === "variation" ? "&skipGate=1" : ""}`;
+          return (
+            <Link
+              key={m.key}
+              to={dest}
+              className="fab-focus flex flex-col items-start gap-0.5 rounded-lg p-2.5 text-left transition-colors hover:bg-white/[0.03]"
+              style={{ border: `1px solid ${ROW_BORDER}` }}
+            >
+              <span className="text-[11px] font-semibold" style={{ color: TEXT }}>
+                {m.label}
+              </span>
+              <span className="text-[11px] leading-tight" style={{ color: TEXT_DIM }}>
+                {m.desc}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </Panel>
   );
 }
 
-function TimeRangeChips() {
-  const [active, setActive] = useState<(typeof RANGE_CHIPS)[number]>("Week");
+function TimeRangeChips({ value, onChange }: { value: RangeKey; onChange: (next: RangeKey) => void }) {
   return (
     <div className="flex items-center gap-5">
-      {RANGE_CHIPS.map((chip) => (
-        <button
-          key={chip}
-          type="button"
-          onClick={() => setActive(chip)}
-          className="pb-1.5 text-[11px] uppercase tracking-wide transition-colors"
-          style={{
-            color: active === chip ? TEXT : TEXT_DIM,
-            borderBottom: active === chip ? `2px solid ${GREEN}` : "2px solid transparent",
-          }}
-        >
-          {chip}
-        </button>
-      ))}
+      {RANGE_CHIPS.map((chip) => {
+        const active = value === chip;
+        return (
+          <button
+            key={chip}
+            type="button"
+            onClick={() => onChange(chip)}
+            aria-pressed={active}
+            className="fab-focus inline-flex min-h-[24px] items-center px-0.5 pb-1.5 font-mono text-[11px] uppercase tracking-wide transition-colors"
+            style={{
+              color: active ? TEXT : TEXT_DIM,
+              borderBottom: active ? `2px solid ${LIME}` : "2px solid transparent",
+            }}
+          >
+            {chip}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -360,7 +435,7 @@ function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) 
       style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: TEXT }}
     >
       <div style={{ color: TEXT_DIM }}>{label}</div>
-      <div className="font-semibold tabular-nums" style={{ color: GREEN }}>
+      <div className="font-semibold tabular-nums" style={{ color: LIME_TEXT }}>
         {payload[0].value}
       </div>
     </div>
@@ -372,7 +447,7 @@ function HeroChart({ sparkSeries }: { sparkSeries: number[] }) {
     const series = sparkSeries && sparkSeries.length ? sparkSeries : [0, 0];
     const n = series.length;
     return series.map((value, i) => {
-      const d = new Date();
+      const d = new Date(SNAPSHOT_DATE);
       d.setDate(d.getDate() - (n - 1 - i));
       return {
         date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
@@ -388,15 +463,24 @@ function HeroChart({ sparkSeries }: { sparkSeries: number[] }) {
   const topPct = 100 - ((last.value - min) / range) * 100;
 
   return (
-    <div>
-      <div className="mb-3 flex items-baseline gap-2">
+    <div className="rounded-2xl transition-transform duration-[220ms] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+      <div
+        className="mb-1 font-mono text-[11px] font-semibold uppercase tracking-[0.05em]"
+        style={{ color: TEXT_DIM }}
+      >
+        Activity trend
+      </div>
+      <div className="mb-1 flex items-baseline gap-2">
         <span className="font-mono text-[22px] font-bold tabular-nums" style={{ color: TEXT }}>
           {last.value}
         </span>
         <span className="text-[11px]" style={{ color: TEXT_DIM }}>
-          current
+          latest · indexed
         </span>
       </div>
+      <p className="mb-3 text-[11px]" style={{ color: TEXT_DIM }}>
+        indexed · last {data.length} days
+      </p>
       <div className="relative" style={{ height: 240 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 20, right: 8, bottom: 0, left: 0 }}>
@@ -418,10 +502,10 @@ function HeroChart({ sparkSeries }: { sparkSeries: number[] }) {
             <Line
               type="monotone"
               dataKey="value"
-              stroke={GREEN}
+              stroke={LIME}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: GREEN, stroke: BG, strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: LIME, stroke: BG, strokeWidth: 2 }}
               isAnimationActive={false}
             />
           </LineChart>
@@ -435,11 +519,11 @@ function HeroChart({ sparkSeries }: { sparkSeries: number[] }) {
         >
           <div
             className="rounded-md px-2 py-1 font-mono text-[10px] font-semibold tabular-nums"
-            style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: GREEN }}
+            style={{ backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: LIME_TEXT }}
           >
             {last.value}
           </div>
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GREEN, boxShadow: `0 0 0 3px ${GREEN}33` }} />
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: LIME, boxShadow: `0 0 0 3px ${LIME}33` }} />
         </div>
       </div>
     </div>
@@ -487,108 +571,104 @@ function buildActivityRows(
     type: "New ad",
     item: f.title,
     detail: f.sub,
-    status: f.status ?? "fetched",
+    // Every fetched-ad row is just "Fetched" — `f.status` on the raw data is
+    // actually an entity TYPE (Brand/Competitor/Category), surfaced below as
+    // `typeTag` instead of misrepresented as a status.
+    status: "fetched",
+    typeTag: f.status,
   }));
   return interleave(fromActivity, fromWork, fromFetched).slice(0, 10);
 }
 
 function ActivityTable({ rows }: { rows: MergedRow[] }) {
-  const [tab, setTab] = useState<(typeof ACTIVITY_TABS)[number]>("Week");
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[20px] font-bold" style={{ color: TEXT }}>
-          Recent activity
-        </h2>
-        <div className="flex items-center gap-4">
-          {ACTIVITY_TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className="text-[11px] font-medium uppercase tracking-wide"
-              style={{ color: tab === t ? TEXT : TEXT_DIM }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              {["Time", "Type", "Item", "Detail", "Status"].map((h) => (
-                <th
-                  key={h}
-                  className="whitespace-nowrap px-3 py-2 text-left font-mono text-[10px] font-normal uppercase tracking-wide"
-                  style={{ color: TEXT_DIM, borderBottom: `1px solid ${ROW_BORDER}` }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="transition-colors hover:bg-white/[0.02]" style={{ borderBottom: `1px solid ${ROW_BORDER}` }}>
-                <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[13px] tabular-nums" style={{ color: TEXT_MUTED }}>
-                  {r.time}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-[13px]" style={{ color: TEXT_MUTED }}>
-                  {r.type}
-                </td>
-                <td className="px-3 py-2.5 text-[13px] font-medium" style={{ color: TEXT }}>
-                  {r.item}
-                </td>
-                <td className="px-3 py-2.5 text-[13px]" style={{ color: TEXT_DIM }}>
-                  {r.detail}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5">
-                  <span
-                    className={cn("rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide", statusPillClass(r.status))}
+      <h2 className="mb-4 text-[20px] font-bold tracking-[-0.01em]" style={{ color: TEXT }}>
+        Recent activity
+      </h2>
+      <div
+        className="overflow-hidden rounded-2xl border transition-all duration-[220ms] hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+        style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr style={{ backgroundColor: SPOTLIGHT }}>
+                {["Time", "Type", "Item", "Detail", "Status"].map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="whitespace-nowrap px-3.5 py-3 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.08em]"
+                    style={{ color: TEXT_DIM, borderBottom: `1px solid ${ROW_BORDER}` }}
                   >
-                    {r.status}
-                  </span>
-                </td>
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const meta = statusMeta(r.status);
+                return (
+                  <tr
+                    key={r.id}
+                    className="transition-colors hover:bg-white/[0.02]"
+                    style={{ borderBottom: `1px solid ${ROW_BORDER}` }}
+                  >
+                    <td
+                      className="whitespace-nowrap px-3.5 py-3.5 font-mono text-[13px] tabular-nums"
+                      style={{ color: TEXT_MUTED }}
+                    >
+                      {r.time}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-3.5 text-[13px]" style={{ color: TEXT_MUTED }}>
+                      {r.type}
+                    </td>
+                    <td className="px-3.5 py-3.5 text-[13px] font-medium" style={{ color: TEXT }}>
+                      {r.item}
+                    </td>
+                    <td className="px-3.5 py-3.5 text-[13px]" style={{ color: TEXT_DIM }}>
+                      {r.detail}
+                      {r.typeTag && (
+                        <span
+                          className="ml-1.5 inline-block rounded-full border border-white/15 bg-white/[0.06] px-1.5 py-0.5 align-middle font-mono text-[10px] uppercase tracking-wide"
+                          style={{ color: TEXT_DIM }}
+                        >
+                          {r.typeTag}
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-3.5">
+                      <span className={statusPillClass(meta.variant)}>{meta.label}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
 function HeaderBar({ userName }: { userName: string }) {
-  const navItems = ["Dashboard", "Reports", "Launches", "Insights"];
   return (
     <header className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${ROW_BORDER}` }}>
-      <span className="text-[15px] font-bold tracking-tight" style={{ color: TEXT }}>
+      <h1 className="text-[15px] font-bold tracking-[-0.01em]" style={{ color: TEXT }}>
         FABADS
-      </span>
-      <nav className="hidden items-center gap-6 md:flex">
-        {navItems.map((item, i) => (
-          <span
-            key={item}
-            className="font-mono text-[11px] uppercase tracking-widest"
-            style={{ color: i === 0 ? TEXT : TEXT_MUTED }}
-          >
-            {item}
-          </span>
-        ))}
-      </nav>
+      </h1>
       <div className="flex items-center gap-4">
         <span className="text-[13px]" style={{ color: TEXT_MUTED }}>
           Hi, <span style={{ color: TEXT }}>{userName}</span>
         </span>
-        <button
-          type="button"
-          className="rounded-md px-4 py-2 text-[12px] font-semibold"
-          style={{ backgroundColor: GREEN, color: GREEN_BTN_FG }}
+        <Link
+          to="/launchv2/new"
+          className="fab-focus rounded-full px-4 py-2 text-[13px] font-medium"
+          style={{ backgroundColor: LIME, color: BTN_FG }}
         >
           New Launch
-        </button>
+        </Link>
       </div>
     </header>
   );
@@ -614,13 +694,20 @@ export default function ClassicDarkDashboard() {
     newAdsFetched,
   } = data;
 
+  const [range, setRange] = useState<RangeKey>("22D");
+
+  const windowedSeries = useMemo(() => {
+    const n = RANGE_TO_DAYS[range];
+    return sparkSeries.slice(-n);
+  }, [sparkSeries, range]);
+
   const activityRows = useMemo(
     () => buildActivityRows(activity, recentWork, newAdsFetched),
     [activity, recentWork, newAdsFetched],
   );
 
   return (
-    <div className="min-h-screen w-full font-sans" style={{ backgroundColor: BG, color: TEXT }}>
+    <div className="h-full min-h-0 w-full overflow-y-auto font-sans" style={{ backgroundColor: BG, color: TEXT }}>
       <VariantSwitcher current="classic" />
       <HeaderBar userName={userName} />
 
@@ -641,8 +728,8 @@ export default function ClassicDarkDashboard() {
         </aside>
 
         <main className="flex flex-col gap-8">
-          <TimeRangeChips />
-          <HeroChart sparkSeries={sparkSeries} />
+          <TimeRangeChips value={range} onChange={setRange} />
+          <HeroChart sparkSeries={windowedSeries} />
           <ActivityTable rows={activityRows} />
         </main>
       </div>
