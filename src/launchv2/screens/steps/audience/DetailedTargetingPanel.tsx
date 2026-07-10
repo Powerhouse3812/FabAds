@@ -39,6 +39,12 @@ interface DetailedTargetingPanelProps {
   excludedGeoLocations?: Partial<GeoLocations>;
   onChangeGeoIncluded: (g: GeoLocations) => void;
   onChangeGeoExcluded: (g: Partial<GeoLocations>) => void;
+  /**
+   * When true, the Location/Interest/Behaviour accordion rows render as flat
+   * divider rows (border-b) instead of stacked rounded-2xl cards, so the panel
+   * can sit inside a parent surface without card-in-card nesting.
+   */
+  bare?: boolean;
 }
 
 type TermCategory = "Interest" | "Behavior" | "Demographic";
@@ -125,22 +131,35 @@ function AccordionRow({
   badge,
   open,
   onToggle,
+  bare = false,
   children,
 }: {
   label: string;
   badge?: React.ReactNode;
   open: boolean;
   onToggle: () => void;
+  /** Flat divider row (border-b only) instead of a rounded-2xl card, to avoid card-in-card stacking. */
+  bare?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden">
-      <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+    <div
+      className={cn(
+        bare
+          ? "border-b border-[#e7e5dc] dark:border-[#2a2a2a]"
+          : "rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden"
+      )}
+    >
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-4 py-3 text-left">
         <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
         <span className="flex-1 text-[13px] font-medium text-foreground">{label}</span>
         {badge}
       </button>
-      {open && <div className="border-t border-[#e7e5dc] dark:border-[#2a2a2a] px-4 py-4 space-y-3">{children}</div>}
+      {open && (
+        <div className={cn("px-4 py-4 space-y-3", !bare && "border-t border-[#e7e5dc] dark:border-[#2a2a2a]")}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -269,6 +288,7 @@ export default function DetailedTargetingPanel({
   excludedGeoLocations,
   onChangeGeoIncluded,
   onChangeGeoExcluded,
+  bare = false,
 }: DetailedTargetingPanelProps) {
   const locked = specialAdCategoryActive === true;
   const [openRow, setOpenRow] = useState<"location" | "interest" | "behaviour" | null>(null);
@@ -312,6 +332,7 @@ export default function DetailedTargetingPanel({
         label="Location"
         open={openRow === "location"}
         onToggle={() => setOpenRow((p) => (p === "location" ? null : "location"))}
+        bare={bare}
       >
         <LocationPicker
           geoLocations={geoLocations}
@@ -332,6 +353,7 @@ export default function DetailedTargetingPanel({
         }
         open={openRow === "interest"}
         onToggle={() => setOpenRow((p) => (p === "interest" ? null : "interest"))}
+        bare={bare}
       >
         <TermSearchBox
           group={includeGroup}
@@ -354,6 +376,7 @@ export default function DetailedTargetingPanel({
         }
         open={openRow === "behaviour"}
         onToggle={() => setOpenRow((p) => (p === "behaviour" ? null : "behaviour"))}
+        bare={bare}
       >
         <TermSearchBox
           group={includeGroup}

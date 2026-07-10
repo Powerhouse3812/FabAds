@@ -58,6 +58,7 @@ import {
 } from "../../data";
 import type { AttributionWindow, BidStrategy, DestinationType, OptimizationGoal } from "../../types";
 import { buildIssues } from "../review/reviewModel";
+import { postModeActive } from "../../deriveV2";
 import { AccountsPages } from "./setup/AccountsPages";
 import { SetupTemplateBar, SetupSectionChip } from "./setup/SetupTemplateBar";
 import BidStrategyRow from "./setup/BidStrategyRow";
@@ -292,6 +293,7 @@ function Toggle({
     <div
       role="button"
       tabIndex={locked ? -1 : 0}
+      aria-disabled={locked || undefined}
       onClick={() => !locked && onCheckedChange(!checked)}
       onKeyDown={(e) => { if (!locked && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onCheckedChange(!checked); } }}
       className={cn(
@@ -342,6 +344,15 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
   const special = specialCategoryActive(plan);
   const needsPixel = requiresPixel(plan) && plan.targets.some((t) => !t.pixelId);
   const currency = plan.targets[0]?.currency ?? "USD";
+
+  // Advantage+ Creative is incompatible with existing-post ads on Meta's API —
+  // lock the toggle and force it off whenever post-mode is active for any account.
+  const postActive = postModeActive(plan);
+  useEffect(() => {
+    if (postActive && plan.advantageCreative) {
+      patch({ advantageCreative: false });
+    }
+  }, [postActive, plan.advantageCreative, patch]);
 
   const bidOptions = plan.objective
     ? allowedBidStrategies(plan.objective, plan.optimizationGoal)
@@ -971,13 +982,16 @@ export default function Step2Setup({ flow }: { flow: UseFlowV2 }) {
           isLast={true}
           sectionRef={sectionRefs[3]}
         >
-          {/* Advantage+ creative toggle */}
+          {/* Advantage+ creative toggle — locked + forced off while post-mode is active (not
+              compatible with existing-post ads on Meta's API) */}
           <Toggle
             checked={plan.advantageCreative}
             onCheckedChange={(v) => patch({ advantageCreative: v })}
             label="Advantage+ Creative"
             desc="Drive sales using your product information by showing relevant products to the right people."
             icon={<Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
+            locked={postActive}
+            reason={postActive ? "Not available for existing-post ads" : undefined}
           />
 
           {/* ── Naming (nomenclature) — ad-level, collapsed by default ── */}

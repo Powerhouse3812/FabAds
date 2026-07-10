@@ -19,12 +19,14 @@ import {
   BarChart3,
   Check,
   ChevronDown,
+  ChevronRight,
   FolderOpen,
   HardDrive,
   Hash,
   Image,
   Library,
   Link2,
+  Lock,
   Plus,
   ShoppingBag,
   Sparkles,
@@ -38,7 +40,7 @@ import { Separator } from "@/components/ui/separator";
 import { allowedFormats, defaultDestination } from "../../reducer";
 import { FORMATS, SOURCES, RUNNING_ADS, CATALOGS } from "../../data";
 import type { UseFlowV2 } from "../../state/useFlowV2";
-import type { AdFormat, AdCopy, CreativeRef, SourceType, SpreadMode } from "../../types";
+import type { AdFormat, AdCopy, CreativeRef, RunningAdV2, SourceType, SpreadMode } from "../../types";
 import AdContent from "./spread/AdContent";
 import SelectedItemsRow from "./spread/SelectedItemsRow";
 import { SourceSheet } from "./spread/SourceSheet";
@@ -49,7 +51,8 @@ import CopyFromRunning, { runningAdItems, applyRunningAd } from "./shared/CopyFr
 import CapMeterWithFixes from "./distribution/CapMeterWithFixes";
 import StructureEditor from "./distribution/StructureEditor";
 import { DistributionSectionChip } from "./distribution/DistributionTemplateBar";
-import { adSetCount, adsPerDestination, perPageDemand, spreadPreview } from "../../deriveV2";
+import PostPickerModal from "./distribution/PostPickerModal";
+import { accountsWithZeroPostAds, adSetCount, adsPerDestination, perPageDemand, spreadPreview } from "../../deriveV2";
 import { PageSplitErrorModal } from "./distribution/PageSplitErrorModal";
 import { buildReviewTree } from "../review/reviewModel";
 import { formatMoney } from "@/launch2/utils/time";
@@ -369,102 +372,71 @@ function CatalogueAdCopy({ flow }: { flow: UseFlowV2 }) {
   );
 }
 
-// ── PostedAdsPicker — browse RUNNING_ADS and select as creative ──────────────
-function PostedAdsPicker({
+// ── PostImportSummary — compact summary + trigger for PostPickerModal ────────
+/**
+ * Replaces the old inline PostedAdsPicker list. Shows a one-line rollup of
+ * the currently-selected posts ("N posts · P pages · M accounts") with a
+ * lime-text "Select posts" button that opens the modal. Zero-state renders a
+ * dashed rounded-2xl button instead — the modal owns all picking UI now.
+ */
+function PostImportSummary({
   flow,
-  selectedAcctIds,
+  postSelIds,
+  onOpenPicker,
 }: {
   flow: UseFlowV2;
-  selectedAcctIds: Set<string>;
+  postSelIds: string[];
+  onOpenPicker: () => void;
 }) {
   const { plan } = flow;
 
-  // Filter RUNNING_ADS to the selected accounts' pages
-  const selectedAccountNames = plan.targets
-    .filter((t) => selectedAcctIds.has(t.accountId))
-    .map((t) => t.pageName);
+  const selectedAds = postSelIds
+    .map((id) => RUNNING_ADS.find((ad) => ad.id === id))
+    .filter((ad): ad is RunningAdV2 => Boolean(ad));
 
-  const filtered =
-    selectedAccountNames.length > 0
-      ? RUNNING_ADS.filter((ad) =>
-          selectedAccountNames.some(
-            (name) =>
-              ad.pageName.toLowerCase().includes(name.toLowerCase()) ||
-              name.toLowerCase().includes(ad.pageName.toLowerCase()),
-          ),
-        )
-      : RUNNING_ADS;
+  if (selectedAds.length === 0) {
+    return (
+      <SectionCard
+        title="Select posts"
+        subtitle="Pick existing published posts from your pages to run as ads."
+      >
+        <button
+          type="button"
+          onClick={onOpenPicker}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+        >
+          <Hash className="h-4 w-4" />
+          Select posts from your pages
+        </button>
+      </SectionCard>
+    );
+  }
 
-  // Fall back to all ads when mock data has no exact match
-  const ads = filtered.length > 0 ? filtered : RUNNING_ADS;
-
-  const selectedIds = new Set(
-    plan.creatives.filter((c) => c.source === "post_id").map((c) => c.id),
-  );
-
-  const toggle = (ad: (typeof RUNNING_ADS)[0]) => {
-    const isSelected = selectedIds.has(ad.id);
-    const next = isSelected
-      ? plan.creatives.filter((c) => c.id !== ad.id)
-      : [
-          ...plan.creatives,
-          {
-            id: ad.id,
-            name: ad.name,
-            format: ad.format,
-            source: "post_id" as const,
-            thumbnail: ad.thumbnail,
-            savedAd: false,
-            itemType: "ad" as const,
-          },
-        ];
-    flow.patch({ creatives: next });
-  };
+  const pageIds = new Set(selectedAds.map((ad) => ad.fbPageId));
+  const acctCount = new Set(
+    plan.targets
+      .filter((t) => pageIds.has(t.fbPageId))
+      .map((t) => t.accountId),
+  ).size;
 
   return (
     <SectionCard
-      title="Select post"
-      subtitle="Pick an existing published post to run as an ad."
+      title="Select posts"
+      subtitle="Existing published posts running as ads."
     >
-      <div className="space-y-2">
-        {selectedAcctIds.size === 0 && (
-          <p className="font-mono text-[11px] text-muted-foreground">
-            Select an account on the left to see its posts.
-          </p>
-        )}
-        <div className="space-y-2">
-          {ads.map((ad) => {
-            const sel = selectedIds.has(ad.id);
-            return (
-              <button
-                key={ad.id}
-                type="button"
-                onClick={() => toggle(ad)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
-                  sel
-                    ? "border-foreground/30 bg-primary/5"
-                    : "border-border hover:border-foreground/20",
-                )}
-              >
-                {ad.thumbnail && (
-                  <img
-                    src={ad.thumbnail}
-                    alt=""
-                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-medium text-foreground">{ad.name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    {ad.pageName} · {ad.format}
-                  </p>
-                </div>
-                {sel && <Check className="h-4 w-4 shrink-0 text-primary" />}
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-3.5 py-2.5">
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {selectedAds.length} post{selectedAds.length !== 1 ? "s" : ""} · {pageIds.size} page
+          {pageIds.size !== 1 ? "s" : ""} · {acctCount} account{acctCount !== 1 ? "s" : ""}
+        </span>
+        <button
+          type="button"
+          onClick={onOpenPicker}
+          className="fab-focus inline-flex flex-shrink-0 items-center gap-1 rounded-full text-[12px] font-medium text-[#5B7611] dark:text-[#C3E165] hover:underline"
+        >
+          Select posts
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
     </SectionCard>
   );
@@ -604,6 +576,14 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const capErrors = pageDemand.filter(p => p.over);
   const [splitModalOpen, setSplitModalOpen] = useState(false);
 
+  // Preserved page-split choice label — shown in the post-import lock strip.
+  // Page split itself is never mutated while locked; this just renders what
+  // it was (and will restore to) when post import is off.
+  const preservedSplitLabel =
+    plan.pageDistribution === "custom"
+      ? "Custom"
+      : PAGE_SPLIT_OPTIONS.find((o) => o.id === (plan.pageDistribution ?? "fill_first"))?.label ?? "Fill first";
+
   const activeSourceId = plan.source.type;
 
   const handleSheetSave = (items: CreativeRef[], suggestedCopy?: Partial<AdCopy>) => {
@@ -659,6 +639,11 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
   const hasPostIdAccounts = Object.values(plan.useExistingPostByAccount ?? {}).some(Boolean);
   const forceV2 = hasCatalogueAccounts || hasPostIdAccounts;
 
+  // Hard-block condition: any post-mode account that ends up with 0 ads
+  // because no post was selected for its page(s). Blocks Next/Launch via
+  // planReady/buildIssues — this banner is the on-page explanation.
+  const zeroAdAccounts = accountsWithZeroPostAds(plan);
+
   const [selectedAcctIds, setSelectedAcctIds] = useState<Set<string>>(() => new Set<string>());
 
   const handleSelectAccts = (ids: Set<string>) => {
@@ -670,6 +655,40 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
     } else {
       setSelectedAcctIds(ids);
     }
+  };
+
+  // ── Post ID picker (Task 1) ─────────────────────────────────────────────────
+  const [postPickerOpen, setPostPickerOpen] = useState(false);
+
+  // All accounts with the per-account "use existing posts" toggle ON.
+  const postOnAcctIds = Object.entries(plan.useExistingPostByAccount ?? {})
+    .filter(([, on]) => on)
+    .map(([id]) => id);
+
+  // Modal scope: the rail selection filtered to post-ON accounts; falls back
+  // to every post-ON account when the rail selection is empty or all-catalogue.
+  const postScopeIds = (() => {
+    const filtered = [...selectedAcctIds].filter((id) => plan.useExistingPostByAccount?.[id]);
+    return filtered.length > 0 ? filtered : postOnAcctIds;
+  })();
+
+  const postSelIds = plan.creatives.filter((c) => c.source === "post_id").map((c) => c.id);
+
+  const handlePostsConfirm = (ids: string[]) => {
+    const nonPostCreatives = plan.creatives.filter((c) => c.source !== "post_id");
+    const nextPostCreatives: CreativeRef[] = ids
+      .map((id) => RUNNING_ADS.find((ad) => ad.id === id))
+      .filter((ad): ad is RunningAdV2 => Boolean(ad))
+      .map((ad) => ({
+        id: ad.id,
+        name: ad.name,
+        format: ad.format,
+        source: "post_id" as const,
+        thumbnail: ad.thumbnail,
+        savedAd: false,
+        itemType: "ad" as const,
+      }));
+    flow.patch({ creatives: [...nonPostCreatives, ...nextPostCreatives] });
   };
 
   // ── Selection style helpers (Tier-2 lock #6: 2px foreground border, no lime) ─
@@ -870,16 +889,45 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
               selectedAcctId={selectedAcctIds.size === 1 ? [...selectedAcctIds][0] : null}
             />
           ) : hasPostIdAccounts ? (
-            /* Post ID mode — browse and select existing published posts */
-            <PostedAdsPicker flow={flow} selectedAcctIds={selectedAcctIds} />
+            /* Post ID mode — compact summary + modal trigger */
+            <>
+              {zeroAdAccounts.length > 0 && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-2xl border border-[rgba(255,77,79,0.35)] bg-[rgba(255,77,79,0.10)] px-3.5 py-3"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#cf1322] mt-0.5" />
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-[12px] font-semibold text-[#cf1322]">
+                      {zeroAdAccounts.length === 1
+                        ? "1 account will get 0 ads — fix before continuing"
+                        : `${zeroAdAccounts.length} accounts will get 0 ads — fix before continuing`}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {zeroAdAccounts.map((a) => (
+                        <li key={a.accountId} className="text-[12px] leading-snug text-[#cf1322]">
+                          <strong className="font-semibold">{a.accountName}</strong> will get 0 ads —
+                          select at least one post for its page, or turn off post import for this
+                          account.
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+              <PostImportSummary
+                flow={flow}
+                postSelIds={postSelIds}
+                onOpenPicker={() => setPostPickerOpen(true)}
+              />
+            </>
           ) : (
             <>
               {/* ── 3. Source — chips row: labeled left zone + icon-only right zone ── */}
               {(() => {
                 const LABELED_SOURCES: SourceType[] = ["library", "genie", "upload"];
                 const labeledSources = SOURCES.filter((s) => LABELED_SOURCES.includes(s.id as SourceType));
-                // post_id is now a per-launch Step 2 selection — excluded from chip row
-                const iconOnlySources = SOURCES.filter((s) => !LABELED_SOURCES.includes(s.id as SourceType) && s.id !== "post_id");
+                const iconOnlySources = SOURCES.filter((s) => !LABELED_SOURCES.includes(s.id as SourceType));
                 return (
                   <div className="space-y-2">
                     <div className="space-y-1">
@@ -926,6 +974,18 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                             type="button"
                             title={s.label}
                             onClick={() => {
+                              if (s.id === "post_id") {
+                                // Post ID is a per-account mode, not a plan.source pick — turn it
+                                // on for every account in this launch, then open the same picker
+                                // the Step 2 "Use existing posts" toggle opens.
+                                const allAcctIds = Array.from(new Set(plan.targets.map((t) => t.accountId)));
+                                if (allAcctIds.length === 0) return;
+                                const next = { ...(plan.useExistingPostByAccount ?? {}) };
+                                allAcctIds.forEach((id) => { next[id] = true; });
+                                flow.patch({ useExistingPostByAccount: next });
+                                setPostPickerOpen(true);
+                                return;
+                              }
                               flow.patch({ source: { type: s.id as SourceType, ref: null } });
                               setSheetOpen(true);
                             }}
@@ -1058,6 +1118,19 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
             onApplyFolder={handleApplyFolder}
             onClose={() => setSheetOpen(false)}
           />
+
+          {/* Post picker modal — Task 1 */}
+          <PostPickerModal
+            open={postPickerOpen}
+            onClose={() => setPostPickerOpen(false)}
+            plan={plan}
+            accountIds={postScopeIds}
+            selectedIds={postSelIds}
+            onConfirm={(ids) => {
+              handlePostsConfirm(ids);
+              setPostPickerOpen(false);
+            }}
+          />
         </div>
       </div>
 
@@ -1154,6 +1227,21 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                 onApplyFix={(mode) => patch({ pageDistribution: mode })}
               />
 
+              {/* ── Post-import lock strip — page split is overridden, not mutated ── */}
+              {hasPostIdAccounts && (
+                <div className="flex items-start gap-2.5 rounded-xl bg-[#F0F0EC] dark:bg-[#1B1B1F] px-3.5 py-2.5">
+                  <Lock className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground" strokeWidth={1.75} />
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-[12px] text-foreground/80 leading-snug">
+                      Page split locked while post import is on — posts run only from their owner page.
+                    </p>
+                    <p className="font-mono text-[11px] text-muted-foreground">
+                      was: {preservedSplitLabel} · restores when post import is off
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 {PAGE_SPLIT_OPTIONS.map((opt) => {
                   const on = plan.pageDistribution === opt.id;
@@ -1163,15 +1251,17 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => patch({ pageDistribution: opt.id })}
+                      onClick={hasPostIdAccounts ? undefined : () => patch({ pageDistribution: opt.id })}
                       aria-pressed={on}
+                      aria-disabled={hasPostIdAccounts}
                       className={cn(
                         "fab-focus flex flex-col gap-2 rounded-2xl p-4 text-left transition-colors",
+                        hasPostIdAccounts && "opacity-50 cursor-not-allowed",
                         on
                           ? isDupe
                             ? "border-2 border-amber-400 bg-amber-50/40 dark:bg-amber-950/20"
                             : selectedBorder
-                          : `${unselectedBorder} bg-card hover:border-foreground/30`,
+                          : cn(unselectedBorder, "bg-card", !hasPostIdAccounts && "hover:border-foreground/30"),
                       )}
                     >
                       <div className="flex items-center justify-between gap-1">
@@ -1204,7 +1294,7 @@ export default function Step3AdDistributionV3({ flow }: { flow: UseFlowV2 }) {
               </div>
 
               {/* ── Duplicate level sub-option ───────────────────────────────── */}
-              {plan.pageDistribution === 'duplicate' && (
+              {plan.pageDistribution === 'duplicate' && !hasPostIdAccounts && (
                 <div className="mt-3 space-y-1.5">
                   <p className="font-mono text-[9px] uppercase tracking-[0.06em] text-[rgba(15,15,12,0.40)] dark:text-[rgba(255,255,255,0.40)] font-semibold">Duplicate at level</p>
                   <div className="flex gap-1.5">

@@ -2,7 +2,7 @@
  * TargetingTemplateModal — full-screen modal for editing the complete targeting spec.
  *
  * Tab IA (Figma: fileKey 1A3Nl99HIjBi0HgNaLmOFh, "Edit Targeting"):
- *   1. Audience          — Custom & lookalike audiences, Age & gender, Location, Languages
+ *   1. Audience          — Age & gender, Location, Languages
  *   2. Placements        — Advantage+ / manual placement accordion tree
  *   3. Detailed targeting — Location / Interest / Behaviour accordion
  *
@@ -18,7 +18,6 @@ import type { TargetingSpec, TargetingTermRef, PlacementSelection } from "../../
 import { DEFAULT_PLACEMENTS } from "../../../data";
 import LocationPicker from "./LocationPicker";
 import AgeGenderRow from "./AgeGenderRow";
-import CustomLookalikeRow from "./CustomLookalikeRow";
 import DetailedTargetingPanel from "./DetailedTargetingPanel";
 import PlacementsPanel from "./PlacementsPanel";
 import AudienceSizeMeter from "./AudienceSizeMeter";
@@ -291,16 +290,6 @@ export default function TargetingTemplateModal({
                 <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-[#F5FBE2] dark:bg-[#1D2A09] px-4 py-3">
                   <AudienceSizeMeter targeting={draft} />
                 </div>
-
-                <Section title="Custom &amp; lookalike audiences">
-                  <CustomLookalikeRow
-                    customAudiences={draft.customAudiences}
-                    excludedCustomAudiences={draft.excludedCustomAudiences}
-                    onChangeAudiences={(a) => setDraft({ ...draft, customAudiences: a })}
-                    onChangeExcluded={(a) => setDraft({ ...draft, excludedCustomAudiences: a })}
-                    specialAdCategoryActive={specialAdCategoryActive}
-                  />
-                </Section>
 
                 <Section title="Age &amp; gender">
                   <AgeGenderRow

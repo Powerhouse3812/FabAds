@@ -1,7 +1,7 @@
 /* A-12.184: Inter removed per Fabfunnel design system v1.2 (May 2026).
    Geist + Geist Mono are the ONLY allowed type families. The Inter
    Google Fonts import was the last bridge keeping it loaded — now gone. */
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&family=Archivo:wght@400;500;600;700;800;900&family=Archivo+Black:wght@400&display=swap");
 @import "./genie6/styles/tokens.css";
 @tailwind base;
 @tailwind components;

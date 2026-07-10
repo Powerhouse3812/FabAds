@@ -23,6 +23,15 @@ export interface PlacementsPanelProps {
   onChangeMode: (mode: "advantage" | "manual") => void;
   placements: PlacementSelection;
   onChangePlacements: (next: PlacementSelection) => void;
+  /**
+   * When true, render WITHOUT the outer rounded-2xl border/bg wrapper so the
+   * panel can sit inside a parent surface (children + dividers only).
+   */
+  bare?: boolean;
+  /** Heading text shown next to the switch (default "Advanced placement"). */
+  title?: string;
+  /** Hide the heading text (the switch stays in place). */
+  hideTitle?: boolean;
 }
 
 type Platform = keyof PlacementSelection;
@@ -159,6 +168,7 @@ function PlatformRow({
       <button
         type="button"
         onClick={onToggleOpen}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 py-1.5 text-left"
       >
         <ChevronRight className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
@@ -184,14 +194,17 @@ export default function PlacementsPanel({
   onChangeMode,
   placements,
   onChangePlacements,
+  bare = false,
+  title = "Advanced placement",
+  hideTitle = false,
 }: PlacementsPanelProps) {
   const [openPlatform, setOpenPlatform] = useState<Platform | null>("facebook");
   const manual = placementMode === "manual";
 
-  return (
-    <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden">
+  const content = (
+    <>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <p className="text-[13px] font-medium text-foreground">Advanced placement</p>
+        {!hideTitle && <p className="text-[13px] font-medium text-foreground">{title}</p>}
         <Switch checked={manual} onChange={(v) => onChangeMode(v ? "manual" : "advantage")} />
       </div>
 
@@ -218,6 +231,14 @@ export default function PlacementsPanel({
           ))}
         </div>
       )}
+    </>
+  );
+
+  if (bare) return content;
+
+  return (
+    <div className="rounded-2xl border border-[#e7e5dc] dark:border-[#2a2a2a] bg-white dark:bg-[#1E1E23] overflow-hidden">
+      {content}
     </div>
   );
 }

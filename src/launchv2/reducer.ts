@@ -20,7 +20,7 @@ import type {
   OptimizationGoal,
   PlanV2,
 } from "./types";
-import { capCheck } from "./deriveV2";
+import { accountsWithZeroPostAds, capCheck } from "./deriveV2";
 
 /* ------------------------------------------------------------------ */
 /*  §1 Objective → destinations                                        */
@@ -294,6 +294,10 @@ export function planReady(plan: PlanV2, throughStep: 1 | 2 | 3 | 4 | 5): boolean
   if (throughStep >= 1 && !plan.objective) return false;
   if (throughStep >= 2 && (plan.targets.length === 0 || plan.budgetAmount <= 0)) return false;
   if (throughStep >= 3 && (!plan.format || plan.creatives.length === 0)) return false;
+  // Post mode ("show = launch"): an ad account with 0 resulting ads is a hard
+  // block, not a soft warning — post-mode toggle + post selection both happen
+  // by Step 3 (Ad & Distribution) in the running 4-step flow, so gate here.
+  if (throughStep >= 3 && accountsWithZeroPostAds(plan).length > 0) return false;
   if (throughStep >= 4 && !capCheck(plan).ok) return false;
   if (throughStep >= 5 && !capCheck(plan).ok) return false;
   return true;

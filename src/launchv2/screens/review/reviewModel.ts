@@ -11,12 +11,14 @@
  */
 import type { BidStrategy, BudgetMode, PageDistribution, PlanV2 } from "../../types";
 import {
+  accountsWithZeroPostAds,
   adSetCount,
   adsPerDestination,
   budgetPerDay,
   capCheck,
   estimateAds,
   perTargetCounts,
+  postModeActive,
   type PageDemand,
 } from "../../deriveV2";
 import { pageActiveAds, CREATIVES } from "../../data";
@@ -487,6 +489,25 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
     });
   }
 
+  // ---- Tier 1d2: post-mode account(s) with 0 resulting ads ----
+  // Hard block, mirrors the Step 3 on-page banner (defense-in-depth) — a
+  // launch can never have an ad account that produces zero ads.
+  {
+    const zeroAdAccounts = accountsWithZeroPostAds(plan);
+    if (zeroAdAccounts.length > 0) {
+      const names = zeroAdAccounts.map((a) => a.accountName).join(", ");
+      issues.push({
+        id: "err:zero-post-ads",
+        tier: "error",
+        title:
+          zeroAdAccounts.length === 1
+            ? `${zeroAdAccounts[0].accountName} will get 0 ads`
+            : `${zeroAdAccounts.length} accounts will get 0 ads`,
+        detail: `${names} — no selected post belongs to this account's page(s). Select at least one post for its page, or turn off post import for this account.`,
+      });
+    }
+  }
+
   // ---- Tier 1e: DPA / catalogue on but no product set picked ----
   if (plan.catalogueToggle) {
     const accountIds = new Set(plan.targets.map((t) => t.accountId));
@@ -574,7 +595,9 @@ export function buildIssues(plan: PlanV2): ReviewIssue[] {
   }
 
   // ---- Tier 2d: duplicate distribution multiplier (upgraded from info) ----
-  if (plan.pageDistribution === "duplicate" && plan.targets.length > 1) {
+  // Post-import mode ignores pageDistribution entirely (deriveV2.perTargetCounts),
+  // so a stale "duplicate" choice from before toggling post mode on must not warn here.
+  if (plan.pageDistribution === "duplicate" && plan.targets.length > 1 && !postModeActive(plan)) {
     issues.push({
       id: "warn:duplicate-multiplier",
       tier: "warning",

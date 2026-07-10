@@ -14,6 +14,14 @@
  *     OFFSITE_CONVERSIONS or VALUE.
  *   • Ad-set "placements"      → only relevant when placementMode is "manual".
  *
+ * Post-import guardrail (mirrors the Page Split lock in Step3AdDistributionV3):
+ *   • Ad "__assetCustomization" → locked while ANY account has post import on
+ *     (postModeActive). An existing-post ad IS the original post, so it can't
+ *     be given a different crop/asset per placement the way a normal ad can.
+ *     Note this is placement ASSET customization, not placement SELECTION —
+ *     which placements an ad set runs on (ad-set "placements", above) is
+ *     unaffected and stays editable under post import.
+ *
  * PARENT RESOLUTION
  * ─────────────────
  * An ad-set's effective budget mode is that of its PARENT campaign (not the
@@ -26,6 +34,7 @@
 import type { PlanV2, BudgetMode } from "../../types";
 import type { NodeKind } from "./reviewModel";
 import { resolveNodeValue } from "../../nodeOverrides";
+import { postModeActive } from "../../deriveV2";
 
 /* ── Public interface ─────────────────────────────────────────────────────── */
 
@@ -131,6 +140,18 @@ export function fieldGate(
       }
       return {};
     }
+  }
+
+  // ── Ad-level gates ───────────────────────────────────────────────────────
+  if (kind === "ad" && fieldId === "__assetCustomization") {
+    if (postModeActive(plan)) {
+      return {
+        locked: true,
+        reason:
+          "Locked while post import is on — existing-post ads run their original asset on every placement",
+      };
+    }
+    return {};
   }
 
   // ── Default: no gate ────────────────────────────────────────────────────

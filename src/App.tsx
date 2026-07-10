@@ -26,6 +26,7 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
 import { launchV2Routes } from "@/launchv2/routes";
+import { dashboardVariantRoutes } from "@/dashboard-variants/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
 import { PaymentVerificationPage } from "@/payment-verification/PaymentVerificationPage";
@@ -152,6 +153,11 @@ const App = () => (
 
                 {/* Launch v2 — fresh redesign; v1 + launch2 untouched */}
                 {launchV2Routes}
+
+                {/* Dashboard variants — 4-way visual showcase of the AI-plan
+                    dashboard (Editorial / Terminal / Tonal / Classic Dark),
+                    all fed by the same static snapshot. */}
+                {dashboardVariantRoutes}
                 <Route path="iq/genie" element={<Genie />} />
                 <Route path="iq/genie2" element={<Genie2 />} />
                 <Route path="iq/genie3" element={<Genie3 />} />

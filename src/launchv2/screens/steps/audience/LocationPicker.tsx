@@ -23,6 +23,13 @@ interface LocationPickerProps {
   onChangeIncluded: (g: GeoLocations) => void;
   onChangeExcluded: (g: Partial<GeoLocations>) => void;
   specialAdCategoryActive?: boolean;
+  /**
+   * Layout variant.
+   *   "full" (default) — included search + an "add excluding location" toggle (one column).
+   *   "include-only" / "exclude-only" — a single, always-visible, label-less search box
+   *   so callers can lay Including and Excluding out side-by-side.
+   */
+  variant?: "full" | "include-only" | "exclude-only";
 }
 
 type LocationType = "country" | "city" | "region" | "dma";
@@ -284,6 +291,7 @@ export default function LocationPicker({
   onChangeIncluded,
   onChangeExcluded,
   specialAdCategoryActive,
+  variant = "full",
 }: LocationPickerProps) {
   const locked = specialAdCategoryActive === true;
   const [showExcluded, setShowExcluded] = useState(false);
@@ -335,6 +343,38 @@ export default function LocationPicker({
     onChangeExcluded(buildGeoLocations(next));
   }
 
+  const includeSection = (
+    <div className="space-y-1.5">
+      {variant === "full" && <p className="text-[13px] text-foreground">Including location</p>}
+      <SearchBox
+        selected={includedSelected}
+        onAdd={addIncluded}
+        onRemove={removeIncluded}
+        onRadiusChange={changeIncludedRadius}
+        specialAdCategoryActive={specialAdCategoryActive}
+        placeholder="Search countries, cities, regions, or DMA…"
+      />
+    </div>
+  );
+
+  const excludeSection = (
+    <div className="space-y-1.5">
+      {variant === "full" && <p className="text-[13px] text-foreground">Excluding location</p>}
+      <SearchBox
+        selected={excludedSelected}
+        onAdd={addExcluded}
+        onRemove={removeExcluded}
+        onRadiusChange={changeExcludedRadius}
+        specialAdCategoryActive={specialAdCategoryActive}
+        placeholder="Exclude countries, cities, regions…"
+      />
+    </div>
+  );
+
+  // Side-by-side variants: single, label-less section (caller supplies its own label).
+  if (variant === "include-only") return includeSection;
+  if (variant === "exclude-only") return excludeSection;
+
   return (
     <div className="space-y-3">
       {locked && (
@@ -347,17 +387,7 @@ export default function LocationPicker({
       )}
 
       {/* Included locations */}
-      <div className="space-y-1.5">
-        <p className="text-[13px] text-foreground">Including location</p>
-        <SearchBox
-          selected={includedSelected}
-          onAdd={addIncluded}
-          onRemove={removeIncluded}
-          onRadiusChange={changeIncludedRadius}
-          specialAdCategoryActive={specialAdCategoryActive}
-          placeholder="Search countries, cities, regions, or DMA…"
-        />
-      </div>
+      {includeSection}
 
       {/* Excluded locations toggle */}
       <div>
@@ -370,19 +400,7 @@ export default function LocationPicker({
         </button>
       </div>
 
-      {showExcluded && (
-        <div className="space-y-2">
-          <p className="text-[13px] text-foreground">Excluding location</p>
-          <SearchBox
-            selected={excludedSelected}
-            onAdd={addExcluded}
-            onRemove={removeExcluded}
-            onRadiusChange={changeExcludedRadius}
-            specialAdCategoryActive={specialAdCategoryActive}
-            placeholder="Exclude countries, cities, regions…"
-          />
-        </div>
-      )}
+      {showExcluded && excludeSection}
     </div>
   );
 }

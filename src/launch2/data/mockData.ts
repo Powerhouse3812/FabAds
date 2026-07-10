@@ -68,6 +68,31 @@ export const MOCK_ACCOUNTS: AdAccount[] = [
     pixels: [{ id: "px_boat", name: "boAt Pixel", lastEventAt: iso(2 * HOUR) }],
   },
   {
+    id: "act_mama_scale",
+    name: "Mamaearth — Scale",
+    currency: "INR",
+    status: "active",
+    pages: [
+      { id: "pg_mama", fbPageId: "fb_2001", name: "Mamaearth", activeAds: 210, category: "Beauty" },
+      { id: "pg_mama_baby", fbPageId: "fb_2003", name: "Mamaearth Baby", activeAds: 34, category: "Baby Care" },
+    ],
+    pixels: [{ id: "px_mama_scale", name: "Mamaearth Scale Pixel", lastEventAt: iso(9 * MIN) }],
+  },
+  {
+    // Third account sharing the Mamaearth Page (fb_2001) — proves the
+    // account-count pill logic at N=3, not just N=2 (see act_mamaearth /
+    // act_mama_scale above for the other two sharers).
+    id: "act_mama_retention",
+    name: "Mamaearth — Retention",
+    currency: "INR",
+    status: "active",
+    pages: [
+      { id: "pg_mama", fbPageId: "fb_2001", name: "Mamaearth", activeAds: 210, category: "Beauty" },
+      { id: "pg_mama_men", fbPageId: "fb_2004", name: "Mamaearth Men", activeAds: 58, category: "Men's Grooming" },
+    ],
+    pixels: [{ id: "px_mama_retention", name: "Mamaearth Retention Pixel", lastEventAt: iso(17 * MIN) }],
+  },
+  {
     id: "act_noise",
     name: "Noise",
     currency: "INR",

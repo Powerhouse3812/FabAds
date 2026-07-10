@@ -247,6 +247,8 @@ export interface RunningAdV2 {
   id: string;
   name: string;
   pageName: string;
+  /** Owner Page's Facebook Page id — the capacity-bucket key (a Page can be shared across accounts). */
+  fbPageId: string;
   postId: string;        // existing post id (use_existing_post)
   thumbnail: string;
   format: AdFormat;
@@ -346,6 +348,8 @@ export interface AudienceRef {
   name: string;
   subtype?: string;
 }
+export type DevicePlatform = "desktop" | "mobile" | "ios";
+export type UserOs = "android" | "ios";
 export interface TargetingSpec {
   geoLocations: GeoLocations;
   excludedGeoLocations?: Partial<GeoLocations>;
@@ -360,6 +364,10 @@ export interface TargetingSpec {
   exclusions: TargetingGroup;
   /** Advantage+ Audience: when true the above act as suggestions, not hard constraints. */
   advantageAudience: boolean;
+  /** Device platforms. Empty array = all devices. */
+  devicePlatforms: DevicePlatform[];
+  /** User operating systems. Empty array = all OS. */
+  userOs: UserOs[];
 }
 
 /* ---- Attribution window (per-plan setting; default 7-day click + 1-day view) ---- */
@@ -496,6 +504,9 @@ export interface PlanV2 {
   // Manual placement
   placementMode: "advantage" | "manual";
   placements: PlacementSelection;
+
+  /** Targeting editor mode toggle. Defaults to "manual". */
+  targetingMode: "template" | "manual";
 
   /* ── Meeting redesign additions ───────────────────────────────────── */
   // Flow (Step 1): strategy-first branch + fast launch

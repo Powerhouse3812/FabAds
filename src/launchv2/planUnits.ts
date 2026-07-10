@@ -24,7 +24,7 @@
  * there is no separate path that can drift.
  */
 import type { BudgetMode, CreativeRef, PlanV2, TargetPair } from "./types";
-import { perTargetCounts } from "./deriveV2";
+import { perTargetCounts, postModeActive, selectedPostAds } from "./deriveV2";
 import { resolveNodeValue, CREATIVE_ID_KEY } from "./nodeOverrides";
 import { CREATIVES } from "./data";
 
@@ -107,11 +107,37 @@ export function buildPlanUnits(plan: PlanV2): CanonicalUnit[] {
   const units: CanonicalUnit[] = [];
   let globalN = 0;
 
+  // Post-mode creative scoping: `plan.creatives` (post_id source entries) is the
+  // GLOBAL selected-post list across the whole launch. A post only ever runs from
+  // its owner Page, so a post-mode target must draw creatives ONLY from the posts
+  // belonging to ITS Page — otherwise a page's ad can be assigned another page's
+  // post (e.g. a boAt post rendered under a Mamaearth page). Build a
+  // fbPageId → CreativeRef[] index once, up front, so each target below can look
+  // up its own page-scoped subset instead of round-robining the global list.
+  const postCreativesByPage = new Map<string, CreativeRef[]>();
+  if (postModeActive(plan)) {
+    const postAdById = new Map(selectedPostAds(plan).map((ad) => [ad.id, ad]));
+    for (const c of plan.creatives) {
+      if (c.source !== "post_id") continue;
+      const ad = postAdById.get(c.id);
+      if (!ad) continue;
+      const list = postCreativesByPage.get(ad.fbPageId);
+      if (list) list.push(c);
+      else postCreativesByPage.set(ad.fbPageId, [c]);
+    }
+  }
+
   plan.targets.forEach((target: TargetPair, ti) => {
     const total = counts[ti] ?? 0;
     const brand = target.accountName.split("—")[0].trim();
     const accountNodeId = `acct:t${ti}:${target.fbPageId}`;
     let leafIdx = 0;
+
+    // Non-post-mode targets keep the existing global round-robin unchanged.
+    // Post-mode targets round-robin within THEIR page's own posts only.
+    const isPostModeTarget = !!plan.useExistingPostByAccount?.[target.accountId];
+    const pageScoped = isPostModeTarget ? postCreativesByPage.get(target.fbPageId) : undefined;
+    const targetCreatives = pageScoped && pageScoped.length ? pageScoped : creatives;
 
     for (let ci = 0; ci < campaignsN; ci++) {
       const campaignNodeId = `t${ti}:${target.fbPageId}:c${ci}`;
@@ -149,7 +175,7 @@ export function buildPlanUnits(plan: PlanV2): CanonicalUnit[] {
         const adsHere = resolveNodeValue(plan, adSetNodeId, "adsPerAdSet", baselineSlotCount);
 
         for (let k = 0; k < adsHere; k++) {
-          const baseCreative = creatives[leafIdx % creatives.length];
+          const baseCreative = targetCreatives[leafIdx % targetCreatives.length];
           leafIdx++;
           globalN++;
           const adNodeId = `t${ti}:${target.fbPageId}:c${ci}:s${si}:a${k}`;

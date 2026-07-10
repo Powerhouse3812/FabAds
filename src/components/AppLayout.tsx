@@ -214,15 +214,21 @@ function AppLayoutInner() {
   const isInsightsV2Route = pathname.startsWith("/insights-v2");
   const isLaunchV2Route = pathname.startsWith("/launchv2");
   const isCreativeLibraryRoute = pathname.startsWith("/iq/creative-library");
+  const isDashboardVariantsRoute = pathname.startsWith("/dashboard-variants");
   // Routes that own their own scroll regions + chrome (no AppLayout
   // breadcrumb header, no outer padding). Genie6 set this pattern;
   // Industry Insights v2 follows it so the masonry page bg + sticky
   // toolbar both reach the top of the viewport. Launch v2 = full-height
   // wizard + Step-4 two-pane. Creative Library = absolute-positioned
   // folder rail + content split that collapses inside the default
-  // overflow-y-auto wrap.
+  // overflow-y-auto wrap. Dashboard variants = 4 full-bleed visual
+  // explorations that each own their own background/chrome.
   const ownsLayout =
-    isGenie6Route || isInsightsV2Route || isLaunchV2Route || isCreativeLibraryRoute;
+    isGenie6Route ||
+    isInsightsV2Route ||
+    isLaunchV2Route ||
+    isCreativeLibraryRoute ||
+    isDashboardVariantsRoute;
   const { isPinned, isOpen } = useCopilot();
 
   return (

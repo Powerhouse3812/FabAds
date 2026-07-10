@@ -290,13 +290,16 @@ export function makeTargetV2(accountId: string, pageId: string): TargetPair | nu
   };
 }
 
-/** Current active ads on a page (for the 250-cap meter). */
+/**
+ * Current active ads on a page (for the 250-cap meter).
+ * A Page can be shared across multiple Ad Accounts (same fbPageId, e.g. two
+ * Business Manager accounts posting through one brand Page) — dedupe to the
+ * first matching Page rather than summing, so a shared page is never
+ * double-counted just because it's listed under more than one account.
+ */
 export function pageActiveAds(fbPageId: string): number {
-  for (const a of MOCK_ACCOUNTS) {
-    const pg = a.pages.find((p) => p.fbPageId === fbPageId);
-    if (pg) return pg.activeAds;
-  }
-  return 0;
+  const pg = MOCK_ACCOUNTS.flatMap((a) => a.pages).find((p) => p.fbPageId === fbPageId);
+  return pg?.activeAds ?? 0;
 }
 
 export const CREATIVES: CreativeRef[] = MOCK_CREATIVES.map((c) => ({
@@ -471,38 +474,439 @@ export const RUNNING_ADSETS: RunningAdSetV2[] = [
 export const RUNNING_ADS: RunningAdV2[] = [
   {
     id: "rad_001", name: "Summer Glow — Hero",
-    pageName: "Mamaearth", postId: "1789234567890_9988776655",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "1789234567890_9988776655",
     thumbnail: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400&q=80",
     format: "single_image", status: "active",
     spend30d: 41200, ctr30d: 3.4, roas30d: 4.8,
   },
   {
     id: "rad_002", name: "Freedom Spot — 15s",
-    pageName: "boAt Lifestyle", postId: "1654321098765_1122334455",
+    pageName: "boAt Lifestyle", fbPageId: "fb_3001", postId: "1654321098765_1122334455",
     thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80",
     format: "single_video", status: "active",
     spend30d: 28700, ctr30d: 2.1, roas30d: undefined,
   },
   {
     id: "rad_003", name: "Deep Rest — Testimonial",
-    pageName: "Sleepyhead", postId: "1456789012345_5566778899",
+    pageName: "Sleepyhead", fbPageId: "fb_5001", postId: "1456789012345_5566778899",
     thumbnail: "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=400&q=80",
     format: "single_video", status: "paused",
     spend30d: 19800, ctr30d: 1.8, roas30d: undefined,
   },
   {
     id: "rad_004", name: "Noise ColorFit — Carousel",
-    pageName: "Noise", postId: "1321456789876_3344556677",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "1321456789876_3344556677",
     thumbnail: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80",
     format: "carousel", status: "active",
     spend30d: 34100, ctr30d: 4.2, roas30d: 3.6,
   },
   {
     id: "rad_005", name: "Mensa — Office Style UGC",
-    pageName: "Mensa Brands", postId: "1213456781234_7788990011",
+    pageName: "Mensa Brands", fbPageId: "fb_1001", postId: "1213456781234_7788990011",
     thumbnail: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&q=80",
     format: "single_video", status: "active",
     spend30d: 61400, ctr30d: 2.9, roas30d: undefined,
+  },
+  {
+    // Second post on the shared Mamaearth Main page (fb_2001) — same physical
+    // Page as rad_001, reachable from both act_mamaearth and act_mama_scale.
+    id: "rad_006", name: "Ubtan Face Wash — UGC Testimonial",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_558243",
+    thumbnail: "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 33650, ctr30d: 2.7, roas30d: 5.1,
+  },
+  {
+    id: "rad_007", name: "Vitamin C Serum — Before/After",
+    pageName: "Mamaearth Skincare", fbPageId: "fb_2002", postId: "2002_390617",
+    thumbnail: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400&q=80",
+    format: "carousel", status: "paused",
+    spend30d: 27840, ctr30d: 3.1, roas30d: 4.4,
+  },
+  {
+    // Mamaearth Baby (fb_2003) — only reachable via act_mama_scale.
+    id: "rad_008", name: "Baby lotion monsoon combo",
+    pageName: "Mamaearth Baby", fbPageId: "fb_2003", postId: "2003_772109",
+    thumbnail: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 15230, ctr30d: 2.3, roas30d: 3.2,
+  },
+  // --- Mamaearth (fb_2001) — bumped to ~24 posts total to exercise real
+  // Page-scale volume (Meta caps a Page at MAX_ADS_PER_PAGE = 250 active ads;
+  // this proves pagination/sort/chunked-reveal against a realistic mix). ---
+  {
+    id: "rad_009", name: "Ubtan Glow — Diwali Special",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_614829",
+    thumbnail: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 52340, ctr30d: 3.8, roas30d: 5.6,
+  },
+  {
+    id: "rad_010", name: "Vitamin C Serum — Founder Story",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_627103",
+    thumbnail: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 61870, ctr30d: 2.4, roas30d: undefined,
+  },
+  {
+    id: "rad_011", name: "Rice Water Face Wash — Product Demo",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_638947",
+    thumbnail: "https://images.unsplash.com/photo-1556228653-15d46a2f8a86?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 18420, ctr30d: 2.1, roas30d: 3.4,
+  },
+  {
+    id: "rad_012", name: "Onion Hair Oil — Before/After",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_649215",
+    thumbnail: "https://images.unsplash.com/photo-1556228694-7adde2ea05d6?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 44780, ctr30d: 4.6, roas30d: 6.2,
+  },
+  {
+    id: "rad_013", name: "Charcoal Face Wash — UGC Unboxing",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_651078",
+    thumbnail: "https://images.unsplash.com/photo-1556228841-7d2f1d2ec9b8?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 9650, ctr30d: 1.2, roas30d: 1.8,
+  },
+  {
+    id: "rad_014", name: "Tea Tree Face Wash — Review Compilation",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_662394",
+    thumbnail: "https://images.unsplash.com/photo-1556228852-80b6e5eeff06?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 27300, ctr30d: 2.9, roas30d: 3.9,
+  },
+  {
+    id: "rad_015", name: "Sunscreen SPF 50 — Summer Push",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_673850",
+    thumbnail: "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 38900, ctr30d: 3.3, roas30d: 4.7,
+  },
+  {
+    id: "rad_016", name: "Ubtan Face Pack — Testimonial",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_684127",
+    thumbnail: "https://images.unsplash.com/photo-1586367474466-3b09c1d6d3b1?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 15230, ctr30d: 1.7, roas30d: 2.6,
+  },
+  {
+    id: "rad_017", name: "New Mom Skincare Kit — Founder Story",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_695603",
+    thumbnail: "https://images.unsplash.com/photo-1590658268037-41d3fd70a5cb?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 6420, ctr30d: 0.9, roas30d: undefined,
+  },
+  {
+    id: "rad_018", name: "Vitamin C Face Wash — Ingredient Highlight",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_706481",
+    thumbnail: "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 21980, ctr30d: 2.6, roas30d: 3.7,
+  },
+  {
+    id: "rad_019", name: "Rakhi Gifting Combo — Carousel",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_717954",
+    thumbnail: "https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 33150, ctr30d: 3.1, roas30d: 4.3,
+  },
+  {
+    id: "rad_020", name: "Onion Shampoo — Static Ad",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_728316",
+    thumbnail: "https://images.unsplash.com/photo-1598662779094-110c2bad80b5?w=400&q=80",
+    format: "single_image", status: "paused",
+    spend30d: 7840, ctr30d: 1.1, roas30d: 1.6,
+  },
+  {
+    id: "rad_021", name: "Bye Bye Blemishes — Before/After",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_739602",
+    thumbnail: "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 49720, ctr30d: 4.2, roas30d: 5.9,
+  },
+  {
+    id: "rad_022", name: "Coffee Body Scrub — UGC",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_741879",
+    thumbnail: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=400&q=80",
+    format: "single_image", status: "paused",
+    spend30d: 6980, ctr30d: 1.0, roas30d: 1.5,
+  },
+  {
+    id: "rad_023", name: "Kumkumadi Glow Oil — Influencer",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_752046",
+    thumbnail: "https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 58430, ctr30d: 3.6, roas30d: 5.1,
+  },
+  {
+    id: "rad_024", name: "Anti-Pollution Range — Product Demo",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_763518",
+    thumbnail: "https://images.unsplash.com/photo-1607081692251-e91e3d7da42a?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 24560, ctr30d: 2.3, roas30d: 3.1,
+  },
+  {
+    id: "rad_025", name: "Onion Hair Fall Kit — Testimonial",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_774293",
+    thumbnail: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 8920, ctr30d: 1.4, roas30d: 2.0,
+  },
+  {
+    id: "rad_026", name: "New Year Skincare Resolution",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_785671",
+    thumbnail: "https://images.unsplash.com/photo-1607082352121-fa243f3dde32?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 19870, ctr30d: 2.2, roas30d: 3.0,
+  },
+  {
+    id: "rad_027", name: "Ubtan Body Lotion — Monsoon Push",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_796048",
+    thumbnail: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 29640, ctr30d: 2.8, roas30d: 3.8,
+  },
+  {
+    id: "rad_028", name: "Rice Face Mask — Review Carousel",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_807325",
+    thumbnail: "https://images.unsplash.com/photo-1607602132700-068258431c6c?w=400&q=80",
+    format: "carousel", status: "paused",
+    spend30d: 5230, ctr30d: 0.8, roas30d: undefined,
+  },
+  {
+    id: "rad_029", name: "Vitamin C Under Eye Cream — Founder Story",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_818602",
+    thumbnail: "https://images.unsplash.com/photo-1610450949065-1f2841536c88?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 67210, ctr30d: 2.9, roas30d: undefined,
+  },
+  {
+    id: "rad_030", name: "Wedding Season Skincare Edit — Static",
+    pageName: "Mamaearth", fbPageId: "fb_2001", postId: "2001_829471",
+    thumbnail: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 14320, ctr30d: 1.6, roas30d: 2.2,
+  },
+  // --- Noise (fb_4001) — bumped to ~12 posts to prove the pagination/sort
+  // pattern isn't a one-off special case for just the shared Mamaearth page. ---
+  {
+    id: "rad_031", name: "ColorFit Pro 4 — Feature Highlight",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_205817",
+    thumbnail: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 47250, ctr30d: 3.7, roas30d: 4.9,
+  },
+  {
+    id: "rad_032", name: "Buds VS404 — Flash Sale",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_218934",
+    thumbnail: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 29870, ctr30d: 2.8, roas30d: 3.6,
+  },
+  {
+    id: "rad_033", name: "Neckband N1 — UGC Unboxing",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_227456",
+    thumbnail: "https://images.unsplash.com/photo-1488998427799-e3362cec87c3?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 16430, ctr30d: 2.1, roas30d: 2.9,
+  },
+  {
+    id: "rad_034", name: "Republic Day Sale — Carousel",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_239871",
+    thumbnail: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 61240, ctr30d: 4.1, roas30d: 5.4,
+  },
+  {
+    id: "rad_035", name: "ColorFit Icon — Comparison Ad",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_248103",
+    thumbnail: "https://images.unsplash.com/photo-1492724441997-5dc865305da7?w=400&q=80",
+    format: "single_image", status: "paused",
+    spend30d: 8340, ctr30d: 1.0, roas30d: 1.4,
+  },
+  {
+    id: "rad_036", name: "Buds VS201 — Battery Life Demo",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_256742",
+    thumbnail: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 22980, ctr30d: 2.4, roas30d: 3.2,
+  },
+  {
+    id: "rad_037", name: "Air Buds 2 — Influencer",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_267319",
+    thumbnail: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 6120, ctr30d: 0.8, roas30d: undefined,
+  },
+  {
+    id: "rad_038", name: "Back to College Combo",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_278954",
+    thumbnail: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 18760, ctr30d: 1.9, roas30d: 2.5,
+  },
+  {
+    id: "rad_039", name: "ColorFit Ultra — Testimonial",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_289467",
+    thumbnail: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 35410, ctr30d: 3.2, roas30d: 4.4,
+  },
+  {
+    id: "rad_040", name: "Founder Story — Building Noise",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_297821",
+    thumbnail: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 12980, ctr30d: 1.5, roas30d: undefined,
+  },
+  {
+    id: "rad_041", name: "Buds VS102 — Price Drop Alert",
+    pageName: "Noise", fbPageId: "fb_4001", postId: "4001_308654",
+    thumbnail: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&q=80",
+    format: "carousel", status: "paused",
+    spend30d: 9430, ctr30d: 1.2, roas30d: 1.7,
+  },
+  // --- Acme Store (fb_1001) — bumped from 1 to 7 posts (moderate-volume page). ---
+  {
+    id: "rad_042", name: "Trail Pro 2 — Trailhead Unboxing",
+    pageName: "Acme Store", fbPageId: "fb_1001", postId: "1001_284917",
+    thumbnail: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 36780, ctr30d: 3.2, roas30d: 4.1,
+  },
+  {
+    id: "rad_043", name: "Aero Runner — 5K PR Testimonial",
+    pageName: "Acme Store", fbPageId: "fb_1001", postId: "1001_297534",
+    thumbnail: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 52930, ctr30d: 2.6, roas30d: undefined,
+  },
+  {
+    id: "rad_044", name: "City Pack 20L — Daily Commute Before/After",
+    pageName: "Acme Store", fbPageId: "fb_1001", postId: "1001_308821",
+    thumbnail: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=400&q=80",
+    format: "single_image", status: "paused",
+    spend30d: 8340, ctr30d: 1.3, roas30d: 1.9,
+  },
+  {
+    id: "rad_045", name: "Memorial Day Flash Sale — 30% Off Sitewide",
+    pageName: "Acme Store", fbPageId: "fb_1001", postId: "1001_316274",
+    thumbnail: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 44210, ctr30d: 3.7, roas30d: 5.3,
+  },
+  {
+    id: "rad_046", name: "Flux Bottle vs. The Leading Competitor — Side-by-Side",
+    pageName: "Acme Store", fbPageId: "fb_1001", postId: "1001_329608",
+    thumbnail: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 21560, ctr30d: 2.4, roas30d: 2.8,
+  },
+  {
+    id: "rad_047", name: "Founder Story — Why We Built Acme From A Garage",
+    pageName: "Acme Store", fbPageId: "fb_1001", postId: "1001_341952",
+    thumbnail: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 6120, ctr30d: 0.9, roas30d: undefined,
+  },
+  // --- Mamaearth Skincare (fb_2002) — bumped from 1 to 6 posts. ---
+  {
+    id: "rad_048", name: "Niacinamide Serum — Combination Skin UGC",
+    pageName: "Mamaearth Skincare", fbPageId: "fb_2002", postId: "2002_401738",
+    thumbnail: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 31420, ctr30d: 2.7, roas30d: 3.9,
+  },
+  {
+    id: "rad_049", name: "Sunscreen Matte SPF50 — Summer Product Demo",
+    pageName: "Mamaearth Skincare", fbPageId: "fb_2002", postId: "2002_412956",
+    thumbnail: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80",
+    format: "single_video", status: "active",
+    spend30d: 45680, ctr30d: 3.4, roas30d: undefined,
+  },
+  {
+    id: "rad_050", name: "Rice Water Toner — 30-Day Before/After",
+    pageName: "Mamaearth Skincare", fbPageId: "fb_2002", postId: "2002_423817",
+    thumbnail: "https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 19230, ctr30d: 2.2, roas30d: 3.3,
+  },
+  {
+    id: "rad_051", name: "Holi Skincare Combo — Festive Carousel",
+    pageName: "Mamaearth Skincare", fbPageId: "fb_2002", postId: "2002_434290",
+    thumbnail: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80",
+    format: "carousel", status: "paused",
+    spend30d: 7650, ctr30d: 1.1, roas30d: 1.7,
+  },
+  {
+    id: "rad_052", name: "Vitamin C vs Niacinamide — Which One's Right For You",
+    pageName: "Mamaearth Skincare", fbPageId: "fb_2002", postId: "2002_445603",
+    thumbnail: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 26340, ctr30d: 2.5, roas30d: 3.6,
+  },
+  // --- Mamaearth Baby (fb_2003) — bumped from 1 to 4 posts (lands just under
+  // the modal's REVEAL_INITIAL = 6, so the full grid is visible with no
+  // "Show all" expand needed — a distinct low-but-not-zero case). ---
+  {
+    id: "rad_053", name: "Baby Shampoo Tear-Free — Pediatrician Endorsed",
+    pageName: "Mamaearth Baby", fbPageId: "fb_2003", postId: "2003_783461",
+    thumbnail: "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 22150, ctr30d: 2.9, roas30d: 3.8,
+  },
+  {
+    id: "rad_054", name: "Baby Massage Oil — New Mom Testimonial",
+    pageName: "Mamaearth Baby", fbPageId: "fb_2003", postId: "2003_794528",
+    thumbnail: "https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 6840, ctr30d: 1.2, roas30d: 1.6,
+  },
+  {
+    id: "rad_055", name: "Diaper Rash Cream — Before/After Comparison",
+    pageName: "Mamaearth Baby", fbPageId: "fb_2003", postId: "2003_805013",
+    thumbnail: "https://images.unsplash.com/photo-1556228653-15d46a2f8a86?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 17960, ctr30d: 2.6, roas30d: 3.4,
+  },
+  // --- Sleepyhead (fb_5001) — bumped from 1 to 6 posts. ---
+  {
+    id: "rad_056", name: "The Original Mattress — Unboxing & Setup",
+    pageName: "Sleepyhead", fbPageId: "fb_5001", postId: "5001_216394",
+    thumbnail: "https://images.unsplash.com/photo-1556228694-7adde2ea05d6?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 33580, ctr30d: 2.8, roas30d: 4.2,
+  },
+  {
+    // Deliberately long, still-plausible post name — exercises the card's
+    // line-clamp-1 truncation (76 characters).
+    id: "rad_057", name: "Why I Finally Stopped Waking Up With A Sore Back — Sleepyhead Ortho Mattress",
+    pageName: "Sleepyhead", fbPageId: "fb_5001", postId: "5001_227815",
+    thumbnail: "https://images.unsplash.com/photo-1556228841-7d2f1d2ec9b8?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 48720, ctr30d: 3.5, roas30d: 4.9,
+  },
+  {
+    id: "rad_058", name: "Cloud Pillow Combo — Side Sleeper Review",
+    pageName: "Sleepyhead", fbPageId: "fb_5001", postId: "5001_238947",
+    thumbnail: "https://images.unsplash.com/photo-1556228852-80b6e5eeff06?w=400&q=80",
+    format: "single_video", status: "paused",
+    spend30d: 9120, ctr30d: 1.4, roas30d: 2.1,
+  },
+  {
+    id: "rad_059", name: "Diwali Mattress Sale — Flat 40% Off",
+    pageName: "Sleepyhead", fbPageId: "fb_5001", postId: "5001_249562",
+    thumbnail: "https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=400&q=80",
+    format: "single_image", status: "active",
+    spend30d: 27430, ctr30d: 2.3, roas30d: 3.5,
+  },
+  {
+    id: "rad_060", name: "Sense Ortho Mattress — Chiropractor Recommended Demo",
+    pageName: "Sleepyhead", fbPageId: "fb_5001", postId: "5001_251078",
+    thumbnail: "https://images.unsplash.com/photo-1586367474466-3b09c1d6d3b1?w=400&q=80",
+    format: "carousel", status: "active",
+    spend30d: 15680, ctr30d: 1.9, roas30d: 2.7,
   },
 ];
 
