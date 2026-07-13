@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientProvider } from "@/contexts/ClientContext";
+import type { PermissionSet } from "@/lib/permissions";
 
 /**
  * AuthContext — auto-login demo mode (A-10.20).
@@ -34,6 +35,9 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   role: AppRole | null;
+  roleId: string | null;
+  roleName: string | null;
+  permissions: PermissionSet | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
@@ -42,6 +46,9 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   role: null,
+  roleId: null,
+  roleName: null,
+  permissions: null,
   loading: true,
   signOut: async () => {},
 });
@@ -49,6 +56,9 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  const [roleName, setRoleName] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<PermissionSet | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Bootstrap session + auto-login + subscribe to auth changes.
@@ -103,6 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userId = session?.user?.id;
     if (!userId) {
       setRole(null);
+      setRoleId(null);
+      setRoleName(null);
+      setPermissions(null);
       return;
     }
     let cancelled = false;
@@ -131,6 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         user: session?.user ?? null,
         role,
+        roleId,
+        roleName,
+        permissions,
         loading,
         signOut,
       }}

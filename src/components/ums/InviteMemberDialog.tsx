@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useClients } from "@/hooks/use-clients";
+import { useState, useMemo, useEffect } from "react";
+import { useRoles } from "@/hooks/use-roles";
+import { useTeams } from "@/hooks/use-teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,101 +14,53 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Copy, Check } from "lucide-react";
+import { inviteMember, isActiveMemberEmail, useClientsSnapshot } from "./ums-store";
 
-interface InviteMemberDialogProps {
-  workspaceId: string;
-  onInvited: () => void;
-}
-
-export function InviteMemberDialog({ workspaceId, onInvited }: InviteMemberDialogProps) {
-  const { user } = useAuth();
+export function InviteMemberDialog() {
   const { toast } = useToast();
-  const { clients } = useClients();
+  const { roles } = useRoles();
+  const { teams } = useTeams();
+  const clients = useClientsSnapshot();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "member">("member");
+  const [roleId, setRoleId] = useState<string>("");
+  const [teamId, setTeamId] = useState<string>("");
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
+  // Non-owner roles are assignable (Admin / Member / Team Lead + any custom).
+  const assignableRoles = useMemo(() => roles.filter((r) => r.key !== "owner"), [roles]);
+  const selectedRole = useMemo(
+    () => assignableRoles.find((r) => r.id === roleId),
+    [assignableRoles, roleId],
+  );
 
-    setSubmitting(true);
-
-    // Check if user is already a member of THIS workspace
-    const { data: existingProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .single();
-
-    if (existingProfile) {
-      const { data: existingMember } = await supabase
-        .from("workspace_users")
-        .select("id")
-        .eq("user_id", existingProfile.id)
-        .eq("workspace_id", workspaceId)
-        .single();
-
-      if (existingMember) {
-        toast({ title: "Already a member", description: `${email} is already in this workspace.`, variant: "destructive" });
-        setSubmitting(false);
-        return;
-      }
+  useEffect(() => {
+    if (!roleId && assignableRoles.length > 0) {
+      const defaultRole = assignableRoles.find((r) => r.key === "member") ?? assignableRoles[0];
+      if (defaultRole) setRoleId(defaultRole.id);
     }
+  }, [assignableRoles, roleId]);
 
-    // Cancel any old pending invites for this email + workspace
-    await supabase
-      .from("team_invites")
-      .update({ status: "cancelled" })
-      .eq("email", email)
-      .eq("workspace_id", workspaceId)
-      .eq("status", "pending");
-
-    // Create pending invite and get the token back
-    const { data: inviteData, error } = await supabase.from("team_invites").insert({
-      email,
-      role,
-      invited_by: user.id,
-      workspace_id: workspaceId,
-      status: "pending",
-    }).select("invite_token").single();
-
-    if (error) {
-      const msg = error.message.includes("duplicate")
-        ? "A pending invite already exists for this email."
-        : error.message;
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      setSubmitting(false);
+  const handleInvite = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRole) return;
+    if (isActiveMemberEmail(email)) {
+      toast({
+        title: "Already a member",
+        description: `${email} is already in this workspace.`,
+        variant: "destructive",
+      });
       return;
     }
-
-    await supabase.from("activity_logs").insert({
-      workspace_id: workspaceId,
-      user_id: user.id,
-      action: "invite_sent",
-      target_email: email,
-      metadata: { role, clients: selectedClientIds },
-    });
-
-    // If the invitee already has a profile, assign them to selected clients now
-    if (existingProfile && selectedClientIds.length > 0) {
-      const clientUserRows = selectedClientIds.map((cid) => ({
-        client_id: cid,
-        user_id: existingProfile.id,
-        workspace_id: workspaceId,
-      }));
-      await supabase.from("client_users").insert(clientUserRows as any);
-    }
-
-    // Generate invite link
-    const link = `${window.location.origin}/auth?invite=${inviteData.invite_token}`;
-    setInviteLink(link);
-    setSubmitting(false);
-    onInvited();
+    inviteMember(email, selectedRole.id);
+    const token =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : String(Date.now());
+    setInviteLink(`${window.location.origin}/auth?invite=${token}`);
+    toast({ title: "Invite created", description: `${email} added to Pending Invites.` });
   };
 
   const handleCopy = async () => {
@@ -126,7 +77,8 @@ export function InviteMemberDialog({ workspaceId, onInvited }: InviteMemberDialo
       setInviteLink(null);
       setCopied(false);
       setEmail("");
-      setRole("member");
+      setRoleId("");
+      setTeamId("");
       setSelectedClientIds([]);
     }
   };
@@ -153,12 +105,13 @@ export function InviteMemberDialog({ workspaceId, onInvited }: InviteMemberDialo
               <Label>Invite Link</Label>
               <div className="flex gap-2">
                 <Input value={inviteLink} readOnly className="font-mono text-sm" />
-                <Button variant="outline" size="icon" onClick={handleCopy}>
+                <Button variant="outline" size="icon" onClick={handleCopy} aria-label="Copy invite link">
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground">
-                Share this link with <strong>{email}</strong>. They'll be added as <strong>{role === "admin" ? "Admin" : "Member"}</strong> when they sign up.
+                Share this link with <strong>{email}</strong>. They'll be added as{" "}
+                <strong>{selectedRole?.name ?? "Member"}</strong> when they sign up.
               </p>
             </div>
             <DialogFooter>
@@ -180,13 +133,32 @@ export function InviteMemberDialog({ workspaceId, onInvited }: InviteMemberDialo
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-role">Role</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as "admin" | "member")}>
-                <SelectTrigger>
+              <Select value={roleId} onValueChange={setRoleId}>
+                <SelectTrigger id="invite-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  {assignableRoles.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-team">Team</Label>
+              <Select value={teamId || "none"} onValueChange={(v) => setTeamId(v === "none" ? "" : v)}>
+                <SelectTrigger id="invite-team">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No team</SelectItem>
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -194,13 +166,13 @@ export function InviteMemberDialog({ workspaceId, onInvited }: InviteMemberDialo
               <div className="space-y-2">
                 <Label>Assign to Clients</Label>
                 <div className="space-y-1.5 max-h-32 overflow-y-auto border rounded-md p-2">
-                  {clients.filter((c) => c.status === "active").map((c) => (
+                  {clients.map((c) => (
                     <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
                       <Checkbox
                         checked={selectedClientIds.includes(c.id)}
                         onCheckedChange={(checked) => {
                           setSelectedClientIds((prev) =>
-                            checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
+                            checked ? [...prev, c.id] : prev.filter((id) => id !== c.id),
                           );
                         }}
                       />
@@ -211,9 +183,7 @@ export function InviteMemberDialog({ workspaceId, onInvited }: InviteMemberDialo
               </div>
             )}
             <DialogFooter>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Generate Invite Link"}
-              </Button>
+              <Button type="submit">Generate Invite Link</Button>
             </DialogFooter>
           </form>
         )}

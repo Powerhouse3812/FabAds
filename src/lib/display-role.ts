@@ -1,3 +1,3 @@
-export function displayRole(role: string): string {
-  return role === "owner" || role === "admin" ? "Admin" : "Member";
+export function displayRole(roleName: string): string {
+  return roleName;
 }

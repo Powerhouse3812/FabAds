@@ -13,12 +13,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Trash2, Loader2 } from "lucide-react";
 
-interface RemoveMemberDialogProps {
-  email: string;
-  onConfirm: () => void | Promise<void>;
+interface DeleteTeamDialogProps {
+  teamName: string;
+  onConfirm: () => Promise<void> | void;
 }
 
-export function RemoveMemberDialog({ email, onConfirm }: RemoveMemberDialogProps) {
+export function DeleteTeamDialog({ teamName, onConfirm }: DeleteTeamDialogProps) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -35,15 +35,18 @@ export function RemoveMemberDialog({ email, onConfirm }: RemoveMemberDialogProps
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Remove member">
+        <Button variant="ghost" size="icon" aria-label="Delete team">
           <Trash2 className="h-4 w-4" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+          <AlertDialogTitle>Delete team?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will permanently delete <span className="font-medium">{email}</span>'s account and remove them from this workspace. This action cannot be undone.
+            Are you sure you want to permanently delete the team{" "}
+            <span className="font-medium">"{teamName}"</span>? Team members
+            will no longer be able to access the team or take any actions
+            related to it.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -54,7 +57,7 @@ export function RemoveMemberDialog({ email, onConfirm }: RemoveMemberDialogProps
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? "Removing..." : "Remove"}
+            {loading ? "Deleting..." : "Delete"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

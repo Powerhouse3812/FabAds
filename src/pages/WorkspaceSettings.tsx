@@ -2,6 +2,9 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PlansPaymentTab } from "@/components/workspace-settings/PlansPaymentTab";
+import { TeamMemberTable } from "@/components/ums/TeamMemberTable";
+import TeamsTab from "@/components/ums/TeamsTab";
+import RolesTab from "@/components/ums/RolesTab";
 
 /**
  * WorkspaceSettings — top-level Settings page at `/settings`.
@@ -17,6 +20,8 @@ import { PlansPaymentTab } from "@/components/workspace-settings/PlansPaymentTab
  */
 const TABS = [
   { value: "members", label: "Members" },
+  { value: "teams", label: "Teams" },
+  { value: "roles", label: "Roles" },
   { value: "workspace", label: "Workspace" },
   { value: "notifications", label: "Notifications" },
   { value: "activity", label: "Activity" },
@@ -79,7 +84,16 @@ export default function WorkspaceSettings() {
           <TabsContent value="plans-payment" className="mt-0">
             <PlansPaymentTab />
           </TabsContent>
-          {(["members", "workspace", "notifications", "activity", "logs"] as const).map(
+          <TabsContent value="members" className="mt-0 px-5 py-6">
+            <TeamMemberTable />
+          </TabsContent>
+          <TabsContent value="teams" className="mt-0 px-5 py-6">
+            <TeamsTab />
+          </TabsContent>
+          <TabsContent value="roles" className="mt-0 px-5 py-6">
+            <RolesTab />
+          </TabsContent>
+          {(["workspace", "notifications", "activity", "logs"] as const).map(
             (v) => (
               <TabsContent key={v} value={v} className="mt-0 px-5 py-12">
                 <div className="rounded-lg border border-dashed border-border/60 bg-card/40 p-12 text-center">
