@@ -1,5 +1,4 @@
 import { Route } from "react-router-dom";
-import ConceptGallery from "@/auth-concepts/ConceptGallery";
 import { ConceptSwitcher } from "@/auth-concepts/shared/ConceptSwitcher";
 import Concept01Spotlight from "@/auth-concepts/concepts/Concept01Spotlight";
 import Concept02BlobDivide from "@/auth-concepts/concepts/Concept02BlobDivide";
@@ -20,15 +19,16 @@ import Concept11LiquidGlass from "@/auth-concepts/concepts/Concept11LiquidGlass"
  * surfaces. Separate track: does NOT touch /auth or its components.
  *
  * Every concept route renders its component PLUS a floating ConceptSwitcher
- * (bottom-right, mirrors the real /auth screens' StatePicker) so all 10
- * directions + the gallery are one click away — no manual URL editing, no
- * full page reload (react-router Link, client-side nav).
+ * (bottom-right, mirrors the real /auth screens' StatePicker) so all 11
+ * directions are one click away — no manual URL editing, no full page
+ * reload (react-router Link, client-side nav). The /auth pill deep-links
+ * straight to the 11-liquid-glass flagship; there is no gallery/selection
+ * screen anymore.
  *
- * URL: /auth-concepts (gallery) · /auth-concepts/:slug (one per direction)
+ * URL: /auth-concepts/:slug (one per direction, e.g. 11-liquid-glass)
  */
 export const authConceptsRoutes = (
   <>
-    <Route path="auth-concepts" element={<ConceptGallery />} />
     <Route
       path="auth-concepts/01-spotlight"
       element={<><Concept01Spotlight /><ConceptSwitcher active="01-spotlight" /></>}

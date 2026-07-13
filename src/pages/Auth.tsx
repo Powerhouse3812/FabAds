@@ -142,7 +142,7 @@ export default function Auth() {
 function ConceptsLink() {
   return (
     <Link
-      to="/auth-concepts"
+      to="/auth-concepts/11-liquid-glass"
       className="fixed bottom-4 left-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
     >
       <Sparkles className="h-3.5 w-3.5" />
