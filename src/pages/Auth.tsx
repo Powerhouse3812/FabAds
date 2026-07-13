@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginView } from "@/components/auth/LoginView";
 import { ForgotPasswordView } from "@/components/auth/ForgotPasswordView";
@@ -127,8 +127,27 @@ export default function Auth() {
       {modal === "2fa" && <TwoFactorModal nav={nav} />}
       {modal === "reset-success" && <ResetSuccessModal nav={nav} />}
 
+      <ConceptsLink />
       <StatePicker nav={nav} />
     </div>
+  );
+}
+
+/**
+ * ConceptsLink — review-only chip (bottom-left, mirrors StatePicker's
+ * bottom-right placement) linking into the separate /auth-concepts
+ * exploration track (10 visually distinct login-screen directions). Doesn't
+ * affect this page's own flow — just a fast way in from the live screens.
+ */
+function ConceptsLink() {
+  return (
+    <Link
+      to="/auth-concepts"
+      className="fixed bottom-4 left-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
+    >
+      <Sparkles className="h-3.5 w-3.5" />
+      10 concepts
+    </Link>
   );
 }
 
