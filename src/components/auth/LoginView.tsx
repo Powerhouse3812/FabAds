@@ -4,10 +4,13 @@ import { Eye, EyeOff, XCircle, X } from "lucide-react";
 
 import { AuthNav } from "@/pages/Auth";
 import { AuthLayout } from "@/components/auth/AuthLayout";
+import { isValidEmail } from "@/components/auth/validators";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 /**
  * GoogleIcon — inline brand mark for the "Sign in with Google" button
@@ -39,19 +42,53 @@ function GoogleIcon() {
 
 export function LoginView({ nav }: { nav: AuthNav }) {
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const [showError, setShowError] = useState(searchParams.get("state") === "error");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // No backend — this is a pure-UI demo. Submitting always surfaces the
-    // Figma error variant (9431:56090) since there's nothing to authenticate
-    // against yet.
+
+    const trimmedEmail = email.trim();
+    let nextEmailError: string | null = null;
+    let nextPasswordError: string | null = null;
+
+    if (!trimmedEmail) {
+      nextEmailError = "Email is required";
+    } else if (!isValidEmail(trimmedEmail)) {
+      nextEmailError = "Enter a valid email address";
+    }
+
+    if (!password) {
+      nextPasswordError = "Password is required";
+    }
+
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+
+    if (nextEmailError || nextPasswordError) {
+      // A field itself is invalid — that's a distinct problem from a
+      // rejected credential pair, so don't show the "invalid credentials"
+      // banner on top of it.
+      setShowError(false);
+      return;
+    }
+
+    // No backend — this is a pure-UI demo. Once both fields are individually
+    // well-formed, submitting always surfaces the Figma error variant
+    // (9431:56090) since there's nothing to authenticate against yet.
     setShowError(true);
   };
+
+  const emailDescribedBy =
+    [showError && "login-error", emailError && "login-email-error"].filter(Boolean).join(" ") || undefined;
+  const passwordDescribedBy =
+    [showError && "login-error", passwordError && "login-password-error"].filter(Boolean).join(" ") || undefined;
 
   return (
     <AuthLayout>
@@ -69,6 +106,7 @@ export function LoginView({ nav }: { nav: AuthNav }) {
         <div className="flex w-full flex-col gap-4">
           {showError && (
             <div
+              id="login-error"
               role="alert"
               className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2"
             >
@@ -94,9 +132,19 @@ export function LoginView({ nav }: { nav: AuthNav }) {
               autoComplete="email"
               placeholder="tulikagoswami@techagency.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={showError || undefined}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailError) setEmailError(null);
+              }}
+              aria-invalid={emailError || showError ? true : undefined}
+              aria-describedby={emailDescribedBy}
+              className={cn(emailError && "border-destructive")}
             />
+            {emailError && (
+              <p id="login-email-error" className="text-sm text-error-text">
+                {emailError}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col items-start gap-2">
@@ -109,19 +157,28 @@ export function LoginView({ nav }: { nav: AuthNav }) {
                 autoComplete="current-password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                aria-invalid={showError || undefined}
-                className="pr-10"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (passwordError) setPasswordError(null);
+                }}
+                aria-invalid={passwordError || showError ? true : undefined}
+                aria-describedby={passwordDescribedBy}
+                className={cn("pr-10", passwordError && "border-destructive")}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="fab-focus absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground"
+                className="fab-focus absolute inset-y-0 right-0 flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
               </button>
             </div>
+            {passwordError && (
+              <p id="login-password-error" className="text-sm text-error-text">
+                {passwordError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -159,7 +216,7 @@ export function LoginView({ nav }: { nav: AuthNav }) {
           <Button
             type="button"
             variant="outline"
-            onClick={(e) => e.preventDefault()}
+            onClick={() => toast({ title: "Google sign-in coming soon" })}
             className="h-10 w-full gap-2 rounded-lg"
           >
             <GoogleIcon />

@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Gift, ShieldCheck } from "lucide-react";
 
-import heroLogo from "@/assets/auth/hero-logo.png";
+import heroLogo from "@/assets/auth/hero-logo.svg";
 import heroMockup from "@/assets/auth/hero-mockup.png";
 
 /**
@@ -40,13 +40,16 @@ export function AuthLayout({
       {/* Hero panel — fixed dark-green marketing hero shared by every auth
           screen (Figma node 11362:45128). Hidden on small screens so the
           form keeps full width on mobile (Figma has no mobile hero frame). */}
+      {/* sticky + h-screen: when the form column grows taller than the
+          viewport (e.g. the plan-selection step) the page scrolls, but the
+          hero stays pinned instead of scrolling away. */}
       <div
-        className="relative hidden w-1/2 flex-col overflow-hidden lg:flex"
+        className="sticky top-0 hidden h-screen w-1/2 flex-col overflow-hidden lg:flex"
         style={{ backgroundImage: HERO_GRADIENT }}
       >
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-col gap-4 px-14 pt-14">
-            <img src={heroLogo} alt="FabFunnel" className="h-5 w-auto" />
+            <img src={heroLogo} alt="FabFunnel" className="h-5 w-auto self-start" />
             <div className="flex max-w-[480px] flex-col gap-3">
               <h1 className="text-[30px] font-semibold leading-[38px] text-white">
                 Launch at Scale. Optimize in Real Time
@@ -60,16 +63,17 @@ export function AuthLayout({
 
           {/* Product mockup composite (laptop + phone dashboards) — exported
               as one flattened Figma asset (node 11362:45345) rather than
-              rebuilt from device bezels + screenshots in HTML. Bleeds past
-              the left edge per Figma (clipped by the panel's overflow
-              hidden) and fades into the gradient at its top edge so its
-              baked-in background doesn't show a hard seam against the CSS
-              gradient behind it. */}
-          <div className="relative mt-6 flex-1">
+              rebuilt from device bezels + screenshots in HTML. Normal-flow,
+              bottom-aligned, and capped by the remaining panel height
+              (object-contain) so it shrinks on short viewports instead of
+              overlapping the copy above. Anchored bottom-left per Figma; the
+              top-edge mask fades its baked-in background into the live CSS
+              gradient so no hard seam shows. */}
+          <div className="flex min-h-0 flex-1 items-end pt-6">
             <img
               src={heroMockup}
               alt=""
-              className="absolute bottom-0 left-[-48px] w-[94%] max-w-[640px]"
+              className="ml-[-48px] max-h-full w-[94%] max-w-[640px] object-contain object-left-bottom"
               style={{
                 maskImage: "linear-gradient(to top, black 78%, transparent 100%)",
                 WebkitMaskImage: "linear-gradient(to top, black 78%, transparent 100%)",

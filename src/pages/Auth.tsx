@@ -20,7 +20,8 @@ import { TwoFactorModal } from "@/components/auth/TwoFactorModal";
  *   /auth                      → login            (Figma 9431:53325)
  *   /auth?view=forgot          → forgot password  (9431:53497)
  *   /auth?view=reset           → set new password (9431:53619)
- *   /auth?view=signup&step=1-3 → signup wizard    (9431:54018 / 54707 / 55392)
+ *   /auth?view=signup&step=1-2 → signup wizard    (plan-first redesign,
+ *                                Figma 10990:44968 → 10421:45965/10506:50469)
  *   /auth?view=expired         → link expired     (9431:53859)
  *   /auth?modal=2fa            → 2FA setup modal  (9431:56264)
  *   /auth?modal=reset-success  → reset success    (9431:53749)
@@ -138,13 +139,14 @@ export default function Auth() {
  * gate) when the flows get wired for real.
  */
 const PICKER_STATES: { label: string; view: AuthView; step?: SignupStep; modal?: AuthModal }[] = [
+  // Login + Profile pulled to the front — current critique focus.
   { label: "Login", view: "login" },
+  { label: "Profile", view: "signup", step: 2 },
   { label: "2FA", view: "login", modal: "2fa" },
   { label: "Forgot", view: "forgot" },
   { label: "Reset", view: "reset" },
   { label: "Reset ✓", view: "reset", modal: "reset-success" },
   { label: "Plans", view: "signup", step: 1 },
-  { label: "Profile", view: "signup", step: 2 },
   { label: "Expired", view: "expired" },
 ];
 

@@ -32,6 +32,7 @@ import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
 import { PaymentVerificationPage } from "@/payment-verification/PaymentVerificationPage";
 import { upsellPrintRoutes } from "@/upsell-print/routes";
 import { onboardingPrintRoutes } from "@/onboarding-print/routes";
+import { authConceptsRoutes } from "@/auth-concepts/routes";
 import { planningRoutes } from "@/planning/routes";
 import { planningPrintRoutes } from "@/planning-print/routes";
 import { planningV2Routes } from "@/planning-v2/routes";
@@ -100,6 +101,12 @@ const App = () => (
                 (choose-mode | ecom-input | ecom-processing | ecom-done |
                  affiliate-input | affiliate-processing | affiliate-done) */}
             {onboardingPrintRoutes}
+
+            {/* Auth exploration track — PUBLIC design-review routes for the
+                10-direction login visual exploration (Maalik: "let's decide
+                10 versions"). Separate track, does not touch /auth.
+                URL: /auth-concepts (gallery) · /auth-concepts/:slug */}
+            {authConceptsRoutes}
 
             {/* Pricing / plan-picker — PUBLIC print routes for each
                 tier × view × billing combo. Same export pattern.

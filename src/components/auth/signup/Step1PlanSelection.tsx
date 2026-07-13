@@ -25,10 +25,11 @@ interface Step1PlanSelectionProps {
  */
 export function Step1PlanSelection({ data, setData, onNext, onLogin }: Step1PlanSelectionProps) {
   // Which card's checklist is open — independent of `selectedPlan` so the
-  // chevron can preview a plan's features without committing to it.
-  // Defaults to whatever's selected (Starter, out of the box) to match the
-  // Figma default state (Starter shown pre-expanded).
-  const [expandedPlan, setExpandedPlan] = useState<SelectablePlanId | null>(data.selectedPlan);
+  // chevron can preview a plan's features without committing to it. Seeded
+  // to the selected plan (Starter, by default — see types.ts
+  // INITIAL_SIGNUP_DATA) so the expanded card and the checked radio agree
+  // on mount.
+  const [expandedPlan, setExpandedPlan] = useState<SelectablePlanId | null>(data.selectedPlan ?? "starter");
 
   const selectPlan = (id: SelectablePlanId) => {
     setData((prev) => ({ ...prev, selectedPlan: id }));

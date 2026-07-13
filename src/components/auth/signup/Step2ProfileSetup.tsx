@@ -9,7 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SignupPlanStepper } from "@/components/auth/signup/SignupPlanStepper";
-import { COUNTRY_CODES, isValidPassword, type ProfileMode, type SignupFormData } from "@/components/auth/signup/types";
+import {
+  COUNTRY_CODES,
+  isValidEmail,
+  isValidPassword,
+  type ProfileMode,
+  type SignupFormData,
+} from "@/components/auth/signup/types";
 
 interface Step2ProfileSetupProps {
   data: SignupFormData;
@@ -28,10 +34,33 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [touchedPassword, setTouchedPassword] = useState(false);
   const [touchedConfirm, setTouchedConfirm] = useState(false);
+  const [touchedFullName, setTouchedFullName] = useState(false);
+  const [touchedEmail, setTouchedEmail] = useState(false);
+  const [touchedAgencyName, setTouchedAgencyName] = useState(false);
+  const [touchedAdminEmail, setTouchedAdminEmail] = useState(false);
+  const [touchedPhone, setTouchedPhone] = useState(false);
 
   const passwordInvalid = touchedPassword && data.password.length > 0 && !isValidPassword(data.password);
   const confirmMismatch =
     touchedConfirm && data.confirmPassword.length > 0 && data.confirmPassword !== data.password;
+
+  const fullNameError = touchedFullName && !data.fullName.trim() ? "Full name is required" : undefined;
+  const emailError = touchedEmail
+    ? !data.email.trim()
+      ? "Email is required"
+      : !isValidEmail(data.email)
+        ? "Enter a valid email address"
+        : undefined
+    : undefined;
+  const agencyNameError = touchedAgencyName && !data.agencyName.trim() ? "Agency name is required" : undefined;
+  const adminEmailError = touchedAdminEmail
+    ? !data.adminEmail.trim()
+      ? "Admin email is required"
+      : !isValidEmail(data.adminEmail)
+        ? "Enter a valid email address"
+        : undefined
+    : undefined;
+  const phoneError = touchedPhone && !data.phone.trim() ? "Phone number is required" : undefined;
 
   const hasPlan = Boolean(data.selectedPlan);
   // Figma caption is literally "Please select a plan to continu[e]" on the
@@ -77,7 +106,11 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
                 autoComplete="name"
                 value={data.fullName}
                 onChange={(e) => setData((prev) => ({ ...prev, fullName: e.target.value }))}
+                onBlur={() => setTouchedFullName(true)}
+                aria-invalid={Boolean(fullNameError) || undefined}
+                className={cn(fullNameError && "border-error-text")}
               />
+              {fullNameError && <p className="text-sm text-error-text">{fullNameError}</p>}
             </Field>
             <Field label="Email" htmlFor="signup-email">
               <Input
@@ -87,7 +120,11 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
                 placeholder="Zarkmukerberg@techagency.com"
                 value={data.email}
                 onChange={(e) => setData((prev) => ({ ...prev, email: e.target.value }))}
+                onBlur={() => setTouchedEmail(true)}
+                aria-invalid={Boolean(emailError) || undefined}
+                className={cn(emailError && "border-error-text")}
               />
+              {emailError && <p className="text-sm text-error-text">{emailError}</p>}
             </Field>
           </>
         ) : (
@@ -98,7 +135,11 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
                 placeholder="Enter name"
                 value={data.agencyName}
                 onChange={(e) => setData((prev) => ({ ...prev, agencyName: e.target.value }))}
+                onBlur={() => setTouchedAgencyName(true)}
+                aria-invalid={Boolean(agencyNameError) || undefined}
+                className={cn(agencyNameError && "border-error-text")}
               />
+              {agencyNameError && <p className="text-sm text-error-text">{agencyNameError}</p>}
             </Field>
             <Field label="Admin email" htmlFor="signup-admin-email">
               <Input
@@ -108,7 +149,11 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
                 placeholder="Admin@techagency.com"
                 value={data.adminEmail}
                 onChange={(e) => setData((prev) => ({ ...prev, adminEmail: e.target.value }))}
+                onBlur={() => setTouchedAdminEmail(true)}
+                aria-invalid={Boolean(adminEmailError) || undefined}
+                className={cn(adminEmailError && "border-error-text")}
               />
+              {adminEmailError && <p className="text-sm text-error-text">{adminEmailError}</p>}
             </Field>
           </>
         )}
@@ -137,9 +182,12 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
               placeholder="(20) 123-4567"
               value={data.phone}
               onChange={(e) => setData((prev) => ({ ...prev, phone: e.target.value }))}
-              className="flex-1"
+              onBlur={() => setTouchedPhone(true)}
+              aria-invalid={Boolean(phoneError) || undefined}
+              className={cn("flex-1", phoneError && "border-error-text")}
             />
           </div>
+          {phoneError && <p className="text-sm text-error-text">{phoneError}</p>}
         </Field>
 
         <div className="flex flex-col items-start gap-2">
@@ -154,13 +202,13 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
               onChange={(e) => setData((prev) => ({ ...prev, password: e.target.value }))}
               onBlur={() => setTouchedPassword(true)}
               aria-invalid={passwordInvalid || undefined}
-              className="pr-10"
+              className="pr-12"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Hide password" : "Show password"}
-              className="fab-focus absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground"
+              className="fab-focus absolute inset-y-0 right-0 flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
             >
               {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
             </button>
@@ -182,13 +230,13 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
               onChange={(e) => setData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
               onBlur={() => setTouchedConfirm(true)}
               aria-invalid={confirmMismatch || undefined}
-              className="pr-10"
+              className="pr-12"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword((v) => !v)}
               aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-              className="fab-focus absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground"
+              className="fab-focus absolute inset-y-0 right-0 flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground"
             >
               {showConfirmPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
             </button>
@@ -201,7 +249,12 @@ export function Step2ProfileSetup({ data, setData, onBack, onComplete }: Step2Pr
         <Button type="button" variant="outline" onClick={onBack} className="h-10 flex-1 rounded-lg">
           Back to plans
         </Button>
-        <Button type="button" onClick={onComplete} disabled={!hasPlan} className="h-10 flex-[2] rounded-lg">
+        <Button
+          type="button"
+          onClick={onComplete}
+          disabled={!hasPlan}
+          className="h-10 flex-[2] rounded-lg disabled:opacity-100 disabled:bg-secondary disabled:text-secondary-foreground"
+        >
           {ctaLabel}
         </Button>
       </div>

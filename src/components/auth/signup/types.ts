@@ -6,6 +6,9 @@
  * "visual validation states" quality bar.
  */
 import type { SelectablePlanId } from "@/components/auth/signup/plans";
+import { EMAIL_RE, isValidEmail, isValidPassword } from "@/components/auth/validators";
+
+export { EMAIL_RE, isValidEmail, isValidPassword };
 
 export type BillingCycle = "monthly" | "annual";
 export type ProfileMode = "individual" | "agency";
@@ -13,11 +16,15 @@ export type ProfileMode = "individual" | "agency";
 export interface SignupFormData {
   // Step 1 — Plan selection
   billing: BillingCycle;
-  /** null = nothing chosen yet — drives the Step 2 disabled-CTA state
-   *  ("Please select a plan to continue", Figma node under 10421:45965).
-   *  Figma's static export shows Starter pre-selected by default, so that
-   *  is seeded below; the null branch exists defensively (e.g. a future
-   *  default change, or someone deep-linking straight to ?step=2). */
+  /** null = nothing chosen. Defaults to "starter" below (matches the Figma
+   *  static export, which shows Starter pre-selected AND pre-expanded) —
+   *  Step 1 previously seeded this null while still rendering Starter
+   *  pre-expanded, which meant "Next" sat disabled with zero explanation
+   *  even though the UI visually implied a plan was already chosen (a UX
+   *  audit flagged this as a "disabled button without explanation"
+   *  regression). The disabled-CTA states (Step 1 "Next" / Step 2 "Please
+   *  select a plan to continue") remain reachable by clearing the
+   *  selection — there's no code path that requires a plan on mount. */
   selectedPlan: SelectablePlanId | null;
 
   // Step 2 — Profile setup
@@ -59,15 +66,3 @@ export const COUNTRY_CODES: { code: string; flag: string }[] = [
   { code: "+44", flag: "🇬🇧" },
   { code: "+91", flag: "🇮🇳" },
 ];
-
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function isValidEmail(value: string): boolean {
-  return EMAIL_RE.test(value.trim());
-}
-
-/** Matches the Figma caption exactly (10421:45965 "Set Password" field):
- *  "Must be 8 characters, 1 numeric and 1 special character" */
-export function isValidPassword(value: string): boolean {
-  return value.length >= 8 && /[0-9]/.test(value) && /[^A-Za-z0-9]/.test(value);
-}
