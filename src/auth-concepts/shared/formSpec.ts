@@ -9,21 +9,77 @@
  * motion, e.g. a live-reacting panel) but do NOT validate or submit
  * anywhere. No backend calls, ever.
  */
+/**
+ * CONTENT PARITY (Maalik, godmode round): every string below is copied
+ * VERBATIM from the real /auth screens (src/components/auth/LoginView.tsx)
+ * — concepts restyle the shell, never the words. The 👋 emoji is part of
+ * the real product heading, so it ships here too (this exploration track
+ * follows the live screen's content, not the DS emoji rule).
+ */
 export const AUTH_CONCEPT_COPY = {
-  heading: "Welcome back",
-  subheading: "Sign in to your account to continue",
+  headingEmoji: "👋",
+  heading: "Welcome to Fab-Funnel",
+  subheading: "sign in to your account to continue",
   emailLabel: "Email",
-  emailPlaceholder: "you@company.com",
+  emailPlaceholder: "tulikagoswami@techagency.com",
   passwordLabel: "Password",
   passwordPlaceholder: "Password",
-  rememberLabel: "Remember me",
+  rememberLabel: "Keep me logged in",
   forgotLabel: "Forgot password?",
   submitLabel: "Sign in",
   dividerLabel: "Or",
-  googleLabel: "Continue with Google",
+  googleLabel: "Sign in with Google",
   signupPromptLabel: "Don't have an account?",
   signupLinkLabel: "Sign up",
 } as const;
+
+/**
+ * Real 2-step signup content — mirrors src/components/auth/signup/
+ * (Step1PlanSelection + Step2ProfileSetup). Plan PRICING data must be
+ * imported straight from "@/components/auth/signup/plans" (PAID_PLANS,
+ * TRIAL_PLAN, ANNUAL_SAVINGS_LABEL, priceForBilling, annualSavings) so it
+ * can never drift; the copy strings live here.
+ */
+export const SIGNUP_PLANS_COPY = {
+  heading: "You're one step away from smarter marketing",
+  subheading: "Unlock automation, Integration, Launch, etc — all in one powerful platform",
+  stepOneLabel: "Plan selection",
+  stepTwoLabel: "Profile setup",
+  monthlyLabel: "Monthly",
+  annualLabel: "Annual",
+  planDetailsLabel: "View more about plan details",
+  ctaTrialLabel: "Start trial & Set up profile",
+  ctaPaidLabel: "Next",
+  loginPromptLabel: "Already a user?",
+  loginLinkLabel: "Login",
+} as const;
+
+export const SIGNUP_PROFILE_COPY = {
+  heading: "You're one step away from smarter marketing",
+  subheading: "Unlock automation, Integration, Launch, etc — all in one powerful platform",
+  individualTabLabel: "Individual",
+  agencyTabLabel: "Agency",
+  fullNameLabel: "Full Name",
+  fullNamePlaceholder: "Enter name",
+  emailLabel: "Email",
+  emailPlaceholder: "Zarkmukerberg@techagency.com",
+  agencyNameLabel: "Agency name",
+  agencyNamePlaceholder: "Enter name",
+  adminEmailLabel: "Admin email",
+  adminEmailPlaceholder: "Admin@techagency.com",
+  phoneLabel: "Phone Number",
+  phoneCode: "+36",
+  phonePlaceholder: "(20) 123-4567",
+  setPasswordLabel: "Set Password",
+  passwordPlaceholder: "Password",
+  passwordHint: "Must be 8 characters, 1 numeric and 1 special character",
+  confirmPasswordLabel: "Confirm Password",
+  backLabel: "Back to plans",
+  submitLabel: "Create account",
+  submitDisabledLabel: "Please select a plan to continue",
+} as const;
+
+export type ConceptView = "login" | "signup";
 
 export interface ConceptMeta {
   slug: string;
@@ -115,5 +171,13 @@ export const AUTH_CONCEPTS: ConceptMeta[] = [
     tagline: "Annotated photo + live stats",
     description:
       "A rounded inset photo panel with pins surfacing metrics like '+24% CTR' instead of nature labels.",
+  },
+  {
+    slug: "11-liquid-glass",
+    number: 11,
+    name: "Liquid glass",
+    tagline: "Apple-glass flagship",
+    description:
+      "Frosted glass plate over drifting gradient orbs — deep-navy dark and frosty-pink light modes, toggleable.",
   },
 ];

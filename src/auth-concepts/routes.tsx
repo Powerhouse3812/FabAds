@@ -11,6 +11,7 @@ import Concept07HandDrawnJourney from "@/auth-concepts/concepts/Concept07HandDra
 import Concept08StepperInScene from "@/auth-concepts/concepts/Concept08StepperInScene";
 import Concept09MinimalMono from "@/auth-concepts/concepts/Concept09MinimalMono";
 import Concept10NatureSplit from "@/auth-concepts/concepts/Concept10NatureSplit";
+import Concept11LiquidGlass from "@/auth-concepts/concepts/Concept11LiquidGlass";
 
 /**
  * auth-concepts — PUBLIC design-review routes for the 10-direction login
@@ -67,6 +68,10 @@ export const authConceptsRoutes = (
     <Route
       path="auth-concepts/10-nature-split"
       element={<><Concept10NatureSplit /><ConceptSwitcher active="10-nature-split" /></>}
+    />
+    <Route
+      path="auth-concepts/11-liquid-glass"
+      element={<><Concept11LiquidGlass /><ConceptSwitcher active="11-liquid-glass" /></>}
     />
   </>
 );

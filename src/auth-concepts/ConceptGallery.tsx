@@ -15,7 +15,7 @@ export default function ConceptGallery() {
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
           Auth exploration track
         </p>
-        <h1 className="mt-2 text-3xl font-bold">10 directions</h1>
+        <h1 className="mt-2 text-3xl font-bold">11 directions</h1>
         <p className="mt-2 max-w-xl text-sm text-white/60">
           Same login fields throughout — only the visual system, layout, and motion change.
           Separate track, doesn't touch the live /auth screens.
