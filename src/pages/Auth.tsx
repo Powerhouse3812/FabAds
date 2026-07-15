@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, LayoutTemplate } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginView } from "@/components/auth/LoginView";
 import { ForgotPasswordView } from "@/components/auth/ForgotPasswordView";
@@ -134,20 +134,32 @@ export default function Auth() {
 }
 
 /**
- * ConceptsLink — review-only chip (bottom-left, mirrors StatePicker's
- * bottom-right placement) linking into the separate /auth-concepts
- * exploration track (10 visually distinct login-screen directions). Doesn't
- * affect this page's own flow — just a fast way in from the live screens.
+ * ConceptsLink — review-only chip group (bottom-left, mirrors StatePicker's
+ * bottom-right placement) linking out to the separate exploration tracks.
+ * Doesn't affect this page's own flow — just a fast way in from the live
+ * screens. Two destinations so far:
+ *   - /auth-concepts  → the original 10-direction visual exploration
+ *   - /auth-v2        → the 2 locked finals (Dark Stage / Living Split)
+ *     synthesized from client feedback on those 10 directions
  */
 function ConceptsLink() {
   return (
-    <Link
-      to="/auth-concepts/11-liquid-glass"
-      className="fixed bottom-4 left-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
-    >
-      <Sparkles className="h-3.5 w-3.5" />
-      10 concepts
-    </Link>
+    <div className="fixed bottom-4 left-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card/90 p-1 shadow-sm backdrop-blur">
+      <Link
+        to="/auth-concepts/11-liquid-glass"
+        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        10 concepts
+      </Link>
+      <Link
+        to="/auth-v2"
+        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <LayoutTemplate className="h-3.5 w-3.5" />
+        2 finals
+      </Link>
+    </div>
   );
 }
 

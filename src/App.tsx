@@ -33,6 +33,7 @@ import { PaymentVerificationPage } from "@/payment-verification/PaymentVerificat
 import { upsellPrintRoutes } from "@/upsell-print/routes";
 import { onboardingPrintRoutes } from "@/onboarding-print/routes";
 import { authConceptsRoutes } from "@/auth-concepts/routes";
+import { authV2Routes } from "@/auth-v2/routes";
 import { planningRoutes } from "@/planning/routes";
 import { planningPrintRoutes } from "@/planning-print/routes";
 import { planningV2Routes } from "@/planning-v2/routes";
@@ -107,6 +108,13 @@ const App = () => (
                 10 versions"). Separate track, does not touch /auth.
                 URL: /auth-concepts (gallery) · /auth-concepts/:slug */}
             {authConceptsRoutes}
+
+            {/* Signup/login finals — PUBLIC standalone route for the 2
+                final designs synthesized from client feedback on the
+                11-concept /auth-concepts gallery (Dark Stage, Living
+                Split). Dev-only A/B toggle, does not touch /auth or
+                /auth-concepts. URL: /auth-v2 */}
+            {authV2Routes}
 
             {/* Pricing / plan-picker — PUBLIC print routes for each
                 tier × view × billing combo. Same export pattern.
