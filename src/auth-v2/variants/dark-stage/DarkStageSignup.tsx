@@ -5,6 +5,35 @@ import type { SelectablePlanId, BillingCycle } from "@/components/auth/signup/pl
 import { AUTH_V2_SIGNUP_COPY } from "@/auth-v2/shared/copy";
 import { PlanOverviewCard } from "@/auth-v2/shared/PlanOverviewCard";
 import heroLogo from "@/assets/auth/hero-logo.svg";
+import SignupBgHorizon from "@/auth-v2/variants/dark-stage/signup-bgs/SignupBgHorizon";
+import SignupBgContours from "@/auth-v2/variants/dark-stage/signup-bgs/SignupBgContours";
+import SignupBgBeams from "@/auth-v2/variants/dark-stage/signup-bgs/SignupBgBeams";
+import SignupBgMesh from "@/auth-v2/variants/dark-stage/signup-bgs/SignupBgMesh";
+import SignupBgDataDrift from "@/auth-v2/variants/dark-stage/signup-bgs/SignupBgDataDrift";
+
+/**
+ * Signup-background sub-variants — 5 art directions built for Maalik's
+ * production round (2026-07-15) plus the original "Stage" ambient (cursor
+ * glow + ripple + ghost wordmark). Dev-only picker (bottom-left pill),
+ * localStorage-persisted, mirrors the login screen's hero picker pattern.
+ * The centered card/form never changes.
+ */
+type DarkStageSignupBg = "stage" | "horizon" | "contours" | "beams" | "mesh" | "data";
+const SIGNUP_BG_KEY = "fabads-darkstage-signup-bg";
+const SIGNUP_BG_OPTIONS: { key: DarkStageSignupBg; label: string }[] = [
+  { key: "stage", label: "Stage" },
+  { key: "horizon", label: "Horizon" },
+  { key: "contours", label: "Contours" },
+  { key: "beams", label: "Beams" },
+  { key: "mesh", label: "Mesh" },
+  { key: "data", label: "Data" },
+];
+
+function readSignupBg(): DarkStageSignupBg {
+  if (typeof window === "undefined") return "stage";
+  const v = window.localStorage.getItem(SIGNUP_BG_KEY);
+  return SIGNUP_BG_OPTIONS.some((o) => o.key === v) ? (v as DarkStageSignupBg) : "stage";
+}
 
 export interface AuthV2CommonProps {
   view: "login" | "signup";
@@ -19,16 +48,6 @@ const COPY = AUTH_V2_SIGNUP_COPY;
 
 const INPUT_BASE =
   "w-full rounded-[28px] border border-border bg-card px-10 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary-text focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.18)]";
-
-/** Small overlapping avatar-initials stack for the brag stat, tone pattern
- *  lifted verbatim from Concept05IridescentAI.tsx's AVATARS (lime-family +
- *  neutral, calm human-trust signal — not the holographic identity). Kept
- *  in parity with the DarkStageLogin sibling. */
-const AVATARS = [
-  { initials: "RA", className: "bg-primary text-primary-foreground" },
-  { initials: "MK", className: "bg-primary/45 text-foreground" },
-  { initials: "SJ", className: "bg-muted-foreground/30 text-foreground" },
-];
 
 /** Splits `full` around the first occurrence of `word` so the heading
  *  string (sourced from shared copy) can still carry the signature
@@ -120,6 +139,11 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [bg, setBg] = useState<DarkStageSignupBg>(readSignupBg);
+  const pickBg = (next: DarkStageSignupBg) => {
+    setBg(next);
+    if (typeof window !== "undefined") window.localStorage.setItem(SIGNUP_BG_KEY, next);
+  };
 
   const { cardRef, style: tiltStyle, handleMouseMove, handleMouseLeave, markInteracted } =
     useCardTilt();
@@ -129,6 +153,10 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
   // Concept01Spotlight.tsx's glowLayerRef technique, same as DarkStageLogin).
   const glowLayerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Only the "stage" background actually renders this glow layer — skip
+    // the rAF loop + window mousemove listener entirely for the other 5
+    // backgrounds instead of running it for nothing every frame.
+    if (bg !== "stage") return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) return;
 
@@ -159,7 +187,7 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
       window.removeEventListener("mousemove", onMove);
       cancelAnimationFrame(raf);
     };
-  }, []);
+  }, [bg]);
 
   const [headLead, headMark, headTail] = splitAtWord(COPY.heading, "smarter marketing");
 
@@ -261,9 +289,15 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
         }
       `}</style>
 
-      {/* Ambient full-bleed layer — behind everything, same ambient system
-          as DarkStageLogin.tsx: cursor glow, ripple rings, dot-grid, line
-          paths, vignette. */}
+      {/* Swappable background — 5 art directions + the original "Stage"
+          ambient (cursor glow, ripple rings, dot-grid, ghost wordmark,
+          circuit traces, vignette). Card/form above never changes. */}
+      {bg === "horizon" && <SignupBgHorizon />}
+      {bg === "contours" && <SignupBgContours />}
+      {bg === "beams" && <SignupBgBeams />}
+      {bg === "mesh" && <SignupBgMesh />}
+      {bg === "data" && <SignupBgDataDrift />}
+      {bg === "stage" && (
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,hsl(var(--card))_0%,hsl(var(--background))_100%)]" />
 
@@ -381,6 +415,28 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
 
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(0,0,0,0)_45%,rgba(0,0,0,0.6)_100%)]" />
       </div>
+      )}
+
+      {/* dev-only background sub-variant picker — mirrors the login hero
+          picker (bottom-left; the A/B VariantToggle owns bottom-right). */}
+      <div className="fixed bottom-4 left-4 z-[999] flex gap-1 rounded-xl border border-white/10 bg-black/80 p-1.5 shadow-lg backdrop-blur">
+        {SIGNUP_BG_OPTIONS.map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            title={`Background: ${opt.label}`}
+            onClick={() => pickBg(opt.key)}
+            className={
+              "rounded-md px-2 py-1 text-[11px] font-medium transition-colors " +
+              (bg === opt.key
+                ? "bg-white text-black"
+                : "text-gray-400 hover:bg-white/10 hover:text-white")
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
       {/* Logo, pinned top-center — onboarding-style single column, no split
           hero side for signup. */}
@@ -393,13 +449,19 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
       />
 
       {/* CENTERED CARD — single column, wizard/onboarding-style per client
-          feedback (the deliberate exception to the split-screen login). */}
+          feedback (the deliberate exception to the split-screen login).
+          Entrance fade/rise (CSS animation, fill-mode:both) is split onto
+          an outer wrapper from the live cursor-tilt (inline transform) on
+          the inner element — sharing one node let the held keyframe's
+          `transform: translateY(0)` permanently override the inline tilt
+          transform forever after the 0.4s entrance finished. */}
+      <div className="darkstage-signup-rise relative z-10 w-full max-w-md">
       <div
         ref={cardRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={tiltStyle}
-        className="darkstage-signup-rise relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-[0_8px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+        className="relative rounded-2xl border border-border bg-card p-5 shadow-[0_8px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
       >
         <div className="mb-2.5 text-center">
           <h1 className="text-lg font-bold leading-snug tracking-tight text-foreground">
@@ -655,28 +717,8 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
           </p>
         </form>
       </div>
-
-      {/* brag stat — pinned near the bottom, same copy pattern as
-          DarkStageLogin.tsx / Concept05IridescentAI.tsx */}
-      <div
-        className="darkstage-signup-rise absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/10 bg-card/60 p-3 backdrop-blur-xl"
-        style={{ animationDelay: "260ms" }}
-      >
-        <div className="flex -space-x-2.5">
-          {AVATARS.map((a, i) => (
-            <div
-              key={a.initials}
-              style={{ zIndex: AVATARS.length - i }}
-              className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-background text-[10px] font-semibold ${a.className}`}
-            >
-              {a.initials}
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">4,500+</span> marketers already in
-        </p>
       </div>
+
     </div>
   );
 }

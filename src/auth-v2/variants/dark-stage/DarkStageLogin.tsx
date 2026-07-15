@@ -4,13 +4,15 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Zap,
-  Rocket,
-  TrendingUp,
-  Target,
-  BarChart3,
   Sparkles,
-  Globe,
+  PauseCircle,
+  ArrowRightLeft,
+  CheckCircle2,
+  FileText,
+  ShieldCheck,
+  Repeat2,
+  UserPlus,
+  type LucideIcon,
 } from "lucide-react";
 
 import type { SelectablePlanId, BillingCycle } from "@/components/auth/signup/plans";
@@ -68,80 +70,123 @@ const AVATARS = [
   { initials: "SJ", className: "bg-muted-foreground/30 text-foreground" },
 ];
 
-/** "Circuit hub" illustration data for the hero panel's empty middle area —
- *  a central glowing node (see hub markup inline in JSX) with thin connector
- *  paths radiating out to scattered satellite icon-chips. Positions (x/y as
- *  % of the 400x400 viewBox) are hand-placed off-grid so the arrangement
- *  reads organic rather than a perfect radial spoke pattern. Icons are
- *  generic lucide marketing/ads concepts (no trademarked platform logos) —
- *  Rocket (launch), TrendingUp (growth), Target (targeting), BarChart3
- *  (reporting), Sparkles (creative/AI), Globe (channel reach) — alternating
- *  tone so the cluster doesn't read as one flat color. `joint` is the
- *  approximate midpoint of each quadratic path (used for the small circuit-
- *  board-style solder dot); `drawDelay` staggers the line draw-in so they
- *  don't all animate at once; `floatDelay` staggers each chip's idle bob. */
-const HUB_NODES = [
+/** "Live activity" feed data for the hero panel's empty middle area —
+ *  replaces the old circuit-hub-and-satellites illustration (2026-07-15,
+ *  client feedback: hub read as "boringest" concept, no real content) with
+ *  a vertical timeline of real FabAds events: AutoPilot decisions, budget
+ *  moves, creative generation, alerts, reporting. FEED_BASE seeds the
+ *  initial 5 rows (oldest at the bottom, all inside "the last hour").
+ *  FEED_ROTATION is a small pool of additional canned events that take
+ *  turns prepending to the top of the feed every ~6s (see the rotation
+ *  effect in the component below) — each entrant pushes the oldest row out
+ *  the bottom, both ends cross-fading via keyed mount/unmount so the feed
+ *  reads as continuously live rather than a static list. `tone` drives both
+ *  the line-dot color and the icon-chip tint: "auto" = lime (automated /
+ *  positive), "info" = neutral (purely informational, e.g. a report being
+ *  ready). */
+type FeedTone = "auto" | "info";
+
+interface FeedEvent {
+  Icon: LucideIcon;
+  tone: FeedTone;
+  text: JSX.Element;
+}
+
+/** Bolds the one key term (campaign name, dollar figure, etc.) inside a
+ *  feed row's description — a plain-text emphasis, not a design-token
+ *  color swap, so it stays legible against either tone's icon chip. */
+function FeedTerm({ children }: { children: string }) {
+  return <span className="font-semibold text-foreground">{children}</span>;
+}
+
+const FEED_BASE: FeedEvent[] = [
   {
-    Icon: Rocket,
-    x: 20,
-    y: 17.5,
-    tone: "text-primary",
-    path: "M 200 200 Q 150 130 80 70",
-    joint: { x: 145, y: 132.5 },
-    drawDelay: "0ms",
-    floatDelay: "0s",
+    Icon: PauseCircle,
+    tone: "auto",
+    text: (
+      <>
+        AutoPilot paused <FeedTerm>Reels_creator_pack</FeedTerm> — CPA rose 22%
+      </>
+    ),
   },
   {
-    Icon: TrendingUp,
-    x: 82.5,
-    y: 13.75,
-    tone: "text-foreground/70",
-    path: "M 200 200 Q 280 120 330 55",
-    joint: { x: 272.5, y: 123.75 },
-    drawDelay: "120ms",
-    floatDelay: "1s",
-  },
-  {
-    Icon: Target,
-    x: 13.75,
-    y: 57.5,
-    tone: "text-primary",
-    path: "M 200 200 Q 110 210 55 230",
-    joint: { x: 118.75, y: 212.5 },
-    drawDelay: "240ms",
-    floatDelay: "2s",
-  },
-  {
-    Icon: BarChart3,
-    x: 86.25,
-    y: 62.5,
-    tone: "text-foreground/70",
-    path: "M 200 200 Q 300 220 345 250",
-    joint: { x: 286.25, y: 222.5 },
-    drawDelay: "360ms",
-    floatDelay: "0.5s",
+    Icon: ArrowRightLeft,
+    tone: "auto",
+    text: (
+      <>
+        Budget rebalanced: <FeedTerm>+$120</FeedTerm> to Q3_UGC_hooks_v2
+      </>
+    ),
   },
   {
     Icon: Sparkles,
-    x: 35,
-    y: 85,
-    tone: "text-primary",
-    path: "M 200 200 Q 170 290 140 340",
-    joint: { x: 170, y: 280 },
-    drawDelay: "480ms",
-    floatDelay: "1.5s",
+    tone: "auto",
+    text: (
+      <>
+        New creative variant generated for <FeedTerm>Search_brand_defense</FeedTerm>
+      </>
+    ),
   },
   {
-    Icon: Globe,
-    x: 72.5,
-    y: 82.5,
-    tone: "text-foreground/70",
-    path: "M 200 200 Q 260 280 290 330",
-    joint: { x: 252.5, y: 272.5 },
-    drawDelay: "600ms",
-    floatDelay: "2.5s",
+    Icon: CheckCircle2,
+    tone: "auto",
+    text: (
+      <>
+        ROAS alert cleared on <FeedTerm>festive_15s</FeedTerm> — back above 2.5x
+      </>
+    ),
   },
-] as const;
+  {
+    Icon: FileText,
+    tone: "info",
+    text: (
+      <>
+        Weekly report ready for <FeedTerm>4 ad accounts</FeedTerm>
+      </>
+    ),
+  },
+];
+
+const FEED_BASE_TIMES = ["2m ago", "14m ago", "31m ago", "47m ago", "58m ago"];
+
+const FEED_ROTATION: FeedEvent[] = [
+  {
+    Icon: ShieldCheck,
+    tone: "auto",
+    text: (
+      <>
+        Budget guard blocked overspend on <FeedTerm>search_generic</FeedTerm>
+      </>
+    ),
+  },
+  {
+    Icon: Repeat2,
+    tone: "auto",
+    text: (
+      <>
+        Bid strategy switched to Target ROAS for <FeedTerm>festive_15s</FeedTerm>
+      </>
+    ),
+  },
+  {
+    Icon: UserPlus,
+    tone: "info",
+    text: <>New high-intent audience segment discovered</>,
+  },
+];
+
+interface FeedRow extends FeedEvent {
+  uid: string;
+  time: string;
+}
+
+function buildInitialFeedRows(): FeedRow[] {
+  return FEED_BASE.map((event, i) => ({
+    ...event,
+    uid: `feed-base-${i}`,
+    time: FEED_BASE_TIMES[i],
+  }));
+}
 
 /** Splits `full` around the first occurrence of `word` so the heading
  *  string (sourced from shared copy) can still carry the signature
@@ -253,6 +298,52 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
     };
   }, []);
 
+  // "Live activity" feed — only meaningful while the hub hero is showing.
+  // Mirrors HeroRadarCards.tsx's exitingId/settleTimeout pattern: a new row
+  // prepends, the oldest row is flagged "exiting" and cross-fades out, and
+  // only after its exit animation finishes is it actually dropped from
+  // state — so the DOM node genuinely unmounts rather than just swapping
+  // text.
+  const [feedRows, setFeedRows] = useState<FeedRow[]>(buildInitialFeedRows);
+  const [exitingFeedUid, setExitingFeedUid] = useState<string | null>(null);
+  const feedRowsRef = useRef(feedRows);
+  useEffect(() => {
+    feedRowsRef.current = feedRows;
+  }, [feedRows]);
+  const feedCycleRef = useRef(0);
+
+  useEffect(() => {
+    if (hero !== "hub") return;
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let settleTimeout: number | undefined;
+    const interval = window.setInterval(() => {
+      if (document.hidden) return;
+      const nextEvent = FEED_ROTATION[feedCycleRef.current % FEED_ROTATION.length];
+      feedCycleRef.current += 1;
+      const current = feedRowsRef.current;
+      const oldest = current[current.length - 1];
+      const newRow: FeedRow = {
+        ...nextEvent,
+        uid: `feed-${Date.now()}-${feedCycleRef.current}`,
+        time: "Just now",
+      };
+
+      setExitingFeedUid(oldest.uid);
+      setFeedRows([newRow, ...current]);
+      settleTimeout = window.setTimeout(() => {
+        setFeedRows((prev) => prev.filter((row) => row.uid !== oldest.uid));
+        setExitingFeedUid(null);
+      }, 480);
+    }, 6000);
+
+    return () => {
+      window.clearInterval(interval);
+      if (settleTimeout !== undefined) window.clearTimeout(settleTimeout);
+    };
+  }, [hero]);
+
   const [headLead, headMark, headTail] = splitAtWord(COPY.heading, "Fab-Funnel");
 
   return (
@@ -306,29 +397,40 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
             animation-delay: 200ms;
           }
 
-          @keyframes darkstage-hub-draw {
-            from { stroke-dashoffset: 1; }
-            to { stroke-dashoffset: 0; }
+          @keyframes darkstage-feed-row-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
           }
-          .darkstage-hub-line {
-            stroke-dasharray: 1;
-            stroke-dashoffset: 1;
-            animation: darkstage-hub-draw 1.1s ease-out forwards;
+          .darkstage-feed-row-in {
+            animation: darkstage-feed-row-in 450ms cubic-bezier(0.22,1,0.36,1) both;
           }
 
-          @keyframes darkstage-hub-float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+          @keyframes darkstage-feed-row-out {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(8px); }
           }
-          .darkstage-hub-float {
-            animation: darkstage-hub-float 6.5s ease-in-out infinite;
+          .darkstage-feed-row-out {
+            animation: darkstage-feed-row-out 450ms ease-in forwards;
+          }
+
+          @keyframes darkstage-feed-dot-pulse {
+            0%, 100% { opacity: 0.25; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.3); }
+          }
+          .darkstage-feed-dot-pulse {
+            animation: darkstage-feed-dot-pulse 1.4s ease-in-out infinite;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
           .darkstage-highlight-mark { transform: rotate(-1.5deg) scaleX(1); }
-          .darkstage-hub-line { stroke-dasharray: none; stroke-dashoffset: 0; }
-          .darkstage-hub-float { animation: none; transform: none; }
+          .darkstage-feed-row-in,
+          .darkstage-feed-row-out {
+            animation: none;
+            opacity: 1;
+            transform: none;
+          }
+          .darkstage-feed-dot-pulse { animation: none; opacity: 0.5; transform: none; }
         }
       `}</style>
 
@@ -403,7 +505,7 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
         {hero === "radar" && <HeroRadarCards />}
         {hero === "peek" && <HeroProductPeek />}
         {hero === "hub" && (
-        <div className="flex h-full flex-col justify-between p-10">
+        <div className="flex h-full flex-col justify-between px-10 pt-10 pb-16">
         <img
           src={heroLogo}
           alt=""
@@ -412,55 +514,72 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
           style={{ animationDelay: "0ms" }}
         />
 
-        {/* "circuit hub" illustration — fills the previously-empty middle of
-            the hero panel: a glowing central node with thin connector lines
-            radiating out to scattered marketing/ads concept icon-chips, i.e.
-            "everything connects through one place". Purely decorative —
-            pointer-events-none throughout so it never blocks interaction. */}
-        <div className="darkstage-rise pointer-events-none relative flex flex-1 items-center justify-center" style={{ animationDelay: "120ms" }}>
-          <div className="relative aspect-square w-full max-w-[360px]">
-            {/* hub glow layer, behind the node */}
-            <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-2xl" />
+        {/* "Live activity" feed — replaces the old circuit-hub illustration
+            with a vertical timeline of real FabAds events. Eyebrow + 2-line
+            headline set the scene; the feed below does the storytelling
+            (see FEED_BASE / FEED_ROTATION + the rotation effect above). */}
+        <div className="darkstage-rise flex flex-1 flex-col overflow-hidden" style={{ animationDelay: "120ms" }}>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
+            Live Activity
+          </span>
+          <h2 className="mt-2 text-2xl font-bold leading-snug tracking-tight text-foreground">
+            FabAds never stops working.
+            <br />
+            <span className="text-muted-foreground">Here's what happened in the last hour.</span>
+          </h2>
 
-            {/* connector lines + circuit-style joint dots */}
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 400" fill="none" aria-hidden="true">
-              {HUB_NODES.map((node, i) => (
-                <g key={i}>
-                  <path
-                    d={node.path}
-                    stroke="hsl(var(--primary))"
-                    strokeWidth="1.5"
-                    strokeOpacity="0.35"
-                    strokeLinecap="round"
-                    pathLength={1}
-                    className="darkstage-hub-line"
-                    style={{ animationDelay: node.drawDelay }}
-                  />
-                  <circle cx={node.joint.x} cy={node.joint.y} r="2.5" fill="hsl(var(--primary))" fillOpacity="0.45" />
-                </g>
-              ))}
-            </svg>
+          {/* timeline — decorative shell is pointer-events-none, rows
+              re-enable pointer-events individually for the hover state. */}
+          <div className="pointer-events-none relative mt-6 flex-1 overflow-hidden">
+            <div className="relative h-full pl-8">
+              <div className="absolute inset-y-0 left-[15px] w-px bg-white/10" aria-hidden="true" />
 
-            {/* central hub node */}
-            <div className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/40 bg-primary/15 backdrop-blur-sm">
-              <Zap className="h-7 w-7 text-primary" />
-            </div>
+              <ul className="flex flex-col">
+                {feedRows.map((row, i) => (
+                  <li
+                    key={row.uid}
+                    className={
+                      "pointer-events-auto relative flex items-start gap-3 rounded-lg px-2.5 py-2.5 transition-colors duration-200 hover:bg-white/[0.03] " +
+                      (row.uid === exitingFeedUid ? "darkstage-feed-row-out" : "darkstage-feed-row-in")
+                    }
+                    style={{ animationDelay: row.uid === exitingFeedUid ? undefined : `${i * 60}ms` }}
+                  >
+                    {/* node on the timeline */}
+                    <span
+                      className={
+                        "absolute -left-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full ring-4 ring-background " +
+                        (row.tone === "auto" ? "bg-primary" : "bg-white/30")
+                      }
+                      aria-hidden="true"
+                    />
 
-            {/* satellite icon-nodes */}
-            {HUB_NODES.map(({ Icon, x, y, tone, floatDelay }, i) => (
-              <div
-                key={i}
-                className="absolute"
-                style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)" }}
-              >
-                <div
-                  className="darkstage-hub-float flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-card/70 backdrop-blur-md"
-                  style={{ animationDelay: floatDelay }}
-                >
-                  <Icon className={`h-4 w-4 ${tone}`} />
-                </div>
+                    {/* icon chip, tinted by category */}
+                    <span
+                      className={
+                        "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full " +
+                        (row.tone === "auto" ? "bg-primary/15 text-primary" : "bg-white/[0.08] text-white/60")
+                      }
+                    >
+                      <row.Icon className="h-3.5 w-3.5" />
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] leading-snug text-foreground/85">{row.text}</p>
+                      <span className="mt-1 block text-[11px] tabular-nums text-muted-foreground/70">
+                        {row.time}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* "more is coming" indicator — the feed never "ends" */}
+              <div className="relative flex items-center gap-1.5 py-2 pl-[42px]" aria-hidden="true">
+                <span className="darkstage-feed-dot-pulse h-1 w-1 rounded-full bg-white/30" style={{ animationDelay: "0ms" }} />
+                <span className="darkstage-feed-dot-pulse h-1 w-1 rounded-full bg-white/30" style={{ animationDelay: "220ms" }} />
+                <span className="darkstage-feed-dot-pulse h-1 w-1 rounded-full bg-white/30" style={{ animationDelay: "440ms" }} />
               </div>
-            ))}
+            </div>
           </div>
         </div>
 
@@ -512,12 +631,19 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
 
       {/* FORM side */}
       <div className="relative z-10 flex w-full items-center justify-center px-6 py-10 lg:w-1/2">
+        {/* Split the entrance fade/rise (CSS animation, fill-mode:both) from
+            the live cursor-tilt (inline transform) onto two nested elements
+            — sharing one element let the held keyframe's `transform:
+            translateY(0)` permanently override the inline tilt transform
+            forever after the 0.4s entrance finished, so the signature tilt
+            never actually rendered. */}
+        <div className="darkstage-rise w-full max-w-sm">
         <div
           ref={cardRef}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           style={tiltStyle}
-          className="darkstage-rise relative w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-[0_8px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+          className="relative rounded-2xl border border-border bg-card p-8 shadow-[0_8px_40px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
         >
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -649,6 +775,7 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
               </button>
             </p>
           </form>
+        </div>
         </div>
       </div>
     </div>
