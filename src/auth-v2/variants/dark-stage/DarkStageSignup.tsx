@@ -209,6 +209,28 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
           .darkstage-signup-line-a { animation: darkstage-signup-line-fade-a 10s ease-in-out infinite; }
           .darkstage-signup-line-b { animation: darkstage-signup-line-fade-b 10s ease-in-out infinite; animation-delay: -5s; }
 
+          @keyframes darkstage-signup-ghost-drift {
+            0%, 100% { transform: translate(-50%, -50%) translateX(-2%); }
+            50% { transform: translate(-50%, -50%) translateX(2%); }
+          }
+          .darkstage-signup-ghost-drift { animation: darkstage-signup-ghost-drift 22s ease-in-out infinite; }
+
+          @keyframes darkstage-signup-circuit-fade-a {
+            0%, 100% { opacity: 0.05; }
+            50% { opacity: 0.22; }
+          }
+          @keyframes darkstage-signup-circuit-fade-b {
+            0%, 100% { opacity: 0.04; }
+            50% { opacity: 0.2; }
+          }
+          @keyframes darkstage-signup-circuit-fade-c {
+            0%, 100% { opacity: 0.06; }
+            50% { opacity: 0.25; }
+          }
+          .darkstage-signup-circuit-fade-a { animation: darkstage-signup-circuit-fade-a 11s ease-in-out infinite; animation-delay: -2s; }
+          .darkstage-signup-circuit-fade-b { animation: darkstage-signup-circuit-fade-b 13s ease-in-out infinite; animation-delay: -6s; }
+          .darkstage-signup-circuit-fade-c { animation: darkstage-signup-circuit-fade-c 9s ease-in-out infinite; animation-delay: -1s; }
+
           @keyframes darkstage-signup-highlight-paint {
             0% { transform: rotate(-1.5deg) scaleX(0); }
             100% { transform: rotate(-1.5deg) scaleX(1); }
@@ -232,6 +254,10 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
         @media (prefers-reduced-motion: reduce) {
           .darkstage-signup-highlight-mark { transform: rotate(-1.5deg) scaleX(1); }
           .darkstage-signup-bar-grow { transform: scaleX(1); }
+          .darkstage-signup-ghost-drift { transform: translate(-50%, -50%); }
+          .darkstage-signup-circuit-fade-a { opacity: 0.18; }
+          .darkstage-signup-circuit-fade-b { opacity: 0.14; }
+          .darkstage-signup-circuit-fade-c { opacity: 0.2; }
         }
       `}</style>
 
@@ -271,6 +297,71 @@ export default function DarkStageSignup(props: AuthV2CommonProps): JSX.Element {
             stroke="hsl(var(--primary))"
             strokeWidth="1.5"
           />
+        </svg>
+
+        {/* Ghost wordmark — oversized, low-opacity outlined watermark that
+            gives the ambient scene depth instead of just blur (client felt
+            it read "empty"). Sits at z-0 behind the z-10 card; only the
+            portion peeking around the card edges is actually visible. */}
+        <div
+          aria-hidden="true"
+          className="darkstage-signup-ghost-drift absolute left-1/2 top-1/2 w-full select-none whitespace-nowrap text-center font-extrabold leading-none"
+          style={{
+            fontSize: "clamp(120px, 22vw, 260px)",
+            color: "transparent",
+            WebkitTextStroke: "1.5px hsl(var(--primary) / 0.25)",
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          LAUNCH
+        </div>
+
+        {/* Circuit-board style connector traces — angular segments with
+            small joint dots, distinct from the smooth line-a/line-b paths
+            above, scattered in the corners/edges those don't cover. */}
+        <svg
+          className="darkstage-signup-circuit-fade-a absolute right-[8%] top-[6%] h-[34%] w-[34%]"
+          viewBox="0 0 300 300"
+          fill="none"
+        >
+          <path
+            d="M250 20 L250 90 L180 90 L180 150"
+            stroke="hsl(var(--primary))"
+            strokeWidth="1.5"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+          <circle cx="250" cy="90" r="3" fill="hsl(var(--primary))" />
+          <circle cx="180" cy="90" r="3" fill="hsl(var(--primary))" />
+        </svg>
+        <svg
+          className="darkstage-signup-circuit-fade-b absolute bottom-[8%] left-[10%] h-[30%] w-[30%]"
+          viewBox="0 0 300 300"
+          fill="none"
+        >
+          <path
+            d="M20 280 L90 280 L90 200 L160 200"
+            stroke="hsl(var(--primary))"
+            strokeWidth="1.5"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+          <circle cx="90" cy="280" r="3" fill="hsl(var(--primary))" />
+          <circle cx="90" cy="200" r="3" fill="hsl(var(--primary))" />
+        </svg>
+        <svg
+          className="darkstage-signup-circuit-fade-c absolute left-[4%] top-[38%] h-[22%] w-[26%]"
+          viewBox="0 0 300 300"
+          fill="none"
+        >
+          <path
+            d="M30 40 L120 40 L120 110"
+            stroke="hsl(var(--primary))"
+            strokeWidth="1.5"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+          />
+          <circle cx="120" cy="40" r="2.5" fill="hsl(var(--primary))" />
         </svg>
 
         <div ref={glowLayerRef} style={{ "--mx": "50%", "--my": "50%" } as CSSProperties}>

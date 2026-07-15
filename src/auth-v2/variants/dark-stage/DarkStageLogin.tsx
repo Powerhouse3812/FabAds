@@ -1,5 +1,17 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Zap,
+  Rocket,
+  TrendingUp,
+  Target,
+  BarChart3,
+  Sparkles,
+  Globe,
+} from "lucide-react";
 
 import type { SelectablePlanId, BillingCycle } from "@/components/auth/signup/plans";
 import { AUTH_V2_LOGIN_COPY } from "@/auth-v2/shared/copy";
@@ -27,6 +39,81 @@ const AVATARS = [
   { initials: "MK", className: "bg-primary/45 text-foreground" },
   { initials: "SJ", className: "bg-muted-foreground/30 text-foreground" },
 ];
+
+/** "Circuit hub" illustration data for the hero panel's empty middle area —
+ *  a central glowing node (see hub markup inline in JSX) with thin connector
+ *  paths radiating out to scattered satellite icon-chips. Positions (x/y as
+ *  % of the 400x400 viewBox) are hand-placed off-grid so the arrangement
+ *  reads organic rather than a perfect radial spoke pattern. Icons are
+ *  generic lucide marketing/ads concepts (no trademarked platform logos) —
+ *  Rocket (launch), TrendingUp (growth), Target (targeting), BarChart3
+ *  (reporting), Sparkles (creative/AI), Globe (channel reach) — alternating
+ *  tone so the cluster doesn't read as one flat color. `joint` is the
+ *  approximate midpoint of each quadratic path (used for the small circuit-
+ *  board-style solder dot); `drawDelay` staggers the line draw-in so they
+ *  don't all animate at once; `floatDelay` staggers each chip's idle bob. */
+const HUB_NODES = [
+  {
+    Icon: Rocket,
+    x: 20,
+    y: 17.5,
+    tone: "text-primary",
+    path: "M 200 200 Q 150 130 80 70",
+    joint: { x: 145, y: 132.5 },
+    drawDelay: "0ms",
+    floatDelay: "0s",
+  },
+  {
+    Icon: TrendingUp,
+    x: 82.5,
+    y: 13.75,
+    tone: "text-foreground/70",
+    path: "M 200 200 Q 280 120 330 55",
+    joint: { x: 272.5, y: 123.75 },
+    drawDelay: "120ms",
+    floatDelay: "1s",
+  },
+  {
+    Icon: Target,
+    x: 13.75,
+    y: 57.5,
+    tone: "text-primary",
+    path: "M 200 200 Q 110 210 55 230",
+    joint: { x: 118.75, y: 212.5 },
+    drawDelay: "240ms",
+    floatDelay: "2s",
+  },
+  {
+    Icon: BarChart3,
+    x: 86.25,
+    y: 62.5,
+    tone: "text-foreground/70",
+    path: "M 200 200 Q 300 220 345 250",
+    joint: { x: 286.25, y: 222.5 },
+    drawDelay: "360ms",
+    floatDelay: "0.5s",
+  },
+  {
+    Icon: Sparkles,
+    x: 35,
+    y: 85,
+    tone: "text-primary",
+    path: "M 200 200 Q 170 290 140 340",
+    joint: { x: 170, y: 280 },
+    drawDelay: "480ms",
+    floatDelay: "1.5s",
+  },
+  {
+    Icon: Globe,
+    x: 72.5,
+    y: 82.5,
+    tone: "text-foreground/70",
+    path: "M 200 200 Q 260 280 290 330",
+    joint: { x: 252.5, y: 272.5 },
+    drawDelay: "600ms",
+    floatDelay: "2.5s",
+  },
+] as const;
 
 /** Splits `full` around the first occurrence of `word` so the heading
  *  string (sourced from shared copy) can still carry the signature
@@ -185,10 +272,30 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
             animation: darkstage-highlight-paint 0.55s ease-out forwards;
             animation-delay: 200ms;
           }
+
+          @keyframes darkstage-hub-draw {
+            from { stroke-dashoffset: 1; }
+            to { stroke-dashoffset: 0; }
+          }
+          .darkstage-hub-line {
+            stroke-dasharray: 1;
+            stroke-dashoffset: 1;
+            animation: darkstage-hub-draw 1.1s ease-out forwards;
+          }
+
+          @keyframes darkstage-hub-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+          }
+          .darkstage-hub-float {
+            animation: darkstage-hub-float 6.5s ease-in-out infinite;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
           .darkstage-highlight-mark { transform: rotate(-1.5deg) scaleX(1); }
+          .darkstage-hub-line { stroke-dasharray: none; stroke-dashoffset: 0; }
+          .darkstage-hub-float { animation: none; transform: none; }
         }
       `}</style>
 
@@ -253,7 +360,7 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(0,0,0,0)_45%,rgba(0,0,0,0.6)_100%)]" />
       </div>
 
-      {/* HERO / ambient side — hidden below lg, logo + brag stat only */}
+      {/* HERO / ambient side — hidden below lg, logo + hub illustration + brag stat */}
       <div className="relative z-10 hidden w-1/2 flex-col justify-between p-10 lg:flex">
         <img
           src={heroLogo}
@@ -262,6 +369,58 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
           className="darkstage-rise h-5 w-auto opacity-40"
           style={{ animationDelay: "0ms" }}
         />
+
+        {/* "circuit hub" illustration — fills the previously-empty middle of
+            the hero panel: a glowing central node with thin connector lines
+            radiating out to scattered marketing/ads concept icon-chips, i.e.
+            "everything connects through one place". Purely decorative —
+            pointer-events-none throughout so it never blocks interaction. */}
+        <div className="darkstage-rise pointer-events-none relative flex flex-1 items-center justify-center" style={{ animationDelay: "120ms" }}>
+          <div className="relative aspect-square w-full max-w-[360px]">
+            {/* hub glow layer, behind the node */}
+            <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-2xl" />
+
+            {/* connector lines + circuit-style joint dots */}
+            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 400" fill="none" aria-hidden="true">
+              {HUB_NODES.map((node, i) => (
+                <g key={i}>
+                  <path
+                    d={node.path}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="1.5"
+                    strokeOpacity="0.35"
+                    strokeLinecap="round"
+                    pathLength={1}
+                    className="darkstage-hub-line"
+                    style={{ animationDelay: node.drawDelay }}
+                  />
+                  <circle cx={node.joint.x} cy={node.joint.y} r="2.5" fill="hsl(var(--primary))" fillOpacity="0.45" />
+                </g>
+              ))}
+            </svg>
+
+            {/* central hub node */}
+            <div className="absolute left-1/2 top-1/2 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/40 bg-primary/15 backdrop-blur-sm">
+              <Zap className="h-7 w-7 text-primary" />
+            </div>
+
+            {/* satellite icon-nodes */}
+            {HUB_NODES.map(({ Icon, x, y, tone, floatDelay }, i) => (
+              <div
+                key={i}
+                className="absolute"
+                style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)" }}
+              >
+                <div
+                  className="darkstage-hub-float flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-card/70 backdrop-blur-md"
+                  style={{ animationDelay: floatDelay }}
+                >
+                  <Icon className={`h-4 w-4 ${tone}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* brag stat — copy pattern lifted from Concept05IridescentAI.tsx */}
         <div
