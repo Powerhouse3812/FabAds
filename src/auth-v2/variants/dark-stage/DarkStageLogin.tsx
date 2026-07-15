@@ -16,6 +16,34 @@ import {
 import type { SelectablePlanId, BillingCycle } from "@/components/auth/signup/plans";
 import { AUTH_V2_LOGIN_COPY } from "@/auth-v2/shared/copy";
 import heroLogo from "@/assets/auth/hero-logo.svg";
+import HeroBento from "@/auth-v2/variants/dark-stage/heroes/HeroBento";
+import HeroPhotoStats from "@/auth-v2/variants/dark-stage/heroes/HeroPhotoStats";
+import HeroGradientArt from "@/auth-v2/variants/dark-stage/heroes/HeroGradientArt";
+import HeroRadarCards from "@/auth-v2/variants/dark-stage/heroes/HeroRadarCards";
+import HeroProductPeek from "@/auth-v2/variants/dark-stage/heroes/HeroProductPeek";
+
+/**
+ * Hero-panel sub-variants — 5 directions built from Maalik's reference
+ * moodboard (2026-07-15) plus the original circuit-hub. Dev-only picker
+ * (bottom-left pill) persisted via localStorage, mirrors the A/B
+ * VariantToggle pattern. Right/form side never changes.
+ */
+type DarkStageHero = "hub" | "bento" | "photo" | "art" | "radar" | "peek";
+const HERO_KEY = "fabads-darkstage-hero";
+const HERO_OPTIONS: { key: DarkStageHero; label: string }[] = [
+  { key: "hub", label: "Hub" },
+  { key: "bento", label: "Bento" },
+  { key: "photo", label: "Photo" },
+  { key: "art", label: "Art" },
+  { key: "radar", label: "Radar" },
+  { key: "peek", label: "Peek" },
+];
+
+function readHero(): DarkStageHero {
+  if (typeof window === "undefined") return "hub";
+  const v = window.localStorage.getItem(HERO_KEY);
+  return HERO_OPTIONS.some((o) => o.key === v) ? (v as DarkStageHero) : "hub";
+}
 
 export interface AuthV2CommonProps {
   view: "login" | "signup";
@@ -179,6 +207,11 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [hero, setHero] = useState<DarkStageHero>(readHero);
+  const pickHero = (next: DarkStageHero) => {
+    setHero(next);
+    if (typeof window !== "undefined") window.localStorage.setItem(HERO_KEY, next);
+  };
 
   const { cardRef, style: tiltStyle, handleMouseMove, handleMouseLeave, markInteracted } =
     useCardTilt();
@@ -360,8 +393,17 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(0,0,0,0)_45%,rgba(0,0,0,0.6)_100%)]" />
       </div>
 
-      {/* HERO / ambient side — hidden below lg, logo + hub illustration + brag stat */}
-      <div className="relative z-10 hidden w-1/2 flex-col justify-between p-10 lg:flex">
+      {/* HERO side — hidden below lg. Renders one of 6 swappable hero
+          sub-variants; "hub" is the original in-file layout, the other 5
+          are self-contained components from ./heroes/. */}
+      <div className="relative z-10 hidden w-1/2 lg:block">
+        {hero === "bento" && <HeroBento />}
+        {hero === "photo" && <HeroPhotoStats />}
+        {hero === "art" && <HeroGradientArt />}
+        {hero === "radar" && <HeroRadarCards />}
+        {hero === "peek" && <HeroProductPeek />}
+        {hero === "hub" && (
+        <div className="flex h-full flex-col justify-between p-10">
         <img
           src={heroLogo}
           alt=""
@@ -441,6 +483,30 @@ export default function DarkStageLogin(props: AuthV2CommonProps): JSX.Element {
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold text-foreground">4,500+</span> marketers already in
           </p>
+        </div>
+        </div>
+        )}
+
+        {/* dev-only hero sub-variant picker — mirrors VariantToggle's pill
+            (which sits bottom-right); this one anchors bottom-left inside
+            the hero panel so the two never collide. */}
+        <div className="absolute bottom-4 left-4 z-[999] flex gap-1 rounded-xl border border-white/10 bg-black/80 p-1.5 shadow-lg backdrop-blur">
+          {HERO_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              title={`Hero: ${opt.label}`}
+              onClick={() => pickHero(opt.key)}
+              className={
+                "rounded-md px-2 py-1 text-[11px] font-medium transition-colors " +
+                (hero === opt.key
+                  ? "bg-white text-black"
+                  : "text-gray-400 hover:bg-white/10 hover:text-white")
+              }
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
