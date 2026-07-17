@@ -105,6 +105,16 @@ export const MODULES: ModuleDef[] = [
       { label: "NB", path: "/reports/nb", icon: BarChart3 },
       { label: "TikTok", path: "/reports/tt", icon: Video },
       { label: "Creative Reporting", path: "/reports/creative", icon: Film },
+      {
+        label: "Creative Report 2.0", path: "/reports/creative-v2", icon: Sparkles, badge: "New",
+        subItems: [
+          { label: "Overview", path: "/reports/creative-v2" },
+          { label: "Creatives", path: "/reports/creative-v2/creatives" },
+          { label: "Components", path: "/reports/creative-v2/components" },
+          { label: "Compare", path: "/reports/creative-v2/compare" },
+          { label: "Saved views", path: "/reports/creative-v2/views" },
+        ],
+      },
     ],
   },
   {

@@ -26,6 +26,7 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
 import { launchV2Routes } from "@/launchv2/routes";
+import { creativeReportRoutes } from "@/creative-report/routes";
 import { dashboardVariantRoutes } from "@/dashboard-variants/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
@@ -154,6 +155,11 @@ const App = () => (
                 <Route path="reports/creative/image" element={<Navigate to="/reports/creative" replace />} />
                 <Route path="reports/creative/video" element={<Navigate to="/reports/creative" replace />} />
                 <Route path="reports/creative/ad-groups" element={<Navigate to="/reports/creative" replace />} />
+                {/* Creative Report 2.0 — hi-fi prototype of the new creative-first
+                    triage report (Overview / Creatives / Components / Compare / Saved
+                    views). Own namespace /reports/creative-v2; the existing
+                    "Creative Reporting" at /reports/creative is untouched. */}
+                {creativeReportRoutes}
                 <Route path="launch" element={<LaunchHistory />} />
                 <Route path="launch/autopilot" element={<AutoPilotLaunch />} />
                 <Route path="launch/new" element={<LaunchFlow />} />

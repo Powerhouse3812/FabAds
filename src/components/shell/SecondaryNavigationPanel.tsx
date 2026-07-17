@@ -40,7 +40,7 @@ import { CatalogueFooterCard } from "./CatalogueFooterCard";
  */
 export function SecondaryNavigationPanel() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const activeKey = deriveActiveModule(pathname);
   const activeMod: ModuleDef | undefined = activeKey
     ? [...MODULES, ...SYSTEM_MODULES].find((m) => m.key === activeKey)
@@ -51,7 +51,19 @@ export function SecondaryNavigationPanel() {
   }
 
   const siblingPaths = allSubPaths(activeMod);
-  const onNavigate = (path: string) => navigate(path);
+  // Creative Report 2.0 carries its daily-filter context (URL params) across
+  // its own sub-views — "filters persist across routes" is a hard rule for
+  // that module. Scoped strictly to /reports/creative-v2 so no other module's
+  // secondary-nav behaviour changes. Each CR2 screen reads only its own view
+  // params, so carrying the full query string is inert on the others.
+  const CR2_BASE = "/reports/creative-v2";
+  const onNavigate = (path: string) => {
+    if (path.startsWith(CR2_BASE) && pathname.startsWith(CR2_BASE) && search) {
+      navigate(`${path}${search}`);
+    } else {
+      navigate(path);
+    }
+  };
   const isGenie = activeMod.key === "genie";
   const isInsights = activeMod.key === "insights";
   const isLaunch = activeMod.key === "launch";

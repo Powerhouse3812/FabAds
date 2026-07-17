@@ -82,6 +82,11 @@ const LABEL_MAP: Record<string, string> = {
   reports: "Reports",
   performance: "Performance",
   creative: "Creative",
+  "creative-v2": "Creative Report 2.0",
+  creatives: "Creatives",
+  compare: "Compare",
+  views: "Saved views",
+  components: "Components",
   "ad-accounts": "Ad Accounts",
   "ad-sets": "Ad Sets",
   ads: "Ads",
@@ -143,6 +148,11 @@ const KNOWN_SUB_NAV_PATHS = new Set([
   "/reports/creative/image",
   "/reports/creative/video",
   "/reports/creative/ad-groups",
+  "/reports/creative-v2",
+  "/reports/creative-v2/creatives",
+  "/reports/creative-v2/components",
+  "/reports/creative-v2/compare",
+  "/reports/creative-v2/views",
 ]);
 
 /**
@@ -215,6 +225,7 @@ function AppLayoutInner() {
   const isLaunchV2Route = pathname.startsWith("/launchv2");
   const isCreativeLibraryRoute = pathname.startsWith("/iq/creative-library");
   const isDashboardVariantsRoute = pathname.startsWith("/dashboard-variants");
+  const isCreativeReportV2Route = pathname.startsWith("/reports/creative-v2");
   // Routes that own their own scroll regions + chrome (no AppLayout
   // breadcrumb header, no outer padding). Genie6 set this pattern;
   // Industry Insights v2 follows it so the masonry page bg + sticky
@@ -223,12 +234,14 @@ function AppLayoutInner() {
   // folder rail + content split that collapses inside the default
   // overflow-y-auto wrap. Dashboard variants = 4 full-bleed visual
   // explorations that each own their own background/chrome.
+  // Creative Report 2.0 = own sub-nav + persistent filter bar + footer.
   const ownsLayout =
     isGenie6Route ||
     isInsightsV2Route ||
     isLaunchV2Route ||
     isCreativeLibraryRoute ||
-    isDashboardVariantsRoute;
+    isDashboardVariantsRoute ||
+    isCreativeReportV2Route;
   const { isPinned, isOpen } = useCopilot();
 
   return (
