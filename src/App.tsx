@@ -27,6 +27,7 @@ import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
 import { launchV2Routes } from "@/launchv2/routes";
 import { creativeReportRoutes } from "@/creative-report/routes";
+import { GenieHandoffStub } from "@/creative-report/actions/GenieHandoffStub";
 import { dashboardVariantRoutes } from "@/dashboard-variants/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
 import { onboardingDemoRoutes } from "@/onboarding-demo/routes";
@@ -160,6 +161,9 @@ const App = () => (
                     views). Own namespace /reports/creative-v2; the existing
                     "Creative Reporting" at /reports/creative is untouched. */}
                 {creativeReportRoutes}
+                {/* Simulated Genie handoff target for the "Generate variation"
+                    exit from Creative Report 2.0 (concept/angle/hook payload). */}
+                <Route path="genie/new" element={<GenieHandoffStub />} />
                 <Route path="launch" element={<LaunchHistory />} />
                 <Route path="launch/autopilot" element={<AutoPilotLaunch />} />
                 <Route path="launch/new" element={<LaunchFlow />} />
