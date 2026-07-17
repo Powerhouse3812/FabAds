@@ -89,8 +89,11 @@ interface MetricProfile {
 }
 
 const PROFILES: Record<Archetype, MetricProfile> = {
+  // Run windows are long enough that most creatives span BOTH the current and
+  // the previous reporting period, so period-over-period deltas stay realistic
+  // (±10–40%) rather than exploding because the prior window was under-populated.
   winner: {
-    days: [34, 58], endedDaysAgo: [0, 0],
+    days: [48, 74], endedDaysAgo: [0, 0],
     spendPerDay: [220, 520], cpm: [8, 12], ctr: [1.9, 2.4], ctrDecay: 0.05,
     cvr: [2.8, 3.6], aov: [46, 60], hookRate: [30, 42], holdRate: [18, 27],
     freqStart: [1.4, 1.8], freqEnd: [1.9, 2.7], outboundShare: [0.62, 0.8],
@@ -102,13 +105,13 @@ const PROFILES: Record<Archetype, MetricProfile> = {
     freqStart: [1.1, 1.4], freqEnd: [1.3, 1.7], outboundShare: [0.6, 0.78],
   },
   fatiguing: {
-    days: [30, 44], endedDaysAgo: [0, 0],
+    days: [44, 60], endedDaysAgo: [0, 0],
     spendPerDay: [160, 340], cpm: [10, 14], ctr: [1.9, 2.3], ctrDecay: 0.34,
     cvr: [2.2, 3.0], aov: [48, 58], hookRate: [26, 36], holdRate: [15, 22],
     freqStart: [2.2, 2.8], freqEnd: [4.6, 5.8], outboundShare: [0.6, 0.76],
   },
   scaling: {
-    days: [16, 26], endedDaysAgo: [0, 0],
+    days: [22, 30], endedDaysAgo: [0, 0],
     spendPerDay: [120, 260], cpm: [9, 13], ctr: [1.5, 1.9], ctrDecay: 0.04,
     cvr: [2.2, 2.8], aov: [46, 56], hookRate: [24, 34], holdRate: [14, 20],
     freqStart: [1.3, 1.7], freqEnd: [1.8, 2.4], outboundShare: [0.6, 0.76],
@@ -121,13 +124,13 @@ const PROFILES: Record<Archetype, MetricProfile> = {
     freqStart: [1.0, 1.3], freqEnd: [1.1, 1.5], outboundShare: [0.58, 0.74],
   },
   loser: {
-    days: [20, 40], endedDaysAgo: [0, 3],
+    days: [40, 68], endedDaysAgo: [0, 3],
     spendPerDay: [130, 300], cpm: [12, 16], ctr: [0.7, 1.1], ctrDecay: 0.08,
     cvr: [1.1, 1.8], aov: [40, 50], hookRate: [16, 24], holdRate: [9, 14],
     freqStart: [1.6, 2.2], freqEnd: [2.4, 3.4], outboundShare: [0.55, 0.72],
   },
   steady: {
-    days: [18, 40], endedDaysAgo: [0, 2],
+    days: [42, 76], endedDaysAgo: [0, 2],
     spendPerDay: [90, 240], cpm: [10, 13], ctr: [1.3, 1.8], ctrDecay: 0.07,
     cvr: [1.9, 2.5], aov: [46, 56], hookRate: [22, 32], holdRate: [13, 19],
     freqStart: [1.4, 2.0], freqEnd: [2.0, 3.0], outboundShare: [0.58, 0.75],
