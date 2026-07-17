@@ -69,7 +69,7 @@ export function SavedViews() {
               Unsaved draft
               <Link
                 to={`${CREATIVES_PATH}?${draft.query}`}
-                className="font-semibold text-primary hover:underline"
+                className="font-semibold text-primary-text hover:underline"
               >
                 Apply
               </Link>

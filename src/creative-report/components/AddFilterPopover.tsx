@@ -88,7 +88,7 @@ export function AddFilterPopover() {
                       <span className="text-[13px]">{def.label}</span>
                       <span className="flex items-center gap-1">
                         {count > 0 && (
-                          <span className="text-[13px] text-primary">{count}</span>
+                          <span className="text-[13px] text-primary-text">{count}</span>
                         )}
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </span>
