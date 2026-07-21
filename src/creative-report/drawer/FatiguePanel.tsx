@@ -5,9 +5,8 @@
 import { cn } from "@/lib/utils";
 import { fmtDelta, NA_NO_VIDEO, type DeltaTone } from "@/creative-report/lib/format";
 import { Sparkline } from "@/creative-report/components/Sparkline";
-import type { CreativeRollup } from "@/creative-report/lib/selectors";
-
-const FREQ_FATIGUE_THRESHOLD = 4;
+import { bucketRuleText, type CreativeRollup } from "@/creative-report/lib/selectors";
+import { useBucketThresholds } from "@/creative-report/lib/thresholds";
 
 /** Falling is bad for both CTR and hook-rate trends. */
 function trendToneClass(tone: DeltaTone): string {
@@ -15,13 +14,13 @@ function trendToneClass(tone: DeltaTone): string {
   return tone === "down" ? "text-destructive" : "text-primary-text";
 }
 
-function buildHypothesis(rollup: CreativeRollup): string {
+function buildHypothesis(rollup: CreativeRollup, fatigueFreqThreshold: number): string {
   const { fatigue } = rollup;
   if (!fatigue.isFatiguing) {
     return "No fatigue signals in range — frequency and CTR are holding.";
   }
   if (fatigue.reason?.startsWith("Freq")) {
-    return "Frequency is above 4 — the same people are seeing this repeatedly, which usually precedes a CTR drop.";
+    return `Frequency is above ${fatigueFreqThreshold} — the same people are seeing this repeatedly, which usually precedes a CTR drop.`;
   }
   if (fatigue.reason?.startsWith("CTR") && fatigue.ctrDeltaPct !== null) {
     return `CTR is down ${Math.abs(Math.round(fatigue.ctrDeltaPct))}% over 14 days — the creative may be wearing out; refreshing the hook while keeping the body is the usual first move.`;
@@ -34,9 +33,10 @@ function buildHypothesis(rollup: CreativeRollup): string {
 
 export function FatiguePanel({ rollup }: { rollup: CreativeRollup }) {
   const { fatigue } = rollup;
+  const thresholds = useBucketThresholds();
   const ctrDelta = fmtDelta(fatigue.ctrDeltaPct);
   const hookDelta = fmtDelta(fatigue.hookDeltaPct);
-  const freqHot = fatigue.freq7 > FREQ_FATIGUE_THRESHOLD;
+  const freqHot = fatigue.freq7 > thresholds.fatigueFreq;
   const ctrData = rollup.series.map((p) => p.ctr);
   const sparkTone = fatigue.ctrDeltaPct !== null && fatigue.ctrDeltaPct < 0 ? "down" : "up";
 
@@ -103,7 +103,10 @@ export function FatiguePanel({ rollup }: { rollup: CreativeRollup }) {
         <p className="text-[11px] text-muted-foreground">14-day rolling CTR</p>
       </div>
 
-      <p className="text-sm text-muted-foreground">{buildHypothesis(rollup)}</p>
+      <p className="text-sm text-muted-foreground">{buildHypothesis(rollup, thresholds.fatigueFreq)}</p>
+      <p className="font-mono text-[10.5px] text-muted-foreground">
+        Rule: {bucketRuleText("fatiguing", thresholds)}
+      </p>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { BucketRow } from "@/creative-report/components/BucketRow";
 import { KpiCards } from "@/creative-report/components/KpiCards";
 import { FatiguingNowList } from "@/creative-report/components/FatiguingNowList";
 import { TopMovers } from "@/creative-report/components/TopMovers";
+import { TrustMeterChip } from "@/creative-report/components/TrustMeterChip";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
 import { OverviewSkeleton } from "@/creative-report/components/states/Skeletons";
 import type { BucketKey } from "@/creative-report/lib/paramSchema";
@@ -85,13 +86,16 @@ export function Overview() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 p-6">
-      <header className="cr-stagger" style={{ ["--i" as string]: 0 }}>
-        <h1 className="text-lg font-semibold text-foreground">Morning triage</h1>
-        <p className="text-sm text-muted-foreground">
-          {data.buckets.fatiguing + data.buckets.winners + data.buckets.new > 0
-            ? `${data.buckets.fatiguing} fatiguing, ${data.buckets.winners} winning, ${data.buckets.new} new to review across ${total} active creatives.`
-            : `${total} active creatives in view.`}
-        </p>
+      <header className="cr-stagger flex items-start justify-between gap-4" style={{ ["--i" as string]: 0 }}>
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Morning triage</h1>
+          <p className="text-sm text-muted-foreground">
+            {data.buckets.fatiguing + data.buckets.winners + data.buckets.new > 0
+              ? `${data.buckets.fatiguing} fatiguing, ${data.buckets.winners} winning, ${data.buckets.new} new to review across ${total} active creatives.`
+              : `${total} active creatives in view.`}
+          </p>
+        </div>
+        <TrustMeterChip />
       </header>
 
       <div className="cr-stagger" style={{ ["--i" as string]: 1 }}>

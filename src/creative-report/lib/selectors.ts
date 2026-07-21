@@ -18,6 +18,7 @@ import type {
 } from "@/data/model";
 import type { BucketKey, ComponentTab } from "@/creative-report/lib/paramSchema";
 import { getBrand } from "@/mocks/shared/brands";
+import { DEFAULT_THRESHOLDS, type BucketThresholds } from "@/creative-report/lib/thresholds";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -139,24 +140,31 @@ export function fullRangeFilter(): FilterInput {
 /*  Bucket rules (hardcoded, visible on hover — handoff §5.1)          */
 /* ------------------------------------------------------------------ */
 
-export const BUCKET_RULES: Record<BucketKey, string> = {
-  winners: "ROAS ≥ 2.0 and spend ≥ $1,000 in range",
-  scaling: "Spend up ≥ 20% (last 7d vs prior 7d) with ROAS ≥ 1.5",
-  fatiguing: "14-day CTR down ≥ 15%, or frequency > 4, or hook-rate falling",
-  new: "Launched in the last 7 days",
-  losers: "ROAS < 1.0 at spend ≥ $500",
-};
+/** The LIVE formula text — regenerates from whatever thresholds are passed,
+ *  so an edited threshold is visible immediately, never a stale label next
+ *  to a changed rule (iter-2 W2 "visible AND changeable formulas"). */
+export function bucketRuleText(bucket: BucketKey, t: BucketThresholds = DEFAULT_THRESHOLDS): string {
+  switch (bucket) {
+    case "winners":
+      return `ROAS ≥ ${t.winnerRoas.toFixed(1)} and spend ≥ $${t.winnerSpend.toLocaleString()} in range`;
+    case "scaling":
+      // Shares its spend floor with Winners by design — spelled out here so
+      // the visible formula matches assignBucket() exactly (no silent gap).
+      return `Spend up ≥ ${t.scalingTrendPct}% (last 7d vs prior 7d) with ROAS ≥ ${t.scalingRoas.toFixed(1)} and spend ≥ $${t.winnerSpend.toLocaleString()}`;
+    case "fatiguing":
+      return `14-day CTR down ≥ ${t.fatigueCtrDropPct}%, or frequency > ${t.fatigueFreq}, or hook-rate falling (min spend $${t.fatigueMinSpend.toLocaleString()})`;
+    case "new":
+      return `Launched in the last ${t.newAgeDays} days`;
+    case "losers":
+      return `ROAS < ${t.loserRoas.toFixed(1)} at spend ≥ $${t.loserSpend.toLocaleString()}`;
+  }
+}
 
-const WINNER_ROAS = 2.0;
-const WINNER_SPEND = 1000;
-const SCALING_ROAS = 1.5;
-const SCALING_TREND = 20;
-const LOSER_ROAS = 1.0;
-const LOSER_SPEND = 500;
-const FATIGUE_MIN_SPEND = 500;
-const FATIGUE_CTR_DROP = 15; // percent
-const FATIGUE_FREQ = 4;
-const NEW_AGE_DAYS = 7;
+// Formula constants live in thresholds.ts (DEFAULT_THRESHOLDS) — editable by
+// the buyer, always visible, never a black box. Every function below takes
+// an optional `thresholds` param defaulting to DEFAULT_THRESHOLDS so
+// existing callers (audit.ts, winnersBank.ts) are unaffected; only
+// useCreativeData.ts passes the buyer's live overrides.
 
 /* ------------------------------------------------------------------ */
 /*  Date helpers                                                       */
@@ -323,10 +331,13 @@ function windowHookRate(byDate: Map<string, DateAgg>, winFrom: string, winTo: st
   return hasVideo && impr > 0 ? (v3 / impr) * 100 : null;
 }
 
-function computeFatigue(
+/** Exported so the trust meter can backtest: evaluate the SAME rule as of a
+ *  historical cutoff date, using only data available through that date. */
+export function computeFatigue(
   instances: AdInstance[],
   to: string,
   spend: number,
+  thresholds: BucketThresholds = DEFAULT_THRESHOLDS,
 ): FatigueVerdict {
   const toDate = parseISO(to);
   const last14From = isoDate(addDays(toDate, -13));
@@ -361,10 +372,10 @@ function computeFatigue(
       ? ((lastHook - priorHook) / priorHook) * 100
       : null;
 
-  const ctrFatigued = ctrDeltaPct !== null && ctrDeltaPct <= -FATIGUE_CTR_DROP;
-  const freqFatigued = freq7 > FATIGUE_FREQ;
-  const hookFatigued = hookDeltaPct !== null && hookDeltaPct <= -FATIGUE_CTR_DROP;
-  const enoughSpend = spend >= FATIGUE_MIN_SPEND;
+  const ctrFatigued = ctrDeltaPct !== null && ctrDeltaPct <= -thresholds.fatigueCtrDropPct;
+  const freqFatigued = freq7 > thresholds.fatigueFreq;
+  const hookFatigued = hookDeltaPct !== null && hookDeltaPct <= -thresholds.fatigueCtrDropPct;
+  const enoughSpend = spend >= thresholds.fatigueMinSpend;
 
   const isFatiguing = enoughSpend && (ctrFatigued || freqFatigued || hookFatigued);
 
@@ -438,20 +449,21 @@ function assignBucket(
   fatigue: FatigueVerdict,
   spendTrendPct: number | null,
   ageDays: number,
+  thresholds: BucketThresholds = DEFAULT_THRESHOLDS,
 ): BucketKey | null {
   // Priority order: New → Fatiguing → Winners → Scaling → Losers → steady.
-  if (ageDays <= NEW_AGE_DAYS) return "new";
+  if (ageDays <= thresholds.newAgeDays) return "new";
   if (fatigue.isFatiguing) return "fatiguing";
-  if (metrics.roas >= WINNER_ROAS && metrics.spend >= WINNER_SPEND) return "winners";
+  if (metrics.roas >= thresholds.winnerRoas && metrics.spend >= thresholds.winnerSpend) return "winners";
   if (
     spendTrendPct !== null &&
-    spendTrendPct >= SCALING_TREND &&
-    metrics.roas >= SCALING_ROAS &&
-    metrics.spend >= WINNER_SPEND
+    spendTrendPct >= thresholds.scalingTrendPct &&
+    metrics.roas >= thresholds.scalingRoas &&
+    metrics.spend >= thresholds.winnerSpend
   ) {
     return "scaling";
   }
-  if (metrics.roas < LOSER_ROAS && metrics.spend >= LOSER_SPEND) return "losers";
+  if (metrics.roas < thresholds.loserRoas && metrics.spend >= thresholds.loserSpend) return "losers";
   return null;
 }
 
@@ -459,6 +471,7 @@ export function rollupCreative(
   dataset: Dataset,
   creative: Creative,
   f: FilterInput,
+  thresholds: BucketThresholds = DEFAULT_THRESHOLDS,
 ): CreativeRollup | null {
   const all = dataset.instancesByCreative[creative.id] ?? [];
   const instances = all.filter((inst) => instanceMatches(inst, f));
@@ -495,9 +508,9 @@ export function rollupCreative(
   const prior7 = windowSpend(instances, prior7From, prior7To);
   const spendTrendPct = prior7 > 0 ? ((last7 - prior7) / prior7) * 100 : null;
 
-  const fatigue = computeFatigue(instances, f.to, metrics.spend);
+  const fatigue = computeFatigue(instances, f.to, metrics.spend, thresholds);
   const ageDays = Math.max(0, daysBetween(creative.createdAt, f.to));
-  const bucket = assignBucket(creative, metrics, fatigue, spendTrendPct, ageDays);
+  const bucket = assignBucket(creative, metrics, fatigue, spendTrendPct, ageDays, thresholds);
 
   const platforms = [...new Set(instances.map((i) => i.platform))] as Platform[];
   const accountIds = [...new Set(instances.map((i) => i.accountId))];
@@ -527,7 +540,11 @@ export function rollupCreative(
 /*  Collection selectors                                               */
 /* ------------------------------------------------------------------ */
 
-export function selectCreatives(dataset: Dataset, f: FilterInput): CreativeRollup[] {
+export function selectCreatives(
+  dataset: Dataset,
+  f: FilterInput,
+  thresholds: BucketThresholds = DEFAULT_THRESHOLDS,
+): CreativeRollup[] {
   const q = f.q?.trim().toLowerCase();
   const rollups: CreativeRollup[] = [];
   for (const creative of dataset.creatives) {
@@ -540,7 +557,7 @@ export function selectCreatives(dataset: Dataset, f: FilterInput): CreativeRollu
       const hay = `${creative.name} ${creative.product} ${creative.components.hook} ${brandName}`.toLowerCase();
       if (!hay.includes(q)) continue;
     }
-    const rollup = rollupCreative(dataset, creative, f);
+    const rollup = rollupCreative(dataset, creative, f, thresholds);
     if (rollup) rollups.push(rollup);
   }
   return rollups;
@@ -665,8 +682,9 @@ export function componentRollups(
   dataset: Dataset,
   f: FilterInput,
   tab: ComponentTab,
+  thresholds: BucketThresholds = DEFAULT_THRESHOLDS,
 ): ComponentRow[] {
-  const rollups = selectCreatives(dataset, f);
+  const rollups = selectCreatives(dataset, f, thresholds);
   const groups = new Map<string, CreativeRollup[]>();
   for (const r of rollups) {
     const value = componentValueFor(r.creative, tab);
@@ -686,7 +704,7 @@ export function componentRollups(
     const roas = spend > 0 ? revenue / spend : 0;
     // Spend-weighted win-rate: share of spend on winner-tier creatives.
     const winnerSpend = group
-      .filter((r) => r.metrics.roas >= WINNER_ROAS)
+      .filter((r) => r.metrics.roas >= thresholds.winnerRoas)
       .reduce((s, r) => s + r.metrics.spend, 0);
     const winRate = spend > 0 ? (winnerSpend / spend) * 100 : 0;
     const trendVals = group.map((r) => r.roasDeltaPct).filter((v): v is number => v !== null);

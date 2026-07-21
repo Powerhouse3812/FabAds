@@ -19,6 +19,7 @@ import { TrendChart } from "@/creative-report/drawer/TrendChart";
 import { FatiguePanel } from "@/creative-report/drawer/FatiguePanel";
 import { ComponentBreakdown } from "@/creative-report/drawer/ComponentBreakdown";
 import { ScriptElementsPanel } from "@/creative-report/drawer/ScriptElementsPanel";
+import { BenchmarkPanel } from "@/creative-report/drawer/BenchmarkPanel";
 import { RunningInTable } from "@/creative-report/drawer/RunningInTable";
 import { VariantsList } from "@/creative-report/drawer/VariantsList";
 import { DrawerActionBar } from "@/creative-report/drawer/DrawerActionBar";
@@ -79,6 +80,9 @@ export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
               </Band>
               <Band>
                 <ScriptElementsPanel rollup={rollup} />
+              </Band>
+              <Band>
+                <BenchmarkPanel rollup={rollup} />
               </Band>
               <Band>
                 <RunningInTable

@@ -22,6 +22,7 @@ import {
 } from "@/creative-report/lib/selectors";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { useForcedState } from "@/creative-report/state/ForcedStateContext";
+import { useBucketThresholds } from "@/creative-report/lib/thresholds";
 import type { BucketKey, ComponentTab } from "@/creative-report/lib/paramSchema";
 
 export type DataStatus = "ready" | "loading" | "empty" | "filtered-empty" | "error";
@@ -68,6 +69,7 @@ function toFilterInput(
 export function useCreativeData(): CreativeData {
   const { filters, view, activeFilterCount } = useReportParams();
   const forced = useForcedState();
+  const thresholds = useBucketThresholds();
 
   const filterInput = useMemo(
     () => toFilterInput(filters, view.q),
@@ -97,7 +99,7 @@ export function useCreativeData(): CreativeData {
         ? { ...filterInput, from: filterInput.to } // one-day window → tiny n
         : filterInput;
 
-    const rollups = selectCreatives(dataset, effectiveFilter);
+    const rollups = selectCreatives(dataset, effectiveFilter, thresholds);
     const hasActiveFilters = activeFilterCount > 0 || forced === "low-data";
 
     if (rollups.length === 0) {
@@ -116,10 +118,10 @@ export function useCreativeData(): CreativeData {
       movers: topMovers(rollups),
       kpis: kpiSummary(dataset, effectiveFilter),
       hasActiveFilters,
-      getComponents: (tab) => componentRollups(dataset, effectiveFilter, tab),
+      getComponents: (tab) => componentRollups(dataset, effectiveFilter, tab, thresholds),
       filterInput: effectiveFilter,
     };
-  }, [forced, filterInput, activeFilterCount]);
+  }, [forced, filterInput, activeFilterCount, thresholds]);
 }
 
 function emptyResult(
