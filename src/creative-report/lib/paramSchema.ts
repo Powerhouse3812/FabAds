@@ -66,6 +66,11 @@ export type CompareMode = (typeof COMPARE_MODES)[number];
 export const GROUP_BYS = ["none", "concept", "angle", "brand"] as const;
 export type GroupBy = (typeof GROUP_BYS)[number];
 
+/** Creatives screen layout — grid (cards) or table (Motion's graph+table
+ *  pattern, iter-2 W4). View-scoped, not a filter. */
+export const LAYOUTS = ["grid", "table"] as const;
+export type Layout = (typeof LAYOUTS)[number];
+
 export const SORT_FIELDS = ["spend", "roas", "cpa", "ctr", "fatigue", "recency"] as const;
 export type SortField = (typeof SORT_FIELDS)[number];
 export type SortDir = "asc" | "desc";
@@ -149,6 +154,7 @@ export const P = {
   ids: "ids",
   mode: "mode",
   state: "state",
+  layout: "layout",
 } as const;
 export type ParamKey = (typeof P)[keyof typeof P];
 
@@ -184,6 +190,7 @@ export const VIEW_PARAM_KEYS: ParamKey[] = [
   P.tab,
   P.ids,
   P.mode,
+  P.layout,
 ];
 
 /* ------------------------------------------------------------------ */

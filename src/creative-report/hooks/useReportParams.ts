@@ -21,6 +21,8 @@ import {
   ForcedState,
   GROUP_BYS,
   GroupBy,
+  LAYOUTS,
+  Layout,
   P,
   PLATFORMS,
   ParamKey,
@@ -65,6 +67,7 @@ export interface ReportViewState {
   compareIds: string[];
   compareMode: CompareMode;
   forcedState: ForcedState | null;
+  layout: Layout;
 }
 
 function pickAllowed<T extends string>(
@@ -110,6 +113,7 @@ export function useReportParams() {
       compareIds: parseCsvFree(searchParams.get(P.ids)),
       compareMode: pickAllowed(searchParams.get(P.mode), COMPARE_MODES) ?? "creatives",
       forcedState: pickAllowed(searchParams.get(P.state), FORCED_STATES),
+      layout: pickAllowed(searchParams.get(P.layout), LAYOUTS) ?? "grid",
     }),
     [searchParams],
   );

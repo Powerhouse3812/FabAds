@@ -23,16 +23,14 @@ import { ActionMenu } from "@/creative-report/components/ActionMenu";
 import { getBrand } from "@/mocks/shared/brands";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { useCreativeAction } from "@/creative-report/actions/actionStore";
-import {
-  fmtCompactCurrency,
-  fmtMultiple,
-  fmtPct,
-  fmtCurrency,
-  truncate,
-  NAME_MAX,
-} from "@/creative-report/lib/format";
+import { truncate, NAME_MAX } from "@/creative-report/lib/format";
 import { FORMAT_LABELS } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
+import { COLUMN_BY_KEY, COLUMN_DEFS } from "@/creative-report/lib/columns";
+import { useCardMetrics } from "@/creative-report/lib/cardMetrics";
+
+/** Hover quick-peek shows up to this many metrics not already on the card. */
+const PEEK_COUNT = 3;
 
 const FORMAT_ICON = { video: Video, static: ImageIcon, carousel: LayoutGrid } as const;
 
@@ -56,6 +54,11 @@ export function CreativeCard({
   const FmtIcon = FORMAT_ICON[creative.format];
   const name = truncate(creative.name, NAME_MAX);
   const brand = creative.brandId ? getBrand(creative.brandId) : undefined;
+  const { active: activeMetrics } = useCardMetrics();
+  // Quick-peek on hover: metrics NOT already on the card, capped at PEEK_COUNT.
+  // Max active is 6 of 13 keys, so there is always at least one leftover —
+  // the empty-list guard below is defensive only.
+  const peekDefs = COLUMN_DEFS.filter((c) => !activeMetrics.includes(c.key)).slice(0, PEEK_COUNT);
 
   return (
     <div
@@ -86,8 +89,9 @@ export function CreativeCard({
           </button>
         )}
 
-        {/* Select checkbox */}
-        <div className="absolute left-2 top-2">
+        {/* Select checkbox — z-10 keeps it visible above the hover quick-peek
+            overlay, so bulk-select stays targetable while hovering. */}
+        <div className="absolute left-2 top-2 z-10">
           <Checkbox
             checked={selected}
             onCheckedChange={() => onToggleSelect(creative.id)}
@@ -128,6 +132,30 @@ export function CreativeCard({
           {actionState.markedWinner && <StatusPill label="Winner" tone="lime" />}
           {actionState.savedToLibrary && <StatusPill label="Saved" tone="muted" />}
         </div>
+
+        {/* Hover quick-peek — metrics not already on the card, no drawer open */}
+        {peekDefs.length > 0 && (
+          <div
+            className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 opacity-0 backdrop-blur transition-opacity duration-150 group-hover:opacity-100"
+            aria-hidden="true"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              More metrics
+            </span>
+            <div className="flex items-center gap-4">
+              {peekDefs.map((c) => (
+                <div key={c.key} className="flex flex-col items-center">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {c.label}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums text-foreground">
+                    {c.format(metrics)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Body */}
@@ -154,12 +182,12 @@ export function CreativeCard({
           </span>
         </div>
 
-        {/* 4 key metrics — one flat row, not boxed tiles */}
+        {/* User-picked metrics (up to 6) — one flat row, not boxed tiles */}
         <div className="flex items-end justify-between gap-2">
-          <Metric label="Spend" value={fmtCompactCurrency(metrics.spend)} />
-          <Metric label="ROAS" value={fmtMultiple(metrics.roas)} />
-          <Metric label="CPA" value={metrics.cpa === null ? "—" : fmtCurrency(metrics.cpa, { decimals: 0 })} />
-          <Metric label="CTR" value={fmtPct(metrics.ctr)} />
+          {activeMetrics.map((key) => {
+            const col = COLUMN_BY_KEY[key];
+            return <Metric key={key} label={col.label} value={col.format(metrics)} />;
+          })}
         </div>
 
         {/* Action row */}

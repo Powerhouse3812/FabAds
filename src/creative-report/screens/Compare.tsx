@@ -8,12 +8,15 @@
  * platform it runs on — never summed across platforms (different attribution
  * windows), just shown side by side with a warning when it spans >1 platform.
  */
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { CompareColumn, type CompareMetrics } from "@/creative-report/components/CompareColumn";
+import { CompareLineChart } from "@/creative-report/components/CompareLineChart";
+import { CompareBarChart } from "@/creative-report/components/CompareBarChart";
 import { CreativePicker } from "@/creative-report/components/CreativePicker";
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
@@ -23,6 +26,11 @@ import { ACCOUNT_BY_ID } from "@/data/accounts";
 import type { AdInstance, DailyRow } from "@/data/model";
 
 const MAX_COMPARE = 4;
+
+/** Chart-view axis — separate from compareMode (creatives/contexts), applies
+ *  within either mode. Presentational only, so it's local state, not a URL
+ *  param. */
+type ChartViewMode = "cards" | "line" | "bar";
 
 function metricsFromFolded(m: {
   spend: number;
@@ -60,8 +68,14 @@ function foldInstancesInRange(
   return foldRows(rows, isVideo);
 }
 
-/** Daily revenue trend for the sparkline — additive, safe to sum. */
-function revenueSeries(instances: AdInstance[], from: string, to: string): number[] {
+/** Daily revenue trend, dates kept — additive within a platform, safe to
+ *  sum across that platform's own instances (never across platforms). Used
+ *  by the Line chart, which needs the date axis. */
+function revenueSeriesWithDates(
+  instances: AdInstance[],
+  from: string,
+  to: string,
+): { date: string; value: number }[] {
   const byDate = new Map<string, number>();
   for (const inst of instances) {
     for (const r of inst.daily) {
@@ -72,7 +86,13 @@ function revenueSeries(instances: AdInstance[], from: string, to: string): numbe
   }
   return [...byDate.entries()]
     .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-    .map(([, v]) => v);
+    .map(([date, value]) => ({ date, value }));
+}
+
+/** Same series, values only — for the CompareColumn sparkline which doesn't
+ *  need a real date axis. */
+function revenueSeries(instances: AdInstance[], from: string, to: string): number[] {
+  return revenueSeriesWithDates(instances, from, to).map((p) => p.value);
 }
 
 function accountLabelFor(accountIds: string[]): string {
@@ -85,6 +105,7 @@ export function Compare() {
   const data = useCreativeData();
   const { view, setParam } = useReportParams();
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<ChartViewMode>("cards");
 
   if (data.status === "loading") {
     return (
@@ -137,31 +158,56 @@ export function Compare() {
             Side-by-side creatives, or one creative across accounts and platforms.
           </p>
         </div>
-        <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
-          <button
-            type="button"
-            onClick={() => setParam(P.mode, null)}
-            className={cn(
-              "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
-              view.compareMode === "creatives"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Creatives
-          </button>
-          <button
-            type="button"
-            onClick={() => setParam(P.mode, "contexts")}
-            className={cn(
-              "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
-              view.compareMode === "contexts"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            Across contexts
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
+            <button
+              type="button"
+              onClick={() => setParam(P.mode, null)}
+              className={cn(
+                "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
+                view.compareMode === "creatives"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Creatives
+            </button>
+            <button
+              type="button"
+              onClick={() => setParam(P.mode, "contexts")}
+              className={cn(
+                "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
+                view.compareMode === "contexts"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Across contexts
+            </button>
+          </div>
+          <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
+            {(
+              [
+                { key: "cards", label: "Cards" },
+                { key: "line", label: "Line" },
+                { key: "bar", label: "Bar" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setViewMode(opt.key)}
+                className={cn(
+                  "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
+                  viewMode === opt.key
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -172,6 +218,7 @@ export function Compare() {
           selectedIds={selectedIds}
           onAdd={addId}
           onRemove={removeId}
+          viewMode={viewMode}
         />
       ) : (
         <ContextsMode
@@ -181,6 +228,7 @@ export function Compare() {
           onAdd={addId}
           from={data.filterInput.from}
           to={data.filterInput.to}
+          viewMode={viewMode}
         />
       )}
     </div>
@@ -193,14 +241,61 @@ function CreativesMode({
   selectedIds,
   onAdd,
   onRemove,
+  viewMode,
 }: {
   rollups: CreativeRollup[];
   selected: CreativeRollup[];
   selectedIds: string[];
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
+  viewMode: ChartViewMode;
 }) {
   const canAddMore = selected.length < MAX_COMPARE;
+
+  if (viewMode !== "cards") {
+    if (selected.length === 0) {
+      return (
+        <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-4 text-center">
+          <p className="text-sm text-muted-foreground">Pick 2–4 creatives to compare</p>
+          <CreativePicker rollups={rollups} selectedIds={selectedIds} onAdd={onAdd} />
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {selected.length} of {MAX_COMPARE} creatives
+          </p>
+          {canAddMore && (
+            <CreativePicker
+              rollups={rollups}
+              selectedIds={selectedIds}
+              onAdd={onAdd}
+              disabled={!canAddMore}
+            />
+          )}
+        </div>
+        {viewMode === "line" ? (
+          <CompareLineChart
+            columns={selected.map((r) => ({
+              key: r.creative.id,
+              title: r.creative.name,
+              points: r.series.map((p) => ({ date: p.date, value: p.revenue })),
+            }))}
+          />
+        ) : (
+          <CompareBarChart
+            columns={selected.map((r) => ({
+              key: r.creative.id,
+              title: r.creative.name,
+              metrics: metricsFromFolded(r.metrics),
+            }))}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -240,6 +335,7 @@ function ContextsMode({
   onAdd,
   from,
   to,
+  viewMode,
 }: {
   first: CreativeRollup | null;
   rollups: CreativeRollup[];
@@ -247,6 +343,7 @@ function ContextsMode({
   onAdd: (id: string) => void;
   from: string;
   to: string;
+  viewMode: ChartViewMode;
 }) {
   if (!first) {
     return (
@@ -290,7 +387,7 @@ function ContextsMode({
         <p className="text-sm text-muted-foreground">
           This creative only runs on one platform — nothing to compare across contexts yet.
         </p>
-      ) : (
+      ) : viewMode === "cards" ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {platforms.map((platform) => {
             const instances = byPlatform.get(platform)!;
@@ -306,6 +403,33 @@ function ContextsMode({
               />
             );
           })}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card p-4">
+          {viewMode === "line" ? (
+            <CompareLineChart
+              columns={platforms.map((platform) => {
+                const instances = byPlatform.get(platform)!;
+                return {
+                  key: platform,
+                  title: PLATFORM_LABELS[platform],
+                  points: revenueSeriesWithDates(instances, from, to),
+                };
+              })}
+            />
+          ) : (
+            <CompareBarChart
+              columns={platforms.map((platform) => {
+                const instances = byPlatform.get(platform)!;
+                const folded = foldInstancesInRange(instances, from, to, isVideo);
+                return {
+                  key: platform,
+                  title: PLATFORM_LABELS[platform],
+                  metrics: metricsFromFolded(folded),
+                };
+              })}
+            />
+          )}
         </div>
       )}
     </div>

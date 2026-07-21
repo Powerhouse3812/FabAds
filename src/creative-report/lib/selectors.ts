@@ -730,3 +730,30 @@ export function componentRollups(
 
   return rows.sort((a, b) => b.spend - a.spend);
 }
+
+/* ------------------------------------------------------------------ */
+/*  Portfolio-level aggregate series (iter-2 W4 — "graph above table")  */
+/* ------------------------------------------------------------------ */
+
+export interface PortfolioSeriesPoint {
+  date: string;
+  spend: number;
+  revenue: number;
+}
+
+/** Sums spend/revenue across every rollup's series, by date — the graph that
+ *  sits above the Table view (Motion's "graph + table in every report"). */
+export function aggregatePortfolioSeries(rollups: CreativeRollup[]): PortfolioSeriesPoint[] {
+  const byDate = new Map<string, { spend: number; revenue: number }>();
+  for (const r of rollups) {
+    for (const p of r.series) {
+      const e = byDate.get(p.date) ?? { spend: 0, revenue: 0 };
+      e.spend += p.spend;
+      e.revenue += p.revenue;
+      byDate.set(p.date, e);
+    }
+  }
+  return [...byDate.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([date, e]) => ({ date, spend: e.spend, revenue: e.revenue }));
+}

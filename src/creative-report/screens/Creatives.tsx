@@ -5,7 +5,7 @@
  * and a right-side detail drawer opened via ?creative=:id.
  */
 import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { LayoutGrid, Table2, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -19,20 +19,30 @@ import { getBrand } from "@/mocks/shared/brands";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { CreativeCard } from "@/creative-report/components/CreativeCard";
+import { CreativeTable } from "@/creative-report/components/CreativeTable";
+import { PortfolioTrendChart } from "@/creative-report/components/PortfolioTrendChart";
+import { ColumnPickerPopover } from "@/creative-report/components/ColumnPickerPopover";
+import { CardMetricPicker } from "@/creative-report/components/CardMetricPicker";
 import { BulkActionBar } from "@/creative-report/components/BulkActionBar";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { CreativeDrawer } from "@/creative-report/drawer/CreativeDrawer";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
 import { GridSkeleton } from "@/creative-report/components/states/Skeletons";
 import { pluralize } from "@/creative-report/lib/format";
+import { cn } from "@/lib/utils";
 import {
   GROUP_BYS,
+  LAYOUTS,
   SORT_FIELDS,
   type GroupBy,
+  type Layout,
   type SortField,
   P,
 } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
+
+const LAYOUT_ICON: Record<Layout, typeof LayoutGrid> = { grid: LayoutGrid, table: Table2 };
+const LAYOUT_LABEL: Record<Layout, string> = { grid: "Grid", table: "Table" };
 
 const SORT_LABELS: Record<SortField, string> = {
   spend: "Spend",
@@ -63,7 +73,7 @@ function sortValue(r: CreativeRollup, field: SortField): number {
 
 export function Creatives() {
   const data = useCreativeData();
-  const { view, setParam, setSort, clearFilters } = useReportParams();
+  const { view, setParam, setSort } = useReportParams();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const dataset = getDataset();
@@ -145,6 +155,8 @@ export function Creatives() {
           </button>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {view.layout === "table" && <ColumnPickerPopover />}
+          {view.layout === "grid" && <CardMetricPicker />}
           <Select value={view.group} onValueChange={(v) => setParam(P.group, v === "none" ? null : v)}>
             <SelectTrigger className="h-8 w-[150px] text-[13px]">
               <SelectValue placeholder="Group by" />
@@ -172,10 +184,33 @@ export function Creatives() {
               ))}
             </SelectContent>
           </Select>
+          <div className="flex items-center rounded-md border border-border p-0.5">
+            {LAYOUTS.map((l) => {
+              const Icon = LAYOUT_ICON[l];
+              return (
+                <button
+                  key={l}
+                  type="button"
+                  aria-label={`${LAYOUT_LABEL[l]} view`}
+                  onClick={() => setParam(P.layout, l === "grid" ? null : l)}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded",
+                    view.layout === l
+                      ? "bg-primary/15 text-primary-text"
+                      : "text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Grid (grouped or flat) */}
+      {view.layout === "table" && <PortfolioTrendChart rollups={filtered} />}
+
+      {/* Grid or table (grouped or flat) */}
       <div className="space-y-6">
         {groups.map((group) => (
           <section key={group.label || "all"}>
@@ -184,16 +219,20 @@ export function Creatives() {
                 {group.label} · {pluralize(group.rows.length, "creative")}
               </h2>
             )}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-              {group.rows.map((r) => (
-                <CreativeCard
-                  key={r.creative.id}
-                  rollup={r}
-                  selected={selected.has(r.creative.id)}
-                  onToggleSelect={toggleSelect}
-                />
-              ))}
-            </div>
+            {view.layout === "table" ? (
+              <CreativeTable rollups={group.rows} sort={view.sort} onSort={setSort} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {group.rows.map((r) => (
+                  <CreativeCard
+                    key={r.creative.id}
+                    rollup={r}
+                    selected={selected.has(r.creative.id)}
+                    onToggleSelect={toggleSelect}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         ))}
       </div>

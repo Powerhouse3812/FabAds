@@ -2,6 +2,12 @@
  * FunnelStrip — full-funnel metric strip (handoff §5.2).
  * CPM → CTR → Outbound CTR → CVR → CPA → ROAS, folded (never averaged)
  * metrics from the rollup's FoldedMetrics.
+ *
+ * iter-2 W4 decision: funnel-stage detail lives here ONLY. The grid
+ * (CreativeCard), table (CreativeTable) and bucket rows (BucketRow) show
+ * summary metrics, not the stage-by-stage funnel — duplicating it there
+ * would repeat the same numbers at a smaller, less legible size for no
+ * added triage value. Open the drawer for funnel detail.
  */
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
