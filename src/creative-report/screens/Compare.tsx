@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { CompareColumn, type CompareMetrics } from "@/creative-report/components/CompareColumn";
@@ -380,6 +381,7 @@ function ContextsMode({
         <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-700 dark:text-amber-400">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Different attribution windows — not directly comparable.
+          <WhyDot id="compare.crossPlatformWarning" className="text-amber-700/70 hover:text-amber-700 dark:text-amber-400/70 dark:hover:text-amber-400" />
         </div>
       )}
 

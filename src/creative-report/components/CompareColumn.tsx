@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { Sparkline } from "@/creative-report/components/Sparkline";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import {
   fmtCurrency,
   fmtMultiple,
@@ -36,23 +37,27 @@ interface MetricRow {
   label: string;
   value: string;
   title?: string;
+  /** Reuses the grid's `grid.metric.<key>` ids — same derivation as the card/table. */
+  annotationId: string;
 }
 
 function buildRows(m: CompareMetrics): MetricRow[] {
   return [
-    { label: "Spend", value: fmtCurrency(m.spend) },
-    { label: "ROAS", value: fmtMultiple(m.roas) },
+    { label: "Spend", value: fmtCurrency(m.spend), annotationId: "grid.metric.spend" },
+    { label: "ROAS", value: fmtMultiple(m.roas), annotationId: "grid.metric.roas" },
     {
       label: "CPA",
       value: m.cpa === null ? "—" : fmtCurrency(m.cpa),
       title: m.cpa === null ? "No purchases" : undefined,
+      annotationId: "grid.metric.cpa",
     },
-    { label: "CTR", value: fmtPct(m.ctr) },
-    { label: "CVR", value: fmtPct(m.cvr) },
-    { label: "Frequency", value: m.frequency.toFixed(1) },
+    { label: "CTR", value: fmtPct(m.ctr), annotationId: "grid.metric.ctr" },
+    { label: "CVR", value: fmtPct(m.cvr), annotationId: "grid.metric.cvr" },
+    { label: "Frequency", value: m.frequency.toFixed(1), annotationId: "grid.metric.frequency" },
     {
       label: "Hook rate",
       value: m.hookRate === null ? NA_NO_VIDEO : fmtPct(m.hookRate),
+      annotationId: "grid.metric.hookRate",
     },
   ];
 }
@@ -107,7 +112,12 @@ export function CompareColumn({
           {subtitle && (
             <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
           )}
-          {bucket && <BucketChip bucket={bucket} size="xs" className="mt-1.5" />}
+          {bucket && (
+            <div className="mt-1.5 flex items-center gap-1">
+              <BucketChip bucket={bucket} size="xs" />
+              <WhyDot id="grid.bucket" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -117,7 +127,10 @@ export function CompareColumn({
             key={row.label}
             className="flex items-center justify-between py-1.5 text-[13px]"
           >
-            <span className="text-muted-foreground">{row.label}</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
+              {row.label}
+              <WhyDot id={row.annotationId} />
+            </span>
             <span
               className="font-medium tabular-nums text-foreground"
               title={row.title}

@@ -12,6 +12,7 @@
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtCurrency, fmtPct, fmtMultiple, fmtDelta, type DeltaTone } from "@/creative-report/lib/format";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 /** Maps a raw fmtDelta tone to a good/bad/flat verdict given directionality. */
@@ -27,6 +28,7 @@ interface Cell {
   muted?: boolean;
   title?: string;
   delta?: { label: string; className: string };
+  whyId: string;
 }
 
 export function FunnelStrip({ rollup }: { rollup: CreativeRollup }) {
@@ -36,16 +38,17 @@ export function FunnelStrip({ rollup }: { rollup: CreativeRollup }) {
   const roasDelta = fmtDelta(roasDeltaPct);
 
   const cells: Cell[] = [
-    { label: "CPM", value: fmtCurrency(metrics.cpm, { decimals: 2 }) },
-    { label: "CTR", value: fmtPct(metrics.ctr, 2) },
-    { label: "Outbound CTR", value: fmtPct(metrics.outboundCtr, 2) },
-    { label: "CVR", value: fmtPct(metrics.cvr, 2) },
+    { label: "CPM", value: fmtCurrency(metrics.cpm, { decimals: 2 }), whyId: "drawer.funnel.cpm" },
+    { label: "CTR", value: fmtPct(metrics.ctr, 2), whyId: "drawer.funnel.ctr" },
+    { label: "Outbound CTR", value: fmtPct(metrics.outboundCtr, 2), whyId: "drawer.funnel.outboundCtr" },
+    { label: "CVR", value: fmtPct(metrics.cvr, 2), whyId: "drawer.funnel.cvr" },
     metrics.cpa === null
       ? {
           label: "CPA",
           value: "—",
           muted: true,
           title: "No purchases in range",
+          whyId: "drawer.funnel.cpa",
         }
       : {
           label: "CPA",
@@ -54,6 +57,7 @@ export function FunnelStrip({ rollup }: { rollup: CreativeRollup }) {
             cpaDeltaPct !== null
               ? { label: cpaDelta.label, className: toneClass(cpaDelta.tone, false) }
               : undefined,
+          whyId: "drawer.funnel.cpa",
         },
     {
       label: "ROAS",
@@ -62,6 +66,7 @@ export function FunnelStrip({ rollup }: { rollup: CreativeRollup }) {
         roasDeltaPct !== null
           ? { label: roasDelta.label, className: toneClass(roasDelta.tone, true) }
           : undefined,
+      whyId: "drawer.funnel.roas",
     },
   ];
 
@@ -75,8 +80,9 @@ export function FunnelStrip({ rollup }: { rollup: CreativeRollup }) {
               aria-hidden
             />
           )}
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {cell.label}
+            <WhyDot id={cell.whyId} className="h-3 w-3" />
           </span>
           <span
             className={cn(

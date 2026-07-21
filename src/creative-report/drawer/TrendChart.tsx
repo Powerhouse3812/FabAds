@@ -4,6 +4,7 @@
  */
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { fmtCompactCurrency, fmtDate, fmtDateRange } from "@/creative-report/lib/format";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 interface ChartPoint {
@@ -42,7 +43,10 @@ export function TrendChart({ rollup }: { rollup: CreativeRollup }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-foreground">Spend vs revenue</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-foreground">Spend vs revenue</span>
+          <WhyDot id="drawer.trend.spendVsRevenue" />
+        </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-muted-foreground" aria-hidden />

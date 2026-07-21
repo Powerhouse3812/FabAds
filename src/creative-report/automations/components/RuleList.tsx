@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useBoardsStore } from "@/creative-report/automations/boards";
 import { runRule } from "@/creative-report/automations/engine";
@@ -72,7 +73,8 @@ function RuleRow({
           <span className="truncate text-[13px] font-medium text-foreground">{rule.name}</span>
           <TypeBadge type={rule.type} />
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <WhyDot id="automations.rule.match" />
           {rule.conditions.length} condition{rule.conditions.length === 1 ? "" : "s"} ·{" "}
           {lastRunLabel(rule)}
         </p>
@@ -88,6 +90,7 @@ function RuleRow({
           onCheckedChange={(checked) => setRuleEnabled(rule.id, checked)}
           aria-label={rule.enabled ? "Disable rule" : "Enable rule"}
         />
+        <WhyDot id="automations.rule.runNow" />
         <Button
           variant="outline"
           size="sm"

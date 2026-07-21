@@ -10,6 +10,7 @@
  */
 import { AlertTriangle } from "lucide-react";
 import { ConfidenceChip, type ChipConfidence } from "@/creative-report/components/ConfidenceChip";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { ComponentKind } from "@/data/model";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
@@ -97,7 +98,10 @@ export function ComponentBreakdown({ rollup }: { rollup: CreativeRollup }) {
   return (
     <div className="space-y-1">
       <div>
-        <span className="text-sm font-medium text-foreground">Component breakdown</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-foreground">Component breakdown</span>
+          <WhyDot id="drawer.components.confidence" />
+        </div>
         <p className="text-xs text-muted-foreground">
           How each part may be pulling its weight — hypotheses, not verdicts.
         </p>
@@ -112,6 +116,7 @@ export function ComponentBreakdown({ rollup }: { rollup: CreativeRollup }) {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{row.kind}</p>
+                {row.componentKind === "hook" && <WhyDot id="drawer.components.hookSignal" />}
                 {MARKED_HERE.includes(row.componentKind) && drop === row.componentKind && <DropMarker />}
               </div>
               <p className="truncate text-sm font-medium text-foreground" title={row.value}>

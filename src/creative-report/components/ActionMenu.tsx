@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { addCreativeToBoard, useBoardsStore } from "@/creative-report/automations/boards";
 import { useToast } from "@/hooks/use-toast";
@@ -77,6 +78,7 @@ export function ActionMenu({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <FolderPlus className="mr-2 h-4 w-4" /> Add to board
+              <WhyDot id="grid.action.addToBoard" className="ml-auto" />
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-48">
               {boards.map((b) => (
@@ -90,15 +92,19 @@ export function ActionMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => a.duplicate(rollup)}>
           <Copy className="mr-2 h-4 w-4" /> Duplicate
+          <WhyDot id="grid.action.duplicate" className="ml-auto" />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => a.editTargeting(rollup)}>
           <Target className="mr-2 h-4 w-4" /> Edit targeting
+          <WhyDot id="grid.action.editTargeting" className="ml-auto" />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => a.launch(rollup)}>
           <Rocket className="mr-2 h-4 w-4" /> Relaunch
+          <WhyDot id="grid.action.relaunch" className="ml-auto" />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => a.pause(rollup)} className="text-destructive focus:text-destructive">
           <Pause className="mr-2 h-4 w-4" /> Pause
+          <WhyDot id="grid.action.pause" className="ml-auto" />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

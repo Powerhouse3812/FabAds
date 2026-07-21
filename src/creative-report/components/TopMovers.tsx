@@ -9,6 +9,7 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { Sparkline } from "@/creative-report/components/Sparkline";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { fmtMultiple, fmtDelta, truncate } from "@/creative-report/lib/format";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
@@ -24,7 +25,10 @@ export function TopMovers({
   return (
     <section>
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Top movers</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-foreground">Top movers</h3>
+          <WhyDot id="overview.topMovers" />
+        </div>
         <span className="text-xs text-muted-foreground">vs previous period</span>
       </div>
 

@@ -9,6 +9,7 @@ import { Pause, Sparkles, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { fmtCompactCurrency, truncate, NAME_MAX, pluralize } from "@/creative-report/lib/format";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
@@ -26,7 +27,10 @@ export function FatiguingNowList({
   return (
     <section>
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Fatiguing now — act today</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-foreground">Fatiguing now — act today</h3>
+          <WhyDot id="overview.fatiguingNow" />
+        </div>
         <span className="text-xs text-muted-foreground">{pluralize(items.length, "creative")}</span>
       </div>
 

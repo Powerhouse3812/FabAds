@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import {
   createBoard,
   createFolder,
@@ -620,7 +621,8 @@ function BoardContent({
         <div>
           <h2 className="text-[15px] font-semibold text-foreground">{board.name}</h2>
           {board.ruleId && (
-            <p className="mt-0.5 text-[12px] text-muted-foreground">
+            <p className="mt-0.5 flex items-center gap-1 text-[12px] text-muted-foreground">
+              <WhyDot id="automations.board.smart" />
               {ruleBroken
                 ? "Linked rule no longer exists — showing manually pinned creatives only"
                 : ruleDisabled

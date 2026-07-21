@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { ActionMenu } from "@/creative-report/components/ActionMenu";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { getBrand } from "@/mocks/shared/brands";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { useCreativeAction } from "@/creative-report/actions/actionStore";
@@ -102,7 +103,8 @@ export function CreativeCard({
 
         {/* Bucket chip */}
         {bucket && (
-          <div className="absolute right-2 top-2">
+          <div className="absolute right-2 top-2 flex items-center gap-1">
+            <WhyDot id="grid.bucket" className="rounded-full bg-black/30 text-white/80 backdrop-blur hover:text-white" />
             <BucketChip bucket={bucket} size="xs" />
           </div>
         )}
@@ -114,14 +116,17 @@ export function CreativeCard({
             {FORMAT_LABELS[creative.format]}
           </span>
           {creative.dedupMatch && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  {Math.round(creative.dedupMatch * 100)}% dup
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Possibly the same creative — open to merge or split.</TooltipContent>
-            </Tooltip>
+            <span className="flex items-center gap-1">
+              <WhyDot id="grid.dedup" className="rounded-full bg-black/30 text-white/80 backdrop-blur hover:text-white" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    {Math.round(creative.dedupMatch * 100)}% dup
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Possibly the same creative — open to merge or split.</TooltipContent>
+              </Tooltip>
+            </span>
           )}
         </div>
 
@@ -186,22 +191,41 @@ export function CreativeCard({
         <div className="flex items-end justify-between gap-2">
           {activeMetrics.map((key) => {
             const col = COLUMN_BY_KEY[key];
-            return <Metric key={key} label={col.label} value={col.format(metrics)} />;
+            return (
+              <Metric
+                key={key}
+                label={col.label}
+                value={col.format(metrics)}
+                annotationId={`grid.metric.${key}`}
+              />
+            );
           })}
         </div>
 
         {/* Action row */}
         <div className="mt-auto flex items-center gap-1 border-t border-border pt-2">
-          <IconAction label="Generate variation" onClick={() => a.generateVariation(rollup)}>
+          <IconAction
+            label="Generate variation"
+            onClick={() => a.generateVariation(rollup)}
+            annotationId="grid.action.generateVariation"
+          >
             <Wand2 className="h-4 w-4" />
           </IconAction>
-          <IconAction label="Relaunch" onClick={() => a.launch(rollup)}>
+          <IconAction label="Relaunch" onClick={() => a.launch(rollup)} annotationId="grid.action.relaunch">
             <Rocket className="h-4 w-4" />
           </IconAction>
-          <IconAction label="Save to Library" onClick={() => a.saveToLibrary(rollup)}>
+          <IconAction
+            label="Save to Library"
+            onClick={() => a.saveToLibrary(rollup)}
+            annotationId="grid.action.save"
+          >
             <Bookmark className="h-4 w-4" />
           </IconAction>
-          <IconAction label="Mark as Winner" onClick={() => a.markWinner(rollup)}>
+          <IconAction
+            label="Mark as Winner"
+            onClick={() => a.markWinner(rollup)}
+            annotationId="grid.action.markWinner"
+          >
             <Trophy className="h-4 w-4" />
           </IconAction>
           <div className="ml-auto">
@@ -213,10 +237,21 @@ export function CreativeCard({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  annotationId,
+}: {
+  label: string;
+  value: string;
+  annotationId?: string;
+}) {
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+        {annotationId && <WhyDot id={annotationId} />}
+      </span>
       <span className="text-sm font-semibold tabular-nums text-foreground">{value}</span>
     </div>
   );
@@ -226,20 +261,29 @@ function IconAction({
   label,
   onClick,
   children,
+  annotationId,
 }: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
+  annotationId?: string;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClick} aria-label={label}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
+    <div className="relative">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClick} aria-label={label}>
+            {children}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+      {annotationId && (
+        <span className="pointer-events-auto absolute -right-0.5 -top-0.5">
+          <WhyDot id={annotationId} />
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -12,6 +12,7 @@
  */
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import {
   DIGEST_CADENCES,
   WEEKDAY_LABELS,
@@ -43,7 +44,10 @@ export function DigestSettings() {
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">Scheduled digest</h3>
+          <h3 className="flex items-center gap-1 text-sm font-semibold text-foreground">
+            <WhyDot id="automations.digest.preview" />
+            Scheduled digest
+          </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             A recurring summary of winners, fatiguing creatives, and top movers.
           </p>

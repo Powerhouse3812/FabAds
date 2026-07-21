@@ -11,6 +11,7 @@ import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { NA_NO_VIDEO, truncate } from "@/creative-report/lib/format";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 const FRAME_LABEL_MAX = 18;
@@ -56,9 +57,12 @@ export function ScriptElementsPanel({ rollup }: { rollup: CreativeRollup }) {
       <div className="border-b border-border py-3">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-foreground">Script</span>
-          <Badge variant="outline" className="text-[11px] font-medium leading-none">
-            {script.framework}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <WhyDot id="drawer.script.framework" />
+            <Badge variant="outline" className="text-[11px] font-medium leading-none">
+              {script.framework}
+            </Badge>
+          </div>
         </div>
 
         <div className="mt-2 space-y-2">
@@ -94,9 +98,12 @@ export function ScriptElementsPanel({ rollup }: { rollup: CreativeRollup }) {
       ) : (
         <>
           <div className="border-b border-border py-3">
-            <span className="text-sm font-medium text-foreground">
-              Frames{elements.frames.length > 0 ? ` · ${elements.frames.length}` : ""}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-medium text-foreground">
+                Frames{elements.frames.length > 0 ? ` · ${elements.frames.length}` : ""}
+              </span>
+              <WhyDot id="drawer.script.dropAttribution" />
+            </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {elements.frames.map((frame) => {
                 const label = truncate(frame.label, FRAME_LABEL_MAX);
@@ -141,7 +148,10 @@ export function ScriptElementsPanel({ rollup }: { rollup: CreativeRollup }) {
       {/* 4. Audience fit */}
       <div className="py-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-foreground">Audience fit</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium text-foreground">Audience fit</span>
+            <WhyDot id="drawer.script.audienceFit" />
+          </div>
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none",

@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { MetricStat } from "@/creative-report/components/MetricStat";
 import { Sparkline } from "@/creative-report/components/Sparkline";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import {
   Select,
   SelectContent,
@@ -132,23 +133,26 @@ export function KpiCards({
                 deltaPct={deltaPct}
                 higherIsBetter={higherIsBetter}
               />
-              <Select
-                value={key}
-                onValueChange={(v) =>
-                  setSelected((arr) => arr.map((m, i) => (i === idx ? (v as MetricKey) : m)))
-                }
-              >
-                <SelectTrigger className="h-7 w-auto shrink-0 gap-1 border-none bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0 focus:ring-offset-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {METRIC_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.key} value={opt.key} className="text-xs">
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <WhyDot id={`overview.kpi.${key}`} className="mt-0.5" />
+                <Select
+                  value={key}
+                  onValueChange={(v) =>
+                    setSelected((arr) => arr.map((m, i) => (i === idx ? (v as MetricKey) : m)))
+                  }
+                >
+                  <SelectTrigger className="h-7 w-auto shrink-0 gap-1 border-none bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-accent/50 focus:ring-0 focus:ring-offset-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    {METRIC_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.key} value={opt.key} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Sparkline data={synthesizeSpark(raw)} tone={tone} className="mt-3" />
           </div>

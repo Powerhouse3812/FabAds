@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { fmtCurrency, fmtMultiple, fmtPct, truncate } from "@/creative-report/lib/format";
 import { COMPARE_CHART_COLORS } from "@/creative-report/components/CompareLineChart";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { CompareMetrics } from "@/creative-report/components/CompareColumn";
 
 export interface CompareMetricColumn {
@@ -142,7 +143,10 @@ export function CompareBarChart({ columns }: { columns: CompareMetricColumn[] })
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-foreground">Compare by metric</span>
+        <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+          Compare by metric
+          <WhyDot id="compare.chart.bar" />
+        </span>
         <Select value={metric} onValueChange={(v) => setMetric(v as BarMetric)}>
           <SelectTrigger className="h-8 w-[110px] text-[13px]">
             <SelectValue />

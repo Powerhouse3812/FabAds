@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { ThresholdSettings } from "@/creative-report/components/ThresholdSettings";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { BUCKETS, type BucketKey } from "@/creative-report/lib/paramSchema";
 import { bucketRuleText } from "@/creative-report/lib/selectors";
 import { useBucketThresholds } from "@/creative-report/lib/thresholds";
@@ -37,36 +38,42 @@ export function BucketRow({
           const active = activeBucket === key;
           const rule = bucketRuleText(key, thresholds);
           return (
-            <Tooltip key={key}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => onSelect(key)}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 text-left transition-colors",
-                    "hover:bg-accent/5 hover:border-border",
-                    active && "ring-1 ring-primary border-primary/50",
-                  )}
-                >
-                  <span
+            <div key={key} className="relative">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(key)}
+                    aria-pressed={active}
                     className={cn(
-                      "text-2xl font-semibold tabular-nums text-foreground",
-                      count === 0 && "text-muted-foreground",
+                      // h-full/w-full: the relative wrapper (added for the WhyDot
+                      // overlay) is the grid item now, so the button must stretch
+                      // to the cell itself — buttons shrink-to-fit by default.
+                      "flex h-full w-full flex-col items-start gap-2 rounded-xl border border-border bg-card p-4 text-left transition-colors",
+                      "hover:bg-accent/5 hover:border-border",
+                      active && "ring-1 ring-primary border-primary/50",
                     )}
                   >
-                    {count}
-                  </span>
-                  <BucketChip bucket={key} />
-                  <span className="line-clamp-2 font-mono text-[10.5px] leading-tight text-muted-foreground">
-                    {rule}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-56 text-xs">
-                {rule}
-              </TooltipContent>
-            </Tooltip>
+                    <span
+                      className={cn(
+                        "text-2xl font-semibold tabular-nums text-foreground",
+                        count === 0 && "text-muted-foreground",
+                      )}
+                    >
+                      {count}
+                    </span>
+                    <BucketChip bucket={key} />
+                    <span className="line-clamp-2 font-mono text-[10.5px] leading-tight text-muted-foreground">
+                      {rule}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-56 text-xs">
+                  {rule}
+                </TooltipContent>
+              </Tooltip>
+              <WhyDot id="overview.bucket" className="absolute right-2 top-2" />
+            </div>
           );
         })}
       </div>

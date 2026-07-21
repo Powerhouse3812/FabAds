@@ -5,6 +5,7 @@
 import { cn } from "@/lib/utils";
 import { fmtDelta, NA_NO_VIDEO, type DeltaTone } from "@/creative-report/lib/format";
 import { Sparkline } from "@/creative-report/components/Sparkline";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { bucketRuleText, type CreativeRollup } from "@/creative-report/lib/selectors";
 import { useBucketThresholds } from "@/creative-report/lib/thresholds";
 
@@ -44,16 +45,19 @@ export function FatiguePanel({ rollup }: { rollup: CreativeRollup }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">Fatigue</span>
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none",
-            fatigue.isFatiguing
-              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-              : "bg-primary/15 text-primary-text border-primary/30",
-          )}
-        >
-          {fatigue.isFatiguing ? "Fatiguing" : "Healthy"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <WhyDot id="drawer.fatigue.verdict" />
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none",
+              fatigue.isFatiguing
+                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                : "bg-primary/15 text-primary-text border-primary/30",
+            )}
+          >
+            {fatigue.isFatiguing ? "Fatiguing" : "Healthy"}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

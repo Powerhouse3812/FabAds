@@ -10,6 +10,7 @@ import {
   fmtMultiple,
   fmtPct,
 } from "@/creative-report/lib/format";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import {
   demographicSplit,
   type CreativeRollup,
@@ -66,7 +67,10 @@ export function DemographicsPanel({ rollup }: { rollup: CreativeRollup }) {
 
   return (
     <div>
-      <span className="text-sm font-medium text-foreground">Demographics</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-medium text-foreground">Demographics</span>
+        <WhyDot id="drawer.demographics.split" />
+      </div>
 
       {!hasAny ? (
         <p className="mt-1 text-sm text-muted-foreground">

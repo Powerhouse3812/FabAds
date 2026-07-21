@@ -19,6 +19,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { fmtCompactCurrency, fmtDate, truncate } from "@/creative-report/lib/format";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 
 export interface CompareSeriesColumn {
   key: string;
@@ -120,7 +121,10 @@ export function CompareLineChart({ columns }: { columns: CompareSeriesColumn[] }
             </span>
           );
         })}
-        <span>· Revenue / day</span>
+        <span className="flex items-center gap-0.5">
+          · Revenue / day
+          <WhyDot id="compare.chart.line" />
+        </span>
       </div>
 
       <div className="h-[260px] w-full">

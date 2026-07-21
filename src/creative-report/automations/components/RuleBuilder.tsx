@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { evaluateRule } from "@/creative-report/automations/engine";
 import { createRule, updateRule } from "@/creative-report/automations/rulesStore";
@@ -486,7 +487,8 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
             <p className="text-[11px] text-muted-foreground">
               All conditions must match (AND) — this engine doesn&apos;t support OR groups.
             </p>
-            <p className="text-xs text-foreground">
+            <p className="flex items-center gap-1 text-xs text-foreground">
+              <WhyDot id="automations.rule.match" />
               <span className="font-medium">{matchCount}</span>{" "}
               {matchCount === 1 ? "creative" : "creatives"} currently{" "}
               {matchCount === 1 ? "matches" : "match"} these conditions.

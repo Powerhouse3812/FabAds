@@ -17,6 +17,7 @@ import { useWinnersBank } from "@/creative-report/lib/winnersBank";
 import { getDataset } from "@/data/generator";
 import { getCategory } from "@/mocks/shared/categories";
 import { fmtMultiple, fmtPct } from "@/creative-report/lib/format";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 export function BenchmarkPanel({ rollup }: { rollup: CreativeRollup }) {
@@ -44,7 +45,10 @@ export function BenchmarkPanel({ rollup }: { rollup: CreativeRollup }) {
 
       {/* Category norm */}
       <div className="border-b border-border py-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Category norm</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Category norm</p>
+          <WhyDot id="drawer.benchmark.categoryNorm" />
+        </div>
         {norm ? (
           <div className="mt-1 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
@@ -63,9 +67,12 @@ export function BenchmarkPanel({ rollup }: { rollup: CreativeRollup }) {
 
       {/* Platform best-practice checklist */}
       <div className="border-b border-border py-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Platform best-practice
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            Platform best-practice
+          </p>
+          <WhyDot id="drawer.benchmark.platformBestPractice" />
+        </div>
         <div className="mt-1.5 space-y-1.5">
           {checks.map((check) => (
             <div key={check.label} className="flex items-start gap-2 text-sm">
@@ -82,9 +89,12 @@ export function BenchmarkPanel({ rollup }: { rollup: CreativeRollup }) {
 
       {/* Ranked edit suggestions */}
       <div className="py-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Suggested test order
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            Suggested test order
+          </p>
+          <WhyDot id="drawer.benchmark.rankedEdits" />
+        </div>
         {rankedEdits.length === 0 ? (
           <p className="mt-1 text-sm text-muted-foreground">
             Nothing sits meaningfully below your Winners bank on the data available — no changes to

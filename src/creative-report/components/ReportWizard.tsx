@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { brandRollups } from "@/creative-report/lib/selectors";
@@ -175,7 +176,8 @@ export function ReportWizard({ open, onOpenChange }: ReportWizardProps) {
                   <span className="font-medium">Date range:</span> {fmtDateRange(filters.from, filters.to)}
                 </p>
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <WhyDot id="owner.export" />
                 This configures what gets exported — it doesn&apos;t change what&apos;s shown on the
                 report screen behind it.
               </p>

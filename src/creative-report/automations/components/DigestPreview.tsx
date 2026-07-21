@@ -10,6 +10,7 @@
  * into a new composite score.
  */
 import { TrendingUp, AlertTriangle } from "lucide-react";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useDigestConfig } from "@/creative-report/automations/digestStore";
 import { BUCKET_LABELS, BUCKETS } from "@/creative-report/lib/paramSchema";
@@ -52,7 +53,8 @@ export function DigestPreview() {
     <div className="rounded-xl border border-border bg-card p-4">
       {/* Header */}
       <div>
-        <h3 className="text-sm font-semibold text-foreground">
+        <h3 className="flex items-center gap-1 text-sm font-semibold text-foreground">
+          <WhyDot id="automations.digest.preview" />
           Your {cadenceNoun} digest
         </h3>
         <p className="mt-0.5 text-xs text-muted-foreground">

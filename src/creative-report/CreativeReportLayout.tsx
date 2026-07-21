@@ -13,6 +13,7 @@ import { FilterBar } from "@/creative-report/components/FilterBar";
 import { ForcedStateProvider } from "@/creative-report/state/ForcedStateContext";
 import { CreativeActionsProvider } from "@/creative-report/actions/useCreativeActions";
 import { StatesSwitcher } from "@/creative-report/components/StatesSwitcher";
+import { AnnotateToggle } from "@/creative-report/components/AnnotateToggle";
 import { runDataAudit } from "@/data/audit";
 
 // Run the §4 data audit once per session in dev so the console proves the
@@ -39,7 +40,10 @@ export function CreativeReportLayout() {
           {import.meta.env.DEV && (
             <footer className="flex items-center justify-between border-t border-border px-4 py-1.5">
               <span className="text-xs text-muted-foreground">Prototype — simulated data</span>
-              <StatesSwitcher />
+              <div className="flex items-center gap-3">
+                <AnnotateToggle />
+                <StatesSwitcher />
+              </div>
             </footer>
           )}
         </div>

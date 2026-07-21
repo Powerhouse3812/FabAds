@@ -33,6 +33,7 @@ import {
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { KpiCards } from "@/creative-report/components/KpiCards";
 import { PortfolioTrendChart } from "@/creative-report/components/PortfolioTrendChart";
 import { ReportWizard } from "@/creative-report/components/ReportWizard";
@@ -136,7 +137,10 @@ export function OwnerReport() {
       <PortfolioTrendChart rollups={data.rollups} />
 
       <section className="rounded-xl border border-border bg-card p-4">
-        <h2 className="mb-3 text-sm font-medium text-foreground">By brand</h2>
+        <h2 className="mb-3 flex items-center gap-1 text-sm font-medium text-foreground">
+          <WhyDot id="owner.byBrand" />
+          By brand
+        </h2>
         {brandRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No brand-linked creatives in the current view — link creatives to a Catalogue brand to
@@ -183,7 +187,10 @@ export function OwnerReport() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4">
-        <h2 className="text-sm font-medium text-foreground">By account</h2>
+        <h2 className="flex items-center gap-1 text-sm font-medium text-foreground">
+          <WhyDot id="owner.byAccount" />
+          By account
+        </h2>
         <p className="mb-3 mt-1 text-xs text-muted-foreground">
           Each account&apos;s own numbers — never summed across accounts (different attribution
           windows).
@@ -225,7 +232,10 @@ export function OwnerReport() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-4">
-        <h2 className="text-sm font-medium text-foreground">Testing velocity</h2>
+        <h2 className="flex items-center gap-1 text-sm font-medium text-foreground">
+          <WhyDot id="owner.velocity" />
+          Testing velocity
+        </h2>
         <p className="mb-3 mt-1 text-xs text-muted-foreground">
           New creatives started testing, by week.
         </p>

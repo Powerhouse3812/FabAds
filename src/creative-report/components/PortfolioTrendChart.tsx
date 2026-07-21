@@ -4,6 +4,7 @@
  * Sums fold from rollup.series, never from stored aggregates.
  */
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { fmtCompactCurrency, fmtDate, fmtDateRange } from "@/creative-report/lib/format";
 import { aggregatePortfolioSeries, type CreativeRollup, type PortfolioSeriesPoint } from "@/creative-report/lib/selectors";
 
@@ -34,7 +35,10 @@ export function PortfolioTrendChart({ rollups }: { rollups: CreativeRollup[] }) 
   return (
     <div className="mb-4 rounded-xl border border-border bg-card p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-foreground">Portfolio spend vs revenue</span>
+        <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+          Portfolio spend vs revenue
+          <WhyDot id="grid.portfolio.trend" />
+        </span>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-muted-foreground" aria-hidden />

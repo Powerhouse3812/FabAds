@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { ActionMenu } from "@/creative-report/components/ActionMenu";
+import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { useColumnPresets, COLUMN_BY_KEY } from "@/creative-report/lib/columns";
 import { getBrand } from "@/mocks/shared/brands";
@@ -56,7 +57,12 @@ export function CreativeTable({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="w-[280px]">Creative</TableHead>
-            <TableHead>Bucket</TableHead>
+            <TableHead>
+              <span className="inline-flex items-center gap-1">
+                Bucket
+                <WhyDot id="grid.bucket" />
+              </span>
+            </TableHead>
             {active.columns.map((key) => {
               const col = COLUMN_BY_KEY[key];
               const field = SORTABLE[key];
@@ -69,6 +75,7 @@ export function CreativeTable({
                 >
                   <span className="inline-flex items-center gap-1 justify-end w-full">
                     {col.label}
+                    <WhyDot id={`grid.metric.${key}`} />
                     {isSorted && (sort.dir === "desc" ? (
                       <ArrowDown className="h-3 w-3" />
                     ) : (
