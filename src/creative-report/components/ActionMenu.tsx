@@ -3,6 +3,7 @@
  * card's inline row). Same handlers as the inline buttons via the actions hub.
  */
 import {
+  Copy,
   Eye,
   FolderPlus,
   GitCompareArrows,
@@ -10,6 +11,7 @@ import {
   Pause,
   Rocket,
   Bookmark,
+  Target,
   Trophy,
   Wand2,
 } from "lucide-react";
@@ -86,6 +88,12 @@ export function ActionMenu({
           </DropdownMenuSub>
         ) : null}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => a.duplicate(rollup)}>
+          <Copy className="mr-2 h-4 w-4" /> Duplicate
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => a.editTargeting(rollup)}>
+          <Target className="mr-2 h-4 w-4" /> Edit targeting
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => a.launch(rollup)}>
           <Rocket className="mr-2 h-4 w-4" /> Relaunch
         </DropdownMenuItem>

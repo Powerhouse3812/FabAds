@@ -3,7 +3,7 @@
  * The full loop in one place: Generate variation → Genie · Relaunch · Save ·
  * Mark Winner · Compare · Pause. Reflects optimistic state on the buttons.
  */
-import { Bookmark, GitCompareArrows, Pause, Rocket, Trophy, Wand2 } from "lucide-react";
+import { Bookmark, Copy, GitCompareArrows, Pause, Rocket, Target, Trophy, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
@@ -44,6 +44,16 @@ export function DrawerActionBar({ rollup }: { rollup: CreativeRollup }) {
         </Button>
         <Button variant="outline" className="gap-1.5" onClick={() => a.compare([rollup.creative.id])}>
           <GitCompareArrows className="h-4 w-4" /> Compare
+        </Button>
+        <Button
+          variant="outline"
+          className={cn("gap-1.5", st.duplicated && "text-primary-text")}
+          onClick={() => a.duplicate(rollup)}
+        >
+          <Copy className="h-4 w-4" /> {st.duplicated ? "Duplicated" : "Duplicate"}
+        </Button>
+        <Button variant="outline" className="gap-1.5" onClick={() => a.editTargeting(rollup)}>
+          <Target className="h-4 w-4" /> Edit targeting
         </Button>
         <Button
           variant="ghost"

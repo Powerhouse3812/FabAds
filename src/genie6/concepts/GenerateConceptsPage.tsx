@@ -1,8 +1,9 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { brands as ALL_BRANDS } from "@/mocks/shared/brands";
-import { products as ALL_PRODUCTS } from "@/mocks/shared/products";
+import { products as ALL_PRODUCTS, getProduct } from "@/mocks/shared/products";
 import { categories as ALL_CATEGORIES } from "@/mocks/shared/categories";
+import { LaunchedBeforeCard } from "@/creative-report/components/LaunchedBeforeCard";
 import { GenerateConceptsForm } from "./GenerateConceptsForm";
 
 /**
@@ -34,6 +35,22 @@ export function GenerateConceptsPage() {
     return undefined;
   })();
 
+  // findLaunchedBefore() only matches on brandId/categoryId — a "product"
+  // entityContext's id is a PRODUCT id, so resolve it to its parent brand
+  // before passing it through (never pass a product id where a brand id
+  // is expected, it would silently fail to match).
+  const launchedBeforeIds = (() => {
+    if (!entityContext) return { brandId: undefined, categoryId: undefined };
+    if (entityContext.type === "brand") {
+      return { brandId: entityContext.id, categoryId: undefined };
+    }
+    if (entityContext.type === "product") {
+      const product = getProduct(entityContext.id);
+      return { brandId: product?.brandId, categoryId: undefined };
+    }
+    return { brandId: undefined, categoryId: entityContext.id };
+  })();
+
   return (
     <div className="v3-page-mesh h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 pt-8 pb-16">
@@ -49,6 +66,11 @@ export function GenerateConceptsPage() {
             Context · {entityContext.label}
           </div>
         )}
+
+        <LaunchedBeforeCard
+          brandId={launchedBeforeIds.brandId}
+          categoryId={launchedBeforeIds.categoryId}
+        />
 
         <GenerateConceptsForm surface="page" entityContext={entityContext} />
       </div>

@@ -20,6 +20,7 @@ import { setQueuedInLaunch } from "@/creative-report/actions/actionStore";
 import { fmtCompactCurrency, fmtMultiple } from "@/creative-report/lib/format";
 import { PLATFORM_LABELS, type Platform } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
+import { LaunchedBeforeCard } from "@/creative-report/components/LaunchedBeforeCard";
 
 export function LaunchConfirmModal({
   rollup,
@@ -83,6 +84,12 @@ export function LaunchConfirmModal({
             </dd>
           </dl>
         </div>
+
+        <LaunchedBeforeCard
+          brandId={creative.brandId}
+          categoryId={creative.categoryId}
+          excludeCreativeId={creative.id}
+        />
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>

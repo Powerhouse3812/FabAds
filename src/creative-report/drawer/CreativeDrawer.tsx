@@ -2,7 +2,8 @@
  * CreativeDrawer — the right-side detail panel (handoff §5.2).
  * Opens/closes via the ?creative=:id URL param so it's shareable and the back
  * button works. Composes the section bands (preview, funnel, trend, fatigue,
- * component breakdown, where-it's-running, variants) with a sticky action bar.
+ * component breakdown, script/elements, benchmarks, demographics,
+ * where-it's-running, variants) with a sticky action bar.
  * Sections are hairline-divided bands — never nested cards (one sub-container
  * level max).
  */
@@ -20,6 +21,7 @@ import { FatiguePanel } from "@/creative-report/drawer/FatiguePanel";
 import { ComponentBreakdown } from "@/creative-report/drawer/ComponentBreakdown";
 import { ScriptElementsPanel } from "@/creative-report/drawer/ScriptElementsPanel";
 import { BenchmarkPanel } from "@/creative-report/drawer/BenchmarkPanel";
+import { DemographicsPanel } from "@/creative-report/drawer/DemographicsPanel";
 import { RunningInTable } from "@/creative-report/drawer/RunningInTable";
 import { VariantsList } from "@/creative-report/drawer/VariantsList";
 import { DrawerActionBar } from "@/creative-report/drawer/DrawerActionBar";
@@ -83,6 +85,9 @@ export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
               </Band>
               <Band>
                 <BenchmarkPanel rollup={rollup} />
+              </Band>
+              <Band>
+                <DemographicsPanel rollup={rollup} />
               </Band>
               <Band>
                 <RunningInTable

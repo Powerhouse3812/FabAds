@@ -21,16 +21,69 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Shape written by BriefBuilder's `brief=` param — kept loose/optional per
+ *  field since this is user-navigable URL content and must never crash the
+ *  page on a malformed or hand-edited link. */
+interface BriefPayload {
+  hook?: string;
+  body?: string;
+  cta?: string;
+  visualDirection?: string;
+  offer?: string;
+  referenceCreativeIds?: string[];
+}
+
+type BriefTextKey = "hook" | "body" | "cta" | "visualDirection" | "offer";
+
+const BRIEF_BLOCK_LABELS: { key: BriefTextKey; label: string }[] = [
+  { key: "hook", label: "Hook" },
+  { key: "body", label: "Body" },
+  { key: "cta", label: "CTA" },
+  { key: "visualDirection", label: "Visual direction" },
+  { key: "offer", label: "Offer" },
+];
+
+/** Defensive parse — this page is reachable via a user-navigable URL, so a
+ *  malformed or truncated `brief=` param must fall back to null, never throw.
+ *  Fields are sanitized per-type too: a hand-edited payload like
+ *  `{"hook":{}}` must render as "—", not crash React with an object child. */
+function parseBrief(raw: string | null): BriefPayload | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const o = parsed as Record<string, unknown>;
+    const str = (v: unknown): string | undefined =>
+      typeof v === "string" ? v : undefined;
+    return {
+      hook: str(o.hook),
+      body: str(o.body),
+      cta: str(o.cta),
+      visualDirection: str(o.visualDirection),
+      offer: str(o.offer),
+      referenceCreativeIds: Array.isArray(o.referenceCreativeIds)
+        ? o.referenceCreativeIds.filter((id): id is string => typeof id === "string")
+        : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function GenieHandoffStub() {
   const [params] = useSearchParams();
   const conceptId = params.get("concept") ?? "";
   const angleId = params.get("angle") ?? "";
   const hook = params.get("hook") ?? "";
+  const brief = parseBrief(params.get("brief"));
 
   const dataset = getDataset();
   const creative = dataset.creativeById[conceptId];
   const angle = dataset.angleById[angleId];
   const concept = angle ? dataset.conceptById[angle.conceptId] : undefined;
+  const referenceCreatives = (brief?.referenceCreativeIds ?? [])
+    .map((id) => dataset.creativeById[id])
+    .filter((c): c is NonNullable<typeof c> => Boolean(c));
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -72,6 +125,24 @@ export function GenieHandoffStub() {
           {creative && <Row label="Source creative" value={creative.name} />}
           {creative && <Row label="Product" value={creative.product} />}
         </div>
+
+        {brief && (
+          <div className="mt-4 rounded-xl border border-border bg-background p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Brief (from Brief Builder)
+            </p>
+            <div className="mt-1">
+              {BRIEF_BLOCK_LABELS.map(({ key, label }) => (
+                <Row key={key} label={label} value={brief[key] || "—"} />
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {referenceCreatives.length > 0
+                ? `Referenced: ${referenceCreatives.map((c) => c.name).join(", ")}`
+                : "No reference creatives carried over with this brief."}
+            </p>
+          </div>
+        )}
 
         <div className="mt-6 flex items-center gap-2">
           <Button disabled className="gap-1.5">

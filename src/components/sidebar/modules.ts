@@ -113,6 +113,8 @@ export const MODULES: ModuleDef[] = [
           { label: "Components", path: "/reports/creative-v2/components" },
           { label: "Compare", path: "/reports/creative-v2/compare" },
           { label: "Automations", path: "/reports/creative-v2/automations" },
+          { label: "Owner report", path: "/reports/creative-v2/owner-report" },
+          { label: "Brief builder", path: "/reports/creative-v2/brief-builder" },
           { label: "Saved views", path: "/reports/creative-v2/views" },
         ],
       },

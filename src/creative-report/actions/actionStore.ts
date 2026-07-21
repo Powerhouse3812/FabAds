@@ -14,6 +14,10 @@ export interface CreativeActionState {
   queuedInLaunch?: boolean;
   savedToLibrary?: boolean;
   markedWinner?: boolean;
+  /** Simulated "Duplicate" (iter-2 P5) — an optimistic flag on the SAME
+   *  creative rather than fabricating a second creative row, which would
+   *  corrupt the audited dataset's creative count. */
+  duplicated?: boolean;
 }
 
 /** Dedup group resolution chosen by the user in the drawer. */
@@ -62,6 +66,9 @@ export function setSavedToLibrary(creativeId: string, saved = true) {
 }
 export function setMarkedWinner(creativeId: string, marked = true) {
   patch(creativeId, { markedWinner: marked });
+}
+export function setDuplicated(creativeId: string, duplicated = true) {
+  patch(creativeId, { duplicated });
 }
 export function setDedupResolution(groupId: string, resolution: DedupResolution) {
   state.dedupByGroup[groupId] = resolution;
