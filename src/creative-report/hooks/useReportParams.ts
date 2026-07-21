@@ -49,6 +49,10 @@ export interface ReportFilters {
   age: string[];
   gender: string[];
   placement: string[];
+  /** iter-2 W1 — Catalogue-linked scoping. */
+  brands: string[];
+  categories: string[];
+  products: string[];
 }
 
 export interface ReportViewState {
@@ -89,6 +93,9 @@ export function useReportParams() {
       age: parseCsvFree(searchParams.get(P.age)),
       gender: parseCsvFree(searchParams.get(P.gender)),
       placement: parseCsvFree(searchParams.get(P.placement)),
+      brands: parseCsvFree(searchParams.get(P.brand)),
+      categories: parseCsvFree(searchParams.get(P.category)),
+      products: parseCsvFree(searchParams.get(P.product)),
     };
   }, [searchParams]);
 

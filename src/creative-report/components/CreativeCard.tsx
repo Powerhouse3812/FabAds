@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { ActionMenu } from "@/creative-report/components/ActionMenu";
+import { getBrand } from "@/mocks/shared/brands";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { useCreativeAction } from "@/creative-report/actions/actionStore";
 import {
@@ -29,7 +30,6 @@ import {
   fmtCurrency,
   truncate,
   NAME_MAX,
-  NA_NO_VIDEO,
 } from "@/creative-report/lib/format";
 import { FORMAT_LABELS } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
@@ -55,6 +55,7 @@ export function CreativeCard({
   const [imgError, setImgError] = useState(false);
   const FmtIcon = FORMAT_ICON[creative.format];
   const name = truncate(creative.name, NAME_MAX);
+  const brand = creative.brandId ? getBrand(creative.brandId) : undefined;
 
   return (
     <div
@@ -138,8 +139,20 @@ export function CreativeCard({
           title={name.truncated ? creative.name : undefined}
         >
           <span className="line-clamp-1 text-sm font-medium text-foreground">{name.text}</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">{creative.product}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {brand ? `${brand.name} · ${creative.product}` : creative.product}
+          </span>
         </button>
+
+        {/* Tag chips — 2 of 5 tag facets, flat row (no nested card) */}
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {creative.tags.messagingAngle}
+          </span>
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {creative.tags.emotion}
+          </span>
+        </div>
 
         {/* 4 key metrics — one flat row, not boxed tiles */}
         <div className="flex items-end justify-between gap-2">

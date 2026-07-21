@@ -5,7 +5,7 @@
  * not lorem. Ad-level names follow a clean convention; campaign/ad-set names
  * are intentionally messy human strings (product-plan §8.2).
  */
-import type { Archetype, CreativeFormat } from "@/data/model";
+import type { Archetype, AudioKind, CreativeFormat } from "@/data/model";
 
 export interface ConceptSeed {
   name: string;
@@ -14,9 +14,20 @@ export interface ConceptSeed {
   accountId: string;
   product: string;
   angles: string[];
+  /**
+   * Real FabAds Catalogue links (iter-2 W1 — Brand → Product → Category
+   * drill). brandId is always set; categoryId/productId are set only where
+   * a real Catalogue category/SKU actually exists — e.g. Urban Ladder's
+   * "decor" tag on the Brand record has no matching Category row in
+   * @/mocks/shared/categories, so Nordic's two concepts leave categoryId
+   * unset rather than force a wrong match. Honest > complete.
+   */
+  brandId: string;
+  categoryId?: string;
+  productId?: string;
 }
 
-/** 8 concepts across 4 client accounts. */
+/** 8 concepts across 4 client accounts, Catalogue-linked (@/mocks/shared). */
 export const CONCEPT_SEEDS: ConceptSeed[] = [
   {
     name: "Everyday Luxe",
@@ -24,6 +35,9 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-amalfa-meta",
     product: "Thalia Necklace",
     angles: ["Looks-expensive", "Dress-up-dress-down", "Under-$50 flex"],
+    brandId: "bluestone",
+    categoryId: "jewellery-gold",
+    productId: "bluestone-pendant",
   },
   {
     name: "Proof It Lasts",
@@ -31,6 +45,8 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-amalfa-meta",
     product: "Crystal Collar",
     angles: ["Shower test", "1-year wear", "No green wrist"],
+    brandId: "bluestone",
+    categoryId: "jewellery-gold",
   },
   {
     name: "Gift Without Guessing",
@@ -38,6 +54,8 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-amalfa-meta",
     product: "Calista Studs",
     angles: ["Him buying for her", "Gift-ready box", "Last-minute save"],
+    brandId: "bluestone",
+    categoryId: "jewellery-silver",
   },
   {
     name: "Skin First",
@@ -45,6 +63,9 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-glowkart",
     product: "Nova Serum",
     angles: ["Before / after", "Dermatologist POV", "Texture demo"],
+    brandId: "plum",
+    categoryId: "skin-care",
+    productId: "plum-gh-serum",
   },
   {
     name: "The 30-Day Glow",
@@ -52,6 +73,8 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-glowkart",
     product: "Glow Mask",
     angles: ["Routine walkthrough", "Diary day-1 to day-30"],
+    brandId: "plum",
+    categoryId: "skin-care",
   },
   {
     name: "Fuel The Grind",
@@ -59,6 +82,9 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-peaksupps",
     product: "Peak Whey",
     angles: ["5am gym", "Taste test", "Macros that fit"],
+    brandId: "yoga-bar",
+    categoryId: "wellness",
+    productId: "yogabar-protein-bar",
   },
   {
     name: "Calm Corners",
@@ -66,6 +92,9 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-nordic",
     product: "Nordic Throw",
     angles: ["Room makeover", "Texture close-up"],
+    brandId: "urban-ladder",
+    // No matching Category row exists for "decor" (see ConceptSeed note) —
+    // brand-level linking only.
   },
   {
     name: "Light The Mood",
@@ -73,6 +102,7 @@ export const CONCEPT_SEEDS: ConceptSeed[] = [
     accountId: "acc-nordic",
     product: "Aurora Lamp",
     angles: ["Sunset scene", "Gift for the home"],
+    brandId: "urban-ladder",
   },
 ];
 
@@ -180,3 +210,90 @@ export const DEVICES = ["mobile", "desktop", "tablet"];
 export const OBJECTIVES = ["conversions", "traffic", "awareness"];
 export const AGES = ["18-24", "25-34", "35-44", "45-54", "55+"];
 export const GENDERS = ["all", "female", "male"];
+
+/* ------------------------------------------------------------------ */
+/*  Elements 2.0 content pools (iter-2 W3)                              */
+/* ------------------------------------------------------------------ */
+
+export const BODY_LINES = [
+  "Made to be worn every single day, not saved for special occasions.",
+  "We tested it against 40,000 buyers before it ever launched.",
+  "No harsh chemicals, no guesswork — just what the label says.",
+  "Built for people who don't have time to babysit their routine.",
+  "The kind of quality you check twice because it feels like more.",
+  "One thing changed and the reviews haven't stopped since.",
+  "Small enough to carry, strong enough to actually last.",
+  "The difference shows up in week two, not day one.",
+];
+
+/** Ordered pool a video creative's frames are sampled from (4–6 picked). */
+export const FRAME_LABELS = [
+  "Cold open — product in hand",
+  "Problem statement",
+  "Demo / proof moment",
+  "Before vs after cut",
+  "Social proof flash",
+  "Price / offer reveal",
+  "UGC talking head",
+  "CTA end card",
+];
+
+export const AUDIO_POOL: { kind: AudioKind; label: string }[] = [
+  { kind: "trending", label: "Trending pop audio" },
+  { kind: "original", label: "Original voiceover" },
+  { kind: "voiceover", label: "Calm narrated voiceover" },
+];
+
+export const AUDIENCE_SEGMENTS = [
+  "18-24 female",
+  "25-34 female",
+  "35-44 female",
+  "18-24 male",
+  "25-34 male",
+  "45-54 all",
+];
+
+export const MESSAGING_ANGLES = [
+  "Social proof",
+  "Scarcity / urgency",
+  "Problem-agitate",
+  "Value comparison",
+  "Aspirational lifestyle",
+  "Educational / how-it-works",
+];
+
+export const HOOK_TACTICS = [
+  "Pattern interrupt",
+  "Direct question",
+  "Bold claim",
+  "Relatable scenario",
+  "Curiosity gap",
+  "Cold open demo",
+];
+
+export const OFFER_TYPES = [
+  "Percent-off first order",
+  "Free shipping",
+  "Bundle discount",
+  "No stated offer",
+  "Limited-time drop",
+  "Gift-with-purchase",
+];
+
+export const VISUAL_FORMAT_TAGS = [
+  "UGC handheld",
+  "Studio product shot",
+  "Text-on-plain background",
+  "Split-screen comparison",
+  "Lifestyle in-context",
+  "Talking-head close-up",
+];
+
+export const EMOTION_TAGS = [
+  "Curiosity",
+  "Trust / reassurance",
+  "Excitement",
+  "Urgency",
+  "Warmth",
+  "Confidence",
+];

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { getDataset } from "@/data/generator";
+import { getBrand } from "@/mocks/shared/brands";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { CreativeCard } from "@/creative-report/components/CreativeCard";
@@ -46,6 +47,7 @@ const GROUP_LABELS: Record<GroupBy, string> = {
   none: "No grouping",
   concept: "Concept",
   angle: "Angle",
+  brand: "Brand",
 };
 
 function sortValue(r: CreativeRollup, field: SortField): number {
@@ -78,10 +80,14 @@ export function Creatives() {
     const map = new Map<string, CreativeRollup[]>();
     for (const r of filtered) {
       const angle = dataset.angleById[r.creative.angleId];
-      const label =
-        view.group === "angle"
-          ? angle?.name ?? "Ungrouped"
-          : dataset.conceptById[angle?.conceptId ?? ""]?.name ?? "Ungrouped";
+      let label: string;
+      if (view.group === "brand") {
+        label = getBrand(r.creative.brandId ?? "")?.name ?? "No brand linked";
+      } else if (view.group === "angle") {
+        label = angle?.name ?? "Ungrouped";
+      } else {
+        label = dataset.conceptById[angle?.conceptId ?? ""]?.name ?? "Ungrouped";
+      }
       let arr = map.get(label);
       if (!arr) {
         arr = [];

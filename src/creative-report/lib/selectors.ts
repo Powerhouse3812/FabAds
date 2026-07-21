@@ -17,6 +17,7 @@ import type {
   Platform,
 } from "@/data/model";
 import type { BucketKey, ComponentTab } from "@/creative-report/lib/paramSchema";
+import { getBrand } from "@/mocks/shared/brands";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -103,6 +104,35 @@ export interface FilterInput {
   age: string[];
   gender: string[];
   q?: string;
+  /** iter-2 W1 — Catalogue-linked scoping (creative-level, not instance-level). */
+  brands?: string[];
+  categories?: string[];
+  products?: string[];
+}
+
+/** The module's widest window (90 days ending today), no filters applied —
+ *  used by the data audit and by WinnersBank so both agree on "all data". */
+export function fullRangeFilter(): FilterInput {
+  const to = new Date();
+  to.setHours(0, 0, 0, 0);
+  const from = new Date(to);
+  from.setDate(from.getDate() - 89);
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return {
+    from: iso(from),
+    to: iso(to),
+    compareEnabled: false,
+    accounts: [],
+    statuses: [],
+    platforms: [],
+    formats: [],
+    geo: [],
+    device: [],
+    objective: [],
+    age: [],
+    gender: [],
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -502,8 +532,12 @@ export function selectCreatives(dataset: Dataset, f: FilterInput): CreativeRollu
   const rollups: CreativeRollup[] = [];
   for (const creative of dataset.creatives) {
     if (f.formats.length && !f.formats.includes(creative.format)) continue;
+    if (f.brands?.length && (!creative.brandId || !f.brands.includes(creative.brandId))) continue;
+    if (f.categories?.length && (!creative.categoryId || !f.categories.includes(creative.categoryId))) continue;
+    if (f.products?.length && (!creative.productId || !f.products.includes(creative.productId))) continue;
     if (q) {
-      const hay = `${creative.name} ${creative.product} ${creative.components.hook}`.toLowerCase();
+      const brandName = creative.brandId ? getBrand(creative.brandId)?.name ?? "" : "";
+      const hay = `${creative.name} ${creative.product} ${creative.components.hook} ${brandName}`.toLowerCase();
       if (!hay.includes(q)) continue;
     }
     const rollup = rollupCreative(dataset, creative, f);
@@ -559,6 +593,9 @@ export function kpiSummary(dataset: Dataset, f: FilterInput): KpiSummary {
 
   for (const creative of dataset.creatives) {
     if (f.formats.length && !f.formats.includes(creative.format)) continue;
+    if (f.brands?.length && (!creative.brandId || !f.brands.includes(creative.brandId))) continue;
+    if (f.categories?.length && (!creative.categoryId || !f.categories.includes(creative.categoryId))) continue;
+    if (f.products?.length && (!creative.productId || !f.products.includes(creative.productId))) continue;
     const insts = (dataset.instancesByCreative[creative.id] ?? []).filter((i) => instanceMatches(i, f));
     for (const inst of insts) {
       for (const r of inst.daily) {

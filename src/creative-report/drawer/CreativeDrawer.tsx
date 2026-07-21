@@ -18,11 +18,13 @@ import { FunnelStrip } from "@/creative-report/drawer/FunnelStrip";
 import { TrendChart } from "@/creative-report/drawer/TrendChart";
 import { FatiguePanel } from "@/creative-report/drawer/FatiguePanel";
 import { ComponentBreakdown } from "@/creative-report/drawer/ComponentBreakdown";
+import { ScriptElementsPanel } from "@/creative-report/drawer/ScriptElementsPanel";
 import { RunningInTable } from "@/creative-report/drawer/RunningInTable";
 import { VariantsList } from "@/creative-report/drawer/VariantsList";
 import { DrawerActionBar } from "@/creative-report/drawer/DrawerActionBar";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { truncate, NAME_MAX } from "@/creative-report/lib/format";
+import { getBrand } from "@/mocks/shared/brands";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 function Band({ children }: { children: React.ReactNode }) {
@@ -45,7 +47,11 @@ export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
             <SheetHeader className="border-b border-border px-4 py-3">
               <div className="flex items-center gap-2">
                 {rollup.bucket && <BucketChip bucket={rollup.bucket} size="xs" />}
-                <span className="text-xs text-muted-foreground">{rollup.creative.product}</span>
+                <span className="text-xs text-muted-foreground">
+                  {rollup.creative.brandId
+                    ? `${getBrand(rollup.creative.brandId)?.name ?? rollup.creative.brandId} · ${rollup.creative.product}`
+                    : rollup.creative.product}
+                </span>
               </div>
               <SheetTitle
                 className="truncate text-left text-base"
@@ -70,6 +76,9 @@ export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
               </Band>
               <Band>
                 <ComponentBreakdown rollup={rollup} />
+              </Band>
+              <Band>
+                <ScriptElementsPanel rollup={rollup} />
               </Band>
               <Band>
                 <RunningInTable

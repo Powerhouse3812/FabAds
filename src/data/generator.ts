@@ -22,34 +22,51 @@
 import {
   AGES,
   ARCHETYPE_QUOTA,
+  AUDIENCE_SEGMENTS,
+  AUDIO_POOL,
+  BODY_LINES,
   COLLECTIONS,
   CONCEPT_SEEDS,
   CTAS,
   DEVICES,
+  EMOTION_TAGS,
   FORMAT_WEIGHTS,
+  FRAME_LABELS,
   GENDERS,
   GEOS,
   HEADLINES,
+  HOOK_TACTICS,
   HOOKS,
+  MESSAGING_ANGLES,
   MESSY_ADSET_TEMPLATES,
   MESSY_CAMPAIGN_TEMPLATES,
   OBJECTIVES,
+  OFFER_TYPES,
   PLACEMENTS,
   PRIMARY_TEXTS,
+  VISUAL_FORMAT_TAGS,
   VISUAL_STYLES,
 } from "@/data/content";
 import type {
   AdInstance,
   Angle,
   Archetype,
+  AudienceFitLevel,
   Concept,
   Creative,
+  CreativeElements,
   CreativeFormat,
+  CreativeScript,
+  CreativeTags,
+  ComponentKind,
   DailyRow,
   Dataset,
+  DropElement,
+  FrameTag,
   Platform,
   Variant,
 } from "@/data/model";
+import { FRAMEWORKS } from "@/data/model";
 import type { AdStatus } from "@/creative-report/lib/paramSchema";
 import {
   gaussish,
@@ -291,6 +308,89 @@ function fill(template: string, vars: Record<string, string>): string {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Elements 2.0 builders (iter-2 W3)                                   */
+/* ------------------------------------------------------------------ */
+
+function buildScript(
+  rand: () => number,
+  hookLine: string,
+  ctaLine: string,
+): CreativeScript {
+  return {
+    sections: { hookLine, body: pick(BODY_LINES, rand), ctaLine },
+    framework: pick(FRAMEWORKS, rand),
+  };
+}
+
+const DECLINING_ARCHETYPES: readonly Archetype[] = ["fatiguing", "loser"];
+const AUDIENCE_FIT_BY_ARCHETYPE: Record<Archetype, AudienceFitLevel> = {
+  winner: "strong",
+  scaling: "strong",
+  "fake-winner": "moderate",
+  steady: "moderate",
+  new: "moderate",
+  fatiguing: "weak",
+  loser: "weak",
+};
+
+function audienceFitNote(level: AudienceFitLevel, segment: string): string {
+  if (level === "strong") return `Strongest response from ${segment} — worth doubling targeting here.`;
+  if (level === "weak") return `${segment} shows the softest response — may be a targeting mismatch, not just creative fatigue.`;
+  return `Holds steady across segments; ${segment} slightly ahead.`;
+}
+
+function buildElements(
+  rand: () => number,
+  isVideo: boolean,
+  archetype: Archetype,
+): CreativeElements {
+  const level = AUDIENCE_FIT_BY_ARCHETYPE[archetype];
+  const bestSegment = pick(AUDIENCE_SEGMENTS, rand);
+  const audienceFit = { level, bestSegment, note: audienceFitNote(level, bestSegment) };
+
+  if (!isVideo) {
+    return { frames: [], audio: null, audienceFit };
+  }
+
+  const frameCount = randInt(rand, 4, 6);
+  const chosenLabels = shuffle(FRAME_LABELS, rand).slice(0, frameCount);
+  const declining = DECLINING_ARCHETYPES.includes(archetype);
+  const dropoffIdx = declining ? randInt(rand, 0, chosenLabels.length - 1) : -1;
+  const frames: FrameTag[] = chosenLabels.map((label, i) => ({
+    index: i + 1,
+    label,
+    ...(i === dropoffIdx ? { dropoff: true } : {}),
+  }));
+
+  const audioPick = pick(AUDIO_POOL, rand);
+  return { frames, audio: { ...audioPick }, audienceFit };
+}
+
+function buildTags(rand: () => number): CreativeTags {
+  return {
+    messagingAngle: pick(MESSAGING_ANGLES, rand),
+    hookTactic: pick(HOOK_TACTICS, rand),
+    offerType: pick(OFFER_TYPES, rand),
+    visualFormat: pick(VISUAL_FORMAT_TAGS, rand),
+    emotion: pick(EMOTION_TAGS, rand),
+  };
+}
+
+const DROP_COMPONENT_POOL: ComponentKind[] = ["hook", "headline", "primary-text", "cta", "visual-style"];
+
+/** Only declining archetypes get a likely-drop hypothesis; video creatives
+ *  sometimes point at the frame/audio layer instead of a component. */
+function buildLikelyDropElement(
+  rand: () => number,
+  isVideo: boolean,
+  archetype: Archetype,
+): DropElement | undefined {
+  if (!DECLINING_ARCHETYPES.includes(archetype)) return undefined;
+  if (isVideo && rand() < 0.5) return rand() < 0.7 ? "frame" : "audio";
+  return pick(DROP_COMPONENT_POOL, rand);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Dataset assembly                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -381,6 +481,13 @@ function buildDataset(daySeed: string): Dataset {
       archetype,
       components,
       product: seed.product,
+      brandId: seed.brandId,
+      productId: seed.productId,
+      categoryId: seed.categoryId,
+      script: buildScript(crand, components.hook, components.cta),
+      elements: buildElements(crand, isVideo, archetype),
+      tags: buildTags(crand),
+      likelyDropElement: buildLikelyDropElement(crand, isVideo, archetype),
     };
     creatives.push(creative);
 
@@ -496,6 +603,20 @@ function buildDataset(daySeed: string): Dataset {
   dupB.components = { ...dupA.components };
   dupB.format = dupA.format;
   dupB.name = dupA.name.replace(/_v\d+_/, "_v09_").replace("set", "set9");
+  dupB.brandId = dupA.brandId;
+  dupB.productId = dupA.productId;
+  dupB.categoryId = dupA.categoryId;
+  dupB.script = { ...dupA.script, sections: { ...dupA.script.sections } };
+  dupB.tags = { ...dupA.tags };
+  dupB.elements = {
+    ...dupA.elements,
+    frames: dupA.elements.frames.map((f) => ({ ...f })),
+    audio: dupA.elements.audio ? { ...dupA.elements.audio } : null,
+    audienceFit: { ...dupA.elements.audienceFit },
+  };
+  // Same asset ⇒ same drop-attribution hypothesis (avoids a dupB with its own
+  // archetype's drop element pointing somewhere dupA's copied elements don't).
+  dupB.likelyDropElement = dupA.likelyDropElement;
 
   // ----- Lookup indices -----
   const conceptById: Record<string, Concept> = {};

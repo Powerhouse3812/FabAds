@@ -41,6 +41,78 @@ export interface CreativeComponents {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Elements 2.0 — script, frames, audio, audience-fit, richer tags     */
+/*  (iter-2 W3 — component decomposition goes deeper than §8.3)         */
+/* ------------------------------------------------------------------ */
+
+/** The actual ad copy broken into sections — distinct from the `hook`/`cta`
+ *  TAGS above (which classify style); these are the literal lines. */
+export interface ScriptSections {
+  hookLine: string;
+  body: string;
+  ctaLine: string;
+}
+
+/** Copywriting frameworks we track — did the creative follow one, and (via
+ *  the selector layer) is that framework still working for this account? */
+export const FRAMEWORKS = ["PAS", "AIDA", "BAB", "FAB", "Star-Story-Solution"] as const;
+export type Framework = (typeof FRAMEWORKS)[number];
+
+export interface CreativeScript {
+  sections: ScriptSections;
+  framework: Framework;
+}
+
+/** One tagged frame of a video creative (frame-level element, Hawky-style). */
+export interface FrameTag {
+  /** 1-based position in the video. */
+  index: number;
+  label: string;
+  /** True on the frame our generator marks as the likely retention drop —
+   *  only ever set for fatiguing/losing archetypes (drop-attribution, W3). */
+  dropoff?: boolean;
+}
+
+export const AUDIO_KINDS = ["trending", "original", "voiceover"] as const;
+export type AudioKind = (typeof AUDIO_KINDS)[number];
+
+export interface AudioTag {
+  kind: AudioKind;
+  label: string;
+}
+
+export type AudienceFitLevel = "strong" | "moderate" | "weak";
+
+/** Hypothesis-framed creative↔audience match signal (never a verdict). */
+export interface AudienceFitSignal {
+  level: AudienceFitLevel;
+  bestSegment: string;
+  note: string;
+}
+
+export interface CreativeElements {
+  /** Video only — empty for static/carousel (mirrors the hook/hold N/A rule). */
+  frames: FrameTag[];
+  /** Video only — null for static/carousel. */
+  audio: AudioTag | null;
+  audienceFit: AudienceFitSignal;
+}
+
+/** Richer AI auto-tag dimensions (Motion ~8-dim / Segwise element-tag pattern). */
+export interface CreativeTags {
+  messagingAngle: string;
+  hookTactic: string;
+  offerType: string;
+  visualFormat: string;
+  emotion: string;
+}
+
+/** Which element the data likely attributes a fatigue/loss drop to — only
+ *  set for declining archetypes; a hypothesis surfaced in the drawer, never
+ *  a diagnosis (§7 honesty rules extend to element-level signals too). */
+export type DropElement = ComponentKind | "frame" | "audio";
+
+/* ------------------------------------------------------------------ */
 /*  Archetypes — drive the generator's distributions (§4 realism)      */
 /* ------------------------------------------------------------------ */
 
@@ -98,6 +170,24 @@ export interface Creative {
   dedupGroupId?: string;
   /** Similarity score for the dedup pair, e.g. 0.92. */
   dedupMatch?: number;
+
+  /* --- iter-2 W1: Catalogue link (Brand → Product → Category drill) --- */
+  /** Real Catalogue brand id (@/mocks/shared/brands) this creative sells for. */
+  brandId?: string;
+  /** Real Catalogue product id — set only when a plausible real SKU exists;
+   *  absent is honest (not every fictional product has a Catalogue match). */
+  productId?: string;
+  /** Real Catalogue category id — set when the brand has a matching real
+   *  Category row (a couple of brands tag categories that don't exist as
+   *  entities in @/mocks/shared/categories; left unset rather than faked). */
+  categoryId?: string;
+
+  /* --- iter-2 W3: elements 2.0 --- */
+  script: CreativeScript;
+  elements: CreativeElements;
+  tags: CreativeTags;
+  /** Only set for fatiguing/losing archetypes — see DropElement. */
+  likelyDropElement?: DropElement;
 }
 
 export type VariantKind = "crop" | "text" | "cta" | "length";

@@ -12,32 +12,12 @@
  * throws if any hard check fails so a bad dataset can't ship silently.
  */
 import { getDataset } from "@/data/generator";
-import { foldRows, rollupCreative, type FilterInput } from "@/creative-report/lib/selectors";
+import { foldRows, fullRangeFilter, rollupCreative } from "@/creative-report/lib/selectors";
 import type { AdInstance } from "@/data/model";
-
-function fullRangeFilter(): FilterInput {
-  // 90-day window ending today — the widest the module offers.
-  const to = new Date();
-  to.setHours(0, 0, 0, 0);
-  const from = new Date(to);
-  from.setDate(from.getDate() - 89);
-  const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return {
-    from: iso(from),
-    to: iso(to),
-    compareEnabled: false,
-    accounts: [],
-    statuses: [],
-    platforms: [],
-    formats: [],
-    geo: [],
-    device: [],
-    objective: [],
-    age: [],
-    gender: [],
-  };
-}
+import { AUDIO_KINDS, FRAMEWORKS } from "@/data/model";
+import { getBrand } from "@/mocks/shared/brands";
+import { getProduct } from "@/mocks/shared/products";
+import { getCategory } from "@/mocks/shared/categories";
 
 /** Average of per-instance ROAS — shown ONLY to prove it differs from the
  *  correct fold-from-sums ROAS. This is the number we must never display. */
@@ -74,6 +54,9 @@ export function runDataAudit(opts?: { log?: boolean }): AuditResult {
   let unitBugs = 0;
   let imageNaCount = 0;
   let dedupFlagged = 0;
+  let catalogueLinked = 0;
+  let catalogueLinkBroken = 0;
+  let elementsBugs = 0;
 
   for (const creative of dataset.creatives) {
     archetypeCounts[creative.archetype] = (archetypeCounts[creative.archetype] ?? 0) + 1;
@@ -132,6 +115,41 @@ export function runDataAudit(opts?: { log?: boolean }): AuditResult {
     if (rollup.isCrossPlatform) crossPlatform++;
     if (creative.dedupMatch) dedupFlagged++;
 
+    // 5. Catalogue link (iter-2 W1) — brandId/categoryId/productId, when set,
+    //    must resolve to a real Catalogue entity, and productId (when set)
+    //    must actually belong to that brand.
+    let catalogueOk = true;
+    if (creative.brandId) {
+      catalogueLinked++;
+      if (!getBrand(creative.brandId)) catalogueOk = false;
+      if (creative.categoryId && !getCategory(creative.categoryId)) catalogueOk = false;
+      if (creative.productId) {
+        const product = getProduct(creative.productId);
+        if (!product || product.brandId !== creative.brandId) catalogueOk = false;
+      }
+    }
+    if (!catalogueOk) {
+      catalogueLinkBroken++;
+      failures.push(`${creative.id}: Catalogue link does not resolve (brand/category/product)`);
+    }
+
+    // 6. Elements 2.0 sanity — video-only fields null/empty for non-video,
+    //    populated for video; framework/audio kind from the allowed enum.
+    const el = creative.elements;
+    const frameworkOk = (FRAMEWORKS as readonly string[]).includes(creative.script.framework);
+    const scriptOk =
+      frameworkOk &&
+      creative.script.sections.hookLine.length > 0 &&
+      creative.script.sections.body.length > 0 &&
+      creative.script.sections.ctaLine.length > 0;
+    const elementsShapeOk = isVideo
+      ? el.frames.length >= 4 && el.audio !== null && (AUDIO_KINDS as readonly string[]).includes(el.audio.kind)
+      : el.frames.length === 0 && el.audio === null;
+    if (!scriptOk || !elementsShapeOk) {
+      elementsBugs++;
+      failures.push(`${creative.id}: script/elements shape invalid`);
+    }
+
     rows.push({
       id: creative.id,
       format: creative.format,
@@ -145,6 +163,9 @@ export function runDataAudit(opts?: { log?: boolean }): AuditResult {
       unitSane: unitSane ? "PASS" : "FAIL",
       hookRate: m.hookRate === null ? "N/A — no video" : `${m.hookRate.toFixed(1)}%`,
       n_purchases: m.purchases,
+      brand: creative.brandId ?? "—",
+      framework: creative.script.framework,
+      elementsOK: elementsShapeOk && scriptOk ? "PASS" : "FAIL",
     });
   }
 
@@ -159,6 +180,7 @@ export function runDataAudit(opts?: { log?: boolean }): AuditResult {
   const dedupPairs = dedupFlagged / 2;
   if (dedupPairs < 1) failures.push(`Expected ≥1 dedup pair, got ${dedupPairs}`);
   if (imageNaCount < 1) failures.push(`Expected ≥1 image/carousel (N/A hook) creative`);
+  if (catalogueLinked < 1) failures.push(`Expected ≥1 Catalogue-linked creative, got ${catalogueLinked}`);
 
   const summary = {
     creatives: dataset.creatives.length,
@@ -171,6 +193,9 @@ export function runDataAudit(opts?: { log?: boolean }): AuditResult {
     backwardsDates,
     unitBugs,
     staticWithVideoMetric,
+    catalogueLinked,
+    catalogueLinkBroken,
+    elementsBugs,
     dateWindow: `${f.from} → ${f.to}`,
     verdict: failures.length === 0 ? "ALL PASS ✅" : `${failures.length} FAILURE(S) ❌`,
   };

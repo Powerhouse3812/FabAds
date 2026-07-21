@@ -58,6 +58,9 @@ function toFilterInput(
     objective: filters.objective,
     age: filters.age,
     gender: filters.gender,
+    brands: filters.brands,
+    categories: filters.categories,
+    products: filters.products,
     q,
   };
 }

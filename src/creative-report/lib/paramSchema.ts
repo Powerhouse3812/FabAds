@@ -63,7 +63,7 @@ export const COMPONENT_TAB_LABELS: Record<ComponentTab, string> = {
 export const COMPARE_MODES = ["creatives", "contexts"] as const;
 export type CompareMode = (typeof COMPARE_MODES)[number];
 
-export const GROUP_BYS = ["none", "concept", "angle"] as const;
+export const GROUP_BYS = ["none", "concept", "angle", "brand"] as const;
 export type GroupBy = (typeof GROUP_BYS)[number];
 
 export const SORT_FIELDS = ["spend", "roas", "cpa", "ctr", "fatigue", "recency"] as const;
@@ -136,6 +136,10 @@ export const P = {
   age: "age",
   gender: "gender",
   placement: "placement",
+  /** iter-2 W1 — Catalogue-linked scoping (Brand → Product → Category). */
+  brand: "brand",
+  category: "category",
+  product: "product",
   q: "q",
   sort: "sort",
   group: "group",
@@ -164,6 +168,9 @@ export const FILTER_PARAM_KEYS: ParamKey[] = [
   P.age,
   P.gender,
   P.placement,
+  P.brand,
+  P.category,
+  P.product,
   P.state,
 ];
 
