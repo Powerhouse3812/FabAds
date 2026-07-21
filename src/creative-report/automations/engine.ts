@@ -114,7 +114,7 @@ export function runRule(rule: AutomationRule, rollups: CreativeRollup[]): RunRul
   } else if (appliedLabels.length === 0 && deadBoard) {
     summary = `${n} ${plural} matched, but the target board no longer exists — nothing was filed. Edit the rule to pick a board.`;
   } else {
-    summary = `${n} ${plural} matched and ${appliedLabels.join(" and ")}.`;
+    summary = `${n} ${plural} matched and ${appliedLabels.join(" and ")} (simulated).`;
     if (deadBoard) summary += " One target board no longer exists and was skipped.";
   }
 

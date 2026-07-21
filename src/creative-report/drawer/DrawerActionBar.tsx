@@ -1,7 +1,8 @@
 /**
  * DrawerActionBar — the sticky action bar at the bottom of the creative drawer.
  * The full loop in one place: Generate variation → Genie · Relaunch · Save ·
- * Mark Winner · Compare · Pause. Reflects optimistic state on the buttons.
+ * Mark Winner · Compare · Duplicate · Edit targeting · Pause. Reflects
+ * optimistic state on the buttons.
  */
 import { Bookmark, Copy, GitCompareArrows, Pause, Rocket, Target, Trophy, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
