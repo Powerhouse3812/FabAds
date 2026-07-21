@@ -85,6 +85,7 @@ const LABEL_MAP: Record<string, string> = {
   "creative-v2": "Creative Report 2.0",
   creatives: "Creatives",
   compare: "Compare",
+  automations: "Automations",
   views: "Saved views",
   components: "Components",
   "ad-accounts": "Ad Accounts",
@@ -152,6 +153,7 @@ const KNOWN_SUB_NAV_PATHS = new Set([
   "/reports/creative-v2/creatives",
   "/reports/creative-v2/components",
   "/reports/creative-v2/compare",
+  "/reports/creative-v2/automations",
   "/reports/creative-v2/views",
 ]);
 

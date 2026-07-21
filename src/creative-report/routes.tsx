@@ -7,6 +7,7 @@
  *   /reports/creative-v2/creatives   → Creatives grid
  *   /reports/creative-v2/components  → Components report (hooks/headlines/CTAs)
  *   /reports/creative-v2/compare     → Compare (creatives or contexts)
+ *   /reports/creative-v2/automations → Automations (rules, boards, digest)
  *   /reports/creative-v2/views       → Saved views
  */
 import { Route } from "react-router-dom";
@@ -15,6 +16,7 @@ import { Overview } from "./screens/Overview";
 import { Creatives } from "./screens/Creatives";
 import { ComponentsReport } from "./screens/Components";
 import { Compare } from "./screens/Compare";
+import { Automations } from "./screens/Automations";
 import { SavedViews } from "./screens/SavedViews";
 
 export const creativeReportRoutes = (
@@ -23,6 +25,7 @@ export const creativeReportRoutes = (
     <Route path="creatives" element={<Creatives />} />
     <Route path="components" element={<ComponentsReport />} />
     <Route path="compare" element={<Compare />} />
+    <Route path="automations" element={<Automations />} />
     <Route path="views" element={<SavedViews />} />
   </Route>
 );

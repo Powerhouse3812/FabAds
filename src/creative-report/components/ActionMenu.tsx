@@ -4,6 +4,7 @@
  */
 import {
   Eye,
+  FolderPlus,
   GitCompareArrows,
   MoreHorizontal,
   Pause,
@@ -17,10 +18,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
+import { addCreativeToBoard, useBoardsStore } from "@/creative-report/automations/boards";
+import { useToast } from "@/hooks/use-toast";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 export function ActionMenu({
@@ -31,6 +37,14 @@ export function ActionMenu({
   showView?: boolean;
 }) {
   const a = useCreativeActions();
+  const { boards } = useBoardsStore();
+  const { toast } = useToast();
+
+  const handleAddToBoard = (boardId: string, boardName: string) => {
+    addCreativeToBoard(boardId, rollup.creative.id);
+    toast({ title: "Added to board", description: `Filed into "${boardName}".` });
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -57,6 +71,20 @@ export function ActionMenu({
         <DropdownMenuItem onClick={() => a.markWinner(rollup)}>
           <Trophy className="mr-2 h-4 w-4" /> Mark as Winner
         </DropdownMenuItem>
+        {boards.length > 0 ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <FolderPlus className="mr-2 h-4 w-4" /> Add to board
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-48">
+              {boards.map((b) => (
+                <DropdownMenuItem key={b.id} onClick={() => handleAddToBoard(b.id, b.name)}>
+                  {b.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => a.launch(rollup)}>
           <Rocket className="mr-2 h-4 w-4" /> Relaunch
