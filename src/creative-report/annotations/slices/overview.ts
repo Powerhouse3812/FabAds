@@ -1,7 +1,10 @@
 /**
- * Annotation slice — Overview screen (KPI cards, bucket row, top movers,
- * fatiguing-now list, trust meter). Element ids namespaced `overview.<element>`.
- * Authored in the P6 annotation-overlay fan-out.
+ * Annotation slice — Overview screen (bucket tabs, Catalogue breakdown,
+ * recommendations, automations preview, trust meter) plus the `overview.kpi.*`
+ * entries KpiCards still uses on the Owner Report. Element ids namespaced
+ * `overview.<element>`. Authored in the P6 annotation-overlay fan-out;
+ * updated for the Overview redesign (BucketRow/FatiguingNowList/TopMovers
+ * retired — their entries went with them).
  */
 import type { AnnotationSlice } from "@/creative-report/annotations/types";
 
@@ -40,7 +43,7 @@ export const overviewAnnotations: AnnotationSlice = {
     impact:
       "The number buyers scan first; below your winner threshold at real spend is what pushes a creative toward Losers.",
     whenToAct:
-      "ROAS delta negative two periods running → don't wait for the bucket to flip to Losers, check Top movers for which creative is dragging it.",
+      "ROAS delta negative two periods running → don't wait for the bucket to flip to Losers, sort the grid by ROAS delta to see which creative is dragging it.",
     importance: "high",
     personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
     provenance: "derived-from-meta",
@@ -81,7 +84,7 @@ export const overviewAnnotations: AnnotationSlice = {
     impact:
       "A portfolio-level attention read — useful to sanity-check against a single creative's CTR trend in the drawer.",
     whenToAct:
-      "Top movers or Fatiguing now start citing CTR moves → swap this in to see whether the shift is portfolio-wide or one creative.",
+      "Fatiguing rows start citing CTR moves → swap this in to see whether the shift is portfolio-wide or one creative.",
     importance: "low",
     personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
     provenance: "derived-from-meta",
@@ -92,7 +95,7 @@ export const overviewAnnotations: AnnotationSlice = {
     reason:
       "Winners / Scaling / Fatiguing / New / Losers is a rule-based classification per creative (assignBucket in selectors.ts), evaluated in priority order New → Fatiguing → Winners → Scaling → Losers → unclassified. Not a Meta field.",
     impact:
-      "This is the day's shortlist — clicking a bucket filters straight to the creatives it covers, so it's usually the first stop in triage, before the KPI cards.",
+      "This is the day's shortlist — each tab opens that bucket's creatives right below (top spenders first, with a view-all handoff to the grid), so it's usually the first stop in triage.",
     whenToAct:
       "Losers count climbing while Winners holds steady → the portfolio is spend-heavy on underperformers; work that bucket before scaling anything new.",
     importance: "high",
@@ -100,34 +103,6 @@ export const overviewAnnotations: AnnotationSlice = {
     provenance: "ours-only",
     howTo:
       "Evaluate the same threshold rule (shown inline, editable via Edit formulas) against every creative's folded metrics and fatigue verdict for the active filter set, then tally counts per bucket. Precompute the per-creative bucket assignment in the nightly rollup; the count itself is a cheap read-time tally on top of that.",
-    backend: "batch-rollup",
-  },
-  "overview.topMovers": {
-    reason:
-      "Ranks creatives by |ROAS delta| over the compare period, floored at $500 spend to filter out noise (topMovers() in selectors.ts) — an ours-only ranking, not a Meta list.",
-    impact:
-      "Surfaces what's moving before it shows up in a bucket flip — often the earliest sign a Winner is decaying or a middling creative is about to turn into Scaling.",
-    whenToAct:
-      "A creative shows a large negative ROAS delta with rising spend → check its drawer before the next scaling decision, not after.",
-    importance: "medium",
-    personas: ["Agency lead", "Performance marketer"],
-    provenance: "ours-only",
-    howTo:
-      "Compute roasDeltaPct for every rollup in view (current vs. prior equal-length window, both folded from stored daily rows), filter to spend ≥ $500, sort by |delta|, cap at 6. The compare-window fold is the only added cost over the base rollup.",
-    backend: "daily-series",
-  },
-  "overview.fatiguingNow": {
-    reason:
-      "The Fatiguing bucket's members, worst-spend-first (fatiguingNow() in selectors.ts) — a triage shortlist, not a Meta report.",
-    impact:
-      "The \"act today\" list — the reason chip (CTR / Freq / Hook) tells you which lever moved, so you know whether to refresh the hook, cap frequency, or wait.",
-    whenToAct:
-      "A high-spend creative lands here → pause, iterate, or view it today; letting it ride burns budget on a signal that already fired.",
-    importance: "high",
-    personas: ["Agency lead", "Performance marketer"],
-    provenance: "ours-only",
-    howTo:
-      "Filter the active rollups to bucket === 'fatiguing' (itself driven by the 14-day CTR/hook and 7-day frequency rule), sort by spend, cap at 5 — same nightly per-creative rollup as the bucket counts, no extra query.",
     backend: "batch-rollup",
   },
   "overview.breakdown": {

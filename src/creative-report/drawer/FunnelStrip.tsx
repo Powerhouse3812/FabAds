@@ -4,7 +4,7 @@
  * metrics from the rollup's FoldedMetrics.
  *
  * iter-2 W4 decision: funnel-stage detail lives here ONLY. The grid
- * (CreativeCard), table (CreativeTable) and bucket rows (BucketRow) show
+ * (CreativeCard), table (CreativeTable) and bucket tabs (BucketTabs) show
  * summary metrics, not the stage-by-stage funnel — duplicating it there
  * would repeat the same numbers at a smaller, less legible size for no
  * added triage value. Open the drawer for funnel detail.

@@ -15,10 +15,10 @@
  * screens), and the separate Top-movers list (it re-listed the same
  * decliners the Fatiguing bucket already surfaces).
  */
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
+import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { BucketTabs } from "@/creative-report/components/BucketTabs";
 import { OverviewBreakdown } from "@/creative-report/components/OverviewBreakdown";
 import { RecommendationsCard } from "@/creative-report/components/RecommendationsCard";
@@ -26,13 +26,18 @@ import { AutomationsPreview } from "@/creative-report/components/AutomationsPrev
 import { TrustMeterChip } from "@/creative-report/components/TrustMeterChip";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
 import { OverviewSkeleton } from "@/creative-report/components/states/Skeletons";
-import type { BucketKey } from "@/creative-report/lib/paramSchema";
+import { P, type BucketKey } from "@/creative-report/lib/paramSchema";
 
 export function Overview() {
   const data = useCreativeData();
   const navigate = useNavigate();
-  // Lifted so a recommendation's action can open the matching bucket tab.
-  const [activeBucket, setActiveBucket] = useState<BucketKey | undefined>(undefined);
+  const { view, setParam } = useReportParams();
+  // The active bucket tab lives in the URL (same `bucket` param the grid
+  // filters by — the old BucketRow's contract): a shared Overview link opens
+  // on the same tab, and a recommendation's action can open a bucket by
+  // setting the param. When unset, BucketTabs picks its act-today default.
+  const activeBucket = view.bucket ?? undefined;
+  const setActiveBucket = (b: BucketKey) => setParam(P.bucket, b);
 
   if (data.status === "loading") return <OverviewSkeleton />;
   if (data.status === "error") {

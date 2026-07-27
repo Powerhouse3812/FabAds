@@ -59,6 +59,7 @@ export function OverviewBreakdown({ rollups }: { rollups: CreativeRollup[] }) {
             <button
               key={d.key}
               type="button"
+              aria-pressed={dimension === d.key}
               onClick={() => setDimension(d.key)}
               className={cn(
                 "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",

@@ -23,8 +23,10 @@
  * numeral treatment.
  */
 import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Pause, Sparkles, Eye, RotateCw, Copy, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildPreservedSearch } from "@/creative-report/components/PreserveParamsLink";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
@@ -209,6 +211,8 @@ export function BucketTabs({
   onActiveChange?: (bucket: BucketKey) => void;
 }) {
   const thresholds = useBucketThresholds();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [uncontrolled, setUncontrolled] = useState<BucketKey>(() => defaultActiveBucket(buckets));
   const active = activeProp ?? uncontrolled;
   const setActive = (b: BucketKey) => {
@@ -216,8 +220,32 @@ export function BucketTabs({
     onActiveChange?.(b);
   };
 
+  // Roving arrow keys per the tabs pattern — Tab still reaches each tab
+  // natively (they're real buttons); arrows move focus AND activate.
+  const onTablistKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const i = BUCKETS.indexOf(active);
+    const next =
+      e.key === "ArrowRight"
+        ? BUCKETS[(i + 1) % BUCKETS.length]
+        : BUCKETS[(i - 1 + BUCKETS.length) % BUCKETS.length];
+    setActive(next);
+    document.getElementById(`bucket-tab-${next}`)?.focus();
+  };
+
   const items = useMemo(() => bucketCreatives(rollups, active), [rollups, active]);
   const rule = bucketRuleText(active, thresholds);
+
+  // The panel caps at bucketCreatives' limit (top-8 by spend). When the
+  // bucket holds more, say so and hand over to the grid — a tab labelled
+  // "23" above a silent 8-row list would be a data-honesty bug, and the
+  // grid click-through is the old BucketRow affordance this keeps alive.
+  const activeCount = buckets[active];
+  const goGrid = () =>
+    navigate(
+      `/reports/creative-v2/creatives${buildPreservedSearch(searchParams, `bucket=${active}`)}`,
+    );
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border bg-card/70 shadow-sm backdrop-blur-xl">
@@ -246,6 +274,7 @@ export function BucketTabs({
         <div
           role="tablist"
           aria-label="Creative buckets"
+          onKeyDown={onTablistKeyDown}
           className="mt-3 flex w-full border-b border-border px-2"
         >
           {BUCKETS.map((key) => {
@@ -308,11 +337,25 @@ export function BucketTabs({
           {items.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{EMPTY_COPY[active]}</p>
           ) : (
-            <div className="mt-2">
-              {items.map((r) => (
-                <BucketTabRow key={r.creative.id} rollup={r} bucket={active} />
-              ))}
-            </div>
+            <>
+              <div className="mt-2">
+                {items.map((r) => (
+                  <BucketTabRow key={r.creative.id} rollup={r} bucket={active} />
+                ))}
+              </div>
+              {activeCount > items.length && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Showing the top {items.length} by spend.{" "}
+                  <button
+                    type="button"
+                    onClick={goGrid}
+                    className="underline underline-offset-2 transition-colors hover:text-foreground"
+                  >
+                    View all {activeCount} in the grid
+                  </button>
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>

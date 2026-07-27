@@ -10,7 +10,8 @@
  * checked).
  */
 import type { BucketKey } from "@/creative-report/lib/paramSchema";
-import { bucketCreatives, breakdownRollups, type CreativeRollup } from "@/creative-report/lib/selectors";
+import { fmtCompactCurrency } from "@/creative-report/lib/format";
+import { breakdownRollups, type CreativeRollup } from "@/creative-report/lib/selectors";
 
 export type RecommendationTone = "attention" | "opportunity" | "neutral";
 
@@ -30,10 +31,8 @@ function totalSpend(rollups: CreativeRollup[]): number {
   return rollups.reduce((sum, r) => sum + r.metrics.spend, 0);
 }
 
-function fmtUsd(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${Math.round(n)}`;
-}
+// Currency via the module's shared formatter (fmtCompactCurrency) — a local
+// helper here broke past $1M ("$1200.0k") and drifted from the row/KPI style.
 
 export function buildRecommendations(rollups: CreativeRollup[]): Recommendation[] {
   const out: Recommendation[] = [];
@@ -44,7 +43,7 @@ export function buildRecommendations(rollups: CreativeRollup[]): Recommendation[
   if (fatiguing.length > 0) {
     out.push({
       id: "rec.fatiguing",
-      text: `${fatiguing.length} fatiguing ${fatiguing.length === 1 ? "creative is" : "creatives are"} carrying ${fmtUsd(totalSpend(fatiguing))} — refresh the hook or pause.`,
+      text: `${fatiguing.length} fatiguing ${fatiguing.length === 1 ? "creative is" : "creatives are"} carrying ${fmtCompactCurrency(totalSpend(fatiguing))} — refresh the hook or pause.`,
       actionLabel: "Review",
       tone: "attention",
       bucket: "fatiguing",
@@ -56,7 +55,7 @@ export function buildRecommendations(rollups: CreativeRollup[]): Recommendation[
   if (losers.length > 0) {
     out.push({
       id: "rec.losers",
-      text: `${losers.length} ${losers.length === 1 ? "creative is" : "creatives are"} below your loser threshold on ${fmtUsd(totalSpend(losers))} of spend.`,
+      text: `${losers.length} ${losers.length === 1 ? "creative is" : "creatives are"} below your loser threshold on ${fmtCompactCurrency(totalSpend(losers))} of spend.`,
       actionLabel: "Cut",
       tone: "attention",
       bucket: "losers",
@@ -68,7 +67,7 @@ export function buildRecommendations(rollups: CreativeRollup[]): Recommendation[
   if (scaling.length > 0) {
     out.push({
       id: "rec.scaling",
-      text: `${scaling.length} ${scaling.length === 1 ? "creative is" : "creatives are"} already scaling on ${fmtUsd(totalSpend(scaling))} — room for more budget.`,
+      text: `${scaling.length} ${scaling.length === 1 ? "creative is" : "creatives are"} already scaling on ${fmtCompactCurrency(totalSpend(scaling))} — room for more budget.`,
       actionLabel: "Scale",
       tone: "opportunity",
       bucket: "scaling",
@@ -99,7 +98,9 @@ export function buildRecommendations(rollups: CreativeRollup[]): Recommendation[
   }
 
   // 5. New creatives — thin data, so the ask is "look", never "judge".
-  const fresh = bucketCreatives(rollups, "new", 99);
+  // Counted with a plain filter: bucketCreatives() is a display selector
+  // with a row cap, and a capped count here would understate the truth.
+  const fresh = rollups.filter((r) => r.bucket === "new");
   if (fresh.length > 0) {
     out.push({
       id: "rec.new",
