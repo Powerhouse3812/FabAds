@@ -18,6 +18,8 @@ import type {
 } from "@/data/model";
 import type { BucketKey, ComponentTab } from "@/creative-report/lib/paramSchema";
 import { getBrand } from "@/mocks/shared/brands";
+import { getCategory } from "@/mocks/shared/categories";
+import { getProduct } from "@/mocks/shared/products";
 import { ACCOUNT_BY_ID } from "@/data/accounts";
 import { DEFAULT_THRESHOLDS, type BucketThresholds } from "@/creative-report/lib/thresholds";
 
@@ -920,4 +922,82 @@ export function demographicSplit(rollup: CreativeRollup): DemographicBreakdown {
     byGender: splitBy((i) => i.gender),
     byGeo: splitBy((i) => i.geo),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Overview redesign — per-bucket lists + Catalogue-dimension rollups */
+/* ------------------------------------------------------------------ */
+
+/** Every creative currently assigned to one bucket, highest-spend first.
+ *  The Overview's bucket tabs render this — previously only the Fatiguing
+ *  bucket had a materialised list (fatiguingNow), so the other four showed
+ *  a count with nothing behind it. */
+export function bucketCreatives(
+  rollups: CreativeRollup[],
+  bucket: BucketKey,
+  limit = 8,
+): CreativeRollup[] {
+  return rollups
+    .filter((r) => r.bucket === bucket)
+    .sort((a, b) => b.metrics.spend - a.metrics.spend)
+    .slice(0, limit);
+}
+
+/** One Catalogue dimension the Overview breakdown can group by. */
+export type BreakdownDimension = "brand" | "category" | "product";
+
+export interface BreakdownRow {
+  id: string;
+  label: string;
+  metrics: FoldedMetrics;
+  creativeCount: number;
+}
+
+const DIMENSION_ID: Record<BreakdownDimension, (c: Creative) => string | undefined> = {
+  brand: (c) => c.brandId,
+  category: (c) => c.categoryId,
+  product: (c) => c.productId,
+};
+
+const DIMENSION_LABEL: Record<BreakdownDimension, (id: string) => string> = {
+  brand: (id) => getBrand(id)?.name ?? id,
+  category: (id) => getCategory(id)?.name ?? id,
+  product: (id) => getProduct(id)?.name ?? id,
+};
+
+/** Folds the filtered creatives by a Catalogue dimension — same sums-then-
+ *  recompute discipline as brandRollups, and the same honest exclusion: a
+ *  creative with no link on that dimension is left out rather than bucketed
+ *  into a fake "Unknown" row. Rows are clipped to each rollup's own filter
+ *  window so they describe the same period as everything beside them. */
+export function breakdownRollups(
+  rollups: CreativeRollup[],
+  dimension: BreakdownDimension,
+): BreakdownRow[] {
+  const idOf = DIMENSION_ID[dimension];
+  // allVideo (not anyVideo): a group hook/hold rate is only honest when every
+  // creative in the group is video.
+  const byId = new Map<string, { rows: DailyRow[]; allVideo: boolean; creativeIds: Set<string> }>();
+  for (const r of rollups) {
+    const id = idOf(r.creative);
+    if (!id) continue;
+    let entry = byId.get(id);
+    if (!entry) {
+      entry = { rows: [], allVideo: true, creativeIds: new Set() };
+      byId.set(id, entry);
+    }
+    for (const inst of r.instances) entry.rows.push(...rowsInWindow(inst, r.window.from, r.window.to));
+    if (r.creative.format !== "video") entry.allVideo = false;
+    entry.creativeIds.add(r.creative.id);
+  }
+  const out: BreakdownRow[] = [];
+  for (const [id, entry] of byId) {
+    out.push({
+      id,
+      label: DIMENSION_LABEL[dimension](id),
+      metrics: foldRows(entry.rows, entry.allVideo),
+      creativeCount: entry.creativeIds.size,
+    });
+  }
+  return out.sort((a, b) => b.metrics.spend - a.metrics.spend);
 }

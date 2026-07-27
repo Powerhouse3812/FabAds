@@ -130,6 +130,20 @@ export const overviewAnnotations: AnnotationSlice = {
       "Filter the active rollups to bucket === 'fatiguing' (itself driven by the 14-day CTR/hook and 7-day frequency rule), sort by spend, cap at 5 — same nightly per-creative rollup as the bucket counts, no extra query.",
     backend: "batch-rollup",
   },
+  "overview.breakdown": {
+    reason:
+      "Groups the filtered creatives by Catalogue brand, category, or product (breakdownRollups in selectors.ts), then folds — sums first, recomputes ratios after — to one row per value, same discipline as the Owner Report's by-brand table. A creative with no link on the active dimension is excluded from the table rather than folded into a fake \"Unknown\" row.",
+    impact:
+      "Puts \"which brand/category/product is actually winning\" on the morning-triage screen instead of requiring a trip to the Owner Report — the first place to look before deciding where to push budget or briefs next.",
+    whenToAct:
+      "A row's ROAS diverges hard from the portfolio KPIs above, or the excluded-creatives count is large → drill into the Owner Report or fix Catalogue links before trusting the split.",
+    importance: "medium",
+    personas: ["Agency lead", "Brand manager", "Performance marketer"],
+    provenance: "ours-only",
+    howTo:
+      "A nightly job aggregates each filtered creative's daily rows by its Catalogue brand/category/product id and caches the folded totals per dimension; this card reads that cache and switches which cached grouping it displays on toggle, rather than summing rows live on every click.",
+    backend: "batch-rollup",
+  },
   "overview.trustMeter": {
     reason:
       "A real backtest of the fatigue rule (computeTrustMeter in trustMeter.ts): for every creative with 28+ days of history, re-run the CURRENT fatigue rule at a cutoff 14 days before its latest data, using only data available then, then check whether CTR kept declining afterward.",
@@ -143,5 +157,31 @@ export const overviewAnnotations: AnnotationSlice = {
     howTo:
       "For each qualifying creative, fold spend up to the cutoff, run computeFatigue against the buyer's live thresholds, then fold CTR before/after the cutoff from stored daily rows to check for continued decline. Needs each creative's daily history, so it runs as a nightly batch across the portfolio with the hit/flagged counts cached, never recomputed on page load.",
     backend: "daily-series",
+  },
+  "overview.recommendations": {
+    reason:
+      "Each line is a literal count + sum readout from buildRecommendations() over the current filter set — fatiguing/losers/scaling counts and their spend, a brand-vs-portfolio ROAS gap, and a new-creative count. None of it predicts an outcome, scores a creative, or infers a cause; it restates numbers the report already computed.",
+    impact:
+      "The single 'what to do today' list — collapses the bucket row, top movers, and owner-report brand breakdown into the handful of lines actually worth acting on right now, each with a one-click way to go look.",
+    whenToAct:
+      "The list is empty → genuinely nothing crossed a threshold this range, not a loading or error state; a line appearing that wasn't there yesterday is itself the signal to open it before the next scaling or budget call.",
+    importance: "high",
+    personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
+    provenance: "ours-only",
+    howTo:
+      "Filter the already-loaded rollups by bucket for fatiguing/losers/scaling/new, summing spend per group; for the brand-gap line, fold rollups by brand (breakdownRollups) and compare each brand's ROAS to the portfolio's, surfacing the widest gap past a materiality and threshold floor. All read-time over data the Overview already has in memory — no new query, no stored history.",
+    backend: "read-time",
+  },
+  "overview.automationsPreview": {
+    reason:
+      "A UI placeholder, not a data readout — it previews the four routing destinations a quick-create rule could send a matched creative to.",
+    impact:
+      "Sets expectations for where Overview-level automation is headed without pretending it works today; the dashed tiles and disabled affordance keep it from being mistaken for a live control.",
+    whenToAct:
+      "Never — there's nothing to act on here yet. Use 'Open Automations' to reach the real rules/boards engine instead.",
+    importance: "low",
+    personas: ["Agency lead", "Performance marketer", "Brand manager"],
+    howTo:
+      "None of the four routes (folder, Genie knowledge base, Launch, Meta ad library) are implemented at the Overview level — the tiles are non-interactive and nothing is sent anywhere on this screen. The real rules/boards automations engine already exists and is reachable via the 'Open Automations' link to /reports/creative-v2/automations.",
   },
 };

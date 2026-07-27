@@ -1,53 +1,38 @@
 /**
- * Overview — the buyer's morning triage screen (handoff §5.1).
- * Answers "what do I do today?" in one glance: auto-categorised buckets,
- * a fatiguing-now action list, top movers, and 4 KPI cards. Buckets click
- * through to the grid with the filter context preserved.
+ * Overview — the buyer's morning triage screen (handoff §5.1, redesigned).
+ *
+ * Structure (each fact appears exactly ONCE — the earlier version printed
+ * every bucket count three times: in the summary prose, on a count card, and
+ * again as a list heading below):
+ *   header + one-line state of the book + trust chip
+ *   BucketTabs          — the count IS the tab; its creatives live inside it
+ *   OverviewBreakdown   — Brand / Category / Product (Catalogue dimensions)
+ *   RecommendationsCard — literal count+sum readouts, each with a route
+ *   AutomationsPreview  — the four routing destinations, not yet wired
+ *
+ * Deliberately NOT here: the portfolio spend/revenue/ROAS/CPA card row (it
+ * lives on the main Dashboard — repeating it here was duplication across
+ * screens), and the separate Top-movers list (it re-listed the same
+ * decliners the Fatiguing bucket already surfaces).
  */
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
-import { useReportParams } from "@/creative-report/hooks/useReportParams";
-import { buildPreservedSearch } from "@/creative-report/components/PreserveParamsLink";
-import { BucketRow } from "@/creative-report/components/BucketRow";
-import { KpiCards } from "@/creative-report/components/KpiCards";
-import { FatiguingNowList } from "@/creative-report/components/FatiguingNowList";
-import { TopMovers } from "@/creative-report/components/TopMovers";
+import { BucketTabs } from "@/creative-report/components/BucketTabs";
+import { OverviewBreakdown } from "@/creative-report/components/OverviewBreakdown";
+import { RecommendationsCard } from "@/creative-report/components/RecommendationsCard";
+import { AutomationsPreview } from "@/creative-report/components/AutomationsPreview";
 import { TrustMeterChip } from "@/creative-report/components/TrustMeterChip";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
 import { OverviewSkeleton } from "@/creative-report/components/states/Skeletons";
 import type { BucketKey } from "@/creative-report/lib/paramSchema";
-import type { CreativeRollup } from "@/creative-report/lib/selectors";
-
-const CREATIVES_PATH = "/reports/creative-v2/creatives";
 
 export function Overview() {
   const data = useCreativeData();
-  const { filters, view } = useReportParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  const goCreatives = (extra: string) => {
-    navigate(`${CREATIVES_PATH}${buildPreservedSearch(searchParams, extra)}`);
-  };
-
-  const onSelectBucket = (b: BucketKey) => goCreatives(`bucket=${b}`);
-  const onView = (id: string) => goCreatives(`creative=${id}`);
-  const onIterate = (r: CreativeRollup) => {
-    const { creative } = r;
-    navigate(
-      `/genie/new?concept=${encodeURIComponent(creative.id)}&angle=${encodeURIComponent(
-        creative.angleId,
-      )}&hook=${encodeURIComponent(creative.components.hook)}`,
-    );
-  };
-  const onPause = (r: CreativeRollup) => {
-    // Real friction dialog + optimistic pause arrives with the actions layer.
-    toast({
-      title: "Pause needs confirmation",
-      description: `Open ${r.creative.product} to pause it — spend-affecting actions ask first.`,
-    });
-  };
+  // Lifted so a recommendation's action can open the matching bucket tab.
+  const [activeBucket, setActiveBucket] = useState<BucketKey | undefined>(undefined);
 
   if (data.status === "loading") return <OverviewSkeleton />;
   if (data.status === "error") {
@@ -99,31 +84,24 @@ export function Overview() {
       </header>
 
       <div className="cr-stagger" style={{ ["--i" as string]: 1 }}>
-        <BucketRow buckets={data.buckets} activeBucket={view.bucket} onSelect={onSelectBucket} />
+        <BucketTabs
+          rollups={data.rollups}
+          buckets={data.buckets}
+          active={activeBucket}
+          onActiveChange={setActiveBucket}
+        />
       </div>
 
       <div className="cr-stagger" style={{ ["--i" as string]: 2 }}>
-        <KpiCards kpis={data.kpis} compareEnabled={filters.compareEnabled} />
+        <OverviewBreakdown rollups={data.rollups} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section
-          className="cr-stagger rounded-xl border border-border bg-card p-4"
-          style={{ ["--i" as string]: 3 }}
-        >
-          <FatiguingNowList
-            items={data.fatiguing}
-            onView={onView}
-            onPause={onPause}
-            onIterate={onIterate}
-          />
-        </section>
-        <section
-          className="cr-stagger rounded-xl border border-border bg-card p-4"
-          style={{ ["--i" as string]: 4 }}
-        >
-          <TopMovers items={data.movers} onView={onView} />
-        </section>
+      <div className="cr-stagger" style={{ ["--i" as string]: 3 }}>
+        <RecommendationsCard rollups={data.rollups} onOpenBucket={setActiveBucket} />
+      </div>
+
+      <div className="cr-stagger" style={{ ["--i" as string]: 4 }}>
+        <AutomationsPreview />
       </div>
     </div>
   );

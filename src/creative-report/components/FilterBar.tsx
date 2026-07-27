@@ -95,6 +95,18 @@ export function FilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-background px-4 py-2">
+      {/* Search — leads the row, matching ReportsToolbar / InsightsFilterBar /
+          Catalogue. Filters follow it; only `trailing` utilities sit right. */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={view.q}
+          onChange={(e) => setParam(P.q, e.target.value || null)}
+          placeholder={searchPlaceholder ?? "Search creatives…"}
+          className="h-8 w-56 pl-8 text-[13px]"
+        />
+      </div>
+
       {/* Date range */}
       <Popover>
         <PopoverTrigger asChild>
@@ -313,18 +325,7 @@ export function FilterBar({
         </Button>
       )}
 
-      <div className="ml-auto flex items-center gap-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={view.q}
-            onChange={(e) => setParam(P.q, e.target.value || null)}
-            placeholder={searchPlaceholder ?? "Search creatives…"}
-            className="h-8 w-56 pl-8 text-[13px]"
-          />
-        </div>
-        {trailing}
-      </div>
+      {trailing && <div className="ml-auto flex items-center gap-2">{trailing}</div>}
     </div>
   );
 }
