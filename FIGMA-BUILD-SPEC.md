@@ -1074,3 +1074,40 @@ stated anywhere official. We will learn it empirically.
 **Recommendation:** given R3, no capacity purchase is needed for the current
 3-surface scope. If all 9 surfaces are un-deferred, the plan upgrade is the
 documented lever; the second seat is not.
+
+## R4 RESULT — both hypotheses CONFIRMED empirically
+
+Tested live while the hosted server's read quota was exhausted:
+
+1. **Writes ARE exempt.** A `use_figma` call (create + delete a throwaway
+   rectangle on page `25:2965`) returned `{"writeWorked":true}` — node `62:2954`
+   created and removed, file unchanged. So `use_figma` behaves as the docs'
+   general principle implies, despite not being in the named exempt list.
+   **Builders may write freely.**
+2. **The local desktop MCP server has separate/remaining read capacity.**
+   `mcp__Figma__get_metadata` (the `127.0.0.1:3845` desktop server, which takes no
+   `fileKey` and reads the app's open document) successfully returned all 12 page
+   ids of `Creative-report` at the same moment the hosted server's reads were
+   refused. It is NOT drawing on the same exhausted bucket.
+
+### R6. THE WAVE-2 EXECUTION MODEL — use both servers
+
+| Purpose | Server | Tool | Cost |
+|---|---|---|---|
+| All building | **hosted** | `use_figma` | free (exempt) |
+| Structure checks, verification, screenshots | **local desktop** | `mcp__Figma__get_metadata` / `get_screenshot` / `get_design_context` / `get_variable_defs` | separate quota |
+| Anything needing an explicit `fileKey` | hosted | — | counts against 200/day |
+
+Notes and limits of the desktop route:
+- The desktop server exposes **reads only** — there is no `use_figma` there. It
+  cannot build.
+- It has **no `fileKey` parameter**: it acts on whatever document is open in the
+  Figma desktop app. So the correct file must be open, and `setCurrentPageAsync`
+  from a write script changes which page it reports on.
+- One successful read proves capacity exists; it does **not** prove the desktop
+  server is uncapped. Still obey R3's discipline (few reads, one screenshot per
+  frame, zero discovery reads).
+
+**Consequence: no seat purchase and no plan upgrade is required for wave 2, and a
+second Figma account is not required either.** Capacity was an execution-pattern
+problem, not a licensing problem.
