@@ -994,3 +994,83 @@ Deferred, on Maalik's descope call — partial wave-1 work stays untouched on
 pages `25:2958` (Components), `25:2959` (Compare), `25:2960` (Automations),
 `25:2961` (Owner report), `25:2962` (Brief builder), `25:2963` (Saved views).
 Do not delete it and do not continue it without a new instruction.
+
+---
+
+# PATCH 03 — CORRECTION: reads are the scarce resource, not writes
+
+Verified against Figma's own documentation
+([developers.figma.com/docs/figma-mcp-server/rate-limits-access](https://developers.figma.com/docs/figma-mcp-server/rate-limits-access/)).
+This **supersedes PATCH 01 §P4's framing**, which treated all tool calls as equal.
+
+## R1. The documented rule
+
+> *"Rate limits apply to Figma MCP server tools that read data from Figma. Some
+> tools, such as those that write to Figma files, are exempt from the rate limits."*
+
+Named exempt: `add_code_connect_map`, `generate_figma_design`, `whoami`.
+
+**Therefore the calls that count against the 200/day are the READS:**
+`get_metadata` · `get_screenshot` · `get_variable_defs` · `search_design_system` ·
+`get_design_context` · `get_libraries`
+
+**Caveat, stated honestly:** `use_figma` is NOT in the doc's named exempt list,
+though it is unambiguously a write tool and the rule is stated as a general
+principle. Treat "use_figma is exempt" as *probable, not confirmed* — verify
+empirically at the start of wave 2 (see R4) before relying on it.
+
+## R2. What actually killed wave 1
+
+Not the writes. Nine builders each ran ~20+ **reads** — repeated
+`get_screenshot` verifications after every section, `search_design_system`
+discovery sweeps, `get_metadata` structure checks. 9 × ~22 reads ≈ 200. Quota gone.
+
+The node-by-node building was wasteful, but it was the *verification and discovery
+pattern* that hit the cap.
+
+## R3. THE REAL BUDGET RULE — cap READS, not total calls
+
+Supersedes P4.4's "25 Figma calls per builder":
+
+1. **Hard cap: 5 READS per builder.** Writes are effectively free (pending R4).
+2. **Discovery: ZERO reads.** Every key, node id, font string and token name a
+   wave-2 builder needs is already recorded in this spec. Never run
+   `search_design_system` again — it is one of the most expensive reads and all
+   its answers are in §D.1 and PATCH 01 §P3/§P5.
+3. **Screenshots: 1 per FRAME, at the end.** Never per section, never to "check
+   progress mid-script". Prefer returning a structured summary from inside the
+   `use_figma` script (node ids, counts, computed sizes) over taking a picture —
+   the script's return value costs nothing.
+4. **Never `get_metadata` on a page.** It returned 450k chars on this file and
+   both burns a read and blows context. Target specific node ids, or better,
+   query from inside a write script and return the answer.
+5. If a read fails with a limit error, STOP. Do not retry — you are spending a
+   shared pool.
+
+Revised wave-2 cost: W2-A ≈ **2 reads**, W2-B ≈ **2 reads**, W2-C ≈ **1 read**.
+**~5 reads total** against 200/day, versus wave 1's ~200.
+
+## R4. FIRST ACTION OF WAVE 2 — verify the write exemption
+
+Before the main build, run one trivial `use_figma` write (create and immediately
+delete a rectangle on a scratch area), then one cheap read. If the write succeeds
+while reads are still limited, the exemption is confirmed and builders can write
+freely. If the write ALSO fails, revert to PATCH 01 §P4's stricter total-call cap.
+Record the result here.
+
+## R5. CAPACITY OPTIONS — documented vs. gamble
+
+| Option | Effect | Confidence |
+|---|---|---|
+| Professional → **Organization** plan | 200/day → **600/day**, 15/min → 20/min | ✅ **Documented** |
+| A second **Full seat** | *may* add an independent 200/day, or may pool at team/file level | ❌ **Not documented either way** — a gamble |
+| **Dev** seat instead of Full | identical MCP limits to Full at each tier | ✅ Documented |
+| **Local desktop server** (`127.0.0.1:3845`) | no documented exception from the cap | ❌ **Not documented** — do not assume it bypasses |
+| Viewer / Collab seat | 6 calls **per month** — unusable, and no desktop-server access | ✅ Documented |
+
+**Undocumented:** the reset window (rolling 24h vs calendar day, timezone) is not
+stated anywhere official. We will learn it empirically.
+
+**Recommendation:** given R3, no capacity purchase is needed for the current
+3-surface scope. If all 9 surfaces are un-deferred, the plan upgrade is the
+documented lever; the second seat is not.
