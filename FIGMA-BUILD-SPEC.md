@@ -890,3 +890,107 @@ wiring them is a finishing task, not a rebuild.
 `Components.tsx` does `lowerFirst(COMPONENT_TAB_LABELS.ctas)` → renders
 **"cTAs"** in the CTAs-tab subhead. Preserved verbatim in Figma. Worth fixing in
 code separately.
+
+---
+
+# PATCH 02 — zero-quota prep (written while the Figma quota was exhausted)
+
+No Figma calls were made producing this section. It exists so wave 2 spends
+quota on building, not on discovery or decisions.
+
+## Q1. THE INTER→GEIST RETROFIT (applies to already-"complete" work)
+
+B1's Overview was built under §E.3's original ruling (shell chrome = Inter).
+PATCH 01 §P2 revoked that. So the finished Overview **is not actually finished** —
+it carries Inter in its shell chrome, as do all wave-1 shell clones (they inherit
+from the reference screens, which are Inter throughout).
+
+**This is a text-node font override sweep, not a rebuild.** Do it as ONE script:
+
+```
+// ONE use_figma call. Walks a page, retargets every Inter text node to Geist.
+// Geist Mono is left alone — it is already correct per P2.
+const MAP = {
+  "Inter|Regular":    { family: "Geist", style: "Regular" },
+  "Inter|Medium":     { family: "Geist", style: "Medium" },
+  "Inter|Semi Bold":  { family: "Geist", style: "SemiBold" },
+  "Inter|SemiBold":   { family: "Geist", style: "SemiBold" },
+  "Inter|Bold":       { family: "Geist", style: "Bold" },
+};
+// 1. page.findAllWithCriteria({ types: ["TEXT"] })
+// 2. skip nodes whose fontName.family already starts with "Geist"
+// 3. skip nodes INSIDE instances whose font is inherited from a library main
+//    component — those cannot be overridden without detaching. LOG them instead;
+//    they are a library-side fix (see J-list), not a builder fix.
+// 4. loadFontAsync every target style ONCE, up front, before any assignment
+// 5. assign node.fontName = MAP[`${family}|${style}`]
+// 6. return a count of { changed, skippedAlreadyGeist, blockedInInstance }
+```
+
+**Order of operations matters:** run the retrofit AFTER a page's frames are all
+built, never between frames — otherwise later frames reintroduce Inter and you
+pay for the sweep twice.
+
+**Expected blocked set:** text inside library instances (`*Button*` labels,
+`Tab Item` labels, `*Segmented*` labels). Figma will not let a builder change a
+font on a node inherited from a library main component. Record these on the
+Handoff page as a library-side ask — do NOT detach to force it.
+
+## Q2. WAVE-2 WORK ORDERS — two builders, 25 calls each
+
+### W2-A · Creatives (page `25:2957`)
+Already on canvas: Grid Populated `39:10206` (toolbar + 8 real cards) ✅ ·
+Table Populated `39:11281` (shell only, EMPTY Page Body).
+
+Call budget, in order:
+1. **1 call** — Table frame content: `PortfolioTrendChart` (instance
+   `CR2/Chart Placeholder` Type=area-dual) + the dense table built from
+   `Table Item / Header Item` + `Table Item / Cell` atoms per P5.5, E-com preset
+   columns (Spend · ROAS · CPA · CTR · CVR · Purchases), sortable header affordance
+   on Spend.
+2. **1 call** — `BulkActionBar` (selected-count pill + Pause / Queue / Clear).
+3. **1 call** — 4 overlays as separate frames: Column picker popover, Card-metrics
+   popover, Add-filter popover, Row-actions dropdown.
+4. **2 calls** — the 5 missing state frames: Loading (skeleton matching the grid),
+   Empty, Filtered-empty, Error, Partial/low-data, Long-content-stress.
+5. **1 call** — apply P5.6: re-`rescale()` any card that was `resize()`d.
+6. **1 call** — Inter→Geist sweep (Q1) over the whole page.
+7. **1 call** — prototype wiring: layout toggle Grid↔Table, card select→BulkActionBar,
+   all 4 popover open/close, and row→drawer `Open Overlay → 39:24264`
+   (Move In from Right / Ease In And Out / 500ms).
+8. **1 screenshot** to verify. **Total ≈ 10 calls.**
+
+### W2-B · Creative drawer (page `25:2964`)
+Already on canvas: root `39:24264` with header + AdPreviewMock band ✅.
+
+Per P5.3, `CR2/Drawer Band` CANNOT be instanced — build each band as a local
+auto-layout frame matching its recipe (16px padding, 1px bottom hairline
+`colorBorder`, vertical stack, HUG height / FILL width).
+
+1. **2 calls** — the 9 remaining bands in document order: FunnelStrip,
+   TrendChart, FatiguePanel, ComponentBreakdown, ScriptElementsPanel,
+   BenchmarkPanel, DemographicsPanel, RunningInTable, VariantsList.
+2. **1 call** — sticky `DrawerActionBar` (8 actions; icon+label per P5.2 = icon
+   instance adjacent to a text Button).
+3. **1 call** — variant frames: Loading · Non-video (hook/hold render
+   "N/A — no video", NEVER a fabricated 0%) · Healthy (non-fatiguing).
+4. **1 call** — 3 action modals (Pause confirm, Relaunch confirm, Edit targeting).
+5. **1 call** — Inter→Geist sweep (Q1).
+6. **1 call** — internal wiring: close-X, placement select, action-bar reactions.
+7. **1 screenshot**. **Total ≈ 8 calls.**
+
+### W2-C · finishing pass (run last, after A and B)
+1. **1 call** — wire Overview's bucket rows → `39:24264` across all 5 bucket-state
+   frames (B1 built the hotspots; only the target is missing).
+2. **1 call** — re-point every FF-non-new key to its FF-new equivalent (P3).
+3. **1 call** — Page Body unclip fix (P5.7) on any frame whose content exceeds 654px.
+4. **1 call** — Handoff page `25:2965`: the J-list, the substitution log, the
+   blocked-font log from Q1, and the motion spec.
+**Total ≈ 4 calls.** Grand total for wave 2: **≈ 22 calls** of a 200/day budget.
+
+## Q3. WHAT IS EXPLICITLY *NOT* IN WAVE 2
+
+Deferred, on Maalik's descope call — partial wave-1 work stays untouched on
+pages `25:2958` (Components), `25:2959` (Compare), `25:2960` (Automations),
+`25:2961` (Owner report), `25:2962` (Brief builder), `25:2963` (Saved views).
+Do not delete it and do not continue it without a new instruction.
