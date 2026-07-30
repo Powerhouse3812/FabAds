@@ -102,6 +102,83 @@ Column pitch 1560 (1440 + 120 gutter). Row pitch 920 (800 + 120 gutter). Never p
 - Never detach an instance of a Foundations component. If a variant doesn't fit, report it — a detached instance is invisible drift.
 - Never rename a Foundations component or change its variant property names.
 
+> ### SANCTIONED EXCEPTION ON RECORD — `30:3599`, 2026-07-29
+>
+> The freeze above still binds **every builder**. It has been breached **exactly once**,
+> by the sync orchestrator, with explicit coordinator authorisation, because the master
+> was itself the source of a file-wide defect: all nine pages are cloned from it, so its
+> 25 Inter text nodes propagated into every screen and defeated PATCH 01 §P2's
+> zero-Inter instruction at the root.
+>
+> **What changed (one script, fully audited):**
+> - **25 Inter text nodes → Geist** (`Regular→Regular`, `Medium→Medium`,
+>   `Semi Bold→SemiBold`), segment-aware, nothing detached. Geist Mono untouched.
+>   Result: 42 text nodes scanned, 25 changed, 17 already Geist, **0 blocked**,
+>   and the master's `remainingNonGeist` list is now **empty**.
+> - **5 layer renames** (§K.4), names derived from actual contents:
+>   `Group 372` → `Icon glyph` · `Frame 1000002832` → `Breadcrumb row` ·
+>   `Frame 2147225662` → `Date range control` · `Frame 2147225614` → `Period stepper` ·
+>   `Frame 2147225664` → `Header tips label`. `badLayerNamesRemaining` is now **empty**.
+> - **Page Body placeholder text corrected** from `content column = 1136px` to
+>   `1128px` (§S1), so no future clone inherits the superseded number.
+>
+> **What was explicitly NOT changed:** geometry (row sum re-verified at
+> `52 + 46 + 48 + 654 = 800`, zero geometry guards fired), the 8 remote sub-nav
+> instances' variant properties or attachment (all 8 re-verified as live `INSTANCE`
+> with unchanged mains), and nothing was detached.
+>
+> **Interpretation note:** "do not touch the 8 remote sub-nav instances" was read as
+> *do not detach, swap, reposition, or change variant properties*. Their **label fonts
+> were** changed, because the 8 tab labels are part of the 25 Inter nodes and skipping
+> them would have left Inter in the master. A `fontName` assignment on an instance's text
+> child is an override, not a structural edit, and B1 proved it does not detach.
+>
+> **`SF Pro Text` was NOT touched and is not a defect in this file.** It exists only in
+> the library's `*Breadcrumb*` main components (`3:653` / `3:618` / `3:627`). Our
+> breadcrumb instances carry local font overrides, so nothing in
+> `a4R8eBl0xyNFENEJiLor0j` renders SF Pro. Fixing the mains would require editing the
+> library file — forbidden. Logged as a library ask (§J.15 / PATCH 05).
+>
+> **No further edits to `25:2955` were authorised beyond this point** — until the second
+> exception below, authorised via this build's final-sweep task brief, which supersedes
+> this line.
+
+> ### SANCTIONED EXCEPTION ON RECORD #2 — `30:3599`, 2026-07-30
+>
+> Authorised via the final-sweep task brief for this build (traceable to project owner
+> Maalik's mandate for the sweep), not derived from anything inside the Figma file
+> itself. Scope: exactly two text-content fixes on the master, nothing else.
+>
+> **Rationale:** the final file-wide sweep found the master itself still carried two
+> content defects that had propagated into all nine cloned builder pages (~140 cloned
+> frames total) — because the nine pages are **clones, not instances**, fixing the master
+> alone does not retroactively fix those; that propagation is being swept separately,
+> per-page, by the builders/sync orchestrator.
+>
+> **What changed (two text writes, canonical font-load recipe, nothing detached):**
+> - **Date range corrected** — the header date-range control disagreed with the filter
+>   bar's "1 Jul – 30 Jul" and read a nonsensical end-before-start range.
+>   - `30:3081` ("Start Date"): `2025-10-02` → `2026-07-01`
+>   - `30:3083` ("End Date"): `2020-11-02` → `2026-07-30`
+>   - Format preserved exactly (`YYYY-MM-DD`, two separate label/value nodes, no
+>     separator character invented).
+> - **Typo corrected** — `30:3078` (the Tips banner text, full string):
+>   - Before: `You can launch directly from your Creative Library. Select Creative sor
+>     Adgroups and start a launch anytime.`
+>   - After: `You can launch directly from your Creative Library. Select Creatives or
+>     Adgroups and start a launch anytime.`
+>
+> **What was explicitly NOT touched:** geometry — row-height sum re-verified at
+> `52 + 46 + 48 + 654 = 800`, holds; the 8 remote sub-nav tab instances (`Tab Item /
+> Basic`, ids `31:3415/3420/3425/3429/3433/3437/3441/3445`) re-verified as live
+> `INSTANCE` nodes with unchanged main components (1 Active + 7 Default, same keys as
+> before); nothing was detached. A pass-1 scan for any lime (`#8fb821`)-filled CTA with
+> a baked-in label inside the shell chrome found **0 matches** — no action needed under
+> PATCH 07 §V3.
+>
+> **No further edits to `25:2955` / `30:3599` are authorised beyond this second
+> exception.** Any future need goes back to Maalik.
+
 ---
 
 ## B. PRE-BUILT SHARED ASSETS — instance these, never rebuild
@@ -1111,3 +1188,747 @@ Notes and limits of the desktop route:
 **Consequence: no seat purchase and no plan upgrade is required for wave 2, and a
 second Figma account is not required either.** Capacity was an execution-pattern
 problem, not a licensing problem.
+
+---
+
+# PATCH 04 — SYNC ORCHESTRATOR RULINGS (BINDING, supersedes everything above)
+
+Written by the wave-2 sync orchestrator/integrator. Produced with **zero read-quota
+spend** — every fact below came back as the return value of a read-only `use_figma`
+script, not from `get_metadata` / `get_screenshot` / `get_libraries`.
+
+Where this patch contradicts §A–§K or PATCH 01–03, **this patch wins.**
+
+## S1. RULING — the usable content column is **1128px**, not 1136px
+
+**Verified empirically** on the live shell master `30:3599`:
+
+| Node | id | w | padL | padR |
+|---|---|---|---|---|
+| Content Area | `30:3600` | 1176 | 0 | 0 |
+| Sub Nav | `31:3414` | 1176 | **20** | 0 |
+| Filter Bar | `32:3430` | 1176 | **20** | **20** |
+| **Page Body** | `32:5666` | **1176** | **24** | **24** |
+
+`1176 − 24 − 24 = ` **`1128`**.
+
+**Root cause of the conflict, on record:** §C.2's line
+*"Usable content column | 1136px (1176 − 20 − 20)"* derived the number from the
+**chrome inset (20px)**, which is correct for `Sub Nav` and `Filter Bar` — and then
+wrongly applied it to `Page Body`, which is padded **24**. §C.2 contradicted itself:
+the same table already states `Page Body … padding 24 all sides`. The 20px figure is
+real, but it belongs to the chrome rows, not to the content column.
+
+**RULING:**
+- **Build all `Page Body` content to a 1128px column.** This confirms PATCH 01 §P5.10.
+- §C.2's "1136px" row and every "1136" in §I (B1's `1136 wide`, B2's `the 1136 column`,
+  B7's `inside the 1136 column`) are **superseded — read 1128**.
+- Chrome rows keep their 20px inset. Do not "harmonise" them to 24; the master is law
+  and it is already correct.
+- Frames already built to 1136 are **8px over** and must be narrowed to 1128, not
+  re-centred. This is a `resize()` on plain frames — but on any `CR2/Creative Card`
+  instance use `rescale()` per §P5.6, never `resize()`.
+
+## S2. RULING — canvas slot collision at (0, 3680) resolved
+
+§A.2 assigns `(0, 3680)` to the **Interaction spec board**. §G.2 assigns the same
+`(0, 3680)` to the **ENTRANCE frame sequence**. §G.6 then says the spec board sits
+*"past your ENTRANCE frames"* without giving a coordinate. Three statements, two of
+them mutually exclusive.
+
+**RULING — the `y = 3680` row is the ENTRANCE row. The spec board moves right:**
+
+| Contents | x | y |
+|---|---|---|
+| `ENTRANCE / <Screen> / 0 … N` | `0`, `1560`, `3120`, `4680`, `6240`, `7800` | `3680` |
+| `SPEC / <Screen> / Interactions` | **`9360`** | `3680` |
+
+`9360 = 6 × 1560` — the first free column after the maximum entrance sequence any
+screen needs (Overview's is the longest at 6 frames: 5 sections + 1). The number is
+derived, not arbitrary, so a screen with a shorter sequence still puts its spec board
+at 9360 and the row stays aligned file-wide.
+
+This confirms PATCH 01 §P5.11 and makes it the single citable rule.
+**§A.2's `(0, 3680) — Interaction spec board` row is superseded.**
+A screen needing more than 6 entrance frames must report, not spill past x=9360.
+
+## S3. VERIFIED INTACT — Foundations `25:2954` and shell master `30:3599`
+
+Confirmed unmodified against §B.2 and §C.2. No builder has damaged either.
+
+- **Foundations: 13/13 components present.** Every node id AND every `key` in §B.2 is
+  exact. Variant counts exact: Bucket Chip 10 · Confidence Chip 4 · Trust Meter Chip 2 ·
+  Metric Cell 12 · Creative Thumb 9 · Creative Card 4 · Bucket Tab 4 · Bucket Tab Row 4 ·
+  Recommendation Row 3 · Glass Panel (component) · Drawer Band (component) ·
+  Chart Placeholder 8 · Why Dot 2. The 7 other top-level nodes are the intended TEXT
+  section labels (Chips / Cells / Cards / Rows / Panels / Charts / Markers).
+- **Local variables: 1 collection only** — `CR2 Tokens`
+  `VariableCollectionId:26:2954`, single mode `Light`, **35 variables**. No second mode,
+  no dark variant, no rogue collection. §K.9 holds file-wide.
+- **Shell master geometry matches §C.2 exactly**, including the row sum
+  `52 + 46 + 48 + 654 = 800` ✓. Master has 3 top-level children (rail `30:2988` w64 ·
+  nav `30:3028` x64 w200 · Content Area `30:3600` x264 w1176) and 273 descendants.
+- **Sub-nav: 8/8 tab instances present**, all still live remote instances (none
+  detached), `Overview` = `State=Active`, the other 7 `State=Default`. Their mains are
+  individual variants of `Tab Item / Basic` — variant-level keys (`8fd25728eb…` active,
+  `7c378ff7b6…` default) differ from §D.1's **set**-level key
+  `130fcad83f17df1eb67ea6c108240f697a507eef`. **This is expected, not a defect** — do
+  not "fix" it.
+
+### S3.1 Generalise §P5.9 — Foundations keys are local, prefer node ids
+`CR2/Trust Meter Chip`'s key `f07cf72d…` is present on the node but does not resolve
+through `importComponentByKeyAsync`, because the Foundations components are **local and
+unpublished** — their keys only resolve inside this file. **Rule: always reach
+Foundations components by same-file `getNodeByIdAsync(<§B.2 node id>)`.** Treat every
+`importComponentByKeyAsync` against a `CR2/*` key as a bug, not bad luck.
+
+## S4. FF-NEW DUPLICATION AUDIT — Maalik's question, answered
+
+Method: enumerated every subscribed library variable collection, indexed all variable
+names, looked for one name resolving to more than one literal, then walked the live
+library-component instances on the shell master to see whether their internals **bind
+tokens or hard-code literals**. All inside one `use_figma` script — 0 reads.
+
+### S4.1 The same-name-different-literal problem is GONE — but it was cured by subtraction, not by fixing the library
+
+`getAvailableLibraryVariableCollectionsAsync()` now returns **exactly one** collection:
+
+| Library | Collection | Variables |
+|---|---|---|
+| **Design System - FF new** | `Default` | **1855** |
+
+- **1855 unique names. 0 duplicate names. 0 literal conflicts.**
+- **§J.1 is RESOLVED** — the file subscribes to FF-new.
+- **§J.12 is RESOLVED-BY-UNSUBSCRIBE, not de-duplicated.** J.12 observed
+  `colorTextTertiary` as both `rgba(15,15,12,0.55)` and `rgba(0,0,0,0.45)`, and
+  `colorError` as both `#ff4d4f` and `#dc4446`. Those were **cross-library** collisions
+  that existed only while FF non-new + LF 2.0 were also subscribed. With FF-new the sole
+  variable source, each name resolves exactly once. **The corrosive symptom is gone; the
+  underlying ramps in the sibling libraries were never reconciled.** If anyone ever
+  re-subscribes FF non-new or LF 2.0 to this file, J.12 returns in full. Keep FF-new as
+  the only subscribed variable library.
+
+### S4.2 The real duplication inside FF-new is *many names → one value*, not one name → many values
+
+Three parallel naming systems coexist in the single collection, and components draw
+from all three interchangeably:
+
+1. **Raw palette** — `color/grey/14`, `color/grey/65`, `color/grey/96`
+2. **Semantic** — `Colors/Neutral/Text/colorTextSecondary`, `Colors/Neutral/Icon/colorIcon`
+3. **Per-component** — `Components/Button/Component/defaultColor`,
+   `Components/Badge/Global/colorError`, `Components/Menu/Component/popupBg`,
+   `Components/Tabs/Component/itemSelectedColor`
+
+Observed consequences:
+- The secondary-nav item's label binds to **`color/grey/65`** (raw palette) where the
+  semantic `colorTextSecondary` is what it means.
+- The avatar's surface binds to **`color/grey/14`** and its text to **`color/grey/96`**.
+- **Token mis-scoping, the clearest smell:** the `facebook`, `tiktok` and
+  `perm-media` icon vectors all bind to
+  **`Components/Descriptions/Global/colorTextTertiary`** — a *Descriptions*-component
+  token consumed by unrelated social icons. The `Components/*` namespace is therefore
+  **not** actually component-scoped in practice, so renaming or retuning a
+  `Components/X/...` token has unpredictable blast radius.
+
+### S4.3 Centralisation is INCONSISTENT — and the flagship `*Button*` is the worst offender
+
+Direct answer to *"does a Button's text colour reference `colorTextSecondary`, or
+hard-code a literal?"* → **It hard-codes. `*Button*` does not reference a text token.**
+
+| Library component | Main | Label text fill | Verdict |
+|---|---|---|---|
+| **`*Button*`** | `3:3` | **LITERAL `#434343`** | ❌ **hard-coded** — only its 4 corner radii are bound |
+| `Dropdown Button Basic` | `28:3107` | BOUND `Components/Button/Component/defaultColor` | ✅ bound (bg → `defaultBg` too) |
+| `Tab Item / Basic` | `3:42` | BOUND `Components/Tabs/Component/itemSelectedColor` | ✅ bound |
+| `*Badge* / Basic` | `3:36` | BOUND `Components/Badge/Global/colorBgContainer` | ✅ bound |
+| `Menu Item / Popover Menu` | `3:791` | BOUND `Components/Menu/Component/popupBg` | ✅ bound |
+| `Icon / *Outlined` (all sampled) | — | vector BOUND `Colors/Neutral/Icon/colorIcon` | ✅ bound |
+| **`*Breadcrumb*` + `Breadcrumb Link` + `Breadcrumb Separator`** | `3:653` / `3:618` / `3:627` | **LITERAL `#000000 @45%` / `@88%`** | ❌ **hard-coded** |
+
+**The irony worth reporting to Maalik:** `Components/Button/Component/defaultColor`
+**exists** and `Dropdown Button Basic` consumes it correctly — but `*Button*` itself,
+the component every screen uses most, ignores it and paints `#434343`. So a brand
+retune would move every dropdown and leave every button behind. This, not variable
+duplication, is the highest-risk defect in the library today.
+
+### S4.4 There is no font-family token discipline — this is why the Inter→Geist sweep must be per-node
+
+Across every component sampled, `fontFamily` was bound on **exactly one** node (the
+avatar's initials, `Component 5` `3:573`). `fontSize` is bound on some, `fontFamily`
+almost never.
+
+**Consequence:** the P2 / Q1 Inter→Geist retrofit **cannot** be done by flipping a
+library font token — no such token is wired. It must remain a per-text-node `fontName`
+override sweep.
+
+> **CORRECTION — I got the second half of this wrong, and B1 disproved it empirically.**
+> I originally wrote that text inside library instances is "unfixable without
+> detaching". **That is false.** B1's sweep over page `25:2956`: **1817 text nodes
+> scanned, 1040 changed to Geist, 777 already Geist, 0 other families, and ZERO
+> blocked.** Font is an *overridable text property* on an instance child — only
+> *structural* edits (`appendChild` / `remove`) are blocked inside instances. So
+> **PATCH 02 §Q1's predicted "expected blocked set" (Button / Tab Item / Segmented
+> labels) does not materialise.**
+>
+> Two consequences: (1) the blocked-font log on the Handoff page is expected to be
+> **empty**, and every other builder's page should also come out fully Geist;
+> (2) therefore **any Inter the consistency sweep finds is a genuine miss, not an
+> accepted limitation** — it gets fixed, not logged.
+>
+> **§J.4 stays OPEN, not a blocker.** Its value is drift-prevention for future
+> modules, not unblocking this retrofit.
+
+Also found: `*Breadcrumb*`'s main components use **`SF Pro Text Regular`** — a third
+font family, neither Inter nor Geist, entering the file through the shell header's
+breadcrumb. Library-side finding; logged, not fixable here.
+
+### S4.5 We introduced our own duplicates — logged, deliberately NOT fixed
+
+§E.2 says use `CR2 Tokens` **only** where §E.1 has no library equivalent. Four do have
+one and duplicate it by value:
+
+| Local token | Value | Library equivalent that already exists |
+|---|---|---|
+| `CR2/Accent/primary` | `#8FB821` | `Colors/Brand/Primary/colorPrimary` `#8fb821` |
+| `CR2/Surface/card` | `#FFFFFF` | `Colors/Neutral/colorWhite` |
+| `CR2/Surface/page` | `#FFFFFF` | `Colors/Neutral/colorWhite` |
+| `CR2/Radius/control` | `6` | `Components/Button/Global/borderRadius` |
+
+§A.3 forbids adding or removing variables, so **nothing is deleted.** Recorded as a
+cleanup item for the architect. `CR2/Accent/primary-text` `#5B7611` is **not** in this
+list — §E.3/§J.3 keep it deliberately, on AA grounds.
+
+## S5. OPEN DECISION FOR MAALIK — the shell master is the Inter source, and it is frozen
+
+Font census of `30:3599` itself: **Inter Regular ×23, Inter Medium ×1, Inter Semi Bold
+×1 = 25 Inter text nodes**, against Geist Medium ×11, Geist Regular ×4, Geist Mono
+Medium ×1, Geist Mono Regular ×1.
+
+All nine screen pages were cloned from this master, so **every page inherited those 25
+Inter nodes.** PATCH 01 §P2 requires zero Inter file-wide.
+
+The master lives on page `25:2955`, which §A.3 freezes. The orchestrator has therefore
+**not modified it** and has swept the nine builder pages instead. That makes everything
+that ships Geist-correct, but leaves a trap:
+
+> **Any future clone of `30:3599` reintroduces 25 Inter nodes.**
+
+Same issue for layer naming: the master carries `Group 372` (`30:3046`),
+`Frame 1000002832` (`30:3066`), `Frame 2147225662` (`30:3070`),
+`Frame 2147225614` (`30:3072`), `Frame 2147225664` (`30:3074`) — all §K.4 violations
+that every clone inherits. (The `Vector` layers are not on §K.4's list, and those with
+`I…;…` ids are inside instances and unrenameable.)
+
+**Options — Maalik's call, not the orchestrator's:**
+- **(A) Recommended.** Authorise one sanctioned architect edit to `30:3599`: Inter→Geist
+  on its 25 own text nodes + rename the 5 bad layers. Cost: one script. Every future
+  clone is then born clean.
+- **(B) Status quo.** Master stays frozen; every new clone needs a manual sweep forever.
+
+Until (A) is authorised, treat **"clone the master, then immediately run the Q1 sweep and
+the layer-rename pass"** as a mandatory two-step, never a one-step.
+
+## S6. RULING — PROTOTYPE REACTIONS ARE PAGE-SCOPED. §G.3 and §G.4 are impossible as written.
+
+B1 hit this first. **Independently re-verified by the orchestrator**, with the correct
+`actions[]` reaction shape and a passing same-page control:
+
+| Probe | Result |
+|---|---|
+| `NAVIGATE`, **same page** (control) | ✅ **OK** — reaction stored |
+| `NAVIGATE`, cross-page → `39:10206` (B2 grid) | ❌ **REJECTED** |
+| `NAVIGATE`, cross-page → `39:13954` (B1 overview) | ❌ **REJECTED** |
+
+Figma's own error text, verbatim and decisive:
+
+> *"destination `39:10206` was rejected — … for NAVIGATE actions, destinations must be a
+> **different top-level frame on the same page**"*
+
+**This is Figma product behaviour, not a Plugin API defect and not a builder error.**
+Prototype flows are page-scoped by design.
+
+**Therefore these spec claims are WRONG and are hereby struck:**
+- §G.3: *"Cross-page overlay targets work; use B9's node id."* — **false.**
+- §G.4 "Cross-screen": *"each sub-nav tab links to the other builder's Populated frame
+  … each builder wires their own 8 links."* — **impossible**, those 9 frames are on 9
+  different pages.
+- PATCH 01 §P6's instruction to wire every screen's rows to `39:24264` — **impossible
+  cross-page.** The drawer id is still correct; the wiring location is not.
+
+### S6.1 The fix — one dedicated flow page, wired against local copies
+
+All cross-screen prototyping moves to a **new page `PROTOTYPE · Flow`**. The Handoff
+page `25:2965` is NOT displaced.
+
+1. **Copy, don't componentize.** Each screen's Populated frame is `clone()`d onto the
+   flow page. `createComponentFromNode` was considered and **rejected**: it mutates a
+   builder's frame in place, changes what the registry ids denote, and risks the state
+   boards that are the documentation deliverable. Clones are writes, so free, and they
+   leave every builder's page byte-identical. **Tradeoff, stated honestly:** the flow
+   page's copies are snapshots — if a builder later edits their page, the flow page does
+   not follow. Acceptable at end-of-wave; re-clone if a screen changes.
+2. One clone of B9's drawer `39:24264` goes on the flow page as the overlay target.
+3. Wire on the flow page only: the 8 sub-nav tabs, Overview's `View all N in the grid`
+   → Grid Populated, `Open Automations` → Rules Populated, and creative-row → drawer
+   (Move In from Right / Ease In And Out / **500 ms**).
+4. Flow starting frame = the Overview clone.
+5. **Leave every per-screen page's internal same-page wiring exactly as the builders
+   left it** — bucket-tab switching, state toggles, B1's threshold popover `65:58533`.
+   Those are same-page and work.
+
+### S6.2 Overlay reaction shape — two gotchas that cost probes
+- `overlayRelativePosition` is **only** accepted when the destination frame has
+  `overlayPositionType === "MANUAL"`. Otherwise Figma throws
+  *"Actions only support overlayRelativePosition when navigation is 'OVERLAY' and the
+  destination is a frame with overlayPosition equal to 'MANUAL'"*. For the right-anchored
+  drawer: set `overlayPositionType = "MANUAL"` on the drawer frame first, then supply the
+  position.
+- Scrim and dismiss behaviour are properties of the **destination frame**, not the
+  reaction: `overlayBackground` (black @80% per §G.3) and
+  `overlayBackgroundInteraction = "CLOSE_ON_CLICK_OUTSIDE"`.
+- Use the `actions: [...]` **array**. The singular `action` field is deprecated and
+  throws *"Please update the `actions` field instead of the `action` field"*.
+
+## S7. §A.2 / §G.2 slot collision — closed, moot on canvas
+
+Verified without spending a read. B1's ENTRANCE frames occupy `x = 0, 1560, 3120, 4680,
+6240, 7800` all at `y = 3680`, and `SPEC / Overview / Interactions` (`52:20813`) sits at
+`x = 9360` on that same row. **No overlap exists on canvas** — the collision was only ever
+in the prose. S2's ruling is therefore a documentation fix that matches what is already
+built, and needs no rework on B1's page.
+
+---
+
+# PATCH 05 — LIBRARY FINDINGS (`Design System - FF new`)
+
+Produced by the wave-2 orchestrator's variable + centralisation audit. **Zero read-quota
+spend** — all of it came back as the return value of one read-only `use_figma` script
+that enumerated every subscribed library variable collection and then walked the live
+library-component instances on the shell master.
+
+**Nothing in this patch may be acted on inside the library file
+`7h5lI7IieGCuAuySfJVKxS`.** These are asks for Maalik to approve or reject. They are
+recorded here and mirrored onto the Handoff board `66:71622`.
+
+## T0. The headline — the duplication problem was cured by subtraction, not by repair
+
+`getAvailableLibraryVariableCollectionsAsync()` now returns **exactly one** collection:
+
+| Library | Collection | Variables | Duplicate names | Literal conflicts |
+|---|---|---|---|---|
+| `Design System - FF new` | `Default` | **1855** | **0** | **0** |
+
+§J.12 was real when it was written. It observed
+`Colors/Neutral/Text/colorTextTertiary` resolving as **both** `rgba(15,15,12,0.55)`
+**and** `rgba(0,0,0,0.45)`, and `Colors/Brand/Error/colorError` as both `#ff4d4f` and
+`#dc4446`. Those were **cross-library** collisions that existed only while
+`Design System - FF` (non-new) and `LF 2.0` were *also* subscribed. PATCH 01 §P3
+unsubscribed them, and the symptom vanished with them.
+
+> ### ⚠️ STANDING WARNING — this fix is latent, not permanent
+> **The sibling libraries' neutral and error ramps were never reconciled.**
+> Re-subscribing `Design System - FF` (non-new) or `LF 2.0` to
+> `a4R8eBl0xyNFENEJiLor0j` **resurrects the `colorTextTertiary` / `colorError`
+> collision in full**, and every builder immediately loses the ability to trust a token
+> name to mean one colour.
+>
+> **Rule: `Design System - FF new` is the ONLY variable library this file may
+> subscribe to.** Adding another is an architect + Maalik decision, never a builder's,
+> and it invalidates §E.1's mapping the moment it happens.
+
+## T1. J.13 — `*Button*` hard-codes its label colour. **Highest-risk defect in the library.**
+
+| | |
+|---|---|
+| **Component** | `*Button*`, main `3:3`, key `792294bb1a6684844c21f483ba3b427c0701a153` |
+| **Defect** | Label TEXT fill is **literal `#434343`**. `fontSize` unbound, `fontFamily` unbound. Only its 4 corner radii are bound to variables. |
+| **The damning part** | **`Components/Button/Component/defaultColor` already exists** — and `Dropdown Button Basic` (`28:3107`) consumes it correctly, alongside `defaultBg` for its background. |
+| **Consequence** | A brand retune moves every dropdown, every tab, every badge, every menu — **and leaves every button behind.** The most-used component in the system is the one that ignores its own tokens. |
+| **Proposal** | Bind `*Button*`'s label fill to `Components/Button/Component/defaultColor` and its background to `defaultBg`, per state. |
+| **Impact if rejected** | Every button in every FabAds module needs a manual colour override forever, and no theme change can ever be trusted to be complete. |
+
+Same defect class, same evidence, lower blast radius: **`*Breadcrumb*` / `Breadcrumb
+Link` / `Breadcrumb Separator`** (`3:653` / `3:618` / `3:627`) paint literal
+`#000000 @45%` and `@88%`.
+
+## T2. J.14 — the `Components/*` namespace is not actually component-scoped
+
+`Components/Descriptions/Global/colorTextTertiary` — a token named for the
+*Descriptions* component — is the bound fill on the vectors of **`ic:round-facebook`,
+`ic:baseline-tiktok` and `material-symbols:perm-media-outline-rounded`**. Three
+unrelated social/media icons consuming a Descriptions token.
+
+**Consequence:** the `Components/X/...` prefix carries no guarantee about *what
+consumes it*. Renaming or retuning any `Components/X` token has **unpredictable blast
+radius** across unrelated components. This also undermines the natural fix for J.13 —
+re-pointing tokens is only safe once consumption is actually scoped.
+
+**Proposal:** re-point cross-consumed tokens to the semantic `Colors/Neutral/*` ramp,
+and reserve `Components/X/*` for tokens genuinely consumed only by component X.
+
+## T3. J.15 — `*Breadcrumb*` introduces a third font family
+
+The breadcrumb mains use **`SF Pro Text Regular`** — neither Inter nor Geist.
+
+**Not a defect in our file.** Our breadcrumb instances carry local font overrides, so
+nothing in `a4R8eBl0xyNFENEJiLor0j` renders SF Pro (post-master-fix census:
+`remainingNonGeist: []`). It is a latent trap for any *other* consumer of the library.
+Fixing it requires editing the library file — forbidden. **Logged only.**
+
+## T4. The real duplication inside FF-new: **many names → one value**
+
+Not one name resolving to many values (that was J.12, cross-library). Inside the single
+FF-new collection there are **three parallel naming systems**, and components draw from
+all three interchangeably:
+
+| Layer | Examples | Observed consumer |
+|---|---|---|
+| **Raw palette** | `color/grey/14`, `color/grey/65`, `color/grey/96` | secondary-nav item label binds `color/grey/65` where semantic `colorTextSecondary` is what it *means*; avatar binds `color/grey/14` + `color/grey/96` |
+| **Semantic** | `Colors/Neutral/Text/colorTextSecondary`, `Colors/Neutral/Icon/colorIcon` | the `Icon / *Outlined` family — the best-behaved group in the library |
+| **Per-component** | `Components/Button/Component/defaultColor`, `Components/Badge/Global/colorError`, `Components/Tabs/Component/itemSelectedColor`, `Components/Menu/Component/popupBg` | `Dropdown Button Basic`, `*Badge*`, `Tab Item / Basic`, `Menu Item` |
+
+**Proposal:** declare the semantic layer canonical, demote the raw palette to
+primitives that only semantic tokens may alias, and stop components consuming raw greys
+directly. This is the structural fix that makes J.13 and J.14 safe to execute.
+
+## T5. No font-family token discipline — and the correction that matters more
+
+Across every component sampled, **`fontFamily` was bound on exactly one node** (the
+avatar's initials, `Component 5` `3:573`). `fontSize` is bound on some; `fontFamily`
+almost never.
+
+So the Inter→Geist retrofit can never be a token flip. **But — and this reverses my own
+earlier conclusion — it does not need to be.**
+
+> ### CORRECTION ON RECORD (supersedes my §S4.4 first draft and PATCH 02 §Q1's prediction)
+>
+> I originally wrote that text inside library instances is **"unfixable without
+> detaching"**. **That is false, and it was the more consequential error of the two.**
+>
+> **Font is an overridable text property on an instance child. Only *structural* edits
+> (`appendChild` / `remove`) are blocked inside instances.**
+>
+> Evidence, twice over:
+> - **B1's page sweep:** 1817 text nodes scanned, 1040 changed to Geist, 777 already
+>   Geist, **0 blocked**.
+> - **The master fix:** 42 scanned, 25 changed (including all 8 remote sub-nav tab
+>   labels), **0 blocked**, `remainingNonGeist: []`.
+>
+> **Therefore PATCH 02 §Q1's predicted "expected blocked set" — `*Button*` labels,
+> `Tab Item` labels, `*Segmented*` labels — does not exist.**
+>
+> **Two consequences that change how the gate is run:**
+> 1. **The blocked-font log is EMPTY, and that is the correct outcome** — not a gap.
+> 2. **Any Inter the consistency sweep finds is a genuine miss to be FIXED, never a
+>    limitation to be logged.** There is no longer an excuse category for residual Inter.
+>
+> **§J.4 is downgraded from BLOCKER to OPEN.** Its value is drift-prevention for future
+> modules, not unblocking this retrofit.
+
+## T6. Self-inflicted duplicates — ours, logged, deliberately not deleted
+
+§E.2 permits `CR2 Tokens` **only** where §E.1 has no library equivalent. Four have one:
+
+| Local token | Value | Library equivalent that already exists | Verdict |
+|---|---|---|---|
+| `CR2/Accent/primary` | `#8FB821` | `Colors/Brand/Primary/colorPrimary` `#8fb821` | exact duplicate — architect cleanup |
+| `CR2/Surface/card` | `#FFFFFF` | `Colors/Neutral/colorWhite` | duplicate — architect cleanup |
+| `CR2/Surface/page` | `#FFFFFF` | `Colors/Neutral/colorWhite` | duplicate — architect cleanup |
+| `CR2/Radius/control` | `6` | `Components/Button/Global/borderRadius` | duplicate — architect cleanup |
+| `CR2/Accent/primary-text` | `#5B7611` | `fab-funnel/7` `#749818` — **3.6:1, fails AA** | **KEEP** — deliberate, §E.3 / §J.3 |
+
+**§A.3 forbids adding or removing variables, so nothing has been deleted.** Recorded as
+a cleanup item. Note the asymmetry: four are avoidable drift; the fifth is a deliberate,
+documented accessibility divergence and must survive any cleanup.
+
+## T7. Summary of J-list status after this audit
+
+| Status | Items |
+|---|---|
+| **RESOLVED** | J.1 (file now subscribes FF-new, sole variable source) |
+| **RESOLVED, but latent** | J.12 (cured by unsubscribing, ramps never reconciled — see T0's standing warning) |
+| **NEW, top risk** | **J.13** (`*Button*` hard-codes `#434343`) |
+| **NEW** | J.14 (`Components/*` not scoped), J.15 (`*Breadcrumb*` SF Pro Text + literal blacks) |
+| **DOWNGRADED** | J.4 (blocker → open; the font sweep works without it) |
+| **ACCEPTED** | J.11 (`CR2/Creative Card` stays a product-level component) |
+| **OPEN, unchanged** | J.2 (charts — still the highest-value addition), J.3, J.5, J.6, J.7, J.8, J.9, J.10 |
+
+---
+
+# PATCH 06 — GEOMETRY REMEDIATION + FLOW PAGE (integrator pass)
+
+## U1. §P5.7 clipping was the largest defect in the file. Fixed on 5 pages.
+
+The audit measured content bottom against frame height on every clipping container across
+all 9 pages. Clipping was **far more widespread than any single builder saw** — B2 found
+its own, B6 fixed its own, and nobody found B1's.
+
+| Page | What was clipped | Overflow | Status |
+|---|---|---|---|
+| **B1 Overview** | **13 frames.** Page Body fixed at 654 holding 1393–1725px. `OverviewBreakdown` truncated mid-table; **`RecommendationsCard` and `AutomationsPreview` were entirely invisible** | **799–1071px** | ✅ **FIXED** — all 13 frames hug; Populated 800→1623 |
+| **B2 Creatives** | Grid Populated — third card row (the `hover` + `selected` demo cards) entirely clipped | 458px | ✅ **FIXED** — 800→1282, verified by screenshot |
+| **B5 Automations** | `Boards content` + its Page Body | 196px | ✅ **FIXED** — 606→802 |
+| **B6 Owner report** | Loading Page Body (B6 fixed Populated but missed Loading); Content Area on 2 frames | 1001px / 41px | ✅ **FIXED** |
+| **B7 Brief builder** | `Content Column` fixed at h=200 on Loading / Empty / Filtered-empty / Error | 111–493px | ✅ **FIXED** — Loading 200→1186 |
+| B3 Components | only instance-internal `table` frames (the documented-broken library `*Table*` monolith) | 333px horizontal | ⚠️ **NOT FIXED — unfixable.** Inside instances; §A.3 forbids detaching. Library defect. |
+| B4 Compare | `Chart — line-multi` instance overflows its own 220px box | 50px | ⚠️ **NOT FIXED** — inside a Foundations instance; cosmetic. Logged. |
+| B8 Saved views | none | — | ✅ clean as built |
+
+**The fix routine** (reusable, and the correct reading of §P5.7):
+1. `clipsContent = false` on the offending container, then `layoutSizingVertical = "HUG"`
+   (fall back to `primaryAxisSizingMode = "AUTO"`).
+2. Cascade heights **upward**: recompute each ancestor's height from its content bottom,
+   through `Page Body` → `Content Area` → outer frame.
+3. Resize the icon rail and secondary nav to the new frame height.
+4. Reposition the rail's bottom-pinned block to `railHeight − blockHeight`.
+
+### U1.1 Correction to §P5.7 and to B6's report — the rail constraint is `MAX`, not `MIN`
+§P5.7 and B6 both state the rail's bottom block is `constraints.vertical = "MIN"` and
+therefore "does not follow" a resize. **Measured on every frame: it is `MAX`.** It *does*
+follow. B6's real defect was different and worse: on **10 frames** the block sat at
+`y = 2770` inside an `1849`-tall rail — **overshooting the bottom edge by exactly 1049px**
+on every one, i.e. positioned for a taller frame and never brought back when the frame
+shrank. All 10 corrected.
+
+## U2. Row re-pitch — §A.2's 920px pitch cannot survive the unclip
+
+Taller frames overlap the row below, which violates §K.12. Each remediated page was
+re-pitched to `max(rowHeight) + 120`, rounded up to 20:
+
+| Page | New row pitch | Frames moved |
+|---|---|---|
+| B1 Overview | **2020** | 17 |
+| B2 Creatives | **1420** | 11 |
+| B5 Automations | **1240** | 10 |
+| B6 Owner report | **2020** | 19 |
+| B7 Brief builder | **1760** | 14 |
+
+**§A.2's fixed 920px row pitch is superseded for these pages.** The *column* pitch (1560)
+is unchanged everywhere. Row **order** is unchanged — row *n* still means the same state.
+Any future frame added to these pages must use the page's own pitch, not 920.
+
+## U3. AMENDMENT to §S2 — the spec board moves when a screen needs 7+ entrance frames
+
+§S2 put the SPEC board at `x = 9360` on the strength of "no screen needs more than 6
+entrance frames". **B6 needs 7** (`ENTRANCE / Owner report / 0…6`), so its entrance
+sequence occupies `x = 9360` and collided *exactly* with its own spec board — both at
+`(9360, 3680)`. Detected and resolved: **B6's spec board moved to `x = 10920`.**
+
+**Amended rule:** the SPEC board goes at `x = 1560 × (entranceFrameCount)`, i.e. the first
+free column after the entrance sequence — `9360` for the common ≤6 case, `10920` for 7.
+Do not hard-code 9360.
+
+## U4. The drawer overlay — scrim and click-outside recovered without the read-only props
+
+`overlayPositionType`, `overlayBackground` and `overlayBackgroundInteraction` are all
+**read-only** in this Plugin API (confirmed by B4, B9 and the orchestrator independently),
+so §G.3's "position Right, scrim black 80%, close when clicking outside ON" could not be
+set as frame properties.
+
+**Solved structurally instead, and it needs no manual finish:**
+- `OVERLAY / Drawer / Scrim wrapper` **`78:13253`** — a full-bleed **1440×800** frame whose
+  own fill **is** the scrim: **black @ 80%**, exactly §G.3.
+- The drawer clone is nested inside it, **pinned right at x=720**, resized to a 720×800
+  viewport with `overflowDirection = "VERTICAL"` so its 3774px of bands scroll.
+- `Scrim hotspot — click outside to close` **`78:13254`** covers the left 720px,
+  transparent, carrying **`{type:"CLOSE"}`** — which restores the click-outside dismissal
+  the read-only property denied.
+
+Every screen's row/card opens **the wrapper**, not the bare drawer. Because the wrapper is
+a full-bleed frame, the default `overlayPositionType = "CENTER"` lands it exactly over the
+viewport, so the read-only position property stops mattering.
+
+**Rule for future overlays: never fight the read-only overlay properties. Build a
+full-bleed wrapper with a real scrim fill and an explicit `{type:"CLOSE"}` hotspot.**
+
+## U5. Reaction schema — the four shapes that actually work
+
+Consolidated from B6, B7, B9 and the orchestrator's own probes. Every one confirmed by a
+validation error, not guessed:
+
+| Need | Correct shape |
+|---|---|
+| Any reaction | `actions: [ … ]` — the **array**. Singular `action` throws *"Please update the `actions` field instead"* |
+| Instant transition | **`transition: null`** — a literal null. `{type:"INSTANT_TRANSITION"}` and an omitted field both throw |
+| Close an overlay | top-level **`{type:"CLOSE"}`** — no `transition`, no `destinationId`, and **not** `navigation:"CLOSE_OVERLAY"` nested under a `NODE` action |
+| `NAVIGATE` / `CHANGE_TO` destination | must be a **top-level frame on the same page**. Component-set variants and nested frames are both rejected |
+| `overlayRelativePosition` | only accepted when the destination frame's `overlayPositionType === "MANUAL"` — which is read-only, so in practice: never send it |
+
+## U6. Content gaps found by inspection, not reported by builders
+
+- **B1 never built §I-B1.2's overflow line or the `View all 12 in the grid` link.** Neither
+  string existed anywhere on page `25:2956`, which is why the cross-wiring queue item had
+  nothing to bind to. **Built and wired** on both the source (`81:20813` / link `81:20815`)
+  and the flow clone (`82:30945` / link `82:30947`), in `CR2/Accent/primary-text` `#5B7611`
+  — the AA-safe lime, never `#749818`.
+- **Geist has no Italic.** Available styles: Black, Bold, ExtraBold, ExtraLight, Light,
+  Medium, Regular, SemiBold, Thin. B9's 4 quoted script lines (§I-B9 "quoted italic") fell
+  back to **Geist Regular**, so the italic emphasis is lost — the quotation marks now carry
+  it alone. Needs a typographic call: accept, or switch those lines to a different weight.
+- **B9 wrote its own copy for the 3 modal bodies** (Pause / Relaunch / Edit targeting)
+  because those strings were not in the source extraction. Plausible product tone, but
+  **not verbatim from code** — the only such copy in the build. Flagged for a content pass.
+
+## U7. Layer naming — 500 violations cleared
+
+§K.4 requires zero `Frame N` / `Group N` / `Rectangle N` / `Ellipse N`. Every page carried
+the same 5 inherited shell layers × one per cloned frame. **500 renamed across B1–B8**
+(B9 had none — its drawer is not a shell clone), 0 unresolved, 0 remaining editable, using
+the same content-derived names applied to the master. The residual `Frame N` layers with
+`I…;…` ids live inside library instances and are unrenameable by design.
+
+---
+
+# PATCH 07 — MAALIK'S RULINGS (BINDING) + B2 motion-deviation record
+
+Written after Maalik reviewed the open accessibility/library questions raised by
+PATCH 05 (§T) and the bare-dash question raised by §F.4/§K.10. These three rulings
+are now binding spec. Where they contradict §F.4, §K.10, §E.1, §E.3, §J.3, or
+PATCH 05 T6, **this patch wins.**
+
+## V1. RULING — bare `—` in `ConfidenceChip` is COMPLIANT, not a defect. The rule is narrowed.
+
+§K.10's blanket line — *"No lorem, no placeholder, no bare `—` for missing data"* —
+read literally, as if any bare dash anywhere is a defect. **That is not the intent, and
+it is hereby narrowed:**
+
+> **The rule is: no bare dash *without an accessible explanation*.** A dash that carries
+> a tooltip (or adjacent visible text) naming the method and the reason IS the honest
+> "why" the rule exists to enforce — it is not the thing the rule bans.
+
+**Verified against source** — `src/creative-report/components/ConfidenceChip.tsx`:
+- The `na` variant's `label` is literally `"—"` (line 36).
+- But the chip is **always wrapped in a `Tooltip`** (`ConfidenceChip.tsx` lines 50–68):
+  the tooltip title renders `"{label} confidence"` and a body line renders `m.method`,
+  which for `na` is the verbatim string *"No video on this creative, so this signal
+  doesn't apply."* (line 38).
+- So every bare-dash chip in this codebase ships with its method + reason attached.
+  This is the documented contract stated in the component's own header comment:
+  *"The chip is ALWAYS visible; the tooltip explains how it was computed."*
+
+**RULING:**
+- **B3's 10 bare-dash `Confidence Chip` instances and B9's 1 are COMPLIANT — remove
+  them from every open-defect list, on every page and on the Handoff board.** They
+  carry the chip's tooltip (method + reason) exactly as `ConfidenceChip.tsx` specifies.
+- **A bare `—` with NO tooltip and NO adjacent explanation remains a defect** — that is
+  the actual failure mode §K.10 exists to catch. If a future builder finds a bare dash
+  standing alone with nothing explaining it, that is still logged and fixed.
+- This applies file-wide, not just to B2 — the ruling is about the rule's intent, not
+  about anything on B2's own page.
+
+## V2. RULING — `colorTextTertiary` at 4.24:1 is an ACCEPTED, documented deviation. Not an open defect. Not a library ask.
+
+**Verified by direct computation, not asserted:**
+
+`Colors/Neutral/Text/colorTextTertiary` = `#0f0f0c` at 55% opacity, over a white
+(`#ffffff`) background.
+
+Blending `rgba(15,15,12,0.55)` over white gives an effective solid of
+approximately `rgb(123,123,121)`. Its WCAG relative luminance is **0.1976**; against
+white's luminance of 1.0, the contrast ratio is:
+
+**(1.0 + 0.05) / (0.1976 + 0.05) ≈ 4.24:1**
+
+— 0.26 short of the AA body-text threshold (4.5:1), confirming §F.4's own note that
+this is why `#5B7611` (not this token) is used for lime text. It is **visually
+indistinguishable from a passing value** (a ~6% luminance gap), and it is the
+highest-volume text token in the entire build: **306 uses on B3, 214 on B1** (and
+present on every other page as the standard tertiary-text color).
+
+**RULING:**
+- **`colorTextTertiary` at 4.24:1 is an ACCEPTED, DOCUMENTED DEVIATION.** Do not log it
+  as an open defect on any page's report or on the Handoff board. Do not raise it as a
+  library ask (a token-value change at this scale would touch hundreds of instances
+  file-wide for a 0.26 gap that reads as identical on screen).
+- This is a deliberate accessibility tradeoff, made once, here — not something each
+  builder re-litigates per page.
+
+**Related finding, kept OPEN — the token name is ambiguous, and that IS a library-side item:**
+Two different variables in the library both carry the exact name
+`Colors/Neutral/Text/colorTextTertiary` with different values:
+`#0f0f0c` @ 55% → **4.24:1**, and `#000000` @ 45% → computed the same way, **3.35:1**.
+(`rgba(0,0,0,0.45)` over white blends to `rgb(140,140,140)`, luminance **0.2637**,
+contrast `(1.05)/(0.3137) ≈ 3.35:1`.) So "use `colorTextTertiary`" resolves to two
+different, non-interchangeable contrast ratios depending on which variable a component
+actually binds — this is the same symptom PATCH 05 §T0/§J.12 already logged for
+cross-library collisions. **This ambiguity stays an OPEN library-side item** (already
+tracked under J.12) — the 4.24:1 acceptance above covers the specific token this
+build binds to, not a blanket acceptance of whichever `colorTextTertiary` resolves at
+build time. If the library ever collapses these to one value, re-verify which one won.
+
+## V3. RULING — primary CTAs keep brand lime `#8fb821` exactly. Text switches to dark. Fill does NOT darken.
+
+White label on `#8fb821` fill measures **2.32:1** — fails AA by a wide margin (needs
+4.5:1). Two ways to fix a failing button: darken the fill, or darken the label.
+**Maalik's decision: darken the label, preserve the fill.** The brand lime is not
+negotiable; `#5B7611`-style fill-darkening (as was floated and rejected) would mute the
+one color the product uses as its active/selected signal (§E.5: *"Lime is active/selected
+only — never decorative"*) into something that reads as a duller, off-brand green.
+
+**Exact value to use:** near-black `#0f0f0c`, full opacity, as the label color on the
+`#8fb821` fill.
+
+**Computed contrast — done, not asserted:**
+`#0f0f0c` (linear-relative luminance **0.004696**) against `#8fb821` (linear-relative
+luminance **0.402603**):
+
+**(0.402603 + 0.05) / (0.004696 + 0.05) ≈ 8.27:1**
+
+— clears AA (4.5:1) by nearly double, and clears AAA (7:1) as well. This is not a
+marginal fix; `#0f0f0c`-on-lime has more headroom than most passing token pairs in this
+file.
+
+**Do NOT darken the fill to `#5B7611` or any other value.** The fill stays exactly
+`#8fb821` / `Colors/Brand/Primary/colorPrimary` everywhere. Only the label (and any
+icon glyph inside the same control) switches to `#0f0f0c`.
+
+**Every control this sweep must cover** (compiled so the later sweep is unambiguous —
+this patch defines the rule, it does not execute it):
+- "Save changes"
+- "Retry"
+- "Create rule" (B5 rule-builder modal footer)
+- "Save current view" (B8)
+- "Generate variation" (B9 drawer action bar — primary button)
+- B6 Owner-report wizard step numbers/labels wherever they render on a lime fill
+  (§I-B6 `*Steps*` — any active-step chip using the primary fill)
+- Any other lime-filled primary button surfaced by the sweep — this list is the
+  known set at time of writing, not guaranteed exhaustive; the sweep agent must still
+  visually check each page rather than stop at this list.
+
+**Explicitly out of scope for this patch:** executing the sweep. B3, B5, B7, B8, B9 are
+currently held by other agents; PATCH 07 only defines the rule so whoever runs the
+sweep next has no ambiguity about the target value, the contrast math, or which
+controls are in scope. **Do not act on this list until those pages are free.**
+
+## V4. RECORD — B2's opacity-only entrance is an ACCEPTED motion deviation, now spec-level
+
+B2's `SPEC / Creatives / Interactions` board (`90:22242`) already logs, honestly and
+correctly, that its `ENTRANCE` sequence omits the `translateY(6px)` portion of the
+`cr-fade-up` recipe and reveals sections by opacity only. **Promoting that page-local
+note to spec-level so it is not re-flagged as a miss by a future monitor pass:**
+
+**RULING:** the `translateY(6px) → 0` half of `cr-fade-up` is **not achievable** inside
+`Page Body`, because `Page Body` (`32:5666`) is a `VERTICAL` auto-layout frame — its
+children's position is computed from the layout (stack order + gap + padding), not from
+free `x`/`y`, so a manual per-child `y` offset either gets silently overwritten by the
+auto-layout pass or, if forced, breaks every sibling's position below it. This is a
+structural constraint of auto-layout, not a builder oversight.
+
+- **Accepted file-wide wherever a screen's entrance sections live inside a `VERTICAL`
+  auto-layout `Page Body`** (true for every one of the 9 screens per §I) — opacity-only
+  reveal is the correct implementation of `cr-fade-up` in this context, not a partial one.
+- B6 logged the identical simplification independently (§U6 cross-reference) — this is
+  now the documented rule both builders converged on, not a coincidence to re-question.
+- Do not ask a future builder to "fix" the missing translateY by detaching Page Body's
+  auto-layout or by absolute-positioning children — either would break §K.12 (row/column
+  layout integrity) for a purely cosmetic 6px slide.
+
+## V5. Summary — what changes on open-defect lists because of this patch
+
+| Item | Was | Now |
+|---|---|---|
+| B3's 10 + B9's 1 bare-dash Confidence Chips | Open defect (§K.10) | **Compliant — remove from defect lists** |
+| `colorTextTertiary` 4.24:1 | Open defect / library ask candidate | **Accepted, documented deviation — not open, not a library ask** |
+| `colorTextTertiary` name → 2 different values (4.24:1 vs 3.35:1) | — | **Stays OPEN, library-side (J.12 family)** |
+| Primary CTA white-on-lime (2.32:1) | Open contrast defect, fix unspecified | **Ruling recorded: label → `#0f0f0c` (8.27:1), fill unchanged. Sweep itself still pending — see V3's control list** |
+| B2 entrance opacity-only (no translateY) | Logged locally on B2's SPEC board only | **Promoted to spec-level accepted deviation, file-wide for any `VERTICAL` auto-layout `Page Body`** |
