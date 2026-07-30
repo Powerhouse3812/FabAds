@@ -1302,3 +1302,396 @@ items must not be quietly promoted:
   per-page counts are undercounts) · focus states · §F.2/§K.5 element-level coverage · the
   634 hit-target figure · B7/B9 clip flags · §G.1 animation conformance · screen-reader and
   colour-blind checks.
+
+---
+
+### ADDENDUM 2 — SANCTIONED EXCEPTION #4: the master's 24 dead actions cleared
+
+**§17's Shell verdict and §19's item 1 are SUPERSEDED by §21–§24 below.**
+
+#### 21 · Exception #4 — `30:3599`, reactions only
+
+**Provenance, stated precisely:** authorised **via this session's task brief from the
+coordinating agent** — **not** a personal sign-off by Maalik. Maalik ruled on the *class*
+(delete, chosen over conversion); the decision to **extend that ruling to the frozen
+master** was the coordinating agent's. Recorded in full in `FIGMA-BUILD-SPEC.md` §A.3 as
+**SANCTIONED EXCEPTION ON RECORD #4**, alongside a newly-added **#3** (the state-frame
+work, which had only been recorded here before). §A.3's old closing line — "no further
+edits authorised beyond this second exception" — is now struck through and marked
+superseded rather than deleted, so the trail stays readable.
+
+**Rationale on record:** the master was the **last re-seeding vector**. Leaving its 24 dead
+actions meant every future clone inherits them and re-opens the defect that 3,798 deletions
+had just closed. §A.3's freeze exists to stop **concurrent builders** trampling shared
+chrome, **not** to prevent the integrator repairing a defect inside it.
+
+**Result — scoped exactly as tightly as the page sweeps:**
+
+| Metric | Before | After |
+|---|---|---|
+| Deleted (COMPONENT-variant-in-COMPONENT_SET destinations only) | — | **24** |
+| Dead remaining (metrics) | 24 | **0** |
+| **Dead remaining (warm, by actual page ancestry)** | — | **0** |
+| **Live NODE actions** | **0** | **0** (unchanged) |
+| `CLOSE` actions | 0 | 0 (unchanged) |
+| Total actions | 25 | 1 |
+
+`totalDropped === 24 === deletedCount` — dropped by exactly the deletion and nothing more.
+**24 nodes touched, 0 errors.**
+
+**Guards re-verified after the write:**
+- **`Content Area` rows still sum to 800** — `Content Wrapper` 52 + `Sub Nav` 46 +
+  `Filter Bar` 48 + `Page Body` 654 = **800** ✅. Master still `1440x800`.
+- **The 8 remote sub-nav tab instances untouched** (`31:3415`/`3420`/`3425`/`3429`/`3433`/
+  `3437`/`3441`/`3445`) — all still live `INSTANCE` nodes, same main components, **1 Active
+  + 7 Default**.
+- **Instance count 59 → 59**, full geometry snapshot **byte-identical** before/after,
+  nothing detached, screenshot re-verified (chevrons, corrected dates, corrected banner and
+  the darker placeholder all render).
+
+**One self-caught false alarm, for the record:** my first guard reported
+`rowSumStill800: false`. That was **my own check being wrong**, not a geometry change — it
+summed the master's three *direct* children (`aside.relative` 800 + `aside.flex` 800 +
+`Content Area` 800 = 2400) instead of the four rows nested *inside* `Content Area`. Measured
+correctly, the sum is 800. Same class of error as the shallow-traversal problem in §1: the
+instrument was wrong, not the file.
+
+#### 22 · Shell `25:2955` — PARTIAL → **PASS**, verified not asserted
+
+Full warm re-verification of the whole page (171 deep text nodes):
+
+| §K axis | Result |
+|---|---|
+| Defect strings | **0** |
+| Inter | **0** |
+| Search placeholders | **4 at 0.62, 0 wrong** |
+| Default layer names | **0** free-standing, **0** in instances |
+| Dead actions (by ancestry) | **0** — master included |
+| Top-level overlaps | **0** |
+| Tab strips | **4 frames, all `total=8 active=1`** |
+| Geometry | rows sum **800**, master `1440x800`, 59 instances |
+
+**Verdict: PASS.**
+
+The one axis I refused to wave through: **20 frames flagged vertical clipping.** Checked
+rather than assumed — **all 20 are `Icon / DownOutlined`**, 16px-tall library icon instances
+whose internal `table` wrapper is 767px taller than the icon and **clipped to size by
+design**. Library-internal SVG geometry, not content loss; the filter-bar chevrons render
+correctly in the master screenshot. **Not a §K.12 defect.** The same signature appears in
+Flow's earlier clip flags — same explanation.
+
+#### 23 · REFINEMENT to §8 — the `CloseOutlined` hit target is NOT purely a library ask
+
+§8 recorded `Icon/CloseOutlined` at 14×14 as sitting "inside library `*Alert*` chrome" and
+therefore unfixable. **That is half wrong, and the correction matters because it changes who
+can fix it.**
+
+Inspected directly: `30:3071` is named `*Alert*` but is a **local `FRAME`, not a library
+instance** — 658×30, containing a `Period stepper` frame, the Tips text node `30:3078`, and
+a live `Icon / CloseOutlined` instance. So **the 30px-tall parent is ours, not the
+library's**, and its height *is* locally changeable. Only the 14×14 icon instance itself is
+library-owned.
+
+**Consequence:** the hit-target defect is **partially fixable locally** — enlarge the local
+`*Alert*` frame and the icon's tap area. **Not done here:** this gate's master authorisation
+was explicitly scoped to *reactions only*, geometry untouched, and the change would have to
+propagate across ~140 cloned frames. Handed forward as actionable rather than blocked.
+
+**Related naming problem, logged:** a **local** frame named `*Alert*` impersonates a library
+component. That defeats detachment auditing — it is exactly the ambiguity that makes §K.3
+undetectable (see §24). A local rebuild should not carry the library's `*…*` name. *(A
+second flag from the same loose check, `30:3066 "Breadcrumb row"`, was a **false
+positive** — a plain wrapper frame holding a live `*Breadcrumb*` instance.)*
+
+#### 23b · LATE FIND — 6 genuine cross-page dead clicks survive on Flow, and MONITOR-2's "0 dead remaining" was inaccurate
+
+Chasing a count that oscillated three times across my own methods produced a **real defect**,
+not an artifact. Full detail, positively identified:
+
+| Field | Value |
+|---|---|
+| Source nodes | `I66:125079;39:37906`, `I66:125081;…`, `I66:125083;…`, `I66:125085;…`, `I66:125087;…`, `I66:125089;39:37906` |
+| Name | `Delete — IconButton` ×6 |
+| Frame | Flow `SNAPSHOT · Saved views Populated` |
+| Reaction | `ON_CLICK` → `navigation: OVERLAY` |
+| Destination | `65:70290` = `OVERLAY / Saved Views / Delete confirm` |
+| **Destination's page** | **`25:2963` (B8) — a different page** |
+
+Per §S6 **prototype reactions are page-scoped**, so a Flow-page reaction cannot open an
+overlay that lives on B8. These are **6 genuine dead clicks.**
+
+**They are on MONITOR-2's own enumerated list.** Its entry reads: *"11 dead-click actions
+removed … 3 Overview bucket tabs → …, 6 Saved-views Rename → `65:54289`, **6 Delete →
+`65:70290`**, 2 Automations Segmented → …"*. That enumeration totals **17**, but only **11**
+were removed (395→384 actions). **The 6 Delete → `65:70290` were never removed**, so
+MONITOR-2's "0 dead remaining" was wrong. The answer to "confirm none returned" is therefore:
+**the 11 removed have not returned — but 6 of the 17 it identified were never removed in the
+first place.**
+
+**NOT deleted — deliberately.** Exception #4's authorisation was explicit and tight: *"delete
+only actions whose destination is a COMPONENT variant inside a COMPONENT_SET. Nothing else."*
+These 6 are a **different class** (valid frame destination, wrong page) and so require their
+own decision. The fix is likely a **re-point, not a delete** — Flow has its own local
+`Saved views` snapshot cluster, so the correct destination is probably a Flow-page clone of
+the delete-confirm overlay, which is a wiring decision rather than a cleanup.
+
+**Method note, since this is the third reading of this number.** The oscillation had two
+distinct causes, both mine: (1) an **incomplete `ids` set** from lazy traversal made live
+actions *look* off-page; (2) **caching a negative ancestry result** during traversal froze an
+answer computed before that subtree materialised. The reliable method is: warm the traversal,
+then resolve each destination **fresh (no cache)** and read its **actual PAGE ancestor** —
+and when two methods disagree, **print the nodes instead of trusting either count.** A
+disagreement test alone was not enough: it caught `inSet ≠ onPage` but was blind to the case
+where *both* were false, which is exactly where these 6 lived.
+
+#### 24 · FINAL VERDICTS — 8 PASS · 5 PARTIAL · 0 FAIL
+
+| Page | Verdict | Basis |
+|---|---|---|
+| B1, B2, B3, B5, B6, B8, Handoff | **PASS** | Unchanged from §17. |
+| **Shell** `25:2955` | **PASS** *(upgraded, §22)* | Master now free of dead actions; all axes verified; the 20 clip flags are library icon internals. |
+| **Flow** `66:74040` | **PARTIAL** *(corrected down from PASS)* | Inter 0 · names 0 · overlap 0 · tabs 1-active · **all 275 variant-class dead actions gone** · 16 drawer links + 22 overlay navs intact — but **6 cross-page dead clicks survive** (§23b). |
+| **B4** `25:2959` | **PARTIAL** | §K.12 only: 2 × `Chart — line-multi` clip 50px (`39:31269`, `65:19341`), pre-logged PATCH 06. |
+| **B7** `25:2962` | **PARTIAL** | All verified axes pass; **11 clip flags UNVERIFIED** — not visually inspected, deliberately **not** upgraded. |
+| **B9** `25:2964` | **PARTIAL** | §K.10: 3 modal bodies non-verbatim; plus 11 unverified clip flags. |
+| **Foundations** `25:2954` | **PARTIAL** | 6 Inter Italic `"No data"` labels pending the design call (Geist has no Italic). |
+
+**Dead prototype actions file-wide: 6** — all on Flow, all the cross-page class, **0 of the
+variant-in-set class anywhere including the master.** *(An earlier line in this addendum
+claiming "0 file-wide" was written before §23b resolved and is corrected here.)*
+
+**Cumulative gate mutations: 4,217 nodes** (4,193 + 24 master deletions), **0 write errors,
+nothing detached, external library `7h5lI7IieGCuAuySfJVKxS` and the `REF ·` page untouched
+throughout.**
+
+#### 25 · OPEN ITEMS — current
+
+1. **Flow's 6 cross-page dead clicks** (§23b) — `Delete — IconButton` → `65:70290` on B8.
+   Needs a decision: **re-point** to a Flow-local delete-confirm overlay (likely correct) or
+   delete. Outside Exception #4's scope, so untouched. **MONITOR-2's "0 dead remaining" was
+   inaccurate — do not trust that line.**
+2. **6 Inter Italic `"No data"` labels** in Foundations — Geist has no Italic. Design call.
+3. **B4's 2 chart frames clipping 50px** (§K.12, pre-logged PATCH 06).
+4. **B9's 3 modal bodies** — non-verbatim, content pass needed.
+5. **Focus states** — ~14 element classes missing them (§F.4).
+6. **Hit targets** — now **partially local** per §23; the `*Alert*` frame height is ours.
+7. **Rename the local `*Alert*` frame** `30:3071` so it stops impersonating the library.
+8. **B3 copy drift** — restore "yet" in `Not enough data yet (n=…)`.
+9. **Bare `—` in `ConfidenceChip`** — spec-vs-source conflict, human call.
+
+*(The master re-seeding vector, previously item 1, is closed by Exception #4.)*
+
+#### 26 · NOT VERIFIED — unchanged, and NOT upgraded
+
+**§11 and §20 stand in full.** Nothing in this addendum touched any of it:
+
+- **Detached instances (§K.3) remain UNVERIFIED on all 13 pages.** Still no reliable
+  detection method — and §23 is a concrete illustration of *why*: a local frame carrying a
+  library component's name is structurally indistinguishable from a detached instance.
+  **Not a pass.**
+- **Only Populated frames were screenshotted.** Loading / Empty / Filtered-empty / Error /
+  Partial / Long-content-stress / ENTRANCE frames were **not** visually inspected (except
+  the shell's State—Empty and master, B2's ENTRANCE 0 and 3, and the Flow snapshot).
+  **These remain the likeliest home for an unfound defect.**
+- Also still unverified: contrast beyond the placeholder · focus states · §F.2/§K.5
+  element-level coverage · the 634 hit-target figure · B7/B9 clip flags · §G.1 animation
+  conformance · screen-reader and colour-blind checks.
+
+---
+
+### ADDENDUM 3 — cross-page dead clicks re-pointed · Flow → PASS · the lessons
+
+**§24's Flow verdict is SUPERSEDED by §29. Authorised by the coordinating agent's task
+brief** (re-point, not delete) — the same provenance basis as Exceptions #3 and #4.
+
+#### 27 · THE FOURTH AND MOST CONSEQUENTIAL INSTRUMENT ERROR — `destinationId` reads `null` when the destination's page is not loaded
+
+This is the single most important technical finding in the whole gate, because it means a
+whole defect class was **systematically invisible** to every sweep in this build, mine
+included.
+
+**Proved in one script, same node, two passes:**
+
+| Pass | Pages loaded | `I66:125079;39:37906` reaction |
+|---|---|---|
+| A | Flow only | `{type:"NODE", destinationId: **null**, navigation:"OVERLAY", …}` |
+| B | Flow **+ B8** | `{type:"NODE", destinationId: **"65:70290"**, navigation:"OVERLAY", …}` |
+
+**Consequence:** every scan that guarded with `if (!a.destinationId) continue` — mine and,
+by inference, MONITOR-2's — **silently skipped every cross-page reaction**, because each
+per-page sweep loaded only its own page. This is what made the Flow count oscillate between
+0 and 6 across three runs: whether the number appeared depended on whether anything earlier
+in that script happened to resolve `65:70290` first. It was never a real change in the file.
+
+**The corrected method, now used:** **load every page in the file *first*, build a
+node→page map, and only then read reactions.** Never guard on a falsy `destinationId`
+without having loaded all pages.
+
+**Re-run under the corrected method, the cross-page census is complete and unambiguous:**
+
+| Page | Cross-page actions |
+|---|---|
+| Flow `66:74040` | **6** |
+| All 12 other pages | **0** |
+
+So the class existed **only** on Flow, and was exactly the 6 already identified — nothing
+else was hiding behind the flaw. That is now verified rather than assumed.
+
+#### 28 · THE FIX — a Flow-local delete-confirm overlay, 6 reactions re-pointed
+
+- **Cloned** B8's `65:70290` onto Flow as top-level frame **`150:45146`** at `(14040, 0)`
+  (clear of `78:13253`, which ends at x=13920), named in the page's own convention:
+  `SNAPSHOT · Saved views Delete confirm · from 65:70290 · DO NOT EDIT — edit the source page`.
+- **Re-pointed all 6** `Delete — IconButton` reactions
+  (`I66:125079`/`125081`/`125083`/`125085`/`125087`/`125089;39:37906`) to
+  `ON_CLICK → OVERLAY → 150:45146`, with **`DISSOLVE / EASE_OUT / 200ms` copied from B8's
+  own Delete reactions** so the snapshot behaves identically to its source page.
+- **Dismiss control needed no work — and that is worth recording.** The clone arrived with
+  the correct top-level `{"type":"CLOSE"}` on **both** `Keep view` and `Delete view`,
+  inherited intact from B8's originals (verified against them side by side): no
+  `transition`, no `destinationId`. **`clone()` preserves prototype reactions**, so the
+  cloned modal did not leak a single reaction back to B8.
+
+**Guards — 6 re-pointed, 0 errors:**
+
+| Metric | Before | After |
+|---|---|---|
+| **Cross-page actions** | 6 | **0** |
+| **Live NODE actions** | 74 | **80** |
+| **OVERLAY navigations** | 22 | **22** |
+| **Row→drawer links to `78:13253`** | 16 | **16** |
+| `CLOSE` actions | 4 | **4** |
+
+Live actions rising 74 → 80 is the **expected and correct** movement: the 6 that were
+cross-page now resolve on Flow. Nothing else moved. **File-wide cross-page census after the
+fix: 0 on all 13 pages.**
+
+**Screenshot-verified:** the overlay renders correctly — scrim, warning icon, real title
+`Delete "Fatiguing on Meta — last 14 days"?`, real body copy, and `Keep view` /
+`Delete view` with danger styling appropriate to a destructive confirm.
+
+#### 29 · Flow `66:74040` — PARTIAL → **PASS**, verified not asserted
+
+| §K axis | Result |
+|---|---|
+| Inter (deep) | **0** |
+| Default layer names (free-standing) | **0** |
+| Top-level overlaps | **0** (new overlay at 14040,0 clears `78:13253`) |
+| Tab strips | **8 snapshots, all `t=8 a=1`** |
+| Dead actions — variant class | **0** |
+| Dead actions — cross-page class | **0** |
+| Drawer links / overlay navs | **16 / 22 intact** |
+
+**Verdict: PASS.** The 66 `Ellipse N` layers remain **inside library instances** —
+library-side per §8, not a build defect.
+
+#### 30 · NEW CLASS SURFACED, NOT RESOLVED — 448 `CHANGE_TO` actions with a null destination
+
+The corrected census exposed a further class I am **explicitly not folding into the dead
+count**, because I have not established whether it is a defect:
+
+**448 `type:"NODE"` actions with `destinationId: null`, `navigation: "CHANGE_TO"`,
+`transition: null`** — B1 52 · B2 25 · B3 15 · B4 21 · B5 64 · B6 32 · B7 32 · B8 137 ·
+B9 38 · Flow 28 · Shell 4.
+
+**Characterised:** almost all sit on `ON_HOVER` triggers of `*Button*`, `Segmented Item`,
+`*Switch* / Basic`, `Rename — IconButton`, `Delete — IconButton` — i.e. **hover
+variant-swap reactions**. A `CHANGE_TO` with no destination is a no-op.
+
+**Proven pre-existing, not created by this gate.** Arithmetic on B1: 511 total actions
+before the sweep − 429 deleted = 82 remaining = 30 live + **52 null**. The nulls were
+already there and were never touched.
+
+**Why it is NOT called a defect here:** given §27, a null `destinationId` may equally mean
+"the destination is a variant in the **external library**, whose pages cannot be loaded in
+this context, so the id is unreadable" — indistinguishable, with the tools available, from
+"the destination was genuinely never set". Deciding between those requires either library
+access or the Figma UI. **Reported as an open, uncharacterised class — not as clean, and
+not as dead.**
+
+#### 31 · THE MOST IMPORTANT LESSON IN THIS RECORD — MONITOR-2's list was right; its action was incomplete
+
+Recorded next to its "0 dead remaining" claim, deliberately and plainly:
+
+**MONITOR-2 enumerated 17 dead-click actions and removed 11.** Its own entry lists
+3 Overview bucket tabs + 6 Saved-views Rename → `65:54289` + **6 Delete → `65:70290`** +
+2 Automations Segmented = **17**, while the same entry reports "verified 395→384 actions",
+a removal of **11**. **The 6 Delete → `65:70290` were never removed** — they survived every
+subsequent pass and were still live when this gate found them, three gates later.
+
+**A gate that under-executes its own findings is a worse failure than one that finds less,
+because it produces false confidence.** MONITOR-2 did the hard part — it correctly
+identified all 17 — and then recorded "0 dead remaining" over an action that had cleared
+only 11. Every reader after it, including two subsequent gates, treated that line as
+settled. **The lesson: a finding is not closed until the count *after* the fix is
+re-measured and reconciled against the count *before* it.** "N removed" is not evidence;
+`before − after == N` is.
+
+#### 32 · FOUR SELF-CAUGHT INSTRUMENT ERRORS — the general rule
+
+Every one of these was **the instrument, not the artefact**, and each would have produced a
+false pass:
+
+1. **Shallow `findAll` traversal** — first call after `loadAsync()` under-reports; B2 went
+   0 → 330 `Ellipse N` across two passes in one script. Deep counts are ~2× shallow.
+2. **A cached negative ancestry result** — computed before the subtree materialised, then
+   frozen and reused, manufacturing 6 phantom dead actions on Flow.
+3. **A row-sum guard that measured the wrong thing** — summed the master's three *direct*
+   children (800+800+800=2400) instead of the four rows inside `Content Area`
+   (52+46+48+654=800), reporting a geometry break that did not exist.
+4. **`destinationId` reading `null` for unloaded pages** (§27) — the worst of the four,
+   because it hid a real defect class rather than inventing a fake one.
+
+**THE RULE, for anyone auditing this file: a negative result must be re-verified warm before
+it is believed, and must never be cached. When two methods disagree, print the nodes — do
+not trust either count.** A disagreement test alone is insufficient: mine compared
+`inSet ≠ onPage` and was blind to the case where *both* were false, which is exactly where
+the 6 real defects lived.
+
+#### 33 · FINAL VERDICTS — 9 PASS · 4 PARTIAL · 0 FAIL
+
+| Page | Verdict | Basis |
+|---|---|---|
+| B1, B2, B3, B5, B6, B8, Handoff, Shell | **PASS** | Per §24 / §22. |
+| **Flow** `66:74040` | **PASS** *(upgraded, §29)* | Cross-page class re-pointed to a local overlay; all axes verified. |
+| **B4** `25:2959` | **PARTIAL** | §K.12: 2 × `Chart — line-multi` clip 50px (pre-logged PATCH 06). |
+| **B7** `25:2962` | **PARTIAL** | 11 clip flags **UNVERIFIED**, deliberately not upgraded. |
+| **B9** `25:2964` | **PARTIAL** | §K.10: 3 modal bodies non-verbatim; 11 unverified clip flags. |
+| **Foundations** `25:2954` | **PARTIAL** | 6 Inter Italic `"No data"` labels pending the design call. |
+
+**Dead prototype actions file-wide: 0** — both the variant-in-set class *and* the cross-page
+class, verified with all 13 pages loaded. **Cumulative gate mutations: 4,224 nodes**
+(4,217 + 6 re-pointed + 1 overlay clone). **0 write errors, nothing detached, external
+library `7h5lI7IieGCuAuySfJVKxS` and the `REF ·` page untouched throughout.**
+
+#### 34 · OPEN ITEMS — final
+
+1. **448 `CHANGE_TO` actions with null destinations** (§30) — uncharacterised; needs library
+   access or the Figma UI to decide defect vs. artefact.
+2. **6 Inter Italic `"No data"` labels** in Foundations — Geist has no Italic. Design call.
+3. **B4's 2 chart frames clipping 50px** (§K.12, pre-logged PATCH 06).
+4. **B9's 3 modal bodies** — non-verbatim, content pass needed.
+5. **Focus states** — ~14 element classes missing them (§F.4).
+6. **Hit targets** — partially local per §23; the `*Alert*` frame height is ours.
+7. **Rename the local `*Alert*` frame** `30:3071` so it stops impersonating the library.
+8. **B3 copy drift** — restore "yet" in `Not enough data yet (n=…)`.
+9. **Bare `—` in `ConfidenceChip`** — spec-vs-source conflict, human call.
+
+#### 35 · NOT VERIFIED — unchanged, NOT upgraded
+
+**§11, §20 and §26 stand in full.** Nothing in this addendum touched any of it.
+
+- **Detached instances (§K.3) remain UNVERIFIED on all 13 pages.** **The rationale, not just
+  a footnote:** detection is unreliable *because this file contains local frames wearing
+  library naming conventions* — `30:3071` is named `*Alert*` but is a **local frame**, and a
+  hand-built lookalike is therefore structurally indistinguishable from a detached instance.
+  §D.3/§P5.3 also sanction local builds, so name-based detection has no ground truth here.
+  **Not a pass.**
+- **Only Populated frames were screenshotted.** Loading / Empty / Filtered-empty / Error /
+  Partial / Long-content-stress / ENTRANCE frames were **not** visually inspected (except
+  the shell's State—Empty and master, B2's ENTRANCE 0 and 3, the Flow snapshot, and the new
+  delete-confirm overlay). Since every visual defect in this build escaped structural
+  checking, **these remain the likeliest home for an unfound defect.**
+- Also still unverified: contrast beyond the placeholder · focus states · §F.2/§K.5
+  element-level coverage · the 634 hit-target figure · B7/B9 clip flags · §G.1 animation
+  conformance · screen-reader and colour-blind checks.
