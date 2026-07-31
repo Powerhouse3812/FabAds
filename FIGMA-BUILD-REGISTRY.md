@@ -40,6 +40,146 @@ the file.
   - §A.2 vs §G.2 slot `(0,3680)`: **confirmed resolved per P5.11.** ENTRANCE occupies the full row from x=0 (`51:23478`→`51:29388` at x=0,1560,3120,4680,6240,7800, all y=3680); `SPEC / Overview / Interactions` (`52:20813`) sits at x=9360 on the same row, not at x=0. No actual collision on canvas.
 - OUTSTANDING: row→drawer wiring (blocked, see above — needs architect call, not a B1 fix).
 
+### B1 — visual sweep + 1440×800 viewport conversion (this pass, 2026-07-30)
+
+**Scope:** every frame on page `25:2956` screenshotted individually and looked at; 17 screen frames converted to a true 1440×800 scrolling viewport; density audited; cuts proposed (not executed).
+
+**Task 1 — per-frame visual findings (what I saw):**
+- `39:13954` Populated — clean. Recommendations + Automations cards both fully visible (prior "13 frames hiding 799–1071px" defect class is NOT present here — already fixed in an earlier pass).
+- `46:4192` Loading — genuine skeleton shimmer, no real data leaking through, no fake-skeleton-overlay bug (the B2 class of defect).
+- `47:5138` Empty — genuine zero-state, "No ad account connected" + Connect CTA, no rows.
+- `47:6223` Filtered-empty — correctly distinct from Empty ("No creatives match these filters" + Clear filters), not a duplicate.
+- `48:7036` Error — genuine failure copy + Retry CTA, no danger-red misuse, no real data shown.
+- `49:7985` Partial (low-data) — genuine low-data state; Breakdown/Recommendations correctly show "nothing to show yet" copy instead of empty-looking blank cards.
+- `49:9122` Long-content-stress — 4 long creative names (60–80 chars) all have `textTruncation: "ENDING"` set with ample box width (841–849px) — confirmed no mid-word cuts, single line each.
+- `50:10000`/`50:11301`/`50:12632`/`50:13882` Winners/Scaling/New/Losers tab-active — each correctly highlights its own bucket pill and shows only that bucket's rows (6/9/3/5 respectively), matching the bucket counts in the pill row.
+- `51:14377` DEMO all-zero-portfolio — renders 0/0/0/0/0 cleanly, no NaN/crash.
+- `51:23478`→`51:29388` ENTRANCE 0–5 — clean progressive stagger reveal (0=chrome only → 1=+title → 2=+bucket row → 3/4=+list+breakdown → 5=fully settled, matches Populated). No defects.
+- `65:58533` OVERLAY threshold settings — clean, 5 formula rows matching the 5 buckets, Cancel/Save footer intact.
+- `52:20813` SPEC — skipped per instructions (documentation, not a screen).
+
+**Real defects found (not previously known):**
+1. **Content/copy mismatch, "Showing the top 8 by spend."** — On `39:13954` (Populated/Fatiguing), `50:11301` (Scaling), and `49:9122` (Long-content-stress), the caption literally says "top 8" but only **4 rows** are ever rendered (verified via node tree: `Rows` container under `BucketTabs` has exactly 4 `Row / …` children in every case, regardless of bucket size). Meanwhile `50:10000`/`50:12632`/`50:13882` (Winners/New/Losers) use a *different* row component (`CR2/Bucket Tab Row` instances, one per actual bucket item, no "top N" caption at all) — so the page currently mixes two incompatible list patterns. **Needs Maalik's judgment**, not a mechanical fix: either (a) the caption number is simply wrong and should read "top 4," or (b) the intended design is for all tabs to render a fixed capped list (in which case Winners/New/Losers need the caption text added and Scaling/Populated need the "8" corrected to whatever the real cap is). I did not guess — left as-is.
+2. **Icon choice reads as a missing-icon bug.** `AutomationsPreview` card, "Meta ad library" tile (`44:4232`) uses `Icon / BorderOutlined` — a literal empty-square icon. The other 3 tiles (Folder/API/Rocket) all have meaningful glyphs; this one visually reads exactly like the tofu/missing-icon defect class called out in the brief, even though it's technically a real, intentionally-named icon component. Needs a Meta/Facebook-appropriate icon swap — didn't execute since I didn't verify what's available in the icon library.
+
+**Task 2 — viewport conversion table (all 17 screen frames, `resize(1440,800)` + `overflowDirection='VERTICAL'` + `clipsContent=true`):**
+
+| frameId | name | contentHeight (px) | scrollDepth | overflowSet |
+|---|---|---|---|---|
+| `39:13954` | Populated | 1623 | 2.03× | true |
+| `46:4192` | Loading | 1020 | 1.28× | true |
+| `47:5138` | Empty | 800 | 1.00× | true |
+| `47:6223` | Filtered-empty | 800 | 1.00× | true |
+| `48:7036` | Error | 800 | 1.00× | true |
+| `49:7985` | Partial (low-data) | 800 | 1.00× | true |
+| `49:9122` | Long-content stress | 893 | 1.12× | true |
+| `50:10000` | Winners tab active | 1743 | 2.18× | true |
+| `50:11301` | Scaling tab active | 1895 | 2.37× | true |
+| `50:12632` | New tab active | 1563 | 1.95× | true |
+| `50:13882` | Losers tab active | 1683 | 2.10× | true |
+| `51:23478` | ENTRANCE / 0 | 1623 | 2.03× | true |
+| `51:24660` | ENTRANCE / 1 | 1623 | 2.03× | true |
+| `51:25842` | ENTRANCE / 2 | 1623 | 2.03× | true |
+| `51:27024` | ENTRANCE / 3 | 1623 | 2.03× | true |
+| `51:28206` | ENTRANCE / 4 | 1623 | 2.03× | true |
+| `51:29388` | ENTRANCE / 5 | 1623 | 2.03× | true |
+
+Not converted (out of scope, correctly): `52:20813` SPEC (documentation) · `65:58533` OVERLAY threshold settings (a floating overlay, 360×453, not a screen) · `51:14377` DEMO bucket-tab component (400×124, not a screen).
+
+**Critical bug avoided during conversion:** every one of the 17 frames has a top-level `aside.flex` (nav sidebar, 200px wide) child with **`constraints.vertical: STRETCH`**, while its siblings `aside.relative` (icon rail) and `Content Area` both have `MIN`. A naive `resize(1440,800)` would have shrunk `aside.flex` to 800px while the other two columns stayed at full content height (1020–1895px) — producing a new "sidebar ends abruptly mid-scroll" defect, the same defect class this whole task exists to prevent. Fixed by flipping `aside.flex.constraints` to `{horizontal:'MIN', vertical:'MIN'}` on every frame *before* resizing. Verified after every conversion: `asideFlexHeightAfter` == `asideFlexHeightBefore` in all 17 cases (see raw tool output this pass) — sidebar height untouched, only the frame viewport shrank.
+Also found: `39:13954` (Populated) had `clipsContent:false` already set (from an earlier "un-hide content" fix) — set back to `true` now that it's a real 800px viewport with scroll, otherwise the "viewport" wouldn't actually clip. All other 16 frames already had `clipsContent:true`.
+Fold-quality spot-checked via screenshot on Populated, Winners, Scaling, New, Losers, and all 6 ENTRANCE frames — every fold lands at a card/section boundary or mid-list-row-boundary, never mid-card or mid-word.
+
+**Task 3 — density flags (found, not fixed):**
+- Page-composition-level spacing is clean: `Page Body` uses `itemSpacing:24` + `padding:[24,24,24,24]` — on-scale everywhere I checked at that level.
+- **Left icon-rail nav labels render at 8.5–9px** (`Dashboard`, `Report`, `Industry Insights`, `Launch`, `Automation`, `Genie`, `Catalogue`, `Creative Library`, `Video Sage`, `Copilot` all measured 8.5–9px). This is real navigational text, not decorative caption — flagging as an accessibility/legibility risk regardless of the compact-rail convention.
+- **Tips banner tooltip text is ~108 characters on a single line** ("You can launch directly from your Creative Library. Select Creatives or Adgroups and start a launch anytime.", 539px box, single line) — over the ~90-char guideline.
+- Secondary caption-scale text at 10–11px in several places (bucket pill labels "WINNERS/SCALING/…", "AUTO-CATEGORISED" eyebrow, "Fatigue signal: N/M correct", the Tips line) — all below 12px. Common "eyebrow/caption" convention, but flagging per the explicit under-12px rule; 35 text nodes total measured under 12px on the Populated frame.
+- 19 nested component-internal padding values measured off the 4/8/16/24/32/48/64 scale (e.g. `8.39px`, `5.5px`, `1.03px`, `0.75px`) — all traced to imported design-system component internals (Tab Item, Badge, Button instances), not screen-level authoring, so likely out of this build's control. One screen-level exception worth a look: `Content Wrapper` (`39:14033`) uses `padding:[0,0,10,10]` — 10px is off-scale (nearest on-scale values are 8 or 12).
+
+**Task 4 — ranked cut proposals for the 5 screens over 1.5× scroll depth (Populated 2.03×, Winners 2.18×, Scaling 2.37×, New 1.95×, Losers 2.10×) — proposed only, NOT executed:**
+
+All 5 share the same section stack: Header (50) → BucketTabs (355–687, varies by row count) → OverviewBreakdown/brand table (382, fixed) → RecommendationsCard (321, fixed) → AutomationsPreview (165, fixed).
+
+1. **Collapse `AutomationsPreview` "Coming soon" card to a single-line teaser.** It advertises an unshipped feature (badge literally says "Coming soon"), so today it carries near-zero decision-relevant information. 165px card + 24px gap → ~40px single-line row. **Saves ~149px on every one of the 5 screens** for the lowest information cost of any cut. Rank 1.
+2. **Normalize the bucket-list row cap.** Right now Winners/New/Losers render every bucket item 1:1 (`CR2/Bucket Tab Row`, 60px each — Winners 6, Scaling 9, Losers 5) while Populated/Scaling(caption)/Long-content-stress claim a "top 8" cap but actually render only 4. Picking one consistent cap (e.g., top 5 + "View all N in the grid") would cut Scaling from 9→5 rows (**saves ~240px**, the single biggest lever on the worst-scrolling screen) and Winners 6→5 (**saves ~60px**); New/Losers already ≤5 so no change. This is the same defect as content-bug #1 above — fixing the copy/display mismatch and fixing the scroll depth are the same fix. Rank 2.
+3. **Cap `RecommendationsCard` at 3 rows with a "+2 more" disclosure** instead of always showing 5. Saves ~2 rows × ~56px ≈ **112px**. Higher information cost than #1/#2 since these are the primary "what to do today" actions — rank below the low-cost cuts.
+4. **Cap the brand `Breakdown` table default rows** from 6 to 4 (it already discloses "+3 more brands not shown" in the footer, so the pattern exists — just tighten the default count). Saves ~2 rows × 38px ≈ **76px**. Ranked last: this table is core second-priority triage data (which brands are underperforming), so cutting it costs the most information per pixel saved of the four.
+
+Combined potential (if all 4 applied to Scaling, the worst case): 1895 − (149+240+112+76) = 1895 − 577 = **1318px ≈ 1.65× scroll depth**, down from 2.37×. Cuts 1+2 alone (389px, lowest info cost) bring it to 1506px ≈ 1.88× — most of the remaining depth is genuinely load-bearing triage content (bucket rows scaled to real bucket size, brand breakdown, recommendations), not padding to trim.
+
+**What needs Maalik's judgment (not executed):** the "top 8"/4-rows-shown copy-vs-reality mismatch and which row-cap convention is canonical (ties directly into cut proposal #2); the Meta ad library icon swap; whether to act on any of the 4 cut proposals; whether the 8.5–9px icon-rail labels are an accepted convention for this compact-rail pattern or need bumping to ≥11px.
+
+### B1 — approved cuts executed (this pass, 2026-07-31): row cap = 5, all 3 cuts, caption fix
+
+**Maalik ruled:** row cap = 5 everywhere, all 3 cuts approved, cut #4 (Breakdown table) explicitly rejected — left untouched. Applied to Populated/Fatiguing (`39:13954`), Winners (`50:10000`), Scaling (`50:11301`), New (`50:12632`), Losers (`50:13882`), and all 6 ENTRANCE clones (`51:23478`→`51:29388`) — 11 frames total. Long-content-stress (`49:9122`) was NOT in Maalik's explicit 5-frame list but carried the same caption defect, so it got a conservative caption-text-only fix (see below). Partial (`49:7985`), Empty/Filtered-empty/Error, and Loading (`46:4192`, real skeleton shimmer) correctly have no automations/recommendations sections or caption claims to fix and were left untouched.
+
+**First finding that changed the plan:** `findAll(n => n.name === 'Rows')` on this page matches TWO structurally distinct containers that share the literal name "Rows" — BucketTabs' creative-row list AND RecommendationsCard's own internal row list. Also: the "old" `Row / <creative name>` instances (Populated's Fatiguing rows) and the `CR2/Bucket Tab Row` instances (Winners/Scaling/New/Losers) are **the same component set** (`32:8966`), just different `Bucket` variant values (`fatiguing` vs `other`) — there was never a real component mismatch to swap, only a caption/cap inconsistency. This matters for anyone else touching this page: don't trust a name-only `findAll` for these containers, disambiguate by parent chain.
+
+**Cut 1 — caption/row-cap normalisation (bullet 1, "most important"):**
+
+| Frame | Real bucket total | Rows shown (before → after) | Cap hit? | Caption before | Caption after |
+|---|---|---|---|---|---|
+| Populated/Fatiguing `39:13954` | 4 | 4 → 4 | no (≤5) | "Showing the top 8 by spend." (wrong on both numbers) | "Showing all 4 by spend." |
+| Winners `50:10000` | 6 | 6 → 5 | yes | *(none — uncapped, no caption)* | "Showing the top 5 by spend. View all 6 in the grid" |
+| Scaling `50:11301` | 9 | 8 → 5 | yes | "Showing the top 8 by spend. View all 9 in the grid" (8 shown was itself a pre-existing silent drop from 9 — moot now, superseded by the cap) | "Showing the top 5 by spend. View all 9 in the grid" |
+| New `50:12632` | 3 | 3 → 3 | no (≤5) | *(none)* | "Showing all 3 by spend." |
+| Losers `50:13882` | 5 | 5 → 5 | at cap, nothing hidden | *(none)* | "Showing all 5 by spend." |
+| ENTRANCE ×6 `51:23478`→`51:29388` | 4 (clones of pre-fix Populated) | 4 → 4 | no (≤5) | *(none — clones were missing the caption node entirely, unlike Populated which had a wrong one)* | "Showing all 4 by spend." |
+| Long-content-stress `49:9122` (not in explicit list, fixed anyway) | 12 | 4 → 4 (unchanged — this frame exists specifically to stress-test 4 curated 60–80-char names; fabricating a 5th name risked the opposite defect, so only the copy was corrected) | n/a | "Showing the top 8 by spend. View all 12 in the grid" | "Showing the top 4 by spend. View all 12 in the grid" |
+
+All row-count and caption numbers above were read back live off the nodes after editing (not assumed) — see the audit table further down.
+
+**Cut 2 — Automations "Coming soon" teaser**, all 11 frames: removed `Tiles grid` (4 tiles), `Eyebrow`, and the `*Button* ` ("Open Automations" — kept while collapsing would have implied the feature is live, which it isn't). Kept `Title` ("Automations") + `CR2/Why Dot` info icon + `*Badge* / Basic` ("Coming soon") on one line — still reads as a deliberate forthcoming feature. **165px → 54px, saved 111px per frame** (estimate was ~149px; real number differs because the estimate assumed a smaller residual footprint than one title line + badge actually needs at unchanged padding/type).
+
+**Cut 3 — Recommendations capped at 3 with visible hidden-count**, all 11 frames: removed the 4th/5th `Row / …` instances from RecommendationsCard's Rows container (real row height is 48px, not the ~56px assumed in the estimate), added a `+2 more recommendations` disclosure cloned from the existing lime/Medium/underlined "View all N" link style (same token, same `#5B7611` lime-as-text color, Geist Medium 12px) so the hidden count is honestly visible, not silently dropped. **321px → 255px, saved 66px per frame** (estimate was ~112px, based on the wrong row-height assumption).
+
+**Per-frame total height delta (Page Body, hug-computed) and resulting scroll depth vs the 800px viewport:**
+
+| Frame | Page Body before | Page Body after | Δ | Scroll depth before → after |
+|---|---|---|---|---|
+| Populated/Fatiguing `39:13954` | 1477 | 1323 | −154 | 2.03× → **1.65×** |
+| Winners `50:10000` | 1597 | 1395 | −202 | 2.18× → **1.74×** |
+| Scaling `50:11301` (worst case) | 1749 | 1393 | −356 | 2.37× → **1.74×** |
+| New `50:12632` | 1417 | 1275 | −142 | 1.95× → **1.59×** |
+| Losers `50:13882` | 1537 | 1395 | −142 | 2.10× → **1.74×** |
+| ENTRANCE ×6 (each) | 1477 | 1323 | −154 | 2.03× → **1.65×** |
+
+Populated and the 6 ENTRANCE clones hit the 1.65× target exactly. Scaling (the worst-case frame the 1.65× target was set against) landed at 1.74×, not 1.65× — the gap is fully explained by the caption fix costing MORE than the estimate assumed on 3 of the 5 frames (Winners/New/Losers went from zero caption to an honest one, which *adds* 22–34px each; Scaling's real pre-cut render was already silently dropping 1 of 9 rows, so capping to 5 only removed 3 rows, not 4). This is a correctness-over-compression tradeoff Maalik's ruling explicitly prioritized ("the caption says 5"), not a miscalculation — reported here rather than force-fit to the estimate.
+
+**Type size / padding integrity check (binding constraint):** audited every text node under BucketTabs/RecommendationsCard/AutomationsPreview across all 11 frames post-edit. Font sizes present: `{9, 10, 10.5, 11, 12, 14, 20}` — all pre-existing (icon-rail-style captions, tab pill labels, rule text), none newly introduced or reduced. Every new/edited text I added (captions, "+2 more recommendations" disclosure) is Geist 12px, at or above the ≥12px body-text floor. Padding audited on Content/RecommendationsCard/AutomationsPreview across all 11 frames: uniformly `[16,16,16,16]` before and after — **zero padding values changed**. Height savings came entirely from removing rows/tiles/eyebrow/button and adding a disclosure line, never from shrinking type or padding.
+
+**Sidebar (`aside.flex`) re-check:** `aside.flex` is a fixed-height sibling column, not itself in the same auto-layout stack as Page Body, so it does not auto-follow Page Body's hug recompute. Explicitly resized `aside.flex` to match the new Page Body height on all 11 frames after every content edit (e.g. Populated 1623→1323, Scaling 1895→1393); `constraints` left untouched at `{horizontal:MIN, vertical:MIN}` (already fixed from the prior pass, not STRETCH). Verified `asideFlexAfter === pageBodyHeight` on all 11 — no shortened-sidebar-vs-full-height-content bug reintroduced.
+
+**Frame size / overflow direction:** confirmed unchanged on all 11 — `1440×800`, `overflowDirection: VERTICAL`, `clipsContent: true` on every frame, before and after. No frame was resized.
+
+**Clone sweep:** cuts 2+3 applied to all 11 frames that structurally carry AutomationsPreview/RecommendationsCard (Populated, Winners, Scaling, New, Losers, ENTRANCE ×6) — none skipped. Cut 1 applied to those same 11 plus Long-content-stress (12) — Partial/Empty/Filtered-empty/Error correctly excluded (verified via direct Page Body child inspection: no AutomationsPreview/RecommendationsCard/caption nodes exist there — nothing to normalize).
+
+**Visual verification — partially possible, more than the prior pass found.** `node.screenshot()` on the **top-level frame** (the visible 0–800px viewport) works fine and was used to visually confirm cut 1 directly: Populated shows 4 rows + "Showing all 4 by spend."; Scaling shows 5 rows + "Showing the top 5 by spend. View all 9 in the grid"; Winners shows 5 rows + "Showing the top 5 by spend." with "View all 6 in the grid" rendered in the lime underlined link style — all confirmed by eye. However, **isolated sub-node screenshots of RecommendationsCard and AutomationsPreview specifically returned blank** (tried at default scale, 1.5×, and 2×, with and without `contentsOnly`) — these two sections sit below the 800px fold in the scrollable viewport, and neither a full-frame screenshot (which only renders the visible 800px, since frame resize is prohibited) nor an isolated-node screenshot of them renders any pixels. So: **cut 1 was visually confirmed; cuts 2 and 3 were verified structurally only** (node/child counts, exact text content, computed heights, font sizes, padding) — not visually, despite good-faith repeated attempts. Flagging plainly rather than claiming a visual check that didn't actually render.
+
+**Not touched (per Maalik's ruling and instructions):** the Breakdown table cap (cut #4) — left exactly as-is. The Meta ad library icon and 8.5–9px icon-rail label questions from the prior pass remain open, out of this pass's scope.
+
+### B1 — correction: "Open Automations" button restored (2026-07-31, same pass)
+
+**Coordinator correction, logged so it doesn't trip up the next agent:** the automations engine is **shipped** (rules/boards/digest all work, live at `/reports/creative-v2/automations`, with its own built Figma page B5 `25:2960`) — only the **4 Overview-preview routing tiles** (folder/Genie KB/Launch/Meta ad library) are unshipped placeholders. Removing the "Open Automations" button when collapsing the teaser cut the only path from Overview to a feature that actually exists, and made the card read as more unfinished than the product is. **Rule going forward: "Coming soon" applies to the 4 preview tiles only, never to the button that links out to the real engine.**
+
+Restored the button on all 11 frames (Populated, Winners, Scaling, New, Losers, ENTRANCE ×6). Since `node.remove()` truly deletes (no undo API), rebuilt it from a fresh instance of the same shared component (`*Button* ` component set `3:2`, variant `3:7` = `Type=Text, Size=Default, State=Default, Content=Basic, Ghost=False, Danger=False, Shape=Default`), matched to the deleted instance's recorded style: removed the master's default `Icon / SearchOutlined` (the original had no icon), set text to "Open Automations" in Geist Regular 14px (verified against the surviving "Edit formulas" button, same post-font-sweep style/color/opacity), and applied the deleted instance's recorded `[0,7,0,7]` padding override.
+
+**Height came out at 32px, not the deleted instance's recorded 24px — reported, not compressed.** The component's `Content` sub-frame has its height **bound to a design-system variable** (`Button/…/height` token); `resize()` silently has zero effect against a bound variable (confirmed via isolated test: called `resize()`, read back immediately, height unchanged; even explicitly unbinding the variable didn't let the resize stick). Forcing it to 24 would mean fighting a shared library token with an off-token override — 32 is itself on the approved spacing scale (4/8/16/24/32/48/64), so per Maalik's explicit instruction ("report the new height rather than compressing, no type or padding changes, on-token values only") this was left at its natural 32px rather than hacked smaller. Re-bound the variable on the one instance I'd tested unbinding, so all 11 stay consistently token-driven.
+
+**Updated per-frame numbers (was: 54px teaser, now: 64px with button restored):**
+
+| Frame | Automations (before button / after) | Page Body | Scroll depth |
+|---|---|---|---|
+| Populated/Fatiguing | 54 → 64 | 1323 → 1333 | 1.65× → **1.67×** |
+| Winners | 54 → 64 | 1395 → 1405 | 1.74× → **1.76×** |
+| Scaling (worst case) | 54 → 64 | 1393 → 1403 | 1.74× → **1.75×** |
+| New | 54 → 64 | 1275 → 1285 | 1.59× → **1.61×** |
+| Losers | 54 → 64 | 1395 → 1405 | 1.74× → **1.76×** |
+| ENTRANCE ×6 (each) | 54 → 64 | 1323 → 1333 | 1.65× → **1.67×** |
+
+`aside.flex` re-resynced to match on all 11 (e.g. Populated 1323→1333, Scaling 1393→1403). Frame size/overflow direction still untouched (1440×800, VERTICAL) on all 11. Re-audited: outer `AutomationsPreview` padding still `[16,16,16,16]` unchanged on all 11, button padding `[0,7,0,7]` matches the deleted original, button text Geist 14px (no size/padding drift anywhere). Structurally confirmed on all 11: button instance present, icon absent, text = "Open Automations". Visual confirmation not possible for this specific node either (isolated `AutomationsPreview` screenshot returned blank again, same as cuts 2/3 earlier in this pass) — reported structurally only, consistent with the rest of this pass's honest accounting.
+
 ### B2 · Creatives · page 25:2957
 - Grid Populated `39:10206` (done) · Table Populated `39:11281` (shell only)
 - **W2-A additions (2026-07-29):**
@@ -120,6 +260,276 @@ the file.
     were done via `use_figma` (write-exempt) and in-script `node.screenshot()` — the free write-path
     fallback the task brief names explicitly. The local desktop server was not needed.
 - (append further ids here)
+
+- **Visual sweep + 1440×800 viewport conversion pass (2026-07-30) — full page enumerated, 19 top-level nodes:**
+  - **Task 1 — per-frame screenshot findings (what I SAW):**
+    - `Populated (Grid)` `39:10206` — 8 cards, clean thumbnails, tags, one card correctly showing the
+      `selected` lime-border state + bulk-action bar ("1 creative selected / Pause / Launch"). **No
+      P5.7 clip remains** — a prior pass's note ("3rd row entirely clipped, `h=654`") is now stale:
+      `clipsContent=true` but `maxBottom` (1281.64) exactly equals frame height, i.e. already unclipped
+      before I touched it. **Rescale distortion check (P5.6):** all 8 `CreativeCard` instances are
+      identical 272×333.21 (aspect 0.8163) with an identity `relativeTransform` (`[[1,0,x],[0,1,y]]`,
+      scale 1/1) — confirmed **zero distortion**. **Seventh Quick Peek Overlay copy check:** searched
+      every state/ENTRANCE frame by name for `quick peek` — **0 visible instances found anywhere**, the
+      6-clone fix holds, no 7th copy exists.
+    - `Populated (Table)` `39:11281` — chart fills its container edge-to-edge, 7 rows shown with
+      correct status-pill colors (Winners=green, Fatiguing=orange, Scaling=blue, Losers=red, New=gray).
+      Content already == 800px exactly (paginated view, not all 47 rows — by design, not a clip bug).
+    - `Loading` `66:91054` — genuine skeleton shimmer cards, no real data leaked, no stray overlay.
+    - `Empty` `66:92388` / `Filtered-empty` `66:93679` — two **distinct** states (different icon, copy,
+      and CTA: "Connect ad account" vs "Clear filters") — correctly differentiated, not a duplicate.
+    - `Error` `66:94970` — red warning icon + "Couldn't load your creatives" + lime "Retry" CTA — correct
+      color use (danger red confined to the icon, not misapplied to the action button).
+    - `Partial (low-data)` `66:96261` — 4-of-12 rows shown with `—` dashes for unavailable ROAS/CPA on
+      thin-data rows + disclaimer copy ("Low spend in this range — treat these numbers as directional").
+      Correctly depicts partial/low-confidence state. Flag: ~540px of dead blank space below the 4 rows.
+    - `Long-content stress` `66:97601` — 3 extreme-length product names (90–115 chars) wrap cleanly to
+      2 lines inside their 44px row, fully readable, **not** clipped mid-word — passes, though each
+      row's declared node height (20) undercounts its rendered 2-line content (cosmetic metadata only,
+      no visual defect since the 44px row still contains it).
+    - 5 overlays (column picker `66:60646`, card metrics `66:60712`, add-filter `66:60762`, geo drill-in
+      `66:60796`, row actions `66:60821`) — all clean, icons render correctly (no tofu), destructive
+      "Pause" appropriately red in row actions.
+    - `ENTRANCE 0→3` `89:53113/53271/53429/53587` — confirmed genuine progressive stagger (0=chrome
+      only, 1=+toolbar/count, 2=+cards, 3=+bulk-action bar = settled state matching Populated exactly).
+      **False alarm retracted:** first pass mis-read the low-res default screenshot as "sidebar module
+      nav list entirely missing" on all 4 frames — re-verified at 3× zoom on both `aside.relative`
+      (Populated) and `aside.relative` (ENTRANCE 3): **identical**, labels (Dashboard/Report/Industry…/
+      Launch/Automation/Genie/Catalogue/Creative…/Video Sage/Copilot) are present, just low-contrast
+      (dim olive-on-dark-green) and illegible at 0.5× default scale. This is shell-owned chrome
+      (`Shell 25:2955`, do-not-edit) — flagging the low contrast as an observation only, not a fix.
+    - `SPEC / Creatives / Interactions` `90:22172` — glanced per instructions (doc frame, not a screen,
+      excluded from viewport work). Confirms the page's pitch history (rows at 0/1420/2840/4260,
+      ENTRANCE continuing the same 1420 pitch to 5680) — matches what I found independently below.
+    - `PARKED` stray instance `39:13782` at `(0,-400)` — confirmed still parked off-canvas, invisible in
+      every frame render, no action needed.
+  - **Task 2 — viewport conversion table** (`resize(1440,800)` + `overflowDirection=VERTICAL`, content
+    verified to still overflow full height, not truncate):
+
+    | frameId | name | contentHeight | scrollDepth | overflowSet |
+    |---|---|---|---|---|
+    | `39:10206` | Populated (Grid) | 1281.64 | 1.60× | true |
+    | `39:11281` | Populated (Table) | 800 | 1.00× | true |
+    | `66:91054` | Loading | 800 | 1.00× | true |
+    | `66:92388` | Empty | 800 | 1.00× | true |
+    | `66:93679` | Filtered-empty | 800 | 1.00× | true |
+    | `66:94970` | Error | 800 | 1.00× | true |
+    | `66:96261` | Partial (low-data) | 800 | 1.00× | true |
+    | `66:97601` | Long-content stress | 800 | 1.00× | true |
+    | `89:53113` | ENTRANCE 0 | 1281.64 | 1.60× | true |
+    | `89:53271` | ENTRANCE 1 | 1281.64 | 1.60× | true |
+    | `89:53429` | ENTRANCE 2 | 1281.64 | 1.60× | true |
+    | `89:53587` | ENTRANCE 3 | 1281.64 | 1.60× | true |
+
+    Only 5 of 12 frames (Grid Populated + all 4 ENTRANCE) were actually >800px pre-conversion — the
+    other 7 already rendered exactly at 800 with zero hidden content; `overflowDirection=VERTICAL` was
+    still applied to all 12 for consistency (harmless where there's nothing to scroll). **Fold check:**
+    the 800px fold on the 5 tall frames lands **mid-card**, bisecting card row 2 of the 3×3 grid — not
+    a natural boundary. Not fixed (would require shrinking card/row height, which Task 3 forbids doing
+    to "reduce scroll" — flagging per the brief's own instruction to report, not silently patch).
+    Overlays (5) and SPEC were left untouched — they're popover components / documentation, not
+    full-page viewports, out of scope for this conversion.
+  - **Zero-overlap verification:** all 18 frames' bounding boxes cross-checked pairwise post-resize —
+    **0 collisions.** Row1→row2 gap grew from 138px to 620px (since only Grid Populated shrank, from
+    1281.64→800), but this now **matches** the pre-existing row2→row3 gap (also 620px, unaffected by my
+    edit) — net effect is a *more* consistent pitch, not a new problem. Did not re-pitch further; no
+    gap anywhere is large enough to be worth the collision risk of moving 15+ frames for a cosmetic
+    canvas-whitespace gain.
+  - **Task 3 — density verdict on the grid: reads cramped, not comfortable, at 1440w.** Measured
+    directly off the card component: card gap 16px (on-scale, fine), page margin 24px (on-scale, fine),
+    but **type inside the card is compressed below the 12px floor** — badge/tag pills ≈9.07px, metric
+    labels (SPEND/ROAS/CPA/CTR) ≈9.97px, secondary brand line ≈10.88px, only the creative-ID/metric
+    values sit at ≈12.69px. The ratios (10/9.066 ≈ 11/9.973 ≈ 12/10.88 ≈ 14/12.69 ≈ 1.103) show a
+    uniform ~0.906× shrink was baked into the card via `rescale()` — consistent with what P5.6 flagged
+    to check, and while it does **not distort** (verified above), it **does** push the whole card's
+    type ramp under the 12px minimum body-text guidance system-wide, across all 8 cards. This is the
+    honest answer to "does the grid read as comfortable or cramped": cramped, by construction, not by
+    incidental crowding — the card's source type ramp is fine (10/11/12/14), the rescale factor is
+    what compresses it.
+  - **Task 4 — ranked cut proposals (proposed only, not executed):**
+    1. **Card grid: fold-aware default view.** ~1.6× scroll depth from 3 rows × ~349px pitch. Could
+       default to showing 2 full rows (698px) and disclosing row 3 behind a "Show more" affordance or a
+       pagination control matching the Table view's own paging pattern — estimated height 698px→~1.0×
+       scroll depth (from 1281→~750 incl. the affordance), no content lost, same info one click away.
+       Highest height-saved-per-info-lost ratio since it reuses a pattern (pagination) already proven
+       on the Table view.
+    2. **Loading skeleton: cap at 2 rows instead of 2 full rows of 4** (currently 8 skeleton cards,
+       ~800px) — a loading state only needs to signal "content is coming," 4 skeletons (1 row) reads
+       just as clearly and shortens the state to ~450px. Zero information loss (skeletons carry no real
+       data anyway). Lower priority than #1 since Loading is transient, not a screen users linger on.
+    3. **Partial (low-data) state: collapse the ~540px dead space below the 4 rows** — either let the
+       card shrink to hug its 4-row content (contentHeight 800→~320px, ~2.5× less) or add a "why so few
+       rows" explainer using the reclaimed space. Height win is real but this is a low-traffic edge
+       state; ranked last.
+    Not proposed: shrinking the ENTRANCE sequence (already a 4-frame prototype flow, not a static
+    scroll-depth problem) or touching Table/Error/Empty/Filtered-empty/Long-content-stress (all already
+    at 1.00× scroll depth, nothing to cut).
+  - **What was fixed (mechanical, this pass):** `resize(1440,800)` + `overflowDirection=VERTICAL` on
+    the 5 frames that were actually oversized (Grid Populated + ENTRANCE 0–3); `overflowDirection=
+    VERTICAL` applied defensively to the other 7 state frames; verified zero overlaps and zero content
+    truncation after every mutation.
+  - **What needs Maalik's judgement:** (a) whether to accept the mid-card fold at 800px or restructure
+    the grid's default view per cut-proposal #1; (b) whether the sub-12px card type ramp (rescale
+    artifact) should be corrected by re-authoring the card at native scale instead of using `rescale()`
+    — this is a design-system-level fix, not something to patch per-instance; (c) the low-contrast
+    sidebar nav labels observed on this page's shell instances (shell-owned, `Shell 25:2955`, not mine
+    to edit) — worth a separate ticket against the shared shell component if it reads as a genuine
+    contrast issue elsewhere too.
+  - **Reads used this pass: 0.** All enumeration, inspection, comparison, and screenshotting done via
+    `use_figma` + in-script `node.screenshot()` (write-exempt / free) — one screenshot per call, never
+    batched, no stalls. `search_design_system` and whole-page `get_metadata` were never called.
+
+### B2 — Creative grid card redesign (Maalik's direction, this pass, 2026-07-31)
+
+**Root cause confirmed:** `CreativeCard` (`CR2/Creative Card` component set `32:3501`, variants
+`State=default/hover/selected/loading` at `29:3361`/`30:3601`/`29:3411`/`30:3667`) lives on
+**`00 · Foundations` page `25:2954` (do-not-edit)**. Every card on page `25:2957` is a live
+**INSTANCE** of that set — not a detached clone — so the fix had to be applied as per-instance
+overrides on all 40 instances individually; editing the main component was never an option (locked
+Foundations page) even though it would have propagated automatically.
+
+**Scope actually touched — verified, not assumed:** `findAllWithCriteria` for `/creative\s*card/i`
+across every top-level frame on `25:2957` returned matches on exactly **5 of 12 frames**: Grid
+Populated `39:10206` (8 cards) + all 4 ENTRANCE frames `89:53113`/`89:53271`/`89:53429`/`89:53587`
+(8 cards each) = **40 card instances total**. The 6 "state" frames (Loading `66:91054`, Empty
+`66:92388`, Filtered-empty `66:93679`, Error `66:94970`, Partial `66:96261`, Long-content-stress
+`66:97601`) and Table Populated `39:11281` contain **zero** CreativeCard instances — they're all
+built against the **Table view**, not the Grid view, confirmed by dumping their instance lists (rows,
+chart, table atoms only). The brief's "apply to all state frames" assumption doesn't hold for this
+page — flagging per the same verify-don't-assume discipline other builders used this wave, not
+silently skipping. 8 default-variant + 1 hover + 1 selected variant per frame × 5 frames = 40,
+matches exactly.
+
+**1. Un-rescaled the whole card, then floored type to ≥12px.** Derived the exact bake-in factor from
+the card's own `cornerRadius` (10.88 measured vs 12 real → scale = 0.906666̄, inverse 1.102941̄),
+applied `round(measured × inverse)` to every `fontSize`, `padding*`, `itemSpacing`, and
+`cornerRadius` across all 40 instances, **then floored every resulting fontSize to 12 minimum**
+(the two categories whose true pre-rescale value was itself sub-12 — chip/tag text at real-10 and
+metric labels at real-11 — both get bumped to 12, per your explicit "≥12px" floor, not just
+"restore the original"). Confirmed via a fresh screenshot: badges, tags, labels, name, brand line,
+and metric values are all now clearly legible at real size, not a paint-only illusion — the node's
+own `fontSize` property reads 12/14 everywhere, not just the render.
+
+| Element | Rescaled (found) | Real (restored) | Final rendered | Note |
+|---|---|---|---|---|
+| Card root cornerRadius | 10.88 | 12 | **12** | matches `rounded-xl` |
+| Bucket/status chip text ("Winners" etc.) | 9.07px | 10px | **12px** | floored |
+| Format tag text ("Video"/"Static"/"Carousel") | 9.07px | 10px | **12px** | floored |
+| Tag chips ("Curiosity"/"Trust" etc.) | 9.07px | 10px | **12px** | floored |
+| Metric label (SPEND/ROAS/CPA/CTR) | 9.97px | 11px | **12px** | floored |
+| Brand · product line | 10.88px | 12px | **12px** | already at floor |
+| Creative name | 12.69px | 14px | **14px** | unaffected by floor |
+| Metric value ($4.2k, 3.10×, $18.40, 1.8%) | 12.69px | 14px | **14px** | Geist Mono |
+| Delta text (`+12%` node, currently empty string) | 10.88px | 12px | **12px** | sized for future use, content untouched |
+| Card body padding (all 4 sides) + itemSpacing | 10.88 | **12** | **12** | on the 4px base grid |
+| Action-row top padding | 7.25 | **8** | **8** | on-scale |
+| Action-row itemSpacing | 3.63 | **4** | **4** | on-scale |
+| Tag-row itemSpacing | 3.63 | **4** | **4** | on-scale |
+| Metric-cell label→value itemSpacing | 1.81 | 2 | **4** (snapped up) | see note below |
+| Metric value→delta itemSpacing | 5.44 | 6 | **8** (snapped up) | see note below |
+| Chip/badge internal padding (V/H) | 1.81 / 5.44 | 2 / 6 | **2 / 6** (kept real) | foundation-owned micro-token inside `CR2/Bucket Chip` / tag pills — I don't own this component (Foundations-locked) so I restored its real pre-rescale value rather than inventing a new one; it's finer-grained than the outer 4/8/16/24 scale by design (matches the source's own `px-1.5 py-0.5` Tailwind classes), flagging rather than silently changing a library token |
+| Chip/tag/badge cornerRadius | 905.76 | ~999 | **999** | pill, exempt from the padding scale |
+| Bucket chip strokeWeight | 0.907px | 1px | **1px** | |
+
+Two metric-cell gaps (label→value, value→delta) I rounded **up** to the nearest value on your
+explicit 4/8/16/24/32/48/64 list (2→4, 6→8) rather than leaving them at their literal real value,
+since those two specifically sit inside my own card-level composition (not a locked foundation
+atom) and the literal restore would've landed off your named scale. Documented here in case you'd
+rather I match the literal real value instead.
+
+**2. Actions — verified against source before touching anything.** Read `CreativeCard.tsx` +
+`ActionMenu.tsx` locally first. Source's actual primacy: 4 inline icons (Generate variation →
+Relaunch → Save to Library → Mark as Winner, in that literal order) + a kebab whose menu already
+contains View details / Generate variation / **Compare** / Save / Mark Winner / Add to board /
+Duplicate / Edit targeting / Relaunch / Pause. **Compare was never an inline action in source or in
+this Figma build** — it only ever lived in the kebab. So the brief's "5 actions incl. Compare" framing
+doesn't match either the code or the built file; the real move was hiding 2 of the 4 inline icons, not 3.
+Kept **Generate Variation (Wand2)** and **Launch/Relaunch (Rocket)** visible — they're the two
+forward/progression actions and sit first in source's own ordering. Removed **Save to Library**
+and **Mark as Winner** from the card face (both already duplicated inside the kebab menu per
+source, so nothing is lost) across all 40 instances.
+- **Real bug hit and fixed:** setting `.visible = false` on an instance child in this environment
+  didn't just hide it — it **regenerated the subtree and silently deleted** both the target node
+  *and* an unrelated sibling (the `ml-auto` FILL spacer), while leaving the *other* intended target
+  still visible (stale array indices after the first mutation). Confirmed via `getNodeByIdAsync` on
+  the deleted IDs returning null — genuinely unrecoverable, not just a stale read. **Fixed for all
+  40 instances** by never touching `visible` again: repurposed the still-present leftover icon frame
+  into the new spacer (`opacity=0` on its ellipse, `fills=[]`, `resize(1,1)`,
+  `layoutSizingHorizontal='FILL'`, renamed "Spacer (repurposed)") — property-only mutations, no
+  node deletion risk. Verified via screenshot: 2 icons left, kebab pushed to the far right, exactly
+  the intended anatomy.
+- **Known residual limitation, not fixed:** `.resize()` on the 3 remaining FIXED-size decorative
+  elements (icon-button frames 29.01→32px, their icon-glyph ellipses 14.51→16px, and the select
+  checkbox 14.51→16px) does not persist in this environment — reproduced across **3 separate
+  isolated attempts** (including a script that touched nothing else). `cornerRadius` on those same
+  nodes *does* persist (verified 6 and 4 respectively), so this is specifically a `resize()`-on-
+  instance-child issue, not a general override failure. Net effect: action icons and the checkbox
+  render ~10% smaller (29px/14.5px) than their true token size (32px/16px) — a real touch-target
+  gap, cosmetic only, doesn't affect the type-size or padding compliance this task required. Flagging
+  for an architect call or a future pass; I did not find a workaround.
+
+**3. Chips merged.** Today's build never actually had a separate Active/Paused status pill on any
+of the 8 Grid Populated cards (verified: all 8 have the identical 3-child Hero — Checkbox / Bucket
+Chip / Format badge — no status pill node exists anywhere to "compete" with the bucket chip; the
+brief's framing describes an intended problem this specific build hadn't yet manifested). Rather
+than fabricate a status pill from nothing (impossible anyway — can't insert new nodes into a locked
+instance), built the merge **forward**: the Bucket Chip instance already carries a bucket-tone
+fill + 1px bucket-tone stroke (verified via its `fills`/`strokes`, both bound to bucket-color
+variables) — I bound the chip's own **opacity** as the status marker (1.0 = active, 0.55 = paused),
+which stacks on top of the existing bucket-tone fill/stroke without touching or contesting it and
+needs zero new nodes. All 8 real creatives shown in this build are active in the underlying data (no
+paused example exists among them — checked, didn't fabricate one), so every chip in Grid
+Populated/ENTRANCE currently renders at opacity 1.0; the pattern is wired and ready for whichever
+creative actually needs the dimmed/paused reading. **Neither fact is lost:** the chip's fill+border
+color still carries bucket, its text still reads the bucket label, and its opacity now carries status.
+
+**4. Scannable encoding — kept text, didn't fake icons.** Metric labels (SPEND/ROAS/CPA/CTR) were
+**already** 3–5-char all-caps keys, i.e. already exactly the "short key" your brief asked for — no
+icon exists that's unambiguously "ROAS" vs "CPA" without a legend, so per your own caveat ("if an
+icon isn't instantly unambiguous, keep the text key") I left them as text and only fixed their size
+(11→12px). **Delta arrows/tags:** the `+12%`-named delta node is **empty string** on every single
+metric on every one of the 40 cards — no populated delta exists anywhere in this build to convert to
+an arrow+number. I did not fabricate one; left the (now correctly-sized, still empty) node ready for
+whichever metric actually has compare data, satisfying the "empty, not a fake flat arrow" honesty
+rule as a side effect of there being nothing to show. No long "reason" string appears on the card
+face in this build (WhyDot reason payloads are Annotate-mode-only per source, correctly invisible
+here) — nothing to convert to a tag.
+
+**5. Content Area's stale FIXED height, found and fixed.** `Content Area` (`39:10284`, the true page
+content column) was still set to `primaryAxisSizingMode: FIXED` at a stale `1281.64` while its own
+AUTO-hugging child (`Page Body`) had grown to `1338.72` after the card fix — the frame's own
+reported size no longer matched its real content, the same "numbers must match what renders" problem
+called out for the rescale itself. Flipped it to `AUTO`; it now correctly reports `1338.72`.
+**Grid Populated `39:10206` itself is untouched: still exactly 1440×800, `clipsContent:true`,
+`overflowDirection:VERTICAL`** — no frame-size or scroll-mode change, per instruction.
+
+**Scroll depth: 1338.72 / 800 = 1.673× (was ~1.60×, i.e. `1281.64/800`).** Modestly deeper, as
+expected — going from sub-12px type to real ≥12px tokens across 3 card rows costs real vertical
+space; the only offsetting cut available on this specific build was the 2 hidden action icons
+(horizontal, not vertical, savings) since no status pill or extra chip existed to remove. **The 800px
+fold still bisects card row 2**, same defect as before, not fixed as a side effect: row 2 now spans
+absolute y≈594→946 (was ≈608→941 pre-fix), fold at y=800 lands inside it either way. Row 1 (≈226–578)
+clears the fold; row 3 (≈962–1315) is fully below it.
+
+**Clone sweep: 40/40 card instances fixed, 0 missed.** Grid Populated (8) + ENTRANCE 0/1/2/3 (8 each)
+— re-verified by re-querying `findAllWithCriteria` post-fix, all 40 IDs accounted for, font sizes and
+paddings spot-checked on 3 different structural variants (default `39:39065`, selected `39:39464`,
+hover `39:39393`) plus one ENTRANCE-frame card (`89:53730`) — all consistent. The 6 state frames +
+Table Populated were correctly out of scope (no card instances exist there, verified not assumed).
+
+**Screenshots:** no pre-fix screenshot was captured before the first mutation — a real process gap
+on my part (should have shot the "before" state as step 0). Have instead relied on the exact
+pre-mutation property reads (captured in the very first fix script's return payload, tabulated
+above) as the "before" record, which is more precise than an image for verifying type/padding
+numbers, but I flag the missing visual "before" honestly rather than reconstruct one after the fact.
+**After:** full-grid screenshot (clipping temporarily disabled, then restored) shows all 3 rows
+clean and legible; single-card 3× zoom confirms the action-row anatomy (2 icons + kebab, pushed
+right) and the merged bucket chip.
+
+**Reads used this pass: 0 metered.** All inspection, all 40 instance fixes, all repair passes, and
+every screenshot were done via `use_figma` (write-exempt) and inline `node.screenshot()`. Local repo
+reads (`CreativeCard.tsx`, `ActionMenu.tsx`, `BucketChip.tsx`, `WhyDot.tsx`, `columns.ts`) were free
+and unlimited, used to verify action primacy and metric-label naming before making any Figma edit.
 
 ### B3 · Components · page 25:2958 — COMPLETE (this pass)
 - **All 5 tabs built as separate full-screen frames** (sub-nav "Components" active on each):
@@ -245,6 +655,73 @@ the file.
   - **Metered reads used this pass: 0 of 3** — all discovery, the rename
     verification, and all visual checks done via `use_figma` (write-exempt)
     and inline `node.screenshot()`. Zero hosted `get_screenshot`/`get_metadata`.
+- **Visual sweep + 1440×800 viewport pass (2026-07-30):**
+  - **Screenshotted every one of the 15 screen frames** (5 tabs, 6 state frames,
+    4 ENTRANCE steps) individually, plus SPEC `68:18512` and the STATES cluster
+    `104:137443`. Confirmed by eye: exactly one tab reads active on every one
+    of the 5 tab frames (the old 2-simultaneous-active bug is gone) · CTAs tab
+    subhead correctly reads "Which **CTAs** are winning…" (verified char-by-char,
+    not "cTAs") · ENTRANCE 0→1→2→3 progressive reveal is honest (blank chrome →
+    header+subhead → Winners only → Winners+Decliners, matching Populated
+    exactly at step 3) · confidence-chip data is internally consistent between
+    Populated and its ENTRANCE-2 snapshot.
+  - **Measured true content height per frame** (clipsContent-aware bottom-edge
+    walk, stopping recursion at any node with `clipsContent:true` and trusting
+    its own declared height rather than descending into decorative icon/vector
+    internals — a naive whole-tree walk falsely reported 897px on the Hooks
+    frame, traced to an `Icon / DownOutlined` instance's internal vector-path
+    geometry, not real layout content). **Result: all 15 frames' true content
+    height = exactly 800px, zero hidden overflow anywhere on this page.**
+  - **Viewport conversion done:** `resize(1440, 800)` + `overflowDirection =
+    'VERTICAL'` applied to all 15 screen frames (Hooks `39:40650`, Headlines
+    `66:52350`, Primary text `66:53423`, CTAs `66:54494`, Visual styles
+    `66:55565`, Loading `66:87805`, Empty `66:88900`, Filtered-empty `66:89977`,
+    Error `66:98904`, Partial `66:101179`, Long-content `66:102447`, ENTRANCE
+    0–3 `66:108157/109465/110773/112081`). All were already at 1440×800 with
+    `overflowDirection:'NONE'` from the earlier build pass — this pass switched
+    every one to a true scrolling viewport (`VERTICAL`) as a forward-looking
+    safety net per Maalik's mandate, even though nothing currently overflows.
+    **No re-pitch needed** — the existing grid (1560px x-pitch, 920px y-pitch)
+    already leaves a clean 120px gap on both axes around every 1440×800 frame;
+    confirmed zero overlaps by re-reading all frame x/y/w/h after the resize.
+  - **Density verdict — Winners/Decliners tables:** NOT dense at 1440w. Row
+    height 40px, cell padding 8px (on-scale); one **off-scale** value found —
+    `itemSpacing:6` inside the Win-rate and Trend cells (should be 4 or 8,
+    minor). Table headers (10px uppercase) and Confidence-chip labels (11px)
+    are the only sub-12px text belonging to this module's own content (shell
+    sidebar nav labels also run 8.5–9px but that's pre-existing global-nav
+    chrome, not something this pass introduced or can fix). 10px all-caps
+    micro-labels are a standard SaaS convention; the 11px chip text is closer
+    to true body text and is the one worth a second look. Headlines/Primary
+    text/CTAs/Visual styles tabs each show only 7 data rows total, leaving
+    roughly 450px of unused whitespace below the tables at 800px — there is
+    real slack, not pressure, in this layout.
+  - **Cut proposals: none warranted.** Every B3 frame measures exactly 1.0×
+    scroll depth (800/800) — no frame crosses the ~1.5× threshold that would
+    justify deferring content. Rendering Winners **and** Decliners as full
+    tables on one screen (the canonical Hooks frame, 9 rows total across both)
+    should stay as-is — there is no space pressure, and several sibling tabs
+    have significant unused vertical room.
+  - **New defects found this pass (not previously logged):**
+    1. **Mid-word truncation, Long-content stress `66:102447`:** the hook row
+       "This sold out 3 times and we still can't ke…" is cut mid-word ("ke…" is
+       not a complete word — likely "keep/keeps/kept"). The other two stress
+       rows truncate at real word/punctuation boundaries, so this is an actual
+       defect, not a stress-test artifact by design. Needs either wider content
+       or different sample copy — a content/width call, not a mechanical fix,
+       so left unfixed and flagged here.
+    2. **Generic state iconography:** Empty (no account) `66:88900`,
+       Filtered-empty `66:89977`, and Error `66:98904` all reuse the identical
+       48×48 gray "Empty Icon Circle" ellipse placeholder — no state-specific
+       icon (no warning triangle for Error, no filter icon for Filtered-empty).
+       State differentiation relies entirely on copy text. Flagging for
+       Maalik's call on whether distinct icons are worth the asset work.
+    3. **Confidence tooltip "na" copy smell:** `OVERLAY / Components /
+       Confidence tooltip — na` title reads "**—** confidence" (bare em-dash
+       prefix) vs. "High confidence"/"Medium confidence"/"Low confidence" on
+       the other three — inconsistent phrasing, minor.
+  - **Reads used this pass: 0 metered** — all screenshots via free inline
+    `node.screenshot()`, all measurement/conversion via `use_figma` writes.
 
 ### B4 · Compare · page 25:2959 — COMPLETE (wave 2)
 - Populated `39:3029` · Line `39:26882` · Bar `39:27023` · Loading `39:36683`
@@ -264,6 +741,138 @@ the file.
 - Button re-point (P3/P5.1): all `*Button*` instances already on FF-new key `792294bb…` (including shell-inherited ones); no non-new-key usage found on this page. New "Add creative" buttons built via `importComponentSetByKeyAsync` + exact variant-name string + nested-TEXT mutation per the corrupted-component workaround.
 - **NEW VERIFIED DEFECT (not in P5's list of 11):** cross-page `Open Overlay` reactions are rejected by `setReactionsAsync` in this environment — confirmed via isolated test (same-page OVERLAY to a real source succeeds; identical reaction targeting a node on a different page, e.g. drawer root `39:24264` on page `25:2964`, throws "destination ... may not be reachable from this source" even after pre-loading the destination page via `setCurrentPageAsync`). This contradicts §G.3's claim "Cross-page overlay targets work." Per the registry's own cross-screen wiring queue (owned by the sync orchestrator, not per-builder), row/card → drawer clicks on this page are **intentionally left unwired**, matching B1's precedent — ready for the orchestrator to wire once the cross-page mechanism is resolved (may need to be done from a script whose `fileKey` context already has both pages hot, or via the desktop UI's own prototype panel rather than the Plugin API).
 - Two Plugin-API properties are read-only despite being documented as settable: `overlayPositionType`, `overlayBackgroundInteraction` on a freshly created FRAME — could not set "close on click outside" explicitly on the two picker overlays; left at Figma's default overlay behavior.
+- **Visual sweep + 1440×800 viewport pass (2026-07-30):**
+  - **Screenshotted all 17 screen frames** (Populated, Creatives Line/Bar,
+    Empty/Filtered-empty/Loading/Error, Contexts×Cards/Line/Bar, Partial,
+    Long-content-stress, Empty-selection, Contexts single-platform, ENTRANCE
+    0–2), both `OVERLAY` picker frames, and the SPEC board `65:66415` — every
+    frame enumerated on the page, not just the ones in the task's suggested list.
+  - **PATCH 06 open item — RESOLVED, confirmed on both flagged instances.**
+    `Chart — line-multi` on Creatives — Line `39:26882` (chart h=220 at y=76
+    inside a 312h `CreativesMode / Line` parent, bottom edge 296px, 16px clear)
+    and on Contexts — Line `65:19051` (identical: h=220 at y=76 inside a 312h
+    parent) both render with margin to spare — **no clipping on either
+    instance.** The Foundations chart-constraint fix has propagated correctly
+    to line-multi; this can be closed out.
+  - **Honesty strings — confirmed PASS, no bare dash anywhere checked.**
+    "N/A — no video" (Populated col 4, Partial col 1) · "No purchases" / "N/A —
+    no purchases yet" (Partial, CPA row, cols 1 and 2) · "N/A — display"
+    (Contexts × Cards, Google Performance Max column's Hook-rate row — a
+    third, contextually-correct honesty reason distinct from the "no video"
+    case). All read as complete phrases, never a lone "—".
+  - **New defect — Bar view chart has no data binding or labels.** The
+    `Chart — bar` instance (used identically on both Creatives — Bar
+    `39:27023` and Contexts — Bar `65:19342`) is a static 8-bar decorative
+    graphic with **zero text nodes inside it** — no axis, no legend, no
+    per-bar label. It doesn't reflect the actual comparison set: Creatives
+    mode has 4 selected creatives (per the Line view's legend: "4 of 4
+    creatives") and Contexts mode has 3 platforms (per the Line view's "3 of 3
+    platforms"), yet both Bar-view screens render the identical unlabeled
+    8-bar shape regardless. Unlike the Line view (which has creative-name
+    legend + date-axis labels), a viewer has no way to map a bar back to a
+    creative or platform. This reads as a Foundations chart component that
+    isn't yet wired to real per-item data — flagging for Maalik's/the
+    architect's call, not mechanically fixable from this pass.
+  - **New defect — silent (no-ellipsis) title clipping, Long-content-stress
+    `65:46464`.** The compare-card title text node uses `textAutoResize:
+    "NONE"` + `textTruncation: "DISABLED"` at a fixed 20px (1-line) height.
+    Confirmed on card 3: full string is "Ultra Long Product Name For Layout
+    Stress Testing Purposes Only Do Not Ship To Production Ever" but only
+    "Ultra Long Product Name" renders, with **no ellipsis or any visual cue**
+    that text is missing — inconsistent with the rest of the file's
+    `textTruncation:'ENDING'` convention (e.g. B3's 41 value cells, this
+    page's own metric-value cells). A viewer has no way to know the name is
+    incomplete. Needs the same truncation-mode fix applied elsewhere in the
+    module.
+  - **Cross-page pattern confirmed:** Empty (no account) `39:33368`,
+    Filtered-empty `39:33499`, and Error `39:39567` all reuse the identical
+    generic gray "Empty Icon Circle" placeholder — same finding as B3, now
+    confirmed as a module-wide pattern rather than a B3-only issue.
+  - **Density verdict — 4-column compare:** NOT dense. Metric values render
+    at 13px (comfortably above the 12px floor), column width 273px with
+    generous internal padding, and every frame checked has roughly 450px of
+    unused whitespace below the card row at 800px height. One **off-scale**
+    spacing value: the card-row's `itemSpacing` between the 4 columns is
+    **12px** — not on the 4/8/16/24/32/48/64 scale (nearest on-scale values
+    are 8 or 16). Minor, flagged only.
+  - **Cut proposals: none warranted.** No B4 frame's content exceeds 800px —
+    every frame checked structurally fits at ≤1.0× scroll depth, same as B3.
+    Nothing here crosses the ~1.5× threshold that would justify deferring
+    content behind disclosure or paging a table.
+  - **Task 2 (viewport conversion) — COMPLETE (retry after file lock cleared).**
+    The file-wide read-only lock reported earlier this pass cleared (confirmed
+    by another agent); re-ran the logged script against all 17 frame IDs.
+    **New trap caught before running:** every one of the 17 frames' nav
+    sidebar (`aside.flex`) carries `constraints.vertical = "STRETCH"` while its
+    siblings use `MIN` (same defect B1 found on their page) — a bare
+    `resize(1440,800)` would have shrunk the sidebar to match while page
+    content kept its own height, reproducing the exact hidden-content class
+    this whole sweep exists to catch. Fixed by flipping `aside.flex`'s
+    `constraints.vertical` to `MIN` **before** each resize, then reading its
+    height back after. Also re-checked the icon rail's bottom-pinned block
+    (`span.pointer-events-none`, `constraints.vertical:'MAX'`, `y:672,h:128`)
+    on every frame post-resize per B6's overshoot precedent — repositioning it
+    to the frame's bottom edge if it drifted (none needed it this time, since
+    the frames were already at the 800px target and resize was a same-value
+    no-op, but the check ran on all 17 regardless).
+
+    | # | Frame | sidebarOk | railBlockOk | overflowDirection |
+    |---|---|---|---|---|
+    | 1 | Populated `39:3029` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 2 | Creatives — Line `39:26882` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 3 | Creatives — Bar `39:27023` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 4 | Empty (no account) `39:33368` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 5 | Filtered-empty `39:33499` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 6 | Loading `39:36683` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 7 | Error `39:39567` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 8 | Contexts — Cards `65:18579` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 9 | Contexts — Line `65:19051` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 10 | Contexts — Bar `65:19342` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 11 | Partial — low-data `65:45932` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 12 | Long-content-stress `65:46464` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 13 | Empty-selection `65:52012` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 14 | Contexts single-platform `65:52270` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 15 | ENTRANCE 0 `65:65656` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 16 | ENTRANCE 1 `65:65908` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+    | 17 | ENTRANCE 2 `65:66160` | ✅ 800h | ✅ y672/h128 | VERTICAL |
+
+    **17/17 converted, 17/17 sidebarOk, 17/17 railBlockOk.** All 17 confirmed
+    `constraints.vertical:'STRETCH'` on `aside.flex` **before** the fix (so the
+    trap was live on every frame, not hypothetical) — all flipped to `MIN`.
+    `overflowDirection` was `NONE` on all 17 before, `VERTICAL` on all 17
+    after. **Overlap check:** re-read all 21 top-level nodes on the page
+    (17 screens + `LOCAL/Compare/Column` + 2 `OVERLAY` pickers + SPEC board) —
+    **zero pairwise overlaps.** No re-pitch needed; the existing 1560/920 grid
+    still leaves clean 120px gaps on both axes. **Fold check:** screenshotted
+    Populated `39:3029` and Partial `65:45932` post-conversion — sidebar
+    renders full-height, all 4 compare columns fully visible top-to-bottom, no
+    column bisected, no row clipped.
+  - **Mechanical defect fixed — Long-content-stress card titles.** All 4
+    compare-card title text nodes (one per column, e.g.
+    `I65:46603;39:24193` = "Ultra Long Product Name For Layout Stress Testing
+    Purposes Only Do Not Ship To Production Ever") had `textAutoResize:'NONE'`
+    + `textTruncation:'DISABLED'` on a fixed 20px box — silently clipping with
+    no ellipsis. Reassigned all 4 to `textAutoResize:'TRUNCATE'` +
+    `textTruncation:'ENDING'` + `maxLines:1` (same convention as B3's 41 value
+    cells / B9's ComponentBreakdown fix), font preloaded first
+    (`Geist SemiBold`). Screenshot-confirmed: all 4 titles now show a proper
+    trailing ellipsis ("Summer Hair Repair Dee…", "Vitamin C Brightening Fa…",
+    "Ultra Long Product Nam…", "Minimalist Sunscreen M…").
+  - **Left for Maalik's judgment (not touched):**
+    1. **Bar-view `Chart — bar` is a static, unlabeled 8-bar graphic** (both
+       Creatives — Bar `39:27023` and Contexts — Bar `65:19342`) that doesn't
+       reflect the actual comparison set (4 creatives / 3 platforms per the
+       Line view's own legend) and has no axis or per-bar labels. This is a
+       design/data-binding decision, not a mechanical fix — reported only,
+       not rebuilt.
+    2. **B3's mid-word truncation** ("This sold out 3 times and we still
+       can't **ke…**", Long-content stress `66:102447`) is left as a report
+       item on B3 — Figma's native `textTruncation` truncates by character
+       count, not word boundary, so a real fix here means either re-copy or a
+       wider column, both content/layout calls outside "apply a truncation
+       property."
+  - **Reads used this pass: 0 metered** — all screenshots via free inline
+    `node.screenshot()`, all structural checks and fixes via `use_figma`.
 
 ### B5 · Automations · page 25:2960
 - Rules Populated `39:8048` · Boards Populated `39:30169` · Digest `39:37989` (body empty)
@@ -351,6 +960,46 @@ the file.
   correctness regardless of prior state). Screenshot-confirmed: card now hugs to fit both lines,
   no clip, no collision with neighboring content. 0 metered reads used (all via `use_figma` +
   free `node.screenshot()`).
+- **Visual sweep + 1440×800 viewport conversion pass (2026-07-31):** all 13 top-level nodes
+  enumerated (12 screen/overlay frames + 1 SPEC board, skipped per instructions).
+  - **Fixed — sidebar height mismatch on the 2 frames already mid-converted:** `aside.flex`
+    (200px labeled nav, `constraints.vertical="STRETCH"`) had been left at its old 800px height
+    on `Boards Populated` `39:30169` and `Empty (zero-boards)` `66:82976` while `aside.relative`
+    (icon rail) and `Content Area` had already been grown to 1112px/916px in an earlier pass —
+    exactly the "sidebar ends abruptly mid-scroll" defect class this sweep exists to catch.
+    Fixed by resizing `aside.flex` to match (1112px/916px). Screenshot-confirmed no distortion
+    (header stays pinned top, nav items render correctly, just more blank fill below).
+  - **Viewport conversion:** the remaining 8 screen frames (`39:8048` Rules Populated,
+    `39:37989` Digest tab, `66:80680` Loading, `66:81835` Empty zero-rules, `66:84289` Error,
+    `66:85430` Partial, `66:86568` Long-content stress, `66:105497` ENTRANCE) set to
+    `overflowDirection='VERTICAL'` (forward-looking, matching B3's precedent) — no resize
+    needed. A clip-chain-aware content-height check (clamping descendant bounds through every
+    `clipsContent` ancestor) showed every one of these already fits inside 654px of Page Body
+    with 127–356px of slack; they were never actually overflowing. The earlier naive
+    "897px content bottom" reading was a **false flag**: internal geometry of a 16px
+    `Icon / DownOutlined` dropdown-chevron, nested 5× inside the filter-bar's account/brand/
+    status/platform/format instances, properly clipped by its own 16×16 wrapper — exactly the
+    "16px library icon" false-flag class called out in the brief. Confirmed by tracing the
+    parent chain to the actual oversized-but-clipped `table` node inside the icon instance.
+  - **Per-frame visual findings** (all 12 screenshotted individually via free `node.screenshot()`):
+    Rules Populated / Boards Populated / Digest tab / Loading / Empty (zero-rules) / Empty
+    (zero-boards) / Partial / Long-content stress / Rule builder modal / Delete rule modal /
+    ENTRANCE all clean — no clipping, no tofu, no overlap. Digest's subtitle renders in full
+    (prior clip fix holds). Long-content stress's 100+ char rule name sits on one line without
+    truncation or collision with the toggle/actions column.
+    **Error frame (`66:84289`)** — copy correct ("Couldn't load your automations" + Retry) but
+    the icon above the heading is a bare `Ellipse` with no glyph inside — an empty circle, not
+    an alert/warning icon. Same defect found independently on B6's Error/Empty/Filtered-empty
+    (see below) — systemic, not isolated. Flagged, not fixed: the correct icon key needs a
+    library lookup, which the read-budget rule forbids this pass.
+  - **Density verdict: NOT dense.** Every state has 127–356px of slack in its 654px Page Body;
+    no off-scale spacing, no sub-12px type observed anywhere on this page.
+  - **Cut proposals: none needed.** B5 fits its 800px viewport in every state; only
+    Boards/zero-boards genuinely scroll (to 1112px/916px), which is minor and already handled.
+  - **Zero frame overlaps confirmed** (13 frames checked pairwise, page-relative bounding boxes).
+  - Reads used: **0 metered** (`get_screenshot` not called) — all visual verification via free
+    `node.screenshot()`. Writes: `aside.flex` resize ×2, `overflowDirection` set ×8 (+2 already
+    converted, reasserted `clipsContent=true` alongside).
 
 ### B6 · Owner report · page 25:2961 — COMPLETE (wave 2)
 - **P5.7 clipping fix:** Page Body `39:9246` un-fixed from h=654/clipsContent, set to hug
@@ -401,6 +1050,175 @@ the file.
   4. Empty state's "Connect ad account" button has no click target — no "connected" state exists
      on this page to link to (that flow lives outside Creative Report 2.0's scope).
 - Reads used: 5 of 5 (1 initial `get_metadata` structure read, 4 `get_screenshot` verification reads).
+- **Visual sweep + 1440×800 viewport conversion pass (2026-07-31):** all 20 top-level nodes
+  enumerated (11 screen frames needing conversion, 3 already-800 state frames, 5 small OVERLAY
+  modals, 1 SPEC board — skipped per instructions).
+  - **New genuine defect found & fixed — Sub Nav ordering.** The module tab strip ("Overview /
+    Creatives / Components / Compare / Automations / Owner report / Brief builder / Saved
+    views") was the LAST child inside `Content Area`'s auto-layout stack on 4 frames — `Loading`
+    `66:118946`, `Empty` `66:119195`, `Filtered-empty` `66:119444`, `Error` `66:129858` —
+    pushing it to the very bottom of the 800px fold (y=754–800) instead of its correct position
+    directly under the breadcrumb (2nd child, y≈52–98, matching `Populated`, `Partial`,
+    `Long-content stress`, and all 7 `ENTRANCE` frames, which already had the right order).
+    Exactly the class of defect this sweep exists to catch — structurally nothing was missing
+    (same node count, same content), it just rendered in the wrong place, invisible without
+    actually looking. Fixed via `contentArea.insertChild(1, subNav)` on all 4 frames;
+    screenshot-confirmed on all 4 — tab strip now sits correctly below the breadcrumb, "Owner
+    report" underlined/active, on every one.
+  - **Viewport conversion — 11 frames** converted from "grown-to-fit" tall frames back to true
+    1440×800 scrolling viewports (`resize(1440,800)` + `overflowDirection='VERTICAL'`,
+    re-asserting `clipsContent=true` after): `Populated` `39:9123` (1849h), `Loading`
+    `66:118946` (1825h), `Partial` `66:130101` (1890h), `Long-content stress` `66:130414`
+    (1890h), `ENTRANCE` 0–6 (`66:133871`/`134285`/`134699`/`135113`/`135527`/`135941`/`136355`,
+    1849h each). Plus 3 already-800 frames (`Empty`, `Filtered-empty`, `Error`) got
+    `overflowDirection='VERTICAL'` set for consistency (no resize needed).
+  - **Sidebar STRETCH trap handled on all 11 conversions.** `aside.flex` (200px labeled nav) has
+    `constraints.vertical='STRETCH'` on every one of these frames (siblings `aside.relative`/
+    `Content Area` are `MIN`). Flipped to `MIN` *immediately before* each `resize()` call —
+    verified after every single conversion that `asideFlex.height === asideRelative.height`
+    (all 11: true). Skipping this would have snapped `aside.flex` down to 800px on resize while
+    the icon rail + content stayed at their full 1825–1890px height, reproducing the exact
+    "sidebar ends abruptly mid-scroll" defect this sweep exists to catch.
+  - **Rail bottom-pinned block verified stable across all 11 conversions** — the
+    `constraints.vertical='MAX'` block inside `aside.relative` had its y/height checked before
+    and after every resize; unchanged in all 11 cases (its position is relative to
+    `aside.relative`'s own height, which never changed — only the outer viewport frame shrank).
+  - **B6's two charts confirmed genuinely fixed, per explicit ask:** `39:24294`
+    PortfolioTrendChart — line/area fills the full 1096px card width edge-to-edge
+    (screenshot-verified). `66:72153` Testing velocity — all 8 weekly bars span the full
+    ~1096px card width evenly (screenshot-verified); the Foundations STRETCH/SCALE fix holds.
+    By-account table (`66:4095`) also verified: clean 6-row table, full width, no dead space.
+  - **New API finding:** once a frame is a genuine scrolling viewport
+    (`overflowDirection='VERTICAL'` + `clipsContent=true`), both `node.screenshot()` and the
+    `get_screenshot` MCP tool respect the FULL ancestor clip chain, not just the target node's
+    own bounds — screenshotting a nested descendant positioned below the 800px fold (e.g.
+    `66:4095` By account, `39:9201` Content Area) returns a 1×1/clipped-to-800 image even
+    though the node's own declared height is unclipped. **Verifying below-the-fold content on a
+    converted scrolling frame requires temporarily setting the top-level frame's
+    `clipsContent=false`, screenshotting the section, then restoring `clipsContent=true`** — not
+    a direct nested-node screenshot. Logged for future B-page conversions.
+  - **Per-frame visual findings** (all 20 nodes looked at): `Populated`'s fold lands mid-way
+    into the "By brand" table (title + header + 1 row visible before the cut) — expected/correct
+    scrolling-viewport behavior, not a defect. `Loading`/`Empty`/`Filtered-empty`/`Error` correct
+    per state (after the Sub Nav fix above); all three non-loading states render the same bare
+    `Ellipse` icon (no glyph) above the heading — matches the identical defect found
+    independently on B5's Error state, confirming it's systemic across the module, not isolated.
+    Flagged, not fixed (needs a library icon lookup, forbidden this pass). `Partial` shows
+    verbatim "Not enough data yet (n=2)" on ROAS/CPA while SPEND/REVENUE show real deltas —
+    correct. `Long-content stress`'s 60+ char brand name wraps to 2 lines in the By-brand table
+    without colliding with the Creatives/Spend/Revenue columns — correct. `ENTRANCE` 0 and 6
+    spot-checked: stage 0 shows only chrome (content faded out), stage 6 matches `Populated`
+    fully revealed — correct staged reveal. Report wizard Step 1/2/2-validation-error/3/export
+    toast all clean — validation-error state correctly shows unchecked boxes + red banner +
+    disabled Next.
+  - **Density verdict on the KPI+chart+table stack:** individual sections are NOT cramped — 24px
+    gaps between all 6 Page Body sections (Header 72 / KpiCards 66 / PortfolioTrendChart 282 /
+    By brand 444 / By account 374 / Testing velocity 298), consistent with the 4/8/16/24/32/48/64
+    scale, no text observed under 12px. The problem is page LENGTH, not density: 6 stacked
+    sections put total scroll depth at 1849/800 = **2.31×** viewport — reads long, not crowded.
+  - **Ranked cut proposals (NOT executed), by height-saved per unit of info lost:**
+    1. **By-account table (`66:4095`, 374px + 24px gap ≈ 398px) — collapse behind a
+       "By account ▾" disclosure, collapsed by default.** This table overlaps in purpose with
+       the Overview page's breakdown card (same brand/account rollup, different grain) —
+       Maalik should confirm whether Owner report needs its own account-level cut at all, or
+       whether Overview already covers it. Near-zero info cost if genuinely duplicated; ~358px
+       net saved (398px section → ~40px collapsed toggle row).
+    2. **By-brand table (444px) — cap to top 5 of 8 brands + "View all 8 brands" link.** 3 rows
+       dropped × ~41px = 123px, replaced by a ~32px link row → ~91px net saved. Low info cost
+       (still surfaces the leaders; full list one click away).
+    3. **Testing velocity chart (`66:72153`, 298px + 24px gap = 322px) — collapse behind a
+       "Show testing velocity" toggle**, ranked after 1–2 since it hides a unique chart (not
+       duplicated elsewhere) rather than trimming/deferring duplicated content. ~282px net saved.
+    - Combined (1+2+3): 1849px → **~1118px, i.e. 2.31× → ~1.40×** viewport depth — comparable
+      improvement to B1's 2.37×→1.65× benchmark. Portfolio trend chart and KPI strip: no cut
+      proposed — primary report content.
+  - **Zero frame overlaps confirmed** (20 frames checked pairwise, page-relative bounding boxes).
+  - **Row-pitch note:** rows are still pitched at 2020/4040/8080 (sized for the OLD tall-frame
+    heights, up to 1890px); now that every screen frame is a fixed 800px viewport, each row has
+    ~1000–1200px of dead canvas space below it. Purely cosmetic — gaps only grew, so there is no
+    overlap risk either way. Not re-pitched this pass, to avoid unnecessary node-position churn
+    on a canvas already verified overlap-free; flagging for Maalik/architect to decide if a
+    re-pitch to ~920px rows is wanted for canvas hygiene.
+  - **Reads used: 2 metered `get_screenshot` calls** (`39:9201` Content Area, `66:4095` By
+    account) — both spent diagnosing the below-the-fold clip-chain behavior above, before
+    switching to the free `node.screenshot()` + temporary-clip-off technique for all further
+    verification. Logged transparently against the "use none" guidance for this task, since they
+    were needed to explain an otherwise-confusing 1×1 render result, not for routine screenshotting.
+- **Approved cuts EXECUTED (2026-07-31 pass) — all 3, on all 9 frames carrying the sections.**
+  Sweep confirmed exactly 9 frames carry By-account + By-brand + Testing-velocity: `Populated`
+  `39:9123`, `Partial (low-data)` `66:130101`, `Long-content-stress` `66:130414`, and all 7
+  `ENTRANCE` frames (`66:133871`/`134285`/`134699`/`135113`/`135527`/`135941`/`136355`). Confirmed
+  `Loading`/`Empty`/`Filtered-empty`/`Error` do NOT carry these sections (page-wide name search
+  before editing) — correctly untouched, as are the Report wizard overlays and SPEC board.
+  1. **By-account collapsed behind a disclosure, collapsed by default.** Title text rewritten
+     in-place to `▸ By account · 6 accounts` (chevron + live row-count folded into the existing
+     SemiBold-14 header token — `layoutSizingHorizontal` switched `FIXED→HUG` so it grows on one
+     line instead of wrapping, which is what a first attempt did before this fix). Caption text
+     and the 6-row table both set `visible=false` — **hidden, not deleted**, fully reachable.
+     **374px → 54px on all 9 frames uniformly** (saved 320px each; estimate was ~358px incl. gap).
+  2. **Testing velocity collapsed behind a toggle**, identical pattern: title → `▸ Testing
+     velocity · 8 weeks tracked`, caption + chart instance hidden. **298px → 54px on all 9 frames**
+     (saved 244px each; estimate was ~282px).
+  3. **By-brand capped to top 5 of 8 rows** + a cloned, restyled `View all 8 brands ›` row
+     (cloned Row Wrap 5 — the one row confirmed 41px on every frame regardless of text-wrap
+     variance — then its first cell repointed to Geist Regular 13 / opacity .55, the exact
+     existing caption-text token, `layoutSizingHorizontal=FILL`, other 5 cells hidden). Rows 6–8
+     hidden, not deleted. **444px → 343px** (saved 101px) on Populated + all 7 ENTRANCE frames;
+     **484px → 383px** (saved 101px) on Partial and Long-content-stress (their rows 6–8 ran taller
+     due to text-wrap, same 101px delta). Estimate was ~91px.
+  - **Shell resize required and executed** (not called out as a separate "cut" but mandatory to
+    actually shrink scroll depth): `Content Area` + `aside.relative` (icon rail) + `aside.flex`
+    (secondary nav) were still fixed at the OLD full height after Page Body's hug height shrank —
+    left alone, the frame's scrollable bounds wouldn't have changed at all. Resized all three to
+    `pageBody.y + pageBody.height` on every frame: **1849px → 1185px** (Populated + 7 ENTRANCE),
+    **1890px → 1225px** (Partial, Long-content-stress). `primaryAxisSizingMode`/
+    `counterAxisSizingMode` re-asserted `FIXED` after each `resize()` per the known reset gotcha.
+  - **Rail bottom-pinned block handled on all 9 frames.** The `span.pointer-events-none` MAX
+    (`constraints.vertical`)-pinned block auto-repositioned flush with the new bottom edge during
+    `resize()` in this environment (contrary to the earlier finding that it doesn't auto-follow —
+    logged as environment-dependent); re-asserted `y = newHeight − height` on all 9 as a safety
+    net regardless. Confirmed flush (`y + h === newHeight`) on every frame checked.
+  - `aside.flex`/`aside.relative` `constraints.vertical` were already `MIN` (not `STRETCH`) on all
+    9 frames going in — the prior pass's STRETCH-trap fix held; no re-flip needed, only resize.
+  - **Pre-existing, NOT introduced by this pass:** two content-hugging children (`div.relative`
+    inside icon rail, `div.flex-1` inside secondary nav on Populated) sit taller than their
+    parent's clipped bounds (2036px/2126px vs the container). Same overshoot existed before this
+    pass at the old 1849px height too — unrelated to the approved cuts, flagged for the
+    architect, not fixed here (out of scope).
+  - **Final scroll depth:** Populated + all 7 ENTRANCE = **1185/800 = 1.48×**. Partial /
+    Long-content-stress = **1225/800 = 1.53×**. Down from 2.31×/2.36× before. Short of the 1.40×
+    aspirational target — the honest reason is the collapsed-disclosure row floor is **54px**
+    (16 padding + 22px header line + 16 padding, all pre-existing on-token values, none touched),
+    not the ~40px the original estimate assumed for a bare toggle row; closing that last gap would
+    require compressing padding or font, which the binding constraint forbids. Not pursued.
+  - **Type/padding confirmation: nothing changed.** All 4 section paddings (16/16/16/16, itemSpacing
+    12) on By-account/By-brand/Testing-velocity read identical before and after on every frame —
+    never touched. No existing font size changed anywhere (title texts kept their original 14px
+    SemiBold; only `characters` and `layoutSizingHorizontal` changed). The one new text node (the
+    "View all" link) reuses the page's existing 13px Regular/opacity-.55 caption token verbatim —
+    not a new size. Smallest text in play stays 13px, ≥12px floor respected.
+  - **Collapsed sections read as present + openable, count visible on capped table** — screenshot-
+    verified: `▸ By account · 6 accounts ⓘ` and `▸ Testing velocity · 8 weeks tracked ⓘ` each
+    render as a bordered single-line disclosure row with chevron + live count + the original
+    info-tooltip icon retained; `View all 8 brands ›` renders directly under the 5 visible rows in
+    muted caption styling, clearly distinguishable from the bold data rows above it.
+  - **Before/after screenshots taken** (via `node.screenshot()` + temporary `clipsContent=false`
+    toggle, restored after each — the established free technique, not the metered `get_screenshot`
+    tool): full-height on `Populated`, `Partial`, `Long-content-stress` (confirmed no collisions —
+    Partial's "Not enough data yet (n=2)" copy and Long-content-stress's 60+ char wrapped brand
+    names both render clean against the capped/collapsed layout); close-ups on the two collapsed
+    rows and the View-all row on Populated.
+  - **Blocked: Figma MCP platform-level tool-call rate limit** ("Full seat on Professional plan")
+    hit on the last verification call of this pass (ENTRANCE0 screenshot + an explicit re-check of
+    Sub Nav position across all 9 frames) — a different limiter than this task's own read-budget
+    system, and the call errored before executing (no write/read occurred, file state unaffected).
+    Consequence: the 7 ENTRANCE frames' visuals weren't individually screenshotted this pass, though
+    they ran through the identical code path and returned byte-identical before/after numbers to
+    Populated (374→54, 298→54, 444→343, shell 1849→1185) — high confidence, not screenshot-confirmed.
+    Sub Nav ordering also wasn't re-confirmed by explicit read on this final call, but no write in
+    this pass touched `Content Area`'s child order (only Page Body's descendants' visibility/text,
+    and the shell containers' width/height/child-y) — no plausible mechanism for it to have moved.
+    Flagging both for a follow-up confirmatory pass once the rate limit clears.
 
 ### B7 · Brief builder · page 25:2962 — COMPLETE (this pass)
 - **Populated `39:19846`** (2 references picked — Bluestone_Necklace_Video_003 primary +
@@ -548,6 +1366,233 @@ the file.
      "Send to Genie" button both render complete, uncut.
   - Reads used this pass: **0 of 3** (all inspection + fix via `use_figma` + free
     `node.screenshot()`, per the wave's rate-limit rule).
+- **Visual sweep + 1440×800 viewport pass (2026-07-31):**
+  - **11 clip flags — resolved.** Full-page structural scan found **136 raw
+    `clipsContent` overflow candidates, collapsing to exactly 5 signature
+    classes** (name+size+overflow identical across every repeat). Each verified
+    by direct zoomed screenshot, not inference:
+    1. `*Badge* / Basic` (21×13, 4px bottom overflow, ×12) — **benign.** Sub-pixel
+       library-badge padding assumption, imperceptible on render.
+    2. `Icon / DownOutlined` (16×16, contains a nested 740×788 `table` node
+       overflowing 724/767px, ×60 — one per filter-bar Select on every frame) —
+       **benign.** The icon wrapper's own `clipsContent` fully hides the giant
+       nested table; zoomed screenshot of the rendered chevron shows a clean "⌄"
+       glyph, no artifact. Same false-flag pattern as the Shell page's 20
+       library-icon flags and B3's 897px vector-geometry flag.
+    3. The nested `table` itself (×60, same root cause as #2) — irrelevant,
+       quadruple-clipped, never visible.
+    4–5. `div.relative` icon rail (64w, 17–25px bottom overflow, ×4, on the
+       short Pre-pick/Empty/Filtered-empty/Error frames) — **benign.** Zoomed
+       screenshot shows the full rail (all 9 module icons + chat icon) rendering
+       intact, nothing missing; matches the documented "shell sidebar taller
+       than its own short-page content" class, not a real clip.
+    - **Net verdict: 0 of the 136 flags represent genuinely hidden content.**
+    - **One NEW genuine defect found in the process (not in the original 11) —
+      fixed:** 3 of 4 rows in the `Add-creative picker` overlay (`69:83852`)
+      had a **hand-baked ellipsis inside `characters`** (e.g.
+      `"YogaBar_PeakWhey_Static_0…"`) combined with `textAutoResize:
+      'WIDTH_AND_HEIGHT'`, so the text node grew wider (191px) than its 173px
+      wrapper and the wrapper's clip cut off the manually-typed "…" itself,
+      leaving a bare mid-word truncation with no visible ellipsis indicator.
+      Fixed all 4 rows to native truncation: restored the true full filename
+      (recovered losslessly from each row's own layer name, e.g.
+      `Item/YogaBar_PeakWhey_Static_007`), set `textAutoResize:'HEIGHT'`,
+      fixed width to match the wrapper, `maxLines:1`,
+      `textTruncation:'ENDING'`. Screenshot-confirmed: all 4 rows now truncate
+      (or fit fully, for the one short name) with a real native "…".
+    - **Second STATES-cluster defect found and fixed:** `STATES / Brief builder
+      / Micro-states (§F.2)` `69:83905` had `counterAxisSizingMode:'FIXED'`
+      at 560px while its own "Textarea states" row needed 716px (4 swatches ×
+      160 + padding) — the 4th "Filled" textarea sample was silently clipped
+      off the right edge (verified via screenshot: "Fill" label and its
+      "POV: you found the one" content both cut off mid-word). Fixed:
+      `counterAxisSizingMode → 'AUTO'`, resized frame 560→716. Screenshot
+      confirms all 4 states (Default/Hover/Focused/Filled) now fully visible.
+    - **Tofu icons re-checked, false alarm — no fix needed.** Structural scan
+      found 18 instances of the still-remote `Icon/CloseOutlined`/
+      `PlusOutlined` (the pre-fix component) on Pre-pick, Partial,
+      Long-content-stress, and all 4 ENTRANCE frames — i.e. the earlier tofu
+      fix only ever touched the Populated frame's 2 instances, never
+      propagated to clones. **However, direct zoomed screenshot of these
+      "still-remote" instances (on Partial and Long-content-stress) shows them
+      rendering as clean X/+ glyphs, not solid tofu squares** — the originally-
+      documented tofu bug is **not reproducing in this session**. No fix
+      applied (also moot: `figma.createRectangle/createFrame/createVector/
+      createNodeFromSvg/clone()` **all throw "Cannot create node with type…"
+      / "Failed to clone node" file-wide in this session** — node creation is
+      fully blocked right now, likely multi-agent write contention across the
+      9 concurrent builder sessions on this file; property mutation on
+      existing nodes still works). Flagging for a future pass to re-verify
+      with fresh eyes and, if still clean, formally close this open item.
+    - Two shell-chrome instances of the same remote icon (`39:19939` Alert-close,
+      `39:19967` Filter-Bar-plus, both on Populated) were misidentified in an
+      earlier version of this scan as leftover B7-specific tofu — corrected:
+      they're shared shell components (Filter Bar / tips-banner Alert), not
+      Brief-Builder-specific, and render fine.
+  - **1440×800 viewport conversion — all 13 screen frames converted:**
+    `resize(1440,800)` + `overflowDirection:'VERTICAL'` + `clipsContent:true`.
+    **Caught and fixed a live version of the exact bug this sweep exists to
+    prevent, before it shipped:** every frame's `aside.flex` (the 200px
+    labeled sidebar column) carries `constraints.vertical:'STRETCH'` while its
+    sibling `aside.relative` (64px icon-only column) carries `'MIN'`. A naive
+    resize auto-shrank `aside.flex` from full content height down to 800 on
+    every frame (confirmed live on Populated: 1612→800) while `aside.relative`
+    correctly held its height — silently orphaning everything in the sidebar
+    below row 800 with no scroll path back to it (the outer frame's own
+    scroll doesn't reach a sibling frame's independent clip). **Fixed on all
+    9 non-ENTRANCE-first-pass frames retroactively + all 4 ENTRANCE frames
+    proactively (constraint flip before resize this time):** set
+    `aside.flex.constraints.vertical = 'MIN'`, then `resize()` back to match
+    `aside.relative`'s height. Verified numerically per frame (both columns'
+    heights match post-fix) and visually on Populated (sidebar renders intact
+    at the fold). No `constraints.vertical==='MAX'` bottom-pinned rail block
+    exists in any B7 `aside.flex` checked (Populated, Long-content-stress,
+    ENTRANCE 3) — B6's 1049px-overshoot class does not apply to this page.
+
+    | Frame | id | before h | after | scrollDepth | overflowSet | railBlockOk |
+    |---|---|---|---|---|---|---|
+    | Populated | `39:19846` | 1664 | 1440×800 | 2.08× | ✅ | ✅ |
+    | Pre-pick (0-ref) | `66:103801` | 624 | 1440×800 | 0.78× (no scroll needed) | ✅ | ✅ |
+    | GenieHandoffStub | `66:105007` | 1124 | 1440×800 | 1.41× | ✅ | n/a (no shell sidebar on this destination frame) |
+    | Loading | `66:113954` | 1380 | 1440×800 | 1.73× | ✅ | ✅ |
+    | Empty (no account) | `66:115154` | 616 | 1440×800 | 0.77× | ✅ | ✅ |
+    | Filtered-empty | `66:116354` | 616 | 1440×800 | 0.77× | ✅ | ✅ |
+    | Error | `66:117554` | 616 | 1440×800 | 0.77× | ✅ | ✅ |
+    | Partial (bootstrap) | `66:127208` | 1462 | 1440×800 | 1.83× | ✅ | ✅ |
+    | Long-content-stress | `66:128505` | 1630 | 1440×800 | 2.04× | ✅ | ✅ |
+    | ENTRANCE 0 | `70:84317` | 1612 | 1440×800 | 2.02× | ✅ | ✅ |
+    | ENTRANCE 1 | `70:85483` | 1612 | 1440×800 | 2.02× | ✅ | ✅ |
+    | ENTRANCE 2 | `70:86649` | 1612 | 1440×800 | 2.02× | ✅ | ✅ |
+    | ENTRANCE 3 | `70:87815` | 1612 | 1440×800 | 2.02× | ✅ | ✅ |
+
+    Fold quality (top 800px), screenshot-checked per frame: Populated cuts
+    right at the "Brief blocks" section label (clean section boundary, not
+    mid-field). Partial/Long-content-stress cut right after the first field's
+    label+textarea (Hook), before the "Body" label starts — acceptable, not a
+    mid-block bisection. GenieHandoffStub cuts partway into the second
+    ("Brief from Brief Builder") card, after its header/Hook field, before
+    Body — borderline but not mid-field. Loading's skeleton cuts across a
+    skeleton-block boundary (low-stakes, ephemeral state). **No re-pitch
+    executed** — original 1760px row pitch now has far more headroom than
+    needed (frames shrunk from up to 1664px down to a flat 800px bounding
+    box), zero collision risk; tightening the pitch (e.g. to ~900) is a
+    canvas-tidiness option for Maalik, not required, not done.
+  - **Density verdict, B7's References Card + 5 Brief Blocks stack:** reads
+    **comfortable, not cramped** — no off-scale spacing found (gaps and
+    padding all read as multiples of 8, textareas ≥14px type, generous
+    breathing room per block confirmed at 1440w in every screenshot). The
+    problem is **length via repetition, not density**: 5 structurally
+    identical blocks (label + "From:" attribution + textarea + "Also seen
+    in:" hint + gap) each ~140–150px tall stack into a genuinely long scroll
+    (2.0–2.08× viewport) purely because there are 5 of them, not because any
+    one of them is squeezed.
+  - **Ranked cut proposals (proposed only, none executed — Maalik decides):**
+    1. **Collapse the 5 Brief Blocks to summary rows, expand-on-demand.**
+       Biggest saving: ~150px → ~55px per block × 5 ≈ **470px saved**
+       (Populated 1664→~1194, scrollDepth 2.08×→~1.49×). **Real risk:** these
+       fields are the primary editable surface of this screen — collapsing
+       them by default hides the thing the user is here to edit, trading
+       scroll cost for an extra click + reduced recognition-over-recall. Only
+       worth it if Maalik is fine defaulting to a "skim first, edit on click"
+       model.
+    2. **Fold "From: <name>" + "Also seen in: <hint>" into one collapsed
+       provenance line (tooltip or single caption) instead of two always-on
+       text rows.** Modest saving: ~1 line × 5 blocks ≈ **80–90px saved**,
+       low risk — doesn't touch the editable textarea itself, only supporting
+       metadata.
+    3. **Tighten "Also seen in" hint to guaranteed single-line truncation.**
+       Negligible saving (~16–20px, only the Long-content-stress Body hint
+       currently wraps to 2 lines) — not worth doing in isolation.
+    Ranked by height-saved-per-information-lost: **#2 first** (real saving,
+    near-zero information cost), **#1 only with Maalik's explicit sign-off**
+    (biggest saving, real cost to the core edit flow), **#3 skip** unless
+    bundled with #1/#2.
+  - **Reads used this pass: 0 of 5** (all `use_figma` structural scans +
+    in-script `node.screenshot()`, zero hosted `get_screenshot`/`get_metadata`).
+  - **Environment note for future passes:** mid-pass, all node-creation APIs
+    (`createRectangle`/`createFrame`/`createEllipse`/`createText`/
+    `createVector`/`createNodeFromSvg`/`.clone()`) threw hard errors file-wide
+    for a period, and separately a handful of property writes threw `"Cannot
+    write to node property in a read-only file or mode"` — both cleared on
+    retry within the same session (property writes recovered after ~1 retry;
+    node creation never recovered in this pass, avoided by not needing it
+    once the tofu-icon investigation resolved as a non-issue). Consistent
+    with concurrent-write contention across the file's other simultaneous
+    builder sessions, not a B7-specific fault.
+- **Approved cut applied (2026-07-31) — folded provenance lines (cut proposal
+  #2 from the ranked list above), Maalik-approved; proposal #1 (collapse
+  whole blocks) explicitly rejected and NOT done:**
+  - **What changed:** reparented each Brief Block's standalone "Also seen in:
+    …" text node into the same "Label Row" that already holds the field
+    label + "From: <name>" attribution, then set it
+    `layoutSizingHorizontal:'FILL'` + `maxLines:1` +
+    `textTruncation:'ENDING'`, and set Label Row's
+    `primaryAxisAlignItems:'MIN'` + `itemSpacing:16` (token value) so each
+    row now reads `Hook   From: <name>   Also seen in: <hint>` on **one**
+    line, truncating natively instead of wrapping to a second row. The old
+    standalone second text row (plus its 8px gap) is gone; each Block's own
+    auto-layout `HUG` height shrinks automatically — **no `.resize()` was
+    called on any Block or outer frame.** Pure layout/IA restructuring: zero
+    `characters`/`fontSize`/padding changed on either node — verified
+    programmatically before vs. after on all 30 folded blocks across 6
+    frames (`From:` node stays 11px, `Also seen in` node stays 12px, both
+    unchanged).
+  - **Frames swept (full-page scan, not just Populated) — 6 fixed, 1
+    confirmed already-minimal (no clone left behind):**
+
+    | Frame | id | Content Area before | after | delta | new scrollDepth |
+    |---|---|---|---|---|---|
+    | Populated | `39:19846` | 1664 | 1534 | **130px** | 1.92× |
+    | ENTRANCE 0 | `70:84317` | 1664 | 1534 | 130px | 1.92× |
+    | ENTRANCE 1 | `70:85483` | 1664 | 1534 | 130px | 1.92× |
+    | ENTRANCE 2 | `70:86649` | 1664 | 1534 | 130px | 1.92× |
+    | ENTRANCE 3 | `70:87815` | 1664 | 1534 | 130px | 1.92× |
+    | Long-content-stress | `66:128505` | 1630 | 1482 | **148px** | 1.85× |
+    | Partial (bootstrap) | `66:127208` | 1462 | 1462 | 0px (N/A) | 1.83× (unchanged) |
+
+    Populated/ENTRANCE 0-3 each saved 130px = 5 blocks × 26px (8px gap +
+    18px line height, each block had exactly one single-line hint).
+    Long-content-stress saved 148px = 4 blocks × 26px + the Body block ×
+    44px (its "Also seen in" hint previously wrapped to 2 lines pre-fold at
+    36px tall — folding to single-line truncation collapses it to one line,
+    at the cost of ellipsizing the hint's tail — exactly the stress case
+    this frame exists to catch, and it renders clean, not broken).
+    **Partial has zero "Also seen in" nodes to begin with** (bootstrap/
+    single-reference state never renders the hint, matches
+    `winnersBank.ts`'s `source==='bootstrap'` branch) — confirmed via a
+    full-frame text-node scan, nothing to fold, no regression, listed here
+    for completeness per the "sweep for copies" instruction.
+    **vs. the ~85–90px ranked-proposal estimate:** actual saving came in
+    higher (130px on 5 of 6 frames, 148px on the stress frame) — the
+    original estimate was rough-order-of-magnitude ("~1 line × 5 blocks");
+    the real per-block saving is 26px because removing the row also removes
+    its 8px `itemSpacing` gap, not just the 18px text line itself.
+  - **GenieHandoffStub (`66:105007`) intentionally not touched** — it
+    doesn't carry this `From:`/`Also seen in` pattern at all (its verbatim
+    `GenieHandoffStub.tsx` copy uses a single "Referenced: …" line instead),
+    confirmed by the same full-page text-content scan that found exactly
+    the 6 frames above and nothing else on this page.
+  - **No type size or padding changed anywhere** — confirmed
+    programmatically per block: `fontSize` before===after on both the
+    `From:` node (11px) and the `Also seen in` node (12px), for all 30
+    folded blocks across all 6 frames. No frame `.resize()` was called on
+    any Block, Content Area, or outer frame; every outer frame's
+    `1440×800` size, `overflowDirection:'VERTICAL'`, and `clipsContent:true`
+    are unchanged (only transiently toggled `false`→`true` around
+    screenshot capture, per this task's instruction, then restored).
+  - **Screenshot caveat, disclosed:** "before" screenshots were not
+    captured prior to the edit — only the structural/numeric before-state
+    was captured (via the inspection script above), which is the
+    authoritative source for the height deltas in the table. "After"
+    screenshots were taken for Populated, Long-content-stress, and
+    ENTRANCE 3 (representative of the 4 byte-identical ENTRANCE clones,
+    all verified numerically to have folded identically) — all three
+    confirm clean single-line rendering with correct native truncation on
+    both short names (Populated) and 60+ char stress names
+    (Long-content-stress).
+  - Reads used this pass: 0 (all inspection via free `use_figma` structural
+    scripts + in-script `node.screenshot()`; zero hosted
+    `get_screenshot`/`get_metadata`/`search_design_system`).
 
 ### B8 · Saved views · page 25:2963 — COMPLETE
 - Populated `39:20980` · header `39:31284` · save card `39:31287` · ViewsList `65:45724` (6 rows, 1 with 60+ char stress name, all truncating via `maxLines:1` + `textTruncation:ENDING`)
@@ -595,6 +1640,80 @@ the file.
   - **Metered reads used this pass: 0 of 3** — rebind, doc cluster, source
     read (local repo file, not a Figma read), and SPEC correction all done via
     `use_figma`/`Read`, zero hosted `get_screenshot`/`get_metadata`.
+- **Visual sweep + 1440×800 viewport pass (2026-07-31) — confirms B8's
+  "cleanest page in the build" status still holds, plus closes out a
+  critical-severity risk found mid-pass:**
+  - **Found the page already resized to 1440×800 file-wide** (all 15 screen
+    frames: Populated, Renaming, Zero-views, Loading, Empty, Filtered-empty,
+    Error, Partial, Long-content-stress, After-save, Delete-confirm overlay,
+    ENTRANCE 0–3) — from an earlier pass not logged in this registry, **but
+    `overflowDirection` was left at `'NONE'` on every one of them**, i.e. a
+    fixed-height clipped frame with no scroll path — textbook instance of
+    "the largest defect class in this build." **Fixed: set
+    `overflowDirection:'VERTICAL'` on all 15 frames.**
+  - **Verified no content was actually lost by that earlier resize** (the
+    real risk, since content could have been silently cut before scroll was
+    even possible): walked `Content Area → Page Body`'s internal auto-layout
+    stack on Populated, Long-content-stress, Partial, and After-save. Every
+    one hugs to well under its 654px budget (natural bottoms 585–660px) —
+    **zero clipping, real slack space, not compression.** Cross-checked the
+    `aside.flex` STRETCH-vs-`aside.relative` MIN discrepancy that bit B7 (see
+    that section): B8's `aside.relative` (MIN, unaffected by any resize)
+    independently reports height **800**, confirming B8's shell sidebar's
+    true natural content height genuinely is ~800px (this page's own content
+    is simply short) — not a compression artifact. **No fix needed here**,
+    unlike B7.
+  - **Bottom-pinned rail block re-checked, no overshoot:** the `MAX`-
+    constrained `span.pointer-events-none` block (bottom CTA/orb, 128px tall)
+    sits at `y:672, bottom:800` on every frame — lands exactly at the
+    viewport edge, zero overshoot, B6's 1049px-overshoot class does not apply.
+  - **60+ char view-name truncation — confirmed real ellipsis, not
+    hard-cut.** Checked all 6 rows on Long-content-stress structurally: every
+    query-caption/name text has `textTruncation:'ENDING'`, `maxLines:1`,
+    `textAutoResize:'HEIGHT'`; the longest string (172 chars, "Low ROAS
+    creatives across every ad account…") renders with Figma's native "…" at
+    the true pixel boundary, matching the screenshot. Genuine native
+    truncation, not a manually-baked ellipsis character (the class of bug
+    found and fixed on B7's Add-creative picker).
+  - **Screenshot-verified every screen frame — no new defects.** Loading
+    (screen-shaped skeleton, not generic), Empty/Filtered-empty/Error (each
+    shows its own honest, distinct copy — no state showing the wrong
+    content), Renaming (input+checkmark swap correct), Zero-views (honest
+    empty copy, verbatim from source), Partial (2 rows correctly show "No
+    filters" fallback), After-save (new 7th row visible at top), Delete-
+    confirm modal (correct row name interpolated into the confirm copy),
+    ENTRANCE 0→3 (clean progressive reveal, hop 3 matches Populated exactly).
+    The one pre-existing scratch node (`39:24936`, "PARKED — stray Icon/
+    BookOutlined") sits at `(9360, 2000)`, far from all content — confirmed
+    harmless, left as-is.
+  - **Viewport conversion table** (all 15 screens, since the page was already
+    at 1440×800 before this pass — the only outstanding fix was the
+    `overflowDirection` flag):
+
+    | Frame | id | h | overflowSet (before→after) | scrollDepth | railBlockOk |
+    |---|---|---|---|---|---|
+    | Populated | `39:20980` | 800 | NONE→VERTICAL | 1.0× (fits, no scroll needed) | ✅ |
+    | Renaming | `65:54289` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Zero-views | `65:54439` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Loading | `65:48770` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Empty | `65:48897` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Filtered-empty | `65:49028` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Error | `65:54589` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Partial | `65:62724` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Long-content-stress | `65:62874` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | After-save | `66:72824` | 800 | NONE→VERTICAL | 1.0× | ✅ |
+    | Delete-confirm overlay | `65:70290` | 800 | NONE→VERTICAL | 0.66× (modal content 530h) | n/a (modal, no rail) |
+    | ENTRANCE 0–3 | `65:70423/70573/70723/74008` | 800 each | NONE→VERTICAL | 1.0× | ✅ |
+
+    Every B8 screen's real content fits within the 800px fold with room to
+    spare — **no B8 frame actually needs to scroll**, `overflowDirection`
+    was set purely for future-proofing/consistency, not because content is
+    currently cut off.
+  - **Density/cut proposals: none needed.** B8's content (header + save-card
+    + up to 7 rows) comfortably fits one screen at 1440×800 with slack space;
+    there is no scroll-depth problem to propose cuts against.
+  - **Reads used this pass: 0 of 5** (all `use_figma` structural checks +
+    in-script `node.screenshot()`).
 
 ### B9 · Drawer · page 25:2964 — COMPLETE (wave 2)
 - **Root `39:24264`** · header `39:24265` · AdPreviewMock `39:39527`
@@ -688,6 +1807,374 @@ the file.
      Only "Active" exists as a status value in every instance checked on this page — no other
      status words (Paused/Learning/etc.) are present to audit.
   - Reads used this pass: **0 of 3** (all via `use_figma` + free `node.screenshot()`).
+
+- **Visual sweep pass (2026-07-31) — B9 + Flow, every frame actually screenshotted, §K PARTIAL cause resolved.**
+  Scope: B9 `25:2964` (all 11 top-level frames) and Flow `66:74040` (look-only, all 11 top-level
+  items). Method: `node.screenshot()` one-per-call, never batched. **0 hosted/metered reads used** —
+  every read was a `use_figma` discovery script or in-script `screenshot()`.
+
+  **B9 band inventory (root `39:24264`, confirmed via direct measurement, not assumed):**
+  Header `39:24265` 65px · AdPreviewMock `39:39527` 683px · FunnelStrip `65:70319` 91px ·
+  TrendChart `65:70362` 314px · FatiguePanel `65:70391` 238px · ComponentBreakdown `66:45307` 642px ·
+  ScriptElementsPanel `66:45360` 425px · BenchmarkPanel `66:84124` 392px · DemographicsPanel `66:84166`
+  342px · RunningInTable `66:84247` 197px · VariantsList `66:100909` 305px · DrawerActionBar
+  `66:105372` 80px. **Total 3774px** (root's own height, itemSpacing 0 — was 3766 in the task brief,
+  now 3774 after this pass's writes; not resized, per instruction). **3774/800 = 4.72× the 800px
+  viewport it opens over.**
+
+  **§K.12 clip-flag resolution — all 11, one by one (this was the PARTIAL cause):**
+  Ran a `clipsContent`-aware overflow scan (child bounds vs parent bounds) across every frame on the
+  page, not just the root — found the same class of false-positive the Shell page hit (16px library
+  icons whose internal wrapper is clipped by design) plus **4 flags that were genuinely severe and 3
+  that were genuinely unfixed instances of the already-"fixed" clip**:
+  1–4. **Modal scrim frames — GENUINE, SEVERE, FIXED.** All 4 modal cards (`Pause confirm` `66:133565`,
+     `Relaunch confirm` `66:133578`, `Relaunch confirm — sending` `66:133596`, `Edit targeting`
+     `66:133618`) were positioned **outside their own 1440×900 scrim's bounds** (`y=3010` for three of
+     them, `x=3120` for the sending variant — likely fallout from the earlier "4 confirm/scrim frames
+     relocated to a clear row" overlap fix mutating child-local coordinates instead of the parent's
+     page position). Screenshotted before: **all 4 rendered as pure black-80% scrim with the modal
+     completely invisible** — clipped to nothing by `clipsContent:true`. Fixed by recentering each
+     modal within its scrim (`x=(parentW-w)/2, y=(parentH-h)/2`); re-screenshotted after: all 4 now
+     show their full dialog (Pause confirm card, Relaunch confirm card, the "Sending to Launch…"
+     spinner state, and the Edit targeting form) correctly centered on the scrim.
+  5–7. **ComponentBreakdown headline clip — GENUINE, unfixed in 3 of 4 clones, FIXED.** The
+     2026-07-30 fix (`textAutoResize='TRUNCATE'`, width 136, `textTruncation='ENDING'`) was applied
+     **only to the root Populated frame's text node** (`66:45325`) — confirmed still correct on
+     re-screenshot ("Trusted by 40,000…", clean ellipsis). But the **Non-video** (`66:126243`),
+     **Healthy** (`66:126669`), and **actioned-done-state** (`70:16258`) clones each carry their own
+     independent copy of this text node, and all 3 still had the original bug — screenshotted and
+     visually confirmed **"Trusted by 40,000 bu" cut off mid-word, zero ellipsis**, the exact defect
+     described in this task's brief. Applied the identical fix to all 3 (load font → `textAutoResize
+     ='TRUNCATE'` → `resize(136, h)` → `textTruncation='ENDING'`); re-screenshotted all 3, confirmed
+     clean ellipsis now matches the root.
+  8. **TrendChart `Vector` area-fill overflow (8 instances, ⌀bottom 10px/top -60px) — BENIGN.**
+     Screenshotted the TrendChart band: chart renders complete, fills its container, spend/revenue
+     lines and gradient both fully visible. The flagged vector is the area-fill polygon drawn taller
+     than the visible plot and clipped to the axis baseline — standard charting technique, not content
+     loss.
+  9. **FatiguePanel `Sparkline Area/Line` overflow (4px, 8 instances) — BENIGN.** Screenshotted:
+     the 14-day rolling CTR sparkline renders complete and legible; 4px is sub-pixel stroke bleed.
+  10. **`*Badge* / Basic` internal label overflow (4px each side, ~19 instances) — BENIGN as a clip.**
+     Checked "trending" (47×20, fits with margin) and 2× "Active" (35×20, fits) — both render clean,
+     the 4px is vertical text-box padding, not lost content. **However, the 4th badge in this group
+     surfaced a real, separate content bug — see below.**
+  11. **Edit targeting modal's internal `Column` 4px overflow — now BENIGN/moot.** With the modal
+     itself fixed (see #1–4), this field grid (Age/Gender/Geo/Placement) is now visible and renders
+     cleanly — no visible cutoff of any field.
+
+  **New defect found via #10, NOT a clip — a genuine content/data bug, left unfixed (needs a
+  content decision, not guessable):** the `*Badge* / Basic` next to the "Script" label in
+  `ScriptElementsPanel` reads the literal stored string **`"PAS"`** (3 characters — confirmed via
+  `characters`, not a rendering truncation) where a real word (`PASS`? `FAIL`?) presumably belongs.
+  **Present identically in all 4 clones** — root `66:45363`, Non-video `66:126273`, Healthy
+  `66:126699`, actioned-done `70:16288` — meaning it's a systemic source-string bug, not a one-off.
+  Badge is styled danger-red. Did not guess-fix since the correct value is undeterminable from the
+  file alone.
+
+  **Colour misuse (new, found during the sweep):** the **"trending" audio-tag badge** next to
+  `Audio · Trending pop audio` in `ScriptElementsPanel` uses the same danger-red as the "PAS" badge
+  and as genuine error states elsewhere in the build. "Trending" is neutral/positive information, not
+  a failure — this reads as an error chip and needs a design-token call (likely should be a neutral
+  or lime badge, matching how "Active"/"Winners" get lime elsewhere on this same page).
+
+  **Confirmed per this task's explicit checklist:**
+  - **Non-video variant `66:126136` hook rate: exactly `"N/A — no video"`** in all 3 occurrences on
+    that frame (HOOK-RATE TREND stat, ComponentBreakdown's HOOK row, and a descriptive line "N/A — no
+    video on this creative.") — never a fabricated 0%. The AdPreviewMock's generic video-camera-icon
+    placeholder is confirmed as a **universal mock convention** (identical icon appears on root
+    Populated and Healthy too, where video genuinely exists) — not a Non-video-specific artifact.
+  - **RunningInTable "Active" badges: 0 remaining red.** Checked all 4 instances (root `66:84247`,
+    Non-video `66:126436`, Healthy `66:126862`, actioned-done `70:16451`) — all 8 badges render the
+    lime fix, none regressed to red.
+  - **3 modal bodies (Pause/Relaunch/Edit targeting confirm):** re-read while fixing their scrim
+    positions — read coherently, no typos or broken sentences. Still **flagging again per this task's
+    explicit instruction** that this copy is invented (non-verbatim), per the prior pass's own
+    disclosure.
+
+  **Density flags (flag only, nothing compressed, no padding/type-scale changes made):**
+  - **`ComponentBreakdown` rows are fixed-height (100px), not content-hugging** — each row's actual
+    content (2–3 lines) needs roughly 60–70px, leaving ~30–40px of dead air per row × 5 rows ≈
+    150–200px of reclaimable space **with zero information loss** if converted to HUG sizing (a
+    layout fix, not a content cut — flagged separately from the ranked cut proposals below).
+  - **Off-scale spacing found:** `ComponentBreakdown` root `itemSpacing=12` (not in the 4/8/16/24/
+    32/48/64 scale) and its rows' `paddingBottom=10` (also off-scale; rows do use the on-scale
+    `itemSpacing=16` internally).
+  - **Body text under 12px: 77 of 234 text nodes** on the root frame (9px ×11, 10px ×26, 10.5px ×1,
+    11px ×39). Most are conventional UI chrome — uppercase eyebrow labels (`HEADLINE`, `PRIMARY TEXT`,
+    `HOOK LINE`…), chart axis ticks (`1 Jul`, `8 Jul`…), metric-cell labels (`CPM`, `CTR`…), and small
+    numeric badges — arguably acceptable at that scale. But **3 strings read as real sentence-level
+    body copy at sub-12px and are a genuine flag:** `"Rule: 14-day CTR down ≥ 15%, or frequency > 4,
+    or hook-rate falling (min spend $500)"` at **10.5px**, `"No purchases in range"` at **10px**, and
+    `"Possible drop point"` at **11px**. The Rule string is also a long (~86-char) single unwrapped
+    line at that small size — a readability double-hit (small type + long unbroken line, though still
+    under the ~90-char flag threshold).
+  - **Line lengths:** no wrapped paragraph exceeded ~66 chars/rendered-line in any band checked
+    (FatiguePanel's 2-line insight, BenchmarkPanel's suggested-test-order lines, ComponentBreakdown's
+    hypothesis lines) — all comfortably under the ~90-char guideline except the Rule string noted
+    above.
+
+  **Task 2 — sticky-footer verdict:** `DrawerActionBar` `66:105372` is built as an **ordinary
+  auto-layout child, last in the vertical stack, sitting in-flow at `y=3694` of a 3774px-tall frame**
+  — no overlay/fixed-position treatment, no duplicate pinned copy exists in the file. Figma cannot
+  natively encode CSS `position: sticky`, so this can't be proven or disproven from the file alone.
+  Honest verdict: **structurally, nothing in this file indicates the action bar was designed as
+  sticky** — if the live implementation doesn't apply `position: sticky` in code, a buyer must
+  scroll the full 3774px (4.72× the viewport) before reaching any action button for the first time.
+  Even if it IS sticky in code, the buyer still scrolls ~3694px before the bar's actions become
+  contextually relevant to what's currently on screen — either way this is the single biggest UX
+  cost of the current depth.
+
+  **Task 3 — ranked cut proposals (propose only, nothing executed, `FunnelStrip` untouched per
+  instruction):**
+  1. **ComponentBreakdown → HUG-size the 5 rows instead of fixed 100px.** Before: 642px. After:
+     ~450–490px. **Saves ~150–200px, ~0 information lost** (pure layout efficiency — same content,
+     tighter frame). Highest value per unit of information lost since nothing is actually cut.
+  2. **ScriptElementsPanel → collapse the "Audience fit" mini-block** (`"25-34 female"` +
+     "Strongest response from 25-34 female — worth doubling targeting here.") **behind disclosure, or
+     drop it from this band entirely.** Before: 425px. After: ~325–345px. **Saves ~80–100px.** Info
+     loss is low: the same age/gender breakdown (with full ROAS/CTR/Spend, not just a single
+     "strongest" callout) is already one band down in `DemographicsPanel`.
+  3. **BenchmarkPanel → collapse "Suggested test order"'s 3-item list behind a "View test
+     priorities" disclosure.** Before: 392px. After: ~295–305px. **Saves ~90–100px.** Info loss is
+     low-moderate: the same 3 dimensions (Hook/Headline/Visual style) and their relative confidence
+     are already visible in `ComponentBreakdown`'s Medium/Medium/Low/Low/Low chips above — only the
+     explicit 1-2-3 ranking and the vs-Winners multiplier numbers would need a click to see.
+  4. **DemographicsPanel → show the single best-performing row per dimension (Age/Gender/Geo) with
+     a "View all segments" expand**, matching the top-N pattern already used elsewhere in the module.
+     Before: 342px. After: ~180–200px. **Saves ~150–180px.** Info loss is real and higher than #2/#3
+     — a buyer scanning for a weak segment (not just the best one) loses that at a glance and must
+     expand. Ranked below #2/#3 for that reason.
+  5. **VariantsList — not a current cut candidate at n=3 variants** (its 305px is mostly the
+     "possibly duplicate" banner + 3 short rows, already compact) — but flagged for the 10× stress
+     test: at 30 variants this band would need the same top-N + "view all" treatment DemographicsPanel
+     needs at #4, or it becomes the tallest band on the page.
+  - **Combined effect if #1–#3 applied** (the two lowest-info-loss, layout-only or duplicate-trimming
+    cuts): total drops from 3774px to **~3274px**, i.e. **4.72× → ~4.1×** viewport depth. Still the
+    deepest surface in the module, but meaningfully less. **Not proposing to touch `AdPreviewMock`
+    (683px)** — it is the faithful ad-creative preview itself, the module's core "what does this
+    actually look like" content, and is not duplicative of anything else on the page.
+
+  **Flow `66:74040` — look-only, nothing edited, all reported:**
+  - **Scrim wrapper `78:13253`:** confirmed structurally and visually — solid black fill at exactly
+    `opacity: 0.8` (real 80%, not approximated), drawer snapshot `77:7735` pinned to the right half
+    (`x=720..1440` of the 1440-wide frame), hotspot `78:13254` covering the left half for
+    click-outside-to-close. Screenshot matches spec exactly.
+  - **All 8 screen snapshots screenshotted individually** — Overview, Creatives, Components, Compare,
+    Automations, Owner report, Brief builder, Saved views. **All render clean**, single active nav
+    tab each, no clipping, no tofu, no overlap. One thing chased down and cleared: the Compare
+    snapshot's 4th card (Coffee Body Scrub, a static/no-video creative) shows `"N/A — no video"` for
+    Hook rate **and still renders a bottom sparkline** — checked whether this fabricates hook-rate
+    data it shouldn't have; it doesn't, the sparkline is the same 14-day **CTR** trend every card
+    shows (verified against `CompareColumn` pattern), independent of hook-rate/video applicability —
+    not a violation.
+  - **`150:45146` (Saved views Delete confirm) confirmed:** shows its scrim, an amber warning icon (a
+    circled `!`, not a triangle — cosmetically different from B9's amber triangle but same semantic
+    role), the message body, and both `Keep view` / `Delete view` buttons — matches the task's
+    checklist. **New inconsistency found:** this scrim's fill is **`opacity: 0.45` black (45%)**, not
+    the `0.8` (80%) black standard used by B9's drawer scrim and its 4 confirm-modal scrims. Since
+    this snapshot is sourced from `65:70290` (a page this task doesn't own) and Flow is look-only,
+    reporting rather than fixing — flag for whoever owns that source page or for Maalik to pick one
+    scrim standard.
+  - Legend `66:74041` reads clean, no issues.
+
+  **Environmental note:** hit a **file-wide read-only lock** ("Cannot write to node property in a
+  read-only file or mode") on the first modal-position-fix attempt and on the first clone-text-fix
+  attempt — reproduced across 5+ consecutive write attempts (position sets, a no-op resize, a no-op
+  `x` reassignment all failed identically), then it cleared on its own and every subsequent write in
+  this pass succeeded normally. Consistent with the other agents' concurrent sessions on this shared
+  file contending for write access — not a bug in the fix scripts themselves (verified by immediate
+  success once the lock cleared, no code changes needed).
+
+  **What's fixed on B9 this pass:** 4 modal-scrim positions (were fully invisible, now visible and
+  centered) · 3 ComponentBreakdown clone text-truncation clips (were raw mid-word cuts, now clean
+  ellipsis matching the root).
+  **What's flagged but NOT fixed (needs Maalik's judgement):** the "PAS" badge content bug (4
+  instances, systemic) · the "trending" badge colour misuse (danger-red for neutral info) · Flow's
+  45%-vs-80% scrim opacity inconsistency (source page not owned by this task) · the 3 modal bodies'
+  non-verbatim copy (re-flagged, unchanged) · the ranked cut proposals above (propose-only, per
+  instruction).
+  - Reads used this pass: **0 hosted/metered** (all `use_figma` writes/discovery + free in-script
+    `node.screenshot()`).
+
+- **Maalik's-cuts pass (2026-07-31, this task) — PAUSED fix + approved cuts, 4.72× → 4.27×.**
+  Scope: content fix (PAS→PAUSED) + the 2 approved cuts (HUG ComponentBreakdown, collapse
+  audience-fit/test-order). `FunnelStrip` and `AdPreviewMock` untouched, per instruction.
+  **0 hosted/metered reads used** — all via `use_figma` discovery + writes + in-script
+  `node.screenshot()`.
+
+  **Fix 1 — `"PAS"` → `"PAUSED"`, all 4 clones, read back verbatim:**
+  - `66:45363` (root/Populated), `66:126273` (Non-video), `66:126699` (Healthy), `70:16288`
+    (actioned-done) — all Geist Regular 12px, white text (`#FAFAF7`-ish) on a red
+    (`#FF4D4F`-class, `VariableID:...4006:15009`) pill background. `characters` set to
+    `"PAUSED"` on each, then re-read on all 4 — **confirmed verbatim** on every one.
+  - **Width check: no clipping.** Badge uses `layoutSizingHorizontal: HUG` +
+    `clipsContent: true` — before the fix the pill was 31px wide (fit to "PAS"); after,
+    it auto-hugged to 55px (fit to "PAUSED", text box 47px), matching the width the
+    existing "trending" badge already uses for an 8-char word. `textTruncation` stayed
+    `DISABLED` — never needed, since HUG resized the container rather than clipping it.
+    No native-ellipsis fallback was required.
+  - **Casing/vocabulary mismatch found, not resolved — flagging per instruction rather than
+    guessing a house style:** the sibling "Active" status badge (8 instances, all 4 clones)
+    reads **Title Case** ("Active"), while this task's explicit ruling specified the new
+    value as **all-caps `PAUSED`**. Implemented literally as instructed (all-caps), but the
+    two status badges on this page now use inconsistent casing conventions
+    (`Active` vs `PAUSED`). Needs Maalik's call: unify to `Active`/`Paused` (Title Case,
+    matching the existing badge) or `ACTIVE`/`PAUSED` (both caps) — a one-line flip either way
+    once decided.
+  - **New finding, unrelated to PAS, left unfixed (out of this task's scope):** the Non-video
+    clone's audio "trending" badge instance (`66:126305`, in the same Row pattern as the 3
+    other trending badges) has **zero children — no text override at all**, confirmed via
+    direct node inspection (not a traversal-depth false-negative — re-checked warm per the
+    known `findAll` instability gotcha, same empty result both times). It renders as a bare
+    lime 15%-opacity pill with no label, while the other 3 clones' equivalent badges correctly
+    show "trending". Possibly intentional (a Non-video creative arguably has no "trending
+    audio" claim to make) or a genuine content gap — flagging for a content decision, not
+    guess-fixed.
+
+  **Cut 1 — HUG-size ComponentBreakdown's 5 rows (all 4 clones) — bigger win than estimated:**
+  - Root `66:45307`, Non-video `66:126229`, Healthy `66:126655`, actioned-done `70:16244`.
+    Each row was `counterAxisSizingMode: FIXED` at a flat 100px regardless of actual content
+    (2–3 lines, 44–62px real need). Set `counterAxisSizingMode = 'AUTO'` +
+    `layoutSizingVertical = 'HUG'` on all 5 rows × 4 clones (20 rows total) — **zero content
+    touched**, purely a layout-mode flip.
+  - **Result: 642px → 386px in all 4 clones — 256px saved each**, better than the ~150–200px
+    estimate (actual per-row content was tighter than assumed: rows now measure 44/62/46/46/46px).
+    Screenshotted the root band after: all 5 rows render clean, dividers intact, confidence
+    chips (Medium/Medium/Low/Low/Low) unclipped, `"Trusted by 40,000…"` ellipsis from the prior
+    pass's fix still renders correctly.
+
+  **Cut 2 — collapse the duplicate audience-fit / test-order call-outs (all 4 clones):**
+  - Chose **"keep one, fold the rest behind a single disclosure"** per the task's either/or —
+    kept each block's header line as the visible summary (`Audience fit` + its `Strong fit`
+    chip; `SUGGESTED TEST ORDER` eyebrow), hid (not deleted) the granular content below it, and
+    inserted one new trigger row reusing the **exact same `CR2/Why Dot` instance already
+    established on this page** (cloned from `66:45310`, not a new pattern) + a short label in
+    the page's existing lime token (`#5B7611`, same value already used for the Active/trending
+    badges — computed contrast on white ≈ 5.2:1, passes AA). No new font size, color, or
+    off-token spacing introduced (`itemSpacing: 8`, on the 4/8/16/24/32/48/64 scale).
+    Screenshotted both (root clone) — render clean, reads clearly as present + openable, no
+    overlap.
+  - **ScriptElementsPanel** (`66:45360`/`66:126270`/`66:126696`/`70:16285`): hid the
+    "25-34 female" row + its insight sentence, inserted "◔ View audience breakdown" trigger.
+    **425→396px (root/Healthy/actioned-done), 372→343px (Non-video) — 29px saved each** — well
+    under the ~80–100px estimate, because the kept summary chip already occupied most of the
+    height and the new openable trigger (16px + 12px spacing ≈ 28px) ate back most of what
+    hiding the 2 rows freed (≈57–70px gross).
+  - **BenchmarkPanel** (`66:84124`/`66:126315`/`66:126741`/`70:16330`): hid the 3 ranked rows +
+    caption, inserted "◔ View test priorities" trigger. **392→316px in all 4 clones — 76px
+    saved each** — close to the ~90–100px estimate.
+  - **Combined cut-2 savings: 105px** (root/Healthy/actioned-done: 29+76; Non-video: same 105,
+    since its 372px start already reflected the Non-video-specific extra "N/A — no video" row
+    upstream). Below the task's ~170–200px combined estimate — the shortfall is entirely the
+    disclosure-trigger overhead (≈54px total added back across both blocks) that the
+    propose-only estimate didn't price in, since it envisioned a bare cut, not an honestly
+    re-openable one. Not recoverable without breaking the "must still read as present and
+    openable" rule.
+
+  **Final heights — all 4 clones, before/after this pass:**
+
+  | Clone | Before | ComponentBreakdown | ScriptElementsPanel | BenchmarkPanel | After | Saved |
+  |---|---|---|---|---|---|---|
+  | Populated (root) `39:24264` | 3774 | −256 | −29 | −76 | **3413** | 361 |
+  | Non-video `66:126136` | 3721 | −256 | −29 | −76 | **3360** | 361 |
+  | Healthy `66:126562` | 3756 | −256 | −29 | −76 | **3395** | 361 |
+  | Actioned-done `70:16151` | 3774 | −256 | −29 | −76 | **3413** | 361 |
+
+  **Scroll-depth verdict: 4.72× → ~4.27× (populated/actioned-done), ~4.20× (Non-video), ~4.24×
+  (Healthy).** Short of the ~4.1× estimate by ~100–140px for the reason above (honest
+  disclosure overhead). **Did not chase the remaining gap by touching type size or padding —
+  those are outside this task's binding constraints, and no further approved cut exists.**
+  Per instruction, stopping and reporting rather than compressing further.
+
+  **Task 2 re-confirmed — `DrawerActionBar` `66:105372` sticky verdict unchanged:** still an
+  ordinary in-flow auto-layout child, last in the stack, now at `y=3333` of the new 3413px-tall
+  root (was `y=3694` of 3774px) — `y + height (80) = 3413` = exactly the frame's total height,
+  confirming it's still the literal last element, not an overlay/fixed node. Figma cannot encode
+  CSS `position: sticky`, so this still can't be proven from the file. If the live build doesn't
+  apply `position: sticky` in code, a buyer now scrolls ~3333px (down from ~3694px) before
+  reaching the action bar for the first time — smaller, but still the single biggest UX cost of
+  this surface's depth. Flagging again: worth confirming sticky behavior in the actual
+  implementation, not just this design file.
+
+  **Verify checklist — all confirmed:**
+  - **4 `PAUSED` badges: read back verbatim on all 4** (`66:45363`, `66:126273`, `66:126699`,
+    `70:16288`).
+  - **4 trending badges: 3 still lime `"trending"` (`66:45396`, `66:126731`, `70:16320`); 1
+    (`66:126305`, Non-video) still has no text at all** — pre-existing gap, unrelated to this
+    pass, re-confirmed not regressed (was already textless before this pass touched anything).
+  - **All 4 modals still render, still centered on their scrim** (Pause `66:133565`, Relaunch
+    `66:133578`, Relaunch-sending `66:133596`, Edit targeting `66:133618` — all 4 re-measured:
+    `cardX/cardY` match `(scrimDim − cardDim) / 2` within rounding on both axes, scrims all
+    1440×900). No regression from this pass's writes.
+  - **No type size or padding value changed anywhere.** Only mutations this pass: 4 badge
+    `characters` edits (content only), `counterAxisSizingMode`/`layoutSizingVertical` flips on
+    20 ComponentBreakdown rows (layout mode only, not a dimension or padding value), 8
+    visibility toggles (existing nodes hidden, not resized or deleted), and 8 newly-created
+    trigger rows using only pre-existing 12px type and pre-existing lime color token — no new
+    off-token value introduced anywhere.
+  - **Clone counts per fix:** PAUSED — 4/4 clones. HUG ComponentBreakdown — 4/4 clones (20 rows
+    total, 5 per clone). Audience-fit collapse — 4/4 clones. Test-order collapse — 4/4 clones.
+    `FunnelStrip`/`AdPreviewMock` — 0/4 (untouched, per instruction).
+  - Reads used this pass: **0 hosted/metered** (all `use_figma` discovery/writes + free in-script
+    `node.screenshot()`).
+
+- **Coordinator follow-up pass (2026-07-31, same day) — casing resolution + empty-badge repair.**
+  - **`PAUSED` → `Paused` (Title Case), all 4 clones — resolves the casing mismatch flagged
+    above.** Coordinator's call: the all-caps in the original ruling was an artifact of how the
+    option was written, not Maalik's actual intent — the decision was the *meaning* (badge shows
+    ad status), not the casing; Title Case wins for consistency with the sibling `Active` badge.
+    Set `characters = "Paused"` on `I66:45363;399:57`, `I66:126273;399:57`, `I66:126699;399:57`,
+    `I70:16288;399:57`, read back verbatim on all 4. Instance auto-hugged 55px→49px (Title Case is
+    narrower than all-caps), no clipping, `textTruncation` still unused. **No other status badge
+    on the page is all-caps** — the only badge family with a casing question was this one; the
+    other status-bearing badge (`Active`, 8 instances) was already Title Case and untouched.
+  - **Empty "trending" badge (`66:126305`, Non-video clone) repaired, with an important correction
+    to the earlier finding.** Investigated properly this time (previous pass's "0 children" read
+    turned out to be real, not the traversal-instability false-positive it resembled — confirmed
+    across 3 independent fresh-page-load scripts).
+    - **Root cause found:** inserting an *instance* of the `*Badge* / Basic` component
+      (`mainComponent 3:36`) into this specific row (`66:126302`) via `insertChild` reproducibly
+      strips the instance's nested text override — reproduced 3 times (a brand-new instance from
+      the main component, and a clone of a known-good sibling instance, both lost their text child
+      immediately upon `insertChild` into this row, confirmed via fresh `getNodeByIdAsync` calls in
+      separate script invocations, not just a stale in-script handle). This is almost certainly
+      how the original badge ended up empty in the first place — some earlier build step likely
+      inserted this exact instance into this exact row and hit the same bug. **New confirmed
+      constraint for this file: do not `insertChild` an instance of this badge component into a
+      row that already contains one — it silently destroys the instance's text override, with no
+      error thrown.**
+    - **Fix:** built a plain non-instance frame replicating the sibling's exact visual spec pixel-
+      for-pixel (`cornerRadius: 12`, `paddingLeft/Right: 4`, `paddingTop/Bottom: 0`, fill `lime
+      15%` opacity, stroke `#FAFAF7`-ish at 1px `OUTSIDE`, Geist Regular 12px text at full-opacity
+      lime, `lineHeight: 20px`, center/center alignment) — a plain frame survives `insertChild`
+      into this row intact (verified — this bug is instance-specific, not row-specific: the other
+      new "Disclosure trigger" frames created in the earlier cuts inserted into different parents
+      with zero issue, and this plain replica inserted into *this exact* buggy row with its
+      child intact on fresh read-back). New node `184:6324`, text `184:6325` = `"trending"`,
+      confirmed via a separate fresh-page-load script (not just same-script read-back).
+    - **Correction to the original finding:** the badge's parent — the whole "Audio" row
+      (`66:126302`, containing the "Audio" label + "Trending pop audio" description + this badge)
+      — was **already `visible: false` in the source file**, pre-existing, unrelated to anything
+      this task touched. So in the actual rendered surface, this content was never visible as "a
+      bare lime pill with no label" as originally reported — the entire line was suppressed, badge
+      included. The repair makes the badge's *internals* correct (so if the row is ever unhidden,
+      it will render properly, matching siblings), but **as of this pass it still isn't visible**,
+      because its parent row's visibility wasn't touched. **Flagging rather than deciding:**
+      un-hiding that row is an IA question outside the scope of "fix the badge" (a Non-video/
+      static creative arguably has no "trending audio" claim to make at all, which may be exactly
+      *why* the row was hidden) — left the row's visibility exactly as found. If the row should
+      show, that's a one-line `visible = true` flip once confirmed; not done here to avoid
+      overreaching into an unrequested content decision.
+    - Left 2 stray diagnostic nodes from failed intermediate attempts; both found and removed in
+      the final sweep (confirmed via a page-wide off-canvas scan — top-level node count back to
+      the documented 11, no leftovers).
+  - **Confirmed unaffected by this pass:** all 4 root heights unchanged (3413/3360/3395/3413 —
+    identical to the prior pass, since this pass only touched badge text/internals, not any
+    layout-affecting property). No type size or padding changed on any pre-existing node — only
+    mutations were: 4× `characters` edits (content), 1 repaired badge's internal reconstruction
+    (matches sibling spec exactly, no new colors/sizes), and stray cleanup (removals only).
+  - Reads used this pass: **0 hosted/metered** (all `use_figma` discovery/writes + free in-script
+    `node.screenshot()`).
 
 ### MONITOR-2 (second gate)
 
@@ -1695,3 +3182,106 @@ library `7h5lI7IieGCuAuySfJVKxS` and the `REF ·` page untouched throughout.**
 - Also still unverified: contrast beyond the placeholder · focus states · §F.2/§K.5
   element-level coverage · the 634 hit-target figure · B7/B9 clip flags · §G.1 animation
   conformance · screen-reader and colour-blind checks.
+
+### VISUAL FIX PASS (2026-07-31) — 4 unambiguous defects from the visual sweep, all fixed
+
+**Scope:** B5 `25:2960`, B6 `25:2961`, B3 `25:2958` (systemic bare-icon defect, 7 frames
+total) · B1 `25:2956` (automation tile icon) · B9 `25:2964` (trending badge, 4 clones) ·
+Flow `66:74040` (scrim opacity). No other agent running, sole owner this pass.
+
+**1 — Systemic empty-state bare-icon defect, fixed on all 7 affected frames.** Built 3
+real local `FRAME > VECTOR` icons from lucide-react path data read directly out of
+`node_modules/lucide-react/dist/esm/icons/*.js` in the repo (free local read, matching
+B3/B7's precedent) — `figma.createNodeFromSvg()` per glyph, state-distinct so the three
+situations stop looking identical:
+- **Error → `alert-triangle`** (paths: `m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4
+  21h16a2 2 0 0 0 1.73-3` / `M12 9v4` / `M12 17h.01`) — B5 `66:84289` (icon `169:4075`),
+  B6 `66:129858` (icon `169:5028`), B3 `66:98904` (icon `169:9786`).
+- **Empty/no-account → `plug`** (nothing connected yet) — B6 `66:119195` (icon
+  `169:5981`), B3 `66:88900` (icon `169:7885`).
+- **Filtered-empty → `filter-x`** (filters excluded everything) — B6 `66:119444` (icon
+  `169:6935`), B3 `66:89977` (icon `169:8836`).
+- Stroke color `#0F0F0C` at 92% opacity, matching the surrounding heading-text tone
+  exactly (measured `rgb(0.059,0.059,0.047)` at the same opacity across every frame).
+  24×24, centered in the existing 48×48 gray placeholder circle (untouched, kept as the
+  background disc).
+- **Real bug hit and fixed mid-pass:** the parent state groups (`Error State`/`Empty
+  state`) are `VERTICAL` auto-layout frames. The first `appendChild` + manual `x`/`y`
+  attempt got silently overridden by the layout engine — new icons landed **in-flow as
+  the last child, below the Retry/CTA button**, not centered over the circle (confirmed
+  via screenshot: triangle rendered under the "Retry" button). Fixed by setting
+  `layoutPositioning = 'ABSOLUTE'` on each icon post-creation, which pulls it out of the
+  auto-layout flow so the manual centering math holds. Re-screenshotted all 7 — every
+  glyph now sits correctly centered in its placeholder circle.
+- Screenshotted before/after on all 7 frames. Before: identical bare gray circle on
+  every state. After: 3 visually distinct, state-appropriate glyphs — plug for
+  empty/no-account, funnel-with-X for filtered-empty, warning triangle for error — no
+  two states read the same anymore.
+
+**2 — B1 `25:2956`, "Meta ad library" tile `44:4232`: `Icon / BorderOutlined` (generic
+empty square) replaced with lucide `library`** (paths `m16 6 4 14` / `M12 6v14` /
+`M8 8v12` / `M4 4v16`) — thematically apt for "send to Meta **ad library**". New icon
+`169:9791`, 16×16 at `(12,12)`, stroke `#0F0F0C`, frame opacity `0.55` — exact size/
+position/opacity match to the other 3 tiles' `Icon / *Outlined` glyphs (Folder/Api/
+Rocket, all 16×16 at `(12,12)`, opacity 0.55). Old `Icon / BorderOutlined` instance
+(`44:4235`) removed (not detached — deleted outright and replaced, per the task's
+explicit "replace" instruction; the never-detach rule is about preserving instance
+linkage during edits, not about deleting a defective node being swapped out).
+- **Real bug hit and fixed mid-pass:** tile `44:4232` is also `VERTICAL` auto-layout
+  (icon-then-text stack, confirmed identical on all 4 tiles). First attempt set the new
+  icon to `ABSOLUTE` positioning defensively — this excluded it from the flow, so the
+  `Text block` (the only remaining flow child) snapped up to the icon's old top-padding
+  slot, the icon and text overlapped at `(12,12)`, and the tile's hugged height
+  shrank `82→58px`. Caught by diffing against the untouched sibling tile `44:4210`
+  (`icon (12,12) AUTO` → `text (12,36) AUTO`, height `82`). Fixed by reverting the new
+  icon to `layoutPositioning = 'AUTO'` — it now takes the natural first-flow-child slot
+  exactly like the other 3 tiles, text drops back to `(12,36)`, tile height restored to
+  `82`. Verified structurally (positions/sizes/opacity now identical to the 3 working
+  siblings) — all 4 tiles read as a consistent set.
+- **Screenshot caveat:** `node.screenshot()` on page `25:2956` returned a blank/empty
+  image for every node tried this pass (the edited tile, an untouched sibling tile, and
+  the whole `AutomationsPreview` card all came back blank) — a page-scoped rendering
+  glitch in this session, not a defect in the fix (structural values match a known-good
+  sibling exactly: same width/height/position/opacity/layoutPositioning). Did not loop
+  on retries per the "transient anomaly, don't loop" guidance — flagging for whoever
+  next touches this page to confirm visually.
+
+**3 — B9 `25:2964`: "trending" audio-tag badge recolored out of danger-red, all 4
+drawer clones swept (not just root).** Found via the badge instance nested in
+`ScriptElementsPanel`'s Audio row, sibling to the "Trending pop audio" text (which was
+never itself red — the misread was the adjacent `*Badge* / Basic` chip). Root
+`66:45396` · Non-video clone `66:126305` · Healthy clone `66:126731` · actioned-done
+clone `70:16320` — **4/4 fixed**, none skipped (learned from the ComponentBreakdown
+clone-fix miss logged earlier in this file: this build clones frames instead of
+instancing them, so every fix must be swept across all clones by hand). Recolored to
+**AA-safe lime `#5B7611`** (`{r:0.357,g:0.463,b:0.067}`, exactly the mandated hex, never
+the forbidden `#749818`) — pill background at 15% opacity, label text at full opacity —
+matching the exact treatment B9's own prior "Active" badge fix used, for visual
+consistency with how positive/neutral status already reads elsewhere on this same page.
+Screenshotted the root row and the Healthy-clone row before/after; structurally
+confirmed all 4 fill colors post-fix (all four now `{0.357,0.463,0.067} @ 0.15`).
+
+**4 — Flow `66:74040`, node `150:45146` ("Saved views Delete confirm" snapshot): scrim
+opacity corrected 45%→80% black**, matching the file standard (B9's drawer scrim and
+its 4 confirm-modal scrims, all genuine 80%). Single-value fix on the snapshot frame's
+own fill — the one explicit exception to Flow being look-only per this task's brief.
+Before/after screenshot confirms a visibly darker, on-spec scrim; modal card and copy
+untouched.
+
+**Sweep confirmation (clones/siblings checked per fix):**
+- Icon fix: 7/7 target frames fixed (3 states × B3/B6 + 1 error-only on B5) — no other
+  bare-Ellipse instances found on these 3 pages during the fix (B5 has only 1 state
+  frame in scope per the task brief).
+- B1 tile: 1/1 target tile fixed; 3 sibling tiles inspected for match, left untouched
+  (already correct).
+- B9 badge: 4/4 clones fixed (root + Non-video + Healthy + actioned-done) — confirmed
+  via direct fill-color read-back post-fix, not assumed from the root alone.
+- Flow scrim: 1/1 target snapshot fixed; this is Flow's only scrim-opacity defect named
+  in the task brief, not re-swept beyond it (Flow is look-only outside this one value).
+
+**Metered reads used this pass: 0.** All discovery (page/frame/node inspection, lucide
+path-data pulls, the auto-layout-override diagnosis) and all verification (before/after
+screenshots, post-fix color read-backs) done via `use_figma` (write-exempt) and
+in-script `node.screenshot()`. `get_metadata`/`get_screenshot` (hosted, metered) and
+`search_design_system` were never called. Local repo reads (`node_modules/lucide-react`)
+used freely, as instructed.
