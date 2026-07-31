@@ -23,6 +23,7 @@ import {
 import { LaunchConfirmModal } from "@/creative-report/actions/LaunchConfirmModal";
 import { PauseAlert } from "@/creative-report/actions/PauseAlert";
 import { EditTargetingModal } from "@/creative-report/actions/EditTargetingModal";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 interface ActionsApi {
@@ -40,12 +41,15 @@ interface ActionsApi {
 
 const CreativeActionsContext = createContext<ActionsApi | null>(null);
 
-const CREATIVES = "/reports/creative-v2/creatives";
-const COMPARE = "/reports/creative-v2/compare";
-
 export function CreativeActionsProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // Version-aware: the provider is mounted once per Creative Report version
+  // (2.0 / 3.0), so every action's destination is derived from the active
+  // version's prefix rather than a hardcoded /reports/creative-v2.
+  const basePath = useReportBasePath();
+  const CREATIVES = `${basePath}/creatives`;
+  const COMPARE = `${basePath}/compare`;
   const [launchRollup, setLaunchRollup] = useState<CreativeRollup | null>(null);
   const [pauseRollup, setPauseRollup] = useState<CreativeRollup | null>(null);
   const [targetingRollup, setTargetingRollup] = useState<CreativeRollup | null>(null);
@@ -59,10 +63,10 @@ export function CreativeActionsProvider({ children }: { children: React.ReactNod
       navigate(
         `/genie/new?concept=${encodeURIComponent(c.id)}&angle=${encodeURIComponent(
           c.angleId,
-        )}&hook=${encodeURIComponent(c.components.hook)}`,
+        )}&hook=${encodeURIComponent(c.components.hook)}&from=${encodeURIComponent(basePath)}`,
       );
     },
-    [navigate],
+    [navigate, basePath],
   );
 
   const launch = useCallback((r: CreativeRollup) => {
@@ -108,19 +112,19 @@ export function CreativeActionsProvider({ children }: { children: React.ReactNod
     (ids: string[]) => {
       navigate(`${COMPARE}${buildPreservedSearch(searchParams, `ids=${ids.join(",")}`)}`);
     },
-    [navigate, searchParams],
+    [navigate, searchParams, COMPARE],
   );
 
   const view = useCallback(
     (creativeId: string) => {
       navigate(`${CREATIVES}${buildPreservedSearch(searchParams, `creative=${creativeId}`)}`);
     },
-    [navigate, searchParams],
+    [navigate, searchParams, CREATIVES],
   );
 
   const closeDrawer = useCallback(() => {
     navigate(`${CREATIVES}${buildPreservedSearch(searchParams, "")}`);
-  }, [navigate, searchParams]);
+  }, [navigate, searchParams, CREATIVES]);
 
   const api = useMemo<ActionsApi>(
     () => ({

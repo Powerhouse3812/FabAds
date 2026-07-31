@@ -26,7 +26,7 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
 import { launchV2Routes } from "@/launchv2/routes";
-import { creativeReportRoutes } from "@/creative-report/routes";
+import { creativeReportRoutes, creativeReportV3Routes } from "@/creative-report/routes";
 import { GenieHandoffStub } from "@/creative-report/actions/GenieHandoffStub";
 import { dashboardVariantRoutes } from "@/dashboard-variants/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
@@ -156,11 +156,15 @@ const App = () => (
                 <Route path="reports/creative/image" element={<Navigate to="/reports/creative" replace />} />
                 <Route path="reports/creative/video" element={<Navigate to="/reports/creative" replace />} />
                 <Route path="reports/creative/ad-groups" element={<Navigate to="/reports/creative" replace />} />
-                {/* Creative Report 2.0 — hi-fi prototype of the new creative-first
-                    triage report (Overview / Creatives / Components / Compare / Saved
-                    views). Own namespace /reports/creative-v2; the existing
-                    "Creative Reporting" at /reports/creative is untouched. */}
+                {/* Creative Report — hi-fi prototype of the new creative-first
+                    triage report, shipped as TWO live versions that share every
+                    screen except Overview:
+                      /reports/creative-v2  2.0 — the currently-deployed Overview
+                      /reports/creative-v3  3.0 — the redesigned Overview
+                    The existing "Creative Reporting" at /reports/creative is
+                    untouched. See src/creative-report/routes.tsx. */}
                 {creativeReportRoutes}
+                {creativeReportV3Routes}
                 {/* Simulated Genie handoff target for the "Generate variation"
                     exit from Creative Report 2.0 (concept/angle/hook payload). */}
                 <Route path="genie/new" element={<GenieHandoffStub />} />

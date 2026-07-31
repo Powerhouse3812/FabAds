@@ -1,7 +1,7 @@
 /**
  * ThresholdSettings — edit the bucket/fatigue formula thresholds (iter-2 W2).
  * The honest alternative to a black-box score: every number here is exactly
- * what the bucket/fatigue rules use — change one, the rule text (BucketRow,
+ * what the bucket/fatigue rules use — change one, the rule text (BucketTabs,
  * FatiguePanel) and every bucket assignment update immediately.
  */
 import { useEffect, useId, useState } from "react";

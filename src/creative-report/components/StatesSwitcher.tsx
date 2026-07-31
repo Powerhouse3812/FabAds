@@ -7,6 +7,7 @@
  *     unsaved) are reached by navigating to a URL that naturally exhibits them.
  * Gated behind import.meta.env.DEV by the caller.
  */
+import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FlaskConical } from "lucide-react";
 import {
@@ -19,8 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { P } from "@/creative-report/lib/paramSchema";
-
-const BASE = "/reports/creative-v2";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 
 interface StateOption {
   key: string;
@@ -29,28 +29,35 @@ interface StateOption {
   apply: (nav: ReturnType<typeof useNavigate>) => void;
 }
 
-const OPTIONS: StateOption[] = [
-  { key: "live", label: "Live data", apply: (nav) => nav(`${BASE}`) },
-  { key: "loading", label: "Loading", apply: (nav) => nav(`${BASE}?state=loading`) },
-  { key: "empty", label: "Empty (no account)", apply: (nav) => nav(`${BASE}?state=empty`) },
-  { key: "filtered-empty", label: "Filtered-empty", apply: (nav) => nav(`${BASE}/creatives?state=filtered-empty`) },
-  { key: "low-data", label: "Low data (n=)", apply: (nav) => nav(`${BASE}?state=low-data`) },
-  { key: "error", label: "Error", apply: (nav) => nav(`${BASE}?state=error`) },
-  { key: "fatigue", label: "Fatigue flags", apply: (nav) => nav(`${BASE}/creatives?bucket=fatiguing`) },
-  { key: "dedup", label: "Dedup uncertain (92%)", apply: (nav) => nav(`${BASE}/creatives?creative=cr-001`) },
-  { key: "archived", label: "Deleted / archived ad", apply: (nav) => nav(`${BASE}/creatives?status=archived`) },
-  { key: "new", label: "New creative (no perf)", apply: (nav) => nav(`${BASE}/creatives?bucket=new`) },
-  {
-    key: "cross-platform",
-    label: "Cross-platform compare",
-    apply: (nav) => nav(`${BASE}/compare?mode=contexts&ids=cr-003`),
-  },
-  { key: "unsaved", label: "Unsaved view config", apply: (nav) => nav(`${BASE}/views`) },
-];
+/** Built per-version: the switcher must land you on the SAME Creative Report
+ *  version you triggered it from (2.0 vs 3.0), otherwise forcing a state on
+ *  3.0 would silently bounce you into 2.0. */
+function buildOptions(BASE: string): StateOption[] {
+  return [
+    { key: "live", label: "Live data", apply: (nav) => nav(`${BASE}`) },
+    { key: "loading", label: "Loading", apply: (nav) => nav(`${BASE}?state=loading`) },
+    { key: "empty", label: "Empty (no account)", apply: (nav) => nav(`${BASE}?state=empty`) },
+    { key: "filtered-empty", label: "Filtered-empty", apply: (nav) => nav(`${BASE}/creatives?state=filtered-empty`) },
+    { key: "low-data", label: "Low data (n=)", apply: (nav) => nav(`${BASE}?state=low-data`) },
+    { key: "error", label: "Error", apply: (nav) => nav(`${BASE}?state=error`) },
+    { key: "fatigue", label: "Fatigue flags", apply: (nav) => nav(`${BASE}/creatives?bucket=fatiguing`) },
+    { key: "dedup", label: "Dedup uncertain (92%)", apply: (nav) => nav(`${BASE}/creatives?creative=cr-001`) },
+    { key: "archived", label: "Deleted / archived ad", apply: (nav) => nav(`${BASE}/creatives?status=archived`) },
+    { key: "new", label: "New creative (no perf)", apply: (nav) => nav(`${BASE}/creatives?bucket=new`) },
+    {
+      key: "cross-platform",
+      label: "Cross-platform compare",
+      apply: (nav) => nav(`${BASE}/compare?mode=contexts&ids=cr-003`),
+    },
+    { key: "unsaved", label: "Unsaved view config", apply: (nav) => nav(`${BASE}/views`) },
+  ];
+}
 
 export function StatesSwitcher() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const basePath = useReportBasePath();
+  const OPTIONS = useMemo(() => buildOptions(basePath), [basePath]);
   const forced = params.get(P.state);
   const current = forced ? OPTIONS.find((o) => o.key === forced)?.key ?? "live" : "live";
 

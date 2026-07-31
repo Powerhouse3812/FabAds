@@ -4,7 +4,7 @@
  * name, one metric row (4 stats, NOT boxed tiles), and an action row that
  * exposes the loop. Optimistic chips reflect actions already taken.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bookmark,
   Image as ImageIcon,
@@ -29,6 +29,10 @@ import { FORMAT_LABELS } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 import { COLUMN_BY_KEY, COLUMN_DEFS } from "@/creative-report/lib/columns";
 import { useCardMetrics } from "@/creative-report/lib/cardMetrics";
+import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
+import { useSyncStore } from "@/creative-report/automations/sync/syncStore";
+import { summariseCreative } from "@/creative-report/automations/sync/selectors";
+import { SyncBadge } from "@/creative-report/automations/components/SyncBadge";
 
 /** Hover quick-peek shows up to this many metrics not already on the card. */
 const PEEK_COUNT = 3;
@@ -56,6 +60,12 @@ export function CreativeCard({
   const name = truncate(creative.name, NAME_MAX);
   const brand = creative.brandId ? getBrand(creative.brandId) : undefined;
   const { active: activeMetrics } = useCardMetrics();
+  const workflowsEnabled = useReportWorkflowsEnabled();
+  const syncState = useSyncStore();
+  const syncSummary = useMemo(
+    () => summariseCreative(syncState, creative.id),
+    [syncState, creative.id],
+  );
   // Quick-peek on hover: metrics NOT already on the card, capped at PEEK_COUNT.
   // Max active is 6 of 13 keys, so there is always at least one leftover —
   // the empty-list guard below is defensive only.
@@ -136,6 +146,7 @@ export function CreativeCard({
           {actionState.queuedInLaunch && <StatusPill label="Queued in Launch" tone="lime" />}
           {actionState.markedWinner && <StatusPill label="Winner" tone="lime" />}
           {actionState.savedToLibrary && <StatusPill label="Saved" tone="muted" />}
+          {workflowsEnabled && <SyncBadge size="xs" summary={syncSummary} />}
         </div>
 
         {/* Hover quick-peek — metrics not already on the card, no drawer open */}

@@ -83,6 +83,7 @@ const LABEL_MAP: Record<string, string> = {
   performance: "Performance",
   creative: "Creative",
   "creative-v2": "Creative Report 2.0",
+  "creative-v3": "Creative Report 3.0",
   creatives: "Creatives",
   compare: "Compare",
   automations: "Automations",
@@ -159,6 +160,14 @@ const KNOWN_SUB_NAV_PATHS = new Set([
   "/reports/creative-v2/owner-report",
   "/reports/creative-v2/brief-builder",
   "/reports/creative-v2/views",
+  "/reports/creative-v3",
+  "/reports/creative-v3/creatives",
+  "/reports/creative-v3/components",
+  "/reports/creative-v3/compare",
+  "/reports/creative-v3/automations",
+  "/reports/creative-v3/owner-report",
+  "/reports/creative-v3/brief-builder",
+  "/reports/creative-v3/views",
 ]);
 
 /**
@@ -231,7 +240,11 @@ function AppLayoutInner() {
   const isLaunchV2Route = pathname.startsWith("/launchv2");
   const isCreativeLibraryRoute = pathname.startsWith("/iq/creative-library");
   const isDashboardVariantsRoute = pathname.startsWith("/dashboard-variants");
-  const isCreativeReportV2Route = pathname.startsWith("/reports/creative-v2");
+  // Both live Creative Report versions own their layout — same shell, only
+  // the Overview differs.
+  const isCreativeReportRoute =
+    pathname.startsWith("/reports/creative-v2") ||
+    pathname.startsWith("/reports/creative-v3");
   // Routes that own their own scroll regions + chrome (no AppLayout
   // breadcrumb header, no outer padding). Genie6 set this pattern;
   // Industry Insights v2 follows it so the masonry page bg + sticky
@@ -240,14 +253,14 @@ function AppLayoutInner() {
   // folder rail + content split that collapses inside the default
   // overflow-y-auto wrap. Dashboard variants = 4 full-bleed visual
   // explorations that each own their own background/chrome.
-  // Creative Report 2.0 = own sub-nav + persistent filter bar + footer.
+  // Creative Report 2.0 / 3.0 = own sub-nav + persistent filter bar + footer.
   const ownsLayout =
     isGenie6Route ||
     isInsightsV2Route ||
     isLaunchV2Route ||
     isCreativeLibraryRoute ||
     isDashboardVariantsRoute ||
-    isCreativeReportV2Route;
+    isCreativeReportRoute;
   const { isPinned, isOpen } = useCopilot();
 
   return (

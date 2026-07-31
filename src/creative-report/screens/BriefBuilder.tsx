@@ -30,9 +30,9 @@ import { useWinnersBank } from "@/creative-report/lib/winnersBank";
 import { fmtCompactCurrency, fmtMultiple, truncate } from "@/creative-report/lib/format";
 import type { Creative } from "@/data/model";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 
 const MAX_REFERENCES = 3;
-const CREATIVES_PATH = "/reports/creative-v2/creatives";
 
 type BlockKey = "hook" | "body" | "cta" | "visualDirection" | "offer";
 
@@ -85,6 +85,7 @@ export function BriefBuilder() {
   const navigate = useNavigate();
   const data = useCreativeData();
   const bank = useWinnersBank();
+  const basePath = useReportBasePath();
 
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
   const [blocks, setBlocks] = useState<Blocks>(EMPTY_BLOCKS);
@@ -183,6 +184,9 @@ export function BriefBuilder() {
     params.set("angle", primary.creative.angleId);
     params.set("hook", blocks.hook);
     params.set("brief", JSON.stringify(briefPayload));
+    // Tells the app-level /genie/new stub which Creative Report version to
+    // send the buyer back to.
+    params.set("from", basePath);
     navigate(`/genie/new?${params.toString()}`);
   }
 
@@ -228,7 +232,7 @@ export function BriefBuilder() {
   return (
     <div className="mx-auto max-w-3xl p-6">
       <Link
-        to={CREATIVES_PATH}
+        to={`${basePath}/creatives`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />

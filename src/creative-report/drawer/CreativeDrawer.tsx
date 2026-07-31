@@ -23,9 +23,11 @@ import { ScriptElementsPanel } from "@/creative-report/drawer/ScriptElementsPane
 import { BenchmarkPanel } from "@/creative-report/drawer/BenchmarkPanel";
 import { DemographicsPanel } from "@/creative-report/drawer/DemographicsPanel";
 import { RunningInTable } from "@/creative-report/drawer/RunningInTable";
+import { SyncStatusPanel } from "@/creative-report/drawer/SyncStatusPanel";
 import { VariantsList } from "@/creative-report/drawer/VariantsList";
 import { DrawerActionBar } from "@/creative-report/drawer/DrawerActionBar";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
+import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 import { truncate, NAME_MAX } from "@/creative-report/lib/format";
 import { getBrand } from "@/mocks/shared/brands";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
@@ -36,6 +38,10 @@ function Band({ children }: { children: React.ReactNode }) {
 
 export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
   const a = useCreativeActions();
+  // Gate the sync Band here, not just inside SyncStatusPanel: `Band` renders a
+  // bordered `py-4` section, so gating only the child left v2 with an empty
+  // bordered strip on every drawer open.
+  const workflowsEnabled = useReportWorkflowsEnabled();
   const open = rollup !== null;
   const name = rollup ? truncate(rollup.creative.name, NAME_MAX) : { text: "", truncated: false };
 
@@ -95,6 +101,16 @@ export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
                   onCompareContexts={() => a.compare([rollup.creative.id])}
                 />
               </Band>
+              {/* Sits directly after RunningInTable on purpose: that band means
+                  "where this creative is currently RUNNING", this one means
+                  "where its asset has been PUSHED into an ad library". Adjacent
+                  so the distinction reads; conflating them would make both lie.
+                  Returns null outside v3. */}
+              {workflowsEnabled && (
+                <Band>
+                  <SyncStatusPanel rollup={rollup} />
+                </Band>
+              )}
               <Band>
                 <VariantsList rollup={rollup} />
               </Band>

@@ -12,11 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSavedViews } from "@/creative-report/hooks/useSavedViews";
 import { fmtDate } from "@/creative-report/lib/format";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 
-const CREATIVES_PATH = "/reports/creative-v2/creatives";
+
 
 export function SavedViews() {
   const { views, draft, save, rename, remove } = useSavedViews();
+  const basePath = useReportBasePath();
   const [searchParams] = useSearchParams();
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function SavedViews() {
             <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
               Unsaved draft
               <Link
-                to={`${CREATIVES_PATH}?${draft.query}`}
+                to={`${basePath}/creatives?${draft.query}`}
                 className="font-semibold text-primary-text hover:underline"
               >
                 Apply
@@ -121,7 +123,7 @@ export function SavedViews() {
                     </div>
                   ) : (
                     <Link
-                      to={`${CREATIVES_PATH}?${v.query}`}
+                      to={`${basePath}/creatives?${v.query}`}
                       className="truncate text-[13px] font-medium text-foreground hover:underline"
                     >
                       {v.name}
