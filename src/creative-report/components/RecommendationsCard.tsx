@@ -4,7 +4,7 @@
  * current filter set (never a prediction or score) — render `text` verbatim,
  * no hedging, no embellishment.
  *
- * NOTE on styling: this renders on /reports/creative-v2, which is OUTSIDE
+ * NOTE on styling: this renders on the Creative Report, which is OUTSIDE
  * Genie's `.g6-root` tree. The g6-* CSS vars (--g6-color-*, --g6-glass-*)
  * are only defined under `[data-theme="light"|"dark"]`, and that attribute
  * is only mirrored onto <html> by useGenie6Theme() on Genie routes — FabAds'
@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WhyDot } from "@/creative-report/components/WhyDot";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 import { buildRecommendations, type Recommendation, type RecommendationTone } from "@/creative-report/lib/recommendations";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 import type { BucketKey } from "@/creative-report/lib/paramSchema";
@@ -43,8 +44,10 @@ const TONE_ICON_STYLE: Record<RecommendationTone, string> = {
 // to switch to). Kept as one explicit map rather than inline branching —
 // the only id in this state today is the brand-gap recommendation, which
 // points at the owner report's per-brand rollups.
+// Values are RELATIVE to the active version's base path (see
+// useReportBasePath) so a recommendation clicked on 3.0 does not jump to 2.0.
 const FALLBACK_ROUTE: Partial<Record<string, string>> = {
-  "rec.brandGap": "/reports/creative-v2/owner-report",
+  "rec.brandGap": "/owner-report",
 };
 
 export function RecommendationsCard({
@@ -55,6 +58,7 @@ export function RecommendationsCard({
   onOpenBucket?: (bucket: BucketKey) => void;
 }) {
   const navigate = useNavigate();
+  const basePath = useReportBasePath();
   const recommendations = buildRecommendations(rollups);
 
   function handleAction(rec: Recommendation) {
@@ -63,7 +67,7 @@ export function RecommendationsCard({
       return;
     }
     const fallback = FALLBACK_ROUTE[rec.id];
-    if (fallback) navigate(fallback);
+    if (fallback) navigate(`${basePath}${fallback}`);
   }
 
   return (

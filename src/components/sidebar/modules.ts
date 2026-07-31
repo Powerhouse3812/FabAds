@@ -105,8 +105,14 @@ export const MODULES: ModuleDef[] = [
       { label: "NB", path: "/reports/nb", icon: BarChart3 },
       { label: "TikTok", path: "/reports/tt", icon: Video },
       { label: "Creative Reporting", path: "/reports/creative", icon: Film },
+      // Creative Report ships as TWO live versions side by side. They share
+      // every screen except Overview: 2.0 = the currently-deployed Overview,
+      // 3.0 = the redesigned one (bucket tabs, Catalogue breakdown,
+      // recommendations, automations preview). Both sub-item lists are
+      // complete and self-contained, which is what keeps the secondary nav
+      // from bouncing a 3.0 user into 2.0.
       {
-        label: "Creative Report 2.0", path: "/reports/creative-v2", icon: Sparkles, badge: "New",
+        label: "Creative Report 2.0", path: "/reports/creative-v2", icon: Sparkles, badge: "Current",
         subItems: [
           { label: "Overview", path: "/reports/creative-v2" },
           { label: "Creatives", path: "/reports/creative-v2/creatives" },
@@ -116,6 +122,19 @@ export const MODULES: ModuleDef[] = [
           { label: "Owner report", path: "/reports/creative-v2/owner-report" },
           { label: "Brief builder", path: "/reports/creative-v2/brief-builder" },
           { label: "Saved views", path: "/reports/creative-v2/views" },
+        ],
+      },
+      {
+        label: "Creative Report 3.0", path: "/reports/creative-v3", icon: Sparkles, badge: "New",
+        subItems: [
+          { label: "Overview", path: "/reports/creative-v3" },
+          { label: "Creatives", path: "/reports/creative-v3/creatives" },
+          { label: "Components", path: "/reports/creative-v3/components" },
+          { label: "Compare", path: "/reports/creative-v3/compare" },
+          { label: "Automations", path: "/reports/creative-v3/automations" },
+          { label: "Owner report", path: "/reports/creative-v3/owner-report" },
+          { label: "Brief builder", path: "/reports/creative-v3/brief-builder" },
+          { label: "Saved views", path: "/reports/creative-v3/views" },
         ],
       },
     ],

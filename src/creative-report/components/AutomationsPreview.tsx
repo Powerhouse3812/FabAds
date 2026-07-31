@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WhyDot } from "@/creative-report/components/WhyDot";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 
 const DESTINATIONS = [
   {
@@ -50,6 +51,7 @@ const DESTINATIONS = [
 
 export function AutomationsPreview() {
   const navigate = useNavigate();
+  const basePath = useReportBasePath();
 
   return (
     <section className="rounded-xl border border-border bg-card/70 p-4 backdrop-blur-xl">
@@ -65,7 +67,7 @@ export function AutomationsPreview() {
           variant="ghost"
           size="sm"
           className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => navigate("/reports/creative-v2/automations")}
+          onClick={() => navigate(`${basePath}/automations`)}
         >
           Open Automations
         </Button>

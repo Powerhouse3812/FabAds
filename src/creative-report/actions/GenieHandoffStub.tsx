@@ -9,6 +9,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDataset } from "@/data/generator";
+import {
+  CREATIVE_REPORT_BASES,
+  DEFAULT_REPORT_BASE_PATH,
+} from "@/creative-report/state/ReportBasePathContext";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -76,6 +80,16 @@ export function GenieHandoffStub() {
   const angleId = params.get("angle") ?? "";
   const hook = params.get("hook") ?? "";
   const brief = parseBrief(params.get("brief"));
+  // This stub is mounted at app level (/genie/new), OUTSIDE the Creative
+  // Report layout, so it cannot read ReportBasePathContext. The caller stamps
+  // its version onto `from=` instead; anything else (hand-typed URL, old
+  // bookmark) falls back to the deployed 2.0 prefix. Whitelisted against the
+  // two known bases so a crafted `from=` can't turn this into an open
+  // redirect.
+  const fromParam = params.get("from") ?? "";
+  const backTo = CREATIVE_REPORT_BASES.includes(fromParam)
+    ? fromParam
+    : DEFAULT_REPORT_BASE_PATH;
 
   const dataset = getDataset();
   const creative = dataset.creativeById[conceptId];
@@ -88,7 +102,7 @@ export function GenieHandoffStub() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <Link
-        to="/reports/creative-v2/creatives"
+        to={`${backTo}/creatives`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />

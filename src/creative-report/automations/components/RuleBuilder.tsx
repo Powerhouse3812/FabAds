@@ -11,6 +11,21 @@
  * rulesStore.ts deliberately doesn't accept a `type` patch (its valid
  * actions differ per type), so the type toggle is disabled in edit mode
  * rather than pretending a switch is supported.
+ *
+ * VERSION-GATED (v3 only, via `useReportWorkflowsEnabled`): the schedule +
+ * auto-run section, the sync-to-ad-account action, and the `between` range
+ * operator. This one component is mounted by BOTH /reports/creative-v2 and
+ * /reports/creative-v3, so the prose branches too — v2's description still
+ * says nothing runs on a schedule (true there), v3's says a rule can fire
+ * itself inside its date window. An unbranched string would have one of the
+ * two versions lying about its own behaviour.
+ *
+ * Two deliberate exceptions to that gate, both about *displaying* data v3
+ * created rather than offering v2 a new capability (rules share one
+ * localStorage key across versions, so v2 can be asked to edit a v3 rule):
+ * a `between` condition already on the rule keeps its operator label and
+ * upper-bound input, and an existing syncToAccounts action is preserved on
+ * save. Dropping either would be silent data loss on a round-trip.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
@@ -41,6 +56,9 @@ import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { evaluateRule } from "@/creative-report/automations/engine";
 import { createRule, updateRule } from "@/creative-report/automations/rulesStore";
 import { useBoardsStore } from "@/creative-report/automations/boards";
+import { ScheduleEditor } from "@/creative-report/automations/components/ScheduleEditor";
+import { AccountPicker } from "@/creative-report/automations/components/AccountPicker";
+import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 import {
   METRIC_CONDITION_FIELDS,
   RULE_TYPES,
@@ -51,7 +69,9 @@ import {
   type Operator,
   type RuleAction,
   type RuleCondition,
+  type RuleSchedule,
   type RuleType,
+  type SyncToAccountsAction,
 } from "@/creative-report/automations/model";
 import { COLUMN_BY_KEY } from "@/creative-report/lib/columns";
 import {
@@ -89,19 +109,56 @@ function fieldLabel(field: ConditionField): string {
   }
 }
 
-function operatorsForField(field: ConditionField): { value: Operator; label: string }[] {
+/**
+ * `between` is a metric-only operator — attribute fields keep eq/neq, since a
+ * range over a bucket key or a brand id is meaningless.
+ *
+ * `allowBetween` is the v3 gate. It's also forced true when the condition
+ * being edited already IS a `between` (see `current`) so v2 renders a v3-made
+ * rule's operator with its real label instead of an empty Select trigger —
+ * showing the truth about existing data, not offering v2 the new operator.
+ */
+function operatorsForField(
+  field: ConditionField,
+  allowBetween: boolean,
+  current?: Operator,
+): { value: Operator; label: string }[] {
   if (isMetricField(field)) {
     return [
       { value: "gt", label: "is greater than" },
       { value: "gte", label: "is at least" },
       { value: "lt", label: "is less than" },
       { value: "lte", label: "is at most" },
+      ...(allowBetween || current === "between"
+        ? ([{ value: "between", label: "is between" }] as const)
+        : []),
     ];
   }
   return [
     { value: "eq", label: "is" },
     { value: "neq", label: "is not" },
   ];
+}
+
+/** True when a `between` condition is missing its upper bound. Such a
+ *  condition is dropped outright by the sanitiser in rulesStore.ts, which
+ *  would leave a rule that matches everything the remaining conditions allow
+ *  — so the builder blocks the save instead of letting it through. */
+function isIncompleteRange(c: RuleCondition): boolean {
+  if (c.operator !== "between") return false;
+  return !(typeof c.value2 === "number" && Number.isFinite(c.value2));
+}
+
+/** Stores a range low-to-high so the persisted rule reads the way the user
+ *  meant it. `compareNumeric` in @/workflows/core normalises at match time
+ *  too, so entering 5 then 2 always *worked* — this keeps the saved data
+ *  sane as well, rather than relying on the reader to reorder it forever. */
+function normaliseCondition(c: RuleCondition): RuleCondition {
+  if (c.operator !== "between" || isIncompleteRange(c)) return c;
+  const lo = typeof c.value === "number" ? c.value : Number(c.value);
+  const hi = c.value2 as number;
+  if (Number.isNaN(lo)) return c;
+  return { ...c, value: Math.min(lo, hi), value2: Math.max(lo, hi) };
 }
 
 function defaultConditionForField(field: ConditionField): RuleCondition {
@@ -125,17 +182,21 @@ function defaultConditionForField(field: ConditionField): RuleCondition {
 function ConditionValueEditor({
   condition,
   onChange,
+  onChangeValue2,
 }: {
   condition: RuleCondition;
   onChange: (value: string | number) => void;
+  onChangeValue2: (value: number | undefined) => void;
 }) {
   const { field, value } = condition;
 
   if (isMetricField(field)) {
-    return (
+    const isRange = condition.operator === "between";
+    const lower = (
       <Input
         type="number"
         value={String(value)}
+        aria-label={isRange ? "Range lower bound" : undefined}
         onChange={(e) => {
           const raw = e.target.value;
           const n = Number(raw);
@@ -143,6 +204,33 @@ function ConditionValueEditor({
         }}
         className="h-8 text-[13px]"
       />
+    );
+
+    if (!isRange) return lower;
+
+    // The upper bound starts empty and stays empty until the user types a
+    // number — it is never defaulted to 0, because a silently-complete range
+    // of "between 0 and 0" is a worse lie than a visibly-unfinished one.
+    return (
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{lower}</div>
+        <span className="shrink-0 text-[12px] text-muted-foreground">and</span>
+        <div className="min-w-0 flex-1">
+          <Input
+            type="number"
+            value={condition.value2 === undefined ? "" : String(condition.value2)}
+            aria-label="Range upper bound"
+            aria-invalid={isIncompleteRange(condition) || undefined}
+            placeholder="Upper"
+            onChange={(e) => {
+              const raw = e.target.value;
+              const n = Number(raw);
+              onChangeValue2(raw.trim() === "" || Number.isNaN(n) ? undefined : n);
+            }}
+            className="h-8 text-[13px]"
+          />
+        </div>
+      </div>
     );
   }
 
@@ -245,6 +333,7 @@ export interface RuleBuilderProps {
 
 export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderProps) {
   const isEditing = !!existingRule;
+  const workflowsEnabled = useReportWorkflowsEnabled();
   const { rollups } = useCreativeData();
   const { folders, boards } = useBoardsStore();
 
@@ -252,8 +341,11 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
   const [type, setType] = useState<RuleType>("categorise");
   const [rows, setRows] = useState<ConditionRow[]>([]);
   const [boardId, setBoardId] = useState<string | undefined>(undefined);
+  const [accountIds, setAccountIds] = useState<string[]>([]);
   const [pauseChecked, setPauseChecked] = useState(false);
   const [queueChecked, setQueueChecked] = useState(false);
+  const [schedule, setSchedule] = useState<RuleSchedule>({});
+  const [autoRun, setAutoRun] = useState(true);
 
   const rowIdRef = useRef(0);
   function nextRowId(): string {
@@ -283,20 +375,39 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
         // rule that files into nothing.
         const boardStillExists = boardAction && boards.some((b) => b.id === boardAction.boardId);
         setBoardId(boardStillExists ? boardAction.boardId : undefined);
+        // Loaded regardless of the version gate: the ids were already checked
+        // against src/data/accounts.ts by the store's sanitiser, and NOT
+        // reading them here would mean a v2 edit of a v3 rule silently
+        // deletes its sync action on save.
+        const syncAction = existingRule.actions.find(
+          (a): a is SyncToAccountsAction => a.type === "syncToAccounts",
+        );
+        setAccountIds(syncAction?.accountIds ?? []);
         setPauseChecked(false);
         setQueueChecked(false);
       } else {
         setBoardId(undefined);
+        setAccountIds([]);
         setPauseChecked(existingRule.actions.some((a) => a.type === "pause"));
         setQueueChecked(existingRule.actions.some((a) => a.type === "queueInLaunch"));
       }
+      setSchedule(existingRule.schedule ?? {});
+      // An EXISTING rule's autoRun is honoured exactly as stored, and a
+      // missing one reads as false — pre-existing rules predate this field
+      // and must not start firing on their own just because the feature
+      // shipped (see the MIGRATION HAZARD note in model.ts).
+      setAutoRun(existingRule.autoRun === true);
     } else {
       setName("");
       setType("categorise");
       setRows([makeRow(defaultConditionForField("bucket"))]);
       setBoardId(undefined);
+      setAccountIds([]);
       setPauseChecked(false);
       setQueueChecked(false);
+      setSchedule({});
+      // New rules are the only ones allowed to default to auto-firing.
+      setAutoRun(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existingRule]);
@@ -308,6 +419,7 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
     if (isEditing) return;
     setType(t);
     setBoardId(undefined);
+    setAccountIds([]);
     setPauseChecked(false);
     setQueueChecked(false);
   }
@@ -325,7 +437,14 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
   }
   function updateOperator(idx: number, operator: Operator) {
     setRows((prev) =>
-      prev.map((r, i) => (i === idx ? { ...r, condition: { ...r.condition, operator } } : r)),
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        const condition: RuleCondition = { ...r.condition, operator };
+        // value2 only means anything for "between" — drop a stale upper bound
+        // on the way out so it can't be persisted where nothing reads it.
+        if (operator !== "between") delete condition.value2;
+        return { ...r, condition };
+      }),
     );
   }
   function updateValue(idx: number, value: string | number) {
@@ -333,28 +452,68 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
       prev.map((r, i) => (i === idx ? { ...r, condition: { ...r.condition, value } } : r)),
     );
   }
+  function updateValue2(idx: number, value2: number | undefined) {
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== idx) return r;
+        const condition: RuleCondition = { ...r.condition, value2 };
+        if (value2 === undefined) delete condition.value2;
+        return { ...r, condition };
+      }),
+    );
+  }
 
-  const hasValidAction = type === "categorise" ? !!boardId : pauseChecked || queueChecked;
-  const canSave = rows.length > 0 && hasValidAction;
+  const incompleteRanges = conditions.filter(isIncompleteRange).length;
+  const hasIncompleteRange = incompleteRanges > 0;
+
+  // A categorise rule may file into a board, sync to ad accounts, or do both
+  // — at least one of the two is required (v2 has no account picker, so there
+  // a board is still the only way to satisfy this).
+  const hasValidAction =
+    type === "categorise"
+      ? !!boardId || accountIds.length > 0
+      : pauseChecked || queueChecked;
+  const canSave = rows.length > 0 && hasValidAction && !hasIncompleteRange;
 
   function handleSave() {
     if (!canSave) return;
     const finalActions: RuleAction[] =
       type === "categorise"
-        ? boardId ? [{ type: "addToBoard", boardId }] : []
+        ? [
+            ...(boardId ? [{ type: "addToBoard", boardId } as const] : []),
+            ...(accountIds.length > 0
+              ? [{ type: "syncToAccounts", accountIds } as const]
+              : []),
+          ]
         : [
             ...(pauseChecked ? [{ type: "pause" } as const] : []),
             ...(queueChecked ? [{ type: "queueInLaunch" } as const] : []),
           ];
 
+    const finalConditions = conditions.map(normaliseCondition);
+
     if (existingRule) {
       updateRule(existingRule.id, {
         name: name.trim() || existingRule.name,
-        conditions,
+        conditions: finalConditions,
         actions: finalActions,
+        // Only v3 owns these fields. Omitting them on v2 leaves whatever the
+        // rule already had untouched, rather than writing back defaults from
+        // a form that never showed the user those controls.
+        ...(workflowsEnabled ? { schedule, autoRun } : {}),
       });
     } else {
-      createRule({ name, type, conditions, actions: finalActions });
+      const id = createRule({
+        name,
+        type,
+        conditions: finalConditions,
+        actions: finalActions,
+        schedule: workflowsEnabled ? schedule : undefined,
+      });
+      // createRule always stamps autoRun: true (only brand-new rules may).
+      // If the user unticked it here, correct it immediately — an autoRun-only
+      // patch doesn't clear the runner's edge-trigger marks.
+      if (workflowsEnabled && !autoRun) updateRule(id, { autoRun: false });
     }
     onOpenChange(false);
   }
@@ -365,8 +524,9 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit rule" : "New rule"}</DialogTitle>
           <DialogDescription>
-            Rules watch the current dataset — hit Run now on the list to file or act on whatever
-            matches at that moment. Nothing runs on a schedule in this prototype.
+            {workflowsEnabled
+              ? "Rules watch the current dataset — hit Run now on the list to act immediately, or set a date range and let the rule run itself while that window is open."
+              : "Rules watch the current dataset — hit Run now on the list to file or act on whatever matches at that moment. Nothing runs on a schedule in this prototype."}
           </DialogDescription>
         </DialogHeader>
 
@@ -425,8 +585,13 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
             </div>
 
             <div className="space-y-2">
-              {rows.map((row, idx) => (
-                <div key={row.id} className="flex items-center gap-2">
+              {rows.map((row, idx) => {
+                const isRange = row.condition.operator === "between";
+                return (
+                <div
+                  key={row.id}
+                  className={cn("flex items-center gap-2", isRange && "flex-wrap")}
+                >
                   <Select
                     value={row.condition.field}
                     onValueChange={(v) => updateField(idx, v as ConditionField)}
@@ -458,16 +623,24 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {operatorsForField(row.condition.field).map((o) => (
+                      {operatorsForField(
+                        row.condition.field,
+                        workflowsEnabled,
+                        row.condition.operator,
+                      ).map((o) => (
                         <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
-                  <div className="min-w-0 flex-1">
+                  {/* A range needs two inputs plus a separator, which doesn't
+                      fit beside the field and operator selects — it takes its
+                      own full-width line below them. */}
+                  <div className={cn("min-w-0 flex-1", isRange && "order-last basis-full")}>
                     <ConditionValueEditor
                       condition={row.condition}
                       onChange={(v) => updateValue(idx, v)}
+                      onChangeValue2={(v) => updateValue2(idx, v)}
                     />
                   </div>
 
@@ -481,42 +654,75 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <p className="text-[11px] text-muted-foreground">
               All conditions must match (AND) — this engine doesn&apos;t support OR groups.
             </p>
+            {conditions.some((c) => c.operator === "between") && (
+              <p className="text-[12px] text-muted-foreground">
+                Ranges are inclusive — between 2 and 4 includes both ends.
+              </p>
+            )}
             <p className="flex items-center gap-1 text-xs text-foreground">
               <WhyDot id="automations.rule.match" />
               <span className="font-medium">{matchCount}</span>{" "}
               {matchCount === 1 ? "creative" : "creatives"} currently{" "}
               {matchCount === 1 ? "matches" : "match"} these conditions.
             </p>
+            {hasIncompleteRange && (
+              <p className="text-[12px] text-destructive">
+                {incompleteRanges === 1 ? "A range is" : `${incompleteRanges} ranges are`} missing an
+                upper value, so that count isn&apos;t the whole story yet. Fill both ends before
+                saving — a range with only a lower value can&apos;t be stored.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label>{type === "categorise" ? "File into board" : "Actions"}</Label>
+            <Label>
+              {type === "categorise" && !workflowsEnabled ? "File into board" : "Actions"}
+            </Label>
             {type === "categorise" ? (
-              <Select value={boardId ?? ""} onValueChange={setBoardId} disabled={boards.length === 0}>
-                <SelectTrigger className="h-8 text-[13px]">
-                  <SelectValue placeholder={boards.length === 0 ? "No boards yet" : "Choose a board"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {folders.map((folder) => {
-                    const folderBoards = boards.filter((b) => b.folderId === folder.id);
-                    if (folderBoards.length === 0) return null;
-                    return (
-                      <SelectGroup key={folder.id}>
-                        <SelectLabel>{folder.name}</SelectLabel>
-                        {folderBoards.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  {workflowsEnabled && (
+                    <span className="block text-[12px] font-medium text-muted-foreground">
+                      File into board (optional)
+                    </span>
+                  )}
+                  <Select value={boardId ?? ""} onValueChange={setBoardId} disabled={boards.length === 0}>
+                    <SelectTrigger className="h-8 text-[13px]">
+                      <SelectValue placeholder={boards.length === 0 ? "No boards yet" : "Choose a board"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {folders.map((folder) => {
+                        const folderBoards = boards.filter((b) => b.folderId === folder.id);
+                        if (folderBoards.length === 0) return null;
+                        return (
+                          <SelectGroup key={folder.id}>
+                            <SelectLabel>{folder.name}</SelectLabel>
+                            {folderBoards.map((b) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {workflowsEnabled && (
+                  <div className="space-y-1.5">
+                    <span className="block text-[12px] font-medium text-muted-foreground">
+                      Sync to ad account (optional)
+                    </span>
+                    <AccountPicker selected={accountIds} onChange={setAccountIds} />
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-2 text-[13px] text-foreground">
@@ -538,11 +744,24 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
             {!hasValidAction && (
               <p className="text-[11px] text-destructive">
                 {type === "categorise"
-                  ? "Pick a board to file matches into."
+                  ? workflowsEnabled
+                    ? "Pick a board, an ad account, or both."
+                    : "Pick a board to file matches into."
                   : "Choose at least one action."}
               </p>
             )}
           </div>
+
+          {workflowsEnabled && (
+            <div className="space-y-2">
+              <Label>Schedule</Label>
+              <ScheduleEditor value={schedule} onChange={setSchedule} />
+              <label className="flex items-center gap-2 text-[13px] text-foreground">
+                <Checkbox checked={autoRun} onCheckedChange={(v) => setAutoRun(v === true)} />
+                Run automatically when conditions are met
+              </label>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

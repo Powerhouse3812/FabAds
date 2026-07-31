@@ -3,8 +3,10 @@
  * recommendations, automations preview, trust meter) plus the `overview.kpi.*`
  * entries KpiCards still uses on the Owner Report. Element ids namespaced
  * `overview.<element>`. Authored in the P6 annotation-overlay fan-out;
- * updated for the Overview redesign (BucketRow/FatiguingNowList/TopMovers
- * retired — their entries went with them).
+ * Covers BOTH live Overviews: the 3.0 redesign (bucket tabs, breakdown,
+ * recommendations, automations preview) and the 2.0 legacy screen, whose
+ * `overview.fatiguingNow` / `overview.topMovers` entries are grouped and
+ * labelled below.
  */
 import type { AnnotationSlice } from "@/creative-report/annotations/types";
 
@@ -105,6 +107,41 @@ export const overviewAnnotations: AnnotationSlice = {
       "Evaluate the same threshold rule (shown inline, editable via Edit formulas) against every creative's folded metrics and fatigue verdict for the active filter set, then tally counts per bucket. Precompute the per-creative bucket assignment in the nightly rollup; the count itself is a cheap read-time tally on top of that.",
     backend: "batch-rollup",
   },
+
+  /* ---- Creative Report 2.0 (legacy) Overview only ----------------------
+   * These two ids are rendered by components/legacy/FatiguingNowList and
+   * components/legacy/TopMovers, i.e. only on /reports/creative-v2. The 3.0
+   * Overview folds both facts into its bucket tabs and does not render them.
+   * Kept here (not in a v2-only slice) because the annotation registry is
+   * shared infrastructure and WhyDot is inert for ids it never renders. */
+  "overview.fatiguingNow": {
+    reason:
+      "The Fatiguing bucket's members, worst-spend-first (fatiguingNow() in selectors.ts) — a triage shortlist, not a Meta report.",
+    impact:
+      "The \"act today\" list — the reason chip (CTR / Freq / Hook) tells you which lever moved, so you know whether to refresh the hook, cap frequency, or wait.",
+    whenToAct:
+      "A high-spend creative lands here → pause, iterate, or view it today; letting it ride burns budget on a signal that already fired.",
+    importance: "high",
+    personas: ["Agency lead", "Performance marketer"],
+    provenance: "ours-only",
+    howTo:
+      "Filter the active rollups to bucket === 'fatiguing' (itself driven by the 14-day CTR/hook and 7-day frequency rule), sort by spend, cap at 5 — same nightly per-creative rollup as the bucket counts, no extra query.",
+    backend: "batch-rollup",
+  },
+  "overview.topMovers": {
+    reason:
+      "Ranks creatives by |ROAS delta| over the compare period, floored at $500 spend to filter out noise (topMovers() in selectors.ts) — an ours-only ranking, not a Meta list.",
+    impact:
+      "Surfaces what's moving before it shows up in a bucket flip — often the earliest sign a Winner is decaying or a middling creative is about to turn into Scaling.",
+    whenToAct:
+      "A creative shows a large negative ROAS delta with rising spend → check its drawer before the next scaling decision, not after.",
+    importance: "medium",
+    personas: ["Agency lead", "Performance marketer"],
+    provenance: "ours-only",
+    howTo:
+      "Compute roasDeltaPct for every rollup in view (current vs. prior equal-length window, both folded from stored daily rows), filter to spend ≥ $500, sort by |delta|, cap at 6. The compare-window fold is the only added cost over the base rollup.",
+    backend: "daily-series",
+  },
   "overview.breakdown": {
     reason:
       "Groups the filtered creatives by Catalogue brand, category, or product (breakdownRollups in selectors.ts), then folds — sums first, recomputes ratios after — to one row per value, same discipline as the Owner Report's by-brand table. A creative with no link on the active dimension is excluded from the table rather than folded into a fake \"Unknown\" row.",
@@ -157,6 +194,6 @@ export const overviewAnnotations: AnnotationSlice = {
     importance: "low",
     personas: ["Agency lead", "Performance marketer", "Brand manager"],
     howTo:
-      "None of the four routes (folder, Genie knowledge base, Launch, Meta ad library) are implemented at the Overview level — the tiles are non-interactive and nothing is sent anywhere on this screen. The real rules/boards automations engine already exists and is reachable via the 'Open Automations' link to /reports/creative-v2/automations.",
+      "None of the four routes (folder, Genie knowledge base, Launch, Meta ad library) are implemented at the Overview level — the tiles are non-interactive and nothing is sent anywhere on this screen. The real rules/boards automations engine already exists and is reachable via this card's 'Open Automations' link.",
   },
 };

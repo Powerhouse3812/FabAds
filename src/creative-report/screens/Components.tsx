@@ -13,6 +13,7 @@ import { StateMessage } from "@/creative-report/components/states/StateMessage";
 import { GridSkeleton } from "@/creative-report/components/states/Skeletons";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 import { pluralize } from "@/creative-report/lib/format";
 import {
   COMPONENT_TABS,
@@ -33,6 +34,7 @@ export function ComponentsReport() {
   const data = useCreativeData();
   const { view, setParam } = useReportParams();
   const navigate = useNavigate();
+  const basePath = useReportBasePath();
 
   const tabLabel = COMPONENT_TAB_LABELS[view.tab];
 
@@ -51,7 +53,7 @@ export function ComponentsReport() {
       view.tab === "hooks"
         ? `hook=${encodeURIComponent(value)}`
         : `brief=${encodeURIComponent(value)}`;
-    navigate(`/genie/new?${query}`);
+    navigate(`/genie/new?${query}&from=${encodeURIComponent(basePath)}`);
   };
 
   return (

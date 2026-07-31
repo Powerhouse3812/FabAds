@@ -26,6 +26,7 @@ import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
 import { LaunchAutopilotCard } from "./LaunchAutopilotCard";
 import { ReportsInsightsCrossCard } from "./ReportsInsightsCrossCard";
 import { CatalogueFooterCard } from "./CatalogueFooterCard";
+import { CREATIVE_REPORT_BASES } from "@/creative-report/state/ReportBasePathContext";
 
 /**
  * SecondaryNavigationPanel — V7 ClickUp Strict (iter-6 A-10.3 update).
@@ -51,14 +52,19 @@ export function SecondaryNavigationPanel() {
   }
 
   const siblingPaths = allSubPaths(activeMod);
-  // Creative Report 2.0 carries its daily-filter context (URL params) across
-  // its own sub-views — "filters persist across routes" is a hard rule for
-  // that module. Scoped strictly to /reports/creative-v2 so no other module's
-  // secondary-nav behaviour changes. Each CR2 screen reads only its own view
+  // Creative Report carries its daily-filter context (URL params) across its
+  // own sub-views — "filters persist across routes" is a hard rule for that
+  // module. Scoped strictly to the Creative Report bases so no other module's
+  // secondary-nav behaviour changes. Each screen reads only its own view
   // params, so carrying the full query string is inert on the others.
-  const CR2_BASE = "/reports/creative-v2";
+  //
+  // Both live versions get this, and the params are only carried WITHIN a
+  // version: crossing from 2.0 to 3.0 (or back) drops the query string, so a
+  // version switch always lands on a clean Overview rather than inheriting
+  // the other version's drawer/tab state.
+  const currentCrBase = CREATIVE_REPORT_BASES.find((b) => pathname.startsWith(b));
   const onNavigate = (path: string) => {
-    if (path.startsWith(CR2_BASE) && pathname.startsWith(CR2_BASE) && search) {
+    if (currentCrBase && path.startsWith(currentCrBase) && search) {
       navigate(`${path}${search}`);
     } else {
       navigate(path);

@@ -7,7 +7,7 @@
  * the same creatives in a second list underneath, for Fatiguing only, while
  * the other four buckets showed a count with nothing behind it at all.
  *
- * Styling note (read before touching): this renders on /reports/creative-v2,
+ * Styling note (read before touching): this renders on the Creative Report,
  * which is NOT inside Genie's `.g6-root` and has no `data-theme` attribute on
  * <html> (that's only mirrored in by Genie6Bridge on /iq/genie6/* routes).
  * `.g6-glass` / `.g6-halo` / `.g6-eyebrow` all read CSS custom properties
@@ -32,6 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { ThresholdSettings } from "@/creative-report/components/ThresholdSettings";
 import { WhyDot } from "@/creative-report/components/WhyDot";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 import { fmtCompactCurrency, fmtMultiple, truncate, NAME_MAX } from "@/creative-report/lib/format";
 import { bucketCreatives, bucketRuleText, type CreativeRollup } from "@/creative-report/lib/selectors";
 import { BUCKETS, BUCKET_LABELS, type BucketKey } from "@/creative-report/lib/paramSchema";
@@ -234,6 +235,7 @@ export function BucketTabs({
     document.getElementById(`bucket-tab-${next}`)?.focus();
   };
 
+  const basePath = useReportBasePath();
   const items = useMemo(() => bucketCreatives(rollups, active), [rollups, active]);
   const rule = bucketRuleText(active, thresholds);
 
@@ -244,7 +246,7 @@ export function BucketTabs({
   const activeCount = buckets[active];
   const goGrid = () =>
     navigate(
-      `/reports/creative-v2/creatives${buildPreservedSearch(searchParams, `bucket=${active}`)}`,
+      `${basePath}/creatives${buildPreservedSearch(searchParams, `bucket=${active}`)}`,
     );
 
   return (

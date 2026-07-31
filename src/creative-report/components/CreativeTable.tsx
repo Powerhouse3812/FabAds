@@ -4,6 +4,7 @@
  * same URL sort param the grid view uses, so switching layouts keeps the
  * same ordering.
  */
+import { useMemo } from "react";
 import { ArrowDown, ArrowUp, Image as ImageIcon, LayoutGrid, Video } from "lucide-react";
 import {
   Table,
@@ -22,6 +23,11 @@ import { getBrand } from "@/mocks/shared/brands";
 import { truncate, NAME_MAX } from "@/creative-report/lib/format";
 import type { SortField, SortSpec } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
+import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
+import { useSyncStore } from "@/creative-report/automations/sync/syncStore";
+import { summariseCreative } from "@/creative-report/automations/sync/selectors";
+import type { CreativeSyncSummary } from "@/creative-report/automations/sync/syncModel";
+import { SyncBadge } from "@/creative-report/automations/components/SyncBadge";
 
 const FORMAT_ICON = { video: Video, static: ImageIcon, carousel: LayoutGrid } as const;
 
@@ -44,6 +50,18 @@ export function CreativeTable({
 }) {
   const { active } = useColumnPresets();
   const a = useCreativeActions();
+  const workflowsEnabled = useReportWorkflowsEnabled();
+  const syncState = useSyncStore();
+  // Table-level call only — never per row. One Record built here covers every
+  // visible row's badge, keyed by creative id.
+  const syncByCreativeId = useMemo(() => {
+    const map: Record<string, CreativeSyncSummary> = {};
+    if (!workflowsEnabled) return map;
+    for (const r of rollups) {
+      map[r.creative.id] = summariseCreative(syncState, r.creative.id);
+    }
+    return map;
+  }, [workflowsEnabled, syncState, rollups]);
 
   const headerClick = (key: string) => {
     const field = SORTABLE[key];
@@ -63,6 +81,7 @@ export function CreativeTable({
                 <WhyDot id="grid.bucket" />
               </span>
             </TableHead>
+            {workflowsEnabled && <TableHead>Synced</TableHead>}
             {active.columns.map((key) => {
               const col = COLUMN_BY_KEY[key];
               const field = SORTABLE[key];
@@ -110,6 +129,11 @@ export function CreativeTable({
                   </div>
                 </TableCell>
                 <TableCell>{bucket && <BucketChip bucket={bucket} size="xs" />}</TableCell>
+                {workflowsEnabled && (
+                  <TableCell>
+                    <SyncBadge size="sm" summary={syncByCreativeId[creative.id]} />
+                  </TableCell>
+                )}
                 {active.columns.map((key) => (
                   <TableCell key={key} className="text-right tabular-nums text-sm">
                     {COLUMN_BY_KEY[key].format(metrics)}
