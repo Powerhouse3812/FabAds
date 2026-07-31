@@ -6,6 +6,13 @@
  * reads its own data (rules, rollups) via hooks, so a parent screen can drop
  * `<RuleList />` in with zero props.
  *
+ * Scoped down (Maalik, 2026-07-31) to exactly ONE action: "file into folder"
+ * against real Creative Library folders. There's only one action shape now
+ * (`AddToFolderAction`), so every row's summary reads the same way — no more
+ * board/sync/pause/queue-specific branches. The sync-to-ad-account feature
+ * (and its history/reset UI) moved out of Creative Report entirely, so this
+ * file no longer touches the sync store at all.
+ *
  * v2 (`/reports/creative-v2`): "Run now" is the only way a rule ever
  * executes — there is no real cron here — so every bit of v2 copy says
  * "Run now" / "Last run …", never anything implying a background schedule.
@@ -16,16 +23,13 @@
  * never claim a rule is "Watching" when it silently can't act — see
  * `autoStateLabel` below, which mirrors the exact honesty guard
  * `BoardsPanel.tsx` already applies to disabled smart boards (an enabled
- * switch that does nothing is a lie).
- *
- * A rule with a `syncToAccounts` action can only have been created in v3
- * (v2's RuleBuilder never offers that action), but the rules store is shared
- * across both versions, so such a rule can still show up here on v2. It's
- * rendered read-only (see `foreignSyncRule` below) rather than hidden — it's
- * the user's data, just not runnable from this version.
+ * switch that does nothing is a lie). The same honesty principle covers the
+ * folder a rule files into: `useClFolders()` gives a live read of which
+ * folders still exist, so a rule pointing at one that's since been deleted
+ * says so rather than pretending the file-in will succeed.
  */
 import { useMemo, useState } from "react";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -41,23 +45,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
-import { useBoardsStore } from "@/creative-report/automations/boards";
+import { useClFolders } from "@/hooks/use-cl-folders";
 import { runRule } from "@/creative-report/automations/engine";
 import { deleteRule, setRuleEnabled, useAutomationRules } from "@/creative-report/automations/rulesStore";
-import type { AutomationRule, RuleType } from "@/creative-report/automations/model";
+import type { AddToFolderAction, AutomationRule } from "@/creative-report/automations/model";
 import { RuleBuilder } from "@/creative-report/automations/components/RuleBuilder";
 import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 import { describeSchedule, scheduleState } from "@/workflows/core";
-import { recordsForRule } from "@/creative-report/automations/sync/selectors";
-import { resetSyncHistory, useSyncStore } from "@/creative-report/automations/sync/syncStore";
-
-function TypeBadge({ type }: { type: RuleType }) {
-  return (
-    <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-      {type === "categorise" ? "Categorise" : "Launch"}
-    </span>
-  );
-}
 
 function lastRunLabel(rule: AutomationRule): string {
   if (!rule.lastRunAt) return "Never run";
@@ -85,67 +79,58 @@ function autoStateLabel(rule: AutomationRule, now: Date): string {
   return `Watching · ${describeSchedule(rule.schedule)}`;
 }
 
-function hasSyncAction(rule: AutomationRule): boolean {
-  return rule.actions.some((a) => a.type === "syncToAccounts");
+function folderAction(rule: AutomationRule): AddToFolderAction | undefined {
+  return rule.actions.find((a): a is AddToFolderAction => a.type === "addToFolder");
+}
+
+/** Plain-language summary of the rule's one action. There's only one shape
+ *  now, so this never branches on type — a rule with no valid action left
+ *  (e.g. every field failed the store's sanitiser) says so honestly instead
+ *  of rendering a blank line. */
+function actionSummary(rule: AutomationRule): string {
+  const action = folderAction(rule);
+  if (!action) return "No action configured";
+  return `File into folder: "${action.folderName}"`;
 }
 
 function RuleRow({
   rule,
-  boardBroken,
+  folderMissing,
   workflowsEnabled,
   now,
-  syncCount,
-  foreignSyncRule,
   onRunNow,
   onEdit,
   onDelete,
 }: {
   rule: AutomationRule;
-  /** True when a categorise rule's target board no longer exists. */
-  boardBroken: boolean;
+  /** True when the rule's target folder no longer exists in the live
+   *  Creative Library folder list (nice-to-have honesty check). */
+  folderMissing: boolean;
   /** v3 vs v2 — see the file header. */
   workflowsEnabled: boolean;
   now: Date;
-  /** Count of sync records this rule has caused (any status). */
-  syncCount: number;
-  /** v2 only: a v3-created sync rule showing up here — read-only. */
-  foreignSyncRule: boolean;
   onRunNow: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const runDisabled = !rule.enabled || foreignSyncRule;
-  const runTitle = foreignSyncRule
-    ? "Syncs to ad accounts — only runnable in Creative Report 3.0"
-    : rule.enabled
-      ? undefined
-      : "Rule is turned off";
+  const runDisabled = !rule.enabled;
+  const runTitle = rule.enabled ? undefined : "Rule is turned off";
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
       <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13px] font-medium text-foreground">{rule.name}</span>
-          <TypeBadge type={rule.type} />
-        </div>
+        <span className="truncate text-[13px] font-medium text-foreground">{rule.name}</span>
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <WhyDot id="automations.rule.match" />
           {rule.conditions.length} condition{rule.conditions.length === 1 ? "" : "s"} ·{" "}
           {lastRunLabel(rule)}
         </p>
+        <p className="text-xs text-muted-foreground">{actionSummary(rule)}</p>
         {workflowsEnabled && (
-          <p className="text-xs text-muted-foreground">
-            {autoStateLabel(rule, now)}
-            {syncCount > 0 && ` · ${syncCount} sync${syncCount === 1 ? "" : "s"} triggered`}
-          </p>
+          <p className="text-xs text-muted-foreground">{autoStateLabel(rule, now)}</p>
         )}
-        {foreignSyncRule && (
-          <p className="text-xs text-muted-foreground">Available in Creative Report 3.0</p>
-        )}
-        {boardBroken && (
-          <p className="text-xs text-destructive">
-            Target board was deleted — edit this rule and pick a new board.
-          </p>
+        {folderMissing && (
+          <p className="text-xs text-destructive">This folder may have been deleted.</p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -184,33 +169,30 @@ function RuleRow({
 
 export function RuleList() {
   const rules = useAutomationRules();
-  const { boards } = useBoardsStore();
   const { rollups } = useCreativeData();
   const { toast } = useToast();
   const workflowsEnabled = useReportWorkflowsEnabled();
-  const syncState = useSyncStore();
+  const { data: folderData, isLoading: foldersLoading, isError: foldersError } = useClFolders();
 
   // "Today" for schedule-window checks — cheap to recompute per render, and
-  // this list re-renders on every rules/sync-store tick anyway (v3's runner
-  // ticks roughly every 10s), so it never goes stale for long.
+  // this list re-renders on every rules-store tick anyway (v3's runner ticks
+  // roughly every 10s), so it never goes stale for long.
   const now = new Date();
 
-  // recordsForRule returns a NEW array per call — never call it inside a
-  // store's getSnapshot (that's the exact white-screen bug boards.ts:11-16
-  // documents). Here it's called from inside this component's own useMemo,
-  // which is the safe pattern: useSyncStore() is called exactly once above,
-  // and this derives from its snapshot.
-  const syncCountByRuleId = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const rule of rules) {
-      map.set(rule.id, recordsForRule(syncState, rule.id).length);
-    }
-    return map;
-  }, [syncState, rules]);
+  const liveFolderIds = useMemo(
+    () => new Set((folderData ?? []).map((f) => f.id)),
+    [folderData],
+  );
 
-  const boardIds = new Set(boards.map((b) => b.id));
-  const isBoardBroken = (rule: AutomationRule) =>
-    rule.actions.some((a) => a.type === "addToBoard" && !boardIds.has(a.boardId));
+  // Only claim a folder is gone once the live query has actually settled —
+  // while it's still loading (or failed), an empty/partial set would falsely
+  // flag every rule as broken.
+  const isFolderMissing = (rule: AutomationRule) => {
+    if (foldersLoading || foldersError) return false;
+    const action = folderAction(rule);
+    if (!action) return false;
+    return !liveFolderIds.has(action.folderId);
+  };
 
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutomationRule | undefined>(undefined);
@@ -225,9 +207,6 @@ export function RuleList() {
     setBuilderOpen(true);
   }
   function handleRunNow(rule: AutomationRule) {
-    // Defense in depth — the button is already disabled for this case, but a
-    // v2 build must never actually execute a sync action either way.
-    if (!workflowsEnabled && hasSyncAction(rule)) return;
     const result = runRule(rule, rollups);
     toast({ title: rule.name, description: result.summary });
   }
@@ -236,25 +215,11 @@ export function RuleList() {
 
   return (
     <div className="space-y-3">
-      {workflowsEnabled && (
-        <div className="flex items-center justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-xs text-muted-foreground"
-            onClick={() => resetSyncHistory()}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset sync history
-          </Button>
-        </div>
-      )}
-
       {rules.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            No automations yet — set conditions once, then hit Run now to file or act on whatever
-            matches.
+            No automations yet — set conditions once, then hit Run now to file whatever matches
+            into a folder.
           </p>
           <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={openCreate}>
             <Plus className="h-3.5 w-3.5" />
@@ -277,11 +242,9 @@ export function RuleList() {
               <RuleRow
                 key={rule.id}
                 rule={rule}
-                boardBroken={isBoardBroken(rule)}
+                folderMissing={isFolderMissing(rule)}
                 workflowsEnabled={workflowsEnabled}
                 now={now}
-                syncCount={syncCountByRuleId.get(rule.id) ?? 0}
-                foreignSyncRule={!workflowsEnabled && hasSyncAction(rule)}
                 onRunNow={() => handleRunNow(rule)}
                 onEdit={() => openEdit(rule)}
                 onDelete={() => setPendingDeleteId(rule.id)}
@@ -303,8 +266,7 @@ export function RuleList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete "{pendingDeleteRule?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the rule permanently. Creatives it already filed, paused, or queued
-              won&apos;t be undone.
+              This removes the rule permanently. Creatives it already filed won&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

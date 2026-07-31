@@ -15,8 +15,7 @@ import {
   type RuleType,
 } from "@/creative-report/automations/model";
 import { sanitizeSchedule } from "@/workflows/core";
-import { ACCOUNT_BY_ID } from "@/data/accounts";
-import { clearFiredForRule } from "@/creative-report/automations/sync/syncStore";
+import { clearFiredForRule } from "@/creative-report/automations/fireLedger";
 
 const KEY = "creative-report-automation-rules";
 
@@ -44,11 +43,13 @@ function isValidCondition(c: unknown): c is RuleCondition {
 function isValidAction(a: unknown): a is RuleAction {
   if (!a || typeof a !== "object") return false;
   const action = a as RuleAction;
-  if (action.type === "addToBoard") return typeof action.boardId === "string";
-  if (action.type === "syncToAccounts") {
-    return Array.isArray(action.accountIds) && action.accountIds.every((id) => typeof id === "string");
-  }
-  return action.type === "pause" || action.type === "queueInLaunch";
+  return (
+    action.type === "addToFolder" &&
+    typeof action.folderId === "string" &&
+    action.folderId.length > 0 &&
+    typeof action.folderName === "string" &&
+    action.folderName.length > 0
+  );
 }
 
 function isValidRule(r: unknown): r is AutomationRule {
@@ -57,7 +58,13 @@ function isValidRule(r: unknown): r is AutomationRule {
   return (
     typeof rule.id === "string" &&
     typeof rule.name === "string" &&
-    (RULE_TYPES as readonly string[]).includes(rule.type) &&
+    // NOT gated on `(RULE_TYPES as readonly string[]).includes(rule.type)` —
+    // a persisted rule whose type is the now-removed "launch" must survive
+    // (see the MIGRATION note in sanitize() below) rather than being nuked
+    // wholesale by this filter. Any non-empty string is accepted here; the
+    // actual type is coerced to the one surviving RuleType in sanitize().
+    typeof rule.type === "string" &&
+    rule.type.length > 0 &&
     typeof rule.enabled === "boolean" &&
     Array.isArray(rule.conditions) &&
     Array.isArray(rule.actions) &&
@@ -71,6 +78,16 @@ function isValidRule(r: unknown): r is AutomationRule {
 function sanitize(raw: unknown): AutomationRule[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter(isValidRule).map((rule) => {
+    // MIGRATION — RULE_TYPES is now ["categorise"] only ("launch" was
+    // deprioritized, not deleted from history). A persisted rule whose type
+    // is no longer valid (e.g. "launch") is coerced to "categorise" — the
+    // rule survives, it just falls under the one remaining type. Its old
+    // actions (pause / queueInLaunch / addToBoard / syncToAccounts) don't
+    // shape-match `isValidAction` below and get filtered out same as any
+    // other now-invalid action, leaving the rule with zero actions rather
+    // than being destroyed outright.
+    const type = (RULE_TYPES as readonly string[]).includes(rule.type) ? rule.type : "categorise";
+
     // Structurally-broken individual conditions/actions are dropped one at a
     // time — a single bad item must not nuke the whole rule (that would be
     // the same silent-data-loss failure mode this file exists to avoid).
@@ -78,22 +95,15 @@ function sanitize(raw: unknown): AutomationRule[] {
 
     const actions = rule.actions
       .filter(isValidAction)
-      // Drop any action that isn't valid for this rule's type (e.g. a stale
-      // "pause" action surviving a hand-edited categorise rule).
-      .filter((a) => (ACTIONS_BY_RULE_TYPE[rule.type] as string[]).includes(a.type))
-      // syncToAccounts ids reference src/data/accounts.ts, not a fixed enum
-      // — an account may since have been removed. Drop unknown ids; if none
-      // survive, the action has nothing left to sync to and is dropped too.
-      // The explicit RuleAction[] annotation is load-bearing: without it TS infers
-      // a union of two array types from the branches and widens `actions` to unknown[].
-      .flatMap((action): RuleAction[] => {
-        if (action.type !== "syncToAccounts") return [action];
-        const accountIds = action.accountIds.filter((id) => ACCOUNT_BY_ID[id]);
-        return accountIds.length > 0 ? [{ ...action, accountIds }] : [];
-      });
+      // Drop any action that isn't valid for this rule's (migrated) type —
+      // currently a no-op since ACTIONS_BY_RULE_TYPE has exactly one type
+      // mapping to exactly one action type, but kept as the general seam for
+      // when a second action type exists.
+      .filter((a) => (ACTIONS_BY_RULE_TYPE[type] as string[]).includes(a.type));
 
     return {
       ...rule,
+      type,
       conditions,
       actions,
       // MIGRATION HAZARD — every rule already in localStorage predates the
@@ -103,9 +113,9 @@ function sanitize(raw: unknown): AutomationRule[] {
       schedule: sanitizeSchedule(rule.schedule),
       // MIGRATION HAZARD — every rule already in localStorage predates
       // autoRun and has enabled:true. Anything but an explicit boolean
-      // `true` sanitises to `false`, so pre-existing launch-type rules
-      // don't start auto-pausing creatives the instant this ships. Only
-      // createRule may hand out `true` for brand-new rules.
+      // `true` sanitises to `false`, so pre-existing rules don't start
+      // auto-firing the instant this ships. Only createRule may hand out
+      // `true` for brand-new rules.
       autoRun: rule.autoRun === true,
     };
   });

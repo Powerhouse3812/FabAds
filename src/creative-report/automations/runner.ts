@@ -2,28 +2,33 @@
  * runner.ts — the auto-evaluation pass for automation rules.
  *
  * This is the thing that turns "click Run now" into "conditions meet hote hi
- * upload shuru". It owns exactly two decisions:
+ * folder mein file ho jaaye". It owns exactly two decisions:
  *
  *   1. WHEN to evaluate  — every 20th tick of the shared module-level clock.
  *   2. WHICH creatives   — the edge-triggered `newlyMatched` set below.
  *
  * It deliberately owns NEITHER of these:
  *   - WHAT an action does  -> delegated to `ACTION_REGISTRY[type].apply`, so
- *     there is no fourth `else if` anywhere and no second copy of `engine.ts`'s
+ *     there is no per-type branch here and no second copy of `engine.ts`'s
  *     action logic.
- *   - WHETHER a sync pair is a duplicate -> enforced inside the sync store's
- *     `enqueueSync`, which refuses a (creative, account) pair already in
- *     `queued | running | done`. That is guard 1, and it holds even across two
- *     different rules targeting the same creative and account.
+ *   - WHETHER a creative has already been filed for a rule -> tracked in
+ *     `fireLedger.ts`'s edge-trigger marks (guard 2 below).
  *
  * NO REACT STATE. The clock is module-level (`@/workflows/core/clock`) so the
  * pass keeps running as the user moves between the module's screens. Do NOT
  * reach for Genie's `setTimeout`-chain-inside-`useEffect` pattern; that dies
- * the moment its component unmounts, which is precisely when a "background
- * upload" needs to still be alive.
+ * the moment its component unmounts.
  *
  * NO `Math.random`. Every outcome is a deterministic function of the dataset,
  * the rules, and the fire marks.
+ *
+ * There is no more upload queue to advance (the sync-to-ad-account feature
+ * moved out of Creative Report entirely — see model.ts's header). This
+ * runner's job is now just the ~10s evaluation pass: edge-triggered fire
+ * marks, apply via registry. The underlying `@/workflows/core` clock
+ * infrastructure (`WORKFLOW_TICK_MS`, `registerWorkflowRunner`) is left as-is
+ * — it's still useful generic seam infrastructure for the future
+ * `/automation` module.
  *
  * v3-ONLY: `useWorkflowRunner(enabled)` is mounted once from
  * `CreativeReportLayout` with `enabled` gated on the v3 base path, so
@@ -43,7 +48,7 @@ import {
   ACTION_REGISTRY,
   type WorkflowActionDescriptor,
 } from "@/creative-report/automations/actions/registry";
-import { advanceQueue, firedFor, markFired, unmarkFired } from "@/creative-report/automations/sync/syncStore";
+import { firedFor, markFired, unmarkFired } from "@/creative-report/automations/fireLedger";
 import { toast } from "@/hooks/use-toast";
 
 const RUNNER_ID = "creative-report-automations";
@@ -51,9 +56,7 @@ const RUNNER_ID = "creative-report-automations";
 /**
  * One evaluation pass per 20 ticks. At WORKFLOW_TICK_MS = 500 that is ~10s —
  * slow enough that a demo watcher sees discrete events rather than a blur,
- * fast enough that "conditions meet hote hi" reads as immediate. The sync queue
- * still advances on EVERY tick: progress needs 500ms granularity even when no
- * rule is re-evaluating.
+ * fast enough that "conditions meet hote hi" reads as immediate.
  */
 const EVAL_EVERY_N_TICKS = 20;
 export const EVALUATION_INTERVAL_MS = EVAL_EVERY_N_TICKS * WORKFLOW_TICK_MS;
@@ -133,15 +136,14 @@ function applyActions(rule: AutomationRule, subjectIds: string[], at: string): R
 /**
  * Toast policy — at most ONE toast per rule per pass, and only when the rule
  * actually processed something on this edge. Every message carries an explicit
- * "(simulated)": nothing here reaches a real ad platform and the copy must
- * never let a viewer believe otherwise. The registry deliberately returns
- * labels *without* that suffix so it is appended exactly once, here.
+ * "(simulated)": nothing here writes to Supabase or a real ad platform, and
+ * the copy must never let a viewer believe otherwise. The registry
+ * deliberately returns labels *without* that suffix so it is appended exactly
+ * once, here.
  *
- * The dishonest failure mode this guards against: a pass matches 12 creatives,
- * every (creative, account) pair is refused by guard 1 as already-synced, and
- * the toast still reads "12 creatives synced" — describing an upload of 12
- * files that never happened. That case has its own wording and never claims a
- * success.
+ * With a single action type (`addToFolder`, which never returns a
+ * `skippedReason` — see registry.ts), the common case is simply:
+ * "N creatives matched and filed into 'X' (simulated)."
  */
 function announce(rule: AutomationRule, count: number, outcome: RuleOutcome): void {
   const plural = count === 1 ? "creative" : "creatives";
@@ -174,10 +176,9 @@ function announce(rule: AutomationRule, count: number, outcome: RuleOutcome): vo
  *   noLongerMatching = firedFor(rule.id) - matched      -> unmarkFired(...)  (re-arm)
  *
  * EDGE, not level. Without the subtraction, every pass re-applies every action
- * to the entire matching set: a toast every 10 seconds, an audit log full of
- * identical entries, and `pause` re-asserted forever so a user can never
- * un-pause a creative that still matches. Retrofitting this later doesn't help
- * — by then the persisted log is already garbage.
+ * to the entire matching set: a toast every 10 seconds and a filed-count that
+ * keeps double-counting the same creatives forever. Retrofitting this later
+ * doesn't help — by then the persisted log is already garbage.
  *
  * AND IT RE-ARMS. A creative that drops out of the matching set has its mark
  * cleared, so when it matches again it fires again. That is what "conditions
@@ -214,15 +215,15 @@ function evaluateOneRule(rule: AutomationRule, at: string): void {
   }
 
   // Marked AFTER the actions ran, never before. If an action throws, the ids
-  // stay unmarked and the next pass retries — a retry is recoverable (guard 1
-  // makes a duplicate sync impossible, board-add is a set insert, pause is
-  // idempotent), whereas marking first would silently drop the creative
-  // forever.
+  // stay unmarked and the next pass retries — a retry is recoverable (filing
+  // into a folder is idempotent-in-spirit here since nothing real is ever
+  // written), whereas marking first would silently drop the creative forever.
   //
-  // Note this marks on an *explained skip* too (e.g. "the target board no
-  // longer exists"). That's deliberate: the alternative re-fires and re-toasts
-  // the same unfixable rule every 10 seconds, which is exactly the spam this
-  // guard exists to prevent. The user gets one honest toast naming what to fix.
+  // Note this would also mark on an *explained skip*, if `addToFolder` ever
+  // returned one (it currently never does — see registry.ts). That's
+  // deliberate: the alternative re-fires and re-toasts the same unfixable
+  // rule every 10 seconds, which is exactly the spam this guard exists to
+  // prevent. The user gets one honest toast naming what to fix.
   markFired(rule.id, newlyMatchedIds);
   recordRuleRun(rule.id, matched.length);
   announce(rule, newlyMatchedIds.length, outcome);
@@ -266,10 +267,8 @@ function runEvaluationPass(now: Date): void {
 let tickCount = 0;
 
 function onTick(now: Date): void {
-  // Every tick: move the simulated upload queue forward. Cheap — the store
-  // early-outs and returns false when nothing is in flight.
-  advanceQueue(now.getTime());
-
+  // No more per-tick queue advancement — there is no upload queue anymore.
+  // This runner's only job now is the ~10s evaluation pass below.
   tickCount += 1;
   if (tickCount >= EVAL_EVERY_N_TICKS) {
     tickCount = 0;

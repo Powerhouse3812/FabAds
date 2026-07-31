@@ -1,31 +1,36 @@
 /**
  * RuleBuilder — create/edit modal for an automation rule (iter-2 P4).
  *
- * One condition-matching form shared by both rule types (Maalik's decision,
- * see model.ts) — the type toggle only swaps which actions are offered.
+ * Scoped down (Maalik, 2026-07-31) to exactly ONE action: "file into folder",
+ * pointing at REAL Creative Library folders (`cl_folders`, via
+ * `useClFolders()`) — never the module's own synthetic `Board` concept, and
+ * never the ad-account sync feature (moved out of Creative Report entirely).
+ * There is only one rule type now (`"categorise"`, see model.ts), so the old
+ * type toggle and its "launch" branch (pause / queue-in-launch) are gone —
+ * every rule this builder creates is implicitly `categorise`.
+ *
  * Every value shown while building a rule (the match-count preview) is a
  * live, honest count from the same `evaluateRule` the engine uses to run —
  * never an estimate.
  *
- * Rule `type` can't be changed once a rule exists — `updateRule` in
- * rulesStore.ts deliberately doesn't accept a `type` patch (its valid
- * actions differ per type), so the type toggle is disabled in edit mode
- * rather than pretending a switch is supported.
- *
  * VERSION-GATED (v3 only, via `useReportWorkflowsEnabled`): the schedule +
- * auto-run section, the sync-to-ad-account action, and the `between` range
- * operator. This one component is mounted by BOTH /reports/creative-v2 and
- * /reports/creative-v3, so the prose branches too — v2's description still
- * says nothing runs on a schedule (true there), v3's says a rule can fire
- * itself inside its date window. An unbranched string would have one of the
- * two versions lying about its own behaviour.
+ * auto-run section and the `between` range operator. This one component is
+ * mounted by BOTH /reports/creative-v2 and /reports/creative-v3, so the prose
+ * branches too — v2's description still says nothing runs on a schedule
+ * (true there), v3's says a rule can fire itself inside its date window. An
+ * unbranched string would have one of the two versions lying about its own
+ * behaviour.
  *
- * Two deliberate exceptions to that gate, both about *displaying* data v3
- * created rather than offering v2 a new capability (rules share one
- * localStorage key across versions, so v2 can be asked to edit a v3 rule):
- * a `between` condition already on the rule keeps its operator label and
- * upper-bound input, and an existing syncToAccounts action is preserved on
- * save. Dropping either would be silent data loss on a round-trip.
+ * One deliberate exception to that gate, about *displaying* data v3 created
+ * rather than offering v2 a new capability (rules share one localStorage key
+ * across versions, so v2 can be asked to edit a v3 rule): a `between`
+ * condition already on the rule keeps its operator label and upper-bound
+ * input. Dropping it would be silent data loss on a round-trip.
+ *
+ * The folder picker itself needs Supabase-backed live data (`useClFolders()`)
+ * — it honestly reflects loading / error / zero-folder states rather than
+ * ever rendering a bare or broken dropdown, and blocks save when there is
+ * nothing real to point the rule at.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
@@ -55,23 +60,19 @@ import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
 import { evaluateRule } from "@/creative-report/automations/engine";
 import { createRule, updateRule } from "@/creative-report/automations/rulesStore";
-import { useBoardsStore } from "@/creative-report/automations/boards";
+import { useClFolders } from "@/hooks/use-cl-folders";
 import { ScheduleEditor } from "@/creative-report/automations/components/ScheduleEditor";
-import { AccountPicker } from "@/creative-report/automations/components/AccountPicker";
 import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 import {
   METRIC_CONDITION_FIELDS,
-  RULE_TYPES,
   isMetricField,
-  type AddToBoardAction,
+  type AddToFolderAction,
   type AutomationRule,
   type ConditionField,
   type Operator,
   type RuleAction,
   type RuleCondition,
   type RuleSchedule,
-  type RuleType,
-  type SyncToAccountsAction,
 } from "@/creative-report/automations/model";
 import { COLUMN_BY_KEY } from "@/creative-report/lib/columns";
 import {
@@ -321,10 +322,6 @@ interface ConditionRow {
   condition: RuleCondition;
 }
 
-function ruleTypeLabel(t: RuleType): string {
-  return t === "categorise" ? "Categorise" : "Launch";
-}
-
 export interface RuleBuilderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -335,15 +332,13 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
   const isEditing = !!existingRule;
   const workflowsEnabled = useReportWorkflowsEnabled();
   const { rollups } = useCreativeData();
-  const { folders, boards } = useBoardsStore();
+  const { data: folderData, isLoading: foldersLoading, isError: foldersError } = useClFolders();
+  const folderList = folderData ?? [];
 
   const [name, setName] = useState("");
-  const [type, setType] = useState<RuleType>("categorise");
   const [rows, setRows] = useState<ConditionRow[]>([]);
-  const [boardId, setBoardId] = useState<string | undefined>(undefined);
-  const [accountIds, setAccountIds] = useState<string[]>([]);
-  const [pauseChecked, setPauseChecked] = useState(false);
-  const [queueChecked, setQueueChecked] = useState(false);
+  const [folderId, setFolderId] = useState<string | undefined>(undefined);
+  const [folderName, setFolderName] = useState<string | undefined>(undefined);
   const [schedule, setSchedule] = useState<RuleSchedule>({});
   const [autoRun, setAutoRun] = useState(true);
 
@@ -363,34 +358,12 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
     if (!open) return;
     if (existingRule) {
       setName(existingRule.name);
-      setType(existingRule.type);
       setRows(existingRule.conditions.map((c) => makeRow(c)));
-      if (existingRule.type === "categorise") {
-        const boardAction = existingRule.actions.find(
-          (a): a is AddToBoardAction => a.type === "addToBoard",
-        );
-        // If the target board was deleted since the rule was saved, don't
-        // pre-fill the dead id — leaving it unset forces a re-pick (the
-        // "Pick a board" validation below) instead of silently re-saving a
-        // rule that files into nothing.
-        const boardStillExists = boardAction && boards.some((b) => b.id === boardAction.boardId);
-        setBoardId(boardStillExists ? boardAction.boardId : undefined);
-        // Loaded regardless of the version gate: the ids were already checked
-        // against src/data/accounts.ts by the store's sanitiser, and NOT
-        // reading them here would mean a v2 edit of a v3 rule silently
-        // deletes its sync action on save.
-        const syncAction = existingRule.actions.find(
-          (a): a is SyncToAccountsAction => a.type === "syncToAccounts",
-        );
-        setAccountIds(syncAction?.accountIds ?? []);
-        setPauseChecked(false);
-        setQueueChecked(false);
-      } else {
-        setBoardId(undefined);
-        setAccountIds([]);
-        setPauseChecked(existingRule.actions.some((a) => a.type === "pause"));
-        setQueueChecked(existingRule.actions.some((a) => a.type === "queueInLaunch"));
-      }
+      const folderAction = existingRule.actions.find(
+        (a): a is AddToFolderAction => a.type === "addToFolder",
+      );
+      setFolderId(folderAction?.folderId);
+      setFolderName(folderAction?.folderName);
       setSchedule(existingRule.schedule ?? {});
       // An EXISTING rule's autoRun is honoured exactly as stored, and a
       // missing one reads as false — pre-existing rules predate this field
@@ -399,12 +372,9 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
       setAutoRun(existingRule.autoRun === true);
     } else {
       setName("");
-      setType("categorise");
       setRows([makeRow(defaultConditionForField("bucket"))]);
-      setBoardId(undefined);
-      setAccountIds([]);
-      setPauseChecked(false);
-      setQueueChecked(false);
+      setFolderId(undefined);
+      setFolderName(undefined);
       setSchedule({});
       // New rules are the only ones allowed to default to auto-firing.
       setAutoRun(true);
@@ -412,17 +382,26 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existingRule]);
 
+  // If the pre-filled folder (from an existing rule) no longer exists in the
+  // live Creative Library folder list, clear it — same honesty rule the old
+  // board-picker applied to deleted boards: force a re-pick rather than
+  // silently re-saving a rule that files into nothing, or leaving the Select
+  // holding a value that isn't in its own option list (a bare/broken combo).
+  // Gated on the folders query having actually settled — while it's still
+  // loading there's nothing to check against yet.
+  useEffect(() => {
+    if (!open || !existingRule || foldersLoading || foldersError) return;
+    if (!folderId) return;
+    const stillExists = folderList.some((f) => f.id === folderId);
+    if (!stillExists) {
+      setFolderId(undefined);
+      setFolderName(undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, existingRule, foldersLoading, foldersError, folderList]);
+
   const conditions = useMemo(() => rows.map((r) => r.condition), [rows]);
   const matchCount = useMemo(() => evaluateRule({ conditions }, rollups).length, [conditions, rollups]);
-
-  function handleTypeChange(t: RuleType) {
-    if (isEditing) return;
-    setType(t);
-    setBoardId(undefined);
-    setAccountIds([]);
-    setPauseChecked(false);
-    setQueueChecked(false);
-  }
 
   function addRow() {
     setRows((prev) => [...prev, makeRow(defaultConditionForField("bucket"))]);
@@ -466,30 +445,24 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
   const incompleteRanges = conditions.filter(isIncompleteRange).length;
   const hasIncompleteRange = incompleteRanges > 0;
 
-  // A categorise rule may file into a board, sync to ad accounts, or do both
-  // — at least one of the two is required (v2 has no account picker, so there
-  // a board is still the only way to satisfy this).
-  const hasValidAction =
-    type === "categorise"
-      ? !!boardId || accountIds.length > 0
-      : pauseChecked || queueChecked;
+  const foldersEmpty = !foldersLoading && !foldersError && folderList.length === 0;
+  const folderPickerDisabled = foldersLoading || foldersError || foldersEmpty;
+  const folderPickerPlaceholder = foldersLoading
+    ? "Loading folders…"
+    : foldersError
+      ? "Couldn't load folders"
+      : foldersEmpty
+        ? "No folders yet"
+        : "Choose a folder";
+
+  // A folder is the only requirement now — there is nothing else an
+  // addToFolder action needs.
+  const hasValidAction = !!folderId;
   const canSave = rows.length > 0 && hasValidAction && !hasIncompleteRange;
 
   function handleSave() {
-    if (!canSave) return;
-    const finalActions: RuleAction[] =
-      type === "categorise"
-        ? [
-            ...(boardId ? [{ type: "addToBoard", boardId } as const] : []),
-            ...(accountIds.length > 0
-              ? [{ type: "syncToAccounts", accountIds } as const]
-              : []),
-          ]
-        : [
-            ...(pauseChecked ? [{ type: "pause" } as const] : []),
-            ...(queueChecked ? [{ type: "queueInLaunch" } as const] : []),
-          ];
-
+    if (!canSave || !folderId || !folderName) return;
+    const finalActions: RuleAction[] = [{ type: "addToFolder", folderId, folderName }];
     const finalConditions = conditions.map(normaliseCondition);
 
     if (existingRule) {
@@ -505,7 +478,7 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
     } else {
       const id = createRule({
         name,
-        type,
+        type: "categorise",
         conditions: finalConditions,
         actions: finalActions,
         schedule: workflowsEnabled ? schedule : undefined,
@@ -525,8 +498,8 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
           <DialogTitle>{isEditing ? "Edit rule" : "New rule"}</DialogTitle>
           <DialogDescription>
             {workflowsEnabled
-              ? "Rules watch the current dataset — hit Run now on the list to act immediately, or set a date range and let the rule run itself while that window is open."
-              : "Rules watch the current dataset — hit Run now on the list to file or act on whatever matches at that moment. Nothing runs on a schedule in this prototype."}
+              ? "Rules watch the current dataset — hit Run now on the list to file matches into the folder you pick immediately, or set a date range and let the rule run itself while that window is open."
+              : "Rules watch the current dataset — hit Run now on the list to file whatever matches into the folder you pick. Nothing runs on a schedule in this prototype."}
           </DialogDescription>
         </DialogHeader>
 
@@ -540,39 +513,6 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
               placeholder="e.g. Fatiguing video ads"
               className="h-9 text-[13px]"
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Type</Label>
-            <div
-              className={cn(
-                "inline-flex items-center rounded-md border border-border bg-muted p-0.5",
-                isEditing && "opacity-60",
-              )}
-            >
-              {RULE_TYPES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  disabled={isEditing}
-                  onClick={() => handleTypeChange(t)}
-                  className={cn(
-                    "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
-                    type === t
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                    isEditing && "cursor-not-allowed",
-                  )}
-                >
-                  {ruleTypeLabel(t)}
-                </button>
-              ))}
-            </div>
-            {isEditing && (
-              <p className="text-[11px] text-muted-foreground">
-                Type can&apos;t change after a rule is created — delete and recreate to switch.
-              </p>
-            )}
           </div>
 
           <div className="space-y-2">
@@ -681,73 +621,39 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>
-              {type === "categorise" && !workflowsEnabled ? "File into board" : "Actions"}
-            </Label>
-            {type === "categorise" ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  {workflowsEnabled && (
-                    <span className="block text-[12px] font-medium text-muted-foreground">
-                      File into board (optional)
-                    </span>
-                  )}
-                  <Select value={boardId ?? ""} onValueChange={setBoardId} disabled={boards.length === 0}>
-                    <SelectTrigger className="h-8 text-[13px]">
-                      <SelectValue placeholder={boards.length === 0 ? "No boards yet" : "Choose a board"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {folders.map((folder) => {
-                        const folderBoards = boards.filter((b) => b.folderId === folder.id);
-                        if (folderBoards.length === 0) return null;
-                        return (
-                          <SelectGroup key={folder.id}>
-                            <SelectLabel>{folder.name}</SelectLabel>
-                            {folderBoards.map((b) => (
-                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                            ))}
-                          </SelectGroup>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {workflowsEnabled && (
-                  <div className="space-y-1.5">
-                    <span className="block text-[12px] font-medium text-muted-foreground">
-                      Sync to ad account (optional)
-                    </span>
-                    <AccountPicker selected={accountIds} onChange={setAccountIds} />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 text-[13px] text-foreground">
-                  <Checkbox
-                    checked={pauseChecked}
-                    onCheckedChange={(v) => setPauseChecked(v === true)}
-                  />
-                  Pause matching creatives
-                </label>
-                <label className="flex items-center gap-2 text-[13px] text-foreground">
-                  <Checkbox
-                    checked={queueChecked}
-                    onCheckedChange={(v) => setQueueChecked(v === true)}
-                  />
-                  Queue matching creatives for relaunch
-                </label>
-              </div>
-            )}
-            {!hasValidAction && (
+          <div className="space-y-1.5">
+            <Label>File into folder</Label>
+            <Select
+              value={folderId ?? ""}
+              onValueChange={(v) => {
+                const folder = folderList.find((f) => f.id === v);
+                setFolderId(v);
+                setFolderName(folder?.name ?? "");
+              }}
+              disabled={folderPickerDisabled}
+            >
+              <SelectTrigger className="h-8 text-[13px]">
+                <SelectValue placeholder={folderPickerPlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {folderList.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id}>{folder.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {foldersError && (
               <p className="text-[11px] text-destructive">
-                {type === "categorise"
-                  ? workflowsEnabled
-                    ? "Pick a board, an ad account, or both."
-                    : "Pick a board to file matches into."
-                  : "Choose at least one action."}
+                Couldn&apos;t load Creative Library folders. Try again in a moment.
+              </p>
+            )}
+            {foldersEmpty && (
+              <p className="text-[11px] text-muted-foreground">
+                No folders yet — create one in Creative Library first.
+              </p>
+            )}
+            {!hasValidAction && !foldersLoading && !foldersError && !foldersEmpty && (
+              <p className="text-[11px] text-destructive">
+                Pick a folder to file matches into.
               </p>
             )}
           </div>
