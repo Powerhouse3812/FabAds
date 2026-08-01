@@ -24,6 +24,7 @@ import {
 import { CreativeActionsProvider } from "@/creative-report/actions/useCreativeActions";
 import { StatesSwitcher } from "@/creative-report/components/StatesSwitcher";
 import { AnnotateToggle } from "@/creative-report/components/AnnotateToggle";
+import { CompareTray } from "@/creative-report/components/CompareTray";
 import { runDataAudit } from "@/data/audit";
 import { useWorkflowRunner } from "@/creative-report/automations/runner";
 import { CREATIVE_REPORT_V3_BASE } from "@/creative-report/state/ReportBasePathContext";
@@ -60,6 +61,7 @@ export function CreativeReportLayout({
           <main className="min-h-0 flex-1 overflow-y-auto">
             <Outlet />
           </main>
+          <CompareTray />
           {import.meta.env.DEV && (
             <footer className="flex items-center justify-between border-t border-border px-4 py-1.5">
               <span className="text-xs text-muted-foreground">Prototype — simulated data</span>

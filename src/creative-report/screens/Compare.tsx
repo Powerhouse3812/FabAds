@@ -3,10 +3,19 @@
  * platforms (handoff §5.4). Selection lives in `ids` + `mode` URL params so
  * a comparison is shareable/back-button-friendly like the rest of the module.
  *
- * "creatives" mode: up to 4 whole-creative CompareColumns.
+ * "creatives" mode: up to MAX_COMPARE (5) whole-creative CompareColumns.
  * "contexts" mode: the FIRST selected creative broken out one column per
  * platform it runs on — never summed across platforms (different attribution
  * windows), just shown side by side with a warning when it spans >1 platform.
+ *
+ * Selection now lives in the floating compare tray (`lib/compareTrayStore`),
+ * shared across the whole module — clicking "Compare" on a creative card
+ * adds to it instead of navigating here. This screen still owns the
+ * shareable `?ids=` URL param: on mount, a URL with ids wins (so a shared
+ * link shows exactly what it says) and seeds the tray; after that the tray
+ * is the source of truth and this screen mirrors it back into the URL. See
+ * the mount effects below for exactly how that reconciliation is guarded
+ * against a URL <-> store feedback loop.
  *
  * Element composer (replaces the standalone Brief Builder screen): once 2+
  * creatives are being compared in "creatives" mode / cards view, each column
@@ -14,7 +23,7 @@
  * ComposerBar, which assembles a cross-creative set and sends it to Genie in
  * one go — see components/composer/*.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,10 +52,15 @@ import type { ColumnComposerProps } from "@/creative-report/components/composer/
 import { foldRows, type CreativeRollup } from "@/creative-report/lib/selectors";
 import { P, PLATFORM_LABELS, type Platform } from "@/creative-report/lib/paramSchema";
 import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
+import {
+  useCompareTray,
+  addToCompare,
+  removeFromCompare,
+  setCompareIds,
+  MAX_COMPARE,
+} from "@/creative-report/lib/compareTrayStore";
 import { ACCOUNT_BY_ID } from "@/data/accounts";
 import type { AdInstance, DailyRow } from "@/data/model";
-
-const MAX_COMPARE = 4;
 
 /** Chart-view axis — separate from compareMode (creatives/contexts), applies
  *  within either mode. Presentational only, so it's local state, not a URL
@@ -146,6 +160,50 @@ export function Compare() {
     return map;
   }, [data]);
 
+  // ONE subscription to the tray store (store discipline) — every value
+  // below is read off this single `useCompareTray()` snapshot, never a
+  // second subscription to the underlying external store.
+  const tray = useCompareTray();
+  const [trayHydrated, setTrayHydrated] = useState(false);
+
+  // Reconcile the tray with the `?ids=` URL param — runs its "wins" half
+  // exactly once, on mount.
+  //
+  // A URL with ids wins on load: a shared/bookmarked Compare link must show
+  // exactly what it says, so if the URL already has ids when this screen
+  // mounts, they're pushed into the tray (capped at MAX_COMPARE) here. After
+  // that the tray is the source of truth for the rest of the session.
+  //
+  // Loop guard, part 1: the empty dependency array means this effect body
+  // only ever runs once per mount. A later add/remove flows tray -> URL (see
+  // the effect below), never URL -> here again, so this can't re-fire and
+  // stomp a since-changed tray back to the original link's contents.
+  useEffect(() => {
+    if (view.compareIds.length > 0) {
+      setCompareIds(view.compareIds);
+    }
+    setTrayHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Loop guard, part 2: mirror the tray back into the URL, but ONLY react to
+  // `tray.ids` (and the one-time `trayHydrated` flip) — `view.compareIds` is
+  // deliberately absent from the dependency list. That's what makes this a
+  // one-way tray -> URL sync instead of a URL -> store -> URL bounce: a URL
+  // change alone (including the one this very effect just made) never
+  // re-runs it, only a genuine tray mutation does. It's also a no-op
+  // whenever the two already agree, so the initial-hydration render (where
+  // the effect above just set the tray to match the URL) doesn't fire a
+  // redundant history write.
+  useEffect(() => {
+    if (!trayHydrated) return;
+    const next = tray.ids;
+    const current = view.compareIds;
+    const same = current.length === next.length && current.every((id, i) => id === next[i]);
+    if (!same) setParam(P.ids, next.length ? next.join(",") : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trayHydrated, tray.ids]);
+
   function handleSendToGenie() {
     navigate(buildGenieHandoffUrl(composer.picks, basePath, angleIdByCreativeId));
   }
@@ -180,17 +238,26 @@ export function Compare() {
     );
   }
 
-  const selectedIds = view.compareIds;
+  // The tray is the source of truth once hydrated (see the effects above).
+  // Before that first effect flush completes, fall back to the raw URL ids
+  // so a shared/bookmarked link paints its columns immediately instead of
+  // flashing an empty grid for one frame while hydration is in flight.
+  const selectedIds = trayHydrated || tray.ids.length > 0 ? tray.ids : view.compareIds;
   const selectedRollups = selectedIds
     .map((id) => data.rollups.find((r) => r.creative.id === id))
     .filter((r): r is CreativeRollup => !!r);
 
-  const setIds = (ids: string[]) => setParam(P.ids, ids.length ? ids.join(",") : null);
+  // Adds/removes flow tray -> screen: both go straight through the shared
+  // store (which already owns dedupe + the MAX_COMPARE cap), and the sync
+  // effect above mirrors the result back into the URL. Removing a column
+  // here also has to drop it from the floating tray — otherwise the tray
+  // would silently re-add it on the next render and the two would disagree.
   const addId = (id: string) => {
-    if (selectedIds.includes(id) || selectedIds.length >= MAX_COMPARE) return;
-    setIds([...selectedIds, id]);
+    addToCompare(id);
   };
-  const removeId = (id: string) => setIds(selectedIds.filter((x) => x !== id));
+  const removeId = (id: string) => {
+    removeFromCompare(id);
+  };
 
   return (
     <div className="flex min-h-full flex-col p-6">
@@ -311,15 +378,15 @@ function CreativesMode({
 }) {
   const canAddMore = selected.length < MAX_COMPARE;
   // ONE useSyncExternalStore subscription regardless of how many creatives
-  // are selected (2-4) — per-creative status below is a pure derivation, not
-  // a hook, so it's safe to call per item in the .map().
+  // are selected (2-MAX_COMPARE) — per-creative status below is a pure
+  // derivation, not a hook, so it's safe to call per item in the .map().
   const analysisSnapshot = useAnalysisSnapshot();
 
   if (viewMode !== "cards") {
     if (selected.length === 0) {
       return (
         <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-4 text-center">
-          <p className="text-sm text-muted-foreground">Pick 2–4 creatives to compare</p>
+          <p className="text-sm text-muted-foreground">Pick 2–{MAX_COMPARE} creatives to compare</p>
           <CreativePicker rollups={rollups} selectedIds={selectedIds} onAdd={onAdd} />
         </div>
       );
@@ -361,6 +428,13 @@ function CreativesMode({
   }
 
   return (
+    // Held at lg:grid-cols-4 even though MAX_COMPARE is 5: at ~1100px content
+    // width, 5 even columns would squeeze each CompareColumn's thumbnail +
+    // metrics + sparkline below a comfortable width, and the standing rule
+    // here is "don't compress the 4/8/16/24/32 scale to force a fit." A 5th
+    // selected creative (or the still-open add-slot below it) wraps to its
+    // own row instead — the same wrap the add-slot already produced at 4/4
+    // before this change, so the layout doesn't gain a new code path.
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {selected.map((r) => {
         const frameworkStatus = deriveFrameworkStatus(analysisSnapshot, r.creative.id);
@@ -393,7 +467,7 @@ function CreativesMode({
       {canAddMore && (
         <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-4 text-center">
           <p className="text-sm text-muted-foreground">
-            {selected.length < 2 ? "Pick 2–4 creatives to compare" : "Add another creative"}
+            {selected.length < 2 ? `Pick 2–${MAX_COMPARE} creatives to compare` : "Add another creative"}
           </p>
           <CreativePicker
             rollups={rollups}

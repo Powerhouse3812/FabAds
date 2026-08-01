@@ -28,16 +28,18 @@ export interface CompareSeriesColumn {
 }
 
 /**
- * Small fixed categorical palette, one color per compared column (max 4 —
+ * Small fixed categorical palette, one color per compared column (max 5 —
  * MAX_COMPARE). The repo's semantic tokens only reliably give 1–2 themed
- * colors (primary/muted-foreground), not enough for 3–4 distinct
+ * colors (primary/muted-foreground), not enough for 3–5 distinct
  * comparison lines, so this is a deliberate literal-hex exception. Picked
  * mid-tone/saturated so they hold contrast against both the light (#fff)
  * and dark (#121212) card backgrounds — calm, not neon. Shared with
  * CompareBarChart so a column keeps the same color across chart-view
- * toggles.
+ * toggles. Keep this array's length >= MAX_COMPARE — short of that, two
+ * columns wrap to the same color via `i % length` and become
+ * indistinguishable in the legend.
  */
-export const COMPARE_CHART_COLORS = ["#3B82F6", "#F59E0B", "#10B981", "#EC4899"];
+export const COMPARE_CHART_COLORS = ["#3B82F6", "#F59E0B", "#10B981", "#EC4899", "#8B5CF6"];
 
 const LEGEND_NAME_MAX = 24;
 

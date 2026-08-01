@@ -14,11 +14,13 @@
  * No action was dropped — every button from the old single bar still exists,
  * just split by frequency of use instead of stacked in one row.
  */
+import { useMemo } from "react";
 import { Bookmark, Copy, GitCompareArrows, Pause, Rocket, Target, Trophy, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { useCreativeAction } from "@/creative-report/actions/actionStore";
+import { useCompareTray } from "@/creative-report/lib/compareTrayStore";
 import { WhyDot } from "@/creative-report/components/WhyDot";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
@@ -31,6 +33,11 @@ export function DrawerActionBar({
 }) {
   const a = useCreativeActions();
   const st = useCreativeAction(rollup.creative.id);
+  const { ids: compareIds } = useCompareTray();
+  const inCompare = useMemo(
+    () => compareIds.includes(rollup.creative.id),
+    [compareIds, rollup.creative.id],
+  );
 
   if (slot === "primary") {
     return (
@@ -76,8 +83,13 @@ export function DrawerActionBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-1">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => a.compare([rollup.creative.id])}>
-          <GitCompareArrows className="h-4 w-4" /> Compare
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn("gap-1.5", inCompare && "text-primary-text")}
+          onClick={() => a.addToCompare(rollup)}
+        >
+          <GitCompareArrows className="h-4 w-4" /> {inCompare ? "In compare" : "Compare"}
         </Button>
         <WhyDot id="action.compare" />
       </div>
