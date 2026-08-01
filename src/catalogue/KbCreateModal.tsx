@@ -237,7 +237,7 @@ export function KbCreateModal({ kind, entityType, entityId, entityName, onSave, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
       <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl max-h-[80vh]">
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">

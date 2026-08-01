@@ -11,7 +11,7 @@
  * Design: FabFunnel v1.2 — lime #8FB821, Geist Mono labels, rounded-2xl modal.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -136,15 +136,6 @@ export function TemplateFilterModal({ open, onClose, filters, onChange }: Props)
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
-  const backdropRef = useRef<HTMLDivElement>(null);
-
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === backdropRef.current) onClose();
-    },
-    [onClose],
-  );
-
   /* ---- toggle helpers ---- */
 
   function togglePlacement(val: string) {
@@ -192,11 +183,7 @@ export function TemplateFilterModal({ open, onClose, filters, onChange }: Props)
   if (!open) return null;
 
   return (
-    <div
-      ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-[4px]"
-      onClick={handleBackdropClick}
-    >
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-[4px]">
       <div
         className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#1E1E23] border border-[#e7e5dc] dark:border-[#2a2a2a] shadow-2xl overflow-hidden"
         role="dialog"

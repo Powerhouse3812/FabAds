@@ -771,11 +771,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
       {railMode !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          {/* Backdrop — click to dismiss */}
-          <div
-            className="absolute inset-0 bg-background/70 backdrop-blur-sm"
-            onClick={handleAttachCancel}
-          />
+          {/* Backdrop — decorative only. Does NOT dismiss on click; every
+              picker inside renders its own explicit close (X) / Cancel
+              control, which is the only way to close this modal. */}
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
           {/* Dialog box — glass chassis */}
           <div className="v3-glass relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl shadow-2xl max-h-[70vh]">
             {railMode === "generate-concepts" && (

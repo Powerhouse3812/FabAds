@@ -1,10 +1,19 @@
 import * as React from "react";
+import { X } from "lucide-react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "@/lib/utils";
 
-const Drawer = ({ shouldScaleBackground = true, ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root shouldScaleBackground={shouldScaleBackground} {...props} />
+// Standing rule (Maalik, 2026-08-01): no popup/overlay may dismiss on an
+// outside click — only an explicit cancel/close control. vaul's `dismissible`
+// prop gates BOTH overlay-click-to-close and swipe-to-dismiss (the closest
+// equivalent gesture on a bottom-sheet), so it defaults to false here too.
+const Drawer = ({
+  shouldScaleBackground = true,
+  dismissible = false,
+  ...props
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
+  <DrawerPrimitive.Root shouldScaleBackground={shouldScaleBackground} dismissible={dismissible} {...props} />
 );
 Drawer.displayName = "Drawer";
 
@@ -38,6 +47,10 @@ const DrawerContent = React.forwardRef<
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
       {children}
+      <DrawerClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DrawerClose>
     </DrawerPrimitive.Content>
   </DrawerPortal>
 ));

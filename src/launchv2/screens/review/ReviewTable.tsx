@@ -116,10 +116,7 @@ function NodeDrawer({
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" />
       {/* Drawer */}
       <div className="fixed inset-y-0 right-0 z-50 flex w-[480px] flex-col rounded-l-2xl border-l border-border bg-background shadow-2xl">
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">

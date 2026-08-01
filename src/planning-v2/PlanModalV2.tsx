@@ -160,11 +160,12 @@ export function PlanModalV2({
       )}
       data-design-export="planning-modal-v2"
     >
-      {/* Backdrop */}
+      {/* Backdrop — visual only. Does not dismiss on click; the explicit ×
+          button in the header (below) and Escape are the only close paths,
+          per standing no-outside-click-dismiss rule. */}
       {!printMode && (
         <div
           className="absolute inset-0 bg-black/60 backdrop-blur-[3px]"
-          onClick={handleClose}
           aria-hidden
         />
       )}

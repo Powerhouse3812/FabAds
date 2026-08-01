@@ -151,11 +151,9 @@ export default function PlacementUploadRow({
       {showReplace && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowReplace(false)}
         >
           <div
             className="w-80 rounded-2xl border border-border bg-card p-4 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
           >
             <p className="mb-3 text-[13px] font-medium text-foreground">
               Replace media — {placementLabel(placement)}
