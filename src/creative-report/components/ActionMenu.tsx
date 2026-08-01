@@ -2,6 +2,7 @@
  * ActionMenu — the shared kebab of creative actions (overflow beyond the
  * card's inline row). Same handlers as the inline buttons via the actions hub.
  */
+import { useMemo } from "react";
 import {
   Copy,
   Eye,
@@ -28,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
+import { useCompareTray } from "@/creative-report/lib/compareTrayStore";
 import { addCreativeToBoard, useBoardsStore } from "@/creative-report/automations/boards";
 import { useToast } from "@/hooks/use-toast";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
@@ -42,6 +44,11 @@ export function ActionMenu({
   const a = useCreativeActions();
   const { boards } = useBoardsStore();
   const { toast } = useToast();
+  const { ids: compareIds } = useCompareTray();
+  const inCompare = useMemo(
+    () => compareIds.includes(rollup.creative.id),
+    [compareIds, rollup.creative.id],
+  );
 
   const handleAddToBoard = (boardId: string, boardName: string) => {
     addCreativeToBoard(boardId, rollup.creative.id);
@@ -64,8 +71,8 @@ export function ActionMenu({
         <DropdownMenuItem onClick={() => a.generateVariation(rollup)}>
           <Wand2 className="mr-2 h-4 w-4" /> Generate variation
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => a.compare([rollup.creative.id])}>
-          <GitCompareArrows className="mr-2 h-4 w-4" /> Compare
+        <DropdownMenuItem onClick={() => a.addToCompare(rollup)}>
+          <GitCompareArrows className="mr-2 h-4 w-4" /> {inCompare ? "In compare" : "Compare"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => a.saveToLibrary(rollup)}>

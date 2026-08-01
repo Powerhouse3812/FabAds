@@ -314,4 +314,20 @@ export const drawerAnnotations: AnnotationSlice = {
       "Meta doesn't return age/gender/region on the default insights fetch — it needs the breakdowns param (age, gender, region) requested per creative/ad, then folded the same way as the top-line metrics. That's an extra API call per creative beyond the default fetch.",
     backend: "meta-breakdown-call",
   },
+
+  // ── SyncStatusPanel ─────────────────────────────────────────────────────
+  "drawer.sync.status": {
+    reason:
+      "Reads the sync-history store for this creative id — per-account rows for every (creative, account) pair a rule (or a manual sync) has ever queued, with the rule's name snapshotted at run time so provenance survives the rule being deleted later.",
+    impact:
+      "Answers 'have I already pushed this into an ad account's library, and via which rule' before someone re-uploads it by hand or assumes it's never been synced anywhere.",
+    whenToAct:
+      "Check this before manually uploading a creative into an account's library — a queued/running/done row here means a rule already has (or is about to have) it covered.",
+    importance: "medium",
+    personas: ["Agency lead", "Performance marketer"],
+    provenance: "ours-only",
+    howTo:
+      "Simulated — the sync-history store holds one record per (creative, account) pair with a deterministic fake upload duration; nothing is sent to the real Meta API. A real backend would persist this as an actual upload job table keyed the same way.",
+    backend: "read-time",
+  },
 };

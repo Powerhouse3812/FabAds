@@ -1,13 +1,19 @@
 /**
  * RuleBuilder — create/edit modal for an automation rule (iter-2 P4).
  *
- * Scoped down (Maalik, 2026-07-31) to exactly ONE action: "file into folder",
- * pointing at REAL Creative Library folders (`cl_folders`, via
- * `useClFolders()`) — never the module's own synthetic `Board` concept, and
- * never the ad-account sync feature (moved out of Creative Report entirely).
- * There is only one rule type now (`"categorise"`, see model.ts), so the old
- * type toggle and its "launch" branch (pause / queue-in-launch) are gone —
- * every rule this builder creates is implicitly `categorise`.
+ * Scoped down (Maalik, 2026-07-31) to "file into folder", pointing at REAL
+ * Creative Library folders (`cl_folders`, via `useClFolders()`) — never the
+ * module's own synthetic `Board` concept. There is only one rule type now
+ * (`"categorise"`, see model.ts), so the old type toggle and its "launch"
+ * branch (pause / queue-in-launch) are gone — every rule this builder
+ * creates is implicitly `categorise`.
+ *
+ * RESTORED (Maalik, 2026-08-01): "sync to ad account library" is back as a
+ * second, independent action alongside the folder picker — `AccountPicker`
+ * below the folder Select. A rule is valid once AT LEAST ONE of the two is
+ * set (a rule may file into a folder, sync to accounts, or both); neither
+ * one alone is required. Meta accounts only, per `AccountPicker`'s own
+ * "Soon"-tagged disabled rows for non-Meta accounts.
  *
  * Every value shown while building a rule (the match-count preview) is a
  * live, honest count from the same `evaluateRule` the engine uses to run —
@@ -62,6 +68,7 @@ import { evaluateRule } from "@/creative-report/automations/engine";
 import { createRule, updateRule } from "@/creative-report/automations/rulesStore";
 import { useClFolders } from "@/hooks/use-cl-folders";
 import { ScheduleEditor } from "@/creative-report/automations/components/ScheduleEditor";
+import { AccountPicker } from "@/creative-report/automations/components/AccountPicker";
 import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 import {
   METRIC_CONDITION_FIELDS,
@@ -73,6 +80,7 @@ import {
   type RuleAction,
   type RuleCondition,
   type RuleSchedule,
+  type SyncToAccountsAction,
 } from "@/creative-report/automations/model";
 import { COLUMN_BY_KEY } from "@/creative-report/lib/columns";
 import {
@@ -339,6 +347,7 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
   const [rows, setRows] = useState<ConditionRow[]>([]);
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
   const [folderName, setFolderName] = useState<string | undefined>(undefined);
+  const [accountIds, setAccountIds] = useState<string[]>([]);
   const [schedule, setSchedule] = useState<RuleSchedule>({});
   const [autoRun, setAutoRun] = useState(true);
 
@@ -364,6 +373,10 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
       );
       setFolderId(folderAction?.folderId);
       setFolderName(folderAction?.folderName);
+      const syncAction = existingRule.actions.find(
+        (a): a is SyncToAccountsAction => a.type === "syncToAccounts",
+      );
+      setAccountIds(syncAction?.accountIds ?? []);
       setSchedule(existingRule.schedule ?? {});
       // An EXISTING rule's autoRun is honoured exactly as stored, and a
       // missing one reads as false — pre-existing rules predate this field
@@ -375,6 +388,7 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
       setRows([makeRow(defaultConditionForField("bucket"))]);
       setFolderId(undefined);
       setFolderName(undefined);
+      setAccountIds([]);
       setSchedule({});
       // New rules are the only ones allowed to default to auto-firing.
       setAutoRun(true);
@@ -455,14 +469,19 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
         ? "No folders yet"
         : "Choose a folder";
 
-  // A folder is the only requirement now — there is nothing else an
-  // addToFolder action needs.
-  const hasValidAction = !!folderId;
+  // A rule needs at least ONE action — a folder pick, an account pick, or
+  // both. Neither is individually required; a rule with neither is the only
+  // invalid case (it would match creatives and do nothing).
+  const hasFolderAction = !!folderId;
+  const hasSyncAction = accountIds.length > 0;
+  const hasValidAction = hasFolderAction || hasSyncAction;
   const canSave = rows.length > 0 && hasValidAction && !hasIncompleteRange;
 
   function handleSave() {
-    if (!canSave || !folderId || !folderName) return;
-    const finalActions: RuleAction[] = [{ type: "addToFolder", folderId, folderName }];
+    if (!canSave) return;
+    const finalActions: RuleAction[] = [];
+    if (folderId && folderName) finalActions.push({ type: "addToFolder", folderId, folderName });
+    if (accountIds.length > 0) finalActions.push({ type: "syncToAccounts", accountIds });
     const finalConditions = conditions.map(normaliseCondition);
 
     if (existingRule) {
@@ -622,7 +641,7 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
           </div>
 
           <div className="space-y-1.5">
-            <Label>File into folder</Label>
+            <Label>File into folder (optional)</Label>
             <Select
               value={folderId ?? ""}
               onValueChange={(v) => {
@@ -651,12 +670,22 @@ export function RuleBuilder({ open, onOpenChange, existingRule }: RuleBuilderPro
                 No folders yet — create one in Creative Library first.
               </p>
             )}
-            {!hasValidAction && !foldersLoading && !foldersError && !foldersEmpty && (
-              <p className="text-[11px] text-destructive">
-                Pick a folder to file matches into.
-              </p>
-            )}
           </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <Label>Sync to ad account library (optional)</Label>
+              <WhyDot id="automations.rule.syncToAccounts" />
+            </div>
+            <AccountPicker selected={accountIds} onChange={setAccountIds} />
+          </div>
+
+          {!hasValidAction && (
+            <p className="text-[11px] text-destructive">
+              Pick a folder to file into, or select at least one ad account to sync to — a rule
+              needs at least one action.
+            </p>
+          )}
 
           {workflowsEnabled && (
             <div className="space-y-2">

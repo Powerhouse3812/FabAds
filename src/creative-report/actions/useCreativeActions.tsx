@@ -8,7 +8,8 @@
  *   • Save to Library / Mark Winner (optimistic chip + toast)
  *   • Duplicate                    (optimistic chip + toast — iter-2 P5)
  *   • Edit targeting               (modal → friction → optimistic "Queued")
- *   • Compare / View               (navigate, filter context preserved)
+ *   • Compare (contexts)           (navigate — one creative's per-platform breakdown)
+ *   • Add to compare / View        (tray add, no navigation / navigate, filter context preserved)
  *   • Pause                        (friction AlertDialog → optimistic)
  */
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
@@ -20,6 +21,11 @@ import {
   setMarkedWinner,
   setSavedToLibrary,
 } from "@/creative-report/actions/actionStore";
+import {
+  addToCompare as addCreativeToCompareTray,
+  useCompareTray,
+  MAX_COMPARE,
+} from "@/creative-report/lib/compareTrayStore";
 import { LaunchConfirmModal } from "@/creative-report/actions/LaunchConfirmModal";
 import { PauseAlert } from "@/creative-report/actions/PauseAlert";
 import { EditTargetingModal } from "@/creative-report/actions/EditTargetingModal";
@@ -34,7 +40,13 @@ interface ActionsApi {
   markWinner: (r: CreativeRollup) => void;
   duplicate: (r: CreativeRollup) => void;
   editTargeting: (r: CreativeRollup) => void;
+  /** Compare-by-contexts (RunningInTable) — navigates straight to Compare's
+   *  contexts mode for ONE creative's per-platform breakdown. Not the same
+   *  intent as adding to the compare list below — don't conflate them. */
   compare: (ids: string[]) => void;
+  /** Adds a creative to the compare tray (max `MAX_COMPARE`). No navigation —
+   *  the floating tray is the way to actually go compare side by side. */
+  addToCompare: (r: CreativeRollup) => void;
   view: (creativeId: string) => void;
   closeDrawer: () => void;
 }
@@ -115,6 +127,34 @@ export function CreativeActionsProvider({ children }: { children: React.ReactNod
     [navigate, searchParams, COMPARE],
   );
 
+  // Single subscription to the tray store; the count used in the "added"
+  // toast is derived from this snapshot (pre-mutation), so it's read once
+  // per render rather than re-reading the store mid-callback.
+  const { ids: compareIds } = useCompareTray();
+
+  const addToCompare = useCallback(
+    (r: CreativeRollup) => {
+      const result = addCreativeToCompareTray(r.creative.id);
+      if (result === "added") {
+        toast({
+          title: "Added to compare",
+          description: `${r.creative.product} added — ${compareIds.length + 1} of ${MAX_COMPARE} in compare.`,
+        });
+      } else if (result === "already-in") {
+        toast({
+          title: "Already in compare",
+          description: `${r.creative.product} is already in your compare list.`,
+        });
+      } else {
+        toast({
+          title: "Compare list is full",
+          description: `Remove one before adding another — compare holds up to ${MAX_COMPARE} at a time.`,
+        });
+      }
+    },
+    [compareIds],
+  );
+
   const view = useCallback(
     (creativeId: string) => {
       navigate(`${CREATIVES}${buildPreservedSearch(searchParams, `creative=${creativeId}`)}`);
@@ -128,9 +168,9 @@ export function CreativeActionsProvider({ children }: { children: React.ReactNod
 
   const api = useMemo<ActionsApi>(
     () => ({
-      generateVariation, launch, pause, saveToLibrary, markWinner, duplicate, editTargeting, compare, view, closeDrawer,
+      generateVariation, launch, pause, saveToLibrary, markWinner, duplicate, editTargeting, compare, addToCompare, view, closeDrawer,
     }),
-    [generateVariation, launch, pause, saveToLibrary, markWinner, duplicate, editTargeting, compare, view, closeDrawer],
+    [generateVariation, launch, pause, saveToLibrary, markWinner, duplicate, editTargeting, compare, addToCompare, view, closeDrawer],
   );
 
   return (

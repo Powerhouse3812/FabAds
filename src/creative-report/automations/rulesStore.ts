@@ -16,6 +16,7 @@ import {
 } from "@/creative-report/automations/model";
 import { sanitizeSchedule } from "@/workflows/core";
 import { clearFiredForRule } from "@/creative-report/automations/fireLedger";
+import { ACCOUNT_BY_ID } from "@/data/accounts";
 
 const KEY = "creative-report-automation-rules";
 
@@ -40,9 +41,9 @@ function isValidCondition(c: unknown): c is RuleCondition {
   return true;
 }
 
-function isValidAction(a: unknown): a is RuleAction {
+function isValidAddToFolderAction(a: unknown): a is Extract<RuleAction, { type: "addToFolder" }> {
   if (!a || typeof a !== "object") return false;
-  const action = a as RuleAction;
+  const action = a as Extract<RuleAction, { type: "addToFolder" }>;
   return (
     action.type === "addToFolder" &&
     typeof action.folderId === "string" &&
@@ -50,6 +51,39 @@ function isValidAction(a: unknown): a is RuleAction {
     typeof action.folderName === "string" &&
     action.folderName.length > 0
   );
+}
+
+/**
+ * `syncToAccounts` needs more than a yes/no verdict: a persisted
+ * `accountIds` list may contain an id for an account that's since been
+ * removed from `@/data/accounts.ts`'s mock directory. Dropping the WHOLE
+ * action over one stale id would silently lose an otherwise-valid rule, so
+ * this filters `accountIds` down to the ones that still resolve in
+ * `ACCOUNT_BY_ID` and only drops the action entirely if NONE survive (a
+ * sync action pointed at zero accounts does nothing and would otherwise
+ * sit there looking configured while being a no-op).
+ */
+function sanitizeSyncToAccountsAction(
+  a: unknown,
+): Extract<RuleAction, { type: "syncToAccounts" }> | null {
+  if (!a || typeof a !== "object") return null;
+  const action = a as Extract<RuleAction, { type: "syncToAccounts" }>;
+  if (action.type !== "syncToAccounts" || !Array.isArray(action.accountIds)) return null;
+  const accountIds = action.accountIds.filter(
+    (id): id is string => typeof id === "string" && !!ACCOUNT_BY_ID[id],
+  );
+  if (accountIds.length === 0) return null;
+  return { type: "syncToAccounts", accountIds };
+}
+
+/** Validates one persisted action and, for `syncToAccounts`, also sanitises
+ *  its `accountIds` down to ones that still resolve — see
+ *  `sanitizeSyncToAccountsAction` above. Returns `null` for anything that
+ *  doesn't survive, so callers can `.map().filter()` instead of a plain
+ *  `.filter()` that can't drop-just-the-stale-ids. */
+function sanitizeAction(a: unknown): RuleAction | null {
+  if (isValidAddToFolderAction(a)) return a;
+  return sanitizeSyncToAccountsAction(a);
 }
 
 function isValidRule(r: unknown): r is AutomationRule {
@@ -82,10 +116,10 @@ function sanitize(raw: unknown): AutomationRule[] {
     // deprioritized, not deleted from history). A persisted rule whose type
     // is no longer valid (e.g. "launch") is coerced to "categorise" — the
     // rule survives, it just falls under the one remaining type. Its old
-    // actions (pause / queueInLaunch / addToBoard / syncToAccounts) don't
-    // shape-match `isValidAction` below and get filtered out same as any
-    // other now-invalid action, leaving the rule with zero actions rather
-    // than being destroyed outright.
+    // actions (pause / queueInLaunch / addToBoard) don't shape-match
+    // `sanitizeAction` below and get dropped same as any other now-invalid
+    // action, leaving the rule with zero actions rather than being destroyed
+    // outright.
     const type = (RULE_TYPES as readonly string[]).includes(rule.type) ? rule.type : "categorise";
 
     // Structurally-broken individual conditions/actions are dropped one at a
@@ -94,11 +128,12 @@ function sanitize(raw: unknown): AutomationRule[] {
     const conditions = rule.conditions.filter(isValidCondition);
 
     const actions = rule.actions
-      .filter(isValidAction)
+      .map(sanitizeAction)
+      .filter((a): a is RuleAction => a !== null)
       // Drop any action that isn't valid for this rule's (migrated) type —
-      // currently a no-op since ACTIONS_BY_RULE_TYPE has exactly one type
-      // mapping to exactly one action type, but kept as the general seam for
-      // when a second action type exists.
+      // both addToFolder and syncToAccounts currently map to "categorise",
+      // but this stays the general seam for when a rule type doesn't allow
+      // every action type.
       .filter((a) => (ACTIONS_BY_RULE_TYPE[type] as string[]).includes(a.type));
 
     return {

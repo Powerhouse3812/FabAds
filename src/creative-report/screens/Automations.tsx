@@ -14,22 +14,31 @@
  * "Add to board" option) — it's just no longer rendered here.
  *
  * v2 (`/reports/creative-v2`) vs v3 (`/reports/creative-v3`,
- * `useReportWorkflowsEnabled()`) now share the same two tabs below; only the
+ * `useReportWorkflowsEnabled()`) now share the same tabs below; only the
  * header blurb and the Rules content (schedule/autoRun, handled inside
  * RuleBuilder/RuleList) still differ by version. Never let this copy drift
  * out of sync with the two behaviours — see RuleList.tsx's header comment
  * for the same v2/v3 split applied per-rule.
+ *
+ * Iter-8: added an "Activity" tab — the flat, all-rules run history from
+ * `activityStore.ts`, separate from the per-rule "Recent runs" disclosure
+ * RuleList now renders inline on each row. Both read the same store; this
+ * tab is the "what happened across everything" view, RuleList's disclosure
+ * is the "what did THIS rule do" view. v3-only per this iteration's scope —
+ * no version gate needed since it's additive UI, not a behavior change.
  */
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { RuleList } from "@/creative-report/automations/components/RuleList";
 import { DigestSettings } from "@/creative-report/automations/components/DigestSettings";
 import { DigestPreview } from "@/creative-report/automations/components/DigestPreview";
+import { ActivityLog } from "@/creative-report/automations/components/ActivityLog";
 import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 
 const TABS = [
   { key: "rules", label: "Rules" },
   { key: "digest", label: "Digest" },
+  { key: "activity", label: "Activity" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
@@ -82,6 +91,7 @@ export function Automations() {
           <DigestPreview />
         </div>
       )}
+      {tab === "activity" && <ActivityLog />}
     </div>
   );
 }

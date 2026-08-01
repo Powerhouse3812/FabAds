@@ -6,11 +6,17 @@
  * the seam `/automation` (the future top-level Automation module,
  * `src/components/sidebar/modules.ts` → `automation` entry) will also need.
  *
- * Scoped down (Maalik, 2026-07-31) to exactly ONE descriptor: `addToFolder`,
- * filing into a REAL Creative Library folder (`cl_folders`). The old
- * `addToBoard` (synthetic Board), `pause`/`queueInLaunch` (launch rule type,
- * deprioritized), and `syncToAccounts` (moved out of Creative Report
- * entirely) descriptors are gone.
+ * Scoped down (Maalik, 2026-07-31) to `addToFolder`, filing into a REAL
+ * Creative Library folder (`cl_folders`). The old `addToBoard` (synthetic
+ * Board) and `pause`/`queueInLaunch` (launch rule type, deprioritized)
+ * descriptors stay gone.
+ *
+ * RESTORED (Maalik, 2026-08-01): `syncToAccounts` is back below — it queues
+ * matching creatives for a simulated upload to one or more Meta ad account
+ * libraries via `enqueueSyncMany`. Its result is read by exactly one surface
+ * now, `SyncStatusPanel` in the drawer — the card badge / table column /
+ * bulk-bar warning this data used to also feed are deliberately not wired
+ * back up.
  *
  * `simulated: true` — this prototype never talks to a real ad platform or
  * writes to Supabase. `apply()` is the ONLY place with side effects; it must
@@ -19,6 +25,8 @@
  * caller can tell the user why, honestly.
  */
 import type { RuleAction } from "@/creative-report/automations/model";
+import { enqueueSyncMany } from "@/creative-report/automations/sync/syncStore";
+import { ACCOUNT_BY_ID } from "@/data/accounts";
 
 export interface ActionApplyContext {
   subjectIds: string[];
@@ -62,5 +70,48 @@ export const ACTION_REGISTRY: { [K in RuleAction["type"]]: WorkflowActionDescrip
       appliedLabel: `filed into "${action.folderName}"`, // engine.ts appends "(simulated)" once, don't duplicate it
       affectedCount: ctx.subjectIds.length,
     }),
+  },
+  syncToAccounts: {
+    type: "syncToAccounts",
+    label: "Sync to ad account library",
+    simulated: true,
+    // Delegates the actual queueing + duplicate-pair guard to
+    // `enqueueSyncMany` (sync/syncStore.ts) — a (creative, account) pair
+    // already queued/running/done by ANY rule (or a manual action) is
+    // skipped, never re-uploaded. `queued === 0 && skipped > 0` is the
+    // "every pair was already synced" case: that is NOT a success and must
+    // not report an appliedLabel, or the toast/summary would imply an
+    // upload happened when nothing was queued.
+    apply: (action, ctx) => {
+      const { queued, skipped } = enqueueSyncMany(ctx.subjectIds, action.accountIds, {
+        ruleId: ctx.ruleId,
+        ruleName: ctx.ruleName,
+      });
+
+      // Resolve account NAMES, never raw ids — an id whose account has since
+      // been removed from the mock directory falls back to a phrase that
+      // doesn't fabricate a name either.
+      const accountNames = action.accountIds
+        .map((id) => ACCOUNT_BY_ID[id]?.name)
+        .filter((name): name is string => !!name);
+      const accountLabel = accountNames.length > 0 ? accountNames.join(", ") : "the selected accounts";
+
+      if (queued === 0 && skipped > 0) {
+        return {
+          appliedLabel: null,
+          skippedReason: `every matching creative was already synced to ${accountLabel}`,
+          affectedCount: 0,
+        };
+      }
+
+      const result: ActionApplyResult = {
+        appliedLabel: `queued for sync to ${accountLabel}`, // engine.ts appends "(simulated)" once, don't duplicate it
+        affectedCount: queued,
+      };
+      if (skipped > 0) {
+        result.skippedReason = `${skipped} ${skipped === 1 ? "pair was" : "pairs were"} already synced and skipped`;
+      }
+      return result;
+    },
   },
 };

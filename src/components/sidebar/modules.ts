@@ -105,12 +105,13 @@ export const MODULES: ModuleDef[] = [
       { label: "NB", path: "/reports/nb", icon: BarChart3 },
       { label: "TikTok", path: "/reports/tt", icon: Video },
       { label: "Creative Reporting", path: "/reports/creative", icon: Film },
-      // Creative Report ships as TWO live versions side by side. They share
-      // every screen except Overview: 2.0 = the currently-deployed Overview,
-      // 3.0 = the redesigned one (bucket tabs, Catalogue breakdown,
-      // recommendations, automations preview). Both sub-item lists are
-      // complete and self-contained, which is what keeps the secondary nav
-      // from bouncing a 3.0 user into 2.0.
+      // Creative Report ships as TWO live versions side by side, and they no
+      // longer share ANY code: 2.0 is a frozen snapshot (src/creative-report-v2,
+      // commit b5f1cda) and 3.0 is the live module (src/creative-report). The
+      // two sub-item lists therefore differ on purpose — 2.0 keeps Owner
+      // report / Brief builder / Saved views, which 3.0 folded away. Both
+      // lists are complete and self-contained, which is what keeps the
+      // secondary nav from bouncing a 3.0 user into 2.0.
       {
         label: "Creative Report 2.0", path: "/reports/creative-v2", icon: Sparkles, badge: "Current",
         subItems: [
@@ -119,6 +120,9 @@ export const MODULES: ModuleDef[] = [
           { label: "Components", path: "/reports/creative-v2/components" },
           { label: "Compare", path: "/reports/creative-v2/compare" },
           { label: "Automations", path: "/reports/creative-v2/automations" },
+          { label: "Owner report", path: "/reports/creative-v2/owner-report" },
+          { label: "Brief builder", path: "/reports/creative-v2/brief-builder" },
+          { label: "Saved views", path: "/reports/creative-v2/views" },
         ],
       },
       {
