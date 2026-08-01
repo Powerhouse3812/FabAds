@@ -3,7 +3,7 @@
  * the Overview screen. Maalik: Catalogue-dimension data (brand/category/
  * product) belongs on the morning-triage screen, not only in the Owner
  * Report. Reuses breakdownRollups() (selectors.ts) — same sums-then-
- * recompute discipline as brandRollups/accountRollups, and the same honest
+ * recompute discipline as the rest of that file, and the same honest
  * exclusion: a creative with no link on the active dimension is left out of
  * the table rather than folded into a fake "Unknown" row. This card owns
  * its own surface (no wrapping section from Overview.tsx), so it stays a
@@ -138,8 +138,12 @@ export function OverviewBreakdown({ rollups }: { rollups: CreativeRollup[] }) {
           <div className="mt-2 space-y-1">
             {hiddenCount > 0 && (
               <p className="text-xs text-muted-foreground">
+                {/* Was "see the Owner Report for the full list" — that screen
+                    is retired, so the pointer is gone rather than sending
+                    anyone to a dead route. State the cap instead. */}
                 +{hiddenCount} more {active.noun}
-                {hiddenCount === 1 ? "" : "s"} not shown — see the Owner Report for the full list.
+                {hiddenCount === 1 ? "" : "s"} not shown — this table is capped at the top{" "}
+                {ROW_CAP} by spend.
               </p>
             )}
             {unlinkedCount > 0 && (

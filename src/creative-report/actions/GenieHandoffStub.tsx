@@ -47,6 +47,57 @@ const BRIEF_BLOCK_LABELS: { key: BriefTextKey; label: string }[] = [
   { key: "offer", label: "Offer" },
 ];
 
+/** Shape written by the Compare element composer's `elements=` param. Each
+ *  slot carries its own source creative, because the whole point of the
+ *  composer is that a hook can come from one creative and a CTA from another
+ *  — so there is no single "source creative" for the set. `value` is absent
+ *  for "media" (asset only, no copy). */
+interface ElementPayload {
+  creativeId?: string;
+  creativeName?: string;
+  value?: string;
+}
+
+/** Kept in sync with composer/types.ts ELEMENT_ORDER + ELEMENT_LABELS. Not
+ *  imported from there on purpose: this stub is mounted at app level and must
+ *  render a hand-edited URL without pulling module internals into the shell. */
+const ELEMENT_ROWS: { key: string; label: string }[] = [
+  { key: "hook", label: "Hook" },
+  { key: "headline", label: "Headline" },
+  { key: "primaryText", label: "Primary text" },
+  { key: "cta", label: "CTA" },
+  { key: "visualDirection", label: "Visual direction" },
+  { key: "offer", label: "Offer" },
+  { key: "media", label: "Media only" },
+  { key: "framework", label: "Framework" },
+];
+
+/** Same defensive contract as parseBrief: a malformed or hand-edited
+ *  `elements=` must degrade to null, and each field is type-checked so
+ *  `{"hook":{"value":{}}}` can never hand React an object as a child. */
+function parseElements(raw: string | null): Record<string, ElementPayload> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+    const out: Record<string, ElementPayload> = {};
+    for (const { key } of ELEMENT_ROWS) {
+      const slot = (parsed as Record<string, unknown>)[key];
+      if (!slot || typeof slot !== "object" || Array.isArray(slot)) continue;
+      const s = slot as Record<string, unknown>;
+      out[key] = {
+        creativeId: str(s.creativeId),
+        creativeName: str(s.creativeName),
+        value: str(s.value),
+      };
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Defensive parse — this page is reachable via a user-navigable URL, so a
  *  malformed or truncated `brief=` param must fall back to null, never throw.
  *  Fields are sanitized per-type too: a hand-edited payload like
@@ -80,6 +131,7 @@ export function GenieHandoffStub() {
   const angleId = params.get("angle") ?? "";
   const hook = params.get("hook") ?? "";
   const brief = parseBrief(params.get("brief"));
+  const elements = parseElements(params.get("elements"));
   // This stub is mounted at app level (/genie/new), OUTSIDE the Creative
   // Report layout, so it cannot read ReportBasePathContext. The caller stamps
   // its version onto `from=` instead; anything else (hand-typed URL, old
@@ -140,10 +192,46 @@ export function GenieHandoffStub() {
           {creative && <Row label="Product" value={creative.product} />}
         </div>
 
+        {elements && (
+          <div className="mt-4 rounded-xl border border-border bg-background p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Assembled in Compare
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Each element keeps the creative it came from — a hook from one ad and a CTA from
+              another is the point, so there is no single source creative for this set.
+            </p>
+            <div className="mt-1">
+              {ELEMENT_ROWS.filter(({ key }) => elements[key]).map(({ key, label }) => {
+                const slot = elements[key];
+                const from = slot.creativeName ?? slot.creativeId;
+                return (
+                  <div
+                    key={key}
+                    className="flex flex-col gap-1 border-b border-border py-3 last:border-0"
+                  >
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </span>
+                    {/* "media" carries no copy — say so rather than rendering an
+                        empty value or a bare dash. */}
+                    <span className="text-sm font-medium text-foreground">
+                      {slot.value || (key === "media" ? "Asset only — no copy" : "Not set")}
+                    </span>
+                    {from && (
+                      <span className="text-xs text-muted-foreground">From: {from}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {brief && (
           <div className="mt-4 rounded-xl border border-border bg-background p-4">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Brief (from Brief Builder)
+              Brief (from an older Brief Builder link)
             </p>
             <div className="mt-1">
               {BRIEF_BLOCK_LABELS.map(({ key, label }) => (

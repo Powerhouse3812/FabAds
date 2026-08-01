@@ -1,11 +1,14 @@
 /**
- * Creative Report 2.0 — the automations engine (iter-2 P4).
+ * Creative Report 2.0 — the automations engine.
  *
- * ONE evaluator shared by categorise and launch rules (Maalik's decision —
- * a single engine, not two parallel implementations). `evaluateRule` never
- * mutates anything; `runRule` is the only place actions are actually applied,
- * and it's always an explicit call (a "Run now" button in this prototype —
- * there is no real background cron, per the project's mock-data-only rule).
+ * As of the scope-down to a single "file into folder" automation, there is
+ * exactly one rule type (`categorise`) and one action (`addToFolder`) — but
+ * this evaluator stays generic over `RuleAction`/`ACTION_REGISTRY` rather
+ * than hard-coding that fact, so a future action type is a registry entry,
+ * not a rewrite here. `evaluateRule` never mutates anything; `runRule` is the
+ * only place actions are actually applied, and it's always an explicit call
+ * (a "Run now" button in this prototype — there is no real background cron,
+ * per the project's mock-data-only rule).
  */
 import { ACTION_REGISTRY, type ActionApplyContext, type WorkflowActionDescriptor } from "@/creative-report/automations/actions/registry";
 import { isMetricField, type AutomationRule, type ConditionField, type RuleAction } from "@/creative-report/automations/model";

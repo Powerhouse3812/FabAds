@@ -49,7 +49,11 @@ function buildOptions(BASE: string): StateOption[] {
       label: "Cross-platform compare",
       apply: (nav) => nav(`${BASE}/compare?mode=contexts&ids=cr-003`),
     },
-    { key: "unsaved", label: "Unsaved view config", apply: (nav) => nav(`${BASE}/views`) },
+    // NOTE: the "Unsaved view config" state is gone on purpose. It pointed at
+    // `${BASE}/views` (the retired Saved Views screen) to demo the `__draft__`
+    // autosave, and BOTH are removed — saved filters now live in
+    // SavedFiltersModal, which has no page to navigate away from and so has
+    // no unsaved-draft state to demo.
   ];
 }
 

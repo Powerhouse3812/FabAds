@@ -1,12 +1,15 @@
 /**
- * Creative Report 2.0 — automations engine types (iter-2 P4).
+ * Creative Report 2.0 — automations engine types.
  *
- * ONE rule-matching engine shared by both rule "types" (per Maalik's
- * decision): a "categorise" rule auto-files matching creatives into a
- * smart board; a "launch" rule auto-pauses or auto-queues matching
- * creatives (reusing the existing actionStore, simulated — no real ad
- * platform calls). Both share the exact same `RuleCondition[]` matcher —
- * only the available `RuleAction`s differ per type.
+ * Scoped down (Maalik, 2026-07-31) to exactly ONE automation: "file into
+ * folder", pointing at REAL Creative Library folders (`cl_folders`, via
+ * `@/hooks/use-cl-folders.ts`) — never the module's own synthetic `Board`
+ * concept (that lives on unchanged in `automations/boards.ts`/`BoardsPanel.tsx`
+ * as a separate, pre-existing, manual-only feature; this engine no longer
+ * writes to it). The sync-to-ad-account action moved out of Creative Report
+ * entirely (it belongs to Genie + Creative Library, not built yet). The
+ * "launch" rule type (pause/queue-in-launch) is deprioritized for later —
+ * removed from the live type union, not deleted from history.
  *
  * Condition fields deliberately exclude the generator-internal `archetype`
  * signal (winner/fake-winner/steady/…) — that's an audit-only concept, never
@@ -84,41 +87,24 @@ export interface RuleCondition {
   value2?: number;
 }
 
-export const RULE_TYPES = ["categorise", "launch"] as const;
+export const RULE_TYPES = ["categorise"] as const; // "launch" removed — deprioritized, not deleted from history
 export type RuleType = (typeof RULE_TYPES)[number];
 
-/** categorise-type actions: file the creative into a board (auto-filing). */
-export interface AddToBoardAction {
-  type: "addToBoard";
-  boardId: string;
+/** Real Creative Library folder (`cl_folders.id`) — never our synthetic Board. */
+export interface AddToFolderAction {
+  type: "addToFolder";
+  folderId: string;
+  /** Snapshot of the folder's name at save time. The runner ticks off a module-level
+   *  clock with no React/Supabase access, so it cannot re-fetch cl_folders live —
+   *  same denormalisation pattern this codebase already uses for SyncRecord.ruleName. */
+  folderName: string;
 }
 
-/** launch-type actions: reuse the existing optimistic actionStore — this is
- *  the same simulated pause/queue the user can trigger manually from a
- *  card's action row, just triggered by a rule instead of a click. */
-export interface PauseAction {
-  type: "pause";
-}
-export interface QueueInLaunchAction {
-  type: "queueInLaunch";
-}
-
-/** categorise-type action: simulated background sync of the matching
- *  creative into a Meta ad account's library (see `sync/syncModel.ts`).
- *  Lives under "categorise" rather than a new rule type — one categorise
- *  rule can both file to a board AND sync, matching the "either ... or"
- *  ask without a new branch in the builder's type toggle or label map. */
-export interface SyncToAccountsAction {
-  type: "syncToAccounts";
-  /** Ids from src/data/accounts.ts. Ids only — never denormalised names. */
-  accountIds: string[];
-}
-
-export type RuleAction = AddToBoardAction | PauseAction | QueueInLaunchAction | SyncToAccountsAction;
+export type RuleAction = AddToFolderAction; // single member — AddToBoardAction, PauseAction,
+                                             // QueueInLaunchAction, SyncToAccountsAction all removed
 
 export const ACTIONS_BY_RULE_TYPE: Record<RuleType, RuleAction["type"][]> = {
-  categorise: ["addToBoard", "syncToAccounts"],
-  launch: ["pause", "queueInLaunch"],
+  categorise: ["addToFolder"],
 };
 
 /** Re-exported so this module stays the single import site for rule types —

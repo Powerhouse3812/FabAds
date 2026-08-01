@@ -1,20 +1,41 @@
 /**
- * CreativeDrawer — the right-side detail panel (handoff §5.2).
+ * CreativeDrawer — the creative detail overlay (handoff §5.2, redesigned per
+ * Maalik's two references: a 1100px centred overlay, not a 720px side sheet).
  * Opens/closes via the ?creative=:id URL param so it's shareable and the back
- * button works. Composes the section bands (preview, funnel, trend, fatigue,
- * component breakdown, script/elements, benchmarks, demographics,
- * where-it's-running, variants) with a sticky action bar.
+ * button works.
+ *
+ * Layout — hybrid of the two references Maalik gave:
+ *   Header      — name, bucket, brand·product meta line, the core action
+ *                 loop promoted up top (Ref A puts its primary actions in
+ *                 the header), close X.
+ *   Top zone    — 2 columns: ad preview (left) + real-fact metadata grid
+ *                 (right) — Ref A's ad-detail top.
+ *   KPI strip   — outcome numbers in one row with hairline dividers — Ref B.
+ *   Funnel      — the existing stage-by-stage funnel, kept full-width (6
+ *                 cells need the room; KpiStrip and FunnelStrip never repeat
+ *                 the same number — see each file's own header comment).
+ *   2-col rows  — existing bands paired side by side instead of stacked
+ *                 full-width — Ref B's chart-card rhythm.
+ *   Full-width  — RunningInTable (5-column table with 40-char campaign
+ *                 names — genuinely needs the room) and VariantsList (the
+ *                 merge/split dedup control deserves full attention, not a
+ *                 520px squeeze) stay full-width by design, not stacked here
+ *                 out of neglect.
+ *   Related     — the new bottom "similar ads" grid (Ref A's role), fed only
+ *                 by variants + dedup pair — no new data.
+ *
  * Sections are hairline-divided bands — never nested cards (one sub-container
- * level max).
+ * level max). The secondary action bar (Compare/Duplicate/Edit targeting/
+ * Pause) stays pinned at the bottom — see DrawerActionBar's own header
+ * comment for why the loop was split instead of duplicated.
  */
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { AdPreviewMock } from "@/creative-report/drawer/AdPreviewMock";
+import { MetadataGrid } from "@/creative-report/drawer/MetadataGrid";
+import { KpiStrip } from "@/creative-report/drawer/KpiStrip";
 import { FunnelStrip } from "@/creative-report/drawer/FunnelStrip";
 import { TrendChart } from "@/creative-report/drawer/TrendChart";
 import { FatiguePanel } from "@/creative-report/drawer/FatiguePanel";
@@ -23,37 +44,53 @@ import { ScriptElementsPanel } from "@/creative-report/drawer/ScriptElementsPane
 import { BenchmarkPanel } from "@/creative-report/drawer/BenchmarkPanel";
 import { DemographicsPanel } from "@/creative-report/drawer/DemographicsPanel";
 import { RunningInTable } from "@/creative-report/drawer/RunningInTable";
-import { SyncStatusPanel } from "@/creative-report/drawer/SyncStatusPanel";
 import { VariantsList } from "@/creative-report/drawer/VariantsList";
+import { RelatedCreativesGrid } from "@/creative-report/drawer/RelatedCreativesGrid";
 import { DrawerActionBar } from "@/creative-report/drawer/DrawerActionBar";
+import { FrameworkTeaserBand } from "@/creative-report/drawer/analysis/FrameworkTeaserBand";
+import { AnalysisTab } from "@/creative-report/drawer/analysis/AnalysisTab";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
-import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
 import { truncate, NAME_MAX } from "@/creative-report/lib/format";
 import { getBrand } from "@/mocks/shared/brands";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
 function Band({ children }: { children: React.ReactNode }) {
-  return <section className="border-b border-border px-4 py-4">{children}</section>;
+  return <section className="border-b border-border px-6 py-5">{children}</section>;
+}
+
+/** Two existing bands laid out side by side (Ref B's chart-card rhythm)
+ *  instead of each taking the full 1100px width on its own line. */
+function TwoCol({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
+      <div>{left}</div>
+      <div>{right}</div>
+    </div>
+  );
 }
 
 export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
   const a = useCreativeActions();
-  // Gate the sync Band here, not just inside SyncStatusPanel: `Band` renders a
-  // bordered `py-4` section, so gating only the child left v2 with an empty
-  // bordered strip on every drawer open.
-  const workflowsEnabled = useReportWorkflowsEnabled();
   const open = rollup !== null;
   const name = rollup ? truncate(rollup.creative.name, NAME_MAX) : { text: "", truncated: false };
+  // Controlled so FrameworkTeaserBand's "start analysis" shortcut can jump
+  // straight into the Analysis tab. Reset to Overview whenever a different
+  // creative opens, so the previous creative's tab choice never leaks in.
+  const [tab, setTab] = useState<"overview" | "analysis">("overview");
+  useEffect(() => {
+    setTab("overview");
+  }, [rollup?.creative.id]);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && a.closeDrawer()}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[720px]"
+    <Dialog open={open} onOpenChange={(o) => !o && a.closeDrawer()}>
+      <DialogContent
+        className="flex w-[calc(100%-2rem)] max-w-[1100px] flex-col gap-0 overflow-hidden p-0 sm:rounded-xl"
+        style={{ maxHeight: "min(880px, calc(100vh - 4rem))" }}
       >
         {rollup && (
           <>
-            <SheetHeader className="border-b border-border px-4 py-3">
+            {/* Header — identity + meta line + the core action loop, all up top (Ref A). */}
+            <div className="shrink-0 border-b border-border px-6 py-4 pr-14">
               <div className="flex items-center gap-2">
                 {rollup.bucket && <BucketChip bucket={rollup.bucket} size="xs" />}
                 <span className="text-xs text-muted-foreground">
@@ -62,64 +99,104 @@ export function CreativeDrawer({ rollup }: { rollup: CreativeRollup | null }) {
                     : rollup.creative.product}
                 </span>
               </div>
-              <SheetTitle
-                className="truncate text-left text-base"
+              <DialogTitle
+                className="mt-0.5 truncate text-lg font-semibold text-foreground"
                 title={name.truncated ? rollup.creative.name : undefined}
               >
                 {name.text}
-              </SheetTitle>
-            </SheetHeader>
-
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <Band>
-                <AdPreviewMock rollup={rollup} />
-              </Band>
-              <Band>
-                <FunnelStrip rollup={rollup} />
-              </Band>
-              <Band>
-                <TrendChart rollup={rollup} />
-              </Band>
-              <Band>
-                <FatiguePanel rollup={rollup} />
-              </Band>
-              <Band>
-                <ComponentBreakdown rollup={rollup} />
-              </Band>
-              <Band>
-                <ScriptElementsPanel rollup={rollup} />
-              </Band>
-              <Band>
-                <BenchmarkPanel rollup={rollup} />
-              </Band>
-              <Band>
-                <DemographicsPanel rollup={rollup} />
-              </Band>
-              <Band>
-                <RunningInTable
-                  rollup={rollup}
-                  onCompareContexts={() => a.compare([rollup.creative.id])}
-                />
-              </Band>
-              {/* Sits directly after RunningInTable on purpose: that band means
-                  "where this creative is currently RUNNING", this one means
-                  "where its asset has been PUSHED into an ad library". Adjacent
-                  so the distinction reads; conflating them would make both lie.
-                  Returns null outside v3. */}
-              {workflowsEnabled && (
-                <Band>
-                  <SyncStatusPanel rollup={rollup} />
-                </Band>
-              )}
-              <Band>
-                <VariantsList rollup={rollup} />
-              </Band>
+              </DialogTitle>
+              <div className="mt-3">
+                <DrawerActionBar rollup={rollup} slot="primary" />
+              </div>
             </div>
 
-            <DrawerActionBar rollup={rollup} />
+            <Tabs
+              value={tab}
+              onValueChange={(v) => setTab(v as "overview" | "analysis")}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <TabsList className="mx-6 mt-3 w-fit shrink-0">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+                {/* Top zone — ad preview (left) + real-fact metadata grid (right). Ref A. */}
+                <Band>
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
+                    <AdPreviewMock rollup={rollup} />
+                    <MetadataGrid rollup={rollup} />
+                  </div>
+                </Band>
+
+                {/* KPI strip — outcome numbers, hairline-divided. Ref B. */}
+                <Band>
+                  <KpiStrip rollup={rollup} />
+                </Band>
+
+                {/* Full-funnel detail — kept full-width; 6 stages need the room,
+                    and it shares no number with KpiStrip above. */}
+                <Band>
+                  <FunnelStrip rollup={rollup} />
+                </Band>
+
+                <Band>
+                  <TwoCol left={<TrendChart rollup={rollup} />} right={<FatiguePanel rollup={rollup} />} />
+                </Band>
+
+                <Band>
+                  <TwoCol
+                    left={<ComponentBreakdown rollup={rollup} />}
+                    right={<ScriptElementsPanel rollup={rollup} />}
+                  />
+                </Band>
+
+                <Band>
+                  <TwoCol
+                    left={<BenchmarkPanel rollup={rollup} />}
+                    right={<DemographicsPanel rollup={rollup} />}
+                  />
+                </Band>
+
+                {/* Full-width by design — a 5-column table with long campaign
+                    names would be crushed at ~520px. */}
+                <Band>
+                  <RunningInTable
+                    rollup={rollup}
+                    onCompareContexts={() => a.compare([rollup.creative.id])}
+                  />
+                </Band>
+
+                {/* Full-width by design — the merge/split dedup control is an
+                    action surface, not a stat card; it deserves full attention. */}
+                <Band>
+                  <VariantsList rollup={rollup} />
+                </Band>
+
+                <Band>
+                  <FrameworkTeaserBand rollup={rollup} onOpenAnalysis={() => setTab("analysis")} />
+                </Band>
+
+                {/* Bottom "similar ads" grid — Ref A's role, fed only by
+                    variants + the dedup pair already shown above. */}
+                <div className="px-6 py-5">
+                  <RelatedCreativesGrid rollup={rollup} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="analysis" className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                <AnalysisTab rollup={rollup} />
+              </TabsContent>
+            </Tabs>
+
+            {/* Secondary action bar — Compare / Duplicate / Edit targeting /
+                Pause. Slimmer and less frequent than the header's core loop. */}
+            <div className="shrink-0 border-t border-border bg-card/95 px-6 py-2.5 backdrop-blur">
+              <DrawerActionBar rollup={rollup} slot="secondary" />
+            </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

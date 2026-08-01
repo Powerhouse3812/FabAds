@@ -8,13 +8,21 @@
  * share that value with the script's hook/CTA lines, so their marker lives in
  * ScriptElementsPanel instead — showing it twice would be redundant).
  */
+import { useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
 import { ConfidenceChip, type ChipConfidence } from "@/creative-report/components/ConfidenceChip";
 import { WhyDot } from "@/creative-report/components/WhyDot";
+import { useCreativeData } from "@/creative-report/hooks/useCreativeData";
+import { fmtPct } from "@/creative-report/lib/format";
+import { median } from "@/creative-report/lib/stats";
 import type { ComponentKind } from "@/data/model";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 
-const HOOK_RATE_NORM = 28; // % — rough account-norm cutover for wording only.
+/** At least this many video creatives must carry a hook rate in the current
+ *  view before "above/below your median" means anything — a median of one
+ *  value is just that value, and comparing a creative to itself always reads
+ *  "below". Under this, the row states the raw rate and no comparison. */
+const MIN_PEERS_FOR_MEDIAN = 2;
 
 interface Row {
   kind: string;
@@ -35,7 +43,10 @@ function DropMarker() {
   );
 }
 
-function buildRows(rollup: CreativeRollup): Row[] {
+/** @param hookMedian real median hook rate across the video creatives in the
+ *  current filtered view, or null when there aren't enough of them to compare
+ *  against — in which case the row states the raw rate and stops there. */
+function buildRows(rollup: CreativeRollup, hookMedian: number | null): Row[] {
   const { creative, metrics, confidence } = rollup;
   const isVideo = creative.format === "video";
 
@@ -43,10 +54,12 @@ function buildRows(rollup: CreativeRollup): Row[] {
     ? "N/A — no video on this creative."
     : metrics.hookRate === null
       ? "Not enough video data yet to read a 3s-view rate."
-      : (() => {
-          const above = metrics.hookRate! > HOOK_RATE_NORM;
-          return `3s-view rate is ${metrics.hookRate!.toFixed(0)}% — ${above ? "above" : "below"} the account norm; the hook may be ${above ? "carrying" : "limiting"} the scroll-stop.`;
-        })();
+      : hookMedian === null
+        ? `3s-view rate is ${fmtPct(metrics.hookRate, 0)} — not enough other video creatives in the current view to compare it against a median yet.`
+        : (() => {
+            const above = metrics.hookRate! > hookMedian;
+            return `3s-view rate is ${fmtPct(metrics.hookRate!, 0)} — ${above ? "above" : "below"} your median of ${fmtPct(hookMedian, 0)} for the current view; the hook may be ${above ? "carrying" : "limiting"} the scroll-stop.`;
+          })();
 
   return [
     {
@@ -92,7 +105,18 @@ function buildRows(rollup: CreativeRollup): Row[] {
 const MARKED_HERE: readonly ComponentKind[] = ["headline", "primary-text", "visual-style"];
 
 export function ComponentBreakdown({ rollup }: { rollup: CreativeRollup }) {
-  const rows = buildRows(rollup);
+  // Real median hook rate across the video creatives in the CURRENT filtered
+  // view — same derivation VisualSummaryPanel's hook/hold read uses, so the
+  // two surfaces can never disagree. Never a hardcoded benchmark constant.
+  const { rollups: viewRollups } = useCreativeData();
+  const hookMedian = useMemo(() => {
+    const rates = viewRollups
+      .map((r) => r.metrics.hookRate)
+      .filter((v): v is number => v !== null);
+    return rates.length < MIN_PEERS_FOR_MEDIAN ? null : median(rates);
+  }, [viewRollups]);
+
+  const rows = buildRows(rollup, hookMedian);
   const drop = rollup.creative.likelyDropElement;
 
   return (

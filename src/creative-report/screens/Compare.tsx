@@ -7,8 +7,14 @@
  * "contexts" mode: the FIRST selected creative broken out one column per
  * platform it runs on — never summed across platforms (different attribution
  * windows), just shown side by side with a warning when it spans >1 platform.
+ *
+ * Element composer (replaces the standalone Brief Builder screen): once 2+
+ * creatives are being compared in "creatives" mode / cards view, each column
+ * can hand individual elements (hook, headline, CTA, media, …) to a bottom
+ * ComposerBar, which assembles a cross-creative set and sends it to Genie in
+ * one go — see components/composer/*.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,8 +27,22 @@ import { CompareBarChart } from "@/creative-report/components/CompareBarChart";
 import { CreativePicker } from "@/creative-report/components/CreativePicker";
 import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { StateMessage } from "@/creative-report/components/states/StateMessage";
+import { ComposerBar } from "@/creative-report/components/composer/ComposerBar";
+import {
+  useElementComposer,
+  type ElementComposer,
+} from "@/creative-report/components/composer/useElementComposer";
+import { buildGenieHandoffUrl } from "@/creative-report/components/composer/genieHandoff";
+import {
+  useAnalysisSnapshot,
+  deriveFrameworkStatus,
+  canRunAnalysis,
+  runAnalysis,
+} from "@/creative-report/components/composer/frameworkGate";
+import type { ColumnComposerProps } from "@/creative-report/components/composer/types";
 import { foldRows, type CreativeRollup } from "@/creative-report/lib/selectors";
 import { P, PLATFORM_LABELS, type Platform } from "@/creative-report/lib/paramSchema";
+import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
 import { ACCOUNT_BY_ID } from "@/data/accounts";
 import type { AdInstance, DailyRow } from "@/data/model";
 
@@ -106,7 +126,29 @@ export function Compare() {
   const data = useCreativeData();
   const { view, setParam } = useReportParams();
   const navigate = useNavigate();
+  const basePath = useReportBasePath();
   const [viewMode, setViewMode] = useState<ChartViewMode>("cards");
+  const composer = useElementComposer();
+
+  // Built once per data load — element picks need every creative's real
+  // metrics/thumbnail for the composer sheet, not just the ones currently
+  // selected for comparison (a picked creative can be removed from Compare
+  // without losing its already-picked elements).
+  const rollupsById = useMemo(() => {
+    const map = new Map<string, CreativeRollup>();
+    for (const r of data.status === "ready" ? data.rollups : []) map.set(r.creative.id, r);
+    return map;
+  }, [data]);
+  const angleIdByCreativeId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of data.status === "ready" ? data.rollups : [])
+      map.set(r.creative.id, r.creative.angleId);
+    return map;
+  }, [data]);
+
+  function handleSendToGenie() {
+    navigate(buildGenieHandoffUrl(composer.picks, basePath, angleIdByCreativeId));
+  }
 
   if (data.status === "loading") {
     return (
@@ -151,87 +193,101 @@ export function Compare() {
   const removeId = (id: string) => setIds(selectedIds.filter((x) => x !== id));
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Compare</h1>
-          <p className="text-sm text-muted-foreground">
-            Side-by-side creatives, or one creative across accounts and platforms.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
-            <button
-              type="button"
-              onClick={() => setParam(P.mode, null)}
-              className={cn(
-                "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
-                view.compareMode === "creatives"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Creatives
-            </button>
-            <button
-              type="button"
-              onClick={() => setParam(P.mode, "contexts")}
-              className={cn(
-                "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
-                view.compareMode === "contexts"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Across contexts
-            </button>
+    <div className="flex min-h-full flex-col p-6">
+      <div className="flex-1 space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">Compare</h1>
+            <p className="text-sm text-muted-foreground">
+              Side-by-side creatives, or one creative across accounts and platforms.
+            </p>
           </div>
-          <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
-            {(
-              [
-                { key: "cards", label: "Cards" },
-                { key: "line", label: "Line" },
-                { key: "bar", label: "Bar" },
-              ] as const
-            ).map((opt) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
               <button
-                key={opt.key}
                 type="button"
-                onClick={() => setViewMode(opt.key)}
+                onClick={() => setParam(P.mode, null)}
                 className={cn(
                   "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
-                  viewMode === opt.key
+                  view.compareMode === "creatives"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {opt.label}
+                Creatives
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setParam(P.mode, "contexts")}
+                className={cn(
+                  "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
+                  view.compareMode === "contexts"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Across contexts
+              </button>
+            </div>
+            <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
+              {(
+                [
+                  { key: "cards", label: "Cards" },
+                  { key: "line", label: "Line" },
+                  { key: "bar", label: "Bar" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setViewMode(opt.key)}
+                  className={cn(
+                    "rounded-[5px] px-3 py-1.5 text-[13px] font-medium transition-colors",
+                    viewMode === opt.key
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {view.compareMode === "creatives" ? (
+          <CreativesMode
+            rollups={data.rollups}
+            selected={selectedRollups}
+            selectedIds={selectedIds}
+            onAdd={addId}
+            onRemove={removeId}
+            viewMode={viewMode}
+            composer={composer}
+          />
+        ) : (
+          <ContextsMode
+            first={selectedRollups[0] ?? null}
+            rollups={data.rollups}
+            selectedIds={selectedIds}
+            onAdd={addId}
+            from={data.filterInput.from}
+            to={data.filterInput.to}
+            viewMode={viewMode}
+          />
+        )}
       </div>
 
-      {view.compareMode === "creatives" ? (
-        <CreativesMode
-          rollups={data.rollups}
-          selected={selectedRollups}
-          selectedIds={selectedIds}
-          onAdd={addId}
-          onRemove={removeId}
-          viewMode={viewMode}
-        />
-      ) : (
-        <ContextsMode
-          first={selectedRollups[0] ?? null}
-          rollups={data.rollups}
-          selectedIds={selectedIds}
-          onAdd={addId}
-          from={data.filterInput.from}
-          to={data.filterInput.to}
-          viewMode={viewMode}
-        />
-      )}
+      {/* Pick affordances only exist in creatives mode + cards view. The bar
+          hides itself when it's empty AND unactionable there; with picks it
+          stays so "Review & send" is never stranded (picks persist across
+          mode/view switches). */}
+      <ComposerBar
+        composer={composer}
+        rollupsById={rollupsById}
+        onSend={handleSendToGenie}
+        pickersAvailable={view.compareMode === "creatives" && viewMode === "cards"}
+      />
     </div>
   );
 }
@@ -243,6 +299,7 @@ function CreativesMode({
   onAdd,
   onRemove,
   viewMode,
+  composer,
 }: {
   rollups: CreativeRollup[];
   selected: CreativeRollup[];
@@ -250,8 +307,13 @@ function CreativesMode({
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
   viewMode: ChartViewMode;
+  composer: ElementComposer;
 }) {
   const canAddMore = selected.length < MAX_COMPARE;
+  // ONE useSyncExternalStore subscription regardless of how many creatives
+  // are selected (2-4) — per-creative status below is a pure derivation, not
+  // a hook, so it's safe to call per item in the .map().
+  const analysisSnapshot = useAnalysisSnapshot();
 
   if (viewMode !== "cards") {
     if (selected.length === 0) {
@@ -300,18 +362,34 @@ function CreativesMode({
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {selected.map((r) => (
-        <CompareColumn
-          key={r.creative.id}
-          title={r.creative.name}
-          subtitle={r.creative.product}
-          bucket={r.bucket}
-          creative={r.creative}
-          metrics={metricsFromFolded(r.metrics)}
-          series={r.series.map((p) => p.revenue)}
-          onRemove={() => onRemove(r.creative.id)}
-        />
-      ))}
+      {selected.map((r) => {
+        const frameworkStatus = deriveFrameworkStatus(analysisSnapshot, r.creative.id);
+        const folded = metricsFromFolded(r.metrics);
+        const composerSlot: ColumnComposerProps = {
+          picks: composer.picks,
+          frameworkStatus,
+          canRunAnalysis: canRunAnalysis(analysisSnapshot),
+          onPickText: (key, value) => composer.pickText(key, r.creative, value, folded),
+          onPickMedia: () => composer.pickMedia(r.creative, folded),
+          onPickFramework: () => composer.pickFramework(r.creative, folded),
+          onPickWholeAd: () =>
+            composer.pickWholeAd(r.creative, folded, frameworkStatus === "analysed"),
+          onRunAnalysis: () => runAnalysis(r.creative.id),
+        };
+        return (
+          <CompareColumn
+            key={r.creative.id}
+            title={r.creative.name}
+            subtitle={r.creative.product}
+            bucket={r.bucket}
+            creative={r.creative}
+            metrics={folded}
+            series={r.series.map((p) => p.revenue)}
+            onRemove={() => onRemove(r.creative.id)}
+            composerSlot={composerSlot}
+          />
+        );
+      })}
       {canAddMore && (
         <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-4 text-center">
           <p className="text-sm text-muted-foreground">
