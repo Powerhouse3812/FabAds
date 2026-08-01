@@ -22,6 +22,18 @@ export const automationsOwnerAnnotations: AnnotationSlice = {
       "Filter the in-memory rollup array with every condition ANDed together — pure client-side, no extra fetch. At scale, the same loop runs server-side over the cached rollup table on read.",
     backend: "read-time",
   },
+  "automations.rule.syncToAccounts": {
+    reason:
+      "Queues every creative this rule matches for a simulated upload to the Meta ad account libraries you pick — the second, independent action a categorise rule can take alongside (or instead of) filing into a folder.",
+    impact:
+      "Lets a rule keep an ad account's creative library topped up automatically instead of someone manually re-uploading winners into each account.",
+    whenToAct:
+      "Pick this when the goal is getting a creative INTO an account's library, not just organizing it in Creative Library — the two aren't the same action.",
+    importance: "high",
+    personas: ["Agency lead", "Performance marketer"],
+    howTo:
+      "Simulated — enqueues a (creative, account) pair in the local sync-history store with a deterministic fake upload duration; nothing is sent to the real Meta API. A pair already queued/running/done for that account (by this rule or any other) is skipped rather than re-uploaded.",
+  },
   "automations.rule.runNow": {
     reason:
       "Applies the rule's actions — file into a board, pause, or queue for relaunch — to every creative that currently matches. It's the only way a rule ever executes here.",

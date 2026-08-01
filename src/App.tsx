@@ -26,7 +26,11 @@ import Genie5AISetupPage from "@/pages/iq/Genie5AISetupPage";
 import { genie6Routes } from "@/genie6/routes";
 import { launch2Routes } from "@/launch2/routes";
 import { launchV2Routes } from "@/launchv2/routes";
-import { creativeReportRoutes, creativeReportV3Routes } from "@/creative-report/routes";
+// Creative Report 2.0 is a FROZEN fork (snapshot of b5f1cda) living in its own
+// directory so 3.0 work can never change it. The two versions are mounted side
+// by side here and share no screen components.
+import { creativeReportRoutes } from "@/creative-report-v2/routes";
+import { creativeReportV3Routes } from "@/creative-report/routes";
 import { GenieHandoffStub } from "@/creative-report/actions/GenieHandoffStub";
 import { dashboardVariantRoutes } from "@/dashboard-variants/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";

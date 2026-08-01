@@ -6,10 +6,18 @@
  * `@/hooks/use-cl-folders.ts`) — never the module's own synthetic `Board`
  * concept (that lives on unchanged in `automations/boards.ts`/`BoardsPanel.tsx`
  * as a separate, pre-existing, manual-only feature; this engine no longer
- * writes to it). The sync-to-ad-account action moved out of Creative Report
- * entirely (it belongs to Genie + Creative Library, not built yet). The
- * "launch" rule type (pause/queue-in-launch) is deprioritized for later —
- * removed from the live type union, not deleted from history.
+ * writes to it). The "launch" rule type (pause/queue-in-launch) is
+ * deprioritized for later — removed from the live type union, not deleted
+ * from history.
+ *
+ * RESTORED (Maalik, 2026-08-01): the sync-to-ad-account action is back —
+ * `SyncToAccountsAction` below — after briefly moving out of Creative Report
+ * entirely. This time it's rule-action-only, ONE consumer surface (the
+ * drawer's `SyncStatusPanel`, restored at
+ * `@/creative-report/drawer/SyncStatusPanel.tsx`) — the creative card badge,
+ * table column, and bulk-bar duplicate warning stay retired. Don't
+ * reintroduce those three just because the underlying `sync/syncStore.ts`
+ * data is available again; that's a deliberate scope line, not an oversight.
  *
  * Condition fields deliberately exclude the generator-internal `archetype`
  * signal (winner/fake-winner/steady/…) — that's an audit-only concept, never
@@ -100,11 +108,22 @@ export interface AddToFolderAction {
   folderName: string;
 }
 
-export type RuleAction = AddToFolderAction; // single member — AddToBoardAction, PauseAction,
-                                             // QueueInLaunchAction, SyncToAccountsAction all removed
+/** Sync matching creatives to one or more Meta ad account libraries.
+ *  Meta-only — `AccountPicker` filters non-Meta accounts out to disabled
+ *  "Soon" rows, so `accountIds` here should never contain a non-meta id, but
+ *  `rulesStore.isValidAction` still re-validates against `ACCOUNT_BY_ID` on
+ *  load rather than trusting the builder wrote it correctly. */
+export interface SyncToAccountsAction {
+  type: "syncToAccounts";
+  accountIds: string[];
+}
+
+export type RuleAction = AddToFolderAction | SyncToAccountsAction; // AddToBoardAction,
+                                                                    // PauseAction, QueueInLaunchAction
+                                                                    // still removed
 
 export const ACTIONS_BY_RULE_TYPE: Record<RuleType, RuleAction["type"][]> = {
-  categorise: ["addToFolder"],
+  categorise: ["addToFolder", "syncToAccounts"],
 };
 
 /** Re-exported so this module stays the single import site for rule types —

@@ -13,6 +13,7 @@
 import { ACTION_REGISTRY, type ActionApplyContext, type WorkflowActionDescriptor } from "@/creative-report/automations/actions/registry";
 import { isMetricField, type AutomationRule, type ConditionField, type RuleAction } from "@/creative-report/automations/model";
 import { recordRuleRun } from "@/creative-report/automations/rulesStore";
+import { recordRuleActivity, type RuleRunOutcomeItem } from "@/creative-report/automations/activityStore";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
 import type { MetricKey } from "@/creative-report/lib/columns";
 import type { Platform } from "@/creative-report/lib/paramSchema";
@@ -99,16 +100,28 @@ export function runRule(rule: AutomationRule, rollups: CreativeRollup[]): RunRul
   };
 
   // Applied-action labels, human-readable — never raw action-type identifiers.
-  const appliedLabels: string[] = [];
-  const skippedReasons: string[] = [];
+  const appliedLabels: RuleRunOutcomeItem[] = [];
+  const skippedReasons: RuleRunOutcomeItem[] = [];
 
   for (const action of rule.actions) {
     const result = applyAction(action, ctx);
-    if (result.appliedLabel) appliedLabels.push(result.appliedLabel);
-    if (result.skippedReason) skippedReasons.push(result.skippedReason);
+    // Tag each result with the action it came from — a rule may hold both
+    // addToFolder and syncToAccounts, and the activity log must not
+    // attribute a sync row to the folder action.
+    if (result.appliedLabel)
+      appliedLabels.push({ actionType: action.type, text: result.appliedLabel });
+    if (result.skippedReason)
+      skippedReasons.push({ actionType: action.type, text: result.skippedReason });
   }
 
   recordRuleRun(rule.id, matched.length);
+  recordRuleActivity({
+    rule,
+    matched,
+    outcome: { labels: appliedLabels, skipReasons: skippedReasons },
+    source: "manual",
+    at: ctx.at,
+  });
 
   const n = matched.length;
   const plural = n === 1 ? "creative" : "creatives";
@@ -116,10 +129,10 @@ export function runRule(rule: AutomationRule, rollups: CreativeRollup[]): RunRul
   if (n === 0) {
     summary = "No creatives matched — nothing to do.";
   } else if (appliedLabels.length === 0 && skippedReasons.length > 0) {
-    summary = `${n} ${plural} matched, but ${skippedReasons.join(" and ")}. Edit the rule to fix it.`;
+    summary = `${n} ${plural} matched, but ${skippedReasons.map((r) => r.text).join(" and ")}. Edit the rule to fix it.`;
   } else {
-    summary = `${n} ${plural} matched and ${appliedLabels.join(" and ")} (simulated).`;
-    if (skippedReasons.length > 0) summary += ` ${skippedReasons.join(" ")}`;
+    summary = `${n} ${plural} matched and ${appliedLabels.map((l) => l.text).join(" and ")} (simulated).`;
+    if (skippedReasons.length > 0) summary += ` ${skippedReasons.map((r) => r.text).join(" ")}`;
   }
 
   return { matched, summary };

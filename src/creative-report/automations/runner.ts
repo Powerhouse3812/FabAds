@@ -22,13 +22,13 @@
  * NO `Math.random`. Every outcome is a deterministic function of the dataset,
  * the rules, and the fire marks.
  *
- * There is no more upload queue to advance (the sync-to-ad-account feature
- * moved out of Creative Report entirely — see model.ts's header). This
- * runner's job is now just the ~10s evaluation pass: edge-triggered fire
- * marks, apply via registry. The underlying `@/workflows/core` clock
- * infrastructure (`WORKFLOW_TICK_MS`, `registerWorkflowRunner`) is left as-is
- * — it's still useful generic seam infrastructure for the future
- * `/automation` module.
+ * RESTORED (Maalik, 2026-08-01): `syncToAccounts` is back as a rule action,
+ * so this file's `onTick` once again advances the simulated upload queue
+ * every tick via `sync/syncStore.ts`'s `advanceQueue` — cheap; the store
+ * early-outs and returns false when nothing is in flight. That's a SEPARATE
+ * decision from the ~10s evaluation pass below (WHEN rules re-evaluate):
+ * a queued sync record needs to progress toward "done" every tick regardless
+ * of whether any rule condition just changed.
  *
  * v3-ONLY: `useWorkflowRunner(enabled)` is mounted once from
  * `CreativeReportLayout` with `enabled` gated on the v3 base path, so
@@ -49,6 +49,8 @@ import {
   type WorkflowActionDescriptor,
 } from "@/creative-report/automations/actions/registry";
 import { firedFor, markFired, unmarkFired } from "@/creative-report/automations/fireLedger";
+import { recordRuleActivity, type RuleRunOutcomeItem } from "@/creative-report/automations/activityStore";
+import { advanceQueue } from "@/creative-report/automations/sync/syncStore";
 import { toast } from "@/hooks/use-toast";
 
 const RUNNER_ID = "creative-report-automations";
@@ -67,9 +69,9 @@ export const EVALUATION_INTERVAL_MS = EVAL_EVERY_N_TICKS * WORKFLOW_TICK_MS;
 
 interface RuleOutcome {
   /** Past-tense labels straight from the registry, e.g. `filed into "Winners"`. */
-  labels: string[];
+  labels: RuleRunOutcomeItem[];
   /** Honest reasons an action applied nothing, straight from the registry. */
-  skipReasons: string[];
+  skipReasons: RuleRunOutcomeItem[];
   /** True when at least one action returned a result of either kind. */
   processed: boolean;
 }
@@ -88,8 +90,8 @@ function descriptorFor(type: RuleAction["type"]): WorkflowActionDescriptor<RuleA
 }
 
 function applyActions(rule: AutomationRule, subjectIds: string[], at: string): RuleOutcome {
-  const labels: string[] = [];
-  const skipReasons: string[] = [];
+  const labels: RuleRunOutcomeItem[] = [];
+  const skipReasons: RuleRunOutcomeItem[] = [];
   let processed = false;
 
   for (const action of rule.actions) {
@@ -118,10 +120,10 @@ function applyActions(rule: AutomationRule, subjectIds: string[], at: string): R
     });
 
     if (result.appliedLabel) {
-      labels.push(result.appliedLabel);
+      labels.push({ actionType: action.type, text: result.appliedLabel });
       processed = true;
     } else if (result.skippedReason) {
-      skipReasons.push(result.skippedReason);
+      skipReasons.push({ actionType: action.type, text: result.skippedReason });
       processed = true;
     }
   }
@@ -141,13 +143,15 @@ function applyActions(rule: AutomationRule, subjectIds: string[], at: string): R
  * deliberately returns labels *without* that suffix so it is appended exactly
  * once, here.
  *
- * With a single action type (`addToFolder`, which never returns a
- * `skippedReason` — see registry.ts), the common case is simply:
- * "N creatives matched and filed into 'X' (simulated)."
+ * `addToFolder` never returns a `skippedReason` (see registry.ts), so the
+ * common case there is simply "N creatives matched and filed into 'X'
+ * (simulated)." `syncToAccounts` can return one — e.g. every matching
+ * creative was already synced to the picked accounts — which is why
+ * `skipped` is still joined in below even though it was long a no-op.
  */
 function announce(rule: AutomationRule, count: number, outcome: RuleOutcome): void {
   const plural = count === 1 ? "creative" : "creatives";
-  const skipped = outcome.skipReasons.join("; ");
+  const skipped = outcome.skipReasons.map((r) => r.text).join("; ");
 
   if (outcome.labels.length === 0) {
     toast({
@@ -157,7 +161,7 @@ function announce(rule: AutomationRule, count: number, outcome: RuleOutcome): vo
     return;
   }
 
-  let description = `${count} new ${plural} matched and ${outcome.labels.join(" and ")} (simulated).`;
+  let description = `${count} new ${plural} matched and ${outcome.labels.map((l) => l.text).join(" and ")} (simulated).`;
   if (skipped) description += ` Skipped: ${skipped}.`;
   toast({ title: rule.name, description });
 }
@@ -226,6 +230,13 @@ function evaluateOneRule(rule: AutomationRule, at: string): void {
   // prevent. The user gets one honest toast naming what to fix.
   markFired(rule.id, newlyMatchedIds);
   recordRuleRun(rule.id, matched.length);
+  recordRuleActivity({
+    rule,
+    matched: matched.filter((r) => newlyMatchedIds.includes(r.creative.id)),
+    outcome: { labels: outcome.labels, skipReasons: outcome.skipReasons },
+    source: "auto",
+    at,
+  });
   announce(rule, newlyMatchedIds.length, outcome);
 }
 
@@ -267,8 +278,11 @@ function runEvaluationPass(now: Date): void {
 let tickCount = 0;
 
 function onTick(now: Date): void {
-  // No more per-tick queue advancement — there is no upload queue anymore.
-  // This runner's only job now is the ~10s evaluation pass below.
+  // Every tick: move the simulated sync upload queue forward. Cheap — the
+  // store early-outs and returns false when nothing is in flight. This is
+  // independent of the ~10s evaluation pass below.
+  advanceQueue(now.getTime());
+
   tickCount += 1;
   if (tickCount >= EVAL_EVERY_N_TICKS) {
     tickCount = 0;
