@@ -316,9 +316,6 @@ export function PageSplitErrorModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div
         className="w-full max-w-[460px] flex flex-col rounded-2xl bg-[#FAFAF7] dark:bg-[#18181B] shadow-2xl overflow-hidden"

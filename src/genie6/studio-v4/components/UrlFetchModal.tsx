@@ -32,10 +32,7 @@ export function UrlFetchModal({ product, brand, onSave, onCancel }: UrlFetchModa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-background/70 backdrop-blur-sm"
-        onClick={onCancel}
-      />
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
 
       {/* Modal */}
       <div className="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl max-h-[85vh]">

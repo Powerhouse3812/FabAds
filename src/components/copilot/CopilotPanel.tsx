@@ -15,12 +15,11 @@ export function CopilotPanel() {
 
   return (
     <>
-      {/* Backdrop for overlay mode (non-pinned) */}
+      {/* Backdrop for overlay mode (non-pinned). Dimming only — dismissal
+          requires the explicit close (X) button in the header; outside
+          clicks must never close an overlay. */}
       {!isPinned && (
-        <div
-          className="fixed inset-0 bg-black/20 z-40 lg:hidden"
-          onClick={close}
-        />
+        <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
       )}
 
       <div

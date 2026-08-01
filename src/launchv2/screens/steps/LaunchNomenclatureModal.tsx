@@ -10,7 +10,7 @@
  * Storage key: "fabads.launch.nomenclature"
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -210,7 +210,6 @@ export default function LaunchNomenclatureModal({ open, onClose }: Props) {
   const [settings, setSettings] = useState<NomenclatureSettings>(() =>
     loadNomenclatureSettings()
   );
-  const backdropRef = useRef<HTMLDivElement>(null);
 
   // Re-load from storage each time modal opens so local state is fresh
   useEffect(() => {
@@ -228,13 +227,6 @@ export default function LaunchNomenclatureModal({ open, onClose }: Props) {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [open, onClose]);
-
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target === backdropRef.current) onClose();
-    },
-    [onClose]
-  );
 
   const set = useCallback(
     <K extends keyof NomenclatureSettings>(
@@ -265,8 +257,6 @@ export default function LaunchNomenclatureModal({ open, onClose }: Props) {
 
   return (
     <div
-      ref={backdropRef}
-      onClick={handleBackdropClick}
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{
         backgroundColor: "rgba(0,0,0,0.7)",

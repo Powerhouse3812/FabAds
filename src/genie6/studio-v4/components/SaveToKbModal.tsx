@@ -57,15 +57,11 @@ export function SaveToKbModal({ sourceLabel, onClose, onSave }: SaveToKbModalPro
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 p-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-labelledby="save-to-kb-title"
         className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-border/40 px-4 py-3">
