@@ -41,14 +41,17 @@ const TONE_ICON_STYLE: Record<RecommendationTone, string> = {
 };
 
 // Routes for recommendations that don't carry a `bucket` (so there's no tab
-// to switch to). Kept as one explicit map rather than inline branching —
-// the only id in this state today is the brand-gap recommendation, which
-// points at the owner report's per-brand rollups.
+// to switch to). Kept as one explicit map rather than inline branching.
 // Values are RELATIVE to the active version's base path (see
 // useReportBasePath) so a recommendation clicked on 3.0 does not jump to 2.0.
-const FALLBACK_ROUTE: Partial<Record<string, string>> = {
-  "rec.brandGap": "/owner-report",
-};
+//
+// Currently EMPTY: the only entry was "rec.brandGap" → "/owner-report", and
+// that screen is retired — its per-brand rollups now render as
+// OverviewBreakdown on this very same Overview screen, so there is nowhere
+// to navigate to. A recommendation with no resolvable destination renders
+// without an action button (see canAct below) rather than shipping a button
+// that 404s or silently does nothing.
+const FALLBACK_ROUTE: Partial<Record<string, string>> = {};
 
 export function RecommendationsCard({
   rollups,
@@ -97,14 +100,19 @@ export function RecommendationsCard({
                 <p className="min-w-0 flex-1 font-mono text-xs tabular-nums text-foreground">
                   {rec.text}
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 px-2.5 text-xs"
-                  onClick={() => handleAction(rec)}
-                >
-                  {rec.actionLabel}
-                </Button>
+                {/* Only render the action when it actually resolves to
+                    somewhere — a bucket tab to switch to, or a live route.
+                    Never ship a button that 404s or no-ops. */}
+                {(rec.bucket || FALLBACK_ROUTE[rec.id]) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 shrink-0 px-2.5 text-xs"
+                    onClick={() => handleAction(rec)}
+                  >
+                    {rec.actionLabel}
+                  </Button>
+                )}
               </div>
             );
           })}

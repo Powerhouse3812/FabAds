@@ -62,34 +62,6 @@ export const automationsOwnerAnnotations: AnnotationSlice = {
       "Compose the message from the same cached rollup aggregates a nightly job would already maintain — no per-send computation. This prototype has no real cron or email/Slack integration: nothing is ever actually sent.",
     backend: "batch-rollup",
   },
-  "owner.byBrand": {
-    reason:
-      "Groups every filtered creative's daily rows by Catalogue brand, then folds — sums first, recomputes ratios after — to one row per brand. Ratios are never averaged per-creative and re-averaged.",
-    impact:
-      "Lets an agency lead see which brand is winning or burning budget without opening each creative individually.",
-    whenToAct:
-      "Watch for a brand's ROAS or CPA diverging from the portfolio KPIs above — that's the trigger to drill into its creatives.",
-    importance: "high",
-    personas: ["Agency lead", "Brand manager"],
-    provenance: "ours-only",
-    howTo:
-      "A nightly job aggregates daily rows by brand and caches the folded totals; this table reads that cache instead of summing rows live on every page load.",
-    backend: "batch-rollup",
-  },
-  "owner.byAccount": {
-    reason:
-      "Groups the same filtered rows by ad account instead of brand, and deliberately never sums across accounts — different accounts can carry different attribution windows, so combining them would misstate ROAS.",
-    impact:
-      "Shows which ad account is actually spending and converting, one account at a time, never blended with another.",
-    whenToAct:
-      "Compare an account's ROAS against its own history, not against another account's number in the row below it.",
-    importance: "medium",
-    personas: ["Agency lead", "Performance marketer"],
-    provenance: "ours-only",
-    howTo:
-      "Same nightly aggregation as the by-brand table, grouped by account id instead — cached, not recomputed per page view.",
-    backend: "batch-rollup",
-  },
   "owner.velocity": {
     reason:
       "Counts creatives by the week their creation date falls in, across the current filter — a proxy for how much new testing is happening, not a performance metric.",
@@ -103,18 +75,6 @@ export const automationsOwnerAnnotations: AnnotationSlice = {
     howTo:
       "A nightly job buckets creative creation dates into ISO weeks and caches the counts — the same rollup pass that produces the brand/account tables.",
     backend: "batch-rollup",
-  },
-  "owner.export": {
-    reason:
-      "Bundles the brand, account, and velocity sections you pick into a report snapshot for handoff. It configures an export payload — it never changes what's rendered on the screen behind it.",
-    impact:
-      "Whatever you configure (brands, sections, date range) is only a preview payload; there's no file to attach or send afterward.",
-    whenToAct:
-      "Use it to agree on report scope with a client or teammate, not to actually generate a deliverable yet.",
-    importance: "medium",
-    personas: ["Agency lead", "Brand manager"],
-    howTo:
-      "Simulated — confirms the configuration with a toast. This prototype has no real PDF/CSV pipeline and produces no file or email.",
   },
   "action.duplicate": {
     reason:

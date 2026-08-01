@@ -11,7 +11,7 @@
  * Everything OUTSIDE Overview is IDENTICAL between the two — the same
  * component instances, the same data layer, the same URL-param contract. The
  * shared screens are deliberately not forked: a fix to Creatives/Compare/
- * Automations/Owner report/Brief builder/Saved views lands on both versions
+ * Automations lands on both versions
  * at once. The only per-version input is the `basePath` handed to
  * CreativeReportLayout, which publishes it via ReportBasePathContext so every
  * internal link (sub-nav handoffs, "View all in grid", recommendation
@@ -30,9 +30,6 @@
  *   <base>/components  → Components report (hooks/headlines/CTAs)
  *   <base>/compare     → Compare (creatives or contexts)
  *   <base>/automations → Automations (rules, boards, digest)
- *   <base>/owner-report → Owner report (spend/revenue rollups)
- *   <base>/brief-builder → Brief builder (reference-first blocks)
- *   <base>/views       → Saved views
  */
 import { Route } from "react-router-dom";
 import { CreativeReportLayout } from "./CreativeReportLayout";
@@ -42,9 +39,6 @@ import { Creatives } from "./screens/Creatives";
 import { ComponentsReport } from "./screens/Components";
 import { Compare } from "./screens/Compare";
 import { Automations } from "./screens/Automations";
-import { OwnerReport } from "./screens/OwnerReport";
-import { BriefBuilder } from "./screens/BriefBuilder";
-import { SavedViews } from "./screens/SavedViews";
 import {
   CREATIVE_REPORT_V2_BASE,
   CREATIVE_REPORT_V3_BASE,
@@ -58,9 +52,6 @@ const sharedChildren = (
     <Route path="components" element={<ComponentsReport />} />
     <Route path="compare" element={<Compare />} />
     <Route path="automations" element={<Automations />} />
-    <Route path="owner-report" element={<OwnerReport />} />
-    <Route path="brief-builder" element={<BriefBuilder />} />
-    <Route path="views" element={<SavedViews />} />
   </>
 );
 

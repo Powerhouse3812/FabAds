@@ -6,6 +6,64 @@
 import type { AnnotationSlice } from "@/creative-report/annotations/types";
 
 export const drawerAnnotations: AnnotationSlice = {
+  // ── KpiStrip ─────────────────────────────────────────────────────────────
+  "drawer.kpi.spend": {
+    reason:
+      "Spend is Meta's raw cost field, summed as-is across this creative's own daily rows for the filtered window — no derivation. The trend beside it is last 7 days vs the prior 7 (spendTrendPct), not shown anywhere else in the drawer.",
+    impact:
+      "The denominator behind every efficiency read in FunnelStrip below (CPM/CPA/ROAS) — a spend swing here explains a lot of what moves those numbers.",
+    whenToAct:
+      "Trend swinging sharply → confirm it's a deliberate budget change before reading anything else in the drawer as a performance shift.",
+    importance: "medium",
+    personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
+    provenance: "meta-direct",
+    howTo:
+      "Sum the spend daily-row field over the filtered window for this creative's instances; the trend folds the last 7 days against the prior 7 from the same stored daily rows.",
+    backend: "daily-series",
+  },
+  "drawer.kpi.revenue": {
+    reason:
+      "Revenue is Meta's raw purchase-value field, summed the same way as spend across this creative's daily rows — no derivation, and no trend is shown for it here.",
+    impact:
+      "Paired with Spend it's what FunnelStrip's ROAS is built from below — read the two together, not this number alone.",
+    whenToAct:
+      "Revenue flat while spend climbs → check FunnelStrip's ROAS/CPA before assuming the creative itself is the problem.",
+    importance: "medium",
+    personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
+    provenance: "meta-direct",
+    howTo:
+      "Sum the revenue daily-row field over the filtered window for this creative's instances — a plain read-time aggregate, nothing recomputed.",
+    backend: "read-time",
+  },
+  "drawer.kpi.purchases": {
+    reason:
+      "Purchases is Meta's raw conversion count, summed over this creative's filtered window — no derivation, and no trend is shown for it here.",
+    impact:
+      "The sample size behind FunnelStrip's CPA/CVR below — a low count is the reason to read those as directional, not precise.",
+    whenToAct:
+      "CPA or ROAS below looks surprising → check this count before trusting the ratio.",
+    importance: "low",
+    personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
+    provenance: "meta-direct",
+    howTo:
+      "Sum the purchases daily-row field over the filtered window for this creative's instances — a plain read-time aggregate, nothing recomputed.",
+    backend: "read-time",
+  },
+  "drawer.kpi.impressions": {
+    reason:
+      "Impressions is Meta's raw delivery count, summed over this creative's filtered window — no derivation, and no trend is shown for it here.",
+    impact:
+      "The reach behind Hook rate above (video3s ÷ impressions) and CPM in FunnelStrip below — read it alongside those, not alone.",
+    whenToAct:
+      "Impressions climbing while Hook rate/CTR hold flat is healthy scale; impressions climbing while they soften is the fatigue tell the Fatigue verdict above flags.",
+    importance: "low",
+    personas: ["Solo creator", "Agency lead", "Performance marketer", "Brand manager"],
+    provenance: "meta-direct",
+    howTo:
+      "Sum the impressions daily-row field over the filtered window for this creative's instances — a plain read-time aggregate, nothing recomputed.",
+    backend: "read-time",
+  },
+
   "drawer.fatigue.verdict": {
     reason:
       "Rule-based flag, not a Meta field. Fires when 14-day CTR is down ≥15%, or 7-day frequency exceeds the threshold, or hook-rate is falling — whichever trips first.",
@@ -140,16 +198,16 @@ export const drawerAnnotations: AnnotationSlice = {
   },
   "drawer.components.hookSignal": {
     reason:
-      "Hook rate (video3s ÷ impressions, Meta-derived) is compared against a fixed account-norm constant (28%) to phrase the hook row's hypothesis — the threshold itself is ours, the underlying rate is Meta's.",
+      "Hook rate (video3s ÷ impressions, Meta-derived) is compared against the real median hook rate of the video creatives in your current filtered view — not an invented benchmark. Both sides of the comparison are your own Meta data; the only thing that's ours is the choice of median as the reference point.",
     impact:
-      "Flags whether the opening 3 seconds is likely carrying or capping the scroll-stop, before CTR/CVR fully confirm it.",
+      "Flags whether the opening 3 seconds is likely carrying or capping the scroll-stop, before CTR/CVR fully confirm it — and because the reference moves with your filters, the read stays true to whatever slice you're looking at.",
     whenToAct:
-      "Hook rate meaningfully below the norm with CTR also soft → the hook is the first thing to test, not the offer.",
+      "Hook rate meaningfully below your median with CTR also soft → the hook is the first thing to test, not the offer. Widen the filters first if the view holds only a handful of videos.",
     importance: "medium",
     personas: ["Performance marketer"],
     provenance: "derived-from-meta",
     howTo:
-      "hookRate = sum(video3s views) ÷ sum(impressions) from the folded window, then a fixed-constant comparison — both read-time; the norm constant should move to a config table before this ships broadly.",
+      "hookRate = sum(video3s views) ÷ sum(impressions) from the folded window; the reference is the true median (mean of the two centre values on an even list) of that same rate across every video creative in the current filtered view. Fewer than two such creatives → no median exists, so the row states the raw rate and drops the comparison rather than inventing one. All read-time over the already-folded rows.",
     backend: "read-time",
   },
 

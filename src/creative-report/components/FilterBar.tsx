@@ -6,7 +6,7 @@
  * stays the single source of truth.
  */
 import * as React from "react";
-import { Calendar as CalendarIcon, Search, X } from "lucide-react";
+import { Calendar as CalendarIcon, Search, SlidersHorizontal, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,8 @@ import {
 } from "@/creative-report/lib/paramSchema";
 import { useReportParams } from "@/creative-report/hooks/useReportParams";
 import { AddFilterPopover } from "@/creative-report/components/AddFilterPopover";
+import { SavedFiltersModal } from "@/creative-report/components/SavedFiltersModal";
+import { useSavedFilters } from "@/creative-report/hooks/useSavedFilters";
 
 const DATE_PRESETS = [
   { label: "Last 7 days", days: 7 },
@@ -87,6 +89,8 @@ export function FilterBar({
 }) {
   const { filters, view, setParam, setParams, toggleCsvValue, clearFilters, activeFilterCount } =
     useReportParams();
+  const { filterSets } = useSavedFilters();
+  const [savedFiltersOpen, setSavedFiltersOpen] = React.useState(false);
 
   const brandIds = React.useMemo(() => {
     const dataset = getDataset();
@@ -106,6 +110,30 @@ export function FilterBar({
           className="h-8 w-56 pl-8 text-[13px]"
         />
       </div>
+
+      {/* Saved filters — opens a modal (save current / apply / manage).
+          Badge shows the count so the feature is discoverable, not a
+          mystery icon (per Maalik: same tab, modal, next to search). */}
+      <div className="relative">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setSavedFiltersOpen(true)}
+          aria-label="Saved filters"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
+        {filterSets.length > 0 && (
+          <Badge
+            variant="secondary"
+            className="pointer-events-none absolute -right-1.5 -top-1.5 h-4 min-w-[16px] justify-center rounded-full px-1 text-[10px] leading-none"
+          >
+            {filterSets.length}
+          </Badge>
+        )}
+      </div>
+      <SavedFiltersModal open={savedFiltersOpen} onOpenChange={setSavedFiltersOpen} />
 
       {/* Date range */}
       <Popover>

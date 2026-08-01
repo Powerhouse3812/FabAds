@@ -4,6 +4,14 @@
  * Works for both "creatives" mode (whole-rollup metrics) and "contexts" mode
  * (per-platform slice of a single creative). Props are the shared surface —
  * no fetching/folding happens here, callers pass already-folded numbers.
+ *
+ * Element picking (cross-creative composer, replacing Brief Builder): when a
+ * caller passes both `creative` and `composerSlot`, an "Use from this
+ * creative" row renders below the sparkline. Purely presentational — every
+ * chip click calls back into `composerSlot`, whose actual state lives in
+ * Compare.tsx's useElementComposer instance. Contexts mode never passes
+ * `creative`, so its per-platform columns never grow the picker (a single
+ * creative broken out by platform has nothing distinct to pick per column).
  */
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,6 +19,8 @@ import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { BucketChip } from "@/creative-report/components/BucketChip";
 import { Sparkline } from "@/creative-report/components/Sparkline";
 import { WhyDot } from "@/creative-report/components/WhyDot";
+import { ElementPickerRow } from "@/creative-report/components/composer/ElementPickerRow";
+import type { ColumnComposerProps } from "@/creative-report/components/composer/types";
 import {
   fmtCurrency,
   fmtMultiple,
@@ -72,6 +82,7 @@ export function CompareColumn({
   onRemove,
   attributionNote,
   className,
+  composerSlot,
 }: {
   title: string;
   subtitle?: string;
@@ -82,6 +93,9 @@ export function CompareColumn({
   onRemove?: () => void;
   attributionNote?: string;
   className?: string;
+  /** Element-composer wiring — omit to render the column with no picker
+   *  (contexts mode, or any future caller that doesn't need it). */
+  composerSlot?: ColumnComposerProps;
 }) {
   const { text: titleText, truncated } = truncate(title, NAME_MAX);
   const rows = buildRows(metrics);
@@ -149,6 +163,14 @@ export function CompareColumn({
 
       {attributionNote && (
         <p className="mt-2 text-xs text-muted-foreground">{attributionNote}</p>
+      )}
+
+      {creative && composerSlot && (
+        <ElementPickerRow
+          creative={creative}
+          metrics={{ roas: metrics.roas, spend: metrics.spend }}
+          composer={composerSlot}
+        />
       )}
     </div>
   );

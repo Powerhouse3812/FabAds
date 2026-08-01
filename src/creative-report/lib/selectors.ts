@@ -20,7 +20,6 @@ import type { BucketKey, ComponentTab } from "@/creative-report/lib/paramSchema"
 import { getBrand } from "@/mocks/shared/brands";
 import { getCategory } from "@/mocks/shared/categories";
 import { getProduct } from "@/mocks/shared/products";
-import { ACCOUNT_BY_ID } from "@/data/accounts";
 import { DEFAULT_THRESHOLDS, type BucketThresholds } from "@/creative-report/lib/thresholds";
 
 /* ------------------------------------------------------------------ */
@@ -767,95 +766,10 @@ export function aggregatePortfolioSeries(rollups: CreativeRollup[]): PortfolioSe
 }
 
 /* ------------------------------------------------------------------ */
-/*  P5 — owner rollups (by brand / by account) + testing velocity +    */
-/*  per-creative demographic split. All folded from real daily[] rows  */
-/*  (never averaged, never fabricated) — same cardinal rule as above.  */
+/*  P5 — testing velocity + per-creative demographic split. All folded  */
+/*  from real daily[] rows (never averaged, never fabricated) — same    */
+/*  cardinal rule as above.                                             */
 /* ------------------------------------------------------------------ */
-
-export interface BrandRollup {
-  brandId: string;
-  brandName: string;
-  metrics: FoldedMetrics;
-  creativeCount: number;
-}
-
-/** Portfolio spend/revenue/ROAS folded per brand — the Owner Report's
- *  by-brand breakdown. Creatives with no Catalogue brand link are excluded
- *  (honestly — there's nothing to group them under, not silently bucketed
- *  into an "Unknown" row that would imply a real classification). */
-export function brandRollups(rollups: CreativeRollup[]): BrandRollup[] {
-  // allVideo (not anyVideo): a group-level hook/hold rate is only honest when
-  // EVERY creative in the group is video — otherwise static creatives'
-  // impressions would silently dilute the denominator.
-  const byBrand = new Map<string, { rows: DailyRow[]; allVideo: boolean; creativeIds: Set<string> }>();
-  for (const r of rollups) {
-    const brandId = r.creative.brandId;
-    if (!brandId) continue;
-    let entry = byBrand.get(brandId);
-    if (!entry) {
-      entry = { rows: [], allVideo: true, creativeIds: new Set() };
-      byBrand.set(brandId, entry);
-    }
-    // Clip to the rollup's own filter window — these rows must describe the
-    // SAME period as the KPI cards rendered next to them, never full history.
-    for (const inst of r.instances) entry.rows.push(...rowsInWindow(inst, r.window.from, r.window.to));
-    if (r.creative.format !== "video") entry.allVideo = false;
-    entry.creativeIds.add(r.creative.id);
-  }
-  const out: BrandRollup[] = [];
-  for (const [brandId, entry] of byBrand) {
-    out.push({
-      brandId,
-      brandName: getBrand(brandId)?.name ?? brandId,
-      metrics: foldRows(entry.rows, entry.allVideo),
-      creativeCount: entry.creativeIds.size,
-    });
-  }
-  return out.sort((a, b) => b.metrics.spend - a.metrics.spend);
-}
-
-export interface AccountRollup {
-  accountId: string;
-  accountName: string;
-  platform: Platform;
-  metrics: FoldedMetrics;
-  creativeCount: number;
-}
-
-/** Portfolio spend/revenue/ROAS folded per ad account — cross-account
- *  intelligence (e.g. the same brand's Meta vs TikTok account). Never sums
- *  ACROSS accounts into one number here — each row is one account's own
- *  folded metrics, side by side. */
-export function accountRollups(rollups: CreativeRollup[]): AccountRollup[] {
-  const byAccount = new Map<
-    string,
-    { rows: DailyRow[]; allVideo: boolean; creativeIds: Set<string>; platform: Platform }
-  >();
-  for (const r of rollups) {
-    for (const inst of r.instances) {
-      let entry = byAccount.get(inst.accountId);
-      if (!entry) {
-        entry = { rows: [], allVideo: true, creativeIds: new Set(), platform: inst.platform };
-        byAccount.set(inst.accountId, entry);
-      }
-      // Same-window clipping as brandRollups (see comment there).
-      entry.rows.push(...rowsInWindow(inst, r.window.from, r.window.to));
-      if (r.creative.format !== "video") entry.allVideo = false;
-      entry.creativeIds.add(r.creative.id);
-    }
-  }
-  const out: AccountRollup[] = [];
-  for (const [accountId, entry] of byAccount) {
-    out.push({
-      accountId,
-      accountName: ACCOUNT_BY_ID[accountId]?.name ?? accountId,
-      platform: entry.platform,
-      metrics: foldRows(entry.rows, entry.allVideo),
-      creativeCount: entry.creativeIds.size,
-    });
-  }
-  return out.sort((a, b) => b.metrics.spend - a.metrics.spend);
-}
 
 export interface VelocityPoint {
   /** Monday of the week, yyyy-MM-dd. */
@@ -966,10 +880,11 @@ const DIMENSION_LABEL: Record<BreakdownDimension, (id: string) => string> = {
 };
 
 /** Folds the filtered creatives by a Catalogue dimension — same sums-then-
- *  recompute discipline as brandRollups, and the same honest exclusion: a
- *  creative with no link on that dimension is left out rather than bucketed
- *  into a fake "Unknown" row. Rows are clipped to each rollup's own filter
- *  window so they describe the same period as everything beside them. */
+ *  recompute discipline as the rest of this file, and the same honest
+ *  exclusion: a creative with no link on that dimension is left out rather
+ *  than bucketed into a fake "Unknown" row. Rows are clipped to each
+ *  rollup's own filter window so they describe the same period as
+ *  everything beside them. */
 export function breakdownRollups(
   rollups: CreativeRollup[],
   dimension: BreakdownDimension,
