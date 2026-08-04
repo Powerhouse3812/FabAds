@@ -28,6 +28,7 @@
  * no version gate needed since it's additive UI, not a behavior change.
  */
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { RuleList } from "@/creative-report/automations/components/RuleList";
 import { DigestSettings } from "@/creative-report/automations/components/DigestSettings";
@@ -64,6 +65,15 @@ export function Automations() {
             </>
           )}
         </p>
+        {workflowsEnabled && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Chaining several steps together — conditions, Genie, folders, ad accounts — lives in{" "}
+            <Link to="/automation" className="text-primary-text hover:underline">
+              Automations
+            </Link>
+            .
+          </p>
+        )}
       </div>
 
       <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">

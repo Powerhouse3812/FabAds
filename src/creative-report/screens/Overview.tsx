@@ -7,10 +7,10 @@
  *   header + one-line state of the book + trust chip + Configure control
  *   BucketTabs          — the count IS the tab; its creatives live inside it
  *   OverviewBreakdown   — Brand / Category / Product (Catalogue dimensions)
- *   RecommendationsCard — literal count+sum readouts, each with a route
- *   TestingVelocityCard — new creatives per week, zero $ (see Owner-Report
- *                         merge note below)
  *   AutomationsPreview  — the four routing destinations, not yet wired
+ *   RecommendationsCard + TestingVelocityCard — side by side (2-col grid),
+ *                         both compact enough to share a row and cut the
+ *                         page's vertical scroll (Maalik, 2026-08-01)
  * Every section above is gated on overviewConfig.ts (ConfigureOverviewModal)
  * — all on by default, at least one always stays on.
  *
@@ -151,21 +151,21 @@ export function Overview() {
         </div>
       )}
 
-      {config.recommendations && (
-        <div className="cr-stagger" style={{ ["--i" as string]: nextStagger() }}>
-          <RecommendationsCard rollups={data.rollups} onOpenBucket={setActiveBucket} />
-        </div>
-      )}
-
-      {config.velocity && (
-        <div className="cr-stagger" style={{ ["--i" as string]: nextStagger() }}>
-          <TestingVelocityCard rollups={data.rollups} />
-        </div>
-      )}
-
       {config.automations && (
         <div className="cr-stagger" style={{ ["--i" as string]: nextStagger() }}>
           <AutomationsPreview />
+        </div>
+      )}
+
+      {(config.recommendations || config.velocity) && (
+        <div
+          className="cr-stagger grid grid-cols-1 gap-6 lg:grid-cols-2"
+          style={{ ["--i" as string]: nextStagger() }}
+        >
+          {config.recommendations && (
+            <RecommendationsCard rollups={data.rollups} onOpenBucket={setActiveBucket} />
+          )}
+          {config.velocity && <TestingVelocityCard rollups={data.rollups} />}
         </div>
       )}
 

@@ -1,0 +1,106 @@
+/*
+ * flowTheme.css — makes @xyflow/react's chrome look native to FabAds.
+ *
+ * IMPORT ORDER MATTERS: this file must be imported AFTER
+ * "@xyflow/react/dist/style.css" (WorkflowCanvas.tsx does both imports, in
+ * that order) or these overrides lose the cascade and you get react-flow's
+ * stock white-on-grey look inside a themed app.
+ *
+ * Every value resolves through the app's own HSL token variables
+ * (src/index.css), which already flip between light and dark. That is why
+ * there is exactly ONE block here and no `.dark` duplicate — the variables do
+ * the theming, so a second selector set would be two things to keep in sync
+ * for no benefit. No literal hex anywhere; in particular never #c3eb42, the
+ * pre-May-2026 lime that failed contrast and was retired.
+ *
+ * Variable names below were read off node_modules/@xyflow/react/dist/style.css
+ * rather than assumed. Note react-flow's convention: `--xy-foo` is the
+ * consumer override hook, `--xy-foo-default` is its fallback and
+ * `--xy-foo-props` is what a component prop writes — so we set the bare names.
+ */
+
+.react-flow {
+  /* The canvas sits on the app's own background; a painted surface here would
+     double up with the page and show a seam at the pane edges. */
+  --xy-background-color: transparent;
+
+  --xy-edge-stroke: hsl(var(--border));
+  --xy-edge-stroke-selected: hsl(var(--primary));
+  --xy-edge-stroke-width: 1.5;
+
+  --xy-connectionline-stroke: hsl(var(--primary));
+  --xy-connectionline-stroke-width: 2;
+
+  /* Our node components draw their own card (border + bg + shadow), so the
+     wrapper must contribute nothing visual — see the reset below too. */
+  --xy-node-background-color: transparent;
+  --xy-node-color: hsl(var(--foreground));
+  --xy-node-border: none;
+  --xy-node-border-radius: 0.5rem; /* matches rounded-lg */
+  --xy-node-boxshadow-hover: none;
+  --xy-node-boxshadow-selected: none;
+
+  --xy-handle-background-color: hsl(var(--primary));
+  --xy-handle-border-color: hsl(var(--background));
+
+  --xy-controls-button-background-color: hsl(var(--card));
+  --xy-controls-button-background-color-hover: hsl(var(--accent));
+  --xy-controls-button-color: hsl(var(--foreground));
+  --xy-controls-button-color-hover: hsl(var(--foreground));
+  --xy-controls-button-border-color: hsl(var(--border));
+
+  --xy-minimap-background-color: hsl(var(--card));
+  --xy-minimap-mask-background-color: hsl(var(--muted) / 0.6);
+  --xy-minimap-mask-stroke-color: hsl(var(--border));
+  --xy-minimap-node-background-color: hsl(var(--muted-foreground) / 0.4);
+  --xy-minimap-node-stroke-color: hsl(var(--border));
+
+  --xy-attribution-background-color: transparent;
+
+  --xy-selection-background-color: hsl(var(--primary) / 0.08);
+  --xy-selection-border: 1px dashed hsl(var(--primary));
+
+  --xy-background-pattern-color: hsl(var(--border));
+}
+
+/* The node wrapper is a positioning shell only. Width must stay auto so our
+   fixed-width cards define their own size instead of being stretched. */
+.react-flow__node {
+  width: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: inherit;
+  text-align: left;
+}
+
+/* Small lime dots. The background-coloured ring keeps them legible where a
+   handle overlaps the node's own border, in either theme. */
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  border: 2px solid hsl(var(--background));
+  background: hsl(var(--primary));
+}
+
+.react-flow__attribution a {
+  color: hsl(var(--muted-foreground));
+}
+
+/*
+ * Reduced motion: PulseEdge's travelling dot is decorative reinforcement of a
+ * state that is ALSO carried by the node cards (border, check icon, chip), so
+ * removing it costs no information. Handled here rather than with a JS media
+ * query so it responds live to an OS setting change without a re-render.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .fabads-pulse-dot {
+    display: none;
+  }
+
+  .react-flow__edge-path,
+  .react-flow__edge .animated {
+    animation: none !important;
+  }
+}
