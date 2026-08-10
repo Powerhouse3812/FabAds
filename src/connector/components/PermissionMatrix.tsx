@@ -440,15 +440,17 @@ export function PermissionMatrix({
 
       {groups.map((group) => (
         <Card key={group.group}>
-          <CardHeader className={cn("relative", dense ? "px-4 py-2.5" : "px-4 py-3")}>
-            {/* With three modules expanded the tab distance to the limits
-                section is punishing. Visually hidden until focused. */}
-            <a
-              href="#connector-limits"
-              className="sr-only rounded-md focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-10 focus:bg-background focus:px-2 focus:py-1 focus:text-xs focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              Skip to limits
-            </a>
+          <CardHeader className={cn(dense ? "px-4 py-2.5" : "px-4 py-3")}>
+            {/* There used to be a "Skip to limits" link in every group header,
+                back when Permissions and Limits were two stacked sections of
+                one long page and tabbing between them was punishing.
+                Permissions and Limits are SIBLING TABS now (ConnectionDetail's
+                `?section=` strip): `#connector-limits` is not in the document
+                while this matrix is on screen, so the link was a focusable
+                control that went nowhere — a dead end offered only to keyboard
+                and screen-reader users, which is worse than not offering it.
+                The Limits pill is one activation away from the same keyboard
+                path, so nothing is lost by removing it. */}
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {group.group}
             </h3>
