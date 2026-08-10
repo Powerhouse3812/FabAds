@@ -76,9 +76,14 @@ export default function WorkspaceSettings() {
           // The Connector panel's own sub-route params are meaningless under
           // any other tab, and leaving them behind would send the user back
           // into a detail view the next time they return.
+          // `section` joined this list when Connector's detail grew a tab
+          // strip. Miss it and `?section=limits` rides along into Billing or
+          // Members — a param that means nothing there, and that snaps the
+          // user back onto the Limits tab when they return to Connector.
           if (next !== "connector") {
             sp.delete("connection");
             sp.delete("view");
+            sp.delete("section");
           }
           return sp;
         },

@@ -3,7 +3,7 @@
  * access) module: who it is, what it can see, what it can change, what it has
  * actually done, and how to take it all away.
  *
- * THREE DECISIONS WORTH KNOWING BEFORE YOU EDIT THIS FILE
+ * SIX DECISIONS WORTH KNOWING BEFORE YOU EDIT THIS FILE
  *
  * 1. AT MOST ONE STATUS STRIP, RESOLVED BY PRECEDENCE — NEVER A STACK.
  *    `connectionHealth()` already collapses the whole world into a single
@@ -45,17 +45,42 @@
  *    store is the source of truth, and a local mirror would leave the limits
  *    card and the health strip one render behind the matrix directly below
  *    them.
+ *
+ * 5. THE PAGE SPLITS INTO TABS, BUT IDENTITY AND STATUS NEVER DO.
+ *    This used to be one ~3,100px scroll. It is now a hero + status band that
+ *    is ALWAYS on screen, above a three-tab strip (Permissions · Limits ·
+ *    Activity). What stays out of the tabs is not a layout preference: the
+ *    status strips are the only thing on this screen that says the connection
+ *    is broken RIGHT NOW, and a user reading the activity log has to keep
+ *    seeing "Limit reached" while they read it. The hero stays for the same
+ *    reason in a smaller key — Address and Token are what people copy when
+ *    they are debugging, and a click to reach them is a click too many. The
+ *    tabs only ever hide things that are safe to hide: three settings/history
+ *    surfaces, none of which is an alarm. There is deliberately no Overview
+ *    tab — an Overview would be a fourth place to look for facts that the
+ *    always-visible band already states.
+ *
+ *    The back button is gone with it. The connection rail to the left IS the
+ *    back affordance, exactly as `CatalogueDetailPage` drops its own back link
+ *    when `embedded`. Two ways back to the same list is one too many.
+ *
+ * 6. THE TAB LIVES IN `?section=`, NOT `?tab=`.
+ *    `?tab=` is already spoken for: `WorkspaceSettings` uses it for the
+ *    settings shell's own tab (`?tab=connector`), and `ConnectorPanel` re-sets
+ *    it on every navigation. Reusing that key would have this component and
+ *    the shell writing over each other's value on the same URL. `?section=`
+ *    is validated against a whitelist, falls back to "permissions", and is
+ *    DELETED from the URL when it equals that default — a bare
+ *    `?tab=connector&connection=x` is the canonical link, so a pasted URL
+ *    doesn't carry a redundant `section=permissions`. Writes are
+ *    `{ replace: true }`: flipping between tabs is looking around one screen,
+ *    not travelling, and it must not make the browser Back button walk through
+ *    every tab a user glanced at.
  */
 import * as React from "react";
+import { useSearchParams } from "react-router-dom";
 import { format, formatDistanceToNowStrict } from "date-fns";
-import {
-  AlertTriangle,
-  Ban,
-  ChevronLeft,
-  Clock,
-  EyeOff,
-  XCircle,
-} from "lucide-react";
+import { AlertTriangle, Ban, Clock, EyeOff, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -114,6 +139,7 @@ import {
   limitStatus,
   meterActionsGranted,
   normalizedUsage,
+  writeActionCount,
 } from "@/connector/selectors";
 import {
   applyDisableToConnection,
@@ -181,6 +207,28 @@ const METER_NOUN: Record<LimitMeterId, string> = {
   launches: "launch",
   live_changes: "live-change",
   creations: "credit",
+};
+
+/**
+ * The three panels below the always-visible band.
+ *
+ * A string union, not booleans — `strictNullChecks` is off in this project, so
+ * TypeScript will not narrow a boolean-literal discriminated union and a
+ * `{ isLimits: true } | { isLimits: false }` shape would silently type-check
+ * its way into a bug.
+ */
+type DetailSection = "permissions" | "limits" | "activity";
+
+const DEFAULT_SECTION: DetailSection = "permissions";
+
+/** Whitelist for `?section=`. Anything else in the URL — a typo, an old link,
+ *  a renamed tab — degrades to the default rather than rendering nothing. */
+const SECTION_KEYS: DetailSection[] = ["permissions", "limits", "activity"];
+
+const SECTION_LABEL: Record<DetailSection, string> = {
+  permissions: "Permissions",
+  limits: "Limits",
+  activity: "Activity",
 };
 
 function formatMeterAmount(unit: MeterDef["unit"], n: number): string {
@@ -367,18 +415,22 @@ function buildSnippet(connection: ConnectorConnection): Snippet {
 
 export interface ConnectionDetailProps {
   connection: ConnectorConnection;
-  onBack: () => void;
+  /**
+   * Accepted and ignored, on purpose.
+   *
+   * This component no longer renders a back button — the connection rail to
+   * its left is the back affordance (see decision 5 in the file header). The
+   * prop stays in the interface, optional, so `ConnectorPanel` can keep
+   * passing `backToList` without a wiring change, and so a future non-embedded
+   * host has a documented slot to fill. Do NOT re-add a back button here.
+   */
+  onBack?: () => void;
   /** Called after revoke+delete so the caller can return to the list. */
   onDeleted: () => void;
   className?: string;
 }
 
-export function ConnectionDetail({
-  connection,
-  onBack,
-  onDeleted,
-  className,
-}: ConnectionDetailProps) {
+export function ConnectionDetail({ connection, onDeleted, className }: ConnectionDetailProps) {
   const { toast } = useToast();
 
   /** ONE clock for the whole render — health, every limit status and every
@@ -424,11 +476,71 @@ export function ConnectionDetail({
     setOverLimitDismissed(false);
   }, [connection.id]);
 
+  /* ---------------- which panel is showing ---------------- */
+
+  /** Namespaces the tab/panel ids. Two ConnectionDetails could never be on
+   *  screen at once today, but duplicate `aria-controls` targets are the kind
+   *  of bug you only find with a screen reader. */
+  const uid = React.useId();
+
+  /**
+   * The active panel lives in the URL under `?section=` (see decision 6). It
+   * is read straight from the params rather than mirrored into state, so a
+   * deep link, a Back press and a tab click all resolve through one code path
+   * — and so `ConnectorPanel` can put someone on the Limits tab from outside
+   * this component just by navigating.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get("section") as DetailSection | null;
+  const section: DetailSection =
+    sectionParam && SECTION_KEYS.includes(sectionParam) ? sectionParam : DEFAULT_SECTION;
+
+  const setSection = React.useCallback(
+    (next: DetailSection) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === DEFAULT_SECTION) sp.delete("section");
+          else sp.set("section", next);
+          return sp;
+        },
+        // Looking around one screen is not travelling. Without this, Back
+        // walks the user through every tab they glanced at instead of
+        // returning them to the list.
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const limitsRef = React.useRef<HTMLElement>(null);
 
-  const scrollToLimits = React.useCallback(() => {
-    limitsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  /**
+   * "Raise the limit" from anywhere — the over-limit strip, the unlimited
+   * strip, a refused row in the activity table.
+   *
+   * A plain `scrollIntoView` used to be enough because the limits card was
+   * always in the DOM. It isn't any more: when Limits is not the active tab
+   * the element does not exist, and scrolling to it is a silent no-op — the
+   * worst possible outcome for a button whose whole job is to take you to the
+   * fix. So this switches the section FIRST and scrolls on the frame after
+   * React has mounted the panel. The second attempt is insurance for a commit
+   * that misses the first frame; it is a no-op once the node is found.
+   */
+  const goToLimits = React.useCallback(() => {
+    setSection("limits");
+    let tries = 2;
+    const attempt = () => {
+      const el = limitsRef.current;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      tries -= 1;
+      if (tries > 0) requestAnimationFrame(attempt);
+    };
+    requestAnimationFrame(attempt);
+  }, [setSection]);
 
   /* ---------------- permissions ---------------- */
 
@@ -611,8 +723,45 @@ export function ConnectionDetail({
   const blockedMeter = METERS.find((m) => limitStatus(view, m.id, now).state === "blocked");
   const broken = brokenGrants(view);
 
-  const noLimitsAtAll = METERS.every((m) => !view.limits.rules[m.id]?.enabled);
+  /**
+   * Routed through `limitStatus` rather than reading `rules[id].enabled`
+   * directly, so this stays correct if the selector's definition of "off" ever
+   * grows a second case. The two agree exactly today (`selectors.ts` returns
+   * `off` iff `!rule?.enabled`) — which is precisely why the raw read looked
+   * safe when it replaced this on the way over from the deleted list, and
+   * precisely how the two would silently drift apart later. "Unlimited" is the
+   * most dangerous state this screen can report; it does not get to depend on
+   * a coincidence.
+   */
+  const noLimitsAtAll = METERS.every((m) => limitStatus(view, m.id, now).state === "off");
   const showUnlimited = writeAccess && noLimitsAtAll;
+
+  /* ---------------- tab counts ---------------- */
+
+  /**
+   * Counts answer "is there anything in there?" without opening the tab, and
+   * every one of them counts the thing the panel is actually about:
+   *
+   *  · Permissions — write actions granted, not modules read. Read access is
+   *    the floor of every connection; the number worth putting on a badge is
+   *    how many things this agent can CHANGE.
+   *  · Limits      — rules switched on. Four rules always exist; "0" here is
+   *    the honest reading of an uncapped connection, and it is exactly the
+   *    case the Unlimited strip above is shouting about.
+   *  · Activity    — rows for THIS connection, over the whole log, not the 20
+   *    the table shows.
+   *
+   * Each is suppressed at 0 (see the strip below) — Catalogue's rule, and the
+   * right one: a row of grey zeroes reads as broken, not as empty.
+   */
+  const grantedWriteCount = writeActionCount(view);
+  const enabledLimitCount = METERS.filter((m) => view.limits.rules[m.id]?.enabled).length;
+
+  const sectionTabs: { key: DetailSection; count: number }[] = [
+    { key: "permissions", count: grantedWriteCount },
+    { key: "limits", count: enabledLimitCount },
+    { key: "activity", count: rows.length },
+  ];
 
   /**
    * ONE strip per health, resolved by lookup.
@@ -676,7 +825,7 @@ export function ConnectionDetail({
             )} of ${formatMeterAmount(blockedMeter.unit, status.max)}). It can still read.`}
             actions={
               <>
-                <Button variant="outline" size="sm" onClick={scrollToLimits}>
+                <Button variant="outline" size="sm" onClick={goToLimits}>
                   Raise the limit
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setOverLimitDismissed(true)}>
@@ -748,89 +897,85 @@ export function ConnectionDetail({
 
   return (
     <div className={cn("flex flex-col gap-6", className)}>
-      {/* 1 — back */}
-      <div>
-        <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 gap-1.5">
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          All connections
-        </Button>
-      </div>
-
-      {/* 2 — identity */}
-      <Card>
-        <CardContent className="flex flex-col gap-5 p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <AgentAvatar
-                monogram={preset.monogram}
-                brandHex={preset.brandHex}
-                size="lg"
-                className="shrink-0"
-              />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Clamped to two lines, never ellipsised on one — the name is
-                      how you tell one connection from another. */}
-                  <h1 className="line-clamp-2 break-words text-xl font-semibold text-foreground">
-                    {connection.name}
-                  </h1>
-                  <ConnectorStatusPill health={health} />
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">{identityLine}</p>
+      {/* 1 — identity. ALWAYS visible; never behind a tab. Taller than
+             Catalogue's hero on purpose: Address and Token are the two things
+             people come here to copy when a connection is misbehaving, and a
+             click to reach them is a click too many. */}
+      <div className="flex flex-col gap-5 rounded-2xl border border-border/40 bg-card/60 p-4 backdrop-blur-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <AgentAvatar
+              monogram={preset.monogram}
+              brandHex={preset.brandHex}
+              size="lg"
+              className="shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Clamped to two lines, never ellipsised on one — the name is
+                    how you tell one connection from another. */}
+                <h1 className="line-clamp-2 break-words text-xl font-semibold text-foreground">
+                  {connection.name}
+                </h1>
+                <ConnectorStatusPill health={health} />
               </div>
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {/* A revoked connection has no live token to configure — the
-                  snippet would show a masked value that no longer
-                  authenticates anything. Same gate as "Revoke access" below:
-                  the revoked strip's "Delete from list" is the only action
-                  left once a connection is dead. */}
-              {!isRevoked && (
-                <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}>
-                  Setup snippet
-                </Button>
-              )}
-              {!isRevoked && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setRevokeOpen(true)}
-                  className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  Revoke access
-                </Button>
-              )}
+              <p className="mt-1 text-sm text-muted-foreground">{identityLine}</p>
             </div>
           </div>
 
-          <dl className="grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-4">
-            <div className="min-w-0">
-              <dt className="text-xs text-muted-foreground">Address</dt>
-              <dd className="mt-0.5 break-all font-mono text-xs text-foreground">{address}</dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs text-muted-foreground">Token</dt>
-              <dd className="mt-0.5 break-all font-mono text-xs text-foreground">{tokenCell}</dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs text-muted-foreground">Created</dt>
-              <dd className="mt-0.5 text-xs text-foreground">
-                {formatDateSafe(connection.createdAt, "—")}
-              </dd>
-            </div>
-            <div className="min-w-0">
-              <dt className="text-xs text-muted-foreground">Last used</dt>
-              <dd className="mt-0.5 text-xs text-foreground" title={lastUsedTitle}>
-                {lastUsedLabel}
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {/* A revoked connection has no live token to configure — the
+                snippet would show a masked value that no longer authenticates
+                anything. Same gate as "Revoke access" beside it: the revoked
+                strip's "Delete from list" is the only action left once a
+                connection is dead. */}
+            {!isRevoked && (
+              <Button variant="outline" size="sm" onClick={() => setSetupOpen(true)}>
+                Setup snippet
+              </Button>
+            )}
+            {!isRevoked && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRevokeOpen(true)}
+                className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                Revoke access
+              </Button>
+            )}
+          </div>
+        </div>
 
-      {/* 3 — status. At most one health strip; the Unlimited warning is its
-             own, independent line (see the file header). */}
+        <dl className="grid grid-cols-2 gap-4 border-t border-border pt-4 md:grid-cols-4">
+          <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">Address</dt>
+            <dd className="mt-0.5 break-all font-mono text-xs text-foreground">{address}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">Token</dt>
+            <dd className="mt-0.5 break-all font-mono text-xs text-foreground">{tokenCell}</dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">Created</dt>
+            <dd className="mt-0.5 text-xs text-foreground">
+              {formatDateSafe(connection.createdAt, "—")}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-xs text-muted-foreground">Last used</dt>
+            <dd className="mt-0.5 text-xs text-foreground" title={lastUsedTitle}>
+              {lastUsedLabel}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      {/* 2 — status. ALWAYS visible, and deliberately ABOVE the tab strip
+             rather than inside a panel: someone reading the activity log has
+             to keep seeing "Limit reached" while they read it. At most one
+             health strip; the Unlimited warning is its own, independent line
+             (see the file header). */}
       {buildStrip()}
 
       {showUnlimited && (
@@ -840,110 +985,186 @@ export function ConnectionDetail({
           title="No limits set"
           body="This connection can change anything, with no limits set."
           actions={
-            <Button variant="outline" size="sm" onClick={scrollToLimits}>
+            <Button variant="outline" size="sm" onClick={goToLimits}>
               Set limits
             </Button>
           }
         />
       )}
 
-      {/* 4 — limits. The id is load-bearing: PermissionMatrix renders skip
-             links pointing at it. */}
-      <section id="connector-limits" ref={limitsRef} className="scroll-mt-24">
-        <Card>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <CardTitle className="text-base">Limits</CardTitle>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ceilings on what this connection can spend and change. One window, shared by all
-                four.
-              </p>
-            </div>
-
-            {writeAccess && (
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="text-xs text-muted-foreground">Reset every</span>
-                <ToggleGroup
-                  type="single"
-                  value={view.limits.window}
-                  onValueChange={requestWindowChange}
-                  disabled={isRevoked}
-                  className="justify-start gap-0 rounded-md border border-input p-0.5"
-                  aria-label="How often limits reset"
+      {/* 3 — section tabs. Container, trigger and badge classes are lifted
+             verbatim from CatalogueDetailPage's BrandDetail strip: this and
+             Catalogue are the same master-detail shape, and two hand-tuned
+             pill strips that are nearly-but-not-quite alike is how a product
+             starts feeling assembled from parts. */}
+      <div
+        role="tablist"
+        aria-label="Connection sections"
+        className="flex flex-wrap gap-1 self-start rounded-full border border-border/60 bg-background/40 p-0.5"
+      >
+        {sectionTabs.map((t) => {
+          const active = section === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              id={`${uid}-tab-${t.key}`}
+              aria-selected={active}
+              aria-controls={`${uid}-panel-${t.key}`}
+              onClick={() => setSection(t.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                active
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {SECTION_LABEL[t.key]}
+              {/* Suppressed at zero, never rendered as "0". A row of grey
+                  zeroes reads as a broken counter, not as an empty tab. */}
+              {t.count > 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
+                    active ? "bg-primary/20 text-primary" : "bg-foreground/[0.08] text-foreground",
+                  )}
                 >
-                  {WINDOW_SEGMENTS.map((seg) => (
-                    <ToggleGroupItem
-                      key={seg.value}
-                      value={seg.value}
-                      size="sm"
-                      className="h-7 rounded-sm px-2.5 text-xs data-[state=on]:bg-secondary data-[state=on]:text-secondary-foreground"
-                    >
-                      {seg.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            )}
-          </CardHeader>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-          <CardContent className={cn(writeAccess && "divide-y divide-border")}>
-            {writeAccess ? (
-              METERS.map((m) => (
-                <LimitRow
-                  key={m.id}
-                  meter={m.id}
-                  label={m.label}
-                  description={m.description}
-                  unit={m.unit}
-                  rule={view.limits.rules[m.id]}
-                  status={limitStatus(view, m.id, now)}
-                  windowLabel={view.limits.window}
-                  onChange={(patch) => handleLimitChange(m.id, patch)}
-                  readOnly={isRevoked}
-                  actionsGranted={meterActionsGranted(view, m.id)}
-                  // Via normalizedUsage, NOT `view.usage[m.id].blocked` — a
-                  // meter whose window has rolled over must report zero
-                  // refusals, not last week's. Reading the raw field would
-                  // leave "Refused 3 times this day" on screen the morning
-                  // after, which is the one thing a refusal count must never
-                  // get wrong.
-                  blockedCount={normalizedUsage(view, m.id, now).blocked}
-                />
-              ))
-            ) : (
-              // A four-meter form for a connection that cannot consume any of
-              // them is a wall of controls that can never matter.
-              <p className="text-sm text-muted-foreground">
-                Nothing to limit yet. This connection can only look, not change.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+      {/* 4 — the active panel. Exactly one is mounted at a time, which is why
+             `goToLimits` has to switch the section before it scrolls. */}
 
-      {/* 5 — permissions */}
-      <PermissionMatrix
-        connection={connection}
-        onChange={handlePermissionsChange}
-        readOnly={isRevoked}
-      />
-
-      {/* 6 — activity */}
-      <section className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Activity</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Everything {preset.label} has asked FabAds for, and what it was told.
-          </p>
+      {section === "permissions" && (
+        <div
+          role="tabpanel"
+          id={`${uid}-panel-permissions`}
+          aria-labelledby={`${uid}-tab-permissions`}
+        >
+          <PermissionMatrix
+            connection={connection}
+            onChange={handlePermissionsChange}
+            readOnly={isRevoked}
+          />
         </div>
-        <ActivityTable
-          entries={rows.slice(0, 20)}
-          totalCount={rows.length}
-          emptyTitle={`${preset.label} hasn't asked FabAds for anything yet`}
-          emptyDescription="Activity shows up here the first time it makes a request."
-          onRaiseLimit={scrollToLimits}
-        />
-      </section>
+      )}
+
+      {/* The id is a stable anchor for hand-written links only. Nothing in the
+          app resolves it any more: PermissionMatrix's "Skip to limits" links
+          were removed when Limits became a sibling tab (the target is not
+          mounted while Permissions is open), and the scroll below goes through
+          `limitsRef`, not `getElementById` — a ref cannot go stale the way an
+          id lookup against an unmounted node silently does. */}
+      {section === "limits" && (
+        <section
+          id="connector-limits"
+          ref={limitsRef}
+          role="tabpanel"
+          aria-labelledby={`${uid}-tab-limits`}
+          className="scroll-mt-24"
+        >
+          <Card>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <CardTitle className="text-base">Limits</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ceilings on what this connection can spend and change. One window, shared by
+                  all four.
+                </p>
+              </div>
+
+              {writeAccess && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Reset every</span>
+                  <ToggleGroup
+                    type="single"
+                    value={view.limits.window}
+                    onValueChange={requestWindowChange}
+                    disabled={isRevoked}
+                    className="justify-start gap-0 rounded-md border border-input p-0.5"
+                    aria-label="How often limits reset"
+                  >
+                    {WINDOW_SEGMENTS.map((seg) => (
+                      <ToggleGroupItem
+                        key={seg.value}
+                        value={seg.value}
+                        size="sm"
+                        className="h-7 rounded-sm px-2.5 text-xs data-[state=on]:bg-secondary data-[state=on]:text-secondary-foreground"
+                      >
+                        {seg.label}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </div>
+              )}
+            </CardHeader>
+
+            <CardContent className={cn(writeAccess && "divide-y divide-border")}>
+              {writeAccess ? (
+                METERS.map((m) => (
+                  <LimitRow
+                    key={m.id}
+                    meter={m.id}
+                    label={m.label}
+                    description={m.description}
+                    unit={m.unit}
+                    rule={view.limits.rules[m.id]}
+                    status={limitStatus(view, m.id, now)}
+                    windowLabel={view.limits.window}
+                    onChange={(patch) => handleLimitChange(m.id, patch)}
+                    readOnly={isRevoked}
+                    actionsGranted={meterActionsGranted(view, m.id)}
+                    // Via normalizedUsage, NOT `view.usage[m.id].blocked` — a
+                    // meter whose window has rolled over must report zero
+                    // refusals, not last week's. Reading the raw field would
+                    // leave "Refused 3 times this day" on screen the morning
+                    // after, which is the one thing a refusal count must never
+                    // get wrong.
+                    blockedCount={normalizedUsage(view, m.id, now).blocked}
+                  />
+                ))
+              ) : (
+                // A four-meter form for a connection that cannot consume any
+                // of them is a wall of controls that can never matter.
+                <p className="text-sm text-muted-foreground">
+                  Nothing to limit yet. This connection can only look, not change.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {section === "activity" && (
+        <section
+          role="tabpanel"
+          id={`${uid}-panel-activity`}
+          aria-labelledby={`${uid}-tab-activity`}
+          className="flex flex-col gap-3"
+        >
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Activity</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Everything {preset.label} has asked FabAds for, and what it was told.
+            </p>
+          </div>
+          <ActivityTable
+            entries={rows.slice(0, 20)}
+            totalCount={rows.length}
+            emptyTitle={`${preset.label} hasn't asked FabAds for anything yet`}
+            emptyDescription="Activity shows up here the first time it makes a request."
+            // Switches to the Limits tab first, then scrolls — the card this
+            // used to jump to is no longer in the DOM from here.
+            onRaiseLimit={goToLimits}
+          />
+        </section>
+      )}
 
       {/* ---------------- Setup snippet ---------------- */}
       <Dialog open={setupOpen} onOpenChange={setSetupOpen}>

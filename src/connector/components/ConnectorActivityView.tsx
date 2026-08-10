@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronLeft, Download, Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -13,13 +13,23 @@ import { cn } from "@/lib/utils";
 import { ActivityTable } from "@/connector/components/ActivityTable";
 import { auditRollup } from "@/connector/selectors";
 import { MAX_AUDIT_ENTRIES } from "@/connector/auditStore";
-import { CONNECTOR_MODULES } from "@/connector/catalogue";
-import type { AuditOutcome, ConnectorAuditEntry, ConnectorModuleId } from "@/connector/model";
+import { CONNECTOR_MODULES, getAgentPreset } from "@/connector/catalogue";
+import type {
+  AgentKind,
+  AuditOutcome,
+  ConnectorAuditEntry,
+  ConnectorModuleId,
+} from "@/connector/model";
 
 /**
  * ConnectorActivityView — the GLOBAL activity roll-up across every
- * connection. Composes `ActivityTable`; owns only local filter state and the
- * CSV export of whatever that state currently resolves to.
+ * connection, rendered as the content of the RIGHT PANE in the Connector
+ * module's master-detail shell (260px connection rail on the left, this view
+ * on the right). It is reached via the pinned "All activity" row at the top
+ * of that rail, not as a standalone full-width page — the rail owns
+ * navigation, so this component owns only local filter state and the CSV
+ * export of whatever that state currently resolves to. Composes
+ * `ActivityTable`.
  *
  * TWO EMPTY STATES, DELIBERATELY NOT ONE
  * "There is no activity yet" and "your filters matched nothing" are different
@@ -54,6 +64,18 @@ const ACCOUNT_EVENTS = "__account_events__";
 type ModuleFilterValue = typeof ALL | typeof ACCOUNT_EVENTS | ConnectorModuleId;
 type ResultFilterValue = typeof ALL | AuditOutcome;
 type DateRangeValue = "24h" | "7d" | "30d" | "all";
+/** Filters by WHICH agent kind (Claude, Cursor, ChatGPT, ...), not by WHICH
+ *  connection — two Cursor connections on two laptops are two apps but one
+ *  agent kind, and "show me everything Claude did" needs to collapse across
+ *  connections the App filter deliberately keeps separate.
+ *
+ *  There is deliberately no separate "AI agents only" filter next to this
+ *  one: every `ConnectorAuditEntry` is produced by an agent by construction
+ *  (there is no non-agent caller in this model), so such a toggle would
+ *  always match everything — a no-op control that silently does nothing and
+ *  invites someone to "fix" it later into something that quietly hides rows.
+ */
+type AgentFilterValue = typeof ALL | AgentKind;
 
 const RESULT_OPTIONS: { value: ResultFilterValue; label: string }[] = [
   { value: ALL, label: "All results" },
@@ -136,11 +158,14 @@ interface StatTileProps {
   label: string;
   value: number;
   valueClassName: string;
+  /** Sizing only — lets the caller wrap tiles with flexbox instead of a
+   *  viewport-width grid, so they reflow against the pane's real width. */
+  className?: string;
 }
 
-function StatTile({ label, value, valueClassName }: StatTileProps) {
+function StatTile({ label, value, valueClassName, className }: StatTileProps) {
   return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
+    <div className={cn("rounded-lg border border-border bg-card px-4 py-3", className)}>
       <div className={cn("text-2xl font-semibold tabular-nums", valueClassName)}>{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
@@ -153,7 +178,15 @@ export interface ConnectorActivityViewProps {
   /** For the App filter options. */
   connections: { id: string; name: string }[];
   onRaiseLimit?: (entry: ConnectorAuditEntry) => void;
-  onBack: () => void;
+  /**
+   * Optional and unused by this component itself — the master-detail rail
+   * now owns navigation (this view renders inside the rail's detail pane,
+   * reached from a pinned "All activity" row, and the rail's own connection
+   * list is always visible alongside it, so there is nothing to go "back"
+   * to). Retained only so callers that still mount `ConnectorActivityView`
+   * standalone — outside the rail shell — don't have their prop shape broken.
+   */
+  onBack?: () => void;
   className?: string;
 }
 
@@ -161,18 +194,31 @@ export function ConnectorActivityView({
   entries,
   connections,
   onRaiseLimit,
-  onBack,
   className,
 }: ConnectorActivityViewProps) {
   const [search, setSearch] = useState("");
   const [appId, setAppId] = useState<string>(ALL);
+  const [agentFilter, setAgentFilter] = useState<AgentFilterValue>(ALL);
   const [moduleFilter, setModuleFilter] = useState<ModuleFilterValue>(ALL);
   const [resultFilter, setResultFilter] = useState<ResultFilterValue>(ALL);
   const [dateRange, setDateRange] = useState<DateRangeValue>(ALL);
 
+  // Distinct agent kinds actually present in `entries`, labelled via the same
+  // preset catalogue the connection wizard uses — so "Claude" here always
+  // matches "Claude" everywhere else — and sorted for a stable, scannable
+  // list instead of first-seen order (which would jitter as new events land).
+  const agentOptions = useMemo(() => {
+    const seen = new Set<AgentKind>();
+    for (const e of entries) seen.add(e.agentKind);
+    return Array.from(seen)
+      .map((kind) => ({ value: kind, label: getAgentPreset(kind).label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [entries]);
+
   const isFiltered =
     search.trim() !== "" ||
     appId !== ALL ||
+    agentFilter !== ALL ||
     moduleFilter !== ALL ||
     resultFilter !== ALL ||
     dateRange !== ALL;
@@ -180,6 +226,7 @@ export function ConnectorActivityView({
   const clearFilters = () => {
     setSearch("");
     setAppId(ALL);
+    setAgentFilter(ALL);
     setModuleFilter(ALL);
     setResultFilter(ALL);
     setDateRange(ALL);
@@ -191,6 +238,8 @@ export function ConnectorActivityView({
 
     return entries.filter((e) => {
       if (appId !== ALL && e.connectionId !== appId) return false;
+
+      if (agentFilter !== ALL && e.agentKind !== agentFilter) return false;
 
       if (moduleFilter === ACCOUNT_EVENTS) {
         if (e.moduleId !== null) return false;
@@ -217,7 +266,7 @@ export function ConnectorActivityView({
 
       return true;
     });
-  }, [entries, appId, moduleFilter, resultFilter, dateRange, search]);
+  }, [entries, appId, agentFilter, moduleFilter, resultFilter, dateRange, search]);
 
   const pageEntries = useMemo(() => filtered.slice(0, PAGE_SIZE), [filtered]);
 
@@ -242,48 +291,52 @@ export function ConnectorActivityView({
     <div className={cn("flex flex-col gap-6", className)}>
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            All connections
-          </button>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">Activity</h1>
+            <p className="text-sm text-muted-foreground">
+              Everything your connected apps have asked FabAds for.
+            </p>
+          </div>
           <Button size="sm" variant="outline" onClick={handleExport} disabled={filtered.length === 0}>
             <Download className="mr-2 h-4 w-4" />
             Export these {filtered.length} events (CSV)
           </Button>
         </div>
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Activity</h1>
-          <p className="text-sm text-muted-foreground">
-            Everything your connected apps have asked FabAds for.
-          </p>
-        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Done" value={rollup.allowed} valueClassName="text-muted-foreground" />
+      {/* flex-wrap (not a viewport-width grid) so these reflow against the
+          detail pane's actual width, not the browser's — a `sm:` breakpoint
+          would still fire 4-up on a wide monitor even when this pane itself
+          is narrow. */}
+      <div className="flex flex-wrap gap-3">
         <StatTile
+          className="min-w-[140px] flex-1"
+          label="Done"
+          value={rollup.allowed}
+          valueClassName="text-muted-foreground"
+        />
+        <StatTile
+          className="min-w-[140px] flex-1"
           label="Blocked (no permission)"
           value={rollup.blockedPermission}
           valueClassName={rollup.blockedPermission > 0 ? "text-warning-text" : "text-muted-foreground"}
         />
         <StatTile
+          className="min-w-[140px] flex-1"
           label="Blocked (limit)"
           value={rollup.blockedLimit}
           valueClassName={rollup.blockedLimit > 0 ? "text-error-text" : "text-muted-foreground"}
         />
         <StatTile
+          className="min-w-[140px] flex-1"
           label="Failed"
           value={rollup.error}
           valueClassName={rollup.error > 0 ? "text-error-text" : "text-muted-foreground"}
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
+      <div className="flex flex-wrap gap-2">
+        <div className="relative min-w-[160px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -294,7 +347,7 @@ export function ConnectorActivityView({
         </div>
 
         <Select value={appId} onValueChange={setAppId}>
-          <SelectTrigger className="w-auto min-w-[140px]">
+          <SelectTrigger className="w-auto min-w-[120px]">
             <SelectValue placeholder="All apps" />
           </SelectTrigger>
           <SelectContent>
@@ -307,8 +360,22 @@ export function ConnectorActivityView({
           </SelectContent>
         </Select>
 
+        <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v as AgentFilterValue)}>
+          <SelectTrigger className="w-auto min-w-[130px]">
+            <SelectValue placeholder="All agents" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All agents</SelectItem>
+            {agentOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={moduleFilter} onValueChange={(v) => setModuleFilter(v as ModuleFilterValue)}>
-          <SelectTrigger className="w-auto min-w-[160px]">
+          <SelectTrigger className="w-auto min-w-[140px]">
             <SelectValue placeholder="All modules" />
           </SelectTrigger>
           <SelectContent>
@@ -323,7 +390,7 @@ export function ConnectorActivityView({
         </Select>
 
         <Select value={resultFilter} onValueChange={(v) => setResultFilter(v as ResultFilterValue)}>
-          <SelectTrigger className="w-auto min-w-[160px]">
+          <SelectTrigger className="w-auto min-w-[140px]">
             <SelectValue placeholder="All results" />
           </SelectTrigger>
           <SelectContent>
@@ -336,7 +403,7 @@ export function ConnectorActivityView({
         </Select>
 
         <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRangeValue)}>
-          <SelectTrigger className="w-auto min-w-[150px]">
+          <SelectTrigger className="w-auto min-w-[130px]">
             <SelectValue placeholder="All time" />
           </SelectTrigger>
           <SelectContent>
