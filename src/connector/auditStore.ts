@@ -241,6 +241,14 @@ export function seedAuditIfEmpty(build: () => ConnectorAuditEntry[]): void {
  * `simulated: true` to say so. Deliberately NOT called from
  * `deleteConnection()`: a removed connection's history is the whole reason
  * this store is separate.
+ *
+ * There is exactly one legitimate caller of the no-argument form:
+ * `ConnectorPanel`'s "Reset demo data" footer button, which clears
+ * `connectionsStore` AND this store together. That is a reset of the whole
+ * demo surface, not the removal of one record whose history has to outlive
+ * it — a different intent from `deleteConnection()`, not a reversal of the
+ * principle above. See that call site for why it's allowed to wipe the log
+ * when a single delete deliberately isn't.
  */
 export function clearAudit(connectionId?: string): void {
   const next = connectionId

@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { formatDistanceToNowStrict, format } from "date-fns";
-import { Activity, Search } from "lucide-react";
+import { Activity, Infinity as InfinityIcon, Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/connector/components/AgentAvatar";
 import { ConnectorStatusPill } from "@/connector/components/ConnectorStatusPill";
-import { getAgentPreset } from "@/connector/catalogue";
-import { connectionHealth } from "@/connector/selectors";
+import { getAgentPreset, METER_IDS } from "@/connector/catalogue";
+import { connectionHealth, hasAnyWriteAccess, limitStatus } from "@/connector/selectors";
 import type { ConnectorConnection } from "@/connector/model";
 
 /**
@@ -49,6 +49,25 @@ import type { ConnectorConnection } from "@/connector/model";
  *    at `md:flex` and up, so 768-1024px is the range that actually matters
  *    here — this rail stacks full-width above the detail in that band
  *    instead of squeezing it.
+ *
+ * 4. THE "UNLIMITED" MARKER EARNS SPACE THAT "CAN ACCESS" NEVER DID.
+ *    This rail replaced a full-width table (`ConnectionsList.tsx`, now gone)
+ *    that also had a module-access summary, and that summary did NOT survive
+ *    the move to 260px — it was a comparison aid, useful for scanning many
+ *    rows against each other but not load-bearing on any single one, and
+ *    `ConnectionDetail`'s hero says the same thing at a glance the moment you
+ *    open the row. "Unlimited" is not that. It is the marker for the exact
+ *    state `ConnectionDetail`'s own header calls "the single most dangerous
+ *    state this feature can produce" — write access plus every cap switched
+ *    off, no ceiling on budget, launches, live changes or credits. A
+ *    comparison aid can wait for the click into detail; a warning that a
+ *    connection can do unlimited damage cannot — dropping it to save 90px of
+ *    row width is the wrong trade, so it gets a compact icon+text badge on
+ *    the row's second line instead of living only behind a click. Same
+ *    predicate as `ConnectionDetail`'s `showUnlimited` (via `limitStatus`,
+ *    never a raw `rules[id].enabled` read — see `selectors.ts`), so the rail
+ *    and the detail screen can never disagree about which connections are
+ *    unlimited.
  */
 
 export interface ConnectionRailProps {
@@ -86,6 +105,19 @@ function compareByLastActiveDesc(a: ConnectorConnection, b: ConnectorConnection)
 
 function formatUnreadCount(count: number): string {
   return count > 99 ? "99+" : String(count);
+}
+
+/**
+ * The SAME predicate as `ConnectionDetail`'s `showUnlimited` — write access,
+ * plus every meter reporting `state === "off"`. Routed through `limitStatus`,
+ * never a raw `c.limits.rules[id].enabled` read: `selectors.ts` warns that the
+ * two agree only by coincidence today, and "Unlimited" is exactly the state
+ * that must not depend on a coincidence holding forever. If this ever reads
+ * differently from `ConnectionDetail`, the rail and the detail screen would
+ * disagree about the most dangerous state the feature can produce.
+ */
+function isUnlimited(c: ConnectorConnection, now: number): boolean {
+  return hasAnyWriteAccess(c) && METER_IDS.every((id) => limitStatus(c, id, now).state === "off");
 }
 
 /* ------------------------------------------------------------------ */
@@ -143,6 +175,7 @@ function ConnectionRow({
   const preset = getAgentPreset(connection.agentKind);
   const lastUsedLabel =
     connection.lastActiveAt === null ? "Never" : formatDistanceToNowStrict(new Date(connection.lastActiveAt), { addSuffix: true });
+  const unlimited = isUnlimited(connection, now);
 
   return (
     <button
@@ -159,17 +192,51 @@ function ConnectionRow({
         <p className={cn("text-sm font-medium truncate", active ? "text-primary" : "text-foreground")}>
           {connection.name}
         </p>
-        {connection.lastActiveAt === null ? (
-          <p className="text-[11px] text-muted-foreground truncate">Never</p>
-        ) : (
-          <time
-            dateTime={connection.lastActiveAt}
-            title={format(new Date(connection.lastActiveAt), "PPpp")}
-            className="text-[11px] text-muted-foreground truncate block"
-          >
-            {lastUsedLabel}
-          </time>
-        )}
+        {/*
+         * Second line: timestamp + the "Unlimited" marker, sharing one row
+         * instead of stacking a third line the 260px rail has no height
+         * budget for. The timestamp gets `flex-1 min-w-0 truncate` and the
+         * marker gets `shrink-0` — deliberately in that order of priority.
+         * A warning that a connection can do unlimited damage must never be
+         * the thing that silently disappears under a long name or a verbose
+         * timestamp ("about 2 months ago"); the exact recency figure can
+         * afford to lose a few characters to an ellipsis (its full value is
+         * still one hover away, in `title`) but the marker cannot lose any.
+         * A `· Unlimited` suffix baked into the same truncating text node
+         * was rejected for exactly this reason — appended text is the first
+         * thing an ellipsis eats, which would make the marker disappear in
+         * precisely the width-constrained cases it exists for.
+         */}
+        <div className="flex items-center gap-1 min-w-0">
+          {connection.lastActiveAt === null ? (
+            <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">Never</p>
+          ) : (
+            <time
+              dateTime={connection.lastActiveAt}
+              title={format(new Date(connection.lastActiveAt), "PPpp")}
+              className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
+            >
+              {lastUsedLabel}
+            </time>
+          )}
+          {unlimited && (
+            <span
+              title="Can change anything, with no limits set."
+              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-warning-text/10 px-1 py-px text-[10px] font-medium text-warning-text"
+            >
+              <InfinityIcon className="h-3 w-3" aria-hidden="true" />
+              <span aria-hidden="true">Unlimited</span>
+              {/* The visible icon+word above is aria-hidden and replaced with
+                  this fuller sentence so a screen-reader user gets the same
+                  "why this matters" context a sighted user gets from the
+                  `title` tooltip, not just the one-word label. It sits inside
+                  the row's own <button>, so it is picked up as part of the
+                  row's accessible name for free — no separate aria-label
+                  rewrite needed. */}
+              <span className="sr-only">Unlimited — can change anything, with no limits set.</span>
+            </span>
+          )}
+        </div>
       </div>
       <ConnectorStatusPill health={connectionHealth(connection, now)} className="shrink-0" />
     </button>

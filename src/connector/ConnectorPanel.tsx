@@ -46,7 +46,7 @@ import {
   markAuditSeen,
   useConnectorConnections,
 } from "@/connector/connectionsStore";
-import { useConnectorAudit } from "@/connector/auditStore";
+import { clearAudit, useConnectorAudit } from "@/connector/auditStore";
 import { ConnectionRail } from "@/connector/components/ConnectionRail";
 import { ConnectionDetail } from "@/connector/components/ConnectionDetail";
 import { ConnectWizard } from "@/connector/components/ConnectWizard";
@@ -152,7 +152,7 @@ export function ConnectorPanel() {
   );
   /**
    * Every live caller of this is a correction, never a user's own "go back":
-   * the stale-id guard, "Clear all connections", and a connection being
+   * the stale-id guard, "Reset demo data", and a connection being
    * deleted out from under the detail pane. It is also handed to the children
    * as `onBack`, which both of them deliberately ignore — the rail is the back
    * affordance now. So it replaces rather than pushes. See `go`.
@@ -207,10 +207,19 @@ export function ConnectorPanel() {
 
   const handleClearAll = useCallback(() => {
     clearAllConnections();
+    // `clearAudit()` (no argument) wipes the WHOLE log. That looks like the
+    // exact thing auditStore.ts's header says never to do — but that comment
+    // is about `deleteConnection()` leaving one connection's history behind
+    // so its record still explains itself. This button is a reset of the
+    // entire demo surface, not the removal of one record whose history has
+    // to outlive it: the rail is about to say "No apps connected yet", so a
+    // roll-up still listing 28 events from apps that no longer exist isn't
+    // surviving evidence, it's a stale leftover contradicting the empty rail.
+    clearAudit();
     backToList();
     toast({
-      title: "Connections cleared",
-      description: "Demo data only — this doesn't touch anything real.",
+      title: "Demo data reset",
+      description: "Connections and activity cleared. Nothing real was touched.",
     });
   }, [backToList, toast]);
 
@@ -272,7 +281,7 @@ export function ConnectorPanel() {
             </span>
             {connections.length > 0 && (
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleClearAll}>
-                Clear all connections
+                Reset demo data
               </Button>
             )}
           </div>

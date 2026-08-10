@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, X } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 import { bootstrapConnector } from "@/connector/bootstrap";
 import { useConnectorAudit } from "@/connector/auditStore";
 import { useConnectorConnections } from "@/connector/connectionsStore";
@@ -40,21 +39,6 @@ interface NotificationBellProps {
   compact?: boolean;
 }
 
-const COPY_TEXT = `Let's planout the whole thing first, then I'll tell you to implement when, but remeber some things:
-
-I'll decide everything,
-
-let me choose everything,
-
-ask questions,
-
-don't assume anything.
-
-Spawn mutiple agents
-
-DO it fast and parallel without loosing even 1% of quality`;
-
-const LONG_PRESS_MS = 800;
 
 /** Recent-8, matching the roll-up's own "most recent" framing rather than
  *  trying to be a second full table crammed into a popover. */
@@ -89,9 +73,7 @@ const ALL_AGENTS = "all";
 export function NotificationBell({ compact = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const [agentFilter, setAgentFilter] = useState<AgentKind | typeof ALL_AGENTS>(ALL_AGENTS);
-  const { toast } = useToast();
   const navigate = useNavigate();
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * This bell renders in the global nav on EVERY page, but `ConnectorPanel` —
@@ -169,20 +151,6 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
   // letting a quick peek here silently clear the unread count would make
   // the badge lie about whether anything was actually reviewed.
 
-  function startPress() {
-    pressTimer.current = setTimeout(() => {
-      navigator.clipboard.writeText(COPY_TEXT).then(() => {
-        toast({ title: "Copied", description: "Prompt copied to clipboard." });
-      });
-    }, LONG_PRESS_MS);
-  }
-
-  function cancelPress() {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  }
 
   function handleSeeAll() {
     setOpen(false);
@@ -197,11 +165,6 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
         compact ? "w-10 h-10" : "w-9 h-9"
       )}
       aria-label="Notifications"
-      onMouseDown={startPress}
-      onMouseUp={cancelPress}
-      onMouseLeave={cancelPress}
-      onTouchStart={startPress}
-      onTouchEnd={cancelPress}
     >
       <Bell className={cn(compact ? "h-5 w-5" : "h-4 w-4")} />
       {unreadCount > 0 && (
