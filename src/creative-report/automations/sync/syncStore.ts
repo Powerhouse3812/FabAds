@@ -38,8 +38,10 @@
  */
 import { useSyncExternalStore } from "react";
 import type { WorkflowJobStatus } from "@/workflows/core";
-import { pairKey, syncDurationMs, type SyncRecord } from "@/creative-report/automations/sync/syncModel";
+import { pairKey, syncDurationMs, metaAccounts, type SyncRecord } from "@/creative-report/automations/sync/syncModel";
 import { ACCOUNT_BY_ID } from "@/data/accounts";
+import { getDataset } from "@/data/generator";
+import { hashString } from "@/data/rng";
 
 export interface SyncStoreState {
   records: Record<string, SyncRecord>;
@@ -112,11 +114,80 @@ function sanitize(raw: unknown): SyncStoreState {
   };
 }
 
+/**
+ * Deterministic starting sync history for a brand-new browser (Maalik,
+ * 2026-08-01): an unseeded store means almost every creative's drawer shows
+ * "Not synced to any ad account yet", which reads as a broken/incomplete
+ * demo rather than the true "nothing has run yet" state it actually is. This
+ * seeds ~3 in 4 creatives with 1–2 Meta accounts already `done`, spread over
+ * the last two weeks, so the panel opens looking lived-in — the rest are left
+ * genuinely unsynced on purpose, so the empty state stays reachable and
+ * correct rather than being eliminated.
+ *
+ * `ruleId: null` (manual) throughout — inventing a rule name for history that
+ * predates any real rule the user created would be a fabrication `ruleName`
+ * doesn't need to carry, since `provenanceLine()` already prints "Synced
+ * manually" whenever `ruleId` is null and ignores `ruleName` entirely in that
+ * case. Every record still carries `simulated: true` — same "(simulated)"
+ * labelling as any other sync record, seeded or rule-fired.
+ *
+ * hashString-derived throughout (never `Math.random`), so this seed is
+ * reproducible across reloads exactly like the rest of this dataset. Runs
+ * once — only on a truly empty localStorage key (see readInitial below) —
+ * and persists immediately, so real activity afterward accumulates on top of
+ * it rather than this re-seeding on every visit.
+ */
+function seedInitialRecords(): Record<string, SyncRecord> {
+  const accounts = metaAccounts();
+  if (accounts.length === 0) return {};
+  const dataset = getDataset();
+  const records: Record<string, SyncRecord> = {};
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  for (const creative of dataset.creatives) {
+    const roll = hashString(creative.id);
+    if (roll % 4 === 0) continue; // ~25% start genuinely unsynced
+
+    const accountCount = 1 + (roll % 2); // 1 or 2 accounts
+    for (let i = 0; i < accountCount && i < accounts.length; i++) {
+      const account = accounts[(roll + i) % accounts.length];
+      const key = pairKey(creative.id, account.id);
+      const daysAgo = 1 + (hashString(key) % 14); // spread over the last ~2 weeks
+      const queuedAtMs = Date.now() - daysAgo * dayMs;
+      const finishedAtMs = queuedAtMs + syncDurationMs(key);
+
+      records[key] = {
+        id: key,
+        creativeId: creative.id,
+        accountId: account.id,
+        status: "done",
+        ruleId: null,
+        ruleName: "Manual sync",
+        queuedAt: new Date(queuedAtMs).toISOString(),
+        startedAt: new Date(queuedAtMs).toISOString(),
+        finishedAt: new Date(finishedAtMs).toISOString(),
+        progress: 100,
+        simulated: true,
+      };
+    }
+  }
+  return records;
+}
+
 function readInitial(): SyncStoreState {
   if (typeof window === "undefined") return DEFAULT_STATE;
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw ? sanitize(JSON.parse(raw)) : DEFAULT_STATE;
+    if (raw) return sanitize(JSON.parse(raw));
+
+    const seeded: SyncStoreState = { records: seedInitialRecords(), lastPassAt: null };
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(seeded));
+    } catch {
+      // Quota exceeded or storage unavailable — the seeded state still
+      // returns for this session, it just won't survive a reload.
+    }
+    return seeded;
   } catch {
     return DEFAULT_STATE;
   }
