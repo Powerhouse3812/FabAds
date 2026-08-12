@@ -165,7 +165,25 @@ export const MODULES: ModuleDef[] = [
     ],
   },
 
-  { key: "automation", label: "Automation", icon: Workflow, path: "/automation", plans: ["full"] },
+  {
+    key: "automation",
+    label: "Automations",
+    icon: Workflow,
+    // `path` kept even though subItems exist: the rail navigates to
+    // firstSubPath() when sub-items are present, so subItems[0] MUST stay
+    // "/automation" (Overview) for the rail click to land on the center's
+    // landing page rather than a sub-section.
+    path: "/automation",
+    subItems: [
+      { label: "Overview", path: "/automation" },
+      { label: "Workflows", path: "/automation/workflows" },
+      { label: "Creative Report", path: "/automation/creative-report" },
+      { label: "Launch", path: "/automation/launch", badge: "Preview" },
+      { label: "RRM", path: "/automation/rrm", badge: "Preview" },
+      { label: "Genie", path: "/automation/genie", badge: "Preview" },
+    ],
+    plans: ["full"],
+  },
 
   /* CREATE */
   {
