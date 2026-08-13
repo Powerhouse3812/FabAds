@@ -94,6 +94,10 @@ function AppLayoutInner() {
   const isCreativeReportRoute =
     pathname.startsWith("/reports/creative-v2") ||
     pathname.startsWith("/reports/creative-v3");
+  // Automations = full-height node canvas; inside the default
+  // `flex-1 overflow-y-auto p-4` wrap it would have no fixed viewport to
+  // size against and the canvas would collapse.
+  const isAutomationsRoute = pathname.startsWith("/automation");
   // Routes that own their own scroll regions + chrome (no AppLayout
   // breadcrumb header, no outer padding). Genie6 set this pattern;
   // Industry Insights v2 follows it so the masonry page bg + sticky
@@ -109,7 +113,11 @@ function AppLayoutInner() {
     isLaunchV2Route ||
     isCreativeLibraryRoute ||
     isDashboardVariantsRoute ||
-    isCreativeReportRoute;
+    isCreativeReportRoute ||
+    isAutomationsRoute;
+  // `isPinned` is deliberately not destructured: both former branches rendered
+  // the SAME CopilotPanel, so they collapse to one render. On mobile it must
+  // overlay — as a pinned column sibling it would sit below the tab bar.
   const { isOpen } = useCopilot();
 
   return (

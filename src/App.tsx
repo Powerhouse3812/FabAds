@@ -32,6 +32,7 @@ import { launchV2Routes } from "@/launchv2/routes";
 // by side here and share no screen components.
 import { creativeReportRoutes } from "@/creative-report-v2/routes";
 import { creativeReportV3Routes } from "@/creative-report/routes";
+import { automationsRoutes } from "@/automations/routes";
 import { GenieHandoffStub } from "@/creative-report/actions/GenieHandoffStub";
 import { dashboardVariantRoutes } from "@/dashboard-variants/routes";
 import { brandBookRoutes, brandBookPrintRoutes } from "@/brand-book/routes";
@@ -322,8 +323,8 @@ const App = () => (
                 <Route path="catalogue/avatars/grid/:id" element={<CatalogueDetailPage type="avatars" />} />
                 <Route path="catalogue/voices/grid/:id" element={<CatalogueDetailPage type="voices" />} />
 
-                {/* Automation */}
-                <Route path="automation" element={<ComingSoonPage label="Automation" description="Automate launch rules, budget pacing, and creative rotation." />} />
+                {/* Automation — canvas workflow builder + reporting-automation list */}
+                {automationsRoutes}
 
                 {/* Tools */}
                 <Route path="tools" element={<Navigate to="/iq/video-sage" replace />} />

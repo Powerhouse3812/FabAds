@@ -15,3 +15,4 @@ export * from "./operators";
 export * from "./evaluate";
 export * from "./schedule";
 export * from "./clock";
+export * from "./graph";

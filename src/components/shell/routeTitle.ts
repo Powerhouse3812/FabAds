@@ -17,6 +17,12 @@
 const LABEL_MAP: Record<string, string> = {
   iq: "IQ",
   "creative-library": "Creative Library",
+  // Added on main by the Automations work; carried over during the merge so
+  // breadcrumbs on /automation and /automation/workflows keep their labels
+  // (the labelling loop STOPS at the first unknown segment, so a missing
+  // entry silently hides the whole breadcrumb rather than one crumb).
+  automation: "Automations",
+  workflows: "Workflows",
   copilot: "Copilot",
   genie: "Genie",
   genie6: "Genie 6.0",
