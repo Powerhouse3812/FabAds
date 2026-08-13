@@ -9,6 +9,7 @@ import { analyticsAgency } from "../../mocks/analytics";
 import { brands } from "../../mocks/brands";
 import { BrandLogo } from "../../components/BrandLogo";
 import { greeting } from "../../utils/greeting";
+import { WALK_COUNT } from "../../tour/tourSteps";
 
 /**
  * Command variant — Home.
@@ -255,7 +256,7 @@ export function CommandHome() {
             <Sparkles className="h-3.5 w-3.5 text-g6-primary-active shrink-0" />
             <div className="min-w-0">
               <p className="text-g6-sm font-medium text-g6-text">Guided tour</p>
-              <p className="text-g6-xs text-g6-text-tertiary">12-stop Genie walkthrough</p>
+              <p className="text-g6-xs text-g6-text-tertiary">{WALK_COUNT}-stop Genie walkthrough</p>
             </div>
             <ChevronRight className="h-3.5 w-3.5 text-g6-text-tertiary ml-auto shrink-0" />
           </button>

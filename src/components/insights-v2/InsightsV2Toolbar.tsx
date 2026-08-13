@@ -265,10 +265,14 @@ export function InsightsV2Toolbar({
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-2 gap-y-2">
+      {/* ONE ROW on mobile (Maalik, 2026-08-11): search renders normally and
+          flexes; every other control collapses to an icon-only button. The
+          previous stacked layout fixed overflow but spent vertical space on the
+          surface where the feed itself matters most. */}
+      <div className="flex flex-nowrap items-center gap-2 md:flex-row md:flex-wrap md:gap-2 md:gap-y-2">
         {/* Left: Search input (moved from Row 1) + inline applied chips */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1 max-w-[520px]">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:items-center md:flex-wrap md:min-w-0 md:flex-1 md:max-w-[520px]">
+          <div className="relative w-full md:flex-1 md:min-w-[200px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input
               ref={searchInputRef}
@@ -276,10 +280,10 @@ export function InsightsV2Toolbar({
               onChange={(e) => onSearchChange(e.target.value)}
               onFocus={onSearchFocus}
               placeholder="Search ads, brands, headlines…"
-              className="h-9 pl-9 pr-12 text-[13px]"
+              className="h-11 pl-9 pr-9 text-[13px] md:h-9 md:pr-12"
               aria-label="Search feed"
             />
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/60 text-muted-foreground" aria-hidden>
+            <kbd className="hidden md:inline pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border/60 text-muted-foreground" aria-hidden>
               ⌘K
             </kbd>
             <InsightsSearchPopover
@@ -292,9 +296,10 @@ export function InsightsV2Toolbar({
             />
           </div>
 
-          {/* Applied-filter chip strip — always visible inline next to Search.
-              Mirrors active filters as removable pills. */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* Applied-filter chip strip. md:-only — inline pills cannot coexist
+              with a single-row mobile toolbar. Mobile signals active filters via
+              the count badge on the Filters icon instead. */}
+          <div className="hidden flex-wrap items-center gap-1.5 md:flex">
             {filters.industry && (
               <ActiveFilterChip
                 label={filters.industry}
@@ -336,21 +341,28 @@ export function InsightsV2Toolbar({
         </div>
 
         {/* Spacer */}
-        <div className="flex-1" />
+        <div className="hidden md:block md:flex-1" />
 
         {/* Right: Date (only when scrolled) + Filters + Sort + Settings.
              Filters + Sort stay visible always per Maalik (round 28).
              Date picker appears here when the IdentityRow collapses on
              scroll, so the user can still adjust dates. */}
-        <div className="flex items-center gap-2 shrink-0">
-          {compact && onDateRangeChange && (
-            <DateRangeWithPresets
-              value={filters.dateRange}
-              onChange={onDateRangeChange}
-              size="sm"
-              open={dateRangeOpen}
-              onOpenChange={onDateRangeOpenChange}
-            />
+        <div className="flex shrink-0 flex-nowrap items-center gap-1 md:w-auto md:gap-2 md:flex-nowrap md:shrink-0">
+          {/* Date lives HERE on mobile at all times, so date + search + filters
+              + sort + settings form ONE horizontal row (Maalik). On desktop it
+              still only appears once the IdentityRow has collapsed on scroll —
+              `md:hidden` when !compact hides the mobile-always copy at md+. */}
+          {onDateRangeChange && (
+            <div className={compact ? undefined : "md:hidden"}>
+              <DateRangeWithPresets
+                value={filters.dateRange}
+                onChange={onDateRangeChange}
+                size="sm"
+                iconOnly
+                open={dateRangeOpen}
+                onOpenChange={onDateRangeOpenChange}
+              />
+            </div>
           )}
           {/* Add Filter — moved here from the left section. Consolidates
               Industry / Status / Ad type / Running days into one popover. */}
@@ -359,11 +371,11 @@ export function InsightsV2Toolbar({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-[12px] font-normal relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                className="h-11 w-11 justify-center p-0 md:h-8 md:w-auto md:justify-start md:px-3 gap-1.5 text-[12px] font-normal relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 aria-label="Add filter"
               >
-                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Filters</span>
+                <Filter className="h-[18px] w-[18px] text-muted-foreground md:h-3.5 md:w-3.5" />
+                <span className="hidden md:inline">Filters</span>
                 {addFilterActiveCount > 0 && (
                   <span
                     aria-hidden="true"
@@ -374,7 +386,7 @@ export function InsightsV2Toolbar({
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 p-0">
+            <PopoverContent align="end" className="w-[min(20rem,calc(100vw-1.5rem))] p-0">
               <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                   Filters
@@ -505,9 +517,19 @@ export function InsightsV2Toolbar({
             value={filters.sort}
             onValueChange={(v) => setField("sort", v as InsightsV2Sort)}
           >
-            <SelectTrigger className="h-8 w-[140px] text-[12px] relative" aria-label="Sort by">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground mr-1 shrink-0" />
-              <SelectValue />
+            <SelectTrigger
+              className="h-11 w-11 justify-center p-0 [&>svg:last-child]:hidden md:h-8 md:w-[140px] md:justify-between md:px-3 md:[&>svg:last-child]:block text-[12px] relative"
+              aria-label={`Sort by: ${sortLabel}`}
+            >
+              <ArrowUpDown className="h-[18px] w-[18px] shrink-0 text-muted-foreground md:mr-1 md:h-3.5 md:w-3.5" />
+              {/* `sr-only`, NOT `hidden`: shadcn's SelectTrigger ships
+                  `[&>span]:line-clamp-1`, an arbitrary child variant that
+                  overrides a `display:none` set on this span (verified — it
+                  computed to `flow-root` and the label overflowed the 44px
+                  icon button). `sr-only` hides via position/clip instead, so
+                  no `display` rule can defeat it, and the sort value stays
+                  available to assistive tech. */}
+              <span className="sr-only md:not-sr-only"><SelectValue /></span>
               {filters.sort !== "newest" && (
                 <span
                   aria-hidden
@@ -530,13 +552,13 @@ export function InsightsV2Toolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-9"
+                className="h-11 w-11 md:h-8 md:w-9"
                 aria-label="Display settings"
               >
                 <Settings className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[280px] p-0">
+            <PopoverContent align="end" className="w-[min(280px,calc(100vw-1.5rem))] p-0">
               <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                   Settings

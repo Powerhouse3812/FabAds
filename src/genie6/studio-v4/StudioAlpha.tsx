@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, PanelRightOpen } from "lucide-react";
+import { ChevronLeft, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
 import { AlphaStep1Format } from "./screens/AlphaStep1Format";
 import { Step2Product } from "./screens/Step2Product";
@@ -14,6 +14,7 @@ import { AlphaStep3Configure } from "./screens/AlphaStep3Configure";
 import { Step5ResultsQueue } from "./screens/Step5ResultsQueue";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
+import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
 import { useWizard, type WizardState, type Format, type Mode } from "./state/useWizard";
 import { useStudioAlphaUrlSync } from "./state/useUrlSync";
 
@@ -99,6 +100,20 @@ const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
 };
 
 /**
+ * Step names for the mobile step-context footer. Below `md` the wizard is
+ * one-screen-per-step and the breadcrumb stepper is hidden (it clips hard at
+ * 375px — AlphaProgressIndicator is `overflow-hidden` with no ellipsis), so
+ * the sticky footer carries "Step N of 4 · Label" instead.
+ */
+const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
+  1: "Format",
+  2: "Product",
+  3: "Approach",
+  4: "Configure",
+  5: "Results",
+};
+
+/**
  * StudioAlpha (A-12.26) — Studio Alpha shell.
  *
  * Architecture:
@@ -162,6 +177,22 @@ export function StudioAlpha() {
       { replace: true },
     );
   };
+
+  // Mobile-only ContextRail tray. Below `md` the inline aside is
+  // `hidden md:flex`, so the rail's real state feedback (brand / product /
+  // angle summary, KB counts, winner ads) had NO surface on a phone — and no
+  // affordance either, because the floating re-open button only renders while
+  // ?rail=closed. This sheet is that surface; its trigger lives in the mobile
+  // footer and is ALWAYS present on steps 1-4, independent of ?rail=.
+  const [mobileRailOpen, setMobileRailOpen] = useState(false);
+
+  // Count of resolved run-context picks, shown as a badge on the mobile
+  // "Context" trigger so the button reads as run state, not decoration.
+  const contextCount = [
+    state.format,
+    state.productId ?? state.brandId ?? state.categoryId,
+    state.angleId,
+  ].filter(Boolean).length;
 
   // Step 5 — generation done flag + regen counter.
   // A-12.52: when ?demo=1 is present, skip the 2.5s loader entirely — sample
@@ -258,7 +289,14 @@ export function StudioAlpha() {
   const showStepper = renderStep <= 4;
 
   return (
-    <div className="v3-page-mesh flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
+    // Height: `h-full` at base, `md:h-[100dvh]` restores the desktop value
+    // byte-for-byte. On mobile AppLayout already spends part of the 100dvh on
+    // MobileTopBar + MobileTabBar (both siblings of the routed outlet), so a
+    // hard 100dvh here overflowed the parent's `overflow-hidden` and pushed
+    // this wizard's own bottom chrome below the fold — the sticky mobile
+    // footer would have been unreachable. h-full fills exactly the space the
+    // shell actually gives us.
+    <div className="v3-page-mesh flex h-full flex-col overflow-hidden bg-background text-foreground md:h-[100dvh]">
       {phase === "home" && (
         <main className="min-h-0 flex-1 overflow-y-auto">
           <StudioHome onStart={startWizard} />
@@ -268,19 +306,26 @@ export function StudioAlpha() {
       {phase === "wizard" && (
         <>
           {/* Topbar: ← Back + progress stepper (hidden on Results) */}
-          <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/80 px-6 py-2 backdrop-blur">
+          <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur md:px-6">
+            {/* md:-only. On a phone this sat 54px below the shell's own Back
+                chevron and duplicated the sticky footer's Back — three Back
+                controls on one screen. The footer's is thumb-reachable, so
+                that one wins on mobile. */}
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="hidden min-h-[44px] items-center gap-1 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground md:inline-flex md:min-h-0 md:py-0"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               {state.step > 1 ? "Back" : "Home"}
             </button>
             {showStepper && (
               <>
-                <span className="text-muted-foreground/40">|</span>
-                <div className="flex-1">
+                <span className="hidden text-muted-foreground/40 md:inline">|</span>
+                {/* Breadcrumb stepper — md+ only. At 375px the 4 labels
+                    overflow and AlphaProgressIndicator clips them without an
+                    ellipsis; the mobile footer carries step context instead. */}
+                <div className="hidden flex-1 md:block">
                   <AlphaProgressIndicator
                     step={alphaStep}
                     onJumpTo={(s) => {
@@ -344,17 +389,77 @@ export function StudioAlpha() {
                 </div>
               </aside>
             )}
+            {/* Floating re-open affordance — renders whenever the rail is
+                closed. md+ only: below the breakpoint the inline aside is
+                `hidden`, so flipping ?rail= there would do nothing visible.
+                The mobile footer's "Context" button is the phone affordance
+                and it is always present (see below). */}
             {renderStep !== 5 && !railOpen && (
               <button
                 type="button"
                 onClick={() => setRailOpen(true)}
                 aria-label="Show overview"
-                className="group absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-card/80 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:scale-105 hover:border-foreground/30 hover:bg-card"
+                className="group absolute right-3 top-3 z-10 hidden h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-card/80 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:scale-105 hover:border-foreground/30 hover:bg-card md:inline-flex"
               >
                 <PanelRightOpen className="h-4 w-4 text-foreground transition-transform duration-300 group-hover:-rotate-12" />
               </button>
             )}
           </div>
+
+          {/* Mobile step chrome — md:hidden sticky footer. One screen per step
+              below `md`, so this bar is the persistent "where am I / how do I
+              get back / what's my context" strip. It deliberately has NO Next
+              button: every step is click-to-advance (selection advances), and
+              step 4 generates from the prompt bar's inline Send. Adding a Next
+              here would invent a second, wrong advance path.
+
+              No safe-area padding here on purpose: MobileTabBar is the last
+              flex child of AppLayout and already owns the inset — adding it
+              again would double-count it. */}
+          {renderStep !== 5 && (
+            <div className="flex shrink-0 items-center gap-2 border-t border-border bg-background/90 px-3 py-2 backdrop-blur md:hidden">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="inline-flex h-11 items-center gap-1 rounded-xl px-3 text-[12px] font-semibold text-foreground transition-colors hover:bg-foreground/[0.06]"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {state.step > 1 ? "Back" : "Home"}
+              </button>
+
+              <div className="min-w-0 flex-1 text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Step {Math.min(renderStep, 4)} of 4
+                </p>
+                <p className="truncate text-[12px] font-semibold text-foreground">
+                  {STEP_LABELS[Math.min(renderStep, 4) as 1 | 2 | 3 | 4]}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileRailOpen(true)}
+                aria-label={`Show run context — ${contextCount} of 3 set`}
+                className="inline-flex h-11 items-center gap-1.5 rounded-xl border border-border/60 bg-card/70 px-3 text-[12px] font-semibold text-foreground transition-colors hover:border-foreground/30 hover:bg-card"
+              >
+                <PanelRightClose className="h-4 w-4" />
+                Context
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/15 px-1 font-mono text-[10px] font-bold text-primary">
+                  {contextCount}
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* ContextRail's mobile home — same component, bottom sheet. */}
+          {renderStep !== 5 && (
+            <MobileContextRailSheet
+              wizard={wizard}
+              studioMode={homeMode ?? undefined}
+              open={mobileRailOpen}
+              onOpenChange={setMobileRailOpen}
+            />
+          )}
           {/* NO WizardNav footer — all steps are click-to-advance or inline Send */}
         </>
       )}

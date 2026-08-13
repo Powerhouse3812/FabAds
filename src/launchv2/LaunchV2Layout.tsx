@@ -1,7 +1,6 @@
 /** Wraps /launchv2 routes in the provider; runs full-height (ownsLayout). */
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Monitor } from "lucide-react";
 import { LaunchV2Provider } from "./state/LaunchV2Context";
 import FloatingFeedbackButton from "./feedback/FloatingFeedbackButton";
 import { markAppLoad, markPageView } from "./feedback/telemetry";
@@ -23,32 +22,22 @@ export default function LaunchV2Layout() {
   const onPanel = location.pathname.includes("/launchv2/feedback-panel");
   const onFlow = location.pathname === "/launchv2/new";
 
-  // Mobile gate: Launch v2 is desktop-only for the prototype. Tailwind-only
-  // (no JS viewport hook) so SSR/hydration is clean. Below md (768px) we show
-  // a polite "open on desktop" card; md+ we show the real surface.
+  // The blanket "Launch v2 is desktop-only" gate that used to live here is GONE.
+  // It hid the entire subtree including the Hub, so keeping it would leave
+  // /launchv2 blank on mobile — the exact bug the mobile work exists to fix.
+  // Per-path policy now lives in src/components/shell/mobileRoutePolicy.ts:
+  // the Hub, history and run detail are readonly-allowed, /launchv2/new and the
+  // remaining settings surfaces are blocked. Its card markup was generalized
+  // into src/components/shell/BestOnDesktop.tsx.
   const content = (
-    <div className="h-full min-h-0">
-      {/* Mobile gate — visible only under md (768px). Tailwind-only, no JS. */}
-      <div className="flex h-full min-h-0 items-center justify-center px-6 md:hidden">
-        <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-2xl border border-border bg-card p-8 text-center">
-          <Monitor className="h-12 w-12 text-primary" />
-          <div className="space-y-1.5">
-            <h2 className="text-base font-semibold text-foreground">
-              Open on desktop
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Launch 2.0 prototype is desktop-only for now. Open this link on a
-              laptop or larger screen.
-            </p>
-          </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <Outlet />
+      {/* Floating FAB is md:-only — on mobile it collides with the tab bar. */}
+      {!onPanel && !onFlow && (
+        <div className="hidden md:block">
+          <FloatingFeedbackButton />
         </div>
-      </div>
-
-      {/* Desktop surface — md and up */}
-      <div className="hidden h-full min-h-0 flex-col md:flex">
-        <Outlet />
-        {!onPanel && !onFlow && <FloatingFeedbackButton />}
-      </div>
+      )}
     </div>
   );
 

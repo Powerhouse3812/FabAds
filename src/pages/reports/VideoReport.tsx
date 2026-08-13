@@ -61,6 +61,7 @@ export default function VideoReport() {
         selectionCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onBulkExport={() => toast.success("CSV exported")}
+        selectedEntities={selectedEntities}
       />
 
       {isRefreshing ? (

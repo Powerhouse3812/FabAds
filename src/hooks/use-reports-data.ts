@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   type ReportEntity,
   type EntityLevel,
@@ -8,6 +8,12 @@ import {
   getDataset,
   aggregateMetrics,
 } from "@/lib/reports-dummy-data";
+import {
+  isFilterExempt,
+  pinCopiesToSources,
+  projectLevel,
+  useWriteStore,
+} from "@/lib/ad-entity-write-store";
 
 export interface GroupedRow {
   isGroup: true;
@@ -76,6 +82,14 @@ export function useReportsData({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const prevFilters = useRef("");
 
+  // Simulated status/budget/duplicate writes, layered over the immutable seeded
+  // dataset. See src/lib/ad-entity-write-store.ts.
+  const writes = useWriteStore();
+
+  // DELIBERATELY EXCLUDES `writes`. This key drives the fake 2-second
+  // isRefreshing skeleton below; if a write bumped it, every pause would blank
+  // the table for two seconds right after the user tapped. `writes` belongs in
+  // the useMemo deps only.
   const filterKey = JSON.stringify({
     level, parentId, search, platforms, statuses,
     primaryGroupBy: primaryGroupBy?.value,
@@ -94,6 +108,24 @@ export function useReportsData({
     prevFilters.current = filterKey;
   }, [filterKey]);
 
+  /**
+   * `isFilterExempt` is a bare `Date.now()` comparison, so an exemption going
+   * stale is not an event React can see — without this the just-written row
+   * stayed visible indefinitely and only vanished when some unrelated
+   * interaction happened to re-run the memo. Tick once at the earliest expiry
+   * so the row actually leaves a filter it no longer matches.
+   */
+  const [exemptTick, setExemptTick] = useState(0);
+  const soonestExpiry = Math.min(
+    ...Object.values(writes.filterExempt).filter((t) => t > Date.now()),
+  );
+  useEffect(() => {
+    if (!Number.isFinite(soonestExpiry)) return;
+    const ms = Math.max(0, soonestExpiry - Date.now()) + 50;
+    const t = setTimeout(() => setExemptTick((n) => n + 1), ms);
+    return () => clearTimeout(t);
+  }, [soonestExpiry]);
+
   const filtered = useMemo(() => {
     let items: ReportEntity[];
     if (parentId) {
@@ -103,6 +135,11 @@ export function useReportsData({
     } else {
       items = getByLevel(level, dateSeed, launchScopeId);
     }
+
+    // Overlay simulated writes BEFORE any filter runs. Order matters: applying
+    // overrides after the status filter would leave a row the user just paused
+    // sitting inside an "Active only" view while displaying "Paused".
+    items = projectLevel(items, { level, parentId }, writes);
 
     if (creativeType) {
       items = items.filter((e) => e.creative?.type === creativeType);
@@ -118,7 +155,12 @@ export function useReportsData({
     }
 
     if (statuses.length > 0) {
-      items = items.filter((e) => statuses.includes(e.status));
+      // A just-written row stays visible for EXEMPT_MS even if it no longer
+      // matches the status filter, so it doesn't vanish under the user's thumb
+      // while the Undo toast is still on screen.
+      items = items.filter(
+        (e) => statuses.includes(e.status) || isFilterExempt(e.id, writes),
+      );
     }
 
     // ── Launch provenance filters ──────────────────────────────────
@@ -143,6 +185,10 @@ export function useReportsData({
     level, parentId, search, platforms, statuses, dateSeed, creativeType,
     launchStrategies, launchBatchId, destinationFbPageId,
     destinationAdAccountName, sourceAdName, launchScopeId,
+    writes,
+    // Recomputes the status filter when an exemption expires. Without this the
+    // tick would re-render but hit the cached memo, changing nothing.
+    exemptTick,
   ]);
 
   const sorted = useMemo(() => {
@@ -152,8 +198,11 @@ export function useReportsData({
       const bVal = (b.metrics as unknown as Record<string, number>)[sortColumn] ?? 0;
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
     });
-    return arr;
-  }, [filtered, sortColumn, sortDirection]);
+    // Duplicates carry zero metrics, so a spend-desc sort would bury them at the
+    // bottom and the user would never see the copy they just made. Pin each copy
+    // directly under its source, as Meta Ads Manager does.
+    return pinCopiesToSources(arr, writes);
+  }, [filtered, sortColumn, sortDirection, writes]);
 
   const grouped = useMemo((): TableRow[] => {
     if (!primaryGroupBy) return sorted;

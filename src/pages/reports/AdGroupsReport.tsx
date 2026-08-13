@@ -93,7 +93,20 @@ export default function AdGroupsReport() {
     else { setSortColumn(col); setSortDirection("desc"); }
   };
 
-  const selectedEntities = useMemo(() => allFiltered.filter((e) => selectedIds.has(e.id)), [allFiltered, selectedIds]);
+  /**
+   * This page's rows are synthetic AGGREGATES — `tableRows[].id` is the ad-group
+   * NAME, not an entity id — so `allFiltered.filter(e => selectedIds.has(e.id))`
+   * can never match and would hand the toolbar a permanently empty list. The
+   * selection really refers to whole ad groups, so it resolves to the member ads
+   * of the selected groups: the real entities a bulk write would touch.
+   */
+  const selectedEntities = useMemo(
+    () =>
+      adGroups
+        .filter((g) => selectedIds.has(g.name))
+        .flatMap((g) => allFiltered.filter((e) => e.creative?.adGroupName === g.name)),
+    [adGroups, allFiltered, selectedIds],
+  );
 
   return (
     <div className="space-y-4">
@@ -132,6 +145,7 @@ export default function AdGroupsReport() {
         selectionCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onBulkExport={() => toast.success("CSV exported")}
+        selectedEntities={selectedEntities}
       />
 
       {isRefreshing ? (

@@ -373,7 +373,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
           combined Angles+Concepts card becomes the single flex-1 min-h-0
           region absorbing leftover height. Concepts grid's max-h scroll
           becomes the only internal scroll surface — page never scrolls. */}
-      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-6 overflow-y-auto px-6 pt-8 pb-10">
+      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto px-4 pt-6 pb-6 md:gap-6 md:px-6 md:pt-8 md:pb-10">
         <HeroHeader title="Configure" onBack={onBack} />
 
           {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
@@ -462,7 +462,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 line-clamp-1 text-[12px] text-foreground">
+                  {/* 2 lines at phone widths — at 375px the Edit chip leaves
+                      ~120px for this row and a single clamped line rendered
+                      as just "Angle: …". md: restores the 1-line clamp. */}
+                  <p className="mt-0.5 line-clamp-2 text-[12px] text-foreground md:line-clamp-1">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       Angle:
                     </span>{" "}
@@ -482,9 +485,12 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                     )}
                   </p>
                 </div>
-                <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary">
+                <span className="ml-auto inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary md:min-h-0">
                   <Pencil className="h-3 w-3" />
-                  Edit / Change
+                  {/* "Edit" alone below sm — the full label ate the summary
+                      row's width at 375px. sm+ unchanged. */}
+                  <span className="sm:hidden">Edit</span>
+                  <span className="hidden sm:inline">Edit / Change</span>
                 </span>
               </button>
             )}
@@ -503,7 +509,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                     type="button"
                     onClick={() => setPicksExpanded(false)}
                     aria-label="Collapse to summary"
-                    className="ml-auto inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                    className="ml-auto inline-flex min-h-[44px] items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground md:min-h-0"
                   >
                     Collapse
                     <ChevronDown className="h-3 w-3" />
@@ -523,13 +529,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               <div
                 className={cn(
                   "mt-2 overflow-hidden transition-[max-height] duration-300 ease-out",
-                  anglesExpanded ? "max-h-[400px] overflow-y-auto" : "max-h-[112px]",
+                  // Collapsed height = exactly one row of tiles. With 3 cols
+                  // at 375px a 4/5 tile is ~116px tall, so the desktop 112px
+                  // clip would slice the first row; md: restores 112px.
+                  anglesExpanded
+                    ? "max-h-[400px] overflow-y-auto"
+                    : "max-h-[132px] md:max-h-[112px]",
                   locks.angle && "pointer-events-none opacity-50",
                 )}
               >
                 <ul
                   className={cn(
-                    "grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6",
+                    // 3-up at phone widths (4-up made each tile ~68px wide —
+                    // the label clipped to one word). sm+ unchanged.
+                    "grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6",
                     !anglesExpanded &&
                       "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
                   )}
@@ -578,7 +591,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                   type="button"
                   onClick={() => setAnglesExpanded(!anglesExpanded)}
                   aria-expanded={anglesExpanded}
-                  className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  className="mt-1.5 inline-flex min-h-[44px] items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground md:min-h-0"
                 >
                   {anglesExpanded ? "Show fewer angles" : "Show all angles"}
                   <ChevronDown
@@ -628,7 +641,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 type="button"
                 onClick={toggleConcepts}
                 aria-expanded={conceptsOpen}
-                className="flex w-full items-center gap-3"
+                // flex-wrap at phone widths so the Generate chip + search box
+                // drop to a second line instead of squeezing the section
+                // title; md:flex-nowrap restores the single desktop row.
+                className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap"
               >
                 <ChevronRight
                   className={cn(
@@ -668,13 +684,13 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                         }
                       }}
                       title="Generate concepts with AI"
-                      className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.08] hover:text-primary"
+                      className="ml-auto inline-flex h-11 cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-background px-3 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.08] hover:text-primary sm:h-7 sm:px-2.5"
                     >
                       <Sparkles className="h-3 w-3" />
                       Generate
                     </span>
                     <div
-                      className="relative w-44"
+                      className="relative w-full sm:w-44"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -683,7 +699,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                         value={conceptSearch}
                         onChange={(e) => setConceptSearch(e.target.value)}
                         placeholder="Search concepts…"
-                        className="h-7 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-foreground/30"
+                        className="h-11 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-foreground/30 sm:h-7"
                       />
                     </div>
                   </>
@@ -770,13 +786,13 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
       {railMode !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6">
           {/* Backdrop — decorative only. Does NOT dismiss on click; every
               picker inside renders its own explicit close (X) / Cancel
               control, which is the only way to close this modal. */}
           <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
           {/* Dialog box — glass chassis */}
-          <div className="v3-glass relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl shadow-2xl max-h-[70vh]">
+          <div className="v3-glass relative z-10 flex max-h-[85dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl shadow-2xl md:max-h-[70vh]">
             {railMode === "generate-concepts" && (
               <RailGenerateConcepts
                 selectedIds={wizard.state.selectedConceptIds}

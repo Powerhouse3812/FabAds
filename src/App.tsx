@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { AdEntityActionsProvider } from "@/components/reports/actions/useAdEntityActions";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -46,6 +47,7 @@ import { planningV2Routes } from "@/planning-v2/routes";
 
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
 import InsightsBoards from "@/pages/insights/InsightsBoards";
+import InsightsSaved from "@/pages/insights/InsightsSaved";
 import InsightsBoardDetail from "@/pages/insights/InsightsBoardDetail";
 import InsightsCompetitors from "@/pages/insights/InsightsCompetitors";
 import InsightsV2Feed from "@/pages/insights-v2/InsightsV2Feed";
@@ -66,7 +68,6 @@ import AdSetsReport from "@/pages/reports/AdSetsReport";
 import AdsReport from "@/pages/reports/AdsReport";
 import ImageReport from "@/pages/reports/ImageReport";
 import VideoReport from "@/pages/reports/VideoReport";
-import AdGroupsReport from "@/pages/reports/AdGroupsReport";
 import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
 import { CatalogueDetailPage } from "@/catalogue/CatalogueDetailPage";
 import { CatalogueFinder } from "@/catalogue/CatalogueFinder";
@@ -148,10 +149,28 @@ const App = () => (
                 <Route index element={<Navigate to="/dashboard" replace />} />
                 {/* Reports — new flat structure (FB/NB/TT/Creative Reporting) */}
                 <Route path="reports" element={<Navigate to="/reports/fb" replace />} />
-                <Route path="reports/fb" element={<AdAccountsReport />} />
-                <Route path="reports/nb" element={<CampaignsReport />} />
-                <Route path="reports/tt" element={<AdSetsReport />} />
-                <Route path="reports/creative" element={<ImageReport />} />
+                {/* AdEntityActionsProvider scopes the status/budget/duplicate
+                    confirm dialogs + budget & session sheets to the entity
+                    reports, so they mount exactly once per surface instead of
+                    once per page or globally. */}
+                <Route
+                  element={
+                    <AdEntityActionsProvider>
+                      <Outlet />
+                    </AdEntityActionsProvider>
+                  }
+                >
+                  <Route path="reports/fb" element={<AdAccountsReport />} />
+                  <Route path="reports/nb" element={<CampaignsReport />} />
+                  <Route path="reports/tt" element={<AdSetsReport />} />
+                  {/* Ads level. Added with mobile Reports, which needs a 4th
+                      entity level — this also un-orphans AdsReport (imported but
+                      previously unreachable) and gives AdSetsReport's drill-down
+                      a real destination instead of a redirect that drops
+                      adsetId. */}
+                  <Route path="reports/ads" element={<AdsReport />} />
+                  <Route path="reports/creative" element={<ImageReport />} />
+                </Route>
                 {/* Legacy report routes — keep alive so old bookmarks don't 404 */}
                 <Route path="reports/performance/ad-accounts" element={<Navigate to="/reports/fb" replace />} />
                 <Route path="reports/performance/campaigns" element={<Navigate to="/reports/nb" replace />} />
@@ -235,7 +254,8 @@ const App = () => (
                 <Route path="insights/boards" element={<InsightsBoards />} />
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />
                 <Route path="insights/competitors" element={<InsightsCompetitors />} />
-                <Route path="insights/saved" element={<ComingSoonPage label="Saved Ads" description="Save and organise winning ads from across the web." />} />
+                {/* Thin wrapper so the mobile Insights toggle renders here too. */}
+                <Route path="insights/saved" element={<InsightsSaved />} />
 
                 {/* Industry Insights v2 — My Feed redesign (Phase 3). Sub-nav for
                     Discovery / Board / Competitor reuses the existing v1 routes

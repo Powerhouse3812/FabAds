@@ -9,7 +9,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TOUR_STEPS, type TourStep } from "./tourSteps";
+import { TOUR_STEPS, WALK_COUNT, type TourStep } from "./tourSteps";
 
 /**
  * TourPresentation — guided tour of Genie 6.0 (R-1).
@@ -84,7 +84,7 @@ export function TourPresentation() {
             Genie 6.0 · guided tour
           </p>
           <h1 className="text-g6-h1 font-black tracking-tight text-g6-text">
-            From the brief to the build — in 12 stops.
+            From the brief to the build — in {WALK_COUNT} stops.
           </h1>
           <p className="mx-auto max-w-xl text-g6-base text-g6-text-secondary">
             5 minute intro · 2 minute overview · then a storytelling walkthrough of every

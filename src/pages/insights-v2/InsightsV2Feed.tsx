@@ -30,6 +30,7 @@ import {
   type InsightsV2Filters,
   type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
+import { MobileInsightsTabs } from "@/components/insights/MobileInsightsTabs";
 import { InsightsV2IdentityRow } from "@/components/insights-v2/InsightsV2IdentityRow";
 import { TrendingTagsStrip } from "@/components/insights-v2/TrendingTagsStrip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
@@ -614,6 +615,13 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
+      {/* MOBILE ROW 0 — surface toggle (My feeds · Discover · Saved Ads).
+           Above the collapsing identity row so it stays put while that
+           collapses on scroll: it is navigation, and navigation must not
+           disappear as you read. md:hidden — desktop has the sub-nav. */}
+      <div className="shrink-0 bg-background px-3 pt-2 md:hidden">
+        <MobileInsightsTabs />
+      </div>
       {/* ROW 1 — Identity: section label + ad count chip + Date picker.
            Collapses entirely on scroll via grid-rows transition; the date
            picker re-appears in the Toolbar (Row 2). */}

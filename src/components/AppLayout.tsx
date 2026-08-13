@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { Fragment } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
-import { Menu } from "lucide-react";
-import { MobileNavContent } from "@/components/sidebar/MobileNavContent";
 import { CommandPalette } from "@/components/sidebar/CommandPalette";
 import { AppShell } from "@/components/shell/AppShell";
+import { MobileRouteGate } from "@/components/shell/MobileRouteGate";
+import { MobileTabBar } from "@/components/shell/MobileTabBar";
+import { labelableSegments } from "@/components/shell/routeTitle";
 import { CopilotProvider, useCopilot } from "@/contexts/CopilotContext";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { NewGenerationOverlayProvider } from "@/genie6/shell/NewGenerationOverlay";
 import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
@@ -27,184 +26,29 @@ import { WelcomeCarouselProvider } from "@/genie6/shell/WelcomeCarousel";
  * Layout:
  *   ParentNavigationRail (dark icon rail) | merged shell {sub-nav | main}
  *   + Copilot floating right when open
- *   + Mobile sheet via hamburger
  *   + Cmd+K palette
+ *
+ * Mobile (< md, see hooks/use-mobile MOBILE_BREAKPOINT): the rail and sub-nav
+ * are display:none; MobileTopBar (in AppShell) + MobileTabBar (here) are the
+ * chrome, and MobileRouteGate decides whether the routed page may render at all.
+ * The old floating hamburger + left drawer are gone — the drawer content now
+ * lives behind the tab bar's "More" slot.
  *
  * V7 shape sub-variant (floating ↔ edge-to-edge) lives in `useV7Shape` and
  * is wired through AppShell + ParentNavigationRail. That's separate from the
  * dropped FabAdsNavVariant system.
  */
 
-const LABEL_MAP: Record<string, string> = {
-  iq: "IQ",
-  "creative-library": "Creative Library",
-  copilot: "Copilot",
-  genie: "Genie",
-  genie6: "Genie 6.0",
-  workspace: "Assets",
-  generate: "Studio",
-  "generate-legacy": "Old Studio",
-  "generate-v3": "Studio v3",
-  "brand-ad": "Brand Ad",
-  "product-ad": "Product Ad",
-  "affiliate-ad": "Affiliate Ad",
-  "performance-ad": "Performance Ad",
-  variation: "Variations",
-  brand: "Brand",
-  ad: "Ad",
-  social: "Social",
-  "product-shoot": "Product Shoot",
-  "brand-focused": "Brand-focused",
-  "product-focused": "Product-focused",
-  "ugc-video": "UGC Video",
-  variations: "Variations",
-  "image-to-ad": "Image-to-Ad",
-  quick: "Quick mode",
-  library: "Library",
-  brands: "Brands",
-  categories: "Categories",
-  avatars: "Avatars",
-  voices: "Voices",
-  outputs: "Outputs",
-  hooks: "Hooks",
-  angles: "Angles",
-  concepts: "Concepts",
-  audiences: "Audiences",
-  "video-sage": "Video Sage",
-  dashboard: "Dashboard",
-  integrations: "Integrations",
-  launch: "Launch",
-  "launch-history": "Launch History",
-  offers: "Campaign URLs",
-  "campaign-urls": "Campaign URLs",
-  rrm: "RRM",
-  "rrm-settings": "RRM Settings",
-  reports: "Reports",
-  performance: "Performance",
-  creative: "Creative",
-  "creative-v2": "Creative Report 2.0",
-  "creative-v3": "Creative Report 3.0",
-  creatives: "Creatives",
-  compare: "Compare",
-  automations: "Automations",
-  // Creative Report 2.0-only segments (the frozen fork at
-  // src/creative-report-v2). 3.0 folded these three screens away.
-  "owner-report": "Owner report",
-  "brief-builder": "Brief builder",
-  views: "Saved views",
-  components: "Components",
-  "ad-accounts": "Ad Accounts",
-  "ad-sets": "Ad Sets",
-  ads: "Ads",
-  campaigns: "Campaigns",
-  image: "Image Report",
-  video: "Video Report",
-  "ad-groups": "Ad Group Report",
-  "targeting-templates": "Targeting Templates",
-  templates: "Targeting Templates",
-  ums: "Team",
-  "activity-logs": "Activity Logs",
-  insights: "Industry Insights",
-  discover: "Discover",
-  boards: "Boards",
-  competitors: "Competitors",
-  settings: "Settings",
-  clients: "Clients",
-  "quick-start": "Quick Start",
-  "ai-setup": "AI Setup",
-};
-
-/** Known sub-nav leaf paths — breadcrumbs hidden when on these exactly */
-const KNOWN_SUB_NAV_PATHS = new Set([
-  "/dashboard",
-  "/launch",
-  "/launch/templates",
-  "/launch/campaign-urls",
-  "/insights",
-  "/insights/discover",
-  "/insights/boards",
-  "/insights/competitors",
-  "/iq/creative-library",
-  "/iq/genie5",
-  "/iq/genie5/studio",
-  "/iq/genie5/templates",
-  "/iq/genie5/brands",
-  "/iq/genie5/categories",
-  "/iq/genie5/quick-start",
-  "/iq/genie5/ai-setup",
-  "/iq/genie",
-  "/iq/video-sage",
-  "/iq/copilot",
-  "/iq/genie6",
-  "/iq/genie6/workspace",
-  "/iq/genie6/generate",
-  "/iq/genie6/generate-legacy",
-  "/iq/genie6/generate-v3",
-  "/iq/genie6/library",
-  "/iq/genie6/settings",
-  "/rrm",
-  "/rrm/settings",
-  "/integrations",
-  "/ums",
-  "/activity-logs",
-  "/reports/performance/ad-accounts",
-  "/reports/performance/campaigns",
-  "/reports/performance/ad-sets",
-  "/reports/performance/ads",
-  "/reports/creative/image",
-  "/reports/creative/video",
-  "/reports/creative/ad-groups",
-  "/reports/creative-v2",
-  "/reports/creative-v2/creatives",
-  "/reports/creative-v2/components",
-  "/reports/creative-v2/compare",
-  "/reports/creative-v2/automations",
-  "/reports/creative-v2/owner-report",
-  "/reports/creative-v2/brief-builder",
-  "/reports/creative-v2/views",
-  "/reports/creative-v3",
-  "/reports/creative-v3/creatives",
-  "/reports/creative-v3/components",
-  "/reports/creative-v3/compare",
-  "/reports/creative-v3/automations",
-]);
-
-/**
- * Phase D P1-10: breadcrumbs used to capitalize ANY raw URL segment that
- * wasn't in LABEL_MAP — so UUIDs, numeric IDs, slugs etc. rendered as
- * gibberish ("Iq", "Abc-123-def" → "Abc 123 Def", or worse for raw UUIDs).
- *
- * Now: only segments we explicitly know how to label render. Any segment
- * that looks like an ID (UUID, numeric, or just unrecognized) is skipped
- * for breadcrumb purposes — the breadcrumb stops at the last KNOWN segment.
- * If nothing is known, breadcrumbs hide entirely.
- */
-const ID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const NUMERIC = /^\d+$/;
-function isIdLike(seg: string): boolean {
-  return ID_LIKE.test(seg) || NUMERIC.test(seg);
-}
+// LABEL_MAP / KNOWN_SUB_NAV_PATHS / isIdLike now live in
+// src/components/shell/routeTitle.ts — single source of truth for route
+// labels, consumed by both HeaderBreadcrumbs (below) and MobileTopBar.
 
 function HeaderBreadcrumbs() {
   const { pathname } = useLocation();
 
-  if (KNOWN_SUB_NAV_PATHS.has(pathname)) return null;
-
-  const segments = pathname.split("/").filter(Boolean);
-  if (segments.length === 0) return null;
-
-  // Build a list of segments we can confidently label. Stop at the first
-  // ID-like segment (or hide breadcrumbs entirely if no segment is in
-  // LABEL_MAP). Avoids "Iq" → "Iq" and UUID gibberish.
-  const labelable: { label: string; path: string }[] = [];
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    if (isIdLike(seg)) break;
-    const known = LABEL_MAP[seg];
-    if (!known) break;
-    labelable.push({ label: known, path: "/" + segments.slice(0, i + 1).join("/") });
-  }
-
+  // Label logic lives in shell/routeTitle.ts, shared with MobileTopBar so the
+  // mobile page title can never drift from the desktop breadcrumb.
+  const labelable = labelableSegments(pathname);
   if (labelable.length === 0) return null;
 
   return (
@@ -213,16 +57,24 @@ function HeaderBreadcrumbs() {
         {labelable.map((item, i) => {
           const isLast = i === labelable.length - 1;
           return (
-            <BreadcrumbItem key={item.path}>
+            /* Separator is a SIBLING of the item, not a child: both
+               BreadcrumbItem and BreadcrumbSeparator render <li>, so nesting
+               the separator inside the item tripped React's
+               validateDOMNesting ("<li> cannot appear as a descendant of
+               <li>") on every page load. The Fragment keeps both as direct
+               children of BreadcrumbList's <ol>. */
+            <Fragment key={item.path}>
               {i > 0 && <BreadcrumbSeparator />}
-              {isLast ? (
-                <BreadcrumbPage>{item.label}</BreadcrumbPage>
-              ) : (
-                <BreadcrumbLink asChild>
-                  <Link to={item.path}>{item.label}</Link>
-                </BreadcrumbLink>
-              )}
-            </BreadcrumbItem>
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink asChild>
+                    <Link to={item.path}>{item.label}</Link>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+            </Fragment>
           );
         })}
       </BreadcrumbList>
@@ -231,8 +83,6 @@ function HeaderBreadcrumbs() {
 }
 
 function AppLayoutInner() {
-  const isMobile = useIsMobile();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
   const isGenie6Route = pathname.startsWith("/iq/genie6");
   const isInsightsV2Route = pathname.startsWith("/insights-v2");
@@ -260,14 +110,23 @@ function AppLayoutInner() {
     isCreativeLibraryRoute ||
     isDashboardVariantsRoute ||
     isCreativeReportRoute;
-  const { isPinned, isOpen } = useCopilot();
+  const { isOpen } = useCopilot();
 
   return (
-    <div className="h-screen flex w-full overflow-hidden bg-zinc-100">
+    /* 100dvh (not 100vh) on mobile: with 100vh, iOS Safari reports the LARGE
+       viewport, so the bottom tab bar renders below the fold until the URL bar
+       collapses. dvh tracks the visible viewport. If the URL-bar transition
+       jitter ever proves unacceptable, 100svh is a one-word swap HERE and
+       nowhere else — the merged shell derives its height from flex.
+       md:h-screen keeps desktop pixel-identical. */
+    <div className="h-[100dvh] md:h-screen flex flex-col md:flex-row w-full overflow-hidden bg-zinc-100 pl-[env(safe-area-inset-left)]">
       {/* AppShell renders ParentRail + merged shell containing sub-nav + main */}
       <AppShell>
+        {/* Desktop breadcrumb row. md:-only — MobileTopBar (inside AppShell)
+            covers mobile, and unlike this row it renders on ownsLayout routes
+            too. */}
         {!ownsLayout && (
-          <div className="border-b border-zinc-900/[0.06] px-4 py-2 flex-shrink-0">
+          <div className="hidden md:block border-b border-zinc-900/[0.06] px-4 py-2 flex-shrink-0">
             <HeaderBreadcrumbs />
           </div>
         )}
@@ -275,40 +134,35 @@ function AppLayoutInner() {
           className={cn(
             "flex flex-col relative",
             ownsLayout
-              ? "h-full min-h-0 overflow-hidden"
-              : "flex-1 overflow-y-auto p-4 2xl:p-5",
+              ? "flex-1 min-h-0 overflow-hidden md:h-full"
+              : // On mobile this div IS the scroller (main is overflow-hidden);
+                // on desktop main scrolls and this stays as it was.
+                "flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 md:p-4 2xl:p-5",
           )}
         >
-          <Outlet />
+          <MobileRouteGate>
+            <Outlet />
+          </MobileRouteGate>
         </div>
       </AppShell>
 
       {/* Pinned/overlay Copilot stays SEPARATE (per A-10.8 Interpretation A:
-          "Copilot stays separate floating right") */}
-      {isPinned && isOpen && <CopilotPanel />}
-      {!isPinned && isOpen && <CopilotPanel />}
+          "Copilot stays separate floating right").
+          Both former branches rendered the SAME component, so they collapse.
+          On mobile it must overlay: as a pinned column sibling it would sit
+          below the tab bar in the flex column. */}
+      {isOpen && <CopilotPanel />}
 
-      {/* Mobile sheet + Cmd+K palette */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-[280px]">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <MobileNavContent onClose={() => setMobileOpen(false)} />
-        </SheetContent>
-      </Sheet>
-      {isMobile && !mobileOpen && (
-        /* Phase D P1-7: aria-expanded so screen readers announce open/close
-           state. min-h-11/min-w-11 for WCAG 2.5.5 touch target (was p-1.5 on
-           h-5 icon = ~32px tap area). */
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="fixed top-3 left-3 z-50 inline-flex items-center justify-center min-h-11 min-w-11 p-2 rounded-md bg-background border border-border text-foreground hover:bg-accent/10"
-          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-          aria-expanded={mobileOpen}
-          aria-controls="mobile-nav-sheet"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-      )}
+      {/* Bottom tab bar — mobile's primary nav. In normal flow as the last flex
+          child (not fixed), so no page needs a padding-bottom contract and the
+          safe-area inset can't be double-counted. Owns the "More" sheet, which
+          replaces the old floating hamburger + left drawer. */}
+      <MobileTabBar className="md:hidden" />
+
+      {/* Cmd+K palette — left mounted and deliberately NOT surfaced on mobile.
+          It only opens via the global keydown listener, so it is inert on touch
+          with zero extra code; discovery on mobile is the More sheet plus each
+          surface's own search. */}
       <CommandPalette />
     </div>
   );

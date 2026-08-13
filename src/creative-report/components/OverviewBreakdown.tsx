@@ -54,7 +54,7 @@ export function OverviewBreakdown({ rollups }: { rollups: CreativeRollup[] }) {
           <WhyDot id="overview.breakdown" />
         </div>
 
-        <div className="inline-flex items-center rounded-md border border-border bg-muted p-0.5">
+        <div className="inline-flex flex-wrap items-center rounded-md border border-border bg-muted p-0.5">
           {DIMENSIONS.map((d) => (
             <button
               key={d.key}
@@ -80,7 +80,10 @@ export function OverviewBreakdown({ rollups }: { rollups: CreativeRollup[] }) {
         </p>
       ) : (
         <>
-          <table className="mt-4 w-full text-sm">
+          {/* Shell clips by design — regions that need horizontal scroll opt
+              in explicitly here rather than leaking into page-level scroll. */}
+          <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr>
                 <th
@@ -134,6 +137,7 @@ export function OverviewBreakdown({ rollups }: { rollups: CreativeRollup[] }) {
               })}
             </tbody>
           </table>
+          </div>
 
           <div className="mt-2 space-y-1">
             {hiddenCount > 0 && (

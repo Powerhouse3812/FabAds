@@ -1,14 +1,16 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Bell, X, Package, Tag, Wand2, Layers, CheckCircle2, Clock, UploadCloud } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 
 /* ------------------------------------------------------------------ */
 /*  Mock data                                                          */
 /* ------------------------------------------------------------------ */
 
 type ActivityStatus = "done" | "pending" | "syncing";
+type ActivityTab = "activity" | "notifications";
 
 interface ActivityItem {
   id: string;
@@ -83,6 +85,122 @@ const STATUS_COLOR: Record<ActivityStatus, string> = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  NotificationPanel — shared header / tab strip / list               */
+/* ------------------------------------------------------------------ */
+
+interface NotificationPanelProps {
+  activeTab: ActivityTab;
+  onTabChange: (tab: ActivityTab) => void;
+  onClose: () => void;
+  /**
+   * True only inside the mobile Sheet. Bumps tap targets to the WCAG 2.5.5
+   * 44px minimum (close button, tab strip, activity rows). Desktop keeps its
+   * original tighter density untouched — this prop defaults to false so the
+   * Popover path renders byte-identical classNames to before.
+   */
+  mobile?: boolean;
+}
+
+/**
+ * Header + tab strip + activity/notifications list. Extracted so the desktop
+ * Popover and the mobile Sheet render the exact same markup/state — the
+ * container is the only thing that differs between the two.
+ */
+function NotificationPanel({ activeTab, onTabChange, onClose, mobile = false }: NotificationPanelProps) {
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
+        {mobile ? (
+          <SheetTitle className="text-sm font-semibold text-foreground">Activity</SheetTitle>
+        ) : (
+          <p className="text-sm font-semibold text-foreground">Activity</p>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className={cn(
+            "text-muted-foreground hover:text-foreground transition-colors",
+            mobile && "flex items-center justify-center min-h-11 min-w-11"
+          )}
+          aria-label="Close"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Tab strip */}
+      <div className="flex border-b border-border bg-background">
+        {(["activity", "notifications"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => onTabChange(tab)}
+            className={cn(
+              "flex-1 py-2 text-xs font-semibold capitalize transition-colors",
+              mobile && "min-h-11",
+              activeTab === tab
+                ? "text-foreground border-b-2 border-g6-primary-active"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {activeTab === "activity" ? (
+        <div
+          className={cn(
+            "overflow-y-auto divide-y divide-border",
+            mobile ? "flex-1" : "max-h-[340px]"
+          )}
+        >
+          {MOCK_ACTIVITY.map((item) => {
+            const EntityIcon = item.entityIcon;
+            const StatusIcon = STATUS_ICON[item.status];
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "flex items-start gap-3 px-4 py-3 hover:bg-accent/30 transition-colors cursor-pointer",
+                  mobile && "min-h-11"
+                )}
+              >
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
+                  <EntityIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-medium text-foreground leading-snug truncate">
+                    {item.entityName}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                    {item.action}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">{item.time}</p>
+                </div>
+                <StatusIcon
+                  className={cn("h-3.5 w-3.5 shrink-0 mt-1", STATUS_COLOR[item.status])}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+          <Bell className="h-7 w-7 text-muted-foreground/40 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">No new notifications</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">
+            System alerts will appear here
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  NotificationBell Component                                         */
 /* ------------------------------------------------------------------ */
 
@@ -91,45 +209,15 @@ interface NotificationBellProps {
   compact?: boolean;
 }
 
-const COPY_TEXT = `Let's planout the whole thing first, then I'll tell you to implement when, but remeber some things:
-
-I'll decide everything,
-
-let me choose everything,
-
-ask questions,
-
-don't assume anything.
-
-Spawn mutiple agents
-
-DO it fast and parallel without loosing even 1% of quality`;
-
-const LONG_PRESS_MS = 800;
-
 export function NotificationBell({ compact = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"activity" | "notifications">("activity");
-  const { toast } = useToast();
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeTab, setActiveTab] = useState<ActivityTab>("activity");
+  const isMobile = useIsMobile();
 
   const unreadCount = 2; // mock
 
-  function startPress() {
-    pressTimer.current = setTimeout(() => {
-      navigator.clipboard.writeText(COPY_TEXT).then(() => {
-        toast({ title: "Copied", description: "Prompt copied to clipboard." });
-      });
-    }, LONG_PRESS_MS);
-  }
-
-  function cancelPress() {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  }
-
+  // Shared verbatim between the desktop Popover and the mobile Sheet so the
+  // badge/unread-count logic can't drift between the two containers.
   const trigger = (
     <button
       type="button"
@@ -138,11 +226,6 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
         compact ? "w-10 h-10" : "w-9 h-9"
       )}
       aria-label="Notifications"
-      onMouseDown={startPress}
-      onMouseUp={cancelPress}
-      onMouseLeave={cancelPress}
-      onTouchStart={startPress}
-      onTouchEnd={cancelPress}
     >
       <Bell className={cn(compact ? "h-5 w-5" : "h-4 w-4")} />
       {unreadCount > 0 && (
@@ -151,6 +234,39 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
     </button>
   );
 
+  const handleClose = () => setOpen(false);
+
+  // Container branch only: a phone viewport is 375px wide, and the popover's
+  // fixed 340px width leaves too little room once Radix applies its edge
+  // collision padding, so the panel clips. Below `md` we swap the anchored
+  // Popover for a full-width bottom Sheet instead of trying to shrink an
+  // anchored panel to fit — same trigger, same NotificationPanel content.
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        <SheetContent
+          side="bottom"
+          className="flex flex-col gap-0 p-0 max-h-[75dvh] rounded-t-2xl [&>button]:hidden"
+        >
+          {/*
+            SheetContent already renders its own absolutely-positioned close
+            X (see src/components/ui/sheet.tsx) — `[&>button]:hidden` above
+            hides that duplicate so the header's explicit close (below) is
+            the single, unambiguous dismiss control. Per the app-wide rule,
+            outside-click/swipe never dismisses this sheet.
+          */}
+          <NotificationPanel
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onClose={handleClose}
+            mobile
+          />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -158,79 +274,9 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
         side="top"
         align="end"
         sideOffset={8}
-        className="w-[340px] p-0 shadow-lg border border-border rounded-xl overflow-hidden"
+        className="w-[min(340px,calc(100vw-1.5rem))] p-0 shadow-lg border border-border rounded-xl overflow-hidden"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
-          <p className="text-sm font-semibold text-foreground">Activity</p>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Close"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Tab strip */}
-        <div className="flex border-b border-border bg-background">
-          {(["activity", "notifications"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "flex-1 py-2 text-xs font-semibold capitalize transition-colors",
-                activeTab === tab
-                  ? "text-foreground border-b-2 border-g6-primary-active"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        {activeTab === "activity" ? (
-          <div className="max-h-[340px] overflow-y-auto divide-y divide-border">
-            {MOCK_ACTIVITY.map((item) => {
-              const EntityIcon = item.entityIcon;
-              const StatusIcon = STATUS_ICON[item.status];
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-start gap-3 px-4 py-3 hover:bg-accent/30 transition-colors cursor-pointer"
-                >
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
-                    <EntityIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-medium text-foreground leading-snug truncate">
-                      {item.entityName}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                      {item.action}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-1">{item.time}</p>
-                  </div>
-                  <StatusIcon
-                    className={cn("h-3.5 w-3.5 shrink-0 mt-1", STATUS_COLOR[item.status])}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-            <Bell className="h-7 w-7 text-muted-foreground/40 mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">No new notifications</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              System alerts will appear here
-            </p>
-          </div>
-        )}
+        <NotificationPanel activeTab={activeTab} onTabChange={setActiveTab} onClose={handleClose} />
       </PopoverContent>
     </Popover>
   );

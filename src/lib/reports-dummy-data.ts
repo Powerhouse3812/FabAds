@@ -1,4 +1,9 @@
 import type { LaunchStrategy } from "@/lib/launch-distribution";
+// Country → currency lives in reports-accounts.ts (single source of truth).
+// This is a lazy, function-level import cycle only (reports-accounts imports
+// `getByLevel` + `DESTINATION_PAGES` from here, and neither side touches the
+// other at module-evaluation time), so it is safe under ESM/Vite.
+import { currencyForCountry } from "@/lib/reports-accounts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -130,10 +135,20 @@ const LAUNCH_BATCHES = [
   { id: "batch_summer", strategy: "equal" as LaunchStrategy },
   { id: "batch_bfcm", strategy: "duplicate" as LaunchStrategy },
 ];
-const DESTINATION_PAGES = [
+// Exported for src/lib/reports-accounts.ts, which derives the Reports module's
+// account + page + currency universe from this data rather than duplicating it.
+export const DESTINATION_PAGES = [
   { fbPageId: "fbp_brand_001", pageName: "Acme Brand Page", accountName: "Acme Corp US" },
   // Same Facebook Page identity linked under a DIFFERENT account (shared page).
   { fbPageId: "fbp_brand_001", pageName: "Acme Brand Page", accountName: "Acme Corp EU" },
+  // Second page under Acme Corp US, so the multi-page state ("2 pages") is
+  // actually reachable in the demo. BrandX Global is deliberately left with
+  // zero pages so the "No page linked" state stays demoable too.
+  // (The inline narrowing accordion that used to read this — MobileScopeSheet
+  // — was removed as a product decision; see MobileReportsShell.tsx. This
+  // multi-page fixture data is left in place since reports-accounts.ts still
+  // derives its account/page universe from it.)
+  { fbPageId: "fbp_brand_004", pageName: "Acme Outlet Store", accountName: "Acme Corp US" },
   { fbPageId: "fbp_shop_002", pageName: "ShopMax Storefront", accountName: "ShopMax Direct" },
   { fbPageId: "fbp_trend_003", pageName: "TrendWave Page", accountName: "TrendWave Media" },
 ];
@@ -360,10 +375,93 @@ export function getById(id: string, dateSeed = 0): ReportEntity | undefined {
   return getDataset(dateSeed).find((e) => e.id === id);
 }
 
-export function aggregateMetrics(entities: ReportEntity[]): ReportMetrics {
-  const m: ReportMetrics = {
+// ── Currency resolution ───────────────────────────────────────────
+// Money is denominated per ad account (children inherit the account's country,
+// so an entity's own `country` is authoritative at every level). Any set of
+// entities can therefore be single-currency or mixed, and a mixed set has no
+// meaningful money total.
+
+export interface CurrencyResolution {
+  /** ISO code shared by every input entity; `null` when empty or mixed. */
+  code: string | null;
+  /** Symbol for `code`. Falls back to "$" when unresolved, so callers that
+   *  ignore `mixed` degrade to today's behaviour rather than rendering junk. */
+  symbol: string;
+  /** True when the inputs span more than one currency. */
+  mixed: boolean;
+}
+
+/** Money metric keys — the ones whose value is a currency amount. */
+export const MONEY_METRIC_KEYS = ["spend", "revenue", "cpa", "cpc", "cpm", "margin"] as const;
+export type MoneyMetricKey = (typeof MONEY_METRIC_KEYS)[number];
+
+const _moneyKeySet: ReadonlySet<string> = new Set<string>(MONEY_METRIC_KEYS);
+
+export function isMoneyMetric(key: string): boolean {
+  return _moneyKeySet.has(key);
+}
+
+/**
+ * Metrics that cannot be aggregated across currencies — one common rule for
+ * every suppression site, rather than per-metric special cases.
+ *
+ * Money amounts, plus the ratios DERIVED from them: ROAS is revenue/spend and
+ * marginPercent is margin/revenue, so once the numerator and denominator come
+ * from different currencies the ratio is as meaningless as the total. Volume
+ * metrics (impressions, clicks, conversions) are currency-free and still sum.
+ */
+const _currencyDependentSet: ReadonlySet<string> = new Set<string>([
+  ...MONEY_METRIC_KEYS,
+  "roas",
+  "marginPercent",
+]);
+
+export function isCurrencyDependentMetric(key: string): boolean {
+  return _currencyDependentSet.has(key);
+}
+
+/** Shown wherever a currency-dependent total is suppressed because rows disagree. */
+export const MIXED_CURRENCY_NOTE = "Mixed currencies — no combined total";
+
+/**
+ * Resolve the currency shared by `entities`, or report that they are mixed.
+ * Note DE + FR both map to EUR, so this compares resolved currency *codes*,
+ * never raw country strings.
+ */
+export function resolveCurrency(entities: readonly ReportEntity[]): CurrencyResolution {
+  let code: string | null = null;
+  for (const e of entities) {
+    const c = currencyForCountry(e.country).code;
+    if (code === null) code = c;
+    else if (code !== c) return { code: null, symbol: "$", mixed: true };
+  }
+  if (code === null) return { code: null, symbol: "$", mixed: false };
+  return { code, symbol: currencyForCountry(entities[0].country).symbol, mixed: false };
+}
+
+/**
+ * `aggregateMetrics` result. Extends `ReportMetrics` additively so existing
+ * consumers (and `keyof ReportMetrics` indexers such as
+ * `src/components/dashboard/kpi-catalogue.ts`) are untouched, while making the
+ * cross-currency outcome explicit for anything that renders money.
+ *
+ * When `mixedCurrency` is true the additive money fields (spend/revenue/margin)
+ * and everything derived from them are sums across *different* currencies —
+ * numerically meaningless. Render a neutral marker, not a total.
+ */
+export interface AggregatedMetrics extends ReportMetrics {
+  /** ISO code shared by every aggregated entity; `null` when mixed/empty. */
+  currency: string | null;
+  currencySymbol: string;
+  mixedCurrency: boolean;
+}
+
+export function aggregateMetrics(entities: ReportEntity[]): AggregatedMetrics {
+  const cur = resolveCurrency(entities);
+  const m: AggregatedMetrics = {
     spend: 0, revenue: 0, roas: 0, impressions: 0, clicks: 0,
     ctr: 0, cpa: 0, cpc: 0, cpm: 0, conversions: 0, margin: 0, marginPercent: 0,
+    currency: cur.code, currencySymbol: cur.symbol, mixedCurrency: cur.mixed,
   };
   for (const e of entities) {
     m.spend += e.metrics.spend;
@@ -388,26 +486,35 @@ export interface ColumnDef {
   key: string;
   label: string;
   numeric?: boolean;
-  format?: (v: number) => string;
+  /** Money column — its value is denominated in the row's own currency, so it
+   *  must not be rendered with a hardcoded symbol, and must be suppressed on a
+   *  mixed-currency group row. Mirrors `isMoneyMetric(key)`. */
+  money?: boolean;
+  /**
+   * `currencySymbol` is supplied by the renderer from the row's own currency
+   * (see `resolveCurrency`). It is optional and falls back to "$" so every
+   * pre-existing single-argument call site keeps working unchanged.
+   */
+  format?: (v: number, currencySymbol?: string) => string;
   width?: string;
 }
 
 const fmt = {
-  currency: (v: number) => `$${v.toLocaleString()}`,
+  currency: (v: number, currencySymbol = "$") => `${currencySymbol}${v.toLocaleString()}`,
   number: (v: number) => v.toLocaleString(),
   percent: (v: number) => `${v}%`,
   decimal: (v: number) => v.toFixed(2),
 };
 
 export const METRIC_COLUMNS: ColumnDef[] = [
-  { key: "spend", label: "Spend", numeric: true, format: fmt.currency },
-  { key: "revenue", label: "Revenue", numeric: true, format: fmt.currency },
+  { key: "spend", label: "Spend", numeric: true, money: true, format: fmt.currency },
+  { key: "revenue", label: "Revenue", numeric: true, money: true, format: fmt.currency },
   { key: "roas", label: "ROAS", numeric: true, format: fmt.decimal },
   { key: "impressions", label: "Impressions", numeric: true, format: fmt.number },
   { key: "clicks", label: "Clicks", numeric: true, format: fmt.number },
   { key: "ctr", label: "CTR", numeric: true, format: fmt.percent },
-  { key: "cpa", label: "CPA", numeric: true, format: fmt.currency },
-  { key: "margin", label: "Margin", numeric: true, format: fmt.currency },
+  { key: "cpa", label: "CPA", numeric: true, money: true, format: fmt.currency },
+  { key: "margin", label: "Margin", numeric: true, money: true, format: fmt.currency },
 ];
 
 export const ENGAGEMENT_COLUMNS: ColumnDef[] = [

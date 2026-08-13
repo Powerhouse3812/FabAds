@@ -33,6 +33,7 @@ import { CreativeThumb } from "@/creative-report/components/CreativeThumb";
 import { ThresholdSettings } from "@/creative-report/components/ThresholdSettings";
 import { WhyDot } from "@/creative-report/components/WhyDot";
 import { useReportBasePath } from "@/creative-report/state/ReportBasePathContext";
+import { useIsReadOnly } from "@/components/shell/MobileCapabilityContext";
 import { fmtCompactCurrency, fmtMultiple, truncate, NAME_MAX } from "@/creative-report/lib/format";
 import { bucketCreatives, bucketRuleText, type CreativeRollup } from "@/creative-report/lib/selectors";
 import { BUCKETS, BUCKET_LABELS, type BucketKey } from "@/creative-report/lib/paramSchema";
@@ -121,6 +122,7 @@ function getRowActions(
 
 function BucketTabRow({ rollup, bucket }: { rollup: CreativeRollup; bucket: BucketKey }) {
   const actions = useCreativeActions();
+  const isReadOnly = useIsReadOnly();
   const { text, truncated } = truncate(rollup.creative.name, NAME_MAX);
 
   // Per-bucket secondary line. Fatiguing gets the symptom (reason + freq) —
@@ -141,7 +143,12 @@ function BucketTabRow({ rollup, bucket }: { rollup: CreativeRollup; bucket: Buck
           .join(" · ")
       : `ROAS ${fmtMultiple(rollup.metrics.roas)}`;
 
-  const rowActions = getRowActions(bucket, rollup, actions);
+  // Read-only mobile: only the non-mutating "View" affordance survives.
+  // useIsReadOnly is false everywhere outside the mobile gate (see
+  // MobileCapabilityContext's load-bearing default), so desktop and the
+  // read-write mobile routes keep the full per-bucket action set.
+  const allRowActions = getRowActions(bucket, rollup, actions);
+  const rowActions = isReadOnly ? allRowActions.filter((a) => a.key === "view") : allRowActions;
 
   return (
     <div
@@ -154,7 +161,7 @@ function BucketTabRow({ rollup, bucket }: { rollup: CreativeRollup; bucket: Buck
           actions.view(rollup.creative.id);
         }
       }}
-      className="flex cursor-pointer items-center gap-3 rounded-md border-b border-border/70 py-2.5 transition-transform last:border-0 hover:-translate-y-0.5 hover:bg-accent/5"
+      className="flex cursor-pointer flex-wrap items-center gap-3 rounded-md border-b border-border/70 py-2.5 transition-transform last:border-0 hover:-translate-y-0.5 hover:bg-accent/5 md:flex-nowrap"
     >
       <CreativeThumb creative={rollup.creative} size={40} />
 
@@ -172,14 +179,19 @@ function BucketTabRow({ rollup, bucket }: { rollup: CreativeRollup; bucket: Buck
         {fmtCompactCurrency(rollup.metrics.spend)}
       </span>
 
-      <div className="flex shrink-0 items-center gap-0.5">
+      {/* Action buttons are the least essential part of the row on a narrow
+          screen — give them their own full-width line below name/spend
+          rather than starving the name column for space. flex-wrap on the
+          row (above) plus w-full here guarantees that split at base; md:
+          restores the single-row, inline-width layout untouched. */}
+      <div className="flex w-full shrink-0 items-center justify-end gap-1 md:w-auto md:justify-start md:gap-0.5">
         {rowActions.map((a) => (
           <Tooltip key={a.key}>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-11 w-11 md:h-8 md:w-8"
                 aria-label={a.label}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -277,7 +289,7 @@ export function BucketTabs({
           role="tablist"
           aria-label="Creative buckets"
           onKeyDown={onTablistKeyDown}
-          className="mt-3 flex w-full border-b border-border px-2"
+          className="mt-3 flex w-full overflow-x-auto border-b border-border px-2"
         >
           {BUCKETS.map((key) => {
             const count = buckets[key];
@@ -297,7 +309,12 @@ export function BucketTabs({
                 aria-label={`${BUCKET_LABELS[key]}, ${count} ${count === 1 ? "creative" : "creatives"}`}
                 onClick={() => setActive(key)}
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-1 border-b-2 px-2 py-3 transition-transform duration-200 hover:-translate-y-0.5",
+                  // min-w + shrink-0 give each tab a legibility floor at
+                  // narrow widths — the tablist scrolls horizontally
+                  // (overflow-x-auto, above) rather than squeezing 5 tabs
+                  // into ~75px each. At desktop widths the strip never
+                  // overflows, so flex-1 fills the row exactly as before.
+                  "flex min-w-[88px] flex-1 shrink-0 flex-col items-center gap-1 border-b-2 px-2 py-3 transition-transform duration-200 hover:-translate-y-0.5",
                   isActive ? "border-primary" : "border-transparent hover:border-border",
                 )}
               >
@@ -317,7 +334,7 @@ export function BucketTabs({
                 </span>
                 <span
                   className={cn(
-                    "text-[11px] font-medium uppercase tracking-wide transition-colors",
+                    "whitespace-nowrap text-[11px] font-medium uppercase tracking-wide transition-colors",
                     isActive ? "text-primary-text" : "text-muted-foreground",
                   )}
                 >

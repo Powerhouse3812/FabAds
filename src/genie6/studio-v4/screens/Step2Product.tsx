@@ -485,7 +485,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
       <div className="flex justify-center">
         <div
           role="tablist"
-          className="inline-flex rounded-xl border border-border bg-muted/40 p-1 shadow-sm"
+          className="inline-flex max-w-full snap-x overflow-x-auto rounded-xl border border-border bg-muted/40 p-1 shadow-sm [scrollbar-width:none] md:snap-none md:overflow-x-visible [&::-webkit-scrollbar]:hidden"
         >
           <TabBtn
             active={tab === "brand"}
@@ -919,17 +919,21 @@ function TabBtn({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium transition-all",
+        // Mobile: shrink-0 + nowrap so labels stay whole and the row scrolls
+        // instead of clipping words; min-h-11 keeps the 44px tap target.
+        // md+: min-h-0 / snap-align-none / gap-2 / px-4 / text-sm restore the
+        // original desktop pill byte-for-byte.
+        "inline-flex min-h-11 shrink-0 snap-start items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-medium transition-all sm:gap-1.5 sm:px-3 md:min-h-0 md:snap-align-none md:gap-2 md:px-4 md:text-sm",
         active
           ? "bg-foreground text-background shadow-sm"
           : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
+      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <span>{label}</span>
       <span
         className={cn(
-          "rounded-full px-1.5 font-mono text-[10px]",
+          "shrink-0 rounded-full px-1 font-mono text-[9px] md:px-1.5 md:text-[10px]",
           active
             ? "bg-background/20 text-background"
             : "bg-muted text-muted-foreground",

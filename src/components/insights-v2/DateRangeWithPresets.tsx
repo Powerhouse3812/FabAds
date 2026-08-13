@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DATE_PRESETS = [
   { label: "Today", days: 1 },
@@ -38,6 +39,8 @@ interface DateRangeWithPresetsProps {
    */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Collapse to a 44px icon-only square below `md`. See note in the body. */
+  iconOnly?: boolean;
 }
 
 /**
@@ -52,8 +55,21 @@ export function DateRangeWithPresets({
   size = "md",
   open,
   onOpenChange,
+  iconOnly = false,
 }: DateRangeWithPresetsProps) {
   const triggerHeight = size === "sm" ? "h-8" : "h-9";
+  /**
+   * `iconOnly` collapses the trigger to a 44px square showing just the calendar
+   * glyph. Used by the mobile Insights toolbar, which puts date + search +
+   * filters + sort + settings on ONE row — the range text does not fit at
+   * 375px. The selected range stays available to assistive tech via the
+   * trigger's aria-label, and the "range is set" state is still signalled
+   * visually by the primary-tinted border (see `value?.from &&` below).
+   */
+  // Two-up month calendar (numberOfMonths=2) is wider than a 375px viewport.
+  // Single month below `md`, restored to 2 at `md`+ — matches the app's
+  // mobile breakpoint (see MOBILE_BREAKPOINT in use-mobile.tsx).
+  const isMobile = useIsMobile();
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -62,15 +78,24 @@ export function DateRangeWithPresets({
           variant="outline"
           size="sm"
           className={cn(
-            triggerHeight,
-            "gap-1.5 text-[12px] font-normal shrink-0 min-w-[140px] justify-start",
+            "gap-1.5 text-[12px] font-normal shrink-0",
+            // NOTE: no template interpolation in these class strings —
+            // Tailwind's JIT scans source text, so a dynamic `md:${...}`
+            // never gets generated. Literals only.
+            iconOnly
+              // 44px square below md (WCAG 2.5.5); full labelled trigger at md+.
+              ? cn(
+                  "h-11 w-11 justify-center p-0 md:w-auto md:justify-start md:px-3 md:min-w-[140px]",
+                  size === "sm" ? "md:h-8" : "md:h-9",
+                )
+              : cn(triggerHeight, "min-w-[140px] justify-start"),
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
             value?.from && "bg-primary/5 border-primary/40 text-foreground",
           )}
-          aria-label="Date range"
+          aria-label={`Date range${value?.from ? " — a range is applied" : ": all-time"}`}
         >
-          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-          {(() => {
+          <CalendarDays className={cn("text-muted-foreground", iconOnly ? "h-[18px] w-[18px] md:h-3.5 md:w-3.5" : "h-3.5 w-3.5")} />
+          <span className={cn(iconOnly && "sr-only md:not-sr-only")}>{(() => {
             const r = value;
             // Empty state: explicitly label "All-time" so the user knows
             // they're seeing the full window. Maalik's spec — never let
@@ -106,10 +131,10 @@ export function DateRangeWithPresets({
               );
             }
             return <span>{format(r.from, "MMM d, yyyy")}</span>;
-          })()}
+          })()}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto p-0">
+      <PopoverContent align="end" className="w-auto max-w-[calc(100vw-1.5rem)] p-0">
         {value?.from && (
           <div className="flex items-center gap-2 bg-muted/40 border-b border-border/60 px-3 py-2">
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
@@ -204,7 +229,7 @@ export function DateRangeWithPresets({
           selected={value}
           onSelect={(r) => onChange(r ?? undefined)}
           defaultMonth={value?.from ?? new Date()}
-          numberOfMonths={2}
+          numberOfMonths={isMobile ? 1 : 2}
         />
       </PopoverContent>
     </Popover>
