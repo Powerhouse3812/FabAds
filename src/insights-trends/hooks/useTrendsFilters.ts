@@ -120,6 +120,9 @@ function timeRangeMatches(publishedAt: string, bucket: string): boolean {
 
 function facetSlotMatches(tab: TrendsTabKey, slot: "a" | "b", item: TrendItem, value: string): boolean {
   const key = TAB_FACETS[tab][slot].key;
+  // Demo-only values are for show — they never exclude a record. See
+  // DEMO_ONLY_FACET_OPTIONS.
+  if ((DEMO_ONLY_FACET_OPTIONS[`${tab}:${key}`] ?? []).includes(value)) return true;
   switch (`${tab}:${key}`) {
     case "overview:range":
       return timeRangeMatches(item.publishedAt, value);
@@ -200,6 +203,22 @@ const SEARCH_REGION_OPTIONS = uniqueSorted(SEARCH_DEMAND.map((item) => regionRoo
 
 const SEARCH_TIMEFRAME_OPTIONS = uniqueSorted(SEARCH_DEMAND.map((item) => item.timeframe ?? ""));
 
+/** Demo-only facet values (Maalik, 2026-08-13): the Search & Demand mock set is
+ *  entirely one region over one timeframe, so those two pickers have nothing
+ *  real to switch between. He still wants them on screen, so they carry these
+ *  extra values for show. Picking one does NOT filter — `facetSlotMatches`
+ *  returns every record for a demo value, and the tab labels the scope as
+ *  sample data so the numbers underneath are never misread as that selection. */
+export const DEMO_ONLY_FACET_OPTIONS: Record<string, string[]> = {
+  "search:region": ["Worldwide", "United Kingdom", "India", "Canada", "Australia"],
+  "search:timeframe": ["Past 7 days", "Past 90 days", "Past 12 months"],
+};
+
+export function isDemoOnlyFacetValue(tab: TrendsTabKey, slot: "a" | "b", value: string): boolean {
+  const key = `${tab}:${TAB_FACETS[tab][slot].key}`;
+  return (DEMO_ONLY_FACET_OPTIONS[key] ?? []).includes(value);
+}
+
 export const TAB_FACETS: Record<
   TrendsTabKey,
   { a: { key: string; label: string; options: string[] }; b: { key: string; label: string; options: string[] } }
@@ -217,8 +236,16 @@ export const TAB_FACETS: Record<
     b: { key: "format", label: "Creative Format", options: SOCIAL_FORMAT_OPTIONS },
   },
   search: {
-    a: { key: "region", label: "Region", options: SEARCH_REGION_OPTIONS },
-    b: { key: "timeframe", label: "Time Range", options: SEARCH_TIMEFRAME_OPTIONS },
+    a: {
+      key: "region",
+      label: "Region",
+      options: uniqueSorted([...SEARCH_REGION_OPTIONS, ...DEMO_ONLY_FACET_OPTIONS["search:region"]]),
+    },
+    b: {
+      key: "timeframe",
+      label: "Time Range",
+      options: uniqueSorted([...SEARCH_TIMEFRAME_OPTIONS, ...DEMO_ONLY_FACET_OPTIONS["search:timeframe"]]),
+    },
   },
 };
 

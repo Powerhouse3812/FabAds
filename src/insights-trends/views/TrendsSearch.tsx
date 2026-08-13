@@ -65,7 +65,11 @@ import { useInsightPreferences } from "@/hooks/use-insight-preferences";
 import { OnboardingModal } from "@/components/insights/OnboardingModal";
 import { SEARCH_DEMAND } from "@/insights-trends/mocks/trendsData";
 import type { TrendItem } from "@/insights-trends/types";
-import { useTrendsFilters, type TrendsFilters } from "@/insights-trends/hooks/useTrendsFilters";
+import {
+  isDemoOnlyFacetValue,
+  useTrendsFilters,
+  type TrendsFilters,
+} from "@/insights-trends/hooks/useTrendsFilters";
 import { STAGE_META, OPPORTUNITY_META, nativeMetric, relativeTime } from "@/insights-trends/lib/trendsDisplay";
 
 const METHOD_NOTE =
@@ -217,7 +221,15 @@ function SpotlightChart({ item }: { item: TrendItem }) {
 /*  never drifts from what the Global Filter / direct-filter Selects     */
 /*  (owned by TrendsToolbar) actually have selected.                    */
 /* ------------------------------------------------------------------ */
-function ContextBar({ region, timeframe }: { region: string; timeframe: string }) {
+function ContextBar({
+  region,
+  timeframe,
+  sampleSelection,
+}: {
+  region: string;
+  timeframe: string;
+  sampleSelection?: string;
+}) {
   return (
     <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -234,6 +246,12 @@ function ContextBar({ region, timeframe }: { region: string; timeframe: string }
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         {METHOD_NOTE}
       </p>
+      {sampleSelection && (
+        <p className="mt-1 flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {sampleSelection} is a sample selection — the figures below still cover {region} · {timeframe}.
+        </p>
+      )}
     </div>
   );
 }
@@ -480,15 +498,22 @@ export default function TrendsSearch(props: {
     }
   }, [results, selectedId]);
 
+  // A demo-only picker value (see DEMO_ONLY_FACET_OPTIONS) selects nothing, so
+  // it must not be echoed as the scope of the numbers below — that would claim
+  // a region/timeframe the data was never computed over. The bar keeps stating
+  // the real coverage and flags that the picker is showing a sample value.
+  const regionIsSample = !!filters.facetA && isDemoOnlyFacetValue("search", "a", filters.facetA);
+  const timeframeIsSample = !!filters.facetB && isDemoOnlyFacetValue("search", "b", filters.facetB);
+
   const region = statedContext(
     results.map((r) => regionRoot(r.region ?? "")),
-    filters.facetA,
+    regionIsSample ? undefined : filters.facetA,
     "regions",
     "Region not stated",
   );
   const timeframe = statedContext(
     results.map((r) => r.timeframe ?? ""),
-    filters.facetB,
+    timeframeIsSample ? undefined : filters.facetB,
     "timeframes",
     "Timeframe not stated",
   );
@@ -530,7 +555,15 @@ export default function TrendsSearch(props: {
 
   return (
     <div className="space-y-4">
-      <ContextBar region={region} timeframe={timeframe} />
+      <ContextBar
+        region={region}
+        timeframe={timeframe}
+        sampleSelection={
+          [regionIsSample ? filters.facetA : null, timeframeIsSample ? filters.facetB : null]
+            .filter(Boolean)
+            .join(" · ") || undefined
+        }
+      />
 
       <section aria-labelledby="search-spotlight-heading" className="space-y-3 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

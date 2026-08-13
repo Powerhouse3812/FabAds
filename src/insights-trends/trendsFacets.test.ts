@@ -11,7 +11,7 @@
  * src/connector/seed.invariants.test.ts.
  */
 import { describe, expect, it } from "vitest";
-import { TAB_FACETS, matchesFacetForTest } from "@/insights-trends/hooks/useTrendsFilters";
+import { TAB_FACETS, isDemoOnlyFacetValue, matchesFacetForTest } from "@/insights-trends/hooks/useTrendsFilters";
 import {
   BREAKING_STORIES,
   META_ADS,
@@ -61,10 +61,29 @@ describe("Trends facets", () => {
       // a filter. (Single-option facets are suppressed in the toolbar and
       // surface as stated context inside the tab instead.)
       if (facet.options.length < 2) return;
-      const narrows = facet.options.some(
+      // Demo-only values are deliberately inert (Maalik's call — the pickers
+      // stay on screen even where the mock set can't back them), so a facet
+      // whose every real option is a single shared value is exempt.
+      const realOptions = facet.options.filter((option) => !isDemoOnlyFacetValue(tab, slot, option));
+      if (realOptions.length < 2) return;
+      const narrows = realOptions.some(
         (option) => items.filter((item) => matchesFacetForTest(tab, slot, item, option)).length < items.length,
       );
       expect(narrows, `${tab}.${slot} is rendered but never narrows`).toBe(true);
+    });
+  });
+
+  it("demo-only facet values never change the result set", () => {
+    TABS.forEach((tab) => {
+      const items = DATASET[tab];
+      (["a", "b"] as const).forEach((slot) => {
+        TAB_FACETS[tab][slot].options
+          .filter((option) => isDemoOnlyFacetValue(tab, slot, option))
+          .forEach((option) => {
+            const hits = items.filter((item) => matchesFacetForTest(tab, slot, item, option));
+            expect(hits.length, `${tab}.${slot} demo value "${option}" filtered something`).toBe(items.length);
+          });
+      });
     });
   });
 });
