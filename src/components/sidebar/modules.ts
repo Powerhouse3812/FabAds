@@ -143,6 +143,8 @@ export const MODULES: ModuleDef[] = [
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
       // remaining items continue to point at v1 routes until each gets its
       // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.
+      // Overview is the module landing page — first item, kept ahead of My feeds.
+      { label: "Overview",  path: "/insights/overview",    icon: LayoutDashboard },
       { label: "My feeds",  path: "/insights-v2/feed",     icon: Rss },
       { label: "Discover",  path: "/insights/discover",    icon: Compass },
       { label: "Saved Ads", path: "/insights/saved",       icon: Bookmark },

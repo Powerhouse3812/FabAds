@@ -22,6 +22,8 @@ import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
 import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
 import { InsightsExtensionCard } from "./InsightsExtensionCard";
+import { InsightsSetupCard } from "./InsightsSetupCard";
+import { useInsightsSetupState } from "@/lib/insights-setup";
 import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
 import { LaunchAutopilotCard } from "./LaunchAutopilotCard";
 import { ReportsInsightsCrossCard } from "./ReportsInsightsCrossCard";
@@ -194,13 +196,31 @@ export function SecondaryNavigationPanel() {
           className="h-px shrink-0 border-t border-foreground/[0.06]"
         />
       )}
-      {isInsights && <InsightsExtensionCard />}
+      {isInsights && <InsightsFooterCard />}
       {isGenie && <GenieCreditsAddonCard />}
       {isLaunch && <LaunchAutopilotCard />}
       {isReports && <ReportsInsightsCrossCard />}
       {isCatalogue && <CatalogueFooterCard />}
     </aside>
   );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  InsightsFooterCard — setup-checklist gate for the Insights sub-nav
+ *  footer. While the 3-item onboarding checklist is incomplete the
+ *  progress card shows; once complete it converts to the extension nudge.
+ *
+ *  Deliberately its own component rather than a hook call inside
+ *  SecondaryNavigationPanel: that component early-returns null for modules
+ *  without sub-items, so any hook added after that return breaks
+ *  rules-of-hooks (hook count changes between renders → React throws on the
+ *  first no-subnav → subnav navigation). Keeping the hook here also stops
+ *  useInsightsSetupState's two Supabase reads from firing on every route in
+ *  the app — they now run only while Industry Insights is the active module.
+ * ───────────────────────────────────────────────────────── */
+function InsightsFooterCard() {
+  const setup = useInsightsSetupState();
+  return setup.complete ? <InsightsExtensionCard /> : <InsightsSetupCard />;
 }
 
 /* ─────────────────────────────────────────────────────────

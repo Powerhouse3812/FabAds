@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useInsightBoards, useInsightBoardItems, useAdBoardMemberships } from "@/hooks/use-insight-boards";
 import type { InsightAd } from "@/lib/insights-dummy-data";
+import { markAdSaved } from "@/lib/insights-setup";
 import { toast } from "sonner";
 
 interface Props { open: boolean; onClose: () => void; ad: InsightAd | null }
@@ -76,6 +77,7 @@ export function SaveToBoardModal({ open, onClose, ad }: Props) {
         )
       );
       toast.success(`Saved to ${newBoards.length} board(s)`);
+      markAdSaved();
       onClose();
     } catch (err: any) {
       if (err?.message?.includes("duplicate") || err?.code === "23505") {

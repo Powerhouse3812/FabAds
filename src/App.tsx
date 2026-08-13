@@ -44,6 +44,7 @@ import { planningRoutes } from "@/planning/routes";
 import { planningPrintRoutes } from "@/planning-print/routes";
 import { planningV2Routes } from "@/planning-v2/routes";
 
+import InsightsOverview from "@/pages/insights/InsightsOverview";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
 import InsightsBoards from "@/pages/insights/InsightsBoards";
 import InsightsBoardDetail from "@/pages/insights/InsightsBoardDetail";
@@ -231,6 +232,7 @@ const App = () => (
                     so existing inbound links / bookmarks don't 404. */}
                 <Route path="insights" element={<Navigate to="/insights-v2/feed" replace />} />
                 <Route path="insights/intelligence" element={<Navigate to="/insights-v2/feed" replace />} />
+                <Route path="insights/overview" element={<InsightsOverview />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
                 <Route path="insights/boards" element={<InsightsBoards />} />
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />

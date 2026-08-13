@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useInsightCompetitors, useCompetitorCounts } from "@/hooks/use-insight-competitors";
 import { AddCompetitorModal } from "@/components/insights/AddCompetitorModal";
@@ -7,8 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Plus, Users, FileText, Radar, TrendingUp, Globe, Languages } from "lucide-react";
+import { Plus, Users, FileText, Radar, TrendingUp, Globe, Languages, Sparkles } from "lucide-react";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
+import { markCompetitorAdded } from "@/lib/insights-setup";
 
 // Fallback data matching DUMMY_ADS brands
 const FALLBACK_COMPETITORS = [
@@ -31,7 +32,27 @@ export default function InsightsCompetitors() {
   const typeFilter = searchParams.get("type") ?? "all";
   const modal = searchParams.get("modal");
   const competitorId = searchParams.get("competitor");
-  const addOpen = modal === "add-competitor";
+
+  // FB-onboarding: a one-shot entry point. Anything linking in with
+  // `?modal=add` (e.g. the setup checklist's "Add a competitor" step) pops
+  // the modal open once, then the param is stripped immediately — unlike
+  // `?modal=add-competitor` above, this isn't meant to be a durable,
+  // deep-linkable open state, just a trigger.
+  const [forceOpenAdd, setForceOpenAdd] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("modal") !== "add") return;
+    setForceOpenAdd(true);
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("modal");
+        return sp;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
+  const addOpen = modal === "add-competitor" || forceOpenAdd;
 
   const setTypeFilter = useCallback(
     (next: string) => {
@@ -60,6 +81,7 @@ export default function InsightsCompetitors() {
   }, [setSearchParams]);
 
   const closeAdd = useCallback(() => {
+    setForceOpenAdd(false);
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
@@ -146,7 +168,14 @@ export default function InsightsCompetitors() {
     <div className="v3-page-mesh space-y-3 p-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Competitors</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Competitors</h2>
+          {!useDB && (
+            <Badge variant="secondary" className="gap-1 text-xs font-normal text-muted-foreground">
+              <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden /> Demo data
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} size="sm" variant="outline">
             <ToggleGroupItem value="all">All</ToggleGroupItem>
@@ -158,6 +187,22 @@ export default function InsightsCompetitors() {
           </Button>
         </div>
       </div>
+
+      {/* Demo-data notice — these five rows are sample data, not anything the
+          user tracked. Say so plainly and put the real action right next to
+          it, rather than letting a populated-looking table pass as real. */}
+      {!useDB && (
+        <Card className="border-dashed bg-muted/30">
+          <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              You're viewing sample competitors so you can see how this page works. Add your own to start tracking real data.
+            </p>
+            <Button size="sm" onClick={openAdd}>
+              <Plus className="h-4 w-4 mr-1" /> Add Competitor
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -191,7 +236,10 @@ export default function InsightsCompetitors() {
       ) : filteredCompetitors.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
-          <p>No competitors tracked yet. Add one to get started.</p>
+          <p className="mb-4">No competitors tracked yet. Add one to get started.</p>
+          <Button size="sm" onClick={openAdd}>
+            <Plus className="h-4 w-4 mr-1" /> Add Competitor
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -203,7 +251,10 @@ export default function InsightsCompetitors() {
             return (
               <Card
                 key={c.id}
-                className="cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                className={
+                  "cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" +
+                  (useDB ? "" : " border-dashed opacity-80 hover:opacity-100")
+                }
                 onClick={() => openCompetitor(c.id)}
               >
                 <CardContent className="p-4 space-y-3">
@@ -212,6 +263,11 @@ export default function InsightsCompetitors() {
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-semibold text-sm truncate">{c.name}</span>
                       <Badge variant="outline" className="shrink-0 text-xs">{c.competitor_type}</Badge>
+                      {!useDB && (
+                        <Badge variant="secondary" className="shrink-0 gap-1 text-xs font-normal text-muted-foreground">
+                          <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden /> Demo
+                        </Badge>
+                      )}
                     </div>
                     <Badge
                       variant={c.status === "active" ? "default" : "secondary"}
@@ -250,7 +306,7 @@ export default function InsightsCompetitors() {
         </div>
       )}
 
-      <AddCompetitorModal open={addOpen} onClose={closeAdd} />
+      <AddCompetitorModal open={addOpen} onClose={closeAdd} onAdded={markCompetitorAdded} />
       <CompetitorDetailDrawer competitor={selected} open={!!selected} onClose={closeCompetitor} />
     </div>
   );
