@@ -8,6 +8,7 @@ import {
   SYSTEM_MODULES,
 } from "@/components/sidebar/modules";
 import { useV7Shape } from "@/components/sidebar/useV7Shape";
+import { MobileTopBar } from "./MobileTopBar";
 import { ParentNavigationRail } from "./ParentNavigationRail";
 import { SecondaryNavigationPanel } from "./SecondaryNavigationPanel";
 import { useSubNavCollapsed, setSubNavCollapsed } from "./useSubNavCollapsed";
@@ -59,23 +60,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         data-fabads-merged-shell="v7"
         data-fabads-v7-shape={shape}
         className={cn(
-          "relative hidden md:flex flex-1 min-w-0 overflow-hidden",
+          // MOBILE (< md): a flex COLUMN — top bar stacked above main content.
+          // Height comes from the parent's 100dvh box via flex-1/min-h-0, so no
+          // explicit height here. Was `hidden md:flex`, which meant nothing at
+          // all rendered below 768px.
+          // DESKTOP (>= md): unchanged — a flex ROW at the same height as before.
+          "relative flex flex-col md:flex-row flex-1 min-h-0 min-w-0 overflow-hidden",
           isFloating
-            ? "my-2 ml-1 mr-2 rounded-2xl shadow-lg ring-1 ring-zinc-200/70 h-[calc(100vh-1rem)]"
-            : "h-screen",
+            ? "md:my-2 md:ml-1 md:mr-2 md:rounded-2xl md:shadow-lg md:ring-1 md:ring-zinc-200/70 md:h-[calc(100vh-1rem)]"
+            : "md:h-screen",
           "bg-white"
         )}
       >
-        {/* Sub-nav zone — flush, no self-floating chrome */}
+        {/* Mobile chrome — replaces the desktop breadcrumb row, which lives in
+            AppLayout and is now md:-only. Renders on ALL routes including
+            ownsLayout ones, which suppress the breadcrumb. */}
+        <MobileTopBar className="md:hidden" />
+
+        {/* Sub-nav zone — flush, no self-floating chrome.
+            `hidden md:contents` so at >= md the wrapper vanishes from the box
+            tree entirely and the panel + divider stay direct flex children of
+            the merged shell (desktop layout byte-identical), while below md the
+            whole 200px-wide zone is display:none. */}
         {showSubNav && (
-          <>
+          <div className="hidden md:contents">
             <SecondaryNavigationPanel />
             {/* Thin vertical divider between sub-nav and main content */}
             <span
               aria-hidden
               className="w-px shrink-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.04)_0%,rgba(0,0,0,0.10)_50%,rgba(0,0,0,0.04)_100%)]"
             />
-          </>
+          </div>
         )}
 
         {/* Main content zone — children = routed <Outlet />.
@@ -85,7 +100,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             home pages' own outer rounded-g6-card wrappers). */}
         <main
           data-fabads-shell-main="v7"
-          className="relative flex-1 min-w-0 overflow-auto bg-white"
+          // MOBILE: a flex column that CONTAINS the scroller (AppLayout's content
+          // div) rather than being it — one scroll region, no nested double
+          // scroll behind the bottom tab bar.
+          // DESKTOP: `md:block md:overflow-auto` restores today's behaviour
+          // exactly; `flex`/`flex-col` are inert on a block box.
+          className="relative flex-1 min-w-0 flex flex-col overflow-hidden bg-white md:block md:overflow-auto"
         >
           {/* A-12.53 (Maalik): reopen button for sub-nav. Renders when the
               active module HAS a sub-nav but the user collapsed it.
@@ -96,7 +116,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => setSubNavCollapsed(false)}
               aria-label="Show sub-navigation"
               title="Show sub-navigation"
-              className="group absolute left-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-card/80 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:scale-105 hover:border-foreground/30 hover:bg-card"
+              // md:-only — there is no sub-nav on mobile, so a persisted
+              // `fabads.subnav.collapsed=1` must not drop a floating reopen
+              // button on top of mobile page content.
+              className="group absolute left-3 top-3 z-10 hidden h-9 w-9 items-center justify-center rounded-full border border-border/40 bg-card/80 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:scale-105 hover:border-foreground/30 hover:bg-card md:inline-flex"
             >
               <PanelLeftOpen className="h-4 w-4 text-foreground transition-transform duration-300 group-hover:rotate-12" />
             </button>

@@ -182,48 +182,63 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     kind: "walk",
-    route: "/iq/genie6/generate/product-ad/form",
-    eyebrow: "Stop 3 · Generate form (Quick mode)",
-    title: "Three fields. AI handles the other 80%.",
+    // A-12.8+: the Old/New Studio "generate/product-ad/form" path was
+    // retired — that URL now redirects to the plain GenerateLanding
+    // 6-tile picker (routes.tsx ":mode/form" rule), not a form. Studio
+    // Alpha (studio-alpha/*) is the current primary generation flow.
+    // This stop now targets its Step 2 — the real "starting point" screen.
+    route: "/iq/genie6/studio-alpha/product",
+    eyebrow: "Stop 3 · Pick what you're creating for",
+    title: "Brand, product, or category — your call.",
     description:
-      "Default Quick mode shows only must-fill fields per mode. Product Ad: starting point + brand + product + count. Audience, angle, tone, scene, format, output type, references — all auto-defaulted by the AI from brand context.",
+      "Three tabs — Brand / Product / Category — each a visual card grid (logo or photo, industry/brand chip, run count). Click a card and the wizard advances immediately; there's no separate confirm step. Picking a category optionally lets you refine down to one product before continuing.",
     tips: [
-      "Form-mode toggle in the header — flip to Advanced any time.",
-      "BrandPicker 'Add' tile opens BrandFetchModal — URL paste auto-detects.",
-      "Count is a free input now (default 5) — not locked to chip presets.",
+      "Fetch URL opens a paste-a-link popover on the Brand and Product tabs — auto-detects and drops you into a prefilled profile.",
+      "Search plus an industry/brand filter narrow each grid live.",
+      "There's no Quick/Advanced form anymore — every step in this wizard is click-to-advance.",
     ],
   },
   {
     kind: "walk",
-    route: "/iq/genie6/generate/product-ad/form",
-    eyebrow: "Stop 4 · Advanced form",
-    title: "Every lever a power user wants.",
+    route: "/iq/genie6/studio-alpha/approach",
+    eyebrow: "Stop 4 · Pick your approach",
+    title: "Seven ways to make the ad — pick by what it looks like.",
     description:
-      "Same form, Advanced toggle on — every field renders. Notice the visual pickers: brand cards (h-scroll), angle cards (real-ad samples + sample headline overlay), tone chips with sample-rewrite swatches, scene library for image modes, format frames at correct aspect ratio, animated output-type previews. User picks by what it LOOKS like, not by reading a label.",
+      "UGC Video, Create Variations, Image to Video, B-Roll, BG Remover, Resize, or From scratch — each card leads with an autoplay video preview, not a label or icon. The three that branch (UGC Video, Create Variations, Image to Video) reveal a 'Choose a style' row of sub-type cards instead of advancing immediately.",
     tips: [
-      "Each picker reuses the same h-scroll snap-to-card pattern — single visual rhythm.",
-      "Plain-language labels: 'How should it sound?' not 'Tone'. 'How many?' not 'Count'.",
+      "Picking a sub-type auto-fills the angle + starting concepts on the next step — no blank page.",
+      "'From scratch' is the catch-all: full prompt, references, angle, model, and output count with nothing pre-decided.",
     ],
   },
   {
     kind: "walk",
-    route: "/iq/genie6/generate/product-ad/form",
-    eyebrow: "Stop 5 · The prompt bar",
-    title: "G5's killer composer, redrawn for each variant.",
+    route: "/iq/genie6/studio-alpha/configure",
+    eyebrow: "Stop 5 · Configure — the prompt bar leads",
+    title: "One composer, docked at the top.",
     description:
-      "Sticky 3-row composer at the form's bottom. Row 1: paperclip refs popover + suggestion chips (Try / Refine). Row 2: auto-grow prompt textarea (Cmd+Enter to fire). Row 3: mode + brand context pills, AI model picker (image / video / copy filtered by output type), count stepper, credits, Test 4, Generate.",
+      "The prompt bar now sits at the TOP of the step, not the bottom. A row of attached-reference chips (Library, Winner ads, Industry Insights, Seed image, Template…), a paperclip + auto-grow textarea, then a footer row with the model picker, a variation-count stepper, and Generate with credits inline. Below the bar: a collapsed 'Angle · Concept' summary — auto-filled from your approach pick — that expands into full visual angle tiles and a trending-concepts grid.",
     tips: [
-      "Studio: clean elevated card. Canvas: floating glass dock. Command: ops-strip with mono status. Modular: > module card. Same content, different chrome.",
-      "Suggestion chips swap from Try: → Refine: post-generation.",
+      "Angle + Concept start auto-filled and collapsed; touching either stops future auto-fill so your manual pick survives back/forward navigation.",
+      "The Generation-settings popover (⋮ next to Generate) holds aspect ratio, quality/resolution, the Vary slider, and audio — separate from the visible controls.",
     ],
   },
   {
     kind: "walk",
-    route: "/iq/genie6/generate/product-ad/progress/demo-batch?count=4",
-    eyebrow: "Stop 6 · Progress",
-    title: "Live tiles, never a black box.",
+    // A-12.8+: the old "/generate/product-ad/progress/:batchId" screen is
+    // gone — that path matches no route and 404s. Studio Alpha's Step 5
+    // Results Queue is the current equivalent: one surface for queued /
+    // generating / ready / failed batches, no separate progress screen.
+    // batch-006 in the mock data is mid-generation (18/50) so this stop
+    // lands on a real live-progress state, not a finished batch.
+    route: "/iq/genie6/studio-alpha/results?batch=batch-006",
+    eyebrow: "Stop 6 · Results queue",
+    title: "Live progress, no more ring-and-stages loader.",
     description:
-      "Concentric ring loader + 6 stages (brief → research → concepts → render → copy → finalize). Live preview tiles appear during the render stage — first variant lands in <10s. Cancel always available.",
+      "Every batch — queued, generating, ready, or failed — lives in one Results queue. A generating batch (like this one, 18 of 50 done) shows a lime progress fill with an animated shimmer and a live count, not the concentric-ring 6-stage loader from the old plan. Ready batches show their outputs grouped into concept rows (Hero Shot, Lifestyle, Social Proof…) with per-row Regenerate / Launch / Save / Download.",
+    tips: [
+      "No Cancel yet — Edit / Regenerate / Save / Launch stay disabled until a batch hits Ready or Failed. That's a real gap, not a shipped decision.",
+      "Switch batches from the queue strip up top — the active batch drives everything below it.",
+    ],
   },
   {
     kind: "walk",
@@ -261,3 +276,12 @@ export const TOUR_STEPS: TourStep[] = [
 
 export const SLIDE_COUNT = TOUR_STEPS.filter((s) => s.kind === "slide").length;
 export const TOTAL_STEPS = TOUR_STEPS.length;
+/**
+ * Number of "stop"s — i.e. `kind: "walk"` steps only (each labelled
+ * "Stop N · …" in its own eyebrow). Slide-phase steps (intro / overview /
+ * decisions / end-of-tour) are narrative bookends, not "stops" — the copy
+ * that says "N-stop walkthrough" means this number, not TOTAL_STEPS.
+ * Derived so the count can never drift from the data again (was hardcoded
+ * to a stale "12" in 4 places while the walk count is actually 9).
+ */
+export const WALK_COUNT = TOUR_STEPS.filter((s) => s.kind === "walk").length;

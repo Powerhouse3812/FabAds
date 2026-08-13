@@ -70,6 +70,7 @@ export default function ImageReport() {
         selectionCount={selectedIds.size}
         onClearSelection={() => setSelectedIds(new Set())}
         onBulkExport={exportCsv}
+        selectedEntities={selectedEntities}
       />
 
       <LaunchScopeChip />

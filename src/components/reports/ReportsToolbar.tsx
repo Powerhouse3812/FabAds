@@ -9,8 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
-import type { GroupingOption, LaunchFilterOptions } from "@/lib/reports-dummy-data";
+import { useAdEntityActions } from "@/components/reports/actions/useAdEntityActions";
+import type {
+  GroupingOption,
+  LaunchFilterOptions,
+  ReportEntity,
+} from "@/lib/reports-dummy-data";
 
 interface ReportsToolbarProps {
   search: string;
@@ -46,6 +50,18 @@ interface ReportsToolbarProps {
   selectionCount?: number;
   onClearSelection?: () => void;
   onBulkExport?: () => void;
+  /**
+   * The actual selected rows, needed because bulk Pause / Activate / Archive
+   * are real writes now and the store takes entities, not ids. Every report
+   * page already derives exactly this list (`allFiltered.filter(selected)`),
+   * so wiring it is one prop per page.
+   *
+   * Optional only so the page pass can land separately; when it is absent the
+   * three status buttons render DISABLED rather than firing a fake success
+   * toast — a dead control is honest, a lying one is not (NN/g #1, visibility
+   * of system status).
+   */
+  selectedEntities?: ReportEntity[];
 }
 
 const ALL_PLATFORMS = ["Meta", "Google", "TikTok"];
@@ -75,10 +91,13 @@ export function ReportsToolbar({
   selectionCount = 0,
   onClearSelection,
   onBulkExport,
+  selectedEntities,
 }: ReportsToolbarProps) {
-  const bulkAct = (label: string) => {
-    toast.success(`${label} applied to ${selectionCount} item(s)`);
-  };
+  // The provider owns the bulk confirm dialog (a bulk status change ALWAYS
+  // confirms) and the undo toast, mounted once per surface.
+  const { setStatus: bulkStatus } = useAdEntityActions();
+  // No entities → nothing truthful to write. Disable instead of pretending.
+  const canBulkStatus = selectedEntities !== undefined && selectedEntities.length > 0;
 
   return (
     <div className="relative overflow-hidden">
@@ -230,13 +249,25 @@ export function ReportsToolbar({
         </Button>
         <span className="text-xs font-medium shrink-0">{selectionCount} selected</span>
         <div className="flex-1" />
-        <Button variant="ghost" size="sm" onClick={() => bulkAct("Pause")}>
+        <Button
+          variant="ghost" size="sm"
+          disabled={!canBulkStatus}
+          onClick={() => selectedEntities && bulkStatus(selectedEntities, "Paused")}
+        >
           <Pause className="h-3.5 w-3.5 mr-1" />Pause
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => bulkAct("Activate")}>
+        <Button
+          variant="ghost" size="sm"
+          disabled={!canBulkStatus}
+          onClick={() => selectedEntities && bulkStatus(selectedEntities, "Active")}
+        >
           <Play className="h-3.5 w-3.5 mr-1" />Activate
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => bulkAct("Archive")}>
+        <Button
+          variant="ghost" size="sm"
+          disabled={!canBulkStatus}
+          onClick={() => selectedEntities && bulkStatus(selectedEntities, "Archived")}
+        >
           <Archive className="h-3.5 w-3.5 mr-1" />Archive
         </Button>
         <Button variant="ghost" size="sm" onClick={onBulkExport ?? onExport}>

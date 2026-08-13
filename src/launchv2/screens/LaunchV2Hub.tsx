@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useIsReadOnly } from "@/components/shell/MobileCapabilityContext";
 import { useLaunchV2 } from "../state/LaunchV2Context";
 import type { LaunchRunV2, RunStatus } from "../types";
 
@@ -143,6 +144,10 @@ export default function LaunchV2Hub() {
   const navigate = useNavigate();
   // Service kept available for future wiring; UI is dashboard-mocked per spec.
   useLaunchV2();
+  // Hub is allowlisted read-only on mobile — gate the exits into creation/
+  // mutation flows (new-launch, strategy tags, resume-draft) while keeping
+  // every read-only navigation (live card / recent row -> detail) intact.
+  const isReadOnly = useIsReadOnly();
 
   const [recentTag, setRecentTag] = useState<string>("all");
 
@@ -166,14 +171,16 @@ export default function LaunchV2Hub() {
           </h1>
           <div className="flex items-center gap-2">
             <CommandHint />
-            <Button
-              size="sm"
-              onClick={() => navigate("/launchv2/new")}
-              className="h-8 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              Launch
-            </Button>
+            {!isReadOnly && (
+              <Button
+                size="sm"
+                onClick={() => navigate("/launchv2/new")}
+                className="h-8 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Launch
+              </Button>
+            )}
           </div>
         </header>
 
@@ -183,8 +190,19 @@ export default function LaunchV2Hub() {
           className="sticky top-0 z-20 -mx-1 mb-6 bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {OPS_KPIS.map((k) => (
-              <OpsTile key={k.key} kpi={k} />
+            {OPS_KPIS.map((k, idx) => (
+              <OpsTile
+                key={k.key}
+                kpi={k}
+                className={
+                  // At the 2-col mobile grid, an odd tile count leaves the
+                  // last tile orphaned alone in its own row. Span it full
+                  // width there; sm+ already uses 3/5 cols so reset back.
+                  idx === OPS_KPIS.length - 1 && OPS_KPIS.length % 2 === 1
+                    ? "col-span-2 sm:col-span-1"
+                    : undefined
+                }
+              />
             ))}
           </div>
         </section>
@@ -203,13 +221,18 @@ export default function LaunchV2Hub() {
                   key={item.id}
                   item={item}
                   isLast={idx === Math.min(3, NEEDS_ATTENTION.length - 1)}
+                  readOnly={isReadOnly}
                 />
               ))}
             </div>
             {NEEDS_ATTENTION_TOTAL > 4 && (
               <button
                 type="button"
-                className="mt-2 text-xs font-medium text-foreground/80 hover:text-foreground"
+                disabled={isReadOnly}
+                className={cn(
+                  "mt-2 text-xs font-medium text-foreground/80 hover:text-foreground",
+                  isReadOnly && "pointer-events-none text-muted-foreground/60 opacity-60"
+                )}
               >
                 View all ({NEEDS_ATTENTION_TOTAL}) →
               </button>
@@ -241,7 +264,11 @@ export default function LaunchV2Hub() {
               {liveOverflow > 0 && (
                 <button
                   type="button"
-                  className="mt-3 text-xs font-medium text-foreground/80 hover:text-foreground"
+                  disabled={isReadOnly}
+                  className={cn(
+                    "mt-3 text-xs font-medium text-foreground/80 hover:text-foreground",
+                    isReadOnly && "pointer-events-none text-muted-foreground/60 opacity-60"
+                  )}
                 >
                   View all live ({LIVE_TOTAL}) →
                 </button>
@@ -250,41 +277,48 @@ export default function LaunchV2Hub() {
           )}
         </section>
 
-        {/* ─── Zone 4 · Start a launch ─── */}
-        <section aria-label="Start a launch" className="mb-8">
-          <SectionLabel title="Start a launch" />
-          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4">
-            <span className="mr-1 text-xs text-muted-foreground">
-              From strategy
-            </span>
-            {STRATEGY_TAGS.map((t) => (
+        {/* ─── Zone 4 · Start a launch ───
+            Read-only on mobile: every control here is an exit into the
+            creation/mutation flow (new launch, strategy-tagged launch,
+            manage strategies), so the whole zone is suppressed rather than
+            rendering buttons that lead straight to the "/launchv2/new"
+            desktop-only gate. Fully intact on desktop. */}
+        {!isReadOnly && (
+          <section aria-label="Start a launch" className="mb-8">
+            <SectionLabel title="Start a launch" />
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4">
+              <span className="mr-1 text-xs text-muted-foreground">
+                From strategy
+              </span>
+              {STRATEGY_TAGS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => navigate(`/launchv2/new?tag=${t.label.replace("#", "")}`)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-foreground/40 hover:bg-foreground/[0.03]"
+                >
+                  <span>{t.label}</span>
+                  <span className="tabular-nums text-muted-foreground">· {t.count}</span>
+                </button>
+              ))}
+              <span className="mx-1 text-border">·</span>
               <button
-                key={t.id}
-                onClick={() => navigate(`/launchv2/new?tag=${t.label.replace("#", "")}`)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-foreground/40 hover:bg-foreground/[0.03]"
+                onClick={() => navigate("/launchv2/new")}
+                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
               >
-                <span>{t.label}</span>
-                <span className="tabular-nums text-muted-foreground">· {t.count}</span>
+                <Plus className="h-3 w-3" />
+                Blank launch
               </button>
-            ))}
-            <span className="mx-1 text-border">·</span>
-            <button
-              onClick={() => navigate("/launchv2/new")}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
-            >
-              <Plus className="h-3 w-3" />
-              Blank launch
-            </button>
-            <span className="ml-auto" />
-            <button
-              type="button"
-              onClick={() => navigate("/launchv2/settings/strategy")}
-              className="text-xs font-medium text-foreground/80 hover:text-foreground"
-            >
-              Manage strategies →
-            </button>
-          </div>
-        </section>
+              <span className="ml-auto" />
+              <button
+                type="button"
+                onClick={() => navigate("/launchv2/settings/strategy")}
+                className="text-xs font-medium text-foreground/80 hover:text-foreground"
+              >
+                Manage strategies →
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* ─── Zone 5 · Drafts ─── */}
         {DRAFTS.length > 0 && (
@@ -295,6 +329,7 @@ export default function LaunchV2Hub() {
                 <DraftCard
                   key={d.id}
                   draft={d}
+                  readOnly={isReadOnly}
                   onResume={() => navigate(`/launchv2/new?draft=${d.id}`)}
                 />
               ))}
@@ -319,7 +354,7 @@ export default function LaunchV2Hub() {
                     key={t.id}
                     onClick={() => setRecentTag(t.id)}
                     className={cn(
-                      "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                      "inline-flex min-h-11 items-center justify-center rounded-full border px-2.5 py-0.5 text-xs transition-colors md:min-h-0",
                       active
                         ? "border-foreground/40 bg-foreground/[0.04] text-foreground"
                         : "border-border bg-transparent text-muted-foreground hover:text-foreground"
@@ -351,7 +386,11 @@ export default function LaunchV2Hub() {
 
           <button
             type="button"
-            className="mt-3 text-xs font-medium text-foreground/80 hover:text-foreground"
+            disabled={isReadOnly}
+            className={cn(
+              "mt-3 text-xs font-medium text-foreground/80 hover:text-foreground",
+              isReadOnly && "pointer-events-none text-muted-foreground/60 opacity-60"
+            )}
           >
             See all in History →
           </button>
@@ -404,7 +443,7 @@ function CommandHint() {
   );
 }
 
-function OpsTile({ kpi }: { kpi: OpsKpi }) {
+function OpsTile({ kpi, className }: { kpi: OpsKpi; className?: string }) {
   const toneText =
     kpi.tone === "danger"
       ? "text-destructive"
@@ -421,13 +460,14 @@ function OpsTile({ kpi }: { kpi: OpsKpi }) {
     <div
       className={cn(
         "flex h-[72px] flex-col justify-center rounded-2xl border bg-card px-3",
-        toneBorder
+        toneBorder,
+        className
       )}
     >
       <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {kpi.label}
       </span>
-      <span className={cn("mt-0.5 text-base font-semibold tabular-nums leading-tight", toneText)}>
+      <span className={cn("mt-0.5 truncate text-base font-semibold tabular-nums leading-tight", toneText)}>
         {kpi.primary}
       </span>
       {kpi.secondary && (
@@ -442,9 +482,11 @@ function OpsTile({ kpi }: { kpi: OpsKpi }) {
 function NeedsAttentionRow({
   item,
   isLast,
+  readOnly,
 }: {
   item: NeedsAttentionItem;
   isLast: boolean;
+  readOnly: boolean;
 }) {
   const dot =
     item.severity === "danger" ? "bg-destructive" : "bg-amber-500";
@@ -457,15 +499,17 @@ function NeedsAttentionRow({
     >
       <span className={cn("h-2 w-2 shrink-0 rounded-full", dot)} aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">
+        <p className="text-sm font-medium text-foreground md:truncate">
           {item.title}
         </p>
-        <p className="truncate text-xs text-muted-foreground">{item.context}</p>
+        <p className="text-xs text-muted-foreground md:truncate">{item.context}</p>
       </div>
       <Button
         size="sm"
         variant="outline"
-        className="h-7 rounded-lg px-2.5 text-xs"
+        disabled={readOnly}
+        title={readOnly ? "Available on desktop" : undefined}
+        className={cn("h-7 rounded-lg px-2.5 text-xs", readOnly && "opacity-50")}
       >
         {item.action}
       </Button>
@@ -519,30 +563,30 @@ function LiveLaunchCard({
         </span>
       </div>
 
-      <div className="mt-1 flex items-center justify-between gap-3 text-xs">
-        <div className="flex flex-col">
+      <div className="mt-1 grid grid-cols-3 gap-2 text-xs md:flex md:items-center md:justify-between md:gap-3">
+        <div className="flex min-w-0 flex-col">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Ads live
           </span>
-          <span className="tabular-nums text-foreground">
+          <span className="truncate tabular-nums text-foreground">
             {run.adsLive}
             <span className="text-muted-foreground">/{run.adsTotal}</span>
           </span>
         </div>
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Spend today
           </span>
-          <span className="tabular-nums text-foreground">
+          <span className="truncate tabular-nums text-foreground">
             {formatUsd(run.spendToday)}
             <span className="text-muted-foreground">/{formatUsd(run.budgetDay)}</span>
           </span>
         </div>
-        <div className="flex flex-col text-right">
+        <div className="flex min-w-0 flex-col text-right">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Started
           </span>
-          <span className="tabular-nums text-foreground">{run.startedAgo}</span>
+          <span className="truncate tabular-nums text-foreground">{run.startedAgo}</span>
         </div>
       </div>
 
@@ -565,23 +609,28 @@ function LiveLaunchCard({
 
 function DraftCard({
   draft,
+  readOnly,
   onResume,
 }: {
   draft: DraftRun;
+  readOnly: boolean;
   onResume: () => void;
 }) {
-  return (
-    <button
-      onClick={onResume}
-      className="group flex flex-col gap-1.5 rounded-2xl border border-dashed border-border bg-card p-3 text-left transition-colors hover:border-foreground/40 hover:bg-foreground/[0.02]"
-    >
+  const body = (
+    <>
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {draft.name}
         </p>
-        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground/80 group-hover:text-foreground">
-          Resume <ArrowRight className="h-3 w-3" />
-        </span>
+        {readOnly ? (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            Resume on desktop
+          </span>
+        ) : (
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground/80 group-hover:text-foreground">
+            Resume <ArrowRight className="h-3 w-3" />
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span>Step {draft.step}</span>
@@ -591,6 +640,30 @@ function DraftCard({
         <span className="truncate">{draft.account}</span>
         <span className="ml-auto shrink-0 tabular-nums">{draft.savedAgo}</span>
       </div>
+    </>
+  );
+
+  // Read-only on mobile: the whole card's only affordance is "resume into
+  // the new-launch wizard" (a mutation exit), so it renders as an inert
+  // info card instead of a button that leads straight to the desktop-only
+  // gate. Desktop keeps the original interactive card unchanged.
+  if (readOnly) {
+    return (
+      <div
+        aria-disabled="true"
+        className="flex flex-col gap-1.5 rounded-2xl border border-dashed border-border bg-card p-3 text-left opacity-80"
+      >
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={onResume}
+      className="group flex flex-col gap-1.5 rounded-2xl border border-dashed border-border bg-card p-3 text-left transition-colors hover:border-foreground/40 hover:bg-foreground/[0.02]"
+    >
+      {body}
     </button>
   );
 }
@@ -620,7 +693,7 @@ function RecentRow({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-foreground/[0.02]",
+        "flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-foreground/[0.02] md:min-h-0",
         !isLast && "border-b border-border"
       )}
     >
@@ -633,16 +706,16 @@ function RecentRow({
         {statusLabel[run.status]}
       </span>
       <p className="min-w-0 flex-1 truncate text-sm text-foreground">{run.name}</p>
-      <span className="hidden truncate text-xs text-muted-foreground sm:inline">
+      <span className="hidden truncate text-xs text-muted-foreground md:inline">
         {run.account}
       </span>
-      <span className="rounded-full bg-foreground/[0.04] px-1.5 py-0.5 text-[11px] text-foreground/70">
+      <span className="hidden rounded-full bg-foreground/[0.04] px-1.5 py-0.5 text-[11px] text-foreground/70 md:inline-block">
         #{run.tag}
       </span>
       <span className="w-16 shrink-0 text-right text-xs tabular-nums text-foreground">
         {formatUsd(run.spend)}
       </span>
-      <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+      <span className="hidden w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground md:inline-block">
         {run.finishedAgo}
       </span>
     </button>

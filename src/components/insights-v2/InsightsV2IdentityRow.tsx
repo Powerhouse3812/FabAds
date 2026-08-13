@@ -45,15 +45,20 @@ export function InsightsV2IdentityRow({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-3 gap-y-2 px-5 py-2.5 border-b border-border/40 bg-background",
+        "flex flex-wrap items-center gap-2 gap-y-2 px-3 py-1.5 bg-background md:gap-3 md:px-5 md:py-2.5 md:border-b md:border-border/40",
         className,
       )}
     >
       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-        <span className="text-sm font-medium text-foreground truncate">
+        {/* md:-only. On mobile MobileInsightsTabs sits directly above and its
+            active segment already names this surface — a heading repeating it
+            spent a whole row saying nothing. */}
+        <span className="hidden text-sm font-medium text-foreground truncate md:inline">
           {sectionLabel}
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+        {/* Read-only count: plain text on mobile, pill at md. A pill implies
+            "tappable", and this one is not — the brands chip beside it is. */}
+        <span className="inline-flex items-center gap-1 rounded-full px-0 py-0 text-[11px] text-muted-foreground md:bg-muted md:px-2.5 md:py-1">
           <span className="font-mono text-foreground font-semibold">
             {adCount.toLocaleString()}
           </span>{" "}
@@ -78,15 +83,19 @@ export function InsightsV2IdentityRow({
         />
       </div>
 
-      <div className="flex-1 min-w-[1rem]" />
+      <div className="hidden flex-1 min-w-[1rem] md:block" />
 
-      <DateRangeWithPresets
-        value={dateRange}
-        onChange={onDateRangeChange}
-        size="md"
-        open={dateRangeOpen}
-        onOpenChange={onDateRangeOpenChange}
-      />
+      {/* md:-only — on mobile the date control lives in the toolbar row, so the
+          whole toolbar is one horizontal row (Maalik, 2026-08-11). */}
+      <div className="hidden md:block">
+        <DateRangeWithPresets
+          value={dateRange}
+          onChange={onDateRangeChange}
+          size="md"
+          open={dateRangeOpen}
+          onOpenChange={onDateRangeOpenChange}
+        />
+      </div>
     </div>
   );
 }

@@ -58,7 +58,10 @@ function ImagePreview({ selected }: { selected: boolean }) {
   const fill = selected ? "bg-primary/15" : "bg-foreground/5";
   const front = selected ? "bg-primary/25" : "bg-card";
   return (
-    <div className="relative h-24 w-32">
+    // h-20 at phone widths trims 16px per card so both format cards fit one
+    // screen without scrolling; the frames inside are centered and unchanged,
+    // so the preview reads identically. md: restores h-24.
+    <div className="relative h-20 w-32 md:h-24">
       {/* 9:16 back, leans left */}
       <div className={cn(FRAME_BASE, accent, fill, "h-20 w-[45px] -rotate-[10deg] group-hover:-translate-x-[34px] group-hover:-rotate-[14deg]")} />
       {/* 4:5 middle, leans right */}
@@ -71,7 +74,10 @@ function ImagePreview({ selected }: { selected: boolean }) {
 
 function VideoPreview({ selected }: { selected: boolean }) {
   return (
-    <div className="relative h-24 w-32">
+    // h-20 at phone widths trims 16px per card so both format cards fit one
+    // screen without scrolling; the frames inside are centered and unchanged,
+    // so the preview reads identically. md: restores h-24.
+    <div className="relative h-20 w-32 md:h-24">
       <div
         className={cn(
           "absolute inset-x-0 top-1/2 mx-auto h-[72px] w-32 -translate-y-1/2 overflow-hidden rounded-lg border transition-colors duration-300",
@@ -98,7 +104,10 @@ function VideoPreview({ selected }: { selected: boolean }) {
 
 export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
   return (
-    <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 pt-8 pb-10">
+    // Mobile: fills the step viewport (min-h-full) and centers so the two
+    // cards read as one screen; `md:` restores the original top-aligned,
+    // auto-height, px-6 pt-8 pb-10 block exactly.
+    <div className="relative mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center gap-4 px-4 pt-4 pb-4 md:min-h-0 md:justify-start md:gap-6 md:px-6 md:pt-8 md:pb-10">
       {/* Ambient layer — dot grid + radial lime wash + 2 geometric shapes */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 text-foreground opacity-[0.06] [background-image:radial-gradient(circle_at_1px_1px,currentColor_1px,transparent_0)] [background-size:22px_22px]" />
@@ -114,7 +123,10 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      {/* 1 column at phone widths (two 300px-tall cards side by side at 375px
+          left ~150px of usable card width — the preview + 3 pills collapsed).
+          sm: goes back to the 2-up grid, md: is byte-identical to before. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-2 md:gap-6">
         {FORMAT_OPTIONS.map((f) => {
           const selected = wizard.state.format === f.id;
           return (
@@ -126,7 +138,8 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
                 onAdvance();
               }}
               className={cn(
-                "v3-glass-card group relative flex min-h-[300px] cursor-pointer flex-col items-center gap-5 overflow-hidden rounded-3xl p-8 transition-all duration-300 ease-out",
+                "v3-glass-card group relative flex min-h-[180px] cursor-pointer flex-col items-center gap-3 overflow-hidden rounded-3xl p-4 transition-all duration-300 ease-out",
+                "md:min-h-[300px] md:gap-5 md:p-8",
                 selected
                   ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
                   : "shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:border-foreground/30 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)]",

@@ -244,3 +244,86 @@ Do not regress on any of these. They have been deliberately dropped:
   `/rrm` route still works.
 - **Sub-menus in UserMenu** — flattened in iter-6 A-1. All items are
   flat `DropdownMenuItem` with `DropdownMenuSeparator` only.
+
+---
+
+## Mobile shell (FB-7109) — read before touching the shell
+
+The app rendered **nothing** below 768px until this work: `AppShell` and
+`ParentNavigationRail` were `hidden md:flex`. Mobile is now an **opt-in
+allowlist**, not a general responsive pass.
+
+- **Policy**: `src/components/shell/mobileRoutePolicy.ts`. First match wins **in
+  declaration order** (that's how an exact rule beats its own `/*` sibling), and
+  `CATCH_ALL` **fails closed** — an unlisted route is blocked, never shipped
+  broken. Do not casually reorder that array.
+- **INV-1 — one `<Outlet/>`, ever.** Never
+  `isMobile ? <MobileShell> : <AppShell>`; that remounts every page on a 768px
+  crossing and destroys the Insights feed's accumulated scroll state. Layout is
+  Tailwind-responsive on the single existing shell.
+- **INV-2 — the JS breakpoint equals Tailwind `md` (768).** No custom screens.
+  If the CSS gate and `useIsMobile` ever disagree there's a viewport band that
+  paints mobile chrome while the gate thinks desktop.
+- **JS branching is allowed at exactly three leaves**: `MobileRouteGate` (a
+  blocked page must not *mount* — `display:none` still runs data hooks and
+  measures 0×0), `NotificationBell` (Popover→Sheet), `CopilotPanel`
+  (forceOverlay). Everything else is pure Tailwind.
+- **Desktop-regression rule**: you may *add* base and `md:`-prefixed utilities.
+  Never remove or alter a utility that already applies at ≥768px.
+- Surfaces read capability from `useMobileCapability()` /
+  `useIsReadOnly()` — never re-derive from `pathname`.
+- Blocked routes render `BestOnDesktop` (generalized from the old
+  `LaunchV2Layout` card) and **keep their URL** — the copy-link flow depends on
+  it. Never redirect.
+- Blocked modules stay **visible but dimmed with a "Desktop" chip** in the More
+  sheet; hiding 80% of the product reads as broken.
+
+### TYPECHECK GOTCHA
+Root `tsconfig.json` has `"files": []` and only project references, so
+**`npx tsc --noEmit` checks nothing and always exits 0.** Always use:
+`npx tsc --noEmit -p tsconfig.app.json`. Note `strict`, `strictNullChecks` and
+`noImplicitAny` are all **off** — types are a weak net here; verify in the
+browser.
+
+### Ad-entity writes
+`src/lib/ad-entity-write-store.ts` is the single optimistic store for
+status/budget/duplicate, shared by the mobile list and the desktop table (it
+replaced ~8 `toast.success` buttons that changed nothing). In-memory, resets on
+reload, disclosed in the UI. Duplicate **fabricates** a Paused zero-metric row
+pinned under its source. Confirmation policy: friction where money *starts*
+flowing — pause = undo toast only, Activate/Archive/bulk = confirm, budget = the
+Save button *is* the confirm.
+
+**Reports has its own 5-account universe** (`reports-dummy-data.ts`), disjoint
+from Launch's 7 (`launchv2/data.ts`). Never cross them.
+
+### Mobile tabs + the two new-user flows (2026-08-11)
+
+Tab bar is **Home · Insights · Reports · Genie · More**. Genie took Launch's
+slot; Launch is still reachable from More as the read-only Hub.
+
+Genie's mobile allowlist is exactly three surfaces — `/iq/genie6` (Studio home
+variant, made responsive), `/iq/genie6/library/*`, `/iq/genie6/studio-alpha/*`
+(5-step wizard, one screen per step, context rail → bottom sheet). Everything
+else under `/iq/genie6` stays gated.
+
+Two **separate** menu-launched new-user flows, deliberately not merged:
+- `src/mobile-onboarding/` — Flow A "Set up my feed & Genie". Welcome (no
+  payment-status variants) → Product Chooser → Genie 0–4 *or* the Insights
+  3-tab picker as a stepper. **PERSISTS NOTHING** — read-only seed of existing
+  preferences for "Replay", empty for "Start fresh". Don't wire persistence in.
+- `src/mobile-tour/` — Flow B "Mobile tour". 3 welcome screens + a 4-item
+  checklist. Checklist progress DOES persist (`fabads.mobileTour.v1`); ticking
+  is manual by design (the only cheap completion signal is "count > 0", already
+  true for existing users). Screen 2's desktop-only examples resolve through
+  `resolveMobilePolicy` at module load, so the copy can't drift from the policy.
+
+Both are mounted in `MobileTabBar`, NOT in `MobileNavContent` — that component
+unmounts with the sheet, so a flow mounted there dies the moment the menu
+closes.
+
+**Constants that other modules read must not live in a component file.**
+`MOBILE_HOME_PATH` moved to `shell/mobileNavConstants.ts` after
+`MobileTabBar → mobile-tour → tourContent → MobileTabBar` produced a TDZ
+`ReferenceError` that blanked the app. It type-checked fine; only running it
+failed.

@@ -1,18 +1,32 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 import { InsightAdCard } from "@/components/insights/InsightAdCard";
 import { InsightAdGridSkeleton } from "@/components/insights/InsightAdGridSkeleton";
-import { InsightsFilterBar, DEFAULT_FILTERS, type InsightsFilters } from "@/components/insights/InsightsFilterBar";
+import { InsightsFilterBar, DEFAULT_FILTERS, type InsightsFilters, type InsightsViewTab } from "@/components/insights/InsightsFilterBar";
+import { MobileInsightsTabs } from "@/components/insights/MobileInsightsTabs";
 import { InsightsPagination } from "@/components/insights/InsightsPagination";
 import { InsightAdDetailDrawer } from "@/components/insights/InsightAdDetailDrawer";
 import { SaveToBoardModal } from "@/components/insights/SaveToBoardModal";
 import { useSavedAdIds } from "@/hooks/use-insight-boards";
 import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import type { InsightAd } from "@/lib/insights-dummy-data";
+
+/** Mirrors the <TabsTrigger> set below — the fold source for the mobile
+ *  Filters sheet's "View" group (Maalik, 2026-08-11): a surface toggle above
+ *  plus a full-width view tab bar plus a filter row was three stacked nav
+ *  layers at 375px. Desktop keeps the always-visible Tabs bar unchanged. */
+const VIEW_TABS: InsightsViewTab[] = [
+  { value: "all", label: "All" },
+  { value: "trending", label: "Trending" },
+  { value: "industry", label: "By Industry" },
+  { value: "platform", label: "By Platform" },
+];
 
 /**
  * InsightsDiscover — paginated grid of all ads, filterable + searchable.
@@ -259,12 +273,53 @@ export default function InsightsDiscover() {
   const inactiveCount = total - activeCount;
   const paginated = ads.slice((page - 1) * perPage, page * perPage);
 
+  // ── Mobile: infinite scroll instead of pagination (Maalik, 2026-08-11) ──
+  // "Show it like My feeds" — My feeds has no page control at all, pure
+  // accumulate-on-scroll. Desktop's page/perPage (URL-backed, above) is
+  // untouched; this is a second, independent slice over the same `ads`.
+  const isMobile = useIsMobile();
+  const [mobileLoadedCount, setMobileLoadedCount] = useState(DEFAULT_PER_PAGE);
+  // Resets the accumulator whenever the FILTERED SET changes for a reason
+  // other than "scrolled for more" — same rationale as setTab/setFilters
+  // deleting `?page=` for the desktop pager above.
+  const mobileFilterKey = useMemo(
+    () => JSON.stringify({ tab, filters }),
+    [tab, filters],
+  );
+  useEffect(() => {
+    setMobileLoadedCount(DEFAULT_PER_PAGE);
+  }, [mobileFilterKey]);
+  const mobileVisibleAds = useMemo(
+    () => ads.slice(0, mobileLoadedCount),
+    [ads, mobileLoadedCount],
+  );
+  const mobileHasMore = mobileVisibleAds.length < total;
+  const { sentinelRef } = useInfiniteScroll({
+    hasMore: mobileHasMore,
+    isLoading: false,
+    onLoadMore: useCallback(
+      () => setMobileLoadedCount((c) => c + DEFAULT_PER_PAGE),
+      [],
+    ),
+  });
+
+  const displayedAds = isMobile ? mobileVisibleAds : paginated;
+
   return (
     <div className="v3-page-mesh space-y-6 h-full flex flex-col overflow-x-hidden w-full max-w-full p-3">
-      <div className="flex items-center justify-between">
+      {/* Mobile surface toggle — see MobileInsightsTabs. md:hidden. */}
+      <MobileInsightsTabs className="!mt-0" />
+      {/* md:-only. On mobile MobileInsightsTabs directly above already names
+          this surface — a heading repeating "Discover" spent a whole row
+          saying nothing (same fix as InsightsV2IdentityRow). */}
+      <div className="hidden md:flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">Discover</h1>
       </div>
-      <Tabs value={tab} onValueChange={setTab}>
+      {/* md:-only. On mobile this same tab set folds into the Filters sheet's
+          "View" group via the viewTabs/viewValue/onViewChange props below —
+          a full-width tab bar stacked under the surface toggle was a second
+          nav layer at 375px. */}
+      <Tabs value={tab} onValueChange={setTab} className="hidden md:block">
         <TabsList>
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="trending">Trending</TabsTrigger>
@@ -272,11 +327,18 @@ export default function InsightsDiscover() {
           <TabsTrigger value="platform">By Platform</TabsTrigger>
         </TabsList>
       </Tabs>
-      <InsightsFilterBar filters={filters} onChange={setFilters} showTrending={tab === "all"} />
+      <InsightsFilterBar
+        filters={filters}
+        onChange={setFilters}
+        showTrending={tab === "all"}
+        viewTabs={VIEW_TABS}
+        viewValue={tab}
+        onViewChange={setTab}
+      />
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {isLoading ? (
           <InsightAdGridSkeleton count={perPage} />
-        ) : paginated.length === 0 ? (
+        ) : displayedAds.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Search className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-muted-foreground">No ads match your filters.</p>
@@ -284,13 +346,29 @@ export default function InsightsDiscover() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
-            {paginated.map((ad) => (
+            {displayedAds.map((ad) => (
               <InsightAdCard key={ad.id} ad={ad} savedCount={(savedAdIds instanceof Map ? savedAdIds.get(ad.id) : 0) ?? 0} onViewDetail={openAd} onSaveToBoard={openSaveModal} onAddBrandToCompetitors={(a) => addBrandToCompetitors.mutate({ name: a.brand, identifier: a.domain })} onAddPageToCompetitors={(a) => addPageToCompetitors.mutate({ name: a.pageName, pageId: a.pageId })} />
             ))}
           </div>
         )}
+        {/* Mobile-only infinite-scroll tail. Desktop keeps InsightsPagination
+            below, unchanged. */}
+        {isMobile && !isLoading && displayedAds.length > 0 && (
+          <>
+            {mobileHasMore && <div className="mt-4"><InsightAdGridSkeleton count={4} /></div>}
+            <div ref={sentinelRef} className="h-12 flex items-center justify-center">
+              {!mobileHasMore && (
+                <span className="font-mono text-[11px] text-muted-foreground/60">
+                  You've reached the end
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </div>
-      <InsightsPagination total={total} page={page} perPage={perPage} onPageChange={setPage} onPerPageChange={setPerPage} activeCount={activeCount} inactiveCount={inactiveCount} />
+      {!isMobile && (
+        <InsightsPagination total={total} page={page} perPage={perPage} onPageChange={setPage} onPerPageChange={setPerPage} activeCount={activeCount} inactiveCount={inactiveCount} />
+      )}
       <InsightAdDetailDrawer ad={detailAd} open={!!detailAd} onClose={closeAd} onSaveToBoard={openSaveModal} />
       <SaveToBoardModal open={!!saveBoardAd} onClose={closeSaveModal} ad={saveBoardAd} />
     </div>

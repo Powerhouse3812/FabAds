@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Bell, X } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { bootstrapConnector } from "@/connector/bootstrap";
 import { useConnectorAudit } from "@/connector/auditStore";
@@ -74,6 +76,7 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const [agentFilter, setAgentFilter] = useState<AgentKind | typeof ALL_AGENTS>(ALL_AGENTS);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   /**
    * This bell renders in the global nav on EVERY page, but `ConnectorPanel` —
@@ -175,15 +178,13 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
     </button>
   );
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="end"
-        sideOffset={8}
-        className="w-[340px] p-0 shadow-lg border border-border rounded-xl overflow-hidden"
-      >
+  // Container branch ONLY — the panel body below is shared verbatim between the
+  // desktop Popover and the mobile Sheet, so the connector audit feed, filters
+  // and unread logic can never drift between the two. A phone viewport is 375px
+  // and this popover is a fixed 340px, so after Radix's collision padding it
+  // clips; below `md` it becomes a bottom sheet instead.
+  const panel = (
+    <>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
           <div className="min-w-0">
@@ -281,6 +282,38 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
             </button>
           </>
         )}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        {/* Built-in X suppressed — the panel header already has an explicit
+            close, and two close controls in one sheet is noise. Sheets in this
+            app never dismiss on outside click, so an explicit one is required. */}
+        <SheetContent
+          side="bottom"
+          className="flex max-h-[75dvh] flex-col gap-0 rounded-t-2xl p-0 [&>button]:hidden"
+        >
+          <SheetTitle className="sr-only">Activity</SheetTitle>
+          {panel}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        sideOffset={8}
+        // min() so even a narrow desktop window can't clip it.
+        className="w-[min(340px,calc(100vw-1.5rem))] p-0 shadow-lg border border-border rounded-xl overflow-hidden"
+      >
+        {panel}
       </PopoverContent>
     </Popover>
   );

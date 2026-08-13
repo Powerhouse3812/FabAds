@@ -14,8 +14,17 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
-import type { ReportEntity, ColumnDef } from "@/lib/reports-dummy-data";
+import {
+  canDuplicate,
+  useEntityOverride,
+} from "@/lib/ad-entity-write-store";
+import { useAdEntityActions } from "@/components/reports/actions/useAdEntityActions";
+import type { ReportEntity, ColumnDef, EntityStatus } from "@/lib/reports-dummy-data";
+import {
+  resolveCurrency,
+  MIXED_CURRENCY_NOTE,
+  isCurrencyDependentMetric,
+} from "@/lib/reports-dummy-data";
 import { type TableRow as TRow, type GroupedRow, isGroupRow } from "@/hooks/use-reports-data";
 
 interface ReportsTableProps {
@@ -45,6 +54,48 @@ const statusColor: Record<string, string> = {
   Archived: "bg-destructive/20 text-destructive",
 };
 
+/** Flatten a group's (possibly nested) children down to leaf entities. */
+function collectEntities(items: TRow[]): ReportEntity[] {
+  const out: ReportEntity[] = [];
+  for (const r of items) {
+    if (isGroupRow(r)) out.push(...collectEntities(r.children));
+    else out.push(r);
+  }
+  return out;
+}
+
+/**
+ * Status verbs for the kebab. Pause first: it is the frequent, safe, reversible
+ * move, so it gets the shortest travel (Fitts's). Wording matches the bulk bar
+ * and the detail panel — Pause / Activate / Archive, never "Unpause"/"Resume".
+ * The item matching the row's current status renders disabled rather than
+ * hidden, so the menu's shape is stable and the current state stays legible.
+ */
+const STATUS_ITEMS: { label: string; next: EntityStatus }[] = [
+  { label: "Pause", next: "Paused" },
+  { label: "Activate", next: "Active" },
+  { label: "Archive", next: "Archived" },
+];
+
+/**
+ * Lime dot marking a row changed in this session, so an edited row is scannable
+ * without opening it. Absolutely positioned inside the name cell's EXISTING
+ * left padding — it adds no width and cannot reflow the column.
+ */
+function EditedDot({ id, offset }: { id: string; offset: number }) {
+  const override = useEntityOverride(id);
+  if (override?.updatedAt === undefined) return null;
+  return (
+    <span
+      className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-primary"
+      style={{ left: offset }}
+      title="Edited in this session"
+    >
+      <span className="sr-only">Edited in this session</span>
+    </span>
+  );
+}
+
 export function ReportsTable({
   rows, columns, visibleColumns, selectedIds, onSelectionChange,
   onRowClick, drillDownPath, drillDownParam,
@@ -53,6 +104,11 @@ export function ReportsTable({
   kebabActions, onAddAdset, onAddAd,
 }: ReportsTableProps) {
   const navigate = useNavigate();
+  // Row verbs come from useAdEntityActions(): it owns the confirm dialogs
+  // (Activate and Archive confirm, Pause does not), the duplicate sheet, and
+  // the undo toast — mounted once per surface by AdEntityActionsProvider in
+  // App.tsx.
+  const rowActions = useAdEntityActions();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const visibleCols = columns.filter((c) => visibleColumns.includes(c.key));
 
@@ -106,6 +162,10 @@ export function ReportsTable({
   const renderGroupRow = (group: GroupedRow, parentKey = "") => {
     const key = `${parentKey}_${group.groupKey}`;
     const isOpen = expanded.has(key);
+    // A group can span accounts in different currencies (e.g. grouped by
+    // Platform). Summed money is then meaningless, so it is suppressed rather
+    // than printed under one arbitrary symbol.
+    const currency = resolveCurrency(collectEntities(group.children));
     return (
       <tbody key={key}>
         <TableRow
@@ -121,13 +181,29 @@ export function ReportsTable({
             </span>
           </TableCell>
           <TableCell />
-          {visibleCols.map((col) => (
-            <TableCell key={col.key} className="text-right text-muted-foreground">
-              {col.format
-              ? col.format((group.metrics as unknown as Record<string, number>)[col.key] ?? 0)
-              : (group.metrics as unknown as Record<string, number>)[col.key] ?? 0}
-            </TableCell>
-          ))}
+          {visibleCols.map((col) => {
+            const raw = (group.metrics as unknown as Record<string, number>)[col.key] ?? 0;
+            // One common rule: suppress anything currency-dependent (money
+            // amounts AND the ratios derived from them, e.g. ROAS) when the
+            // group's rows span currencies. Volume metrics still sum.
+            if (currency.mixed && isCurrencyDependentMetric(col.key)) {
+              return (
+                <TableCell
+                  key={col.key}
+                  className="text-right text-muted-foreground"
+                  title={MIXED_CURRENCY_NOTE}
+                >
+                  <span className="sr-only">{MIXED_CURRENCY_NOTE}</span>
+                  <span aria-hidden="true">—</span>
+                </TableCell>
+              );
+            }
+            return (
+              <TableCell key={col.key} className="text-right text-muted-foreground">
+                {col.format ? col.format(raw, currency.symbol) : raw}
+              </TableCell>
+            );
+          })}
           <TableCell />
         </TableRow>
         {isOpen && group.children.map((child) =>
@@ -139,7 +215,21 @@ export function ReportsTable({
     );
   };
 
-  const renderEntityRow = (entity: ReportEntity, indent = 0) => (
+  const renderEntityRow = (entity: ReportEntity, indent = 0) => {
+    // Money on a leaf row is always single-currency: the row's own account
+    // currency, inherited from its country.
+    const currencySymbol = resolveCurrency([entity]).symbol;
+    // "Open in New Tab" used to open `window.location.href` — the page you were
+    // already on, for any row you clicked it from. The only per-row URL this
+    // table can honestly derive is the row's drill-down (its children), since
+    // entity detail is a drawer and has no route of its own. Where there is no
+    // drill-down (the deepest level), the item is omitted rather than pointed at
+    // the current page.
+    const rowUrl =
+      drillDownPath && drillDownParam
+        ? `${drillDownPath}?${drillDownParam}=${entity.id}`
+        : null;
+    return (
     <TableRow
       key={entity.id}
       className="cursor-pointer h-10"
@@ -152,7 +242,8 @@ export function ReportsTable({
           onCheckedChange={() => toggleOne(entity.id)}
         />
       </TableCell>
-      <TableCell style={{ paddingLeft: indent * 16 + 16 }}>
+      <TableCell className="relative" style={{ paddingLeft: indent * 16 + 16 }}>
+        <EditedDot id={entity.id} offset={indent * 16 + 6} />
         {drillDownPath && drillDownParam ? (
           <button
             className="text-sm font-medium text-foreground hover:underline text-left"
@@ -169,13 +260,14 @@ export function ReportsTable({
           {entity.status}
         </Badge>
       </TableCell>
-      {visibleCols.map((col) => (
-        <TableCell key={col.key} className="text-right text-sm">
-          {col.format
-            ? col.format((entity.metrics as unknown as Record<string, number>)[col.key] ?? 0)
-            : (entity.metrics as unknown as Record<string, number>)[col.key] ?? 0}
-        </TableCell>
-      ))}
+      {visibleCols.map((col) => {
+        const raw = (entity.metrics as unknown as Record<string, number>)[col.key] ?? 0;
+        return (
+          <TableCell key={col.key} className="text-right text-sm">
+            {col.format ? col.format(raw, currencySymbol) : raw}
+          </TableCell>
+        );
+      })}
       <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -185,18 +277,42 @@ export function ReportsTable({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onRowClick(entity)}>View Details</DropdownMenuItem>
+            {STATUS_ITEMS.map((s) => (
+              <DropdownMenuItem
+                key={s.next}
+                disabled={entity.status === s.next}
+                onClick={() => rowActions.setStatus([entity], s.next)}
+              >
+                {s.label}
+              </DropdownMenuItem>
+            ))}
+            {/* Hidden, not disabled, at account level — an ad account is not a
+                thing you can copy, so offering it greyed out only invites the
+                question "why?". */}
+            {canDuplicate(entity.level) && (
+              <DropdownMenuItem onClick={() => rowActions.duplicate(entity)}>
+                Duplicate
+              </DropdownMenuItem>
+            )}
             {onAddAdset && <DropdownMenuItem onClick={() => onAddAdset(entity)}>Add Ad Set</DropdownMenuItem>}
             {onAddAd && <DropdownMenuItem onClick={() => onAddAd(entity)}>Add Ad</DropdownMenuItem>}
             {kebabActions?.(entity).map((a) => (
               <DropdownMenuItem key={a.label} onClick={a.onClick}>{a.label}</DropdownMenuItem>
             ))}
-            <DropdownMenuItem onClick={() => toast.success("Apply Rule")}>Apply Rule</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => window.open(window.location.href, "_blank")}>Open in New Tab</DropdownMenuItem>
+            {/* "Apply Rule" used to sit here firing a bare success toast with no
+                destination. Automation owns rules — a link to nowhere is worse
+                than no link. */}
+            {rowUrl && (
+              <DropdownMenuItem onClick={() => window.open(rowUrl, "_blank", "noopener,noreferrer")}>
+                Open in New Tab
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
     </TableRow>
-  );
+    );
+  };
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
