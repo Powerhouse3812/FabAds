@@ -70,7 +70,7 @@ export default function InsightsOverview() {
   return (
     <div className="v3-page-mesh space-y-4 p-3">
       <div>
-        <h1 className="text-xl font-semibold">Overview</h1>
+        <h1 className="text-xl font-semibold">Home</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Your Industry Insights snapshot — competitors, trends, and what's new this week.
         </p>
