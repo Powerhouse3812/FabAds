@@ -1,103 +1,234 @@
-import { useNavigate, Link } from "react-router-dom";
-import {
-  Check,
-  Circle,
-  Compass,
-  Rss,
-  Star,
-  TrendingUp,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Check, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useInsightsSetupState } from "@/lib/insights-setup";
-import { useInsightsDigest, type InsightsDigestRow } from "@/lib/insights-digest";
-import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
-import { useInsightBoards } from "@/hooks/use-insight-boards";
-import { useInsightPreferences } from "@/hooks/use-insight-preferences";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  useInsightsSetupState,
+  markExtensionInstalled,
+  enableWeeklyDigest,
+} from "@/lib/insights-setup";
+import { useHomeBrief, useThinCoverage } from "@/insights-home/lib/homeSelectors";
+import { TopAdsGallery } from "@/insights-home/components/TopAdsGallery";
+import { ActNowCard } from "@/insights-home/components/ActNowCard";
+import { LaunchCadenceChart } from "@/insights-home/components/LaunchCadenceChart";
+import { AngleMixDonut } from "@/insights-home/components/AngleMixDonut";
+import { DomainsTeaserCard } from "@/insights-home/components/DomainsTeaserCard";
+import { ModuleRouterCard } from "@/insights-home/components/ModuleRouterCard";
+import { TopMoversCard } from "@/insights-home/components/TopMoversCard";
+import { WatchingCard } from "@/insights-home/components/WatchingCard";
+import { ThinCoverageRescue } from "@/insights-home/components/ThinCoverageRescue";
 
 /**
  * InsightsOverview — the Industry Insights module's own landing page.
  * Routed at /insights/overview (App.tsx) and the FIRST sub-item of the
  * Industry Insights sub-nav (src/components/sidebar/modules.ts).
  *
- * Three permanent sections:
- *   1. Setup checklist — only while !setup.complete. Same 3 items/routes as
- *      the Dashboard's InsightsJourneyCard (src/components/dashboard/growth/
- *      InsightsJourneyCard.tsx) so the two surfaces never disagree about
- *      what "done" means.
- *   2. "This week" digest — permanent. Post-setup this card is the page's
- *      hero; pre-setup (zero-data) it shows an invitation empty state.
- *   3. Stats strip — competitors / boards / industries / brands, all
- *      zero-safe reads off hooks already fetched above (no extra queries).
+ * Recomposed around Maalik's 13-block Figma pick (that Figma was flagged as
+ * too dense — composition is the point here, not cramming). Two-column
+ * layout matching the app's main+rail convention (see Dashboard.tsx:
+ * `grid lg:grid-cols-5`, main `lg:col-span-3`, rail `lg:col-span-2`).
  *
- * Mock-first: no new Supabase reads. useInsightsSetupState/useInsightsDigest
- * already wrap the existing use-insight-* hooks read-only; this page adds
- * no new writes at all.
+ * MAIN column, reading order: today's brief (useHomeBrief) → TopAdsGallery →
+ * ActNowCard → LaunchCadenceChart + AngleMixDonut side by side (stack on
+ * narrow) → DomainsTeaserCard (carries its own source/estimate footer).
+ *
+ * RIGHT rail: ModuleRouterCard → setup checklist (4 items, unchanged from
+ * before) → TopMoversCard → WatchingCard.
+ *
+ * FOLDING DECISION (Maalik's brief: don't ship both digest and brief since
+ * they overlap): the old standalone "This week" digest card
+ * (useInsightsDigest — src/lib/insights-digest.ts) is REMOVED. Its four row
+ * kinds are each now covered by a richer, real block instead of an
+ * invented-count sentence:
+ *   - "competitor launched N ads"  → TopMoversCard (real 30-day swing + a
+ *                                    one-click "track" action)
+ *   - "N new ads match your feed"  → ModuleRouterCard's Discover row (real
+ *                                    DUMMY_ADS.length) + TopAdsGallery
+ *   - "<tag> trending in <industry>" → ActNowCard (the real, doc-compliant
+ *                                    Trends signal, not a random tag pick)
+ *   - "<brand>'s ad is standing out" → TopAdsGallery
+ * In its place, useHomeBrief() renders ONE generated paragraph, synthesized
+ * from the SAME derived selectors the new blocks below it already use
+ * (launch-cadence spike, top mover, leading angle, live-domain count) — so
+ * the brief and the blocks underneath it can never tell two different
+ * stories about today. It is never labelled "AI" (Maalik: generated from
+ * the day's updates, not an AI feature).
+ *
+ * The old stats strip (industries/competitors/boards/brands as four bare
+ * tiles) is also REMOVED — ModuleRouterCard already surfaces live
+ * Competitor/Board/Saved-Ads counts inline per row (with a route attached,
+ * which the old tiles didn't have), and the setup checklist already tracks
+ * industries/brands progress. Shipping a third count of the same numbers
+ * added noise without adding a capability.
+ *
+ * ZERO/THIN state: useThinCoverage() (src/insights-home/lib/homeSelectors.ts)
+ * is the single source of truth for "no followed industries, or followed
+ * industries with no indexed inventory" — ThinCoverageRescue reads the exact
+ * same hook, so the two can't disagree. When thin, ThinCoverageRescue
+ * replaces the gallery/ActNow/charts row entirely (not three separate
+ * swaps). The router card, checklist, and header one-liner stay mounted —
+ * orientation is exactly what a new user needs. DomainsTeaserCard and the
+ * right rail keep rendering too; each already has its own honest zero state.
+ *
+ * Mock-first: no new Supabase reads/writes. Every hook above is either
+ * already-existing (useInsightsSetupState) or reads the Trends/dummy-ad mock
+ * corpora read-only (src/insights-home/lib/homeSelectors.ts).
  */
 
-// Keep in sync with InsightsJourneyCard's DIGEST_ICONS — same kind → icon
-// mapping so a row reads the same whether it's seen on the Dashboard teaser
-// or here on the full page.
-const DIGEST_ICONS: Record<InsightsDigestRow["kind"], LucideIcon> = {
-  competitor: Users,
-  trend: TrendingUp,
-  feed: Rss,
-  "top-ad": Star,
-};
+const SOURCES_LABEL = "US · 4 sources";
+const SOURCES_TITLE = "Meta Ad Library, StoreLeads, AdPlexity, Google Trends";
 
-type ChecklistRow = {
-  key: string;
-  done: boolean;
-  label: string;
-  ctaLabel: string;
-  to: string;
-};
+type ChecklistRow =
+  | { key: string; done: boolean; label: string; ctaLabel: string; kind: "navigate"; to: string }
+  | { key: string; done: boolean; label: string; ctaLabel: string; kind: "extension" }
+  | { key: string; done: boolean; label: string; ctaLabel: string; kind: "digest" };
+
+// TODO: keep in sync with InsightsExtensionCard.tsx / InsightsJourneyCard.tsx —
+// same placeholder Chrome Web Store path until the extension is published.
+const EXTENSION_URL = "https://chromewebstore.google.com/detail/fabads-insights";
 
 export default function InsightsOverview() {
   const navigate = useNavigate();
   const setup = useInsightsSetupState();
-  const { rows: digestRows, loading: digestLoading } = useInsightsDigest(8);
-  const { competitors, isLoading: competitorsLoading } = useInsightCompetitors();
-  const { boards, isLoading: boardsLoading } = useInsightBoards();
-  const { preferences, isLoading: prefsLoading, followedBrands } = useInsightPreferences();
+  const { text: briefText, loading: briefLoading } = useHomeBrief();
+  const { isThin, loading: coverageLoading } = useThinCoverage();
 
   const showChecklist = !setup.loading && !setup.complete;
 
   return (
     <div className="v3-page-mesh space-y-4 p-3">
-      <div>
+      <PageHeader />
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-5 lg:items-start">
+        {/* Main column */}
+        <div className="space-y-3 lg:col-span-3">
+          <BriefCard text={briefText} loading={briefLoading} />
+
+          {coverageLoading ? (
+            <TopSectionSkeleton />
+          ) : isThin ? (
+            <ThinCoverageRescue />
+          ) : (
+            <>
+              <TopAdsGallery />
+              <ActNowCard />
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
+                <Card>
+                  <CardContent className="space-y-3 p-4">
+                    <h2 className="text-sm font-semibold text-foreground">Launch cadence</h2>
+                    <LaunchCadenceChart />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="space-y-3 p-4">
+                    <h2 className="text-sm font-semibold text-foreground">Angle mix</h2>
+                    <AngleMixDonut />
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+
+          <DomainsTeaserCard />
+        </div>
+
+        {/* Right rail */}
+        <div className="space-y-3 lg:col-span-2">
+          <ModuleRouterCard />
+
+          {setup.loading ? (
+            <SetupChecklistSkeleton />
+          ) : showChecklist ? (
+            <SetupChecklistCard state={setup} navigate={navigate} />
+          ) : null}
+
+          <TopMoversCard />
+          <WatchingCard />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page header ──────────────────────────────────────────────────────
+
+function PageHeader() {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
         <h1 className="text-xl font-semibold">Home</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Your Industry Insights snapshot — competitors, trends, and what's new this week.
+        <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
+          Industry Insights watches what your industries and your competitors are advertising —
+          live creatives, trends, landing pages and offers — and turns what's working into briefs
+          you can launch.
         </p>
       </div>
 
-      {setup.loading ? (
-        <SetupChecklistSkeleton />
-      ) : showChecklist ? (
-        <SetupChecklistCard state={setup} navigate={navigate} />
-      ) : null}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              tabIndex={0}
+              title={SOURCES_TITLE}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground"
+            >
+              {SOURCES_LABEL}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{SOURCES_TITLE}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+}
 
-      <DigestCard rows={digestRows} loading={digestLoading} navigate={navigate} />
+// ── Today's brief — replaces the old "This week" digest card ────────
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          label="Industries selected"
-          value={prefsLoading ? null : (preferences?.industries?.length ?? 0)}
-        />
-        <StatTile
-          label="Competitors tracked"
-          value={competitorsLoading ? null : competitors.length}
-        />
-        <StatTile label="Boards" value={boardsLoading ? null : boards.length} />
-        <StatTile
-          label="Brands followed"
-          value={prefsLoading ? null : followedBrands.length}
-        />
+function BriefCard({ text, loading }: { text: string; loading: boolean }) {
+  return (
+    <Card>
+      <CardContent className="space-y-2 p-4">
+        <h2 className="text-sm font-semibold text-foreground">Today's brief</h2>
+        {loading ? (
+          <div className="space-y-1.5" aria-hidden>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+          </div>
+        ) : (
+          <p className="text-sm leading-relaxed text-foreground/90">{text}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Loading skeleton for the gallery/ActNow/charts row ──────────────
+// Shown only while useThinCoverage() is still resolving preferences — its
+// own hierarchy of shapes matches what actually mounts once resolved, so
+// the page never flashes the wrong branch (populated vs. thin).
+
+function TopSectionSkeleton() {
+  return (
+    <div className="space-y-3" aria-hidden>
+      {/* Mirrors TopAdsGallery's own breakpoints so the skeleton doesn't
+          reflow into a different column count when the real cards mount. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-[3/4] w-full rounded-lg" />
+        ))}
+      </div>
+      <Skeleton className="h-56 w-full rounded-lg" />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     </div>
   );
@@ -118,23 +249,32 @@ function SetupChecklistCard({
     {
       key: "prefs",
       done: state.prefsSet,
-      label: "Pick your industries",
+      label: "Follow your industries",
       ctaLabel: "Pick",
+      kind: "navigate",
       to: "/insights-v2/feed?modal=prefs",
+    },
+    {
+      key: "extension",
+      done: state.extensionInstalled,
+      label: "Install the Chrome extension",
+      ctaLabel: "Add",
+      kind: "extension",
     },
     {
       key: "competitor",
       done: state.competitorAdded,
-      label: "Track a competitor",
+      label: "Track your first competitor",
       ctaLabel: "Track",
+      kind: "navigate",
       to: "/insights/competitors?modal=add",
     },
     {
-      key: "ad",
-      done: state.adSaved,
-      label: "Save an ad to a board",
-      ctaLabel: "Save",
-      to: "/insights-v2/feed",
+      key: "digest",
+      done: state.digestEnabled,
+      label: "Turn on the weekly digest",
+      ctaLabel: "Turn on",
+      kind: "digest",
     },
   ];
 
@@ -184,7 +324,36 @@ function SetupChecklistCard({
               >
                 {row.label}
               </span>
-              {!row.done && (
+              {!row.done && row.kind === "extension" && (
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="h-7 shrink-0 text-xs"
+                >
+                  <a
+                    href={EXTENSION_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={markExtensionInstalled}
+                    aria-label={`${row.ctaLabel} — ${row.label}`}
+                  >
+                    {row.ctaLabel}
+                  </a>
+                </Button>
+              )}
+              {!row.done && row.kind === "digest" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 shrink-0 text-xs"
+                  onClick={enableWeeklyDigest}
+                  aria-label={`${row.ctaLabel} — ${row.label}`}
+                >
+                  {row.ctaLabel}
+                </Button>
+              )}
+              {!row.done && row.kind === "navigate" && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -215,7 +384,7 @@ function SetupChecklistSkeleton() {
         </div>
         <Skeleton className="h-[3px] w-full rounded-full" />
         <div className="flex flex-col gap-1.5">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2">
               <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
               <Skeleton className="h-3 flex-1 rounded" />
@@ -223,95 +392,6 @@ function SetupChecklistSkeleton() {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── "This week" digest — permanent hero once setup is done ─────────
-
-function DigestCard({
-  rows,
-  loading,
-  navigate,
-}: {
-  rows: InsightsDigestRow[];
-  loading: boolean;
-  navigate: ReturnType<typeof useNavigate>;
-}) {
-  return (
-    <Card>
-      <CardContent className="space-y-3 p-4">
-        <h2 className="text-sm font-semibold text-foreground">This week</h2>
-
-        {loading ? (
-          <div className="space-y-1.5">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-[52px] w-full rounded-md" />
-            ))}
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-            <Compass className="h-8 w-8 text-muted-foreground/40" aria-hidden />
-            <div className="max-w-sm">
-              <h3 className="text-sm font-medium text-foreground">Set your feed preferences</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Tell us which industries and brands you care about and we'll surface what's new
-                here every week.
-              </p>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => navigate("/insights-v2/feed?modal=prefs")}>
-              Set preferences
-            </Button>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-1.5">
-            {rows.map((row) => {
-              const Icon = DIGEST_ICONS[row.kind];
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-center gap-3 rounded-md border border-border/60 px-3 py-2.5 transition-colors hover:bg-muted/40"
-                >
-                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-foreground">{row.title}</p>
-                    {row.meta && (
-                      <p className="truncate text-xs text-muted-foreground">{row.meta}</p>
-                    )}
-                  </div>
-                  <Button
-                    asChild
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 shrink-0 text-xs"
-                  >
-                    <Link to={row.to}>{row.actionLabel}</Link>
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Stats strip ──────────────────────────────────────────────────────
-
-function StatTile({ label, value }: { label: string; value: number | null }) {
-  return (
-    <Card>
-      <CardContent className="space-y-1 p-3">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          {label}
-        </p>
-        {value === null ? (
-          <Skeleton className="h-6 w-10" />
-        ) : (
-          <p className="text-2xl font-semibold text-foreground">{value}</p>
-        )}
       </CardContent>
     </Card>
   );

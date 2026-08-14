@@ -21,7 +21,6 @@ import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme
 import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
 import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
-import { InsightsExtensionCard } from "./InsightsExtensionCard";
 import { InsightsSetupCard } from "./InsightsSetupCard";
 import { useInsightsSetupState } from "@/lib/insights-setup";
 import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
@@ -207,8 +206,14 @@ export function SecondaryNavigationPanel() {
 
 /* ─────────────────────────────────────────────────────────
  *  InsightsFooterCard — setup-checklist gate for the Insights sub-nav
- *  footer. While the 3-item onboarding checklist is incomplete the
- *  progress card shows; once complete it converts to the extension nudge.
+ *  footer. While the 4-item onboarding checklist is incomplete the progress
+ *  card shows; once complete the footer clears.
+ *
+ *  It used to convert to InsightsExtensionCard on completion. That is now a
+ *  contradiction: "Install the Chrome extension" IS checklist item #2, so
+ *  `complete` implies extensionInstalled === true — the swap re-pitched an
+ *  install the user had just ticked off. The extension is a checklist ITEM,
+ *  not a post-completion gate.
  *
  *  Deliberately its own component rather than a hook call inside
  *  SecondaryNavigationPanel: that component early-returns null for modules
@@ -220,7 +225,7 @@ export function SecondaryNavigationPanel() {
  * ───────────────────────────────────────────────────────── */
 function InsightsFooterCard() {
   const setup = useInsightsSetupState();
-  return setup.complete ? <InsightsExtensionCard /> : <InsightsSetupCard />;
+  return setup.complete ? null : <InsightsSetupCard />;
 }
 
 /* ─────────────────────────────────────────────────────────

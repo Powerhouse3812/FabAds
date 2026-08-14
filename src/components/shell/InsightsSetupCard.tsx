@@ -1,16 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import { Check, Circle, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useInsightsSetupState } from "@/lib/insights-setup";
+import {
+  useInsightsSetupState,
+  markExtensionInstalled,
+  enableWeeklyDigest,
+} from "@/lib/insights-setup";
 
 /**
  * InsightsSetupCard — footer-pinned setup-progress card for the Insights
  * sub-nav, shown in place of InsightsExtensionCard until the user has
- * cleared the 3-item onboarding checklist.
+ * cleared the 4-item onboarding checklist.
  *
- * Same genre as CatalogueFooterCard.tsx ("N of 3 ready" line, thin lime
- * progress bar, 3-item mini checklist with done/pending icons) — kept
- * visually consistent with that card rather than InsightsExtensionCard's
+ * Same genre as CatalogueFooterCard.tsx ("N of 4 ready" line, thin lime
+ * progress bar, mini checklist with done/pending icons) — kept visually
+ * consistent with that card rather than InsightsExtensionCard's
  * illustration-led approach, since this one's job is progress, not a
  * product pitch.
  *
@@ -18,19 +22,29 @@ import { useInsightsSetupState } from "@/lib/insights-setup";
  * (SecondaryNavigationPanel swaps it for InsightsExtensionCard), so there's
  * no X here — unlike the two dismissible footer cards.
  *
- * Each pending item is a real button that jumps straight to the surface
- * that clears it: Preferences -> the feed's prefs modal, Competitor -> the
- * competitors page's add modal, Save an ad -> the feed itself.
+ * Each pending item has its own action: the two navigation items jump
+ * straight to the surface that clears them (Preferences -> the feed's
+ * prefs modal, Competitor -> the competitors page's add modal); the
+ * Chrome extension item opens the Web Store listing and marks itself done
+ * on click (same as InsightsExtensionCard's CTA); the weekly digest item
+ * flips its flag in place — there's no separate settings surface for it.
  */
 
-const CHECKLIST_ITEMS: ReadonlyArray<{
-  key: "prefsSet" | "competitorAdded" | "adSaved";
-  label: string;
-  ctaPath: string;
-}> = [
-  { key: "prefsSet", label: "Set preferences", ctaPath: "/insights-v2/feed?modal=prefs" },
-  { key: "competitorAdded", label: "Add a competitor", ctaPath: "/insights/competitors?modal=add" },
-  { key: "adSaved", label: "Save an ad", ctaPath: "/insights-v2/feed" },
+// TODO: keep in sync with InsightsExtensionCard.tsx / InsightsJourneyCard.tsx —
+// same placeholder Chrome Web Store path until the extension is published.
+const EXTENSION_URL = "https://chromewebstore.google.com/detail/fabads-insights";
+
+type ChecklistItemDef =
+  | { key: "prefsSet"; label: string; kind: "navigate"; ctaPath: string }
+  | { key: "extensionInstalled"; label: string; kind: "extension" }
+  | { key: "competitorAdded"; label: string; kind: "navigate"; ctaPath: string }
+  | { key: "digestEnabled"; label: string; kind: "digest" };
+
+const CHECKLIST_ITEMS: readonly ChecklistItemDef[] = [
+  { key: "prefsSet", label: "Follow your industries", kind: "navigate", ctaPath: "/insights-v2/feed?modal=prefs" },
+  { key: "extensionInstalled", label: "Install the Chrome extension", kind: "extension" },
+  { key: "competitorAdded", label: "Track your first competitor", kind: "navigate", ctaPath: "/insights/competitors?modal=add" },
+  { key: "digestEnabled", label: "Turn on the weekly digest", kind: "digest" },
 ];
 
 export function InsightsSetupCard() {
@@ -38,7 +52,7 @@ export function InsightsSetupCard() {
   const state = useInsightsSetupState();
 
   // Loading (prefs/competitors hooks still resolving) — render nothing
-  // rather than flash a 0-of-3 that immediately jumps.
+  // rather than flash a 0-of-4 that immediately jumps.
   if (state.loading) return null;
 
   const progressPct = Math.round((state.doneCount / state.total) * 100);
@@ -88,7 +102,7 @@ export function InsightsSetupCard() {
           </div>
         </div>
 
-        {/* 3-item mini checklist — pending items are clickable jumps to
+        {/* 4-item mini checklist — pending items are clickable jumps to
             the surface that clears them, done items are static. */}
         <ul className="flex flex-col gap-0.5">
           {CHECKLIST_ITEMS.map((item) => {
@@ -108,6 +122,50 @@ export function InsightsSetupCard() {
                       {item.label}
                     </span>
                   </div>
+                ) : item.kind === "extension" ? (
+                  <a
+                    href={EXTENSION_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={markExtensionInstalled}
+                    className={cn(
+                      "flex h-[22px] w-full items-center gap-1.5 rounded-sm text-left",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
+                    )}
+                  >
+                    <Circle
+                      className="h-3.5 w-3.5 shrink-0 text-foreground/30"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    <span className="text-[11px] leading-none text-foreground">
+                      {item.label}
+                    </span>
+                    <span className="ml-auto font-mono text-[9px] uppercase tracking-wide text-primary/80">
+                      Add
+                    </span>
+                  </a>
+                ) : item.kind === "digest" ? (
+                  <button
+                    type="button"
+                    onClick={enableWeeklyDigest}
+                    className={cn(
+                      "flex h-[22px] w-full items-center gap-1.5 rounded-sm text-left",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
+                    )}
+                  >
+                    <Circle
+                      className="h-3.5 w-3.5 shrink-0 text-foreground/30"
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    <span className="text-[11px] leading-none text-foreground">
+                      {item.label}
+                    </span>
+                    <span className="ml-auto font-mono text-[9px] uppercase tracking-wide text-primary/80">
+                      Turn on
+                    </span>
+                  </button>
                 ) : (
                   <button
                     type="button"

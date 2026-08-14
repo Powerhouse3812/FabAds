@@ -4,47 +4,55 @@
  * src/creative-report-v2/automations/rulesStore.ts (stable cached snapshot
  * reference, defensive sanitization of whatever localStorage hands back,
  * cross-tab 'storage' sync).
+ *
+ * 4-item checklist (Maalik's Figma pick, wholesale):
+ *   1. Follow your industries        — prefsSet
+ *   2. Install the Chrome extension  — extensionInstalled
+ *   3. Track your first competitor   — competitorAdded
+ *   4. Turn on the weekly digest     — digestEnabled
+ *
+ * The Chrome extension now lives INSIDE the checklist as input #2 — this
+ * REVERSES the earlier design where extensionInstalled/extensionDismissed
+ * gated a separate post-completion card. There is no "dismissed" state
+ * anymore: the checklist just tracks progress, it doesn't gate anything.
+ *
+ * "Save an ad to a board" has been removed as a step per Maalik's call.
  */
 import { useSyncExternalStore } from "react";
 import { useInsightPreferences } from "@/hooks/use-insight-preferences";
 import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
-import { useInsightBoards } from "@/hooks/use-insight-boards";
 
 const KEY = "fabads:insights:setup:v1";
 
 export type InsightsSetupState = {
   prefsSet: boolean;
+  extensionInstalled: boolean;
   competitorAdded: boolean;
-  adSaved: boolean;
+  digestEnabled: boolean;
   doneCount: number;
   total: number;
   complete: boolean;
-  extensionInstalled: boolean;
-  extensionDismissed: boolean;
 };
 
 type PersistedFlags = {
-  adSavedFlag: boolean;
   competitorAddedFlag: boolean;
   extensionInstalled: boolean;
-  extensionDismissed: boolean;
+  digestEnabled: boolean;
 };
 
 const DEFAULT_FLAGS: PersistedFlags = {
-  adSavedFlag: false,
   competitorAddedFlag: false,
   extensionInstalled: false,
-  extensionDismissed: false,
+  digestEnabled: false,
 };
 
 function sanitize(raw: unknown): PersistedFlags {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_FLAGS };
   const r = raw as Record<string, unknown>;
   return {
-    adSavedFlag: r.adSavedFlag === true,
     competitorAddedFlag: r.competitorAddedFlag === true,
     extensionInstalled: r.extensionInstalled === true,
-    extensionDismissed: r.extensionDismissed === true,
+    digestEnabled: r.digestEnabled === true,
   };
 }
 
@@ -101,10 +109,6 @@ function setFlags(patch: Partial<PersistedFlags>) {
   persist();
 }
 
-export function markAdSaved(): void {
-  setFlags({ adSavedFlag: true });
-}
-
 export function markCompetitorAdded(): void {
   setFlags({ competitorAddedFlag: true });
 }
@@ -113,8 +117,12 @@ export function markExtensionInstalled(): void {
   setFlags({ extensionInstalled: true });
 }
 
-export function dismissExtensionNudge(): void {
-  setFlags({ extensionDismissed: true });
+export function enableWeeklyDigest(): void {
+  setFlags({ digestEnabled: true });
+}
+
+export function disableWeeklyDigest(): void {
+  setFlags({ digestEnabled: false });
 }
 
 const EMPTY_FLAGS: PersistedFlags = DEFAULT_FLAGS;
@@ -123,40 +131,28 @@ export function useInsightsSetupState(): InsightsSetupState & { loading: boolean
   const persisted = useSyncExternalStore(subscribe, snapshot, () => EMPTY_FLAGS);
   const { preferences, isLoading: prefsLoading } = useInsightPreferences();
   const { competitors, isLoading: competitorsLoading } = useInsightCompetitors();
-  const { boards, isLoading: boardsLoading } = useInsightBoards();
 
   const prefsSet = !!preferences?.onboarded;
-  // The hook returns DB rows only — the page component's FALLBACK_COMPETITORS
-  // are UI-only mock data, never reflected here, so this stays truthful for
-  // a genuinely new user with nothing tracked yet.
+  const extensionInstalled = persisted.extensionInstalled;
+  // Self-heals like the old adSaved check did: a workspace that already has
+  // a tracked competitor from before this checklist existed must not be
+  // told to go add one. The Figma annotation calls the FIRST tracked
+  // competitor the activation event (even though its checklist label is
+  // step 3), so any competitor already present ticks this immediately.
   const competitorAdded = persisted.competitorAddedFlag || competitors.length > 0;
-  // Self-heals like competitorAdded: a user who already has ads on a board
-  // from before this checklist existed must not be told to go save one. The
-  // boards query already embeds insight_board_items(count), so this reads
-  // existing data rather than adding a query.
-  const adSaved =
-    persisted.adSavedFlag ||
-    boards.some((b) => {
-      const embedded = (b as { insight_board_items?: unknown })
-        .insight_board_items;
-      const count = Array.isArray(embedded)
-        ? (embedded[0] as { count?: number } | undefined)?.count
-        : undefined;
-      return typeof count === "number" && count > 0;
-    });
+  const digestEnabled = persisted.digestEnabled;
 
-  const doneCount = [prefsSet, competitorAdded, adSaved].filter(Boolean).length;
-  const total = 3;
+  const doneCount = [prefsSet, extensionInstalled, competitorAdded, digestEnabled].filter(Boolean).length;
+  const total = 4;
 
   return {
     prefsSet,
+    extensionInstalled,
     competitorAdded,
-    adSaved,
+    digestEnabled,
     doneCount,
     total,
     complete: doneCount === total,
-    extensionInstalled: persisted.extensionInstalled,
-    extensionDismissed: persisted.extensionDismissed,
-    loading: prefsLoading || competitorsLoading || boardsLoading,
+    loading: prefsLoading || competitorsLoading,
   };
 }

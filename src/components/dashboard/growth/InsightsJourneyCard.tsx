@@ -2,7 +2,6 @@ import { useNavigate, Link } from "react-router-dom";
 import {
   Check,
   Circle,
-  Chrome,
   Rss,
   Star,
   TrendingUp,
@@ -14,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   useInsightsSetupState,
   markExtensionInstalled,
-  dismissExtensionNudge,
+  enableWeeklyDigest,
 } from "@/lib/insights-setup";
 import { useInsightsDigest, type InsightsDigestRow } from "@/lib/insights-digest";
 
@@ -25,19 +24,19 @@ import { useInsightsDigest, type InsightsDigestRow } from "@/lib/insights-digest
  * swap in Dashboard.tsx is visually seamless — only the body changes shape
  * as the user progresses through Insights setup.
  *
- * Three states, driven entirely by useInsightsSetupState()/useInsightsDigest():
- *   1. CHECKLIST      — !complete. 3-item setup checklist + progress bar,
+ * Two states, driven entirely by useInsightsSetupState()/useInsightsDigest():
+ *   1. CHECKLIST      — !complete. 4-item setup checklist + progress bar,
  *                        same genre as CatalogueFooterCard's checklist card.
- *   2. EXTENSION NUDGE — complete && !extensionInstalled && !extensionDismissed.
- *                        Mirrors InsightsExtensionCard's copy/link/visual
- *                        language (browser-mock illustration, "Add to
- *                        Chrome" CTA), scaled for a dashboard grid slot.
- *   3. DIGEST TEASER   — complete && (extensionInstalled || extensionDismissed).
- *                        Top rows from useInsightsDigest(3) + "Open Insights".
+ *                        The Chrome extension and weekly digest are two of
+ *                        the four rows here — NOT a separate post-completion
+ *                        stage (that gating was reversed; extensionInstalled
+ *                        is now just a checklist input like any other).
+ *   2. DIGEST TEASER   — complete. Top rows from useInsightsDigest(3) +
+ *                        "Open Insights".
  *
  * Mock-first: no new Supabase reads — useInsightsSetupState/useInsightsDigest
  * already read the existing use-insight-* hooks read-only; the only writes
- * here are the two extension-nudge localStorage markers.
+ * here are the extension/digest checklist markers.
  */
 
 // TODO: keep in sync with src/components/shell/InsightsExtensionCard.tsx —
@@ -51,23 +50,15 @@ const DIGEST_ICONS: Record<InsightsDigestRow["kind"], LucideIcon> = {
   "top-ad": Star,
 };
 
-type ChecklistRow = {
-  key: string;
-  done: boolean;
-  label: string;
-  ctaLabel: string;
-  to: string;
-};
+type ChecklistRow =
+  | { key: string; done: boolean; label: string; ctaLabel: string; kind: "navigate"; to: string }
+  | { key: string; done: boolean; label: string; ctaLabel: string; kind: "extension" }
+  | { key: string; done: boolean; label: string; ctaLabel: string; kind: "digest" };
 
 export function InsightsJourneyCard() {
   const navigate = useNavigate();
   const setup = useInsightsSetupState();
   const { rows: digestRows, loading: digestLoading } = useInsightsDigest(3);
-
-  const showExtensionNudge =
-    setup.complete && !setup.extensionInstalled && !setup.extensionDismissed;
-  const showDigest =
-    setup.complete && (setup.extensionInstalled || setup.extensionDismissed);
 
   return (
     <section
@@ -89,9 +80,7 @@ export function InsightsJourneyCard() {
 
       {setup.loading ? (
         <ChecklistSkeleton />
-      ) : showExtensionNudge ? (
-        <ExtensionNudgeBody />
-      ) : showDigest ? (
+      ) : setup.complete ? (
         <DigestTeaserBody rows={digestRows} loading={digestLoading} />
       ) : (
         <ChecklistBody state={setup} navigate={navigate} />
@@ -101,6 +90,9 @@ export function InsightsJourneyCard() {
 }
 
 // ── State 1: checklist ──────────────────────────────────────────────
+// Four rows: pick industries / install extension / track a competitor /
+// turn on the weekly digest. Extension + digest resolve in place (no
+// navigation); the other two jump to the surface that clears them.
 
 function ChecklistBody({
   state,
@@ -115,23 +107,32 @@ function ChecklistBody({
     {
       key: "prefs",
       done: state.prefsSet,
-      label: "Pick your industries",
+      label: "Follow your industries",
       ctaLabel: "Pick",
+      kind: "navigate",
       to: "/insights-v2/feed?modal=prefs",
+    },
+    {
+      key: "extension",
+      done: state.extensionInstalled,
+      label: "Install the Chrome extension",
+      ctaLabel: "Add",
+      kind: "extension",
     },
     {
       key: "competitor",
       done: state.competitorAdded,
-      label: "Track a competitor",
+      label: "Track your first competitor",
       ctaLabel: "Track",
+      kind: "navigate",
       to: "/insights/competitors?modal=add",
     },
     {
-      key: "ad",
-      done: state.adSaved,
-      label: "Save an ad to a board",
-      ctaLabel: "Save",
-      to: "/insights-v2/feed",
+      key: "digest",
+      done: state.digestEnabled,
+      label: "Turn on the weekly digest",
+      ctaLabel: "Turn on",
+      kind: "digest",
     },
   ];
 
@@ -169,7 +170,39 @@ function ChecklistBody({
             >
               {row.label}
             </span>
-            {!row.done && (
+            {!row.done && row.kind === "extension" && (
+              <a
+                href={EXTENSION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={markExtensionInstalled}
+                aria-label={`${row.ctaLabel} — ${row.label}`}
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-1 rounded-sm px-2 py-[3px]",
+                  "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
+                  "transition-colors duration-150 hover:bg-primary/90",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                )}
+              >
+                {row.ctaLabel}
+              </a>
+            )}
+            {!row.done && row.kind === "digest" && (
+              <button
+                type="button"
+                onClick={enableWeeklyDigest}
+                aria-label={`${row.ctaLabel} — ${row.label}`}
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-1 rounded-sm px-2 py-[3px]",
+                  "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
+                  "transition-colors duration-150 hover:bg-primary/90",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                )}
+              >
+                {row.ctaLabel}
+              </button>
+            )}
+            {!row.done && row.kind === "navigate" && (
               <button
                 type="button"
                 onClick={() => navigate(row.to)}
@@ -199,7 +232,7 @@ function ChecklistSkeleton() {
     <div className="flex flex-col gap-3">
       <Skeleton className="h-[3px] w-full rounded-full" />
       <ul className="flex flex-col gap-1.5">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <li key={i} className="flex h-[26px] items-center gap-2">
             <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
             <Skeleton className="h-3 flex-1 rounded" />
@@ -211,97 +244,7 @@ function ChecklistSkeleton() {
   );
 }
 
-// ── State 2: extension nudge ────────────────────────────────────────
-// Copy/link/visual language mirrors src/components/shell/InsightsExtensionCard.tsx
-// (browser-mock illustration, "Clip any competitor ad..." pitch, lime CTA),
-// scaled down to sit inside a dashboard grid slot rather than a sidebar footer.
-
-function ExtensionNudgeMock() {
-  return (
-    <svg
-      viewBox="0 0 168 74"
-      className="w-full"
-      role="img"
-      aria-label="A browser window with the FabAds extension clipping a competitor ad to a board"
-      fill="none"
-    >
-      <rect x="1" y="1" width="166" height="72" rx="7" className="stroke-current text-foreground/15" strokeWidth="1" />
-      <path d="M1 8a7 7 0 0 1 7-7h152a7 7 0 0 1 7 7v11H1V8Z" className="fill-current text-foreground/[0.04]" />
-      <line x1="1" y1="19" x2="167" y2="19" className="stroke-current text-foreground/10" strokeWidth="1" />
-      <circle cx="11" cy="10" r="2" className="fill-current text-foreground/25" />
-      <circle cx="19" cy="10" r="2" className="fill-current text-foreground/25" />
-      <circle cx="27" cy="10" r="2" className="fill-current text-foreground/25" />
-      <rect x="38" y="6" width="104" height="8" rx="4" className="fill-current text-foreground/[0.06]" />
-      <rect x="148" y="5" width="11" height="11" rx="2.5" className="fill-current text-primary" />
-      <path d="M153.5 8v5M151 10.5h5" className="stroke-current text-primary-foreground" strokeWidth="1.25" strokeLinecap="round" />
-      <rect x="14" y="28" width="58" height="38" rx="4" className="fill-current text-foreground/[0.05]" />
-      <rect x="20" y="34" width="46" height="16" rx="2" className="fill-current text-foreground/[0.06]" />
-      <rect x="20" y="53" width="38" height="3" rx="1.5" className="fill-current text-foreground/10" />
-      <path d="M126 30C138 23 148 21 151 16" className="stroke-current text-primary/45" strokeWidth="1" strokeLinecap="round" strokeDasharray="1.5 3" />
-      <rect x="86" y="26" width="58" height="38" rx="4" className="fill-current text-foreground/[0.04] stroke-[hsl(var(--primary))]" strokeWidth="1.25" />
-      <rect x="92" y="32" width="46" height="16" rx="2" className="fill-current text-primary/15" />
-      <rect x="92" y="51" width="38" height="3" rx="1.5" className="fill-current text-foreground/15" />
-      <path d="M131 26h9v12l-4.5-3.4L131 38V26Z" className="fill-current text-primary" />
-    </svg>
-  );
-}
-
-function ExtensionNudgeBody() {
-  const handleAddToChrome = () => {
-    markExtensionInstalled();
-  };
-
-  return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-1.5">
-        <Chrome className="h-3.5 w-3.5 shrink-0 text-foreground/55" strokeWidth={1.75} aria-hidden />
-        <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-foreground/55">
-          Browser Extension
-        </span>
-      </div>
-
-      <ExtensionNudgeMock />
-
-      <p className="text-[11px] leading-snug text-foreground/70">
-        Clip any competitor ad straight to your boards.
-      </p>
-
-      <div className="flex items-center gap-2">
-        <a
-          href={EXTENSION_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handleAddToChrome}
-          className={cn(
-            "inline-flex w-fit items-center gap-1 rounded-sm px-2 py-[4px]",
-            "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
-            "transition-colors duration-150 hover:bg-primary/90",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-          )}
-        >
-          <span>Add to Chrome</span>
-          <span aria-hidden className="inline-block transition-transform duration-150 group-hover:translate-x-[1px]">
-            →
-          </span>
-        </a>
-        <button
-          type="button"
-          onClick={dismissExtensionNudge}
-          className={cn(
-            "inline-flex w-fit items-center rounded-sm px-2 py-[4px]",
-            "text-[11px] font-medium text-muted-foreground",
-            "transition-colors duration-150 hover:text-foreground",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-          )}
-        >
-          Later
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── State 3: digest teaser ──────────────────────────────────────────
+// ── State 2: digest teaser ──────────────────────────────────────────
 
 function DigestTeaserBody({
   rows,

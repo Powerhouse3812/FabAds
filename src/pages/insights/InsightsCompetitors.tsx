@@ -7,9 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Users, FileText, Radar, TrendingUp, Globe, Languages, Sparkles } from "lucide-react";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 import { markCompetitorAdded } from "@/lib/insights-setup";
+import { CompetitorsDomainsView } from "@/components/insights/CompetitorsDomainsView";
 
 // Fallback data matching DUMMY_ADS brands
 const FALLBACK_COMPETITORS = [
@@ -33,6 +35,13 @@ export default function InsightsCompetitors() {
   const modal = searchParams.get("modal");
   const competitorId = searchParams.get("competitor");
 
+  // A-14: "Domains" is a VIEW of Competitors, not a separate nav item —
+  // ?view=domains, derived straight from params at read time (no
+  // normalising effect racing the other param writers on this page, per
+  // the InsightsV2Feed lesson). Anything other than exactly "domains"
+  // reads as the existing "competitors" view, unchanged in behaviour.
+  const view = searchParams.get("view") === "domains" ? "domains" : "competitors";
+
   // FB-onboarding: a one-shot entry point. Anything linking in with
   // `?modal=add` (e.g. the setup checklist's "Add a competitor" step) pops
   // the modal open once, then the param is stripped immediately — unlike
@@ -53,6 +62,21 @@ export default function InsightsCompetitors() {
   }, [searchParams, setSearchParams]);
 
   const addOpen = modal === "add-competitor" || forceOpenAdd;
+
+  const setView = useCallback(
+    (next: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (!next || next === "competitors") sp.delete("view");
+          else sp.set("view", next);
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const setTypeFilter = useCallback(
     (next: string) => {
@@ -177,133 +201,152 @@ export default function InsightsCompetitors() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} size="sm" variant="outline">
-            <ToggleGroupItem value="all">All</ToggleGroupItem>
-            <ToggleGroupItem value="domain">Domain</ToggleGroupItem>
-            <ToggleGroupItem value="page">Page</ToggleGroupItem>
-          </ToggleGroup>
+          {view === "competitors" && (
+            <ToggleGroup type="single" value={typeFilter} onValueChange={(v) => v && setTypeFilter(v)} size="sm" variant="outline">
+              <ToggleGroupItem value="all">All</ToggleGroupItem>
+              <ToggleGroupItem value="domain">Domain</ToggleGroupItem>
+              <ToggleGroupItem value="page">Page</ToggleGroupItem>
+            </ToggleGroup>
+          )}
           <Button size="sm" onClick={openAdd}>
             <Plus className="h-4 w-4 mr-1" /> Add Competitor
           </Button>
         </div>
       </div>
 
-      {/* Demo-data notice — these five rows are sample data, not anything the
-          user tracked. Say so plainly and put the real action right next to
-          it, rather than letting a populated-looking table pass as real. */}
-      {!useDB && (
-        <Card className="border-dashed bg-muted/30">
-          <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-xs text-muted-foreground">
-              You're viewing sample competitors so you can see how this page works. Add your own to start tracking real data.
-            </p>
-            <Button size="sm" onClick={openAdd}>
-              <Plus className="h-4 w-4 mr-1" /> Add Competitor
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Competitors vs Domains — a view of the same competitor rows, not a
+          separate module (Maalik's call). ?view=domains is URL-backed so
+          reload/deep-link/back-forward preserve it, matching this page's
+          other params. */}
+      <Tabs value={view} onValueChange={setView}>
+        <TabsList>
+          <TabsTrigger value="competitors">Competitors</TabsTrigger>
+          <TabsTrigger value="domains">Domains</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Radar className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{competitors.length}</p>
-              <p className="text-xs text-muted-foreground">Total Competitors</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{totalPages}</p>
-              <p className="text-xs text-muted-foreground">Pages Tracked</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Competitor Cards Grid */}
-      {isLoading ? (
-        <p className="text-muted-foreground">Loading...</p>
-      ) : filteredCompetitors.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
-          <p className="mb-4">No competitors tracked yet. Add one to get started.</p>
-          <Button size="sm" onClick={openAdd}>
-            <Plus className="h-4 w-4 mr-1" /> Add Competitor
-          </Button>
-        </div>
+      {view === "domains" ? (
+        <CompetitorsDomainsView onAddCompetitor={openAdd} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredCompetitors.map((c: any) => {
-            const pCount = pageCounts[c.id] ?? 0;
-            const aCount = adCounts[c.id] ?? 0;
-            const daysAgo = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
+        <>
+          {/* Demo-data notice — these five rows are sample data, not anything the
+              user tracked. Say so plainly and put the real action right next to
+              it, rather than letting a populated-looking table pass as real. */}
+          {!useDB && (
+            <Card className="border-dashed bg-muted/30">
+              <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-xs text-muted-foreground">
+                  You're viewing sample competitors so you can see how this page works. Add your own to start tracking real data.
+                </p>
+                <Button size="sm" onClick={openAdd}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Competitor
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
-            return (
-              <Card
-                key={c.id}
-                className={
-                  "cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" +
-                  (useDB ? "" : " border-dashed opacity-80 hover:opacity-100")
-                }
-                onClick={() => openCompetitor(c.id)}
-              >
-                <CardContent className="p-4 space-y-3">
-                  {/* Name + badges */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-semibold text-sm truncate">{c.name}</span>
-                      <Badge variant="outline" className="shrink-0 text-xs">{c.competitor_type}</Badge>
-                      {!useDB && (
-                        <Badge variant="secondary" className="shrink-0 gap-1 text-xs font-normal text-muted-foreground">
-                          <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden /> Demo
+          {/* KPI Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Radar className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{competitors.length}</p>
+                  <p className="text-xs text-muted-foreground">Total Competitors</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{totalPages}</p>
+                  <p className="text-xs text-muted-foreground">Pages Tracked</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Competitor Cards Grid */}
+          {isLoading ? (
+            <p className="text-muted-foreground">Loading...</p>
+          ) : filteredCompetitors.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+              <p className="mb-4">No competitors tracked yet. Add one to get started.</p>
+              <Button size="sm" onClick={openAdd}>
+                <Plus className="h-4 w-4 mr-1" /> Add Competitor
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredCompetitors.map((c: any) => {
+                const pCount = pageCounts[c.id] ?? 0;
+                const aCount = adCounts[c.id] ?? 0;
+                const daysAgo = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
+
+                return (
+                  <Card
+                    key={c.id}
+                    className={
+                      "cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200" +
+                      (useDB ? "" : " border-dashed opacity-80 hover:opacity-100")
+                    }
+                    onClick={() => openCompetitor(c.id)}
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      {/* Name + badges */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold text-sm truncate">{c.name}</span>
+                          <Badge variant="outline" className="shrink-0 text-xs">{c.competitor_type}</Badge>
+                          {!useDB && (
+                            <Badge variant="secondary" className="shrink-0 gap-1 text-xs font-normal text-muted-foreground">
+                              <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden /> Demo
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge
+                          variant={c.status === "active" ? "default" : "secondary"}
+                          className="shrink-0 text-xs"
+                        >
+                          {c.status}
                         </Badge>
-                      )}
-                    </div>
-                    <Badge
-                      variant={c.status === "active" ? "default" : "secondary"}
-                      className="shrink-0 text-xs"
-                    >
-                      {c.status}
-                    </Badge>
-                  </div>
+                      </div>
 
-                  {/* Country + Language */}
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    {c.country && <span className="inline-flex items-center gap-1"><Globe className="h-3 w-3" strokeWidth={2} aria-hidden /> {c.country}</span>}
-                    {c.language && <span className="inline-flex items-center gap-1"><Languages className="h-3 w-3" strokeWidth={2} aria-hidden /> {c.language}</span>}
-                  </div>
+                      {/* Country + Language */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {c.country && <span className="inline-flex items-center gap-1"><Globe className="h-3 w-3" strokeWidth={2} aria-hidden /> {c.country}</span>}
+                        {c.language && <span className="inline-flex items-center gap-1"><Languages className="h-3 w-3" strokeWidth={2} aria-hidden /> {c.language}</span>}
+                      </div>
 
-                  {/* Stats row */}
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <FileText className="h-3 w-3" /> {pCount} pages
-                    </span>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <TrendingUp className="h-3 w-3" /> {aCount} ads
-                    </span>
-                  </div>
+                      {/* Stats row */}
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <FileText className="h-3 w-3" /> {pCount} pages
+                        </span>
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <TrendingUp className="h-3 w-3" /> {aCount} ads
+                        </span>
+                      </div>
 
-                  {/* Mini insight */}
-                  <p className="text-xs text-muted-foreground">
-                    {aCount > 0
-                      ? `${aCount} ads detected • Added ${daysAgo}d ago`
-                      : `Added ${daysAgo}d ago`}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      {/* Mini insight */}
+                      <p className="text-xs text-muted-foreground">
+                        {aCount > 0
+                          ? `${aCount} ads detected • Added ${daysAgo}d ago`
+                          : `Added ${daysAgo}d ago`}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       <AddCompetitorModal open={addOpen} onClose={closeAdd} onAdded={markCompetitorAdded} />
