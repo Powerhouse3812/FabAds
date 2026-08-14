@@ -181,6 +181,11 @@ export const MODULES: ModuleDef[] = [
       { label: "Launch", path: "/automation/launch", badge: "Preview" },
       { label: "RRM", path: "/automation/rrm", badge: "Preview" },
       { label: "Genie", path: "/automation/genie", badge: "Preview" },
+      // Cross-module audit view (which creative went where, fired by which
+      // automation) — real data, not a preview, so no badge. Appended last,
+      // never first: subItems[0].path must stay "/automation" (see the
+      // comment above this array).
+      { label: "Sync History", path: "/automation/sync-history" },
     ],
     plans: ["full"],
   },

@@ -4,13 +4,14 @@
  * name, one metric row (4 stats, NOT boxed tiles), and an action row that
  * exposes the loop. Optimistic chips reflect actions already taken.
  */
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   Bookmark,
   Image as ImageIcon,
   LayoutGrid,
   Rocket,
   Trophy,
+  UploadCloud,
   Video,
   Wand2,
 } from "lucide-react";
@@ -24,6 +25,10 @@ import { WhyDot } from "@/creative-report/components/WhyDot";
 import { getBrand } from "@/mocks/shared/brands";
 import { useCreativeActions } from "@/creative-report/actions/useCreativeActions";
 import { useCreativeAction } from "@/creative-report/actions/actionStore";
+import { useReportWorkflowsEnabled } from "@/creative-report/state/ReportBasePathContext";
+import { useSyncStore } from "@/creative-report/automations/sync/syncStore";
+import { summariseCreative } from "@/creative-report/automations/sync/selectors";
+import type { CreativeSyncSummary, SyncRecord } from "@/creative-report/automations/sync/syncModel";
 import { truncate, NAME_MAX } from "@/creative-report/lib/format";
 import { FORMAT_LABELS } from "@/creative-report/lib/paramSchema";
 import type { CreativeRollup } from "@/creative-report/lib/selectors";
@@ -128,6 +133,7 @@ export function CreativeCard({
               </Tooltip>
             </span>
           )}
+          <SyncedIndicator creativeId={creative.id} />
         </div>
 
         {/* Optimistic status chips, bottom-right */}
@@ -286,6 +292,147 @@ function IconAction({
     </div>
   );
 }
+
+/**
+ * Folder attribution is a PER-RECORD fact, not a per-creative one — the sync
+ * idempotency key is `creativeId::accountId` with deliberately NO folder
+ * segment (see syncModel.ts's pair-key decision header), so provenance is
+ * first-writer-wins per account. `summary.records` spans every account this
+ * creative touched, so picking any single record's `folderName` and stating
+ * it as "via folder X" would claim that folder for accounts that arrived a
+ * completely different way (e.g. a manual push, or a different folder).
+ * Only state a folder name when it is true of EVERY record — i.e. every
+ * account this creative went to arrived via the same folder. Anything less
+ * unanimous says nothing here rather than picking a winner and reporting it
+ * as if it applied everywhere. Matches `SyncStatusPanel.tsx`'s `folderLine`,
+ * which does the equivalent check per-record instead of aggregating.
+ */
+function commonFolderName(records: SyncRecord[]): string | undefined {
+  const first = records[0]?.folderName;
+  if (!first) return undefined;
+  return records.every((r) => r.folderName === first) ? first : undefined;
+}
+
+/** Honest, additive tooltip copy — every clause is read straight off the
+ *  summary, nothing inferred or guessed. Order (synced → in-flight → failed
+ *  → folder) matches the priority a user scanning before a bulk re-sync would
+ *  care about: "is it already there" first, "is something still happening"
+ *  second, "did anything break" third, "did it arrive as part of a folder
+ *  push" last since that's context, not a status. Trailing "(simulated)"
+ *  matches every sibling surface (`SyncStatusPanel.tsx`'s `provenanceLine`,
+ *  `ActionNode`'s permanent chip) — this grid is the most screenshot-prone
+ *  surface in the app, so it's the worst place for that admission to be
+ *  missing. */
+function syncTooltip(summary: CreativeSyncSummary): string {
+  const parts: string[] = [];
+  const { syncedAccountIds, inFlightAccountIds, failedAccountIds, records } = summary;
+
+  if (syncedAccountIds.length > 0) {
+    parts.push(`Synced to ${syncedAccountIds.length} ad account${syncedAccountIds.length === 1 ? "" : "s"}`);
+  }
+  if (inFlightAccountIds.length > 0) {
+    parts.push(`syncing to ${inFlightAccountIds.length} more`);
+  }
+  if (failedAccountIds.length > 0) {
+    parts.push(`failed for ${failedAccountIds.length}`);
+  }
+  const folderName = commonFolderName(records);
+  if (folderName) {
+    parts.push(`via folder "${folderName}"`);
+  }
+
+  return `${parts.join(" · ")} (simulated)`;
+}
+
+/**
+ * The badge's aria-label — and by extension what it visually implies —
+ * must be a clause that's actually TRUE of this creative's dominant state,
+ * not a blanket "already synced" regardless of what's inside `records`.
+ * A creative whose records are only queued or only failed has NEVER
+ * actually synced anywhere, so labelling it "Already synced" would be a
+ * flat fabrication. Priority mirrors `syncTooltip`: synced beats in-flight
+ * beats failed, because a creative that's synced to even ONE account has
+ * genuinely synced, regardless of what's still happening or broke
+ * elsewhere. Only called once `summary.records.length > 0` (see the render
+ * guard below), so one of these three arrays is always non-empty. */
+function syncedIndicatorLabel(summary: CreativeSyncSummary): string {
+  if (summary.syncedAccountIds.length > 0) return "Already synced to an ad account (simulated)";
+  if (summary.inFlightAccountIds.length > 0) return "Syncing to an ad account (simulated)";
+  return "Sync failed for an ad account (simulated)";
+}
+
+/**
+ * Grid-level "already synced somewhere" indicator (Maalik, 31 Jul): before a
+ * bulk-select + sync, the user needs to see at a glance that a creative has
+ * already gone out via SOME automation — possibly a different one than the
+ * one they're about to run — so they don't blindly re-push it. Reads the
+ * exact same sync-history store `SyncStatusPanel` reads in the drawer (one
+ * store, no separate truth to keep in sync).
+ *
+ * ISOLATED INTO ITS OWN LEAF COMPONENT — this split IS the performance
+ * answer for this file, not an incidental refactor. `useSyncStore()` is the
+ * store's only hook and always returns the WHOLE snapshot (there is no
+ * per-creative selector — see syncStore.ts's file header, which explicitly
+ * rules one out). The queue runner calls `advanceQueue` on a 500ms tick
+ * while any sync is active, and that emits a new state reference whenever
+ * ANY record ANYWHERE crosses a progress boundary — not just records for
+ * creatives currently on screen. Calling `useSyncStore()` at the top of
+ * `CreativeCard` would subscribe the WHOLE card (hero image, two tooltips,
+ * four icon actions, ActionMenu, hover quick-peek) to that tick, so a
+ * 60-card grid would re-render 60 full card trees several times a second
+ * during any active sync — the exact jank `advanceQueue`'s own doc comment
+ * warns about. Pushing the subscription down into this small leaf instead
+ * means a tick still touches up to 60 components, but each is one icon +
+ * tooltip, not a full card.
+ *
+ * `React.memo` here does NOT gate that per-tick re-render — memo compares
+ * PROPS, and a re-render triggered by this component's OWN `useSyncStore()`
+ * call happens regardless of props, so every mounted `SyncedIndicator` still
+ * re-renders on every tick with or without memo. What memo actually buys:
+ * `creativeId` is its ONLY prop, and it's a stable primitive, so when
+ * `CreativeCard` re-renders for a reason that has NOTHING to do with sync
+ * (selection toggle, hover quick-peek, an unrelated action firing) memo
+ * skips re-rendering this leaf instead of doing it needlessly. Conclusion:
+ * still whole-store subscription (unavoidable without editing the store,
+ * which this task doesn't own), but the re-render blast radius for an actual
+ * sync tick is a cheap leaf, not the expensive card body — and memo
+ * additionally spares that leaf from re-renders that were never sync-related
+ * in the first place.
+ */
+const SyncedIndicator = memo(function SyncedIndicator({ creativeId }: { creativeId: string }) {
+  const enabled = useReportWorkflowsEnabled();
+  const state = useSyncStore();
+  const summary = useMemo(() => summariseCreative(state, creativeId), [state, creativeId]);
+
+  // Never-synced (~1 in 4 seeded creatives, see syncStore.ts's seed comment)
+  // is a real, expected state — render nothing rather than an empty badge.
+  if (!enabled || summary.records.length === 0) return null;
+
+  // Worst-state tint only — synced-but-also-failed-elsewhere still reads as
+  // "already synced" (muted, quiet) rather than alarming, because some of it
+  // genuinely did land; only an ALL-failed creative earns the warning color.
+  const failedOnly =
+    summary.failedAccountIds.length > 0 &&
+    summary.syncedAccountIds.length === 0 &&
+    summary.inFlightAccountIds.length === 0;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "flex h-4 w-4 items-center justify-center rounded-full bg-background/80 backdrop-blur",
+            failedOnly ? "text-destructive" : "text-muted-foreground",
+          )}
+          aria-label={syncedIndicatorLabel(summary)}
+        >
+          <UploadCloud className="h-2.5 w-2.5" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{syncTooltip(summary)}</TooltipContent>
+    </Tooltip>
+  );
+});
 
 function StatusPill({ label, tone }: { label: string; tone: "lime" | "muted" }) {
   return (

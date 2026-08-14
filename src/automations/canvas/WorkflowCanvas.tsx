@@ -14,11 +14,39 @@
  *    matters at a 500ms tick. This component holds the ONE runs-store
  *    subscription for the whole canvas.
  *
+ * 3. BELOW `2xl` THE TWO SIDE PANELS OVERLAY THE CANVAS; THEY NEVER SHRINK IT.
+ *    The palette (224px) and the inspector (320px) are `shrink-0`, so as a
+ *    plain three-column row they take 544px off the content column before the
+ *    canvas gets a pixel. With the app shell's rails that left the canvas at a
+ *    MEASURED 0px wide at a 771px viewport — nodes invisible, the run log the
+ *    only proof the workflow existed. The canvas is the entire point of this
+ *    screen, so the panels are the ones that yield: from `2xl` up the layout is
+ *    the unchanged three-column row, and below it both panels become absolute
+ *    overlays inside this container (`absolute inset-y-0` + `z-20`) so the
+ *    canvas keeps the full width at every viewport the app renders at.
+ *
+ *    The breakpoint is `2xl` (1536px), NOT `xl`. At `xl` the three-column
+ *    layout survived down to exactly 1280 — the most common demo-laptop width —
+ *    and there the two app rails (64 + 200) plus palette (224) plus inspector
+ *    (320) left the canvas a MEASURED 471px, which `fitView` could only fill by
+ *    zooming the chain to `scale(0.35)`: present, fitted, and completely
+ *    illegible. Not a crash, so it survived the first pass; a projector would
+ *    have found it. Overlays from 1536 down mean the canvas gets roughly a
+ *    thousand pixels at 1280 and the chain reads at a normal zoom.
+ *    Chosen over the repo's other narrow-viewport move — `flex-col lg:flex-row`
+ *    stacking (`ConnectorPanel.tsx` L229, `FeedbackPanel.tsx` L489) — because
+ *    stacking only converts a width collapse into a height collapse here: this
+ *    screen already spends vertical space on a header, the auto-run row, the
+ *    checks strip and the run log, and a canvas is the one pane that needs
+ *    BOTH dimensions. Same principle as those files (the fixed-width pane
+ *    yields), different mechanism for a pane that can't be stacked.
+ *
  * `nodeTypes`/`edgeTypes` are module-level constants. Defining them inline
- * would give react-flow a new object identity每 render and remount every node
- * on every keystroke — the single best-known react-flow footgun.
+ * would give react-flow a new object identity every render and remount every
+ * node on every keystroke — the single best-known react-flow footgun.
  */
 import { useCallback, useMemo, useRef, useState } from "react";
+import { PanelLeftOpen } from "lucide-react";
 import {
   Background,
   BackgroundVariant,
@@ -41,6 +69,8 @@ import "@xyflow/react/dist/style.css";
 // MUST come after react-flow's own stylesheet — see the file's header.
 import "@/automations/canvas/flowTheme.css";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import {
   checkConnection,
@@ -131,6 +161,10 @@ function CanvasInner({ graph, onDirtyChange, onReady }: WorkflowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(toFlowNodes(graph.nodes));
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(toFlowEdges(graph.edges));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Only consulted below `2xl`, where the palette is an overlay (header note 3);
+  // from `2xl` up the palette is a static column and renders regardless of this.
+  // Starts closed so the canvas is what a narrow viewport opens onto.
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const { screenToFlowPosition } = useReactFlow();
   const { resolvedTheme } = useTheme();
@@ -270,6 +304,10 @@ function CanvasInner({ graph, onDirtyChange, onReady }: WorkflowCanvasProps) {
         }),
       );
       setSelectedId(id); // drop straight into configuring what you just added
+      // Below `2xl` both panels are overlays and together are wider than the
+      // canvas they float over, so the one the user is finished with gets out
+      // of the way. A no-op at `2xl` and up, where the palette is a column.
+      setPaletteOpen(false);
       markDirty();
     },
     [screenToFlowPosition, setNodes, markDirty],
@@ -314,8 +352,30 @@ function CanvasInner({ graph, onDirtyChange, onReady }: WorkflowCanvasProps) {
 
   return (
     <RunStatusContext.Provider value={runStatus}>
-      <div className="flex h-full min-h-0">
-        <NodePalette nodes={fromFlowNodes(nodes)} />
+      {/* `relative` is what the two overlays anchor to below `2xl` — see header
+          note 3. It changes nothing at `2xl` and up, where both panels are
+          ordinary in-flow columns. */}
+      <div className="relative flex h-full min-h-0">
+        <NodePalette
+          nodes={fromFlowNodes(nodes)}
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+        />
+
+        {/* Opens the palette overlay below `2xl`. Top-LEFT because react-flow's
+            own Controls sit bottom-left and the MiniMap bottom-right; this is
+            the one corner nothing else claims. */}
+        {!paletteOpen && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="absolute left-3 top-3 z-10 h-8 gap-1.5 bg-card text-xs shadow-sm 2xl:hidden"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <PanelLeftOpen className="h-3.5 w-3.5" />
+            Steps
+          </Button>
+        )}
 
         <div className="min-w-0 flex-1">
           <ReactFlow
@@ -332,15 +392,31 @@ function CanvasInner({ graph, onDirtyChange, onReady }: WorkflowCanvasProps) {
             isValidConnection={isValidConnection}
             onDrop={onDrop}
             onDragOver={onDragOver}
-            onNodeClick={(_, node) => setSelectedId(node.id)}
+            onNodeClick={(_, node) => {
+              setSelectedId(node.id);
+              setPaletteOpen(false); // see `onDrop` — one overlay at a time.
+            }}
             onPaneClick={() => setSelectedId(null)}
             colorMode={resolvedTheme === "dark" ? "dark" : "light"}
             fitView
+            // react-flow's default `minZoom` is 0.5, and `fitView` is clamped by
+            // it: a five-step chain is ~1300px wide, so at every width this
+            // screen actually renders at (the canvas is ~470px at 1280 and
+            // ~506px at 771) the "fitted" view was still clipped at both ends.
+            // A fitView that doesn't fit is the same failure as a 0px canvas,
+            // one zoom level up — so the floor drops far enough that the fit is
+            // a real fit. Zooming back in is one click of Controls.
+            minZoom={0.25}
             proOptions={{ hideAttribution: false }}
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
             <Controls showInteractive={false} />
-            <MiniMap pannable zoomable />
+            {/* The minimap is an overview of a canvas you can already see whole
+                at narrow widths, and it eats ~200x150 of the little room there
+                is — the first thing to drop below `2xl`. `hidden` beats
+                react-flow's own `.react-flow__minimap` rule, which sets
+                position/margin but never `display`. */}
+            <MiniMap pannable zoomable className="hidden 2xl:block" />
           </ReactFlow>
         </div>
 
@@ -348,6 +424,7 @@ function CanvasInner({ graph, onDirtyChange, onReady }: WorkflowCanvasProps) {
           node={selectedNode}
           onChange={handleNodeDataChange}
           onDelete={handleNodeDelete}
+          onClose={() => setSelectedId(null)}
         />
       </div>
     </RunStatusContext.Provider>
