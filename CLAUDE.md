@@ -264,10 +264,13 @@ allowlist**, not a general responsive pass.
 - **INV-2 — the JS breakpoint equals Tailwind `md` (768).** No custom screens.
   If the CSS gate and `useIsMobile` ever disagree there's a viewport band that
   paints mobile chrome while the gate thinks desktop.
-- **JS branching is allowed at exactly three leaves**: `MobileRouteGate` (a
+- **JS branching is allowed at exactly four leaves**: `MobileRouteGate` (a
   blocked page must not *mount* — `display:none` still runs data hooks and
   measures 0×0), `NotificationBell` (Popover→Sheet), `CopilotPanel`
-  (forceOverlay). Everything else is pure Tailwind.
+  (forceOverlay), and `LandingRedirect` (`/` resolves to Dashboard on desktop,
+  `MOBILE_HOME_PATH` on mobile — `display:none` cannot un-navigate you, and
+  rendering both `<Navigate>` elements would fire two redirects). Everything
+  else is pure Tailwind.
 - **Desktop-regression rule**: you may *add* base and `md:`-prefixed utilities.
   Never remove or alter a utility that already applies at ≥768px.
 - Surfaces read capability from `useMobileCapability()` /
@@ -299,20 +302,80 @@ from Launch's 7 (`launchv2/data.ts`). Never cross them.
 
 ### Mobile tabs + the two new-user flows (2026-08-11)
 
-Tab bar is **Home · Insights · Reports · Genie · More**. Genie took Launch's
-slot; Launch is still reachable from More as the read-only Hub.
+Tab bar is **Industry Insights · Genie · Notification · More** — 4 slots, and
+**labels are visible again** (icon-only was a compromise forced by 6 slots; 4
+tabs at 375px are ~94px each, so labels fit). Active tab carries a lime top
+indicator. Home and Reports lost their tabs in the 2026-08-21 scope cut.
 
-Genie's mobile allowlist is exactly three surfaces — `/iq/genie6` (Studio home
-variant, made responsive), `/iq/genie6/library/*`, `/iq/genie6/studio-alpha/*`
-(5-step wizard, one screen per step, context rail → bottom sheet). Everything
-else under `/iq/genie6` stays gated.
+Genie on mobile is **read-only browsing only**: `/iq/genie6/library` and
+`/iq/genie6/library/*` (library view + previous-generation detail). Everything
+else under `/iq/genie6` is gated — including `/iq/genie6` itself, because Genie
+Home *is* the new-generation launcher (`Home.tsx` navigates into
+`/iq/genie6/generate/*`), and `studio-alpha/*`, the 5-step generation wizard.
+The Genie tab therefore points at `/iq/genie6/library`, not the module root.
+
+**Scope cut (Maalik, 2026-08-21).** Mobile is now scoped to **Industry Insights
++ Genie's library + Onboarding, and nothing else.** Dashboard, all of Reports,
+all of Launch (Hub included), and the Creative Report Overview flipped from
+full/readonly to **blocked**. `MOBILE_HOME_PATH` moved from `/dashboard` to
+`/insights-v2/feed` — that is the post-onboarding landing, and `/` is now an
+allowlisted rule (`support: "full"`, `notInNav`) purely so `LandingRedirect` can
+mount; without it the gate blocked `/` before the redirect ever ran and a phone
+loading the bare origin saw the anonymous CATCH_ALL gate forever.
+**No fallback may point at a blocked route** — only `TO_FEED` and
+`TO_GENIE_LIBRARY` remain, since `TO_DASHBOARD` / `TO_CR_OVERVIEW` /
+`TO_LAUNCH_HUB` all became gate-screens-pointing-at-gate-screens.
+
+**Industry Insights keeps exactly four actions on mobile**: Save ad, Save to
+board (**existing boards only** — no new-board creation), Follow brand, Add to
+competitor. Copy link, Create Variations, Analyse again and bulk-select are
+`md:`-gated back to desktop. Create Variations in particular is a hand-off into
+the new-generation flow, which mobile blocks — leaving it would navigate the
+user into a gate screen.
+
+**Desktop-only things are DISABLED-AND-EXPLAINED, not hidden** (Maalik,
+2026-08-21). A control mobile cannot honour stays visible, renders visibly
+disabled, and on tap opens `shell/DesktopOnlyPrompt.tsx`: what it is, why it needs
+a bigger screen, and ONE working action — "Copy link for desktop". That payload is
+why blocked routes keep their URL. Use `aria-disabled`, never the `disabled`
+attribute: a truly disabled button is unfocusable and silent, which is the exact
+defect this pattern was built to fix. The prompt's reason comes from
+`resolveMobilePolicy().reason` so it can never contradict the `BestOnDesktop` gate.
+Applied to: blocked module rows in the More sheet, Genie's `Regenerate` + `Launch`,
+and the Genie library's empty-state "Start a generation" CTA. There is deliberately
+no email/share affordance.
+
+**Revised Insights keep-list (2026-08-21, supersedes the four above)**: Save ad,
+Add to board, Follow brand/page, Add to competitor, **Copy link**, and **bulk
+select** (exactly two bulk ops: Add to board, Save ads). Create Variations and
+Analyse again stay `md:`-gated.
+
+**Bulk select REPLACES the tab bar, never stacks with it** — two bars cost 112px
+on an 812px screen. State crosses the shell via
+`shell/MobileSelectionContext.tsx`, whose provider must sit at the LCA of the
+feed's `<Outlet/>` and `MobileTabBar` (that is `AppLayout`) — mounting it lower
+ships the whole feature inert, which is exactly what happened on the first pass.
+
+**Hit-area slop MUST be reset at `md`.** The 44px floor is met on dense rows with
+`after:absolute after:-inset-1.5 after:content-['']` + `md:after:content-none`. A
+slop that survives the breakpoint makes neighbouring 32px icons overlap, and a
+desktop click in the gutter fires the wrong action — this shipped once and was
+caught only by measuring `elementFromPoint`. Where the slop is kept, the container
+gap must be at least twice the inset (`gap-3 md:gap-2`) or the same overlap appears
+on mobile.
+
+**Variant switchers are hidden below `md`, never removed** — they are Maalik's
+desktop dev tools (`ThemeVariantSwitcher`, `LibraryQueueStrip`'s V1/V2 picker).
 
 Two **separate** menu-launched new-user flows, deliberately not merged:
 - `src/mobile-onboarding/` — Flow A "Set up my feed & Genie". Welcome (no
   payment-status variants) → Product Chooser → Genie 0–4 *or* the Insights
   3-tab picker as a stepper. **PERSISTS NOTHING** — read-only seed of existing
   preferences for "Replay", empty for "Start fresh". Don't wire persistence in.
-- `src/mobile-tour/` — Flow B "Mobile tour". 3 welcome screens + a 4-item
+- `src/mobile-tour/` — Flow B "Mobile tour". **PARKED 2026-08-21**: its More-sheet
+  entry is removed and several of its links now point at blocked routes. Code is
+  deliberately left in place, unmounted — do not delete, and do not unpark it
+  without re-pointing its targets. 3 welcome screens + a 4-item
   checklist. Checklist progress DOES persist (`fabads.mobileTour.v1`); ticking
   is manual by design (the only cheap completion signal is "count > 0", already
   true for existing users). Screen 2's desktop-only examples resolve through

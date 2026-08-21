@@ -27,6 +27,17 @@ type LibraryQueueVariant = "v1" | "v2";
  * in one 32px row — no separate header eating vertical space.
  *
  * Hidden entirely when zero active batches — never eats space for nothing.
+ *
+ * Mobile spec 2.6: the V1/V2 toggle pill is a Maalik-only dev control —
+ * hidden below `md` (see StripVariantToggle), desktop unchanged. Below `md`
+ * the strip content deterministically falls back to V1 (Marquee) regardless
+ * of `?qstrip=`: V1 is already the default when the param is absent, is the
+ * more compact of the two shapes (single spotlit batch vs. a horizontally-
+ * scrolling pill row), and is what most sessions render anyway — so this
+ * keeps the common case a single mount and only double-mounts (one hidden
+ * via CSS) on the rarer explicit `?qstrip=v2` deep link opened on a phone.
+ * Without this, a shared v2 URL opened on mobile would show V2 with no way
+ * to reach V1, since the toggle that could switch it back is hidden.
  */
 export function LibraryQueueStrip() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -81,7 +92,19 @@ export function LibraryQueueStrip() {
         {variant === "v1" ? (
           <LibraryQueueStripV1 batches={active} />
         ) : (
-          <LibraryQueueStripV2 batches={active} />
+          // V2 selected via ?qstrip=v2. The picker that could switch this
+          // back is `md:`-gated (StripVariantToggle below), so a phone
+          // landing here — e.g. a shared v2 link — has no way to reach V2's
+          // layout anyway. Render V1 below `md` and V2 at `md`+ via pure
+          // Tailwind, rather than branching on a JS isMobile check.
+          <>
+            <div className="md:hidden">
+              <LibraryQueueStripV1 batches={active} />
+            </div>
+            <div className="hidden md:block">
+              <LibraryQueueStripV2 batches={active} />
+            </div>
+          </>
         )}
       </div>
       <StripVariantToggle active={variant} onSwitch={setVariant} />
@@ -93,6 +116,9 @@ export function LibraryQueueStrip() {
  * Local toggle pill — minimal icon-only since the strip header is
  * already tight. Hover reveals labels via title attribute. URL-backed
  * via the parent's setVariant.
+ *
+ * Mobile spec 2.6: Maalik-only dev control, hidden below `md`
+ * (`hidden md:inline-flex`) — desktop keeps it exactly as-is.
  */
 function StripVariantToggle({
   active,
@@ -105,7 +131,7 @@ function StripVariantToggle({
     <div
       role="tablist"
       aria-label="Queue strip layout"
-      className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5"
+      className="hidden items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5 md:inline-flex"
     >
       <StripTab
         target="v1"

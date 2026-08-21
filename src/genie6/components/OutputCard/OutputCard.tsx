@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Bookmark, Check, Play, RefreshCw, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DesktopOnlyPrompt } from "@/components/shell/DesktopOnlyPrompt";
 import type {
   EllipsisAction,
   KanbanColumn,
@@ -279,14 +280,73 @@ export function OutputCard({
       )}
 
       {/* ── Footer — 4-icon action row (top hairline divider) ────────── */}
+      {/*
+        Mobile spec B §1.2: Launch and Regenerate are desktop-only under
+        Maalik's "no new generation flow" rule — Regenerate re-enters the
+        generation pipeline, and Launch hands off into the Launch module,
+        itself blocked on mobile (see mobileRoutePolicy's `/launchv2*`
+        rules). Below `md` each renders as `DesktopOnlyPrompt`'s
+        `iconButton` shape (visibly disabled, real focusable button, tap
+        opens the "best on desktop" explanation); at `md:` and up it swaps
+        back to the plain `FooterIconBtn`, unchanged from before this pass
+        (INV-4). Save and the ellipsis menu are untouched — batch B scoped
+        the disabled-and-explained treatment to exactly these two buttons.
+
+        Both mobile/desktop pairs are SIBLINGS gated by `md:hidden` /
+        `hidden md:inline-flex`, not a JS isMobile branch: `justify-between`
+        only ever sees the 4 currently-visible icons (the other 2 are
+        `display:none` and drop out of flex layout entirely), so the row
+        keeps its 4-icon rhythm at every width. This mirrors
+        `ThemeVariantSwitcher`'s and `IndustryInsightsAdsCard`'s existing
+        "two siblings, CSS picks one" idiom rather than inventing a new one.
+
+        `reason` is passed explicitly instead of `path`: neither button
+        points at one fixed blocked ROUTE (Launch's destination depends on
+        this card's own data, and Regenerate isn't a route at all) — see
+        `DesktopOnlyPrompt`'s own file header, which names these two exact
+        buttons as the case the explicit-`reason` prop exists for.
+
+        The mobile trigger is wrapped in `<span onClick={stop}>`, the same
+        idiom the ellipsis menu below already uses — `DesktopOnlyPrompt`'s
+        internal button has no way to stop propagation itself, and without
+        it the click would both open the dialog AND bubble to the
+        `<article>`'s onClick, reopening the AdDetailDrawer underneath it.
+      */}
       <div className="mt-auto flex h-10 items-center justify-between border-t border-g6-border-secondary px-3">
-        <FooterIconBtn label="Launch" Icon={Send} onClick={onLaunch} stop={stop} />
+        <span className="md:hidden" onClick={stop}>
+          <DesktopOnlyPrompt
+            label="Launch"
+            reason="Launching sends this into the desktop Launch workspace — mobile is scoped to browsing the library for now."
+            shape="iconButton"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </DesktopOnlyPrompt>
+        </span>
+        <FooterIconBtn
+          label="Launch"
+          Icon={Send}
+          onClick={onLaunch}
+          stop={stop}
+          className="hidden md:inline-flex"
+        />
+
         <FooterIconBtn label="Save" Icon={Bookmark} onClick={onSave} stop={stop} />
+
+        <span className="md:hidden" onClick={stop}>
+          <DesktopOnlyPrompt
+            label="Regenerate"
+            reason="Regenerating is part of Genie's new-generation flow, which mobile doesn't support — mobile is browse-only for now."
+            shape="iconButton"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </DesktopOnlyPrompt>
+        </span>
         <FooterIconBtn
           label="Regenerate"
           Icon={RefreshCw}
           onClick={onRegenerate}
           stop={stop}
+          className="hidden md:inline-flex"
         />
         <span onClick={stop}>
           <EllipsisMenu onAction={onEllipsisAction} />
@@ -327,11 +387,21 @@ function FooterIconBtn({
   Icon,
   onClick,
   stop,
+  className,
 }: {
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
   onClick?: () => void;
   stop: (e: React.MouseEvent) => void;
+  /**
+   * Extra classes merged onto the button — added so Launch/Regenerate can
+   * carry `hidden md:inline-flex` (mobile spec B §1.2, see the footer JSX
+   * above) without duplicating this whole button for a one-off style. The
+   * base `inline-flex` still applies for every other caller (Save, and
+   * Launch/Regenerate themselves at `md:`+) since `cn` only overrides
+   * classes that actually conflict.
+   */
+  className?: string;
 }) {
   // Only intercept the click when a real handler is attached. If the parent
   // didn't pass onClick (Library masonry / Group-by-Angle row only wire the
@@ -351,7 +421,18 @@ function FooterIconBtn({
       aria-label={label}
       title={label}
       onClick={handle}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-g6-base text-g6-text-secondary transition-colors hover:bg-g6-bg-spotlight hover:text-g6-text"
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-g6-base text-g6-text-secondary transition-colors hover:bg-g6-bg-spotlight hover:text-g6-text",
+        // 32px visible box is below the 44px floor (WCAG 2.5.5). Expand the
+        // HIT AREA rather than the box, so the card footer keeps its 40px
+        // height and desktop density is untouched: 32 + 6 + 6 = 44. Reset at
+        // md+ (INV-4) — the footer is `justify-between` so desktop gaps are
+        // wide, but a slop that survived the breakpoint would let a click in
+        // the gutter hit the neighbour, which is the exact desktop bug this
+        // batch already had to fix once in InsightAdDetailDrawer.
+        "relative after:absolute after:-inset-1.5 after:content-[''] md:after:content-none",
+        className,
+      )}
     >
       <Icon className="h-3.5 w-3.5" />
     </button>

@@ -4,6 +4,7 @@ import { CommandPalette } from "@/components/sidebar/CommandPalette";
 import { AppShell } from "@/components/shell/AppShell";
 import { MobileRouteGate } from "@/components/shell/MobileRouteGate";
 import { MobileTabBar } from "@/components/shell/MobileTabBar";
+import { MobileSelectionProvider } from "@/components/shell/MobileSelectionContext";
 import { labelableSegments } from "@/components/shell/routeTitle";
 import { CopilotProvider, useCopilot } from "@/contexts/CopilotContext";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
@@ -181,7 +182,17 @@ export function AppLayout() {
     <CopilotProvider>
       <NewGenerationOverlayProvider>
         <WelcomeCarouselProvider>
-          <AppLayoutInner />
+          {/* Spec B §2.2. Placed HERE, above AppLayoutInner, because
+              MobileTabBar (which renders the bulk row) is a SIBLING of
+              AppShell — not a descendant — so AppLayoutInner's own tree is
+              the lowest common ancestor of the tab bar and the feed's
+              <Outlet/>. Mounting it any lower (AppShell, MobileRouteGate)
+              leaves the tab bar reading the inert default and the bulk row
+              never appears. Pure pass-through provider: no key, no branch on
+              children, so it cannot remount the Outlet below (INV-1). */}
+          <MobileSelectionProvider>
+            <AppLayoutInner />
+          </MobileSelectionProvider>
         </WelcomeCarouselProvider>
       </NewGenerationOverlayProvider>
     </CopilotProvider>

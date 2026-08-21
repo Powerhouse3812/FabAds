@@ -11,6 +11,7 @@ import { useSavedAdIds } from "@/hooks/use-insight-boards";
 import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
 import { useInsightQueue } from "@/hooks/use-insight-queue";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import { useMobileSelection } from "@/components/shell/MobileSelectionContext";
 
 import { InsightAdDetailDrawer } from "@/components/insights/InsightAdDetailDrawer";
 import { SaveToBoardModal } from "@/components/insights/SaveToBoardModal";
@@ -433,6 +434,28 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const { addBrandToCompetitors, addPageToCompetitors } = useInsightCompetitors();
   const { addToQueue } = useInsightQueue();
 
+  // Mobile bulk select (spec B §1.1 item 6 / §2.2). The feed OWNS the
+  // selection — it's the only surface with checkboxes to toggle — and feeds
+  // it into the shared context so the shell's MobileTabBar (a sibling, not
+  // an ancestor/descendant of this page — see MobileSelectionContext.tsx's
+  // header comment) can swap its tab row for a bulk action row. Reading the
+  // context here does not add or move the page's `<Outlet/>` and cannot
+  // remount this component (INV-1) — it's a plain `useContext` read.
+  const {
+    selectedIds: mobileSelectedIds,
+    toggleSelected: toggleMobileSelected,
+    clearSelection: clearMobileSelection,
+    registerBulkHandlers,
+  } = useMobileSelection();
+  const selectedAdIdSet = useMemo(
+    () => new Set(mobileSelectedIds),
+    [mobileSelectedIds],
+  );
+  const handleSelectToggle = useCallback(
+    (ad: InsightAd) => toggleMobileSelected(ad.id),
+    [toggleMobileSelected],
+  );
+
   const savedAdIds = useMemo<Set<string>>(() => {
     if (!(savedAdIdMap instanceof Map)) return new Set();
     return new Set(Array.from(savedAdIdMap.keys()));
@@ -517,9 +540,101 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     setSaveModalAd(ad);
   }, []);
 
+  /* ----- mobile bulk ops (spec B §2.2) -----
+   * Exactly two, registered below: "Add to board" and "Save ads". Both are
+   * wired to the SAME single-ad handlers/mutations the card already uses —
+   * per the assignment, this file doesn't invent a second save pathway, it
+   * applies the existing one across `selectedIds`.
+   *
+   * "Add to board" has no bulk-capable UI to call into: SaveToBoardModal's
+   * `ad` prop is a single `InsightAd`, and teaching it a multi-ad shape is
+   * that file's change, not this one's. Instead this replays the exact
+   * single-ad flow (`handleOpenSaveModal`) once per selected ad — a small
+   * queue that opens the next ad the moment the current one's modal closes,
+   * whether that close was a Save or a Cancel. Cancelling a step just skips
+   * that ad; it does not abort the run. `handleSaveModalClose` below is
+   * where the queue actually advances.
+   */
+  const [bulkBoardQueue, setBulkBoardQueue] = useState<string[]>([]);
+  const [bulkBoardActive, setBulkBoardActive] = useState(false);
+
+  const openNextBulkBoardAd = useCallback(
+    (queue: string[]) => {
+      const nextId = queue.find((id) => DUMMY_ADS.some((a) => a.id === id));
+      if (!nextId) {
+        // Queue exhausted (or every id left in it was stale) — the run is
+        // over: close the modal for good and drop out of selection mode so
+        // the tab bar swaps back to its normal tabs.
+        setBulkBoardQueue([]);
+        setBulkBoardActive(false);
+        setSaveModalAd(null);
+        clearMobileSelection();
+        return;
+      }
+      const nextAd = DUMMY_ADS.find((a) => a.id === nextId) as InsightAd;
+      setBulkBoardQueue(queue.slice(queue.indexOf(nextId) + 1));
+      handleOpenSaveModal(nextAd);
+    },
+    [clearMobileSelection, handleOpenSaveModal, setSaveModalAd],
+  );
+
+  const handleBulkAddToBoard = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      setBulkBoardActive(true);
+      openNextBulkBoardAd(ids);
+    },
+    [openNextBulkBoardAd],
+  );
+
+  // "Save ads" — fires the same mutation `handleSaveAd` uses, once per
+  // selected ad, but with ONE aggregate toast instead of N. Looping
+  // `handleSaveAd` itself would fire one toast per ad, which is fine at
+  // count=1 but is a real stress-test failure at count=1000 (CLAUDE.md
+  // §"Stress test") — a wall of stacked toasts, not useful feedback.
+  const handleBulkSaveAds = useCallback(
+    async (ids: string[]) => {
+      const ads = ids
+        .map((id) => DUMMY_ADS.find((a) => a.id === id))
+        .filter((a): a is InsightAd => !!a);
+      // Selection clears immediately — the mutation is fire-and-forget from
+      // the user's POV (matches the single-ad Save button, which never
+      // blocks on the network either). The tab bar swaps back to its normal
+      // tabs right away instead of sitting on a "3 selected" bar for the
+      // duration of N in-flight requests.
+      clearMobileSelection();
+      if (ads.length === 0) return;
+      const results = await Promise.allSettled(
+        ads.map((ad) =>
+          addToQueue.mutateAsync({ source_ad_id: ad.id, action_type: "save" }),
+        ),
+      );
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      if (failed === 0) {
+        toast.success(`Saved ${succeeded} ad${succeeded === 1 ? "" : "s"}`);
+      } else if (succeeded === 0) {
+        toast.error("Could not save ads");
+      } else {
+        toast.success(`Saved ${succeeded} of ${results.length} ads`);
+      }
+    },
+    [addToQueue, clearMobileSelection],
+  );
+
+  // Registered once per identity change, not once ever — `registerBulkHandlers`
+  // merges, so re-running this on every render (whenever the callbacks above
+  // pick up a new dependency) is safe and keeps the bound `run()` closures in
+  // MobileSelectionContext current.
+  useEffect(() => {
+    registerBulkHandlers({
+      "add-to-board": handleBulkAddToBoard,
+      "save-ads": handleBulkSaveAds,
+    });
+  }, [registerBulkHandlers, handleBulkAddToBoard, handleBulkSaveAds]);
+
   const handleSaveModalClose = useCallback(() => {
     const closingAd = saveModalAd;
-    setSaveModalAd(null);
     if (closingAd) {
       setOptimisticBookmarked((prev) => {
         if (!prev.has(closingAd.id)) return prev;
@@ -528,7 +643,33 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         return next;
       });
     }
-  }, [saveModalAd]);
+    if (bulkBoardActive) {
+      // This close is one step of the bulk "Add to board" run, not the end
+      // of it — advance to the next selected ad. `openNextBulkBoardAd`
+      // itself closes the modal and exits selection mode once the queue is
+      // exhausted, so there is no `setSaveModalAd(null)` on this branch.
+      openNextBulkBoardAd(bulkBoardQueue);
+    } else {
+      setSaveModalAd(null);
+    }
+  }, [saveModalAd, bulkBoardActive, bulkBoardQueue, openNextBulkBoardAd, setSaveModalAd]);
+
+  // Safety net for the bulk "Add to board" queue: if the modal closes some
+  // way other than its own Cancel/Save (e.g. a browser back-button pop
+  // that clears `?modal=save-to-board` straight from the URL, bypassing
+  // `handleSaveModalClose` entirely), `bulkBoardActive` would otherwise be
+  // left stuck `true` — and the NEXT time any card opens the (single-ad)
+  // save modal, closing it would wrongly try to resume a stale queue. This
+  // only fires on that external-close path: on the queue's own natural
+  // completion, `openNextBulkBoardAd` already sets `bulkBoardActive` false
+  // in the same render as `setSaveModalAd(null)`, so the condition below is
+  // already false by the time this effect re-runs.
+  useEffect(() => {
+    if (!saveModalAd && bulkBoardActive) {
+      setBulkBoardActive(false);
+      setBulkBoardQueue([]);
+    }
+  }, [saveModalAd, bulkBoardActive]);
 
   // Clear optimistic markers once the real savedAdIds query reflects the save,
   // so the fill state is now driven by the authoritative source.
@@ -550,8 +691,12 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
   const handleCopyLink = useCallback((ad: InsightAd) => {
     const url = `${window.location.origin}/insights/discover?ad=${ad.id}`;
     if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(url);
-      toast.success("Link copied");
+      // Awaited: a rejected write must not still toast success (observed
+      // live — NotAllowedError with "Link copied" still on screen).
+      navigator.clipboard.writeText(url).then(
+        () => toast.success("Link copied"),
+        () => toast.error("Could not copy link"),
+      );
     } else {
       toast.error("Clipboard unavailable");
     }
@@ -618,13 +763,34 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
       {/* MOBILE ROW 0 — surface toggle (My feeds · Discover · Saved Ads).
            Above the collapsing identity row so it stays put while that
            collapses on scroll: it is navigation, and navigation must not
-           disappear as you read. md:hidden — desktop has the sub-nav. */}
-      <div className="shrink-0 bg-background px-3 pt-2 md:hidden">
+           disappear as you read. md:hidden — desktop has the sub-nav.
+           F3/mobile-Figma-sync: with the identity row now `hidden` below md
+           (see InsightsV2IdentityRow) and MobileTopBar suppressed on this
+           allowlisted route, this is the first thing painted on the mobile
+           screen — `pt-2` is deliberate breathing room under the status bar,
+           not a leftover. Don't read the lack of extra top padding here as a
+           bug; the identity-row wrapper below contributes 0px on mobile now
+           (its child is `display:none`), so there's no dead gap to close. */}
+      {/* `pb-1` + `relative z-30`: MobileInsightsTabs paints a 36px track but
+           each segment's real hit box is 44px (INV-10), so the links overflow
+           the track by 4px top and bottom. The toolbar row below is
+           `sticky top-0 z-20`, which is a stacking context that was winning
+           hit-testing over that overflow and clipping each segment's effective
+           tap target to ~34px. `pb-1` moves the toolbar's box clear of the
+           overflow and `z-30` puts the segments above it regardless, so the
+           full 44px is tappable. The 4px the segments now overhang is the
+           toolbar's own padding — nothing interactive lives there (the search
+           input starts exactly where the segments end). This whole wrapper is
+           `md:hidden`, so none of it can touch desktop. */}
+      <div className="relative z-30 shrink-0 bg-background px-3 pt-2 pb-1 md:hidden">
         <MobileInsightsTabs />
       </div>
       {/* ROW 1 — Identity: section label + ad count chip + Date picker.
            Collapses entirely on scroll via grid-rows transition; the date
-           picker re-appears in the Toolbar (Row 2). */}
+           picker re-appears in the Toolbar (Row 2). Below md, InsightsV2IdentityRow
+           renders `hidden` regardless of scroll state (F3) — this grid-rows
+           wrapper still animates on desktop only, on mobile it just carries
+           zero-height content through in both scroll states. */}
       <div
         className={cn(
           "grid transition-[grid-template-rows,opacity] duration-300 ease-out",
@@ -719,6 +885,14 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
                   onFollowBrand={handleFollowBrand}
                   onSaveAd={handleSaveAd}
                   onCopyLink={handleCopyLink}
+                  // Bulk select (spec B §1.1 item 6 / §2.2) — the checkbox
+                  // itself and its breakpoint-specific chrome live in this
+                  // card component (not owned by this file); this feed only
+                  // supplies the real selection data and toggle so it works
+                  // the moment that chrome allows it to render on mobile too.
+                  selectable
+                  isSelected={selectedAdIdSet.has(ad.id)}
+                  onSelectToggle={handleSelectToggle}
                 />
               ))}
             </MasonryGrid>

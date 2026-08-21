@@ -279,6 +279,15 @@ export function InsightsV2Toolbar({
               value={filters.search}
               onChange={(e) => onSearchChange(e.target.value)}
               onFocus={onSearchFocus}
+              // Copy is deliberately UNCHANGED. The mobile batch briefly
+              // shortened this to "Search ads, brands,…" because that is what
+              // the Figma frame renders — but the Figma text node is *named*
+              // "Search ads, brands, headlines…" and is only 128px wide, i.e.
+              // Figma is truncating the same full string we already had. The
+              // shorter copy also leaked into desktop, which is a copy
+              // regression for zero gain. A placeholder that clips at 375px is
+              // the normal, expected behaviour of a narrow search field.
+              // `pr-9` stays: it reserves room for the ⌘K hint below.
               placeholder="Search ads, brands, headlines…"
               className="h-11 pl-9 pr-9 text-[13px] md:h-9 md:pr-12"
               aria-label="Search feed"

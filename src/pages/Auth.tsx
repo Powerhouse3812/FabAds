@@ -9,6 +9,7 @@ import { ResetSuccessModal } from "@/components/auth/ResetSuccessModal";
 import { SignupWizard } from "@/components/auth/SignupWizard";
 import { SignupLinkExpired } from "@/components/auth/SignupLinkExpired";
 import { TwoFactorModal } from "@/components/auth/TwoFactorModal";
+import { useLandingPath, DESKTOP_HOME_PATH } from "@/components/shell/LandingRedirect";
 
 /**
  * Auth — pure-UI rebuild of the login / signup / password flows from the
@@ -102,6 +103,11 @@ export default function Auth() {
 
   const nav: AuthNav = { view, step, modal, goTo, openModal, closeModal };
 
+  // Where "back to the app" goes. Hardcoded /dashboard before, which is a
+  // blocked route on mobile now — the escape hatch handed a phone reviewer a
+  // "Best on desktop" gate instead of the app.
+  const landingPath = useLandingPath();
+
   return (
     <div className="relative min-h-screen bg-background">
       {/* Reviewer escape hatch — only shown when a session exists (always true
@@ -110,11 +116,11 @@ export default function Auth() {
       {session && (
         <button
           type="button"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(landingPath)}
           className="fixed left-4 top-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back to dashboard
+          {landingPath === DESKTOP_HOME_PATH ? "Back to dashboard" : "Back to my feeds"}
         </button>
       )}
 

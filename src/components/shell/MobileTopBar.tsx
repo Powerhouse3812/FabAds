@@ -4,28 +4,45 @@ import { cn } from "@/lib/utils";
 import { derivePageTitle } from "@/components/shell/routeTitle";
 import { useMobilePolicy } from "@/components/shell/mobileRoutePolicy";
 import { MODULES, deriveActiveModule } from "@/components/sidebar/modules";
+import { MOBILE_HOME_PATH } from "@/components/shell/mobileNavConstants";
 
 /**
- * MobileTopBar — the mobile-viewport replacement for the desktop breadcrumb
- * row (`HeaderBreadcrumbs` in AppLayout.tsx).
+ * MobileTopBar — the mobile-viewport Back/title bar.
  *
- * Unlike the breadcrumb, which AppLayout suppresses on `ownsLayout` routes
- * (genie6, insights-v2, launchv2, creative-library, dashboard-variants,
- * creative-v2/v3 report shells — each owns its own header chrome on desktop),
- * this bar renders on ALL routes, including those. A mobile viewport has no
- * room for a per-route custom header, so every route gets this one instead —
- * either showing the real page (readonly/full support) or the BestOnDesktop
- * gate screen (blocked support), both of which need a title and, for the
- * gate/detail cases, a way back.
+ * F1 (Figma sync, 2026-08-21): Figma's feed screen has NO app top bar at all —
+ * the frame stack goes straight from the iOS status-bar mock into the
+ * segmented control (My feeds · Discover · Saved Ads). The only frame above
+ * the segmented control in the Figma metadata IS that status-bar mock, not
+ * app chrome. So a top-level allowlisted destination (full/readonly support,
+ * present in the nav — i.e. a bottom-tab or More-sheet destination) renders
+ * NOTHING here now; it used to get a title-only bar Figma never had.
+ *
+ * The bar can't be deleted outright, though: it is the ONLY way back for two
+ * classes of screen that have no other exit —
+ *   - `notInNav` detail routes (e.g. /insights/boards/:id, /launchv2/:id):
+ *     no nav entry, no tab, nothing else on screen points back.
+ *   - `blocked` gate screens (BestOnDesktop): the gate itself has no Back
+ *     control, only a "go to X" fallback link.
+ * Both keep the title + (usually) a real Back button below.
  *
  * Title and breadcrumb share ONE label source (`derivePageTitle` /
  * `labelableSegments` in routeTitle.ts) specifically so this title can never
  * drift from what the desktop breadcrumb would have shown for the same path.
  * Do not re-derive labels here.
  *
- * Rendered by AppShell as the first child of the merged shell; the caller
- * supplies `md:hidden` via `className` so this only paints below the `md`
- * breakpoint. No explicit z-index is set — the bar lives in normal flow, not
+ * Rendered by AppShell as the first child of the merged shell's mobile
+ * `flex-col`, ahead of `<main>` (which is `flex-1`). Returning `null` here is
+ * layout-safe on both counts:
+ *   - On mobile, dropping this child from the tree just leaves `<main>` as
+ *     the sole flex-column child, so it fills the space from the very top —
+ *     exactly the "status bar → segmented control" layout Figma shows. No
+ *     zero-height placeholder needed; flexbox doesn't leave a gap for an
+ *     absent child.
+ *   - On desktop this bar already carried `md:hidden` (display:none) and so
+ *     already contributed zero layout box at ≥768px. A `null` return is
+ *     behaviourally identical to a `display:none` element for layout
+ *     purposes — desktop is unaffected either way (INV-4).
+ * No explicit z-index is set — the bar lives in normal flow, not
  * fixed/sticky, so it never needs to compete with portal-rendered overlays
  * (Radix dialogs/popovers/dropdowns render to document.body and stack above
  * it regardless).
@@ -34,6 +51,19 @@ export function MobileTopBar({ className }: { className?: string }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const policy = useMobilePolicy();
+
+  // The exact "top-level allowlisted destination" bucket: reachable via the
+  // tab bar or the More sheet's nav tree (i.e. NOT a `notInNav` detail
+  // route), and not a `blocked` gate screen. This is the same bucket that
+  // makes `showBack` false today for every ordinary tab destination — stated
+  // directly against the policy fields (not derived from `showBack` below)
+  // because `showBack` also goes false for an unrelated reason
+  // (`ownsBackNavigation`, e.g. the wizard's own step-aware Back), and that
+  // case must still keep this bar — it's a `notInNav` route, just one that
+  // renders its title without a redundant second Back control.
+  if (policy.support !== "blocked" && !policy.notInNav) {
+    return null;
+  }
 
   // Title resolution, in order: the shared breadcrumb-label derivation, then
   // the mobile policy's human name for the surface, then the active nav
@@ -69,8 +99,10 @@ export function MobileTopBar({ className }: { className?: string }) {
       navigate(-1);
     } else {
       // No history to pop — e.g. a Slack deep link straight into a detail
-      // route. Fall back to the policy's named escape hatch, or Dashboard.
-      navigate(policy.fallback?.to ?? "/dashboard");
+      // route. Fall back to the policy's named escape hatch, or the mobile
+      // landing. NOT `/dashboard`: that is a blocked route on mobile now, so
+      // the last-resort Back would have handed the user a gate screen.
+      navigate(policy.fallback?.to ?? MOBILE_HOME_PATH);
     }
   };
 

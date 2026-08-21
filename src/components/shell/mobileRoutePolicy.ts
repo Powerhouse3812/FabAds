@@ -22,9 +22,10 @@ import {
  *
  * 1. FIRST MATCH WINS, IN DECLARATION ORDER. Not longest-prefix, not a
  *    specificity sort. Array order is authoritative because it is the only way
- *    an exact rule reliably beats its own `/*` sibling — e.g.
- *    `/reports/creative-v3` (allowed Overview) must be declared BEFORE
- *    `/reports/creative-v3/*` (blocked Creatives/Compare/Components).
+ *    an exact rule reliably beats its own `/*` sibling — e.g. `/rrm` must be
+ *    declared BEFORE `/rrm/*`, and `/reports/creative-v3` (its own gate copy)
+ *    must be declared BEFORE `/reports/creative-v3/*` (different gate copy) so
+ *    each keeps its own label and reason instead of inheriting the splat's.
  *    Reordering this array silently changes which surfaces mobile can reach.
  *
  * 2. FAIL CLOSED. `CATCH_ALL` sits at the end, so any path nobody thought
@@ -40,6 +41,15 @@ import {
  * cannot express (exact-vs-subtree splits, sibling splits, and param routes
  * like /insights/boards/:id that have no nav entry at all), and it changes on a
  * completely different cadence — per mobile phase, not per IA revision.
+ *
+ * SCOPE CUT (2026-08-21, Figma sync + feedback pass — see MOBILE_SPEC.md 2.2):
+ * mobile scope narrowed from "Dashboard + Insights + Reports(readonly) +
+ * Launch(readonly) + Genie(3 surfaces)" down to just Industry Insights +
+ * Genie's library (read-only browsing) + Onboarding. Dashboard, all of
+ * Reports, all of Launch, Genie Home and the generation wizard all flipped
+ * from full/readonly to blocked. `MOBILE_HOME_PATH` (mobileNavConstants.ts)
+ * moved from `/dashboard` to `/insights-v2/feed` to match — the Insights feed
+ * is now the mobile landing.
  */
 
 export type MobileSupport = "full" | "readonly" | "blocked";
@@ -72,24 +82,58 @@ export interface ResolvedMobilePolicy extends MobilePolicyRule {
   matched: string;
 }
 
-const TO_DASHBOARD = { label: "Go to Dashboard", to: "/dashboard" } as const;
+/**
+ * Fallback targets for blocked routes. The rule that matters: whatever a
+ * blocked route falls back to must never itself be blocked — an escape hatch
+ * that lands on another gate screen strands the user with no way forward.
+ *
+ * `TO_DASHBOARD`, `TO_CR_OVERVIEW` and `TO_LAUNCH_HUB` used to live here, but
+ * the 2.2 scope cut blocked Dashboard, the Creative Report Overview and the
+ * Launch Hub themselves — every rule using those constants would have pointed
+ * a blocked route at another blocked route. Removed rather than left around
+ * unused and ready to be misapplied by the next edit.
+ */
 const TO_FEED = { label: "Browse My feeds", to: "/insights-v2/feed" } as const;
-const TO_CR_OVERVIEW = {
-  label: "Open the Overview",
-  to: "/reports/creative-v3",
+const TO_GENIE_LIBRARY = {
+  label: "Open Genie library",
+  to: "/iq/genie6/library",
 } as const;
-const TO_LAUNCH_HUB = { label: "Open the Launch Hub", to: "/launchv2" } as const;
 
 export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
-  /* ── Landing ─────────────────────────────────────────────────────────────
-     Dashboard is the mobile landing: it is already mobile-first, `/` already
-     redirects here, so this costs no new surface. Read-only — the KPI
-     customize popover is drag-and-drop and stays desktop-only. */
-  { pattern: "/dashboard", support: "readonly", label: "Dashboard" },
+  /* ── `/` is not a screen, it is a redirect ──────────────────────────────
+     `App.tsx`'s index route renders `<LandingRedirect/>`, which sends desktop
+     to /dashboard and mobile to MOBILE_HOME_PATH. That component only gets to
+     run if the gate lets `/` through: MobileRouteGate deliberately refuses to
+     MOUNT a blocked route (a `display:none` page still runs its data hooks),
+     and `/` was hitting CATCH_ALL — so a phone loading the bare origin saw the
+     anonymous "This screen is best on desktop" gate, at URL `/`, forever. It
+     could not even reach the *named* Dashboard gate, because the redirect never
+     mounted to move it there.
+     Marked `full` because there is no page here to be bad on a phone, and
+     `notInNav` because a redirect target is not a nav destination. MUST stay
+     first: it is an exact rule and nothing above it may shadow `/`. */
+  { pattern: "/", support: "full", label: "Home", notInNav: true },
 
-  /* ── Industry Insights — the phase-1 flagship ───────────────────────────
+  /* ── Dashboard — CHANGED, used to be the landing ────────────────────────
+     Dashboard used to be the mobile landing (readonly: the KPI customize
+     popover is drag-and-drop and stayed desktop-only). The 2.2 scope cut
+     narrowed mobile down to Industry Insights + Genie's library + Onboarding
+     — the Insights feed is the landing now (`MOBILE_HOME_PATH`), so Dashboard
+     is blocked outright rather than kept around half-functional. */
+  {
+    pattern: "/dashboard",
+    support: "blocked",
+    label: "Dashboard",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — the Dashboard stays a desktop surface for now.",
+    fallback: TO_FEED,
+  },
+
+  /* ── Industry Insights — the phase-1 flagship, now also the landing ─────
      Genuinely better on a phone: it is a scroll-and-consume surface, and its
-     grids already start at 1 column. */
+     grids already start at 1 column. As of the 2.2 scope cut this is the
+     mobile landing (`MOBILE_HOME_PATH` in mobileNavConstants.ts) now that
+     Dashboard is blocked. */
   { pattern: "/insights-v2/feed", support: "full", label: "My feeds" },
   { pattern: "/insights/discover", support: "full", label: "Discover" },
   { pattern: "/insights/boards", support: "full", label: "Boards" },
@@ -114,26 +158,61 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
   // honest answer.
   { pattern: "/insights/saved", support: "full", label: "Saved Ads" },
 
-  /* ── Reports ───────────────────────────────────────────────────────────
-     Mobile gets a card list + a detail sheet, never the 12-column table.
-     NOTE: /reports/fb|nb|tt are named like platforms but render entity
-     LEVELS (accounts / campaigns / ad sets). Labels below describe what the
-     route actually renders, not what the path implies. */
-  { pattern: "/reports/fb", support: "full", label: "Ad accounts" },
-  { pattern: "/reports/nb", support: "full", label: "Campaigns" },
-  { pattern: "/reports/tt", support: "full", label: "Ad sets" },
-  // Route added alongside the mobile work — also un-orphans AdsReport, which
-  // was imported but unreachable, and fixes AdSetsReport's drill-down. Not a
-  // modules.ts sub-item (the nav still only lists Facebook/NB/TikTok), hence
-  // notInNav — silences the dev audit truthfully rather than fixing a
+  /* ── Reports — CHANGED, narrowed out of mobile scope entirely ───────────
+     Reports used to get a card list + a detail sheet on phone, never the
+     12-column table. The 2.2 scope cut retired that mobile-specific layout
+     along with the surface itself — mobile is now Industry Insights + Genie's
+     library + Onboarding only. NOTE: /reports/fb|nb|tt are named like
+     platforms but render entity LEVELS (accounts / campaigns / ad sets) —
+     labels below describe what the route actually renders, not what the path
+     implies. */
+  {
+    pattern: "/reports/fb",
+    support: "blocked",
+    label: "Ad accounts",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Reports stays a desktop surface for now.",
+    fallback: TO_FEED,
+  },
+  {
+    pattern: "/reports/nb",
+    support: "blocked",
+    label: "Campaigns",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Reports stays a desktop surface for now.",
+    fallback: TO_FEED,
+  },
+  {
+    pattern: "/reports/tt",
+    support: "blocked",
+    label: "Ad sets",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Reports stays a desktop surface for now.",
+    fallback: TO_FEED,
+  },
+  // Route added alongside the earlier mobile work — also un-orphans AdsReport,
+  // which was imported but unreachable, and fixes AdSetsReport's drill-down.
+  // Not a modules.ts sub-item (the nav still only lists Facebook/NB/TikTok),
+  // hence notInNav — silences the dev audit truthfully rather than fixing a
   // phantom bug.
-  { pattern: "/reports/ads", support: "full", label: "Ads", notInNav: true },
+  {
+    pattern: "/reports/ads",
+    support: "blocked",
+    label: "Ads",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Reports stays a desktop surface for now.",
+    fallback: TO_FEED,
+    notInNav: true,
+  },
 
-  // EXACT before SPLAT — the Overview is allowed, the rest of 3.0 is not.
+  // EXACT before SPLAT — both blocked, but each keeps its own gate copy.
   {
     pattern: "/reports/creative-v3",
-    support: "readonly",
+    support: "blocked",
     label: "Creative Report Overview",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Reports stays a desktop surface for now.",
+    fallback: TO_FEED,
   },
   {
     pattern: "/reports/creative-v3/*",
@@ -141,42 +220,55 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     label: "Creative Report 3.0",
     reason:
       "Creatives, Components and Compare are built around a full-width grid with a 13-metric column picker.",
-    fallback: TO_CR_OVERVIEW,
+    fallback: TO_FEED,
   },
   {
     pattern: "/reports/creative-v2",
     support: "blocked",
     label: "Creative Report 2.0",
     reason: "2.0 is a frozen snapshot kept for reference.",
-    fallback: TO_CR_OVERVIEW,
+    fallback: TO_FEED,
   },
   {
     pattern: "/reports/creative-v2/*",
     support: "blocked",
     label: "Creative Report 2.0",
     reason: "2.0 is a frozen snapshot kept for reference.",
-    fallback: TO_CR_OVERVIEW,
+    fallback: TO_FEED,
   },
   {
     pattern: "/reports/creative",
     support: "blocked",
     label: "Creative Reporting",
     reason: "This report is a wide metrics table built for a large screen.",
-    fallback: { label: "Open Ad accounts", to: "/reports/fb" },
+    fallback: TO_FEED,
   },
 
-  /* ── Launch v2 — Hub through, wizard blocked ────────────────────────────
-     Hub has zero direct-mutation controls (every working control navigates or
-     sets local state), so read-only here means gating the exits into the
-     creation flow rather than the page itself. */
+  /* ── Launch v2 — CHANGED, narrowed out of mobile scope entirely ─────────
+     Hub, history and the `:id` detail used to be readonly (Hub has zero
+     direct-mutation controls — every working control navigates or sets local
+     state — so readonly meant gating the exits into the creation flow rather
+     than the page itself). The 2.2 scope cut tightened all of Launch to
+     blocked regardless. */
   // The Launch module has subItems but no root `.path` of its own in
   // modules.ts (New launch / History are the listed entries), so the Hub
   // route itself is genuinely absent from the nav structure — notInNav.
-  { pattern: "/launchv2", support: "readonly", label: "Launch Hub", notInNav: true },
+  {
+    pattern: "/launchv2",
+    support: "blocked",
+    label: "Launch Hub",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Launch stays a desktop surface for now.",
+    fallback: TO_FEED,
+    notInNav: true,
+  },
   {
     pattern: "/launchv2/history",
-    support: "readonly",
+    support: "blocked",
     label: "Launch history",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Launch stays a desktop surface for now.",
+    fallback: TO_FEED,
   },
   {
     pattern: "/launchv2/new",
@@ -184,12 +276,15 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     label: "New launch",
     reason:
       "The 4-step flow needs a wide canvas — the distribution step is a drag-resizable two-pane workspace.",
-    fallback: TO_LAUNCH_HUB,
+    fallback: TO_FEED,
   },
   {
     pattern: "/launchv2/:id",
-    support: "readonly",
+    support: "blocked",
     label: "Launch",
+    reason:
+      "Mobile is scoped to Industry Insights and Genie's library — Launch stays a desktop surface for now.",
+    fallback: TO_FEED,
     notInNav: true,
   },
   // Everything else under Launch (settings, strategies, templates, auto…).
@@ -198,7 +293,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Launch 2.0",
     reason: "This Launch surface is built for a wide screen.",
-    fallback: TO_LAUNCH_HUB,
+    fallback: TO_FEED,
   },
 
   /* ── Nav-visible modules that are desktop-only ──────────────────────────
@@ -210,13 +305,27 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     label: "Catalogue",
     reason:
       "The Catalogue is a three-pane browser — two fixed rails plus a detail pane.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
   },
-  /* ── Genie — holds a bottom-tab slot as of 2026-08-11 ──────────────────
-     Three surfaces are opened; everything else under /iq/genie6 stays blocked.
-     EXACT rules precede the splat, per the ordering rule in the header. */
-  // Overview. The Studio home variant was rebuilt responsive for this.
-  { pattern: "/iq/genie6", support: "full", label: "Genie" },
+  /* ── Genie — CHANGED, read-only browsing only ───────────────────────────
+     Used to hold three open surfaces (Overview, library, the generation
+     wizard). The 2.2 scope cut narrowed this to the library only: Genie Home
+     IS the entry point into starting a new generation (see Home.tsx:87 and
+     its /iq/genie6/generate/* navigations), and Studio Alpha IS that
+     generation wizard — neither belongs on a surface whose mobile contract is
+     "read-only browsing". Only the library (+ previous-generation asset
+     detail) stays open. EXACT rules precede the splat, per the ordering rule
+     in the header. */
+  // CHANGED — blocked. Genie Home is the new-generation launcher, so it can't
+  // stay open even though the Studio home variant was made responsive for it.
+  {
+    pattern: "/iq/genie6",
+    support: "blocked",
+    label: "Genie",
+    reason:
+      "Genie Home is the entry point for starting a new generation, and mobile Genie is read-only browsing.",
+    fallback: TO_GENIE_LIBRARY,
+  },
   // Already the most mobile-ready surface in the module (columns-1 masonry).
   { pattern: "/iq/genie6/library", support: "full", label: "Genie library" },
   {
@@ -225,18 +334,35 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     label: "Genie library",
     notInNav: true,
   },
-  // The 5-step generation wizard, one screen per step on mobile.
-  { pattern: "/iq/genie6/studio-alpha", support: "full", label: "Studio" },
+  // CHANGED — blocked. This is the 5-step wizard for starting a NEW
+  // generation; mobile Genie is read-only browsing, so the wizard doesn't
+  // mount here no matter how well its one-screen-per-step layout works.
+  {
+    pattern: "/iq/genie6/studio-alpha",
+    support: "blocked",
+    label: "Studio",
+    reason:
+      "This is the 5-step wizard for starting a new generation, and mobile Genie is read-only browsing.",
+    fallback: TO_GENIE_LIBRARY,
+  },
   {
     pattern: "/iq/genie6/studio-alpha/*",
-    support: "full",
+    support: "blocked",
     label: "Studio",
+    reason:
+      "This is the 5-step wizard for starting a new generation, and mobile Genie is read-only browsing.",
+    fallback: TO_GENIE_LIBRARY,
     notInNav: true,
-    // The wizard's sticky footer already has a step-aware Back
-    // (previous step, not browser history) — see StudioAlpha.tsx's
-    // handleBack. MobileTopBar's generic Back would do something
-    // different while looking identical. One Back, not two disagreeing.
-    ownsBackNavigation: true,
+    // No ownsBackNavigation here (dropped — it no longer applies). That flag
+    // existed to stop MobileTopBar's generic Back fighting the wizard's own
+    // step-aware Back. Now that this rule is `blocked`, the wizard component
+    // never mounts (a blocked route renders BestOnDesktop instead, per
+    // MobileRouteGate), so its step-aware Back can't render either — there is
+    // nothing left for the generic Back to conflict with. Worse: MobileTopBar
+    // computes `showBack = (notInNav || blocked) && !ownsBackNavigation`, so
+    // leaving the flag set here would have suppressed the ONLY Back this gate
+    // screen has, stranding the user on it with no way out but the fallback
+    // link.
   },
   {
     pattern: "/iq/genie6/*",
@@ -244,7 +370,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     label: "Genie",
     reason:
       "This Genie surface — settings, concepts and the legacy studios — is built for a wide screen.",
-    fallback: { label: "Open Genie", to: "/iq/genie6" },
+    fallback: TO_GENIE_LIBRARY,
   },
   {
     pattern: "/iq/creative-library",
@@ -252,28 +378,41 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     label: "Creative Library",
     reason:
       "The library pairs a multi-select filter rail with drag-and-drop mapping.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
   },
   {
     pattern: "/iq/video-sage/*",
     support: "blocked",
     label: "Video Sage",
     reason: "Video Sage isn't ready for small screens yet.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
   },
   {
     pattern: "/iq/copilot",
     support: "blocked",
     label: "Copilot",
     reason: "Copilot isn't ready for small screens yet.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
   },
   {
     pattern: "/automation",
     support: "blocked",
     label: "Automation",
     reason: "Automation isn't built yet.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
+  },
+  // EXACT before SPLAT. Automation Center added five nav sub-items
+  // (/automation/workflows|creative-report|launch|rrm|genie) after this rule
+  // was written, and with only the exact `/automation` entry above they all
+  // fell through to CATCH_ALL — blocked, but with anonymous "This screen"
+  // copy, and the dev audit warned about all five on every boot. Same reason
+  // and fallback as the parent so the gate names the module it belongs to.
+  {
+    pattern: "/automation/*",
+    support: "blocked",
+    label: "Automation",
+    reason: "Automation isn't built yet.",
+    fallback: TO_FEED,
   },
 
   /* ── Utility / admin surfaces ────────────────────────────────────────────
@@ -287,7 +426,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Settings",
     reason: "Settings are dense forms that are easier to get right on a laptop.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
   {
@@ -295,7 +434,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Integrations",
     reason: "Connecting an account involves an OAuth flow best done on desktop.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
   {
@@ -303,7 +442,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Team",
     reason: "Team management is a wide permissions table.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
   // EXACT before SPLAT — was declared after it, making this rule dead
@@ -313,7 +452,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "RRM",
     reason: "RRM is built for a wide screen.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
   {
@@ -321,7 +460,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "RRM",
     reason: "RRM is built for a wide screen.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
   {
@@ -329,7 +468,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Activity log",
     reason: "The activity log is a wide, densely-columned table.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
   {
@@ -337,7 +476,7 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Dashboard variants",
     reason: "These are full-bleed desktop design explorations.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
     notInNav: true,
   },
 
@@ -356,21 +495,21 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
     support: "blocked",
     label: "Genie 5",
     reason: "Genie 5 is a legacy version kept only so old links still open.",
-    fallback: { label: "Open Genie", to: "/iq/genie6" },
+    fallback: TO_GENIE_LIBRARY,
   },
   {
     pattern: "/tools/bg-remover",
     support: "blocked",
     label: "BG Remover",
     reason: "BG Remover isn't built yet.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
   },
   {
     pattern: "/tools/obj-remover",
     support: "blocked",
     label: "Object Remover",
     reason: "Object Remover isn't built yet.",
-    fallback: TO_DASHBOARD,
+    fallback: TO_FEED,
   },
 ];
 
@@ -384,7 +523,7 @@ const CATCH_ALL: MobilePolicyRule = {
   support: "blocked",
   label: "This screen",
   reason: "This screen isn't ready for small screens yet.",
-  fallback: TO_DASHBOARD,
+  fallback: TO_FEED,
 };
 
 function ruleMatches(rule: MobilePolicyRule, pathname: string): boolean {

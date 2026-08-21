@@ -8,6 +8,7 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { LandingRedirect } from "@/components/shell/LandingRedirect";
 import Auth from "@/pages/Auth";
 import NoAccess from "@/pages/NoAccess";
 import LaunchHistory from "@/pages/LaunchHistory";
@@ -147,7 +148,10 @@ const App = () => (
               />
 
               <Route element={<AppLayout />}>
-                <Route index element={<Navigate to="/dashboard" replace />} />
+                {/* Viewport-aware: Dashboard on desktop, the Insights feed on
+                    mobile (Dashboard is a blocked route there). See
+                    LandingRedirect.tsx for why this is a JS branch. */}
+                <Route index element={<LandingRedirect />} />
                 {/* Reports — new flat structure (FB/NB/TT/Creative Reporting) */}
                 <Route path="reports" element={<Navigate to="/reports/fb" replace />} />
                 {/* AdEntityActionsProvider scopes the status/budget/duplicate

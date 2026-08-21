@@ -59,12 +59,18 @@ export function ThemeVariantSwitcher({ orientation = "horizontal" }: { orientati
   //
   // orientation="vertical" — used in collapsed sidebar rail (~56px) where 4
   // horizontal icons would overflow. Stacks 4 icons in a column instead.
+  //
+  // Mobile spec 2.6: this is a Maalik-only dev tool for picking Genie's
+  // internal architecture fork, not a user-facing control — hidden below
+  // `md` (`hidden md:inline-flex`) rather than removed. Desktop is byte-for-
+  // byte unchanged: at ≥768px the `md:inline-flex` rule wins over the base
+  // `hidden`, so this renders exactly as it did before the gate.
   return (
     <div
       role="tablist"
       aria-label="Genie 6 architectural variant"
       className={cn(
-        "inline-flex items-center rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-0.5",
+        "hidden items-center rounded-g6-base border border-g6-border-secondary bg-g6-bg-container p-0.5 md:inline-flex",
         isVertical && "flex-col"
       )}
     >
