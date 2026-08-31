@@ -14,7 +14,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { angleForAd } from "@/insights-home/lib/homeSelectors";
 import type { InsightAd } from "@/lib/insights-dummy-data";
 
 /** Mirrors the <TabsTrigger> set below — the fold source for the mobile
@@ -38,6 +39,12 @@ const VIEW_TABS: InsightsViewTab[] = [
  *   ?page=<n>                            (omit on 1)
  *   ?perPage=<n>                         (omit on 12)
  *   ?q=<text>                            (filter: search)
+ *   ?angle=<bucket>                      (filter: creative angle — the Home
+ *                                         page's AngleMixDonut links here;
+ *                                         buckets come from angleForAd() in
+ *                                         src/insights-home/lib/homeSelectors.ts
+ *                                         so slice share and filtered count
+ *                                         are the same partition)
  *   ?industry=<key>                      (filter: industry)
  *   ?platform=<key>                      (filter: platform)
  *   ?status=<key>                        (filter: status)
@@ -77,6 +84,24 @@ export default function InsightsDiscover() {
     }),
     [searchParams],
   );
+
+  // Creative-angle filter. Kept OUT of InsightsFilters (and so out of the
+  // filter bar's own controls) because it isn't a field on InsightAd — it's a
+  // derived bucket. It gets its own removable chip below instead, so the user
+  // can always see why the grid is narrowed and get out of it in one click.
+  const angle = searchParams.get("angle") ?? "";
+
+  const clearAngle = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("angle");
+        sp.delete("page");
+        return sp;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   const adId = searchParams.get("ad");
   const modal = searchParams.get("modal");
@@ -264,6 +289,7 @@ export default function InsightsDiscover() {
     const q = filters.search.toLowerCase();
     ads = ads.filter((a) => a.pageName.toLowerCase().includes(q) || a.headline.toLowerCase().includes(q));
   }
+  if (angle) ads = ads.filter((a) => angleForAd(a) === angle);
   if (filters.industry && tab !== "industry") ads = ads.filter((a) => a.industry === filters.industry);
   if (filters.platform && tab !== "platform") ads = ads.filter((a) => a.platforms.includes(filters.platform as any));
   if (filters.status) ads = ads.filter((a) => a.status === filters.status);
@@ -335,6 +361,20 @@ export default function InsightsDiscover() {
         viewValue={tab}
         onViewChange={setTab}
       />
+      {angle && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Filtered by angle</span>
+          <button
+            type="button"
+            onClick={clearAngle}
+            aria-label={`Remove the ${angle} angle filter`}
+            className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="min-w-0 truncate" title={angle}>{angle}</span>
+            <X className="h-3 w-3 shrink-0" aria-hidden />
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {isLoading ? (
           <InsightAdGridSkeleton count={perPage} />
@@ -342,7 +382,18 @@ export default function InsightsDiscover() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Search className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-muted-foreground">No ads match your filters.</p>
-            <Button variant="outline" size="sm" onClick={() => setFilters(DEFAULT_FILTERS)}>Clear filters</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                // The angle chip is a filter too — a "Clear filters" that left
+                // it applied would be a dead end on an empty grid.
+                clearAngle();
+                setFilters(DEFAULT_FILTERS);
+              }}
+            >
+              Clear filters
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">

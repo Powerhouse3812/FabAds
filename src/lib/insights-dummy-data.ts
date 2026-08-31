@@ -191,7 +191,11 @@ const PRIMARY_TEXT_BY_INDUSTRY: Record<string, string[]> = {
   ],
 };
 
-const HEADLINES_BY_INTENT = [
+// Exported so the Industry Insights angle-mix selector
+// (src/insights-home/lib/homeSelectors.ts) can bucket ads by the intent this
+// bank is ALREADY grouped by — six contiguous groups of five, in the comment
+// order below — instead of guessing at a classification.
+export const HEADLINES_BY_INTENT = [
   // Question
   "Tired of slow tools?", "Want better skin in 30 days?", "Ready to ship faster?",
   "Lost in your data?", "Need a faster checkout?",

@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
 import { toast } from "sonner";
 
-interface Props { open: boolean; onClose: () => void }
+interface Props { open: boolean; onClose: () => void; onAdded?: () => void }
 
-export function AddCompetitorModal({ open, onClose }: Props) {
+export function AddCompetitorModal({ open, onClose, onAdded }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState("domain");
   const [identifier, setIdentifier] = useState("");
@@ -22,7 +22,7 @@ export function AddCompetitorModal({ open, onClose }: Props) {
   const handleAdd = () => {
     addCompetitor.mutate(
       { name, competitor_type: type, identifier, country: country || undefined, language: language || undefined, description: description || undefined },
-      { onSuccess: () => { toast.success("Competitor added"); resetAndClose(); }, onError: () => toast.error("Failed to add") },
+      { onSuccess: () => { toast.success("Competitor added"); onAdded?.(); resetAndClose(); }, onError: () => toast.error("Failed to add") },
     );
   };
 
