@@ -22,10 +22,10 @@ import { UserLeaderboard } from "@/components/dashboard/UserLeaderboard";
 import { CountryInsightsMap } from "@/components/dashboard/CountryInsightsMap";
 import { AiPlanDashboard } from "@/components/dashboard/ai-plan/AiPlanDashboard";
 // A-12.198: each module's numbers merged INTO its own card. GenieCard +
-// IndustryInsightsCard sit side-by-side; the compact NewlyFetchedAdsCard
+// InsightsJourneyCard sit side-by-side; the compact NewlyFetchedAdsCard
 // lives in the masonry right column. (ModuleAnalyticsStrip retired.)
 import { GenieCard } from "@/components/dashboard/growth/GenieCard";
-import { IndustryInsightsCard } from "@/components/dashboard/growth/IndustryInsightsCard";
+import { InsightsJourneyCard } from "@/components/dashboard/growth/InsightsJourneyCard";
 import { NewlyFetchedAdsCard } from "@/components/dashboard/growth/NewlyFetchedAdsCard";
 import { RecentGenerationsCard } from "@/components/dashboard/growth/RecentGenerationsCard";
 
@@ -209,7 +209,7 @@ function FullPlanDashboard() {
           trending keywords. */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
         <GenieCard />
-        <IndustryInsightsCard />
+        <InsightsJourneyCard />
       </div>
 
       {/* Masonry: two independent column stacks */}

@@ -21,7 +21,8 @@ import { useGenie6Theme, type GenieVariant } from "@/genie6/hooks/useGenie6Theme
 import { SecondaryNavigationItem } from "./SecondaryNavigationItem";
 import { setSubNavCollapsed } from "./useSubNavCollapsed";
 import { InsightsPinnedBoardsAddon } from "./InsightsPinnedBoardsAddon";
-import { InsightsExtensionCard } from "./InsightsExtensionCard";
+import { InsightsSetupCard } from "./InsightsSetupCard";
+import { useInsightsSetupState } from "@/lib/insights-setup";
 import { GenieCreditsAddonCard } from "./GenieCreditsAddonCard";
 import { LaunchAutopilotCard } from "./LaunchAutopilotCard";
 import { ReportsInsightsCrossCard } from "./ReportsInsightsCrossCard";
@@ -194,13 +195,37 @@ export function SecondaryNavigationPanel() {
           className="h-px shrink-0 border-t border-foreground/[0.06]"
         />
       )}
-      {isInsights && <InsightsExtensionCard />}
+      {isInsights && <InsightsFooterCard />}
       {isGenie && <GenieCreditsAddonCard />}
       {isLaunch && <LaunchAutopilotCard />}
       {isReports && <ReportsInsightsCrossCard />}
       {isCatalogue && <CatalogueFooterCard />}
     </aside>
   );
+}
+
+/* ─────────────────────────────────────────────────────────
+ *  InsightsFooterCard — setup-checklist gate for the Insights sub-nav
+ *  footer. While the 4-item onboarding checklist is incomplete the progress
+ *  card shows; once complete the footer clears.
+ *
+ *  It used to convert to InsightsExtensionCard on completion. That is now a
+ *  contradiction: "Install the Chrome extension" IS checklist item #2, so
+ *  `complete` implies extensionInstalled === true — the swap re-pitched an
+ *  install the user had just ticked off. The extension is a checklist ITEM,
+ *  not a post-completion gate.
+ *
+ *  Deliberately its own component rather than a hook call inside
+ *  SecondaryNavigationPanel: that component early-returns null for modules
+ *  without sub-items, so any hook added after that return breaks
+ *  rules-of-hooks (hook count changes between renders → React throws on the
+ *  first no-subnav → subnav navigation). Keeping the hook here also stops
+ *  useInsightsSetupState's two Supabase reads from firing on every route in
+ *  the app — they now run only while Industry Insights is the active module.
+ * ───────────────────────────────────────────────────────── */
+function InsightsFooterCard() {
+  const setup = useInsightsSetupState();
+  return setup.complete ? null : <InsightsSetupCard />;
 }
 
 /* ─────────────────────────────────────────────────────────

@@ -302,7 +302,12 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
     return DUMMY_ADS.find((a) => a.id === urlModalTarget) ?? null;
   }, [urlModal, urlModalTarget]);
 
-  const prefsModalOpen = urlModal === "settings";
+  // `settings` is the toolbar's own value; `prefs` is the alias the Dashboard
+  // checklist / sub-nav setup card deep-link with. Treated as an alias at read
+  // time rather than rewritten in an effect — a normalising effect loses a
+  // same-commit race with the filter->URL sync below, which recomputes from
+  // the same stale searchParams closure and puts `prefs` straight back.
+  const prefsModalOpen = urlModal === "settings" || urlModal === "prefs";
 
   // A-12.180: Calendar popover open/close is URL-backed too. Copying a URL
   // while the date picker is open reconstructs that exact view on paste.
@@ -400,7 +405,8 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
         (prev) => {
           const sp = new URLSearchParams(prev);
           if (open) sp.set("modal", "settings");
-          else if (sp.get("modal") === "settings") sp.delete("modal");
+          else if (sp.get("modal") === "settings" || sp.get("modal") === "prefs")
+            sp.delete("modal");
           return sp;
         },
         { replace: false },
@@ -688,7 +694,12 @@ function InsightsV2FeedInner({ prefsOpen, onPrefsClose }: InsightsV2FeedProps) {
             <InsightsV2EmptyState
               icon={Compass}
               title="Set your preferences"
-              description="Pick the industries and brands you care about — open the Settings menu to set them."
+              description="Pick the industries and brands you care about to personalise this feed."
+              cta={{
+                label: "Set preferences",
+                onClick: () => setPrefsModalOpen(true),
+                variant: "default",
+              }}
             />
           ) : (
             <InsightsV2EmptyState
