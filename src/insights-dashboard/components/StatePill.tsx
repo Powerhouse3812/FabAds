@@ -26,10 +26,22 @@
  * (FlaskConical icon, dashed border, mono micro-labels, deliberately
  * unpolished so nobody mistakes it for product UI).
  *
- * Gated behind `import.meta.env.DEV` inside this component itself (not by
+ * Gated on `isInsightsDashboardEnabled()` inside this component itself (not by
  * the caller) — it must never render for end users.
+ *
+ * That is the SAME flag that reveals the dashboard's nav row, and it is
+ * deliberately not `import.meta.env.DEV`. The states are the whole point of
+ * this page — thin, zero, loading and the partial-failure state carry most of
+ * its design argument — and they are reviewed on the deployed build, not on
+ * localhost. A DEV-only pill meant the one person allowed to see the page had
+ * to hand-type `?state=` to see four fifths of it.
+ *
+ * Anyone who has set the flag has already opted in past the nav gate, so
+ * showing them the switcher reveals nothing new. End users, who never set it,
+ * still never see this. Reachable on purpose, never by accident.
  */
 import { FlaskConical } from "lucide-react";
+import { isInsightsDashboardEnabled } from "@/insights-dashboard/lib/access";
 
 import { cn } from "@/lib/utils";
 import {
@@ -67,13 +79,13 @@ const MICRO_LABEL =
   "font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground";
 
 export function StatePill(): JSX.Element | null {
-  // Hooks are called unconditionally (Rules of Hooks) — the DEV gate is a
-  // build-time constant Vite inlines, so this early return is stable across
-  // renders; it just has to come after the hook calls, not before them.
+  // Hooks are called unconditionally (Rules of Hooks). The flag is read once
+  // at module load, so this early return is stable across renders; it just has
+  // to come after the hook calls, not before them.
   const current = useDashboardState();
   const setState = useSetDashboardState();
 
-  if (!import.meta.env.DEV) return null;
+  if (!isInsightsDashboardEnabled()) return null;
 
   return (
     <div
