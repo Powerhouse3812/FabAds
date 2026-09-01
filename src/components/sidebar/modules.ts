@@ -11,6 +11,7 @@ import {
   Compass, Eye, Layers, Rss, TrendingUp,
   Plus,
 } from "lucide-react";
+import { isInsightsDashboardEnabled } from "@/insights-dashboard/lib/access";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -140,11 +141,21 @@ export const MODULES: ModuleDef[] = [
   {
     key: "insights", label: "Industry Insights", icon: Telescope,
     subItems: [
+      // Dashboard overview — module-wide KPIs/long-runners/change-feed/etc.
+      // Kept first: it's the module's own home, everything else below is a
+      // specific working surface.
+      //
+      // GATED. The dashboard runs on fabricated data, so the nav row is hidden
+      // unless dev or the flag is set — see insights-dashboard/lib/access.ts.
+      // The ROUTE stays registered either way: a shared /insights/overview link
+      // (and its ?state= variants) must keep working, since that is how the
+      // thing is reviewed. Hidden from browsing, reachable on purpose.
+      ...(isInsightsDashboardEnabled()
+        ? [{ label: "Home", path: "/insights/overview", icon: LayoutDashboard }]
+        : []),
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
       // remaining items continue to point at v1 routes until each gets its
       // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.
-      // Home is the module landing page — first item, kept ahead of My feeds.
-      { label: "Home",      path: "/insights/overview",    icon: LayoutDashboard },
       { label: "My feeds",  path: "/insights-v2/feed",     icon: Rss },
       { label: "Discover",  path: "/insights/discover",    icon: Compass },
       { label: "Trends",    path: "/insights/trends",      icon: TrendingUp },

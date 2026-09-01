@@ -91,18 +91,20 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
      Genuinely better on a phone: it is a scroll-and-consume surface, and its
      grids already start at 1 column. */
   { pattern: "/insights-v2/feed", support: "full", label: "My feeds" },
-  // Home + Trends arrived with the Industry Insights merge, which predates the
-  // mobile shell — neither had a responsive pass, so both stay BLOCKED. They
-  // would fail closed via CATCH_ALL anyway; declared explicitly so the gate
-  // copy names the actual surface instead of reading generic, per the
-  // "nav-visible modules that are desktop-only" convention below. Exact
-  // patterns, and no /insights/* splat exists, so ordering here is safe.
+  // Home + Trends are both desktop-only and neither has had a responsive pass.
+  // Home is the Industry Insights Dashboard (src/insights-dashboard) that
+  // replaced the older insights-home block grid; Trends arrived with the
+  // Industry Insights merge, which predates the mobile shell. Both would fail
+  // closed via CATCH_ALL anyway; declared explicitly so the gate copy names
+  // the actual surface instead of reading generic, per the "nav-visible
+  // modules that are desktop-only" convention below. Exact patterns, and no
+  // /insights/* splat exists, so ordering here is safe.
   {
     pattern: "/insights/overview",
     support: "blocked",
-    label: "Home",
+    label: "Insights Home",
     reason:
-      "The Insights Home dashboard tiles thirteen blocks across a wide grid.",
+      "The overview packs a wide KPI strip, two side-by-side chart rows and a multi-column domain table that need real width to read.",
     fallback: TO_FEED,
   },
   {

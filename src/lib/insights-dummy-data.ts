@@ -191,10 +191,18 @@ const PRIMARY_TEXT_BY_INDUSTRY: Record<string, string[]> = {
   ],
 };
 
-// Exported so the Industry Insights angle-mix selector
-// (src/insights-home/lib/homeSelectors.ts) can bucket ads by the intent this
-// bank is ALREADY grouped by — six contiguous groups of five, in the comment
-// order below — instead of guessing at a classification.
+// Grouped by intent — six contiguous groups of five, in the comment order
+// below — so an angle-mix selector can bucket ads by a classification this
+// bank ALREADY encodes instead of guessing at one.
+//
+// The original external consumer was the old insights-home angle-mix
+// selector, deleted along with that module. Its replacement,
+// `src/insights-dashboard/lib/fixtures.ts`, keeps a verbatim mirror of this
+// bank regrouped into an `AngleKey` record rather than importing it, so the
+// only remaining reader is `pick(HEADLINES_BY_INTENT, …)` below. Keep the two
+// in sync: `angleForHeadline()` resolves a headline to its angle by exact
+// string match, so editing a headline here without updating that mirror
+// silently drops it out of every angle bucket.
 export const HEADLINES_BY_INTENT = [
   // Question
   "Tired of slow tools?", "Want better skin in 30 days?", "Ready to ship faster?",

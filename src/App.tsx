@@ -253,6 +253,11 @@ const App = () => (
                     so existing inbound links / bookmarks don't 404. */}
                 <Route path="insights" element={<Navigate to="/insights-v2/feed" replace />} />
                 <Route path="insights/intelligence" element={<Navigate to="/insights-v2/feed" replace />} />
+                {/* Industry Insights Dashboard — new overview landing for the
+                    whole module (KPIs, long-runners, change feed, cadence,
+                    angle mix, you-vs-market, share of voice, domains, rail).
+                    Dummy-data prototype; own state via ?state= (populated /
+                    thin / zero), see src/insights-dashboard/state. */}
                 <Route path="insights/overview" element={<InsightsOverview />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
                 <Route path="insights/trends" element={<TrendsPage />} />

@@ -145,7 +145,17 @@ function AppLayoutInner() {
               ? "flex-1 min-h-0 overflow-hidden md:h-full"
               : // On mobile this div IS the scroller (main is overflow-hidden);
                 // on desktop main scrolls and this stays as it was.
-                "flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 md:p-4 2xl:p-5",
+                //
+                // The md: overrides are load-bearing, do not drop them. Above
+                // 768px `main` becomes the scroller (`md:overflow-auto`) and
+                // this div grows to full content height — so `overflow-y-auto`
+                // leaves it a scroll container that can never scroll, and
+                // `overscroll-contain` then refuses to chain the wheel up to
+                // `main`. Net effect: no desktop page scrolls by wheel at all.
+                // The two utilities are correct on mobile and must simply stop
+                // applying at md, which is what the comment above always
+                // assumed.
+                "flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 md:overflow-visible md:overscroll-auto md:p-4 2xl:p-5",
           )}
         >
           <MobileRouteGate>

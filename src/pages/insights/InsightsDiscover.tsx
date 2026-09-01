@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { DUMMY_ADS } from "@/lib/insights-dummy-data";
 import { InsightAdCard } from "@/components/insights/InsightAdCard";
 import { InsightAdGridSkeleton } from "@/components/insights/InsightAdGridSkeleton";
-import { InsightsFilterBar, DEFAULT_FILTERS, type InsightsFilters, type InsightsViewTab } from "@/components/insights/InsightsFilterBar";
+import { InsightsFilterBar, type InsightsFilters, type InsightsViewTab } from "@/components/insights/InsightsFilterBar";
 import { MobileInsightsTabs } from "@/components/insights/MobileInsightsTabs";
 import { InsightsPagination } from "@/components/insights/InsightsPagination";
 import { InsightAdDetailDrawer } from "@/components/insights/InsightAdDetailDrawer";
@@ -14,9 +14,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Search, X } from "lucide-react";
-import { angleForAd } from "@/insights-home/lib/homeSelectors";
 import type { InsightAd } from "@/lib/insights-dummy-data";
+import {
+  angleForHeadline,
+  ANGLE_LABELS,
+  daysRunningFor,
+  tierFor,
+} from "@/insights-dashboard/lib/fixtures";
+import type { AngleKey, LongRunnerTier } from "@/insights-dashboard/lib/types";
 
 /** Mirrors the <TabsTrigger> set below — the fold source for the mobile
  *  Filters sheet's "View" group (Maalik, 2026-08-11): a surface toggle above
@@ -29,6 +36,25 @@ const VIEW_TABS: InsightsViewTab[] = [
   { value: "platform", label: "By Platform" },
 ];
 
+/** Human labels for `?longevity=`. Mirrors `ANGLE_LABELS`'s role for `?angle=`. */
+const LONGEVITY_LABELS: Readonly<Record<LongRunnerTier, string>> = {
+  testing: "Testing",
+  working: "Working",
+  proven: "Proven",
+};
+
+/**
+ * Creative-maturity tier for one ad, for the `?longevity=` filter.
+ *
+ * Delegates to `daysRunningFor` + `tierFor` in
+ * `src/insights-dashboard/lib/fixtures.ts` — the single source of truth also
+ * used by the long-runner gallery — so a card's tier here always agrees with
+ * that gallery's tier for the same ad.
+ */
+function longevityTierForAd(ad: InsightAd): LongRunnerTier {
+  return tierFor(daysRunningFor(ad));
+}
+
 /**
  * InsightsDiscover — paginated grid of all ads, filterable + searchable.
  *
@@ -39,16 +65,15 @@ const VIEW_TABS: InsightsViewTab[] = [
  *   ?page=<n>                            (omit on 1)
  *   ?perPage=<n>                         (omit on 12)
  *   ?q=<text>                            (filter: search)
- *   ?angle=<bucket>                      (filter: creative angle — the Home
- *                                         page's AngleMixDonut links here;
- *                                         buckets come from angleForAd() in
- *                                         src/insights-home/lib/homeSelectors.ts
- *                                         so slice share and filtered count
- *                                         are the same partition)
  *   ?industry=<key>                      (filter: industry)
  *   ?platform=<key>                      (filter: platform)
  *   ?status=<key>                        (filter: status)
  *   ?country=<key>                       (filter: country)
+ *   ?angle=<angleKey>                    (filter: copy angle — question |
+ *                                          stat | urgency | benefit |
+ *                                          curiosity | direct)
+ *   ?longevity=testing|working|proven    (filter: creative maturity tier)
+ *   ?domain=<domain>                     (filter: single advertiser domain)
  *   ?ad=<id>                             (opens InsightAdDetailDrawer)
  *   ?modal=save-to-board&modal-target=<id>  (opens SaveToBoardModal)
  *   ?loading=1                           (demo flag — forces skeleton)
@@ -59,6 +84,20 @@ const VIEW_TABS: InsightsViewTab[] = [
  * modal strips ONLY its own params and preserves all others. Deep-link
  * safety: if `?ad=<id>` references a missing ad, the drawer silently
  * doesn't open and the param is stripped.
+ *
+ * `angle` and `longevity` are the same navigation the Industry Insights
+ * Dashboard's angle-mix donut and long-runner gallery promise
+ * (`/insights/discover?angle=<angleKey>`, `?longevity=<tier>`): `angle` is
+ * resolved per-ad via `angleForHeadline` and `longevity` via the same
+ * days-running derivation the gallery uses (both from
+ * `@/insights-dashboard/lib/fixtures`), so a click from a dashboard slice
+ * returns exactly the set that slice claimed. `domain` is a plain equality
+ * match on `InsightAd.domain` — "everything this advertiser is running".
+ * Like the other filters, an unrecognised value for any of the three just
+ * filters to zero rows rather than being validated/stripped — the existing
+ * empty state's "Clear filters" already covers that case. All three render
+ * as removable chips (same Badge + X pattern as InsightsFilterBar's own
+ * applied-filters row) in a dashboard-origin filter row above the grid.
  */
 const DEFAULT_PER_PAGE = 12;
 
@@ -85,23 +124,13 @@ export default function InsightsDiscover() {
     [searchParams],
   );
 
-  // Creative-angle filter. Kept OUT of InsightsFilters (and so out of the
-  // filter bar's own controls) because it isn't a field on InsightAd — it's a
-  // derived bucket. It gets its own removable chip below instead, so the user
-  // can always see why the grid is narrowed and get out of it in one click.
+  // Dashboard-origin filters — kept outside `InsightsFilters` (owned by
+  // InsightsFilterBar) since they don't have a matching select control there.
+  // Same read/write conventions as the filters above: plain strings off the
+  // URL, `{ replace: true }` writes, page reset on change.
   const angle = searchParams.get("angle") ?? "";
-
-  const clearAngle = useCallback(() => {
-    setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
-        sp.delete("angle");
-        sp.delete("page");
-        return sp;
-      },
-      { replace: true },
-    );
-  }, [setSearchParams]);
+  const longevity = searchParams.get("longevity") ?? "";
+  const domainFilter = searchParams.get("domain") ?? "";
 
   const adId = searchParams.get("ad");
   const modal = searchParams.get("modal");
@@ -182,6 +211,47 @@ export default function InsightsDiscover() {
     },
     [setSearchParams],
   );
+
+  /** Setter for the three dashboard-origin filters. Same conventions as
+   *  `setFilters` above: omit empties, reset pagination, `{ replace: true }`. */
+  const setDashboardFilter = useCallback(
+    (key: "angle" | "longevity" | "domain", next: string) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next) sp.set(key, next);
+          else sp.delete(key);
+          sp.delete("page");
+          return sp;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  /** Clears every filter — the five in `InsightsFilters` plus the three
+   *  dashboard-origin ones. `setFilters(DEFAULT_FILTERS)` alone would leave a
+   *  `?angle=`/`?longevity=`/`?domain=` filter in place, stranding the zero
+   *  state's "Clear filters" button on a permanently-empty grid. */
+  const clearAllFilters = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.delete("q");
+        sp.delete("industry");
+        sp.delete("platform");
+        sp.delete("status");
+        sp.delete("country");
+        sp.delete("angle");
+        sp.delete("longevity");
+        sp.delete("domain");
+        sp.delete("page");
+        return sp;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   const openAd = useCallback(
     (ad: InsightAd) => {
@@ -280,7 +350,9 @@ export default function InsightsDiscover() {
     }
   }, [saveTargetId, setSearchParams]);
 
-  // ── Filter pipeline (unchanged) ────────────────────────────────────
+  // ── Filter pipeline (existing filters unchanged; angle/longevity/domain
+  //    are new, applied unconditionally — there's no tab that already scopes
+  //    on them the way "industry"/"platform" tabs do above) ───────────────
   let ads = DUMMY_ADS;
   if (tab === "trending") ads = ads.filter((_, i) => i % 3 === 0);
   if (tab === "industry" && filters.industry) ads = ads.filter((a) => a.industry === filters.industry);
@@ -289,10 +361,15 @@ export default function InsightsDiscover() {
     const q = filters.search.toLowerCase();
     ads = ads.filter((a) => a.pageName.toLowerCase().includes(q) || a.headline.toLowerCase().includes(q));
   }
-  if (angle) ads = ads.filter((a) => angleForAd(a) === angle);
   if (filters.industry && tab !== "industry") ads = ads.filter((a) => a.industry === filters.industry);
   if (filters.platform && tab !== "platform") ads = ads.filter((a) => a.platforms.includes(filters.platform as any));
   if (filters.status) ads = ads.filter((a) => a.status === filters.status);
+  // An unrecognised angle/longevity value simply matches nothing here — see
+  // file header. `angleForHeadline` and `longevityTierForAd` always return a
+  // real key, so this is a plain equality check, never a crash.
+  if (angle) ads = ads.filter((a) => angleForHeadline(a.headline) === angle);
+  if (longevity) ads = ads.filter((a) => longevityTierForAd(a) === longevity);
+  if (domainFilter) ads = ads.filter((a) => a.domain === domainFilter);
 
   const total = ads.length;
   const activeCount = ads.filter((a) => a.status === "active").length;
@@ -309,8 +386,8 @@ export default function InsightsDiscover() {
   // other than "scrolled for more" — same rationale as setTab/setFilters
   // deleting `?page=` for the desktop pager above.
   const mobileFilterKey = useMemo(
-    () => JSON.stringify({ tab, filters }),
-    [tab, filters],
+    () => JSON.stringify({ tab, filters, angle, longevity, domainFilter }),
+    [tab, filters, angle, longevity, domainFilter],
   );
   useEffect(() => {
     setMobileLoadedCount(DEFAULT_PER_PAGE);
@@ -361,17 +438,61 @@ export default function InsightsDiscover() {
         viewValue={tab}
         onViewChange={setTab}
       />
-      {angle && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Filtered by angle</span>
+      {/* Dashboard-origin filter chips — angle/longevity/domain live outside
+          `InsightsFilters` (InsightsFilterBar has no select for them), so they
+          get their own small applied-filters row rather than a silent,
+          unremovable state. Same Badge + X pattern as InsightsFilterBar's own
+          chip row, shown on every breakpoint (that one is md:-only because its
+          mobile badge count already covers it — these three have no such
+          badge, so hiding them on mobile would make them invisible there). */}
+      {(angle || longevity || domainFilter) && (
+        <div className="bg-muted/30 rounded-lg px-3 py-1.5 flex items-center gap-2 flex-wrap -mt-3">
+          <span className="text-xs text-muted-foreground shrink-0">From dashboard:</span>
+          {angle && (
+            <Badge variant="secondary" className="text-xs gap-1 pr-1">
+              Angle: {ANGLE_LABELS[angle as AngleKey] ?? angle}
+              <button
+                type="button"
+                aria-label="Remove angle filter"
+                className="ml-0.5 hover:text-foreground"
+                onClick={() => setDashboardFilter("angle", "")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {longevity && (
+            <Badge variant="secondary" className="text-xs gap-1 pr-1">
+              Longevity: {LONGEVITY_LABELS[longevity as LongRunnerTier] ?? longevity}
+              <button
+                type="button"
+                aria-label="Remove longevity filter"
+                className="ml-0.5 hover:text-foreground"
+                onClick={() => setDashboardFilter("longevity", "")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {domainFilter && (
+            <Badge variant="secondary" className="text-xs gap-1 pr-1">
+              Domain: {domainFilter}
+              <button
+                type="button"
+                aria-label="Remove domain filter"
+                className="ml-0.5 hover:text-foreground"
+                onClick={() => setDashboardFilter("domain", "")}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
           <button
             type="button"
-            onClick={clearAngle}
-            aria-label={`Remove the ${angle} angle filter`}
-            className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline ml-auto"
+            onClick={clearAllFilters}
           >
-            <span className="min-w-0 truncate" title={angle}>{angle}</span>
-            <X className="h-3 w-3 shrink-0" aria-hidden />
+            Reset filters
           </button>
         </div>
       )}
@@ -382,18 +503,7 @@ export default function InsightsDiscover() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Search className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-muted-foreground">No ads match your filters.</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // The angle chip is a filter too — a "Clear filters" that left
-                // it applied would be a dead end on an empty grid.
-                clearAngle();
-                setFilters(DEFAULT_FILTERS);
-              }}
-            >
-              Clear filters
-            </Button>
+            <Button variant="outline" size="sm" onClick={clearAllFilters}>Clear filters</Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">

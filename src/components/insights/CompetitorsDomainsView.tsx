@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Globe2, ExternalLink, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,10 +10,144 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useDomainRows, type DomainRow } from "@/insights-home/lib/homeSelectors";
 import { useInsightCompetitors } from "@/hooks/use-insight-competitors";
 import { markCompetitorAdded } from "@/lib/insights-setup";
+import { DUMMY_ADS, type InsightAd } from "@/lib/insights-dummy-data";
 import { toast } from "sonner";
+
+/* ────────────────────── domain rows (inlined) ──────────────────────────
+   `DomainRow` + `useDomainRows` used to live in
+   `src/insights-home/lib/homeSelectors.ts`. That module was the older
+   Industry Insights "13 blocks" dashboard and was deleted when
+   `src/insights-dashboard` replaced it at /insights/overview.
+
+   They are inlined here rather than repointed at the new dashboard's
+   same-named exports, which are NOT compatible substitutes:
+   `insights-dashboard`'s `DomainRow` is a discriminated union
+   (ecom | affiliate | funnel) with variant-specific columns, and its
+   `useDomainRows()` takes no arguments and reads `useDashboardState()` —
+   a provider that only wraps /insights/overview, so calling it from this
+   Competitors tab would throw. This is the only consumer left, so the
+   code lives with it. Behaviour is byte-for-byte what it was before.
+
+   Deterministic pseudo-randomness throughout — no Math.random, so a
+   domain's mock economics are stable across renders and reloads.        */
+
+function hashString(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = (hash << 5) - hash + s.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function uniqueDomainAds(): InsightAd[] {
+  const seen = new Set<string>();
+  const out: InsightAd[] = [];
+  for (const ad of DUMMY_ADS) {
+    if (seen.has(ad.domain)) continue;
+    seen.add(ad.domain);
+    out.push(ad);
+  }
+  return out;
+}
+
+function liveAdsForDomain(domain: string): number {
+  return DUMMY_ADS.filter((a) => a.domain === domain && a.status === "active").length;
+}
+
+function economicsForDomain(domain: string): {
+  estSalesPerMonth: string;
+  estVisits: string;
+  products: number;
+} {
+  const h = hashString(`econ:${domain}`);
+  const salesK = 5 + (h % 495); // $5K..$500K
+  const visitsK = 10 + ((h >> 4) % 990); // 10K..1,000K
+  const products = 3 + (h % 120);
+  return {
+    estSalesPerMonth: `$${salesK}K`,
+    estVisits: `${visitsK}K`,
+    products,
+  };
+}
+
+export interface DomainRow {
+  id: string;
+  domain: string;
+  industry: string;
+  liveAds: number;
+  estSalesPerMonth: string;
+  estVisits: string;
+  products: number;
+  platform: string;
+  tracked: boolean;
+}
+
+/**
+ * Tracked domain-type competitors first (mock-backed via
+ * useInsightCompetitors), enriched with deterministic mock economics; padded
+ * with untracked domains from the dummy ad corpus so the table always has
+ * body.
+ */
+function useDomainRows(limit = 12): { rows: DomainRow[]; loading: boolean } {
+  const { competitors, isLoading } = useInsightCompetitors();
+
+  const rows = useMemo(() => {
+    if (isLoading) return [];
+    const safeLimit = Math.max(0, limit);
+
+    const trackedRows: DomainRow[] = competitors
+      .filter((c) => c.competitor_type === "domain")
+      .map((c) => {
+        const domain: string = c.identifier;
+        const matchingAd = DUMMY_ADS.find((a) => a.domain === domain);
+        const econ = economicsForDomain(domain);
+        return {
+          id: `domain-${c.id}`,
+          domain,
+          industry: matchingAd?.industry ?? "E-commerce",
+          liveAds: liveAdsForDomain(domain),
+          estSalesPerMonth: econ.estSalesPerMonth,
+          estVisits: econ.estVisits,
+          products: econ.products,
+          platform: matchingAd?.platform ?? "Meta",
+          tracked: true,
+        };
+      });
+
+    const trackedDomainSet = new Set(trackedRows.map((r) => r.domain));
+    const remaining = Math.max(0, safeLimit - trackedRows.length);
+    const untrackedRows: DomainRow[] = remaining
+      ? uniqueDomainAds()
+          .filter((ad) => !trackedDomainSet.has(ad.domain))
+          .slice(0, remaining)
+          .map((ad) => {
+            const econ = economicsForDomain(ad.domain);
+            return {
+              id: `domain-${slug(ad.domain)}`,
+              domain: ad.domain,
+              industry: ad.industry,
+              liveAds: liveAdsForDomain(ad.domain),
+              estSalesPerMonth: econ.estSalesPerMonth,
+              estVisits: econ.estVisits,
+              products: econ.products,
+              platform: ad.platform,
+              tracked: false,
+            };
+          })
+      : [];
+
+    return [...trackedRows, ...untrackedRows].slice(0, safeLimit);
+  }, [competitors, isLoading, limit]);
+
+  return { rows, loading: isLoading };
+}
 
 /**
  * CompetitorsDomainsView — the "Domains" tab inside Competitors
