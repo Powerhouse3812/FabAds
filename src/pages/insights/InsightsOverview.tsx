@@ -1,7 +1,8 @@
 import { useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { AlertTriangle, History, Info, Loader2, RefreshCw } from "lucide-react";
+import { shouldDiscloseSampleData } from "@/insights-dashboard/lib/access";
+import { AlertTriangle, FlaskConical, History, Info, Loader2, RefreshCw } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -405,6 +406,21 @@ function InsightsOverviewContent(): JSX.Element {
             overview of the whole Industry Insights module.
           </p>
           <p className="text-xs text-muted-foreground">{meta.stateNote}</p>
+
+          {/* Sample-data disclosure — outside dev only.
+              Every figure on this page is fabricated. In dev the ?state= pill
+              already frames the page as a lab, but someone arriving from a
+              shared link has no such cue and would reasonably read "20,515 live
+              ads" as their own market. Deliberately not dismissible: a
+              prototype that looks like a live dashboard is the exact failure
+              this module's whole provenance layer exists to prevent. Remove
+              this when the page is wired to real sources, not before. */}
+          {shouldDiscloseSampleData() && (
+            <p className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              <FlaskConical className="h-3 w-3 shrink-0" aria-hidden="true" />
+              Prototype · every figure on this page is sample data
+            </p>
+          )}
         </div>
 
         {/* Disclosure before data. Null in populated / thin / zero — those states
