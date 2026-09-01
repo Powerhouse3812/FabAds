@@ -140,6 +140,10 @@ export const MODULES: ModuleDef[] = [
   {
     key: "insights", label: "Industry Insights", icon: Telescope,
     subItems: [
+      // Dashboard overview — module-wide KPIs/long-runners/change-feed/etc.
+      // Kept first: it's the module's own home, everything else below is a
+      // specific working surface.
+      { label: "Home",       path: "/insights/overview",   icon: LayoutDashboard },
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
       // remaining items continue to point at v1 routes until each gets its
       // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.

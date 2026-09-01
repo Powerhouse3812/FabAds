@@ -113,6 +113,18 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
   // for a screen that doesn't exist on desktop either — "coming soon" is the
   // honest answer.
   { pattern: "/insights/saved", support: "full", label: "Saved Ads" },
+  // Dashboard overview is the one Industry Insights surface that stays
+  // desktop-only: no sibling splat can shadow this exact rule (there is no
+  // `/insights/*` wildcard in this file), so placement here — grouped with
+  // the rest of the module — is safe.
+  {
+    pattern: "/insights/overview",
+    support: "blocked",
+    label: "Insights Home",
+    reason:
+      "The overview packs a wide KPI strip, two side-by-side chart rows and a multi-column domain table that need real width to read.",
+    fallback: TO_FEED,
+  },
 
   /* ── Reports ───────────────────────────────────────────────────────────
      Mobile gets a card list + a detail sheet, never the 12-column table.

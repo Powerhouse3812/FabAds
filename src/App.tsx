@@ -46,6 +46,7 @@ import { planningRoutes } from "@/planning/routes";
 import { planningPrintRoutes } from "@/planning-print/routes";
 import { planningV2Routes } from "@/planning-v2/routes";
 
+import InsightsOverview from "@/pages/insights/InsightsOverview";
 import InsightsDiscover from "@/pages/insights/InsightsDiscover";
 import InsightsBoards from "@/pages/insights/InsightsBoards";
 import InsightsSaved from "@/pages/insights/InsightsSaved";
@@ -251,6 +252,12 @@ const App = () => (
                     so existing inbound links / bookmarks don't 404. */}
                 <Route path="insights" element={<Navigate to="/insights-v2/feed" replace />} />
                 <Route path="insights/intelligence" element={<Navigate to="/insights-v2/feed" replace />} />
+                {/* Industry Insights Dashboard — new overview landing for the
+                    whole module (KPIs, long-runners, change feed, cadence,
+                    angle mix, you-vs-market, share of voice, domains, rail).
+                    Dummy-data prototype; own state via ?state= (populated /
+                    thin / zero), see src/insights-dashboard/state. */}
+                <Route path="insights/overview" element={<InsightsOverview />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
                 <Route path="insights/boards" element={<InsightsBoards />} />
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />
