@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Chrome, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { markExtensionInstalled } from "@/lib/insights-setup";
 
 /**
  * InsightsExtensionCard — footer-pinned install nudge for the FabAds
@@ -302,6 +303,7 @@ export function InsightsExtensionCard() {
           href={EXTENSION_URL}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={markExtensionInstalled}
           className={cn(
             "inline-flex w-fit items-center gap-1 rounded-sm px-2 py-[4px]",
             "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",

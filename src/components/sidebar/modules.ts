@@ -8,7 +8,7 @@ import {
   Workflow, Eraser, Scissors,
   Lightbulb,
   Sparkles, Receipt,
-  Compass, Eye, Layers, Rss,
+  Compass, Eye, Layers, Rss, TrendingUp,
   Plus,
 } from "lucide-react";
 import { isInsightsDashboardEnabled } from "@/insights-dashboard/lib/access";
@@ -158,6 +158,7 @@ export const MODULES: ModuleDef[] = [
       // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.
       { label: "My feeds",  path: "/insights-v2/feed",     icon: Rss },
       { label: "Discover",  path: "/insights/discover",    icon: Compass },
+      { label: "Trends",    path: "/insights/trends",      icon: TrendingUp },
       { label: "Saved Ads", path: "/insights/saved",       icon: Bookmark },
       { label: "Competitor", path: "/insights/competitors", icon: Eye },
       { label: "Board",     path: "/insights/boards",      icon: Layers },

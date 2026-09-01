@@ -53,6 +53,7 @@ import InsightsSaved from "@/pages/insights/InsightsSaved";
 import InsightsBoardDetail from "@/pages/insights/InsightsBoardDetail";
 import InsightsCompetitors from "@/pages/insights/InsightsCompetitors";
 import InsightsV2Feed from "@/pages/insights-v2/InsightsV2Feed";
+import TrendsPage from "@/insights-trends/TrendsPage";
 import ActivityLogs from "@/pages/ActivityLogs";
 import Integrations from "@/pages/Integrations";
 import UMS from "@/pages/UMS";
@@ -259,6 +260,7 @@ const App = () => (
                     thin / zero), see src/insights-dashboard/state. */}
                 <Route path="insights/overview" element={<InsightsOverview />} />
                 <Route path="insights/discover" element={<InsightsDiscover />} />
+                <Route path="insights/trends" element={<TrendsPage />} />
                 <Route path="insights/boards" element={<InsightsBoards />} />
                 <Route path="insights/boards/:id" element={<InsightsBoardDetail />} />
                 <Route path="insights/competitors" element={<InsightsCompetitors />} />

@@ -91,6 +91,30 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
      Genuinely better on a phone: it is a scroll-and-consume surface, and its
      grids already start at 1 column. */
   { pattern: "/insights-v2/feed", support: "full", label: "My feeds" },
+  // Home + Trends are both desktop-only and neither has had a responsive pass.
+  // Home is the Industry Insights Dashboard (src/insights-dashboard) that
+  // replaced the older insights-home block grid; Trends arrived with the
+  // Industry Insights merge, which predates the mobile shell. Both would fail
+  // closed via CATCH_ALL anyway; declared explicitly so the gate copy names
+  // the actual surface instead of reading generic, per the "nav-visible
+  // modules that are desktop-only" convention below. Exact patterns, and no
+  // /insights/* splat exists, so ordering here is safe.
+  {
+    pattern: "/insights/overview",
+    support: "blocked",
+    label: "Insights Home",
+    reason:
+      "The overview packs a wide KPI strip, two side-by-side chart rows and a multi-column domain table that need real width to read.",
+    fallback: TO_FEED,
+  },
+  {
+    pattern: "/insights/trends",
+    support: "blocked",
+    label: "Trends",
+    reason:
+      "Trends pairs a four-tab newsroom with charts that need room to be readable.",
+    fallback: TO_FEED,
+  },
   { pattern: "/insights/discover", support: "full", label: "Discover" },
   { pattern: "/insights/boards", support: "full", label: "Boards" },
   {
@@ -113,18 +137,6 @@ export const MOBILE_ROUTE_POLICY: MobilePolicyRule[] = [
   // for a screen that doesn't exist on desktop either — "coming soon" is the
   // honest answer.
   { pattern: "/insights/saved", support: "full", label: "Saved Ads" },
-  // Dashboard overview is the one Industry Insights surface that stays
-  // desktop-only: no sibling splat can shadow this exact rule (there is no
-  // `/insights/*` wildcard in this file), so placement here — grouped with
-  // the rest of the module — is safe.
-  {
-    pattern: "/insights/overview",
-    support: "blocked",
-    label: "Insights Home",
-    reason:
-      "The overview packs a wide KPI strip, two side-by-side chart rows and a multi-column domain table that need real width to read.",
-    fallback: TO_FEED,
-  },
 
   /* ── Reports ───────────────────────────────────────────────────────────
      Mobile gets a card list + a detail sheet, never the 12-column table.
