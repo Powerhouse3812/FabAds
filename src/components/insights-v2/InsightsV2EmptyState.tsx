@@ -19,7 +19,7 @@ export function InsightsV2EmptyState({
       <Icon className="h-10 w-10 text-muted-foreground/40" />
       <div className="text-center max-w-md">
         <h3 className="text-sm font-medium text-foreground">{title}</h3>
-        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+        {description && <p className="text-xs text-foreground/70 mt-1">{description}</p>}
       </div>
       {cta && (
         <Button size="sm" variant={cta.variant ?? "outline"} onClick={cta.onClick}>

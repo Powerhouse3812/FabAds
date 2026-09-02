@@ -171,12 +171,12 @@ export function SetupChecklist({ className }: { className?: string }): JSX.Eleme
                 <div key={item.key} className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <Check className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <ChecklistLabel item={item} className="text-xs text-muted-foreground" />
+                    <ChecklistLabel item={item} className="text-xs text-foreground/70" />
                   </div>
                   <ChecklistCta
                     item={item}
                     variant="link"
-                    className="h-auto shrink-0 px-0 py-0 text-[11px] font-normal text-muted-foreground"
+                    className="h-auto shrink-0 px-0 py-0 text-[11px] font-normal text-foreground/70"
                   />
                 </div>
               );
@@ -199,7 +199,7 @@ export function SetupChecklist({ className }: { className?: string }): JSX.Eleme
             return (
               <div key={item.key} className="flex items-center gap-2">
                 <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
-                <ChecklistLabel item={item} className="text-xs text-muted-foreground" />
+                <ChecklistLabel item={item} className="text-xs text-foreground/70" />
               </div>
             );
           })}
