@@ -26,13 +26,14 @@
  * this was built from.
  *
  * ── `embedded` ────────────────────────────────────────────────────────────
- * A design critique found this block and the change feed answering the same
- * question — "what happened this week" — and saying overlapping things twice,
- * stacked. The fix folded this INTO the feed rather than deleting either: in
- * `embedded` mode this is just the chip row plus the attribution line, no
- * card shell and no section header, because the host card already supplies
- * both. Standalone mode (unused today, kept for a future consumer) keeps its
- * own header with the title and the attribution inline.
+ * This used to be rendered with `embedded` inside `ChangeFeed`'s card. Maalik's
+ * read on that: "^ new what ????" — the chip row read as an unlabeled mystery
+ * bolted onto a change feed that had nothing to do with it. `ChangeFeed` no
+ * longer mounts this component at all; it now only ever renders changes. This
+ * file is otherwise unchanged and still works standalone (`embedded` false,
+ * the default) for whichever page wants to mount it next — own card shell,
+ * own header, attribution inline. The `embedded` prop stays for that future
+ * consumer rather than being ripped out along with its one caller.
  *
  * ── States ───────────────────────────────────────────────────────────────
  * `isLoading` is checked FIRST, before `available`. In `loading` the brief is
