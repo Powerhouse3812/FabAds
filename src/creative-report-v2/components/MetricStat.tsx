@@ -42,7 +42,7 @@ export function MetricStat({
 
   return (
     <div className={cn("flex flex-col gap-0.5", align === "right" && "items-end", className)}>
-      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-foreground/70">
         {label}
       </span>
       {value !== null ? (
@@ -56,7 +56,7 @@ export function MetricStat({
                 "text-xs font-medium tabular-nums",
                 deltaGood === "good" && "text-primary-text",
                 deltaGood === "bad" && "text-destructive",
-                deltaGood === "muted" && "text-muted-foreground",
+                deltaGood === "muted" && "text-foreground/70",
               )}
             >
               {delta.label}
@@ -64,7 +64,7 @@ export function MetricStat({
           )}
         </div>
       ) : (
-        <span className="text-xs italic text-muted-foreground">{naReason ?? "No data"}</span>
+        <span className="text-xs italic text-foreground/70">{naReason ?? "No data"}</span>
       )}
     </div>
   );

@@ -43,6 +43,17 @@
  * `?domain=` value for "everyone else") AND on your own row (a link to your
  * own domain filter isn't a doorway anywhere new) — both render as plain
  * text, never a dead or lying link.
+ *
+ * YOUR SHARE, ON THE SURFACE: "Your share of live creative" used to be its
+ * own KPI tile; the KPI row that carried it is gone and the number had no
+ * home. `row.you` (an `IndustryShareBrand | null`) already carried it here —
+ * this just stops burying it in the hover-only breakdown. Rendered inline
+ * next to the top-brand callout as `You {sharePct}%`. `row.you` is `null`
+ * when the user doesn't advertise in that industry — a REAL state, not zero,
+ * so it prints "Not advertising here", never a bare dash and never `0%`.
+ * When `row.you` IS the top brand, the top-brand callout already says
+ * "YourBrand (you) X%" (see below), so the extra mark is skipped rather than
+ * repeating the same number twice on one line.
  */
 import { Link } from "react-router-dom";
 import { PieChart } from "lucide-react";
@@ -161,6 +172,27 @@ function IndustryRowView({ row }: { row: IndustryShareRow }) {
             </>
           ) : (
             <span className="italic text-foreground/70">Not yet indexed</span>
+          )}
+          {/* Your share, on the surface — not just in the hover breakdown.
+              Skipped when you're already the top brand above: that callout
+              already reads "YourBrand (you) X%", so this would just repeat
+              the same number. `row.you === null` is a real "don't advertise
+              here" state, never rendered as 0% or a bare dash. */}
+          {!topBrand?.isYou && (
+            <>
+              <span className="shrink-0 text-foreground/70" aria-hidden="true">
+                ·
+              </span>
+              {row.you ? (
+                <span className="shrink-0 tabular-nums text-foreground/70">
+                  You {row.you.sharePct}%
+                </span>
+              ) : (
+                <span className="shrink-0 whitespace-nowrap text-foreground/70">
+                  Not advertising here
+                </span>
+              )}
+            </>
           )}
         </span>
       </div>

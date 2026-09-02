@@ -380,7 +380,7 @@ function TrendRow({
               disabled={actions.briefed}
               onClick={actions.onBrief}
               title={actions.briefed ? "Queued for the weekly brief" : "Brief it"}
-              className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-100"
+              className="h-6 w-6 text-foreground/70 hover:text-foreground disabled:opacity-100"
             >
               <NotebookPen className="h-3 w-3" aria-hidden="true" />
               <span className="sr-only">{actions.briefed ? "Queued" : "Brief it"}</span>
@@ -394,7 +394,7 @@ function TrendRow({
               title={actions.watched ? "Watching" : "Watch"}
               className={cn(
                 "h-6 w-6 hover:text-foreground",
-                actions.watched ? "text-foreground" : "text-muted-foreground",
+                actions.watched ? "text-foreground" : "text-foreground/70",
               )}
             >
               <Bell className={cn("h-3 w-3", actions.watched && "fill-current")} aria-hidden="true" />
@@ -406,7 +406,7 @@ function TrendRow({
               variant="ghost"
               onClick={actions.onDismiss}
               title="Dismiss"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              className="h-6 w-6 text-foreground/70 hover:text-foreground"
             >
               <X className="h-3 w-3" aria-hidden="true" />
               <span className="sr-only">Dismiss</span>
@@ -540,7 +540,7 @@ function LeadChangeCard({
               disabled={actions.briefed}
               onClick={actions.onBrief}
               title={actions.briefed ? "Queued for the weekly brief" : "Brief it"}
-              className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-100"
+              className="h-6 w-6 text-foreground/70 hover:text-foreground disabled:opacity-100"
             >
               <NotebookPen className="h-3 w-3" aria-hidden="true" />
               <span className="sr-only">{actions.briefed ? "Queued" : "Brief it"}</span>
@@ -554,7 +554,7 @@ function LeadChangeCard({
               title={actions.watched ? "Watching" : "Watch"}
               className={cn(
                 "h-6 w-6 hover:text-foreground",
-                actions.watched ? "text-foreground" : "text-muted-foreground",
+                actions.watched ? "text-foreground" : "text-foreground/70",
               )}
             >
               <Bell className={cn("h-3 w-3", actions.watched && "fill-current")} aria-hidden="true" />
@@ -566,7 +566,7 @@ function LeadChangeCard({
               variant="ghost"
               onClick={actions.onDismiss}
               title="Dismiss"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              className="h-6 w-6 text-foreground/70 hover:text-foreground"
             >
               <X className="h-3 w-3" aria-hidden="true" />
               <span className="sr-only">Dismiss</span>

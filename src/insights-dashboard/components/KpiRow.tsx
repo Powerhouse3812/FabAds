@@ -22,6 +22,10 @@
  *    reachable, not printed.
  *  - The per-tile sparkline is gone. Decoration at this size; the delta
  *    already carries direction.
+ *  - ONE exception: the Brands-followed tile prints a second short line under
+ *    its value — the inactive count out of `subNote` (see `inactiveSubLine`).
+ *    That count used to live tooltip-only; see `tileTitle` for why it moved
+ *    onto the surface. No other tile grows a second line.
  *  - The row keeps exactly ONE source line for the whole strip, built from
  *    `PROVENANCE_META` grouped by tier so it can't drift from what the
  *    `Provenance` chip itself would say.
@@ -102,34 +106,56 @@ function DeltaChip({ pct }: { pct: number }) {
 }
 
 /**
- * Tile tooltip: caption (source + freshness) survives here, not printed.
+ * Tile tooltip: caption (source + freshness) only.
  *
- * `subNote` joins it rather than getting a printed line of its own. It is the
- * one signal the deleted "Watchlist health" block carried ("12 followed · 2
- * inactive"), and its headline half is already on the surface twice — as this
- * tile's own value and as the change feed's "2 of 12 inactive brands" stat —
- * so printing it here would cost a row of height to repeat what is visible
- * two blocks down. Without this it was simply unread: the fixture set
- * `subNote` and nothing ever rendered it.
+ * `subNote` used to be folded in here too, on the theory that the Brands-
+ * followed inactive count ("12 followed · 2 inactive") was already visible
+ * elsewhere — as this tile's own value, and as the change feed's "2 of 12
+ * inactive brands" stat — so a tooltip-only mention wouldn't lose the signal.
+ * `DailyBrief` (the component that rendered that change-feed stat) was
+ * unmounted from `ChangeFeed` in a later pass and is now mounted nowhere, so
+ * that second carrier stopped existing and the count became hover-only. It
+ * now prints on the tile's own surface instead — see `inactiveSubLine` and
+ * its use in `KpiTileBody` — so the tooltip goes back to just the caption.
  */
 function tileTitle(tile: KpiTile): string | undefined {
-  return [tile.caption, tile.subNote].filter(Boolean).join(" · ") || undefined;
+  return tile.caption || undefined;
+}
+
+/**
+ * Pulls the "N inactive" clause out of `subNote` verbatim — never recomputes
+ * or reformats the count, just returns the fragment of the string that
+ * already carries it. `subNote` on this row is only ever set on the
+ * Brands-followed tile (`"12 followed · 2 inactive"`), so this only ever
+ * produces a line for that one tile; the other four have no `subNote` and
+ * fall through to `undefined`.
+ */
+function inactiveSubLine(tile: KpiTile): string | undefined {
+  if (!tile.subNote) return undefined;
+  return tile.subNote.split(" · ").find((part) => part.includes("inactive"));
 }
 
 function KpiTileBody({ tile }: { tile: KpiTile }) {
+  const inactiveLine = tile.value !== null ? inactiveSubLine(tile) : undefined;
+
   return (
     <>
       <span className="truncate font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
         {tile.label}
       </span>
 
-      {/* label → value+delta is the whole tile now. */}
+      {/* label → value+delta (+ Brands-followed's inactive line) is the whole tile now. */}
       {tile.value !== null ? (
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
-          <span className="text-2xl font-semibold leading-none text-foreground tabular-nums">
-            {tile.value}
-          </span>
-          {typeof tile.deltaPct === "number" && <DeltaChip pct={tile.deltaPct} />}
+        <div className="flex flex-col gap-0.5">
+          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+            <span className="text-2xl font-semibold leading-none text-foreground tabular-nums">
+              {tile.value}
+            </span>
+            {typeof tile.deltaPct === "number" && <DeltaChip pct={tile.deltaPct} />}
+          </div>
+          {inactiveLine && (
+            <span className="truncate text-[10px] leading-none text-foreground/70">{inactiveLine}</span>
+          )}
         </div>
       ) : (
         <span className="text-xs font-medium italic leading-snug text-foreground/70">
@@ -141,17 +167,21 @@ function KpiTileBody({ tile }: { tile: KpiTile }) {
 }
 
 /**
- * Skeleton for one tile, shaped like `KpiTileBody` — label / value+delta —
- * so first paint occupies the exact footprint the resolved tile will, and
- * swapping in the real content never jumps the layout. Loading and "nothing
- * found yet" render identically otherwise (both hand this row empty
- * collections), so this is what tells them apart.
+ * Skeleton for one tile, shaped like `KpiTileBody` — label / value+delta,
+ * plus a third skeleton line for `brands-followed` — so first paint occupies
+ * the exact footprint the resolved tile will, and swapping in the real
+ * content never jumps the layout. Loading and "nothing found yet" render
+ * identically otherwise (both hand this row empty collections), so this is
+ * what tells them apart.
  */
-function KpiTileSkeleton() {
+function KpiTileSkeleton({ tileKey }: { tileKey: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5 lg:px-4 lg:first:pl-0 lg:last:pr-0">
       <Skeleton className="h-2.5 w-16" />
-      <Skeleton className="h-7 w-14" />
+      <div className="flex flex-col gap-0.5">
+        <Skeleton className="h-7 w-14" />
+        {tileKey === "brands-followed" && <Skeleton className="h-2.5 w-14" />}
+      </div>
     </div>
   );
 }
@@ -204,7 +234,7 @@ export function KpiRow({ className }: { className?: string }): JSX.Element {
           )}
         >
           {kpis.primary.map((tile) => (
-            <KpiTileSkeleton key={tile.key} />
+            <KpiTileSkeleton key={tile.key} tileKey={tile.key} />
           ))}
         </div>
       </section>
