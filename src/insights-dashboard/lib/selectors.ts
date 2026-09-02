@@ -45,13 +45,12 @@ import { useDashboardState } from "@/insights-dashboard/state/DashboardState";
 import {
   CADENCE_WEEKS,
   DATA_SOURCE_ORDER,
-  ERROR_SCAN_AGE_DAYS,
   LONG_RUNNER_TIER_BOUNDS,
   QUIET_THRESHOLD_DAYS,
   SATURATION_CAVEAT_DAYS,
   SIGNAL_RECURRENCE_GATE,
   STALE_AFTER_DAYS,
-  STORELEADS_NA_REASON,
+  brandForDomain,
   formatInt,
   getDashboardFixture,
   isoDaysAgo,
@@ -100,6 +99,13 @@ import type {
   ShareOfVoiceRow,
   StalenessInfo,
   StalenessLevel,
+  SuggestionAction,
+  SuggestionCard,
+  SuggestionKind,
+  SuggestionsView,
+  TrendsSourceCount,
+  TrendsSourceKey,
+  TrendsSummary,
   WatchItem,
   WatchStatus,
   WatchlistHealth,
@@ -143,13 +149,20 @@ export type {
   SetupChecklistItem,
   StalenessInfo,
   StalenessLevel,
+  SuggestionAction,
+  SuggestionCard,
+  SuggestionKind,
+  SuggestionsView,
+  TrendsSourceCount,
+  TrendsSourceKey,
+  TrendsSummary,
   WatchItem,
   WatchStatus,
 };
 
 // Runtime constants worth re-exporting through the seam, so a block never has
 // to import `./fixtures` to write an honest sentence about a missing figure.
-export { DATA_SOURCE_ORDER, ERROR_SCAN_AGE_DAYS, STALE_AFTER_DAYS, STORELEADS_NA_REASON };
+export { DATA_SOURCE_ORDER, STALE_AFTER_DAYS };
 
 // ═════════════════════════════════════════════════════════════════════════
 // §0  Local pure helpers (no clock reads, no randomness)
@@ -241,9 +254,17 @@ export interface DashboardMetaView {
   state: DashboardState;
   meta: DashboardMeta;
   isPopulated: boolean;
-  isThin: boolean;
-  isZero: boolean;
-  /** True only when we have actually indexed something. */
+  /** Renamed from `isThin`. */
+  isFirstTime: boolean;
+  /** Renamed from `isZero`. */
+  isEmptyState: boolean;
+  /**
+   * True whenever the page has real indexed figures to show — which, since
+   * the market-preview data fills `firstTime` / `empty` too, is now true in
+   * every settled state. It stops being a "should I show an empty state"
+   * gate (there is no such gate any more — every block renders in every
+   * state) and is kept as a general freshness signal.
+   */
   hasIndexedData: boolean;
   dataAsOfLabel: string;
   lastScanLabel: string;
@@ -259,7 +280,7 @@ export interface DashboardMetaView {
   newSignalsThisWeek: number;
   generatedAtISO: string;
 
-  // ── Fetch health (added with the `loading` / `error` states) ────────────
+  // ── Fetch health (added with the `loading` state) ────────────────────────
 
   /**
    * TRUE ONLY IN `loading`. Check this BEFORE any `isEmpty` branch: in
@@ -267,15 +288,19 @@ export interface DashboardMetaView {
    * Render skeletons, never an empty state.
    */
   isLoading: boolean;
-  /** True only in `error` — at least one source did not answer. */
+  /**
+   * Always `false` now that `error` (a partial source failure) has been
+   * removed as a state. Kept because `useDashboardStatus()` — a real,
+   * consumed hook — still exposes it as part of its stable shape.
+   */
   isError: boolean;
-  /** True in `populated` / `thin` / `zero`: the fetch finished and worked. */
+  /** True in every state except `loading`: the fetch finished and worked. */
   isSettled: boolean;
   /** All three upstreams, fixed order, in every state. */
   sources: DataSourceStatus[];
-  /** Only the ones that failed. `[]` outside `error`. */
+  /** Sources that failed. Always `[]` now — see `isError`. */
   failedSources: DataSourceStatus[];
-  /** Provenance tiers whose source is down. `["estimated"]` in `error`. */
+  /** Provenance tiers whose source is down. Always `[]` now — see `isError`. */
   degradedTiers: ProvenanceTier[];
   /** How old the data on screen is. Present in every state. */
   staleness: StalenessInfo;
@@ -292,11 +317,11 @@ export function useDashboardMeta(): DashboardMetaView {
       state,
       meta,
       isPopulated: state === "populated",
-      isThin: state === "thin",
-      isZero: state === "zero",
+      isFirstTime: state === "firstTime",
+      isEmptyState: state === "empty",
       isLoading: meta.isLoading,
-      isError: state === "error",
-      isSettled: !meta.isLoading && state !== "error",
+      isError: false,
+      isSettled: !meta.isLoading,
       sources: meta.sources,
       failedSources: meta.failedSources,
       degradedTiers: meta.degradedTiers,
@@ -408,7 +433,11 @@ export function useDashboardStatus(): DashboardStatusView {
     const sourcesByKey = {} as Record<DataSourceKey, DataSourceStatus>;
     for (const s of sources) sourcesByKey[s.key] = s;
 
-    const failedSources = sources.filter((s) => s.state === "failed");
+    // `DataSourceState` no longer has a "failed" member — nothing in this
+    // model fails mid-scan any more, only `pending`. Always `[]`; kept typed
+    // as `DataSourceStatus[]` rather than deleted because `useDashboardStatus`
+    // is a real, consumed hook and this is part of its stable return shape.
+    const failedSources: DataSourceStatus[] = [];
     const pendingSources = sources.filter((s) => s.state === "pending");
     const okSources = sources.filter((s) => s.state === "ok");
 
@@ -1539,7 +1568,7 @@ export function useMyBrandVsMarket(): MyBrandVsMarketView {
     const liveAdsBaselineLabel = watchLiveAds.length
       ? `Median across the ${watchLiveAds.length} brands you follow`
       : domainLiveAds.length
-        ? `Median across the ${domainLiveAds.length} domains in your domain table`
+        ? `Median across the ${domainLiveAds.length} domains FabAds has indexed`
         : "No indexed advertisers to compare against";
 
     // Baseline 2 — new ads per week per advertiser. The cadence chart is the
@@ -1596,7 +1625,7 @@ export function useMyBrandVsMarket(): MyBrandVsMarketView {
                 lifespanTile?.naReason ?? "no indexed ads to compute a median from",
             }
           : {}),
-        marketLabel: "Median across live ads in your followed industries",
+        marketLabel: "Median across live ads in the industries FabAds tracks",
         verdict: verdictFor(myBrand.avgCreativeLifespanDays, lifespanBaseline),
       },
     ];
@@ -1655,6 +1684,12 @@ export interface CreativeShareRow {
   /** All live ads indexed in this industry — the denominator. */
   totalLiveAds: number;
   you: { name: string; creativeSharePct: number; adCount: number };
+  /**
+   * False when no brand is configured for this industry — `you` above is a
+   * `0` placeholder, not a measured fact. Same convention as
+   * `ShareOfVoiceRow.hasYourData`, which this passes through unchanged.
+   */
+  hasYourData: boolean;
   leaders: Array<{ domain: string; creativeSharePct: number; adCount: number; rank: number }>;
   /** Everything outside you + the named leaders. Always >= 0. */
   longTailPct: number;
@@ -1679,6 +1714,8 @@ export interface CreativeShareOfVoiceView {
   strongest: CreativeShareRow | null;
   /** Industry where your creative share is lowest. */
   weakest: CreativeShareRow | null;
+  /** True when at least one row has `hasYourData`. False in `empty`. */
+  hasAnyYourData: boolean;
   /** Nothing resolved yet — render bar skeletons, not the empty state. */
   isLoading: boolean;
 }
@@ -1748,6 +1785,7 @@ export function useShareOfVoice(): CreativeShareOfVoiceView {
           creativeSharePct: row.you.pct,
           adCount: row.you.adCount,
         },
+        hasYourData: row.hasYourData,
         leaders,
         longTailPct,
         longTailAdCount,
@@ -1770,6 +1808,7 @@ export function useShareOfVoice(): CreativeShareOfVoiceView {
       basisNote: CREATIVE_SOV_BASIS_NOTE,
       strongest: ranked.length ? ranked[0] : null,
       weakest: ranked.length ? ranked[ranked.length - 1] : null,
+      hasAnyYourData: rows.some((r) => r.hasYourData),
       isLoading: meta.isLoading,
     };
   }, [state]);
@@ -1901,30 +1940,10 @@ export function isFunnelRow(row: DomainRow): row is FunnelDomainRow {
   return row.type !== "ecom" && row.type !== "affiliate";
 }
 
-/**
- * Why one CELL has no value, or `null` when it does.
- *
- * CALL THIS BEFORE FORMATTING ANY DOMAIN CELL. In the `error` state an ecom
- * row's `estSalesPerMonth` and `estVisits` are `null`, and a generic
- * `format: "usd"` renderer would happily print `$0` — which reads as "this
- * store sells nothing" when the truth is "StoreLeads never answered". A
- * non-null return is the sentence to render in place of the number:
- *
- *   const na = domainCellNaReason(row, col.key);
- *   return na
- *     ? <span className="text-xs italic text-muted-foreground">{na}</span>
- *     : formatCell(row[col.key], col.format);
- *
- * Returns null in every state but `error`, so the healthy path is unchanged.
- */
-export function domainCellNaReason(row: DomainRow, columnKey: string): string | null {
-  return row.unavailable?.[columnKey] ?? null;
-}
-
-/** True when any cell in this row is missing because a source failed. */
-export function domainRowHasUnavailable(row: DomainRow): boolean {
-  return Boolean(row.unavailable && Object.keys(row.unavailable).length > 0);
-}
+// `domainCellNaReason` / `domainRowHasUnavailable` were removed with the
+// `error` state: `DomainRowBase.unavailable` no longer exists on the type —
+// nothing fails mid-table any more, so no domain cell is ever missing for a
+// source-health reason. Neither had a consumer outside this file.
 
 export const DOMAIN_VARIANT_LABELS: Readonly<Record<DomainVariant, string>> = {
   ecom: "Ecom stores",
@@ -1987,25 +2006,6 @@ export interface DomainRowsView {
   sampleNote: string;
   /** Nothing resolved yet — render row skeletons, not the empty state. */
   isLoading: boolean;
-  /**
-   * Column key → why every cell of that column is blank, for columns whose
-   * source failed. `{}` in every state but `error`, where it is
-   * `{ estSalesPerMonth: "StoreLeads did not respond to the last scan",
-   *    estVisits: "…" }`.
-   *
-   * Use it for the HEADER treatment (mark the column as unavailable once,
-   * at the top) and `domainCellNaReason(row, key)` for the cells.
-   */
-  unavailableColumns: Record<string, string>;
-  /** `Object.keys(unavailableColumns)` — handy for a quick `includes` check. */
-  unavailableColumnKeys: string[];
-  /** True when at least one column lost its source. */
-  hasUnavailableColumns: boolean;
-  /**
-   * One-line disclosure for the table footer, naming the source and the
-   * columns it took down. Null when every column is filled.
-   */
-  degradedNote: string | null;
 }
 
 /**
@@ -2022,18 +2022,6 @@ export function useDomainRows(): DomainRowsView {
   return useMemo<DomainRowsView>(() => {
     const { domains, domainTypeCounts, meta } = getDashboardFixture(state);
     const rows = domains;
-
-    // Column-level unavailability is a rollup of the cell-level `unavailable`
-    // maps the fixture puts on each row — derived, never declared twice, so
-    // the header and the cells cannot disagree about which column is down.
-    const unavailableColumns: Record<string, string> = {};
-    for (const row of rows) {
-      if (!row.unavailable) continue;
-      for (const [key, reason] of Object.entries(row.unavailable)) {
-        unavailableColumns[key] = reason;
-      }
-    }
-    const unavailableColumnKeys = Object.keys(unavailableColumns);
 
     const visibleTypeCounts: Record<DomainType, number> = {
       ecom: 0,
@@ -2092,21 +2080,6 @@ export function useDomainRows(): DomainRowsView {
         ? `Showing ${rows.length} of ${formatInt(domainTypeCounts.total)} indexed domains, ordered by live ads within each business model.`
         : "",
       isLoading: meta.isLoading,
-      unavailableColumns,
-      unavailableColumnKeys,
-      hasUnavailableColumns: unavailableColumnKeys.length > 0,
-      degradedNote: unavailableColumnKeys.length
-        ? `${unavailableColumnKeys
-            .map(
-              (key) =>
-                DOMAIN_COLUMNS.ecom.find((c) => c.key === key)?.label ?? key,
-            )
-            .join(" and ")} ${plural(
-            unavailableColumnKeys.length,
-            "is",
-            "are",
-          )} blank on every row: ${unavailableColumns[unavailableColumnKeys[0]]}. Everything else in this table is observed and unaffected.`
-        : null,
     };
   }, [state]);
 }
@@ -2915,4 +2888,323 @@ export function useSetupChecklist(): SetupChecklistView {
       isLoading: meta.isLoading,
     };
   }, [state]);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// §16  Trends teaser — numbers only
+// ═════════════════════════════════════════════════════════════════════════
+
+/**
+ * The hook's return shape. Identical to `TrendsSummary` — there is no
+ * derived convenience beyond what `fixtures.ts` already computes per state —
+ * but named `...View` to match every other hook on this seam.
+ */
+export type TrendsSummaryView = TrendsSummary;
+
+/**
+ * A numbers-only teaser for the Industry Insights Trends newsroom: counts
+ * per source, a total, how many are new since the last check, and when that
+ * check happened. No stories, no cards — the block exists so the user clicks
+ * through to `/insights/trends`, not so they can read Trends here.
+ *
+ * Trends is fed by Google Trends and news/social sources, not by the Meta Ad
+ * Library or StoreLeads scan behind the rest of this page, so `error` here
+ * reads exactly like `populated` — see `TRENDS_SUMMARY_LIVE` in
+ * `fixtures.ts`. `thin` and `zero` are honest zeros: `isEmpty: true` and
+ * `newUpdates: null` with a reason, never a fabricated count for a workspace
+ * that hasn't checked Trends yet. `loading` hands back the same zeros with
+ * `isLoading: true` — check that flag before `isEmpty`, exactly like every
+ * other hook on this seam.
+ */
+export function useTrendsSummary(): TrendsSummaryView {
+  const state = useDashboardState();
+  return useMemo<TrendsSummaryView>(() => {
+    const { trends } = getDashboardFixture(state);
+    return trends;
+  }, [state]);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// §17  "What to try next" — suggestions
+// ═════════════════════════════════════════════════════════════════════════
+//
+// EVERY number here is read off a hook another block already renders —
+// `useAngleMix()`, `useLongRunners()`, `useMovers()`, `useMyBrandVsMarket()`
+// — never recomputed from the fixture directly. That is the whole defence
+// against the failure this block exists to avoid: two blocks on one page
+// disagreeing about the same advertiser's ad count. Nothing here is
+// authored copy except the sentence templates; every number, the hook
+// quote, and the saturation caveat are values those hooks already computed.
+//
+// The word "AI" is BANNED on this block (Maalik, explicit). No sparkle icon,
+// no "powered by", no model name.
+
+const SUGGESTION_KIND_LABELS: Readonly<Record<SuggestionKind, string>> = {
+  angle: "Angle",
+  hook: "Hook",
+  format: "Format",
+  follow: "Follow",
+};
+
+/**
+ * `StudioBrandAdForm.tsx` reads `?brand=` / `?output=` / `?preset=` via
+ * `useSearchParams` but NOT `?hook=` / `?angle=` (verified against
+ * `StudioBrandAdForm.tsx:72-79`) — so a navigate to this route carries the
+ * chosen output type, never a hook or an angle. `works` on each action below
+ * reflects exactly that split; do not change one without the other.
+ */
+const GENIE_BRAND_AD_TEXT_HREF = "/iq/genie6/generate/brand-ad?output=whole-adcopy";
+
+function genieBrandAdHref(output: string): string {
+  return `/iq/genie6/generate/brand-ad?output=${output}`;
+}
+
+const SUGGESTIONS_SOURCE_NOTE = "From what changed, angle mix and you vs market";
+
+/**
+ * CAPTION TRAP GUARD: `populated`'s market collections are scoped to the same
+ * six industries the user actually follows, so "in your industries" is true
+ * there. In `firstTime` / `empty` the same collections are the six-industry
+ * MARKET PREVIEW, not the user's own follows — say "across the market"
+ * instead. See `CONTRACT.md`.
+ */
+function suggestionsScopePhrase(state: DashboardState): string {
+  return state === "populated" ? "in your industries" : "across the market";
+}
+
+/**
+ * `angle` — the biggest gap between the market's angle mix and the user's
+ * own, straight off `useAngleMix()`. Falls back to the top market angle when
+ * there is no `yourPct` to compare against at all (`empty`, no brand
+ * configured) — rendered honestly in words, never as a `0%` or a dash.
+ */
+function buildAngleSuggestion(
+  state: DashboardState,
+  angleMix: AngleMixView,
+): SuggestionCard | null {
+  const row = angleMix.biggestGap ?? angleMix.topMarket;
+  if (!row) return null;
+
+  const scope = suggestionsScopePhrase(state);
+  const hasYourSide = row.yourPct !== null;
+
+  const claim = hasYourSide
+    ? `${row.angle} copy opens ${row.marketPct}% of live ads ${scope}. It opens ${row.yourPct}% of yours.`
+    : `${row.angle} copy opens ${row.marketPct}% of live ads ${scope}. There's no brand set up yet to compare it to.`;
+
+  const detail =
+    hasYourSide && row.gapPct !== null
+      ? `${formatInt(row.adCount)} live ads use this angle · ${Math.abs(row.gapPct)} point gap`
+      : `${formatInt(row.adCount)} live ads use this angle`;
+
+  const actions: SuggestionAction[] = [
+    {
+      key: "use-angle",
+      label: "Use this angle",
+      intent: "navigate",
+      href: GENIE_BRAND_AD_TEXT_HREF,
+      works: false,
+      caveat:
+        "Opens Genie's Brand Ad form with a blank prompt — the angle itself doesn't carry over yet.",
+    },
+    {
+      key: "see-angle-ads",
+      label: `See ${formatInt(row.adCount)} ads`,
+      intent: "navigate",
+      href: row.discoverHref,
+      works: true,
+    },
+  ];
+
+  return {
+    id: `suggestion-angle-${row.angleKey}`,
+    kind: "angle",
+    kindLabel: SUGGESTION_KIND_LABELS.angle,
+    claim,
+    detail,
+    // A share of live creative, not a raw observed count — same rule
+    // `AngleSlice` follows everywhere else on the page.
+    provenance: "derived",
+    actions,
+  };
+}
+
+/**
+ * `hook` — quotes the single longest-running `LongRunnerAd` off
+ * `useLongRunners().all` (already `daysRunning`-descending). `quote` is the
+ * ad's real `hook` string, verbatim, never authored copy — that is the whole
+ * reason this kind is honest. `caveatNote` is the SAME `LongRunnerAd`'s own
+ * `caveatNote`, reused rather than reworded, when the ad has run 90+ days.
+ */
+function buildHookSuggestion(longRunners: LongRunnersView): SuggestionCard | null {
+  const ad = longRunners.all[0];
+  if (!ad) return null;
+
+  const claim = `The longest-running hook ${
+    ad.industry ? `in ${ad.industry} ` : ""
+  }has been live for ${ad.daysRunning} days, across ${formatInt(ad.similarCount)} near-identical ${plural(ad.similarCount, "variant", "variants")}.`;
+
+  const actions: SuggestionAction[] = [
+    {
+      key: "use-hook",
+      label: "Use hook",
+      intent: "navigate",
+      href: GENIE_BRAND_AD_TEXT_HREF,
+      works: false,
+      caveat:
+        "Opens Genie's Brand Ad form — this hook isn't carried into the prompt yet. Copy it first if you want to bring the words with you.",
+    },
+    { key: "save-hook", label: "Save", intent: "save", works: true },
+    { key: "copy-hook", label: "Copy", intent: "copy", works: true },
+  ];
+
+  return {
+    id: `suggestion-hook-${ad.adId}`,
+    kind: "hook",
+    kindLabel: SUGGESTION_KIND_LABELS.hook,
+    claim,
+    quote: ad.hook,
+    quoteMeta: `${ad.brand} · running ${ad.daysRunning} days`,
+    provenance: "observed",
+    actions,
+    // Reused verbatim from the gallery's own ad — never re-worded, and never
+    // rendered when the ad hasn't crossed the threshold.
+    caveatNote: ad.saturationCaveat ? ad.caveatNote : undefined,
+  };
+}
+
+/**
+ * `format` — the media format behind the longest-running ads, off the SAME
+ * `useLongRunners().all` the hook card and the gallery above it read.
+ * Prefers video (the common case in this corpus) but falls back to whatever
+ * format the corpus actually shows rather than assuming video.
+ */
+function buildFormatSuggestion(
+  state: DashboardState,
+  longRunners: LongRunnersView,
+  brandVsMarket: MyBrandVsMarketView,
+): SuggestionCard | null {
+  if (longRunners.all.length === 0) return null;
+
+  const videoAds = longRunners.all.filter((a) => a.mediaType === "video");
+  const top = (videoAds.length ? videoAds : longRunners.all).slice(0, 2);
+  const lead = top[0];
+  const formatWord = lead.mediaType; // "video" | "image"
+  const formatLabel = formatWord === "video" ? "Video" : "Image";
+  const scope = suggestionsScopePhrase(state);
+
+  const claim =
+    top.length > 1
+      ? `The longest-running ads ${scope} are ${formatWord} — ${lead.brand} ${lead.daysRunning}d, ${top[1].brand} ${top[1].daysRunning}d.`
+      : `The longest-running ad ${scope} is ${formatWord} — ${lead.brand}, ${lead.daysRunning} days.`;
+
+  // No "your mix" clause at all when there's no brand configured — never a
+  // fabricated 0%.
+  const yourShare = brandVsMarket.hasBrand
+    ? brandVsMarket.formatMix.find((f) => f.format === formatLabel)
+    : null;
+  const detail = yourShare ? `Your mix is already ${yourShare.pct}% ${formatWord}.` : undefined;
+
+  const actions: SuggestionAction[] = [
+    {
+      key: "generate-format-ad",
+      label: `Generate a ${formatWord} ad`,
+      intent: "navigate",
+      href: genieBrandAdHref(formatWord),
+      // `output` IS read by `StudioBrandAdForm` — the one kind whose Genie
+      // handoff carries its whole payload today.
+      works: true,
+    },
+    {
+      key: "see-format-ads",
+      label: "See these ads",
+      intent: "navigate",
+      href: "/insights/discover?longevity=proven",
+      works: true,
+    },
+  ];
+
+  return {
+    id: `suggestion-format-${lead.adId}`,
+    kind: "format",
+    kindLabel: SUGGESTION_KIND_LABELS.format,
+    claim,
+    detail,
+    provenance: "observed",
+    actions,
+  };
+}
+
+/**
+ * `follow` — a domain shipping noticeably more creative, off the SAME
+ * `useMovers()` set `TopCompetitors` ranks by. Prefers a genuine climber the
+ * user does NOT already track, so the action is never "Follow" on a domain
+ * already followed.
+ */
+function buildFollowSuggestion(movers: MoversView): SuggestionCard | null {
+  const candidate =
+    movers.climbers.find((m) => !m.tracked) ?? movers.all.find((m) => !m.tracked) ?? null;
+  if (!candidate) return null;
+
+  const brand = brandForDomain(candidate.domain);
+  const sign = candidate.deltaPct >= 0 ? "+" : "";
+  const claim = `${brand} shipped ${formatInt(candidate.adCount30d)} new ads in the last 30 days, up from ${formatInt(candidate.adCountPrev30d)} (${sign}${candidate.deltaPct}%). You don't follow it.`;
+  const detail = `${candidate.industry} · ${candidate.domain}`;
+
+  const actions: SuggestionAction[] = [
+    { key: "follow-domain", label: `Follow ${brand}`, intent: "follow", works: true },
+    {
+      key: "see-domain-ads",
+      label: "See their ads",
+      intent: "navigate",
+      href: `/insights/discover?domain=${encodeURIComponent(candidate.domain)}`,
+      works: true,
+    },
+  ];
+
+  return {
+    id: `suggestion-follow-${candidate.domain}`,
+    kind: "follow",
+    kindLabel: SUGGESTION_KIND_LABELS.follow,
+    claim,
+    detail,
+    // Ad-volume counts, observed — never the StoreLeads/sales tier.
+    provenance: "observed",
+    actions,
+  };
+}
+
+/**
+ * "What to try next" — one card per kind, up to four. Every figure is read
+ * off a hook another block already renders, so this block cannot disagree
+ * with the block above it (see the section banner). `isLoading` is checked
+ * BEFORE building any card, so a skeleton never leaks suggestion copy.
+ */
+export function useSuggestions(): SuggestionsView {
+  const state = useDashboardState();
+  const meta = useDashboardMeta();
+  const angleMix = useAngleMix();
+  const longRunners = useLongRunners();
+  const movers = useMovers();
+  const brandVsMarket = useMyBrandVsMarket();
+
+  return useMemo<SuggestionsView>(() => {
+    if (meta.isLoading) {
+      return { cards: [], isEmpty: true, isLoading: true, sourceNote: SUGGESTIONS_SOURCE_NOTE };
+    }
+
+    const cards = [
+      buildAngleSuggestion(state, angleMix),
+      buildHookSuggestion(longRunners),
+      buildFormatSuggestion(state, longRunners, brandVsMarket),
+      buildFollowSuggestion(movers),
+    ].filter((c): c is SuggestionCard => c !== null);
+
+    return {
+      cards,
+      isEmpty: cards.length === 0,
+      isLoading: false,
+      sourceNote: SUGGESTIONS_SOURCE_NOTE,
+    };
+  }, [state, meta.isLoading, angleMix, longRunners, movers, brandVsMarket]);
 }

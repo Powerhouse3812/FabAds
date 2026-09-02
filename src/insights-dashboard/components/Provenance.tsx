@@ -20,6 +20,7 @@
  *   - estimated → EqualApproximately  (≈ — modelled, explicitly not exact)
  *   - derived   → Calculator          (we computed it from observed data)
  */
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { LucideIcon } from "lucide-react";
 import { Calculator, Eye, EqualApproximately } from "lucide-react";
 import {
@@ -99,17 +100,30 @@ export function Provenance({
             {!compact && <span>{displayLabel}</span>}
           </span>
         </TooltipTrigger>
-        <TooltipContent
-          side="top"
-          className="max-w-[240px] normal-case tracking-normal"
-        >
-          <p className="text-xs font-medium text-foreground">
-            {meta.label} · {meta.source}
-          </p>
-          <p className="mt-0.5 text-xs leading-snug text-foreground/70">
-            {meta.description}
-          </p>
-        </TooltipContent>
+        {/* PORTAL, deliberately. `components/ui/tooltip.tsx` exports
+            `TooltipContent` as a bare `TooltipPrimitive.Content` with no
+            portal of its own, so without this the tooltip body renders INLINE
+            beside its trigger. This body is two `<p>` elements, so the moment
+            anyone drops one of these markers inside a `<p>` — a caption, a
+            footnote, a basis note — React throws a real `validateDOMNesting`
+            error for `<p>` inside `<p>`. Portalling here fixes the whole class
+            at once and cannot regress, and it also stops the tooltip being
+            clipped by a card's `overflow-hidden` or an inner scroller.
+            `InfoTip.tsx` does the same. That shared primitive is app-wide and
+            off-limits to edit, hence the wrapper rather than a fix at source. */}
+        <TooltipPrimitive.Portal>
+          <TooltipContent
+            side="top"
+            className="max-w-[240px] normal-case tracking-normal"
+          >
+            <p className="text-xs font-medium text-foreground">
+              {meta.label} · {meta.source}
+            </p>
+            <p className="mt-0.5 text-xs leading-snug text-foreground/70">
+              {meta.description}
+            </p>
+          </TooltipContent>
+        </TooltipPrimitive.Portal>
       </Tooltip>
     </TooltipProvider>
   );

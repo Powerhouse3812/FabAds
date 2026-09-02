@@ -32,37 +32,53 @@
 /**
  * Which demo state the page is rendering.
  *
- * Three of these describe HOW MUCH data exists; two describe whether the
- * fetch behind it worked. They are deliberately one union rather than two,
- * because the URL carries exactly one `?state=` and a reviewer flips between
- * all five from the same control.
+ * Four states now (collapsed from five — `error` is gone, `thin`/`zero` were
+ * renamed). The URL carries exactly one `?state=` and a reviewer flips
+ * between all four from the same control; the old `thin` / `zero` / `error`
+ * values still resolve via `DashboardState`'s URL parsing in
+ * `state/DashboardState.tsx` so previously shared links don't land on a
+ * blank page — `thin` → `firstTime`, `zero` → `empty`, `error` → `populated`.
  *
  *  - `populated` — a healthy, fully-indexed workspace.
- *  - `thin`      — day 1: one followed industry, nothing indexed yet.
- *  - `zero`      — brand new workspace, nothing followed.
+ *  - `firstTime` — day 1: one followed industry, a couple of brands, no
+ *                  launches yet, near-zero saved ads. Renamed from `thin`.
+ *  - `empty`     — brand new workspace, nothing followed, nothing saved, no
+ *                  launches. Renamed from `zero`.
  *  - `loading`   — FIRST PAINT. Nothing has resolved. Every collection is
  *                  empty and every KPI is `value: null`, but that emptiness
  *                  means "not yet", NOT "none". `meta.isLoading` is the flag
  *                  to branch on: render skeletons, never an empty state. A
- *                  skeleton and an empty state mean opposite things.
- *  - `error`     — PARTIAL failure, never total. Some sources answered and
- *                  some did not: the Meta Ad Library returned, StoreLeads did
- *                  not, and the last complete scan is 3 days old. Everything
- *                  `observed` and `derived` is present (and honestly labelled
- *                  as 3 days old); every `estimated` figure is missing with an
- *                  `naReason` that names StoreLeads. See `DataSourceStatus`.
+ *                  skeleton and an empty state mean opposite things. It did
+ *                  NOT merge into `empty` for exactly this reason — the two
+ *                  render almost identically and mean opposite things.
  *
- * A total blank error page is easy and unrealistic. This page's entire claim
- * is that its numbers are honest about where they came from and how fresh
- * they are — so the failure state has to be able to say WHICH source is down
- * and WHICH provenance tier degraded because of it.
+ * THE CONTENT RULE for `firstTime` and `empty`: empty means YOUR side is
+ * empty, the market never is. Every block still renders in every state —
+ * there is no "collapse the board" branch any more. Where the user's own
+ * data is genuinely absent (no brand configured, nothing followed), the
+ * MARKET-side figures — top advertisers, top domains, angle mix, industry
+ * share, long-running creative, change signals, Trends counts — are still
+ * real numbers, because they are true regardless of what the user has set
+ * up. Only the user's own side (followed counts, saved ads, their own
+ * brand's share, their own ads) goes to a real zero or an absent `null`.
+ * See `DashboardFixture` and the selectors in `./selectors.ts` for how each
+ * collection expresses that split — never a bare dash, never a fabricated
+ * number, and never "make `isEmpty` false and call it done" without saying
+ * which side is empty.
+ *
+ * `error` (partial source failure) has been REMOVED as a state entirely, per
+ * Maalik: three data states plus a loading transition, no separate failure
+ * state. The source-health / staleness machinery that existed only to make
+ * `error` honest (a failed source, a 3-day-old "last complete scan") has been
+ * deleted from `./fixtures.ts` along with it. `useDashboardStatus()` and
+ * `naReasonByTier` / `naReasonBySource` survive because real blocks still
+ * read them for the (now purely "pending", never "failed") loading captions.
  */
 export type DashboardState =
   | "populated"
-  | "thin"
-  | "zero"
-  | "loading"
-  | "error";
+  | "firstTime"
+  | "empty"
+  | "loading";
 
 /**
  * Where a number came from. This distinction is the page's whole credibility
@@ -101,16 +117,19 @@ export type DataSourceKey = "meta-ad-library" | "storeleads" | "fabads-scan";
  * Whether a source answered on the last run.
  *
  *  - `ok`      — answered.
- *  - `failed`  — did not answer. Everything that depends on it is missing,
- *                never guessed and never zero.
- *  - `pending` — we are still waiting (the `loading` state).
+ *  - `pending` — we are still waiting — either the `loading` state, or a
+ *                first scan that hasn't landed yet (`firstTime` / `empty`).
+ *
+ * `failed` was removed with the `error` state: a partial-failure source no
+ * longer exists in this model, so nothing ever sets a source to anything but
+ * `ok` or `pending`.
  */
-export type DataSourceState = "ok" | "failed" | "pending";
+export type DataSourceState = "ok" | "pending";
 
 /**
  * One upstream's health.
  *
- * INVARIANT: `state === "failed"` MUST carry a non-empty `naReason`. That
+ * INVARIANT: `state === "pending"` MUST carry a non-empty `naReason`. That
  * string is the exact sentence every metric depending on this source prints
  * in place of its number — one source of truth for the wording, so the KPI
  * tile and the table cell cannot disagree about why a figure is gone.
@@ -126,14 +145,12 @@ export interface DataSourceStatus {
   supplies: string;
   /** Days since it last answered. `null` when it never has. */
   lastSuccessDaysAgo: number | null;
-  /** "Answered on the last run" / "Last answered 3 days ago" / "No answer yet". */
+  /** "Answered on the last run" / "Still waiting on the first scan". */
   lastSuccessLabel: string;
   /** Present iff `state !== "ok"`. Plain-words explanation, one sentence. */
   failureNote?: string;
   /** Present iff `state !== "ok"`. The exact reason a missing figure prints. */
   naReason?: string;
-  /** Named things that are missing while this is down. `[]` when `ok`. */
-  affects: string[];
 }
 
 /**
@@ -143,9 +160,13 @@ export interface DataSourceStatus {
  *  - `aging`   — one day old. Worth a caption, not a banner.
  *  - `stale`   — `staleAfterDays` or older. Say so at the top of the page;
  *                a page that claims to be honest about freshness cannot bury
- *                "this is 3 days old" in a tooltip.
- *  - `unknown` — no scan has ever completed (thin / zero / loading). NOT the
- *                same as fresh, and must not be rendered as fresh.
+ *                "this is 3 days old" in a tooltip. Unreachable in practice
+ *                now that `error` is gone — nothing on this page currently
+ *                produces aged data — but the level stays real rather than
+ *                deleted, since freshness is a general page concern, not an
+ *                `error`-only one.
+ *  - `unknown` — no scan has ever completed (firstTime / empty / loading).
+ *                NOT the same as fresh, and must not be rendered as fresh.
  */
 export type StalenessLevel = "fresh" | "aging" | "stale" | "unknown";
 
@@ -333,6 +354,34 @@ export interface ChangeSignal {
   representativeAdId: string | null;
   /** `observationCount >= SIGNAL_RECURRENCE_GATE`. Precomputed for the UI. */
   meetsRecurrenceGate: boolean;
+  /**
+   * Whether the advertiser named in `headline` is one the user already
+   * follows as a competitor ("followed"), or is only part of the wider
+   * market preview ("market") — i.e. answers Maalik's "who is Mantra Labs??"
+   * complaint about a bare advertiser name with no context.
+   *
+   * Computed from the SAME tracked-competitor set that drives `tracked` /
+   * `followed` on domain, page and mover rows elsewhere on this page — never
+   * a separate guess, so a domain can't be "your competitor" here and
+   * "market only" three rows down.
+   *
+   * In `populated` most signals resolve to whichever is true. In `firstTime`
+   * the six-industry preview is not scoped to the user's (one or two) real
+   * follows, so most signals land on "market" — a couple may still be
+   * "followed" if the domain happens to coincide, and that is a real fact,
+   * not an assumption. In `empty` the user follows nothing, so every signal
+   * is honestly "market". Optional and additive: a consumer built before
+   * this field still compiles, and adding it does not require the UI to
+   * render anything new.
+   */
+  advertiserRelationship?: "followed" | "market";
+  /**
+   * Ready-to-render qualifier matching `advertiserRelationship`, e.g.
+   * "a brand you follow" / "part of the wider market" — present iff
+   * `advertiserRelationship` is present, so a consumer never has to invent
+   * its own phrasing for the two values.
+   */
+  advertiserRelationshipLabel?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -461,19 +510,6 @@ export interface DomainRowBase {
   lastNewCreativeDaysAgo: number;
   tracked: boolean;
   provenance: ProvenanceTier;
-  /**
-   * Per-CELL unavailability: column key → the reason that cell has no value.
-   *
-   * Only ever populated in the `error` state, where a named source failed and
-   * the columns it feeds have nothing honest to print. Absent everywhere else.
-   * Read it with `domainCellNaReason(row, columnKey)` from `./selectors`.
-   *
-   * This is how the "null always carries a reason" invariant survives into a
-   * table: an ecom row in `error` has `estSalesPerMonth: null` AND
-   * `unavailable.estSalesPerMonth = "StoreLeads did not respond to the last
-   * scan"`. Rendering the null as 0 or as a dash would both be lies.
-   */
-  unavailable?: Record<string, string>;
 }
 
 /**
@@ -484,16 +520,14 @@ export interface DomainRowBase {
 export interface EcomDomainRow extends DomainRowBase {
   type: "ecom";
   /**
-   * StoreLeads modelled. USD. Estimated, not measured.
-   *
-   * `null` ONLY in the `error` state, where StoreLeads did not answer — and
-   * then `unavailable.estSalesPerMonth` carries the reason. It is never null
-   * in `populated`. Do not render a null as `$0`: no figure came back, which
-   * is not the same as a store that sells nothing.
+   * StoreLeads modelled. USD. Estimated, not measured. Always present on
+   * every domain row in every remaining state — there is no more state where
+   * a named source has failed mid-table. Kept `number` (not `number | null`)
+   * because nothing produces a null here any more.
    */
-  estSalesPerMonth: number | null;
-  /** StoreLeads modelled monthly sessions. Same null rule as `estSalesPerMonth`. */
-  estVisits: number | null;
+  estSalesPerMonth: number;
+  /** StoreLeads modelled monthly sessions. */
+  estVisits: number;
   productCount: number;
   platform: EcomPlatform;
 }
@@ -736,10 +770,23 @@ export interface MyBrand {
 /**
  * CREATIVE share of voice — share of live creative in an industry. Never
  * spend share: we cannot see spend, and implying we can would be a lie.
+ *
+ * ── THE YOUR-SIDE / MARKET-SIDE SPLIT ─────────────────────────────────────
+ * `leaders` (the market) is populated in EVERY state, including `firstTime`
+ * and `empty` — the market is never empty. `you` stays a real, non-null shape
+ * (never a bare dash) so a renderer never has to null-check it, but when the
+ * workspace has no brand configured `hasYourData` is `false` and `you.pct` /
+ * `you.adCount` are the honest zero `0` — a placeholder, not a fact. Check
+ * `hasYourData` before treating `you` as a real number; the same convention
+ * `AngleMixRow.yourPct === null` and `IndustryShareRow.you === null` use
+ * elsewhere on this page, just expressed as a flag instead of a null because
+ * `you` here is a nested shape most renderers want to keep non-null.
  */
 export interface ShareOfVoiceRow {
   industry: string;
   you: { name: string; pct: number; adCount: number };
+  /** False when no brand is configured — `you` above is a `0` placeholder, not a measured fact. */
+  hasYourData: boolean;
   leaders: Array<{ domain: string; pct: number; adCount: number }>;
   /** All live ads indexed in this industry — the denominator. */
   totalLiveAds: number;
@@ -971,7 +1018,7 @@ export interface DashboardMeta {
   /** One-line framing of why the page looks the way it does in this state. */
   stateNote: string;
 
-  // ── Fetch health (added with the `loading` / `error` states) ────────────
+  // ── Fetch health (added with the `loading` state) ────────────────────────
 
   /**
    * TRUE ONLY IN `loading`. Nothing has resolved yet.
@@ -987,12 +1034,16 @@ export interface DashboardMeta {
    * Meta Ad Library · StoreLeads · FabAds scan history.
    */
   sources: DataSourceStatus[];
-  /** Only the ones that did not answer. `[]` in every state but `error`. */
+  /**
+   * Sources that did not answer. Always `[]` now that `error` is gone —
+   * nothing in this model fails mid-scan any more, only `pending`. Kept
+   * (rather than deleted) because `useDashboardStatus()` is a real,
+   * consumed hook and this is part of its stable return shape.
+   */
   failedSources: DataSourceStatus[];
   /**
-   * Provenance tiers whose source is down, so a component can ask "is my
-   * tier still trustworthy?" without knowing which vendor feeds it.
-   * `["estimated"]` in `error`; `[]` elsewhere.
+   * Provenance tiers whose source is down. Always `[]` now — see
+   * `failedSources`.
    */
   degradedTiers: ProvenanceTier[];
   /** How old the data on screen is. Present in every state. */
@@ -1007,18 +1058,35 @@ export interface DashboardMeta {
  * Everything the dashboard renders, for one state. Returned by
  * `getDashboardFixture(state)` in `./fixtures.ts`, memoised per state.
  *
- * Empty collections are `[]`, never undefined — components branch on
- * `length`, not on existence. `myBrand` is the one nullable collection: it is
- * null in `zero` (nothing configured yet) and in `loading` (nothing resolved
- * yet).
+ * `myBrand` is the one nullable top-level field: it is null in `empty`
+ * (nothing configured yet) and in `loading` (nothing resolved yet), and
+ * present (a smaller brand) in `firstTime`.
+ *
+ * ── THE CONTENT RULE: MARKET COLLECTIONS ARE NEVER EMPTY ──────────────────
+ * Unlike the OLD `thin` / `zero` fixtures, `movers`, `domains`, `pages`,
+ * `industryShare`, `angles`, `signals`, `longRunners`, `cadence` and `trends`
+ * are POPULATED in `firstTime` and `empty` too, scoped to a fixed six-industry
+ * market preview (`POPULATED_INDUSTRY_NAMES`) rather than to whatever the user
+ * happens to follow — because the market these numbers describe exists
+ * whether or not the user has followed anything yet. What DOES stay a real
+ * zero or an absent `null` in those two states is the user's OWN side:
+ * `watchlist` (follows), `boards` (saves), `coverage.followed` (the user's own
+ * follow list, as distinct from the market preview), and `myBrand` in `empty`.
+ * Per-row/per-view fields already carry which side is which — `tracked` /
+ * `followed` booleans, `IndustryShareRow.you`, `AngleMixRow.yourPct`
+ * (`null` = absent), and `ShareOfVoiceRow.hasYourData` (`false` = the `you`
+ * shape is a placeholder, not a fact). Never render a market collection as
+ * empty in `firstTime` / `empty`, and never treat a your-side absence as a
+ * market absence.
  *
  * ── Reading emptiness correctly ───────────────────────────────────────────
- * `loading` and `zero` both hand you empty collections and null KPI values,
- * and they mean OPPOSITE things. `meta.isLoading` is the only safe
- * discriminator — check it before any `isEmpty` / `length === 0` branch.
+ * `loading` hands you every collection empty and every KPI null, and that
+ * means "not yet" — NOT "none", which is what `firstTime` / `empty` mean for
+ * the user's own side (and neither, any more, for the market side, which is
+ * always real there). `meta.isLoading` is the only safe discriminator — check
+ * it before any `isEmpty` / `length === 0` branch.
  *
- * `error` is NOT empty: it is `populated` with the StoreLeads-fed figures
- * removed and a 3-day-old scan timestamp. Every collection is full.
+ * `error` no longer exists as a state — see `DashboardState`.
  */
 export interface DashboardFixture {
   state: DashboardState;
@@ -1047,4 +1115,209 @@ export interface DashboardFixture {
   coverage: CoverageInfo;
   checklist: SetupChecklistItem[];
   brief: DailyBrief;
+  /** Numbers-only teaser for the Trends newsroom. See `TrendsSummary` below. */
+  trends: TrendsSummary;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Trends teaser — numbers only
+// ─────────────────────────────────────────────────────────────────────────
+//
+// A minimal summary of the Industry Insights Trends newsroom
+// (`src/insights-trends`) for a small dashboard block that links out rather
+// than repeating any story: counts per source, a total, when it was last
+// checked, and nothing else. See `TRENDS_SOURCE_DEFS` in `./fixtures.ts` for
+// where the counts come from — they are derived from the same mock arrays
+// the Trends page itself renders, never a separately-typed number, so this
+// block and that page can never disagree about how many items exist.
+
+/**
+ * One row per Trends source. Always the full set, in this fixed order:
+ * breaking → news → meta-ads → tiktok-hooks → search → social.
+ */
+export type TrendsSourceKey =
+  | "breaking"
+  | "news"
+  | "meta-ads"
+  | "tiktok-hooks"
+  | "search"
+  | "social";
+
+export interface TrendsSourceCount {
+  key: TrendsSourceKey;
+  /** Plain FabAds words, e.g. "Breaking stories". */
+  label: string;
+  count: number;
+  /**
+   * Deep link into `/insights/trends` for exactly this source where the page
+   * supports one (verified against `useTrendsFilters` + `TrendsPage.tsx`'s
+   * per-tab dataset). Where no exact filter exists, this is the closest tab
+   * rather than an invented param the page would ignore.
+   */
+  href: string;
+}
+
+/**
+ * A numbers-only teaser: how much lives in Trends right now, so the user
+ * clicks through instead of reading it here. No stories, no cards.
+ *
+ * Trends is fed by Google Trends and news/social sources — completely
+ * independent of the user's own follows, of the Meta Ad Library, and of
+ * StoreLeads. That means its counts are REAL in every state, including
+ * `firstTime` and `empty`: a brand new workspace has checked nothing of its
+ * own yet, but the market-wide Trends corpus is exactly as real for it as for
+ * a `populated` one. Only `newUpdates` (which needs a PRIOR check to diff
+ * against) goes to `null` with a reason for a workspace that has never
+ * checked before — `totalUpdates` and every `sources[].count` stay real.
+ */
+export interface TrendsSummary {
+  /** Always the full set of sources, even when every count is 0. */
+  sources: TrendsSourceCount[];
+  /** Sum of every `sources[].count`. Real in every state — see above. */
+  totalUpdates: number;
+  /** How many are new since the last check. `null` ⇒ `newUpdatesNaReason` required. */
+  newUpdates: number | null;
+  newUpdatesNaReason?: string;
+  /** "Last checked 6h ago" / "Checked just now" / "Checking now…". */
+  lastCheckedLabel: string;
+  /** `/insights/trends` — the teaser block's own click-through target. */
+  href: string;
+  /**
+   * TRUE ONLY while the fetch is in flight (mirrors `isLoading` — never true
+   * merely because a workspace is new). `firstTime` / `empty` are `false`:
+   * Trends' own counts are real there.
+   */
+  isEmpty: boolean;
+  /** TRUE ONLY while the fetch is in flight. Render a skeleton, not zeros. */
+  isLoading: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// "What to try next" — suggestions block
+// ─────────────────────────────────────────────────────────────────────────
+//
+// A new standalone block on `/insights/overview`, placed directly under the
+// hero row (ChangeFeed + AngleMixDonut/YouVsMarket), that turns the page's
+// reads into one thing to DO. It is the only block on the page with an
+// action. The word "AI" is BANNED here — nothing generates this copy, it is
+// assembled from data every other block on this page already shows. See
+// `useSuggestions` in `./selectors.ts` for how each kind is built — it reads
+// `useAngleMix()`, `useLongRunners()`, `useMovers()` and
+// `useMyBrandVsMarket()` rather than recomputing anything, so this block can
+// never disagree with the block above it.
+
+/**
+ * The four suggestion kinds this block ships, each derivable from data that
+ * already exists elsewhere on this page:
+ *
+ *  - `angle`  — the angle-mix gap between the market and your own creative
+ *               (`useAngleMix().biggestGap`).
+ *  - `hook`   — a REAL hook string off the longest-running `LongRunnerAd`,
+ *               never authored copy. This is the entire reason the kind is
+ *               honest: it quotes the corpus instead of inventing a line.
+ *  - `format` — the media format the longest-running ads actually use.
+ *  - `follow` — a fast-moving domain (`useMovers()`) the user does not yet
+ *               follow.
+ */
+export type SuggestionKind = "angle" | "hook" | "format" | "follow";
+
+/**
+ * One action on a suggestion card.
+ *
+ * INVARIANT, same discipline as `KpiTile.value === null` requiring
+ * `naReason`: `caveat` is REQUIRED whenever `works` is `false`. Every
+ * builder in `./selectors.ts` that produces a `works: false` action sets
+ * one; there is no code path that omits it. (A true discriminated union on
+ * a boolean literal was tried and reverted — TypeScript does not narrow a
+ * union through a plain truthy check like `action.works ? … : action.caveat`,
+ * only through an explicit `=== true` / `=== false` comparison, so a flat
+ * shape here is what a normal reader — every consumer on this page —
+ * narrows correctly.)
+ *
+ * Some actions navigate to Genie but drop their payload (Genie reads
+ * `?output=` but not `?hook=` / `?angle=` — verified against
+ * `StudioBrandAdForm.tsx`), and this page's whole credibility rule is that a
+ * button must never look like it works when it doesn't — `works: false`
+ * plus its `caveat` is how that gets said out loud instead of silently
+ * shipping a dead-looking handoff.
+ */
+interface SuggestionActionBase {
+  key: string;
+  /** "Use this angle" */
+  label: string;
+  intent: "navigate" | "copy" | "save" | "follow";
+  /** Present when `intent === "navigate"`. */
+  href?: string;
+}
+
+/**
+ * One action on a suggestion card.
+ *
+ * A DISCRIMINATED UNION on `works`, not an interface with an optional
+ * `caveat` — deliberately stricter than `KpiTile`'s documented-only
+ * `value: null ⇒ naReason` invariant, because this is the field that keeps
+ * the block from shipping a button that looks like it works. `works: false`
+ * cannot be constructed without a `caveat`, so `WhatToTryNext`'s tooltip
+ * always has real copy to print and never has to invent the disclosure
+ * itself. Every action on this page is honest about doing nothing; this makes
+ * that a compile error rather than a review note.
+ *
+ * `works: true` sets `caveat?: never` so a caveat can't be attached to an
+ * action that has nothing to disclose — that combination would read as a
+ * warning about a handoff that is actually fine.
+ */
+export type SuggestionAction =
+  | (SuggestionActionBase & {
+      /** The payload lands. Nothing to disclose. */
+      works: true;
+      caveat?: never;
+    })
+  | (SuggestionActionBase & {
+      /** The action navigates/fires but its payload does NOT land. */
+      works: false;
+      /** What the tooltip prints instead of pretending it works. Required. */
+      caveat: string;
+    });
+
+/**
+ * One suggestion.
+ *
+ * `quote` / `quoteMeta` are present on the `hook` kind only, and `quote` is
+ * always a verbatim `LongRunnerAd.hook` string — never authored copy.
+ */
+export interface SuggestionCard {
+  id: string;
+  kind: SuggestionKind;
+  /** "Angle" | "Hook" | "Format" | "Follow" — the kind chip's word. */
+  kindLabel: string;
+  /** The provoking sentence, off observed numbers. */
+  claim: string;
+  /** One short supporting line. */
+  detail?: string;
+  /** `hook` kind only: the real corpus hook text, quoted verbatim. */
+  quote?: string;
+  /** `hook` kind only: "BeautyHQ · running 116 days". */
+  quoteMeta?: string;
+  provenance: ProvenanceTier;
+  /** 1–3 actions, kind-specific. */
+  actions: SuggestionAction[];
+  /**
+   * E.g. the 90-day saturation caveat carried onto a long-running hook —
+   * reused verbatim from `LongRunnerAd.caveatNote`, never re-worded, so this
+   * block cannot imply "long-running = winning" when the gallery above it
+   * already flagged the same ad as possibly saturated. Distinct from a
+   * per-action `caveat`: this one is about the CLAIM, not about whether an
+   * action's handoff works.
+   */
+  caveatNote?: string;
+}
+
+/** Return shape of `useSuggestions()` in `./selectors.ts`. */
+export interface SuggestionsView {
+  cards: SuggestionCard[];
+  isEmpty: boolean;
+  /** Nothing resolved yet — render card skeletons; must not leak any copy. */
+  isLoading: boolean;
+  /** "From what changed, angle mix and you vs market". */
+  sourceNote: string;
 }

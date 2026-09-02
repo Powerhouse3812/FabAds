@@ -61,8 +61,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fmtDelta } from "@/creative-report-v2/lib/format";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import {
   useTopCompetitors,
+  useDashboardMeta,
   NEW_ADS_30D_COLUMN_LABEL,
   NEW_ADS_30D_DELTA_LABEL,
   type LaunchCadenceWeek,
@@ -84,7 +86,7 @@ const VALUE_LABEL_STYLE = {
 };
 
 function formatInt(n: number): string {
-  return n.toLocaleString();
+  return n.toLocaleString("en-US");
 }
 
 /** Signed, tabular-nums delta for the header — costs no extra height since it
@@ -93,15 +95,32 @@ function formatInt(n: number): string {
 function HeaderDeltaChip({ pct }: { pct: number }): JSX.Element {
   const isUp = pct >= 0;
   const Icon = isUp ? ArrowUpRight : ArrowDownRight;
+  // A native `title=` used to hang here: invisible to keyboard users, no
+  // screen-reader guarantee, and styled by the OS rather than the app. The
+  // chip is now its own InfoTip trigger (`asChild` adds no extra glyph, so
+  // this costs no width beside the block heading's existing InfoTip).
+  // Inline copy, not a registry key — it explains this one chip and nothing
+  // else on the page renders the same figure. Deliberately possessive-free:
+  // in `firstTime`/`empty` this cadence is the market preview, not the
+  // user's own followed set.
   return (
-    <span
-      title="Latest week's new ads vs the week before"
-      className="inline-flex items-center gap-0.5 font-mono text-[10px] font-medium tabular-nums text-foreground/70"
+    <InfoTip
+      tip={{
+        label: "Week over week",
+        what: "Ads launched in the latest full week, against the week before it.",
+        gives: "Says whether launch pace is speeding up or slowing down right now.",
+      }}
+      asChild
     >
-      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
-      {isUp ? "+" : ""}
-      {pct}%
-    </span>
+      <span
+        tabIndex={0}
+        className="inline-flex cursor-help items-center gap-0.5 rounded-sm font-mono text-[10px] font-medium tabular-nums text-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <Icon className="h-2.5 w-2.5" aria-hidden="true" />
+        {isUp ? "+" : ""}
+        {pct}%
+      </span>
+    </InfoTip>
   );
 }
 
@@ -172,15 +191,17 @@ function CompetitorRow({
             Following
           </span>
         ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 text-[11px]"
-            onClick={() => onFollow(row.domain)}
-          >
-            Follow
-          </Button>
+          <InfoTip tip="action.follow-competitor" asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-[11px]"
+              onClick={() => onFollow(row.domain)}
+            >
+              Follow
+            </Button>
+          </InfoTip>
         )}
       </div>
     </li>
@@ -238,7 +259,7 @@ function CadenceMiniChart({
               <Cell
                 key={week.weekIndex}
                 fill={week.isSpike ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.28)"}
-                aria-label={`Week of ${week.weekStartLabel}: ${week.adsLaunched.toLocaleString()} ads launched`}
+                aria-label={`Week of ${week.weekStartLabel}: ${week.adsLaunched.toLocaleString("en-US")} ads launched`}
               />
             ))}
             <LabelList dataKey="adsLaunched" position="top" offset={4} style={VALUE_LABEL_STYLE} />
@@ -255,11 +276,15 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
     maxAdCount,
     followedCompetitorCount,
     followedCompetitorLiveAds,
-    followedBasisNote,
     cadence,
     isEmpty,
     isLoading,
   } = useTopCompetitors();
+  // `isFirstTime` / `isEmptyState` (renamed from `isThin` / `isZero`) tell us
+  // whether the ranked five below are still a market preview the user hasn't
+  // connected to yet — see `isMarketFraming`'s use below, same naming
+  // `ChangeFeed.tsx` uses for the identical distinction.
+  const { isFirstTime, isEmptyState } = useDashboardMeta();
 
   // Local optimistic follow state only — never persisted, never a store write.
   const [followedOverrides, setFollowedOverrides] = useState<Record<string, boolean>>({});
@@ -307,9 +332,12 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
     return (
       <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
         <header className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
-            Top competitors
-          </h2>
+          <span className="inline-flex items-center gap-1">
+            <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+              Top competitors
+            </h2>
+            <InfoTip tip="block.top-competitors" />
+          </span>
         </header>
         <InsightsV2EmptyState
           icon={TrendingUp}
@@ -322,12 +350,43 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
 
   const spikeWeekIndex = cadence.weeks.findIndex((w) => w.isSpike);
 
+  // Same distinction `ChangeFeed.tsx` makes: in `firstTime` / `empty` the
+  // ranked five are a market preview the user hasn't connected to yet, not
+  // "your competitors" — see the caption-trap note in the file header.
+  const isMarketFraming = isFirstTime || isEmptyState;
+  const topCompetitor = competitors[0] ?? null;
+  // Grounded in real fixture numbers only (the leader's actual 30-day count),
+  // never a fabricated threat — Maalik's own "GlowSkin ran 412 ads, you're
+  // tracking 0" example, worded with this file's own "new ads (30d)" vocabulary
+  // instead of "live ads". Still reports the exact followed-count/live-ads
+  // pair `metric.top-competitors-basis` explains, just with the market
+  // leader's number prefixed — so the tooltip's definition never drifts from
+  // what's on screen.
+  //
+  // Both figures carry their own words. The earlier form was
+  // "You follow 0 · 0 live ads now" — two bare numbers separated by a dot,
+  // and in `empty` BOTH of them are zero, which reads as a broken widget
+  // rather than a fact. Same failure Maalik rejected on the angle-mix block
+  // ("ek % samajh ati, why 2"); a zero follow count has nothing to pair with
+  // and just says so in words.
+  const followClause =
+    followedCompetitorCount === 0
+      ? "You follow none of them yet."
+      : `You follow ${followedCompetitorCount}, running ${formatInt(followedCompetitorLiveAds)} live ads right now.`;
+  const basisLine =
+    isMarketFraming && topCompetitor
+      ? `${topCompetitor.domain} shipped ${formatInt(topCompetitor.adCount30d)} new ads in 30d. ${followClause}`
+      : followClause;
+
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
       <header className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
-          Top competitors
-        </h2>
+        <span className="inline-flex items-center gap-1">
+          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+            Top competitors
+          </h2>
+          <InfoTip tip="block.top-competitors" />
+        </span>
         <div className="flex shrink-0 items-center gap-2">
           {cadence.latestDeltaPct !== null && <HeaderDeltaChip pct={cadence.latestDeltaPct} />}
           <Provenance tier="derived" compact />
@@ -346,9 +405,20 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
           <span className="w-4 shrink-0" />
           <span className="min-w-0 flex-1" />
           <span className="w-10 shrink-0" />
-          <span className="w-9 shrink-0 text-right font-mono text-[9px] uppercase leading-tight tracking-[0.08em] text-foreground/70">
-            {NEW_ADS_30D_COLUMN_LABEL}
-          </span>
+          {/* asChild, not glyph mode: this cell already wraps to several
+              lines inside its fixed `w-9` width (matches the number column
+              below it), so a separate icon would grow this row's height.
+              Wrapping the existing label as the trigger explains it with
+              zero extra footprint. Shared key with `DomainsTeaser` — do not
+              fork this copy, both blocks print the same column. */}
+          <InfoTip tip="column.new-ads-30d" asChild>
+            <span
+              tabIndex={0}
+              className="w-9 shrink-0 cursor-help rounded-sm text-right font-mono text-[9px] uppercase leading-tight tracking-[0.08em] text-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {NEW_ADS_30D_COLUMN_LABEL}
+            </span>
+          </InfoTip>
           <span className="w-14 shrink-0" aria-hidden="true" />
           <span className="w-[70px] shrink-0" />
         </div>
@@ -361,8 +431,11 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
 
       <div className="mt-2 border-t border-border/60 pt-2">
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
-            Launch cadence
+          <span className="inline-flex items-center gap-1">
+            <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+              Launch cadence
+            </span>
+            <InfoTip tip="chart.launch-cadence" />
           </span>
           {cadence.rangeLabel && (
             <span className="font-mono text-[9px] text-foreground/70">{cadence.rangeLabel}</span>
@@ -380,9 +453,14 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1.5">
-        <p className="text-xs text-foreground/70" title={followedBasisNote}>
-          {followedCompetitorCount} followed · {formatInt(followedCompetitorLiveAds)} live ads now
-        </p>
+        <InfoTip tip="metric.top-competitors-basis" asChild>
+          <p
+            tabIndex={0}
+            className="cursor-help rounded-sm text-xs text-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {basisLine}
+          </p>
+        </InfoTip>
       </div>
     </section>
   );

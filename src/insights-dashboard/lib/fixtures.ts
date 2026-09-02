@@ -43,6 +43,20 @@ import {
   type InsightAd,
 } from "@/lib/insights-dummy-data";
 
+// Trends teaser (§7.10 below) counts straight off the Trends newsroom's own
+// mock corpus rather than a mirrored/typed-in number, so the dashboard and
+// `/insights/trends` can never disagree about how many items exist. This is
+// the one deliberate exception to this file's "no imports from outside the
+// insights-dashboard data pipeline" instinct — see §7.10 for why.
+import {
+  BREAKING_STORIES,
+  META_ADS,
+  NEWS_ITEMS,
+  OTHER_SOCIAL,
+  SEARCH_DEMAND,
+  TIKTOK_HOOKS,
+} from "@/insights-trends/mocks/trendsData";
+
 import type {
   AdNumerics,
   AdjacentIndustry,
@@ -84,6 +98,9 @@ import type {
   StalenessInfo,
   StalenessLevel,
   TrackerValue,
+  TrendsSourceCount,
+  TrendsSourceKey,
+  TrendsSummary,
   WatchItem,
   WatchStatus,
   WatchlistHealth,
@@ -564,14 +581,17 @@ const EXTENSION_URL = "https://chromewebstore.google.com/detail/fabads-insights"
 // §5b  Source health + freshness
 //
 // This page's whole claim is that its numbers are honest about where they
-// came from and how fresh they are. That claim only pays off if the page can
-// also say "this source is down" and "this is 3 days old" — which is what
-// this section supplies. Every wording lives here exactly once, so a KPI tile
-// and a table cell can never disagree about why the same figure is missing.
+// came from and how fresh they are. Every wording lives here exactly once,
+// so a KPI tile and a table cell can never disagree about why the same
+// figure is missing.
+//
+// The `error` state (a partial source failure, 3-day-old "last complete
+// scan") has been REMOVED — see `DashboardState` in `./types.ts`. Nothing
+// here fails any more; a source is either `ok` or `pending`. What remains is
+// the honest "we haven't scanned this yet" story for `firstTime` / `empty` /
+// `loading`, via `sourcesPending`, and `naReasonByTier` in `./selectors.ts`
+// still reads it for real blocks.
 // ═════════════════════════════════════════════════════════════════════════
-
-/** Age of the last COMPLETE scan in the `error` state. */
-export const ERROR_SCAN_AGE_DAYS = 3;
 
 /** Data this many days old (or older) is called stale, plainly, at the top. */
 export const STALE_AFTER_DAYS = 2;
@@ -610,23 +630,6 @@ export const DATA_SOURCE_SUPPLIES: Readonly<Record<DataSourceKey, string>> = {
     "Lifespans, week-over-week deltas and change signals, computed by comparing consecutive scans — everything marked Derived.",
 };
 
-/**
- * THE canonical missing-figure sentence for the `error` state.
- *
- * Every `estimated` number on the page prints exactly this when StoreLeads is
- * down: the `est-ecom-sales` KPI tile and both estimated columns of the domain
- * table. One string, one place, so they cannot drift apart.
- */
-export const STORELEADS_NA_REASON =
-  "StoreLeads did not respond to the last scan";
-
-/** What each source contributes, and therefore what is missing without it. */
-const STORELEADS_AFFECTS: readonly string[] = [
-  "Est. monthly sales, ecom (KPI)",
-  "Est. monthly sales (domain table column)",
-  "Est. monthly visits (domain table column)",
-];
-
 /** Reasons a figure is blank while we are still waiting, one per source. */
 const PENDING_NA_REASON: Readonly<Record<DataSourceKey, string>> = {
   "meta-ad-library": "waiting on the Meta Ad Library",
@@ -655,27 +658,23 @@ function sourcesHealthy(): DataSourceStatus[] {
       state: "ok",
       lastSuccessDaysAgo: 0,
       lastSuccessLabel: "Answered on the last run, 6h ago",
-      affects: [],
     }),
     source("storeleads", {
       state: "ok",
       lastSuccessDaysAgo: 0,
       lastSuccessLabel: "Answered on the last run, 6h ago",
-      affects: [],
     }),
     source("fabads-scan", {
       state: "ok",
       lastSuccessDaysAgo: 0,
       lastSuccessLabel: "Recomputed on the last run, 6h ago",
-      affects: [],
     }),
   ];
 }
 
 /**
  * Nothing has come back yet, and that is not a failure — it is `pending`.
- * `failed` is reserved for a source that was asked and did not answer, so a
- * day-1 workspace never reads as broken.
+ * There is no `failed` any more: a day-1 workspace never reads as broken.
  */
 function sourcesPending(labels: Readonly<Record<DataSourceKey, string>>, notes: Readonly<Record<DataSourceKey, string>>, reasons: Readonly<Record<DataSourceKey, string>> = PENDING_NA_REASON): DataSourceStatus[] {
   return DATA_SOURCE_ORDER.map((key) =>
@@ -685,46 +684,8 @@ function sourcesPending(labels: Readonly<Record<DataSourceKey, string>>, notes: 
       lastSuccessLabel: labels[key],
       failureNote: notes[key],
       naReason: reasons[key],
-      affects: [],
     }),
   );
-}
-
-/**
- * The `error` picture: Meta answered, StoreLeads did not.
- *
- * A scan only commits when every source answers, so the run that StoreLeads
- * dropped out of never landed — which is why the figures on screen are from
- * the last COMPLETE scan, three days back. Both halves of that are true at
- * once: Meta is up, and the data is stale.
- */
-function sourcesStoreLeadsDown(): DataSourceStatus[] {
-  return [
-    source("meta-ad-library", {
-      state: "ok",
-      lastSuccessDaysAgo: 0,
-      lastSuccessLabel: "Answered on the last run",
-      affects: [],
-    }),
-    source("storeleads", {
-      state: "failed",
-      lastSuccessDaysAgo: ERROR_SCAN_AGE_DAYS,
-      lastSuccessLabel: `Last answered ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
-      failureNote: `StoreLeads has not answered since the run ${relativeDayLabel(
-        ERROR_SCAN_AGE_DAYS,
-      )}. It models store economics — those figures live in the full Competitors view and may be stale there. Everything on this page comes from the Meta Ad Library and is unaffected.`,
-      naReason: STORELEADS_NA_REASON,
-      affects: [...STORELEADS_AFFECTS],
-    }),
-    source("fabads-scan", {
-      state: "ok",
-      lastSuccessDaysAgo: ERROR_SCAN_AGE_DAYS,
-      lastSuccessLabel: `Computed from the last complete scan, ${relativeDayLabel(
-        ERROR_SCAN_AGE_DAYS,
-      )}`,
-      affects: [],
-    }),
-  ];
 }
 
 /** Threshold rule in ONE place. */
@@ -1090,20 +1051,28 @@ function statusFor(lastNewDaysAgo: number, newCreatives30d: number): WatchStatus
  * `items.length` IS `followCount` — the tile can say "12 followed" because
  * twelve rows exist. There is no cap and no hidden remainder.
  *
- * `trackedCompetitors` is the first `POPULATED_COMPETITORS_FOLLOWED` rows after
- * the sort, i.e. the followed brands shipping the most new creative — the ones
- * you would actually track. Their domains are what every `tracked` flag on the
- * page is derived from, so the KPI, the follow pills on the domain table and
- * the follow pills on the pages list all agree.
+ * `trackedCompetitors` is the first `trackedCount` rows after the sort, i.e.
+ * the followed brands shipping the most new creative — the ones you would
+ * actually track. Their domains are what every `tracked` flag on the page is
+ * derived from, so the KPI, the follow pills on the domain table and the
+ * follow pills on the pages list all agree.
+ *
+ * `followCount` / `trackedCount` default to the populated-workspace scale
+ * (12 / 6) but are overridable — `firstTime` passes a much smaller "a couple
+ * of brands" count, per Maalik's own description of that state.
  */
-function buildWatchlist(industries: readonly string[]): WatchlistHealth {
+function buildWatchlist(
+  industries: readonly string[],
+  followCount: number = POPULATED_BRANDS_FOLLOWED,
+  trackedCount: number = POPULATED_COMPETITORS_FOLLOWED,
+): WatchlistHealth {
   const pool = BRAND_DOMAIN_PAIRS.filter((p) =>
     industries.includes(industryForDomain(p.domain)),
   );
   const chosen = randSample(
     "watchlist-pick",
     pool.length ? pool : BRAND_DOMAIN_PAIRS,
-    Math.min(POPULATED_BRANDS_FOLLOWED, (pool.length ? pool : BRAND_DOMAIN_PAIRS).length),
+    Math.min(followCount, (pool.length ? pool : BRAND_DOMAIN_PAIRS).length),
   );
 
   // Statuses are assigned by slot, not left to chance, so all three bands are
@@ -1151,7 +1120,7 @@ function buildWatchlist(industries: readonly string[]): WatchlistHealth {
   // The competitors you track: the shortest, most active head of the follow
   // list. Deterministic (the sort above is), and the sole source of the
   // `tracked` flags everywhere else on the page.
-  const trackedCompetitors = items.slice(0, POPULATED_COMPETITORS_FOLLOWED);
+  const trackedCompetitors = items.slice(0, trackedCount);
   const quietCount = items.filter((i) => i.status === "quiet").length;
 
   return {
@@ -1311,7 +1280,7 @@ function buildCadence(pool: InsightAd[], scale: number, spikeMover: Mover | null
           } accounts for most of it — ${spikeMover.adCount30d} new ads in ${spikeMover.industry}, up ${
             spikeMover.deltaPct
           }% on the prior 30 days.`
-        : `${Math.round(adsLaunched / Math.max(1, mean) * 100 - 100)}% above the 12-week average across the brands you follow.`;
+        : `${Math.round(adsLaunched / Math.max(1, mean) * 100 - 100)}% above the 12-week average across the industries FabAds tracks.`;
     }
     return week;
   });
@@ -1477,7 +1446,7 @@ const SIGNAL_TEMPLATES: Readonly<Record<ChangeSignalKind, {
 }>> = {
   "new-angle": {
     provenance: "derived",
-    headline: (c) => `${c.advertiser} started leading with ${c.angle.toLowerCase()} copy`,
+    headline: (c) => `${c.advertiser} switched to ${c.angle.toLowerCase()} messaging in its ads`,
     evidence: (c) => [
       `${c.n} new ads in the last 14 days open on a ${c.angle.toLowerCase()} hook — none did in the 30 days before.`,
       `Their previous ${c.industry} creative led on product benefits.`,
@@ -1485,7 +1454,7 @@ const SIGNAL_TEMPLATES: Readonly<Record<ChangeSignalKind, {
   },
   "offer-shift": {
     provenance: "observed",
-    headline: (c) => `${c.advertiser} moved its headline offer`,
+    headline: (c) => `${c.advertiser} changed the offer in its ads`,
     evidence: (c) => [
       `Offer text changed across ${c.n} live ads on ${c.domain}.`,
       `The old discount copy no longer appears in any live creative.`,
@@ -1493,14 +1462,14 @@ const SIGNAL_TEMPLATES: Readonly<Record<ChangeSignalKind, {
   },
   "format-expansion": {
     provenance: "observed",
-    headline: (c) => `${c.advertiser} added ${c.format.toLowerCase()} to its mix`,
+    headline: (c) => `${c.advertiser} started running ${c.format.toLowerCase()} ads`,
     evidence: (c) => [
       `${c.n} ${c.format.toLowerCase()} ads went live in the last 10 days; their mix was static-only before.`,
     ],
   },
   "velocity-change": {
     provenance: "derived",
-    headline: (c) => `${c.advertiser} is shipping creative faster`,
+    headline: (c) => `${c.advertiser} is shipping new creative faster than usual`,
     evidence: (c) => [
       `${c.n} new ads in the last 7 days against a 12-week average of ${Math.max(1, Math.round(c.n / 2.4))}.`,
       `Live-ad count on ${c.domain} is up over the same window.`,
@@ -1508,7 +1477,7 @@ const SIGNAL_TEMPLATES: Readonly<Record<ChangeSignalKind, {
   },
   "landing-page-change": {
     provenance: "observed",
-    headline: (c) => `${c.advertiser} swapped the page behind its ads`,
+    headline: (c) => `${c.advertiser} changed the page its ads link to`,
     evidence: (c) => [
       `${c.n} live ads now point at a different path on ${c.domain}.`,
       `The previous destination stopped receiving ad traffic in the same scan.`,
@@ -1516,7 +1485,7 @@ const SIGNAL_TEMPLATES: Readonly<Record<ChangeSignalKind, {
   },
   withdrawal: {
     provenance: "observed",
-    headline: (c) => `${c.advertiser} pulled ${c.n} ads in ${c.industry}`,
+    headline: (c) => `${c.advertiser} stopped running ${c.n} ads in ${c.industry}`,
     evidence: (c) => [
       `${c.n} ads that were live in the previous scan are no longer running.`,
       `Nothing new replaced them on ${c.domain}.`,
@@ -1531,12 +1500,31 @@ const SIGNAL_KINDS: readonly ChangeSignalKind[] = [
 
 const FORMATS = ["Video", "Carousel", "Image"] as const;
 
+/** Ready-to-render qualifier for each `advertiserRelationship` value. */
+const ADVERTISER_RELATIONSHIP_LABEL: Readonly<Record<"followed" | "market", string>> = {
+  followed: "a brand you follow",
+  market: "part of the wider market",
+};
+
 /**
  * 8 signals: one of each of the six kinds plus two repeats. Index 6 is
  * deliberately a SINGLE observation so the UI can demonstrate the recurrence
  * gate — one sighting is not a trend.
+ *
+ * `trackedDomains` is the SAME tracked-competitor set every other block on
+ * the page uses for its own `tracked` / `followed` flags (domains, pages,
+ * movers) — passed in here so a signal's `advertiserRelationship` can never
+ * disagree with what those blocks already say about the same domain. It is
+ * never invented: in `empty` it is passed in empty, so every signal there
+ * honestly resolves to "market"; in `firstTime` and `populated` it reflects
+ * whatever the user has actually followed, so an intersection with the
+ * six-industry preview is a real fact when it happens, not an assumption.
  */
-function buildSignals(pool: InsightAd[], industries: readonly string[]): ChangeSignal[] {
+function buildSignals(
+  pool: InsightAd[],
+  industries: readonly string[],
+  trackedDomains: ReadonlySet<string> = new Set(),
+): ChangeSignal[] {
   // Anchors are narrowed to advertisers whose OWN industry is followed —
   // signals name the advertiser and its industry, and a page scoped to six
   // industries must not report a change in a seventh.
@@ -1582,6 +1570,9 @@ function buildSignals(pool: InsightAd[], industries: readonly string[]): ChangeS
       format: randPick(`sig-fmt|${ad.id}`, FORMATS),
       n: randInt(`sig-n|${ad.id}`, 3, 19),
     };
+    const advertiserRelationship: "followed" | "market" = trackedDomains.has(ctx.domain)
+      ? "followed"
+      : "market";
     return {
       id: `signal-${i + 1}-${ad.id}`,
       kind,
@@ -1597,6 +1588,8 @@ function buildSignals(pool: InsightAd[], industries: readonly string[]): ChangeS
       // A withdrawal has no live ad to point at — the ad is gone.
       representativeAdId: kind === "withdrawal" ? null : ad.id,
       meetsRecurrenceGate: observationCount >= SIGNAL_RECURRENCE_GATE,
+      advertiserRelationship,
+      advertiserRelationshipLabel: ADVERTISER_RELATIONSHIP_LABEL[advertiserRelationship],
     };
   });
 }
@@ -1776,14 +1769,27 @@ const MY_BRAND_SEED_POPULATED: MyBrandSeed = {
   ],
 };
 
-const MY_BRAND_SEED_THIN: MyBrandSeed = {
-  name: "ClearScore Credit",
-  domain: "clearscorecredit.com",
-  industry: "Credit Repair",
-  liveAds: 8,
-  adsLaunchedPerWeek: 2,
-  avgCreativeLifespanDays: 17,
-  refreshCadenceDays: 21,
+/**
+ * `firstTime`'s own brand — a real advertiser who has just started, per
+ * Maalik's description of the state: a couple of brands followed, no
+ * launches of any scale yet.
+ *
+ * Deliberately placed IN "Beauty" — one of the six `POPULATED_INDUSTRY_NAMES`
+ * the market preview below is built from — rather than in an industry the
+ * corpus has no data for. `firstTime` still shows real market angle mix,
+ * industry share and long-runners (the market is never empty), and a brand
+ * in an unrelated industry would make every "you vs market" comparison on
+ * the page incoherent (your angle mix compared against a market you don't
+ * even advertise in). A tiny Beauty brand keeps every comparison honest.
+ */
+const MY_BRAND_SEED_FIRST_TIME: MyBrandSeed = {
+  name: "Lumo Beauty",
+  domain: "lumobeauty.com",
+  industry: "Beauty",
+  liveAds: 6,
+  adsLaunchedPerWeek: 1,
+  avgCreativeLifespanDays: 12,
+  refreshCadenceDays: 19,
   formatMix: [
     { format: "Image", pct: 52 },
     { format: "Video", pct: 34 },
@@ -1840,46 +1846,52 @@ export const MY_BRAND_INDUSTRY_AD_COUNTS: readonly { industry: string; adCount: 
 ];
 
 /**
- * Creative share of voice for the industries the user actually advertises in.
- * `you.pct + Σ leaders.pct` always leaves a long-tail remainder under 100.
+ * Creative share of voice, one row per industry in `industries`.
+ *
+ * `leaders` (the market) is always real — this is exactly the block the
+ * "market is never empty" rule is about. `you` is a NON-NULL shape in every
+ * row (never a bare dash), but when `myBrand` is absent, or this industry
+ * isn't one it advertises in, `hasYourData` is `false` and `you` is a `0`
+ * placeholder rather than a measured fact — check the flag before reading it
+ * as real. `yourCountByIndustry` defaults to `myBrand`'s own single industry
+ * (the common case: a brand that advertises in one place); `populated`
+ * passes the explicit multi-industry `MY_BRAND_INDUSTRY_AD_COUNTS` map
+ * instead, because Aurelia Skin runs ads in three.
+ *
+ * EVERY percentage here is DIVIDED, never declared — see the historical note
+ * this replaced: two cards on one screen disagreeing about one advertiser is
+ * the fastest way to lose a demo. Leaders come from `liveAdsForDomain`, the
+ * same function the domain table prints.
  */
-function buildShareOfVoice(myBrand: MyBrand): ShareOfVoiceRow[] {
-  // EVERY percentage here is now DIVIDED, never declared.
-  //
-  // The hand-tuned version claimed "Aurelia Skin 3.8% of Beauty" — 159 ads —
-  // while the card beside it said the brand runs 47 live ads in total, and
-  // claimed 7.4% for glowskin.com while the domain table two blocks down
-  // reported 905 live ads for the same domain (21.6%). Two cards on one
-  // screen disagreeing about one advertiser is the fastest way to lose a
-  // demo. Leaders now come from `liveAdsForDomain` — the same function the
-  // domain table prints — and the brand's own share is its real ad count
-  // split across the industries it advertises in.
-  //
-  // `yourAdCount` sums to exactly `myBrand.liveAds`.
-  const configs: Array<{ industry: string; yourAdCount: number }> =
-    MY_BRAND_INDUSTRY_AD_COUNTS.map((c) => ({
-      industry: c.industry,
-      yourAdCount: c.adCount,
-    }));
-
+function buildShareOfVoice(
+  industries: readonly string[],
+  myBrand: MyBrand | null,
+  yourCountByIndustry: ReadonlyMap<string, number> = new Map(
+    myBrand ? [[myBrand.industry, myBrand.liveAds]] : [],
+  ),
+): ShareOfVoiceRow[] {
   const round1 = (n: number) => Math.round(n * 10) / 10;
 
-  return configs.map((cfg) => {
-    const followed = POPULATED_FOLLOWED.find((f) => f.industry === cfg.industry);
+  return industries.map((industry) => {
+    const followed = POPULATED_FOLLOWED.find((f) => f.industry === industry);
     const totalLiveAds = followed?.indexedAds ?? 1000;
     const leaderDomains = DOMAINS
-      .filter((d) => industryForDomain(d) === cfg.industry)
+      .filter((d) => industryForDomain(d) === industry)
       .map((domain) => ({ domain, adCount: liveAdsForDomain(domain) }))
       .sort((a, b) => b.adCount - a.adCount)
       .slice(0, 3);
 
+    const yourAdCount = myBrand ? yourCountByIndustry.get(industry) ?? null : null;
+    const hasYourData = yourAdCount !== null;
+
     return {
-      industry: cfg.industry,
+      industry,
       you: {
-        name: myBrand.name,
-        pct: round1((cfg.yourAdCount / totalLiveAds) * 100),
-        adCount: cfg.yourAdCount,
+        name: myBrand?.name ?? "Your brand",
+        pct: hasYourData ? round1(((yourAdCount as number) / totalLiveAds) * 100) : 0,
+        adCount: hasYourData ? (yourAdCount as number) : 0,
       },
+      hasYourData,
       leaders: leaderDomains.map(({ domain, adCount }) => ({
         domain,
         pct: round1((adCount / totalLiveAds) * 100),
@@ -1891,6 +1903,9 @@ function buildShareOfVoice(myBrand: MyBrand): ShareOfVoiceRow[] {
     };
   });
 }
+
+/** The three industries `firstTime` / `empty` show a market share-of-voice panorama for. */
+const SHARE_OF_VOICE_MARKET_PREVIEW: readonly string[] = ["Beauty", "E-commerce", "Health & Wellness"];
 
 // ── 7.8b  Pages (the advertiser's Meta page) ─────────────────────────────
 
@@ -2008,19 +2023,30 @@ export const INDUSTRY_SHARE_NAMED_BRANDS = 4;
  *    coverage block prints;
  *  - each brand's ad count comes from `liveAdsForDomain`, the same function the
  *    domain table and the movers list print;
- *  - the user's own count comes from `MY_BRAND_INDUSTRY_AD_COUNTS`, shared with
- *    `buildShareOfVoice`.
+ *  - the user's own count comes from `yourCountByIndustry`, the SAME map
+ *    `buildShareOfVoice` reads (`MY_BRAND_INDUSTRY_AD_COUNTS` for `populated`,
+ *    or the default single-industry map derived from `myBrand` itself).
  *
  * So no two blocks on the page can report a different number for one brand.
+ *
+ * `followed` is the MARKET's industries to show a panorama for — NOT
+ * necessarily the user's own follow list. `populated` passes its real
+ * followed set (they're the same thing there); `firstTime` / `empty` pass
+ * `POPULATED_FOLLOWED`, the market preview, because this block's whole
+ * purpose is showing "who holds share in the market" regardless of what the
+ * user follows. `you` on each row is `null` exactly when the user isn't
+ * represented in that industry — the existing, already-nullable way this
+ * page expresses an absent your-side.
  */
 function buildIndustryShare(
   followed: readonly FollowedIndustry[],
   myBrand: MyBrand | null,
+  yourCountByIndustry: ReadonlyMap<string, number> = new Map(
+    myBrand ? [[myBrand.industry, myBrand.liveAds]] : [],
+  ),
 ): IndustryShareRow[] {
   const round1 = (n: number) => Math.round(n * 10) / 10;
-  const yourByIndustry = new Map(
-    MY_BRAND_INDUSTRY_AD_COUNTS.map((c) => [c.industry, c.adCount]),
-  );
+  const yourByIndustry = yourCountByIndustry;
 
   return [...followed]
     .filter((f) => f.indexedAds > 0)
@@ -2146,9 +2172,9 @@ const NAV_SURFACE_META: readonly {
   {
     key: "trends",
     label: "Trends",
-    description: "what's rising in your industries right now",
+    description: "what's rising across the industries FabAds tracks",
     href: "/insights/trends",
-    unitLabel: "changes this week",
+    unitLabel: "updates in the newsroom",
   },
 ];
 
@@ -2486,15 +2512,101 @@ function buildPopulatedKpis(ctx: {
 }
 
 /**
- * Thin-state KPIs. Every tile is `value: null` with an honest `naReason` —
- * this is a coverage gap on OUR side, not an empty market, and the captions
- * say so without inventing a number.
+ * The market-side KPI tiles shared by `firstTime` and `empty` — REAL numbers
+ * regardless of what the user follows, because the market they describe is
+ * true either way (the same rule the market collections follow). Captions
+ * say plainly that the scope is the market FabAds tracks, not yet the user's
+ * own picks — never claim these are "your" industries when they aren't.
+ *
+ * `your-share-of-creative` is the one tile that genuinely has no honest
+ * number without a configured brand — `empty` passes `yourSovPct: null` and
+ * it renders Maalik's own example verbatim: launch your first batch of ads
+ * to unlock this comparison.
  */
-function buildThinKpis(): KpiTile[] {
+function buildMarketOnlyKpis(ctx: {
+  medianLifespanDays: number;
+  yourSovPct: number | null;
+  yourSovIndustry: string | null;
+}): KpiTile[] {
+  const scope = "the industries FabAds tracks — you haven't followed enough yet to scope this to your own picks";
+  const tiles: KpiTile[] = [
+    {
+      key: "live-ads",
+      label: "Live ads observed",
+      value: formatInt(POPULATED_LIVE_ADS),
+      caption: `Across ${scope} · Meta Ad Library, last scan 6h ago`,
+      provenance: "observed",
+    },
+    {
+      key: "advertisers",
+      label: "Advertisers indexed",
+      value: formatInt(POPULATED_DOMAIN_COUNTS.total),
+      caption: `Distinct domains running live creative, across ${scope}`,
+      provenance: "observed",
+    },
+    {
+      key: "new-signals",
+      label: "Changes this week",
+      value: formatInt(POPULATED_NEW_SIGNALS),
+      caption: `This week's scan compared against last week's, across ${scope}`,
+      provenance: "derived",
+    },
+    {
+      key: "creative-lifespan",
+      label: "Median creative lifespan",
+      value: `${ctx.medianLifespanDays} days`,
+      caption: `Computed from observed start dates, across ${scope}`,
+      provenance: "derived",
+    },
+    {
+      key: "est-ecom-sales",
+      label: "Est. monthly sales, ecom",
+      value: formatUsdCompact(POPULATED_EST_ECOM_SALES),
+      caption: `StoreLeads modelled across ${formatInt(POPULATED_DOMAIN_COUNTS.ecom)} ecom domains, across ${scope}`,
+      provenance: "estimated",
+    },
+  ];
+
+  tiles.push(
+    ctx.yourSovPct !== null && ctx.yourSovIndustry
+      ? {
+          key: "your-share-of-creative",
+          label: "Your share of live creative",
+          value: `${ctx.yourSovPct}%`,
+          caption: `Your live ads against all live ads in ${ctx.yourSovIndustry} · creative share, not spend`,
+          provenance: "derived",
+        }
+      : {
+          key: "your-share-of-creative",
+          label: "Your share of live creative",
+          value: null,
+          naReason: "no brand launched yet",
+          caption: "Launch your first batch of ads to unlock this comparison",
+          provenance: "derived",
+        },
+  );
+
+  return tiles;
+}
+
+/**
+ * `firstTime`-state KPIs. The five headline tiles are REAL, small, honest
+ * numbers reflecting the couple of brands this user has actually followed
+ * (per Maalik's own description of the state) — not hardcoded zeros. The
+ * market-side tiles come from `buildMarketOnlyKpis`, because the market this
+ * page describes is real whether or not this workspace has caught up to it.
+ */
+function buildFirstTimeKpis(ctx: {
+  followCount: number;
+  trackedCount: number;
+  trackedLiveAds: number;
+  inactiveCount: number;
+  inactiveThresholdDays: number;
+  medianLifespanDays: number;
+  yourSovPct: number | null;
+  yourSovIndustry: string | null;
+}): KpiTile[] {
   return [
-    // The two figures that come from the user's own account are REAL ZEROS —
-    // we looked, there is nothing saved and nothing followed. The two that need
-    // an index are null with a reason. Those are different facts.
     {
       key: "total-saved-ads",
       label: "Total saved ads",
@@ -2512,94 +2624,44 @@ function buildThinKpis(): KpiTile[] {
     {
       key: "brands-followed",
       label: "Brands followed",
-      value: "0",
-      caption: "Follow a brand and we'll track what it ships",
+      value: formatInt(ctx.followCount),
+      caption: `Brands you follow · inactive means no new ads in ${ctx.inactiveThresholdDays}+ days`,
+      subNote: `${formatInt(ctx.followCount)} followed · ${formatInt(ctx.inactiveCount)} inactive`,
       provenance: "derived",
     },
-    // Both competitor tiles are REAL ZEROS here, not missing figures: they
-    // count YOUR OWN tracked list, and we can see that it is empty. The
-    // market-side tiles below stay null with a reason, because those do need
-    // an index we haven't built yet.
     {
       key: "competitors",
       label: "Competitors followed",
-      value: "0",
-      caption: "Track a competitor and we'll watch what it ships",
+      value: formatInt(ctx.trackedCount),
+      caption: "Followed brands you also track as competitors · your own list",
       provenance: "derived",
     },
     {
       key: "total-competitor-ads",
       label: "Total competitor ads",
-      value: "0",
-      caption: "You're not tracking any competitors yet",
+      value: formatInt(ctx.trackedLiveAds),
+      caption: `Ads running now from ${ctx.trackedCount ? "that competitor" : "your tracked competitors"} · Meta Ad Library`,
       provenance: "observed",
     },
-    {
-      key: "live-ads",
-      label: "Live ads observed",
-      value: null,
-      naReason: "no ads indexed yet",
-      caption: "Credit Repair was added today · first scan in progress",
-      provenance: "observed",
-    },
-    {
-      key: "advertisers",
-      label: "Advertisers indexed",
-      value: null,
-      naReason: "first scan in progress",
-      caption: "We'll list advertisers once the first scan of Credit Repair completes",
-      provenance: "observed",
-    },
-    {
-      key: "new-signals",
-      label: "Changes this week",
-      value: null,
-      naReason: "needs two scans to compare",
-      caption: "Change detection compares consecutive scans · we only have one so far",
-      provenance: "derived",
-    },
-    {
-      key: "creative-lifespan",
-      label: "Median creative lifespan",
-      value: null,
-      naReason: "no ads indexed yet",
-      caption: "Computed from observed start dates · nothing indexed to compute from",
-      provenance: "derived",
-    },
-    {
-      key: "est-ecom-sales",
-      label: "Est. monthly sales, ecom",
-      value: null,
-      naReason: "needs store data to estimate",
-      caption: "StoreLeads models storefronts · no ecom domains found in Credit Repair yet",
-      provenance: "estimated",
-    },
-    {
-      key: "your-share-of-creative",
-      label: "Your share of live creative",
-      value: null,
-      naReason: "no market baseline in Credit Repair yet",
-      caption: "Needs an indexed industry to divide by · your 8 live ads are known",
-      provenance: "derived",
-    },
+    ...buildMarketOnlyKpis(ctx),
     {
       key: "quiet-advertisers",
-      // Same word the Brands-followed sub-note uses. Two labels for one signal
-      // is exactly the vocabulary drift this pass removes.
       label: "Inactive brands",
-      value: null,
-      naReason: "nothing tracked yet",
-      caption: "Follow a brand and we'll flag when it stops shipping",
+      value: `${ctx.inactiveCount} of ${ctx.followCount}`,
+      caption: `No new creative in ${QUIET_THRESHOLD_DAYS}+ days · derived from scan history`,
       provenance: "derived",
     },
   ];
 }
 
-/** Zero-state KPIs. Real zeros where a zero is a fact; null plus a reason otherwise. */
-function buildZeroKpis(): KpiTile[] {
+/**
+ * `empty`-state KPIs. Nothing followed, nothing saved, nothing tracked — the
+ * five headline tiles are genuine zeros, a fact about an empty workspace, not
+ * a missing figure. The market-side tiles still come from
+ * `buildMarketOnlyKpis`: an empty workspace does not make the market empty.
+ */
+function buildEmptyKpis(ctx: { medianLifespanDays: number }): KpiTile[] {
   return [
-    // Nothing followed, nothing saved, nothing scanned. Every one of these is a
-    // real zero — a fact about an empty workspace, not a missing figure.
     {
       key: "total-saved-ads",
       label: "Total saved ads",
@@ -2635,56 +2697,13 @@ function buildZeroKpis(): KpiTile[] {
       caption: "You're not tracking any competitors yet",
       provenance: "observed",
     },
-    {
-      key: "live-ads",
-      label: "Live ads observed",
-      value: "0",
-      caption: "You're not following any industries yet · nothing scanned",
-      provenance: "observed",
-    },
-    {
-      key: "advertisers",
-      label: "Advertisers indexed",
-      value: "0",
-      caption: "Follow an industry and we'll index the advertisers in it",
-      provenance: "observed",
-    },
-    {
-      key: "new-signals",
-      label: "Changes this week",
-      value: null,
-      naReason: "nothing followed to compare",
-      caption: "Change detection needs at least one followed industry",
-      provenance: "derived",
-    },
-    {
-      key: "creative-lifespan",
-      label: "Median creative lifespan",
-      value: null,
-      naReason: "no ads indexed yet",
-      caption: "Computed from observed start dates once an industry is indexed",
-      provenance: "derived",
-    },
-    {
-      key: "est-ecom-sales",
-      label: "Est. monthly sales, ecom",
-      value: null,
-      naReason: "needs store data to estimate",
-      caption: "StoreLeads models storefronts we've found · we haven't found any yet",
-      provenance: "estimated",
-    },
-    {
-      key: "your-share-of-creative",
-      label: "Your share of live creative",
-      value: null,
-      naReason: "no market baseline yet",
-      caption: "Needs an indexed industry to compare against",
-      provenance: "derived",
-    },
+    ...buildMarketOnlyKpis({
+      medianLifespanDays: ctx.medianLifespanDays,
+      yourSovPct: null,
+      yourSovIndustry: null,
+    }),
     {
       key: "quiet-advertisers",
-      // Same word the Brands-followed sub-note uses. Two labels for one signal
-      // is exactly the vocabulary drift this pass removes.
       label: "Inactive brands",
       value: null,
       naReason: "nothing tracked yet",
@@ -2767,10 +2786,10 @@ function buildPopulatedBrief(ctx: {
 
 const REFRESH_NOTE_POPULATED =
   "Last scanned 6h ago. We scan when you open Insights and when you add a follow — there's no scheduled re-sync, so these numbers move when you do.";
-const REFRESH_NOTE_THIN =
-  "Credit Repair was added today and its first scan is running. We scan when you add an industry and when you open Insights — there's no scheduled re-sync.";
-const REFRESH_NOTE_ZERO =
-  "Nothing scanned yet. We scan an industry when you follow it and again when you open Insights — there's no scheduled re-sync.";
+const REFRESH_NOTE_FIRST_TIME =
+  "Credit Repair was added today and its first scan is running. Everything else on this page is the wider market FabAds already tracks. We scan an industry when you follow it and again when you open Insights — there's no scheduled re-sync.";
+const REFRESH_NOTE_EMPTY =
+  "Nothing scanned for you yet — you haven't followed an industry. Everything below is the wider market FabAds already tracks. We scan an industry when you follow it — there's no scheduled re-sync.";
 
 function buildPopulated(): DashboardFixture {
   const pool = adsForIndustries(POPULATED_INDUSTRY_NAMES);
@@ -2790,14 +2809,21 @@ function buildPopulated(): DashboardFixture {
   const angles = buildAngles(pool, myBrand.angleMix);
   const topAngle = angles.length ? angles[0] : null;
 
-  const signals = buildSignals(pool, POPULATED_INDUSTRY_NAMES);
+  const signals = buildSignals(pool, POPULATED_INDUSTRY_NAMES, trackedDomains);
   const longRunners = buildLongRunners(POPULATED_INDUSTRY_NAMES);
   const domains = buildDomainRows(trackedDomains, POPULATED_INDUSTRY_NAMES);
   // Pages are a SPLIT of the domain rows above, so the two views of one
   // advertiser always add up. See `buildPages`.
   const pages = buildPages(domains, trackedDomains);
-  const shareOfVoice = buildShareOfVoice(myBrand);
-  const industryShare = buildIndustryShare(POPULATED_FOLLOWED, myBrand);
+  const yourAdCountsByIndustry = new Map(
+    MY_BRAND_INDUSTRY_AD_COUNTS.map((c) => [c.industry, c.adCount]),
+  );
+  const shareOfVoice = buildShareOfVoice(
+    MY_BRAND_INDUSTRY_AD_COUNTS.map((c) => c.industry),
+    myBrand,
+    yourAdCountsByIndustry,
+  );
+  const industryShare = buildIndustryShare(POPULATED_FOLLOWED, myBrand, yourAdCountsByIndustry);
   const boards = buildBoards();
   const savedAdsTotal = boards.boards.reduce((s, b) => s + b.itemCount, 0);
 
@@ -2828,7 +2854,12 @@ function buildPopulated(): DashboardFixture {
       // whole-market figure is the Domain surface below it.
       competitor: watchlist.trackedCompetitorCount,
       domain: POPULATED_DOMAIN_COUNTS.total,
-      trends: POPULATED_NEW_SIGNALS,
+      // Same metric in every state as `TrendsSummary` prints — the newsroom's
+      // own total. It used to be POPULATED_NEW_SIGNALS (a scan-derived
+      // "changes detected this week" figure with its own KPI tile) here and
+      // TRENDS_TOTAL_UPDATES in firstTime/empty: one row, two different
+      // metrics by state.
+      trends: TRENDS_TOTAL_UPDATES,
     },
     {},
   );
@@ -2897,20 +2928,96 @@ function buildPopulated(): DashboardFixture {
     coverage,
     checklist: buildChecklist({ industries: true, competitor: true, extension: true }),
     brief,
+    trends: TRENDS_SUMMARY_LIVE,
   };
 }
 
 /**
- * Thin (Day 1): ONE followed industry, "Credit Repair", with 0 indexed ads.
+ * ═════════════════════════════════════════════════════════════════════════
+ * §7.14  Market snapshot — shared by `firstTime` and `empty`
+ * ═════════════════════════════════════════════════════════════════════════
  *
- * The distinction the whole state exists to make: 0 indexed ads is a coverage
- * gap on OUR side, not an empty market. Every collection is empty EXCEPT
- * `coverage.adjacent` (four neighbours with real counts, proving the market
- * exists) and `myBrand` — the user's own creative behaviour comes from their
- * own account and does not depend on whether we've scanned anything.
+ * "Empty means YOUR side is empty. The market is never empty" (Maalik). Both
+ * near-empty states show the SAME six-industry market preview
+ * (`POPULATED_INDUSTRY_NAMES` — already tuned so every copy angle has real
+ * coverage) for every block that isn't specifically about the user's own
+ * follow list: top advertisers (`movers`), the domain table, angle mix,
+ * industry brand share, share of voice, long-running creative, change
+ * signals and the launch-cadence chart.
+ *
+ * This is DELIBERATELY NOT the user's own `coverage.followed` set (which, in
+ * both states, tells a different, narrower story about the user's specific
+ * follow gap — see `buildFirstTime` / `buildEmpty`). A component rendering
+ * these collections in `firstTime` / `empty` must not caption them "in your
+ * industries" — say "across the market" / "the industries FabAds tracks"
+ * instead; only `coverage` and the setup checklist are about the user's own
+ * picks.
+ *
+ * What stays a real zero or an absent `null` in both states is the USER'S
+ * side: `trackedDomains` (which rows get `tracked: true`), `myBrand` (small
+ * and present in `firstTime`, `null` in `empty`), and everything under
+ * `watchlist` / `boards` / `coverage`, none of which this function touches.
  */
-function buildThin(): DashboardFixture {
-  const myBrand = buildMyBrand(MY_BRAND_SEED_THIN);
+function buildMarketSnapshot(
+  myBrand: MyBrand | null,
+  trackedDomains: ReadonlySet<string>,
+): {
+  pool: InsightAd[];
+  movers: Mover[];
+  cadence: LaunchCadenceWeek[];
+  angles: AngleSlice[];
+  signals: ChangeSignal[];
+  longRunners: LongRunnerAd[];
+  domains: DomainRow[];
+  pages: PageRow[];
+  industryShare: IndustryShareRow[];
+  shareOfVoice: ShareOfVoiceRow[];
+} {
+  const industries = POPULATED_INDUSTRY_NAMES;
+  const pool = adsForIndustries(industries);
+  const tracked = new Set(trackedDomains);
+
+  const movers = buildMovers(industries, tracked);
+  const topMover = movers.length ? movers[0] : null;
+  const cadence = buildCadence(pool, 3, topMover);
+  const angles = buildAngles(pool, myBrand?.angleMix ?? []);
+  const signals = buildSignals(pool, industries, tracked);
+  const longRunners = buildLongRunners(industries);
+  const domains = buildDomainRows(tracked, industries);
+  const pages = buildPages(domains, tracked);
+  const industryShare = buildIndustryShare(POPULATED_FOLLOWED, myBrand);
+  const shareOfVoice = buildShareOfVoice(SHARE_OF_VOICE_MARKET_PREVIEW, myBrand);
+
+  return { pool, movers, cadence, angles, signals, longRunners, domains, pages, industryShare, shareOfVoice };
+}
+
+/** Median lifespan (days), from parsed durations — same formula `populated` uses. */
+function medianLifespanFor(pool: readonly InsightAd[]): number {
+  const durations = pool.map((a) => parseDurationDays(a.activeDuration)).sort((a, b) => a - b);
+  return durations.length ? Math.round(durations[Math.floor(durations.length / 2)] * 1.85) : 0;
+}
+
+/**
+ * `firstTime` (Day 1): one followed industry, "Credit Repair", not yet
+ * indexed — the distinction the coverage story exists to make: 0 indexed
+ * ads in Credit Repair is a gap on OUR side, not an empty market. A couple of
+ * brands are followed (`buildWatchlist(..., 2, 1)`) and a small brand of the
+ * user's own is configured, per Maalik's own description of the state.
+ *
+ * Every MARKET collection (`movers`, `domains`, `pages`, `industryShare`,
+ * `angles`, `signals`, `longRunners`, `cadence`, `shareOfVoice`) is filled
+ * from `buildMarketSnapshot` — the market never collapses to empty just
+ * because Credit Repair hasn't been scanned yet.
+ */
+function buildFirstTime(): DashboardFixture {
+  const myBrand = buildMyBrand(MY_BRAND_SEED_FIRST_TIME);
+
+  const watchlist = buildWatchlist(POPULATED_INDUSTRY_NAMES, 2, 1);
+  const trackedDomains = new Set(watchlist.trackedCompetitors.map((i) => i.domain));
+
+  const market = buildMarketSnapshot(myBrand, trackedDomains);
+  const medianLifespanDays = medianLifespanFor(market.pool);
+  const yourShareRow = market.shareOfVoice.find((r) => r.hasYourData) ?? null;
 
   const followed: FollowedIndustry[] = [
     {
@@ -2934,23 +3041,27 @@ function buildThin(): DashboardFixture {
   };
 
   const meta: DashboardMeta = {
-    state: "thin",
+    state: "firstTime",
     generatedAtISO: NOW_ISO,
     dataAsOfLabel: `Data as of ${shortDateLabel(0)}`,
-    lastScanLabel: "First scan in progress",
-    refreshNote: REFRESH_NOTE_THIN,
+    lastScanLabel: "First scan of Credit Repair in progress",
+    refreshNote: REFRESH_NOTE_FIRST_TIME,
     followedIndustryCount: 1,
     seededIndustryCount: SEEDED_INDUSTRY_COUNT,
-    liveAdsObserved: 0,
-    domainCount: 0,
-    domainTypeCounts: null,
-    newSignalsThisWeek: 0,
-    cadenceScopeNote: "Nothing to chart yet — Credit Repair has no indexed ads.",
+    // The market preview IS real and indexed — only Credit Repair, the
+    // user's own follow, isn't. These figures describe the market preview,
+    // matching the KPI row and every market block on the page.
+    liveAdsObserved: POPULATED_LIVE_ADS,
+    domainCount: POPULATED_DOMAIN_COUNTS.total,
+    domainTypeCounts: POPULATED_DOMAIN_COUNTS,
+    newSignalsThisWeek: POPULATED_NEW_SIGNALS,
+    cadenceScopeNote: `New ads per week across the industries FabAds tracks · 12 weeks to ${shortDateLabel(0)} — Credit Repair has no indexed ads yet`,
     stateNote:
-      "1 industry followed, 0 ads indexed. Credit Repair isn't in our index yet.",
+      "1 industry followed, 0 ads indexed in it yet. Credit Repair isn't in our index yet — everything else on this page is the wider market.",
     isLoading: false,
-    // Nothing has FAILED here — the first scan simply hasn't finished, so all
-    // three sources are `pending`. A day-1 workspace must not read as broken.
+    // Nothing has FAILED here — Credit Repair's first scan simply hasn't
+    // finished, so its three sources are `pending`. A day-1 workspace must
+    // never read as broken.
     sources: sourcesPending(
       {
         "meta-ad-library": "First scan of Credit Repair still running",
@@ -2976,67 +3087,76 @@ function buildThin(): DashboardFixture {
     staleness: buildStaleness(
       null,
       "First scan in progress",
-      "No scan of Credit Repair has completed yet, so there is nothing to be fresh or stale. We scan when you add an industry and when you open Insights.",
+      "No scan of Credit Repair has completed yet, so there is nothing to be fresh or stale about YOUR follow. We scan when you add an industry and when you open Insights.",
     ),
   };
 
   return {
-    state: "thin",
+    state: "firstTime",
     meta,
-    kpis: buildThinKpis(),
-    signals: [],
-    longRunners: [],
-    cadence: [],
-    angles: [],
-    movers: [],
-    domains: [],
-    pages: [],
-    // Credit Repair has nothing indexed, so there is no industry breakdown to
-    // show. `[]` — not a fabricated row with zeros in it.
-    industryShare: [],
+    kpis: buildFirstTimeKpis({
+      followCount: watchlist.followCount,
+      trackedCount: watchlist.trackedCompetitorCount,
+      trackedLiveAds: watchlist.trackedCompetitorLiveAds,
+      inactiveCount: watchlist.inactiveCount,
+      inactiveThresholdDays: watchlist.inactiveThresholdDays,
+      medianLifespanDays,
+      yourSovPct: yourShareRow?.you.pct ?? null,
+      yourSovIndustry: yourShareRow?.industry ?? null,
+    }),
+    signals: market.signals,
+    longRunners: market.longRunners,
+    cadence: market.cadence,
+    angles: market.angles,
+    movers: market.movers,
+    domains: market.domains,
+    pages: market.pages,
+    industryShare: market.industryShare,
     navSurfaces: buildNavSurfaces(
       {
         "my-feeds": 1,
-        discover: null,
+        // Discover / Domain / Trends explore the WHOLE indexed library, not
+        // just what you follow — real market totals, same as `populated`.
+        discover: POPULATED_LIVE_ADS,
         "saved-ads": 0,
-        // Your own follow list — we can see it is empty. A real zero.
-        competitor: 0,
-        domain: null,
-        trends: null,
+        // Your own follow list — a real, small count.
+        competitor: watchlist.trackedCompetitorCount,
+        domain: POPULATED_DOMAIN_COUNTS.total,
+        trends: TRENDS_TOTAL_UPDATES,
       },
-      {
-        discover: "first scan in progress",
-        domain: "first scan in progress",
-        trends: "needs two scans to compare",
-      },
+      {},
     ),
-    domainTypeCounts: EMPTY_DOMAIN_COUNTS,
-    // Your side is known; the market side isn't. That asymmetry is the story.
+    domainTypeCounts: POPULATED_DOMAIN_COUNTS,
     myBrand,
-    shareOfVoice: [],
-    watchlist: EMPTY_WATCHLIST(),
+    shareOfVoice: market.shareOfVoice,
+    watchlist,
     boards: EMPTY_BOARDS,
     coverage,
-    checklist: buildChecklist({ industries: true, competitor: false, extension: false }),
+    checklist: buildChecklist({ industries: true, competitor: true, extension: false }),
     brief: {
       paragraph: "",
       facts: [],
       generatedLabel: "",
       available: false,
       unavailableReason:
-        "Nothing indexed in Credit Repair yet, so there's nothing to summarise. Follow an indexed industry and this fills in on the next scan.",
+        "Nothing indexed in Credit Repair yet, so there's nothing of YOURS to summarise. Follow an indexed industry and this fills in on the next scan.",
     },
+    trends: TRENDS_SUMMARY_FIRST_LOOK,
   };
 }
 
 /**
- * Zero: brand new workspace, nothing followed.
- *
- * FABRICATES NOTHING. Every collection is empty, KPIs are honest zeros or
- * null-with-reason, and the only content is a starter set of industries with
- * counts we genuinely have.
+ * `empty`: brand new workspace, nothing followed, nothing saved, no brand
+ * configured. Every collection about the USER is a real zero or an absent
+ * `null` — but every MARKET collection (`movers`, `domains`, `pages`,
+ * `industryShare`, `angles`, `signals`, `longRunners`, `cadence`,
+ * `shareOfVoice`) is filled from `buildMarketSnapshot`, exactly as in
+ * `firstTime`. Nothing followed does not mean nothing to show.
  */
-function buildZero(): DashboardFixture {
+function buildEmpty(): DashboardFixture {
+  const market = buildMarketSnapshot(null, new Set());
+  const medianLifespanDays = medianLifespanFor(market.pool);
+
   const coverage: CoverageInfo = {
     followed: [],
     followedCount: 0,
@@ -3045,37 +3165,38 @@ function buildZero(): DashboardFixture {
     adjacent: [...ZERO_STARTER],
     adjacentHeading: "Start with one of these",
     gapNote:
-      `You're not following anything yet, so there's nothing for us to scan. Pick an industry from the ${SEEDED_INDUSTRY_COUNT} in the catalogue and we'll index it.`,
+      `You're not following anything yet, so there's nothing for us to scan on your behalf. Pick an industry from the ${SEEDED_INDUSTRY_COUNT} in the catalogue and we'll index it.`,
   };
 
   const meta: DashboardMeta = {
-    state: "zero",
+    state: "empty",
     generatedAtISO: NOW_ISO,
-    dataAsOfLabel: "No data yet",
-    lastScanLabel: "Not scanned yet",
-    refreshNote: REFRESH_NOTE_ZERO,
+    dataAsOfLabel: `Data as of ${shortDateLabel(0)}`,
+    lastScanLabel: "Not scanned for you yet",
+    refreshNote: REFRESH_NOTE_EMPTY,
     followedIndustryCount: 0,
     seededIndustryCount: SEEDED_INDUSTRY_COUNT,
-    liveAdsObserved: null,
-    domainCount: null,
-    domainTypeCounts: null,
-    newSignalsThisWeek: 0,
-    cadenceScopeNote: "Nothing to chart yet — follow an industry to start.",
-    stateNote: `Nothing followed yet. ${SEEDED_INDUSTRY_COUNT} industries available.`,
+    // Real market totals — nothing followed doesn't mean nothing indexed.
+    liveAdsObserved: POPULATED_LIVE_ADS,
+    domainCount: POPULATED_DOMAIN_COUNTS.total,
+    domainTypeCounts: POPULATED_DOMAIN_COUNTS,
+    newSignalsThisWeek: POPULATED_NEW_SIGNALS,
+    cadenceScopeNote: `New ads per week across the industries FabAds tracks · 12 weeks to ${shortDateLabel(0)} — follow one to scope this to your own picks`,
+    stateNote: `Nothing followed yet. ${SEEDED_INDUSTRY_COUNT} industries available — everything below is the wider market.`,
     isLoading: false,
     sources: sourcesPending(
       {
-        "meta-ad-library": "Nothing followed yet, so nothing to scan",
-        storeleads: "Nothing followed yet, so nothing to model",
-        "fabads-scan": "Nothing followed yet, so nothing to compute",
+        "meta-ad-library": "Nothing followed yet, so nothing scanned for you",
+        storeleads: "Nothing followed yet, so nothing modelled for you",
+        "fabads-scan": "Nothing followed yet, so nothing computed for you",
       },
       {
         "meta-ad-library":
           "We scan the slice of the ad library you follow. You're not following anything yet.",
         storeleads:
-          "StoreLeads models the storefronts we've found. We haven't found any yet.",
+          "StoreLeads models the storefronts we've found for what you follow. You're not following anything yet.",
         "fabads-scan":
-          "Everything derived compares two consecutive scans. Nothing has been scanned.",
+          "Everything derived compares two consecutive scans of what you follow. Nothing has been scanned for you.",
       },
       {
         "meta-ad-library": "nothing followed to scan",
@@ -3087,38 +3208,39 @@ function buildZero(): DashboardFixture {
     degradedTiers: [],
     staleness: buildStaleness(
       null,
-      "Not scanned yet",
-      "Nothing has been scanned, so there is no freshness to report. We scan an industry when you follow it.",
+      "Not scanned for you yet",
+      "Nothing has been scanned on your behalf, so there is no freshness to report for your own follow list. We scan an industry when you follow it.",
     ),
   };
 
   return {
-    state: "zero",
+    state: "empty",
     meta,
-    kpis: buildZeroKpis(),
-    signals: [],
-    longRunners: [],
-    cadence: [],
-    angles: [],
-    movers: [],
-    domains: [],
-    pages: [],
-    industryShare: [],
-    // Nothing followed, so every market count is a REAL ZERO, not a gap.
+    kpis: buildEmptyKpis({ medianLifespanDays }),
+    signals: market.signals,
+    longRunners: market.longRunners,
+    cadence: market.cadence,
+    angles: market.angles,
+    movers: market.movers,
+    domains: market.domains,
+    pages: market.pages,
+    industryShare: market.industryShare,
     navSurfaces: buildNavSurfaces(
       {
         "my-feeds": 0,
-        discover: 0,
+        // Discover / Domain / Trends explore the WHOLE indexed library, not
+        // just what you follow — real market totals, same as `populated`.
+        discover: POPULATED_LIVE_ADS,
         "saved-ads": 0,
         competitor: 0,
-        domain: 0,
-        trends: 0,
+        domain: POPULATED_DOMAIN_COUNTS.total,
+        trends: TRENDS_TOTAL_UPDATES,
       },
       {},
     ),
-    domainTypeCounts: EMPTY_DOMAIN_COUNTS,
+    domainTypeCounts: POPULATED_DOMAIN_COUNTS,
     myBrand: null,
-    shareOfVoice: [],
+    shareOfVoice: market.shareOfVoice,
     watchlist: EMPTY_WATCHLIST(),
     boards: EMPTY_BOARDS,
     coverage,
@@ -3131,6 +3253,7 @@ function buildZero(): DashboardFixture {
       unavailableReason:
         "Follow an industry and we'll write this from what we find in it.",
     },
+    trends: TRENDS_SUMMARY_FIRST_LOOK,
   };
 }
 
@@ -3172,7 +3295,7 @@ const KPI_LOADING_CAPTION: Readonly<Record<DataSourceKey, string>> = {
  * says "waiting on X", never "no data", because those mean opposite things.
  */
 function buildLoadingKpis(): KpiTile[] {
-  return buildZeroKpis().map<KpiTile>((tile) => {
+  return buildEmptyKpis({ medianLifespanDays: 0 }).map<KpiTile>((tile) => {
     const key = KPI_SOURCE[tile.key] ?? "fabads-scan";
     return {
       key: tile.key,
@@ -3295,157 +3418,168 @@ function buildLoading(): DashboardFixture {
       available: false,
       unavailableReason: "Still loading — the brief is written once the scan lands.",
     },
+    trends: TRENDS_SUMMARY_LOADING,
   };
 }
 
-// ── 8.2  Error: PARTIAL failure, and a stale last-good scan ──────────────
+// ═════════════════════════════════════════════════════════════════════════
+// §8.3  Trends teaser — numbers only
+// ═════════════════════════════════════════════════════════════════════════
+//
+// A minimal, numbers-only summary of the Industry Insights Trends newsroom
+// (`src/insights-trends`) for a small dashboard block that links out rather
+// than repeating any story (Maalik: "Trends ke only numbers dikha de").
+//
+// SOURCE OF TRUTH: the six mock arrays imported at the top of this file from
+// `trendsData.ts`. Every count below is that array's own `.length` — never a
+// separately-typed number — so this block and `/insights/trends` can never
+// disagree about how many items exist. If `trendsData.ts` ever grows a new
+// source array, it needs a matching row here or the new source silently goes
+// uncounted — there is no automatic discovery.
+//
+// DEEP LINKS verified against `useTrendsFilters`
+// (`src/insights-trends/hooks/useTrendsFilters.ts`) and the per-tab dataset
+// switch in `TrendsPage.tsx`:
+//  - `news` and `search` land on a tab whose dataset IS that array exactly
+//    (`NEWS_ITEMS` / `SEARCH_DEMAND`), so those two hrefs are exact filters.
+//  - `meta-ads` / `tiktok-hooks` use the Social tab's real "Platform" facet
+//    (`?fa=Meta` / `?fa=TikTok`), which `facetSlotMatches` derives from this
+//    same data (`type === "meta"` / `"tiktok"`) and genuinely narrows to
+//    exactly that source — not an invented param the page ignores.
+//  - `breaking` has no dedicated tab or filter: breaking stories render only
+//    on Overview, mixed in with every other source. Its href is the tab.
+//  - `social` (Instagram/YouTube/LinkedIn/X, i.e. `OTHER_SOCIAL`) has no
+//    single facet value that isolates exactly that mixed set either — same
+//    fallback, the tab (which also includes Meta + TikTok, honestly broader
+//    than this one row).
+
+const TRENDS_HREF = "/insights/trends";
+
+const TRENDS_SOURCE_DEFS: ReadonlyArray<{
+  key: TrendsSourceKey;
+  label: string;
+  items: ReadonlyArray<{ publishedAt: string }>;
+  href: string;
+}> = [
+  {
+    key: "breaking",
+    label: "Breaking stories",
+    items: BREAKING_STORIES,
+    href: `${TRENDS_HREF}?tab=overview`,
+  },
+  {
+    key: "news",
+    label: "News",
+    items: NEWS_ITEMS,
+    href: `${TRENDS_HREF}?tab=news`,
+  },
+  {
+    key: "meta-ads",
+    label: "Meta ads",
+    items: META_ADS,
+    href: `${TRENDS_HREF}?tab=social&fa=Meta`,
+  },
+  {
+    key: "tiktok-hooks",
+    label: "TikTok hooks",
+    items: TIKTOK_HOOKS,
+    href: `${TRENDS_HREF}?tab=social&fa=TikTok`,
+  },
+  {
+    key: "search",
+    label: "Search demand",
+    items: SEARCH_DEMAND,
+    href: `${TRENDS_HREF}?tab=search`,
+  },
+  {
+    key: "social",
+    label: "Other social",
+    items: OTHER_SOCIAL,
+    href: `${TRENDS_HREF}?tab=social`,
+  },
+];
 
 /**
- * Captions rewritten for the `error` state.
+ * How many items across every source were published on the two most recent
+ * calendar dates present in the mock corpus.
  *
- * Every tile that survives must say WHEN its number is from. The populated
- * captions claim "last scan 6h ago"; in this state the last COMPLETE scan is
- * three days old, and repeating the 6h claim would be the exact dishonesty
- * this page exists to avoid. `est-ecom-sales` is not here — it has no number
- * at all and is handled separately.
+ * Deterministic and `Date.now()`-free by construction: it never reads
+ * today's real date, only the `publishedAt` strings already baked into
+ * `trendsData.ts`, so the result is identical on every render and every day
+ * this runs, exactly like every other number in this file.
  */
-const ERROR_KPI_CAPTIONS: Readonly<Record<string, string>> = {
-  // The three configuration counts are OUR OWN records and are not affected by
-  // a failed upstream — but they still say when they were read, because the
-  // whole page is showing a three-day-old scan.
-  "total-saved-ads": `Across your boards · your own saves, as of ${shortDateLabel(ERROR_SCAN_AGE_DAYS)}`,
-  "industries-followed": `of ${formatInt(SEEDED_INDUSTRY_COUNT)} in the catalogue · your follow list`,
-  "brands-followed": "Brands you follow · your own list",
-  competitors: "Followed brands you also track as competitors · your own list",
-  "total-competitor-ads": `Ads running from those competitors · Meta Ad Library, last complete scan ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
-  "live-ads": `Across ${POPULATED_FOLLOWED.length} followed industries · Meta Ad Library, last complete scan ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
-  advertisers: `Distinct domains running live creative · last complete scan ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
-  "new-signals": `7-day window ending ${shortDateLabel(ERROR_SCAN_AGE_DAYS)} — the last two scans we could compare`,
-  "creative-lifespan": `Computed from observed start dates · from the scan of ${shortDateLabel(ERROR_SCAN_AGE_DAYS)}`,
-  "your-share-of-creative": `Your live ads against all live ads in Beauty · creative share, not spend · as of ${shortDateLabel(ERROR_SCAN_AGE_DAYS)}`,
-  "quiet-advertisers": `No new creative in ${QUIET_THRESHOLD_DAYS}+ days · from the scan of ${shortDateLabel(ERROR_SCAN_AGE_DAYS)}`,
+function trendsNewUpdatesCount(): number {
+  const allDates = TRENDS_SOURCE_DEFS.flatMap((def) => def.items.map((i) => i.publishedAt));
+  const mostRecentTwo = new Set(Array.from(new Set(allDates)).sort().slice(-2));
+  return allDates.filter((d) => mostRecentTwo.has(d)).length;
+}
+
+const TRENDS_TOTAL_UPDATES = TRENDS_SOURCE_DEFS.reduce((sum, def) => sum + def.items.length, 0);
+const TRENDS_NEW_UPDATES = trendsNewUpdatesCount();
+
+/**
+ * `populated`: Trends is fed by Google Trends and news/social sources, not by
+ * the Meta Ad Library or StoreLeads scan, so it never depends on either.
+ */
+const TRENDS_SUMMARY_LIVE: TrendsSummary = {
+  sources: TRENDS_SOURCE_DEFS.map(({ key, label, items, href }) => ({
+    key,
+    label,
+    count: items.length,
+    href,
+  })),
+  totalUpdates: TRENDS_TOTAL_UPDATES,
+  newUpdates: TRENDS_NEW_UPDATES,
+  lastCheckedLabel: "Last checked 6h ago",
+  href: TRENDS_HREF,
+  isEmpty: false,
+  isLoading: false,
 };
 
 /**
- * The `estimated` tile loses its number and keeps its identity.
- *
- * `deltaPct` and `series` are dropped deliberately: a sparkline beside a
- * missing value implies we still know the trend, and we do not — the source
- * that produced every point of it is down.
+ * `firstTime` / `empty`: Trends is genuinely UNAFFECTED by what the user
+ * follows — Google Trends and news/social sources don't care whether this
+ * workspace has followed anything — so its counts are the SAME real numbers
+ * as `populated`. The one honest difference: `newUpdates` needs a PRIOR check
+ * to diff against, and a brand new workspace has never checked before, so
+ * that one field goes to `null` with a reason rather than a fabricated delta.
+ * This replaced a previous version that zeroed out every count for these two
+ * states, which was exactly the "make the market wrong to match your empty
+ * account" mistake the rest of this file works hard to avoid.
  */
-function toErrorKpis(kpis: readonly KpiTile[]): KpiTile[] {
-  return kpis.map<KpiTile>((tile) => {
-    if (DATA_SOURCE_TIERS[KPI_SOURCE[tile.key] ?? "fabads-scan"] === "estimated") {
-      return {
-        key: tile.key,
-        label: tile.label,
-        value: null,
-        naReason: STORELEADS_NA_REASON,
-        caption: `StoreLeads models storefront sales across ${formatInt(
-          POPULATED_DOMAIN_COUNTS.ecom,
-        )} ecom domains · it last answered ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
-        provenance: tile.provenance,
-      };
-    }
-    return { ...tile, caption: ERROR_KPI_CAPTIONS[tile.key] ?? tile.caption };
-  });
-}
+const TRENDS_SUMMARY_FIRST_LOOK: TrendsSummary = {
+  ...TRENDS_SUMMARY_LIVE,
+  newUpdates: null,
+  // Kept to ~2 wrapped lines at the 180px slot it renders in. The long form
+  // ("This is the first time we've checked Trends for your workspace — nothing
+  // to compare against yet.") wrapped to four, which is the whole ~39px
+  // difference between this block's height here and in `populated`.
+  newUpdatesNaReason: "First check — nothing to compare against yet.",
+  lastCheckedLabel: "Checked just now",
+  isEmpty: false,
+};
 
 /**
- * Ecom rows lose their two StoreLeads columns and gain the reason why.
- *
- * The values go to `null` rather than staying at their last-known figure:
- * StoreLeads returned nothing, so there is no number, and printing a
- * three-day-old estimate under a live-ads column scanned on the same run
- * would be quietly wrong. `unavailable` keeps the "null always carries a
- * reason" invariant intact at cell level.
+ * Loading: nothing has resolved. Counts are 0, but `isLoading: true` is the
+ * flag a component must branch on FIRST — this is "not yet", not "none",
+ * exactly the distinction `DashboardMeta.isLoading` exists to make
+ * everywhere else on this page.
  */
-function toErrorDomains(rows: readonly DomainRow[]): DomainRow[] {
-  return rows.map<DomainRow>((row) =>
-    row.type === "ecom"
-      ? {
-          ...row,
-          estSalesPerMonth: null,
-          estVisits: null,
-          unavailable: {
-            estSalesPerMonth: STORELEADS_NA_REASON,
-            estVisits: STORELEADS_NA_REASON,
-          },
-        }
-      : row,
-  );
-}
-
-/**
- * Error: a PARTIAL failure, not a blank page.
- *
- * A total error screen is easy and unrealistic. What actually happens is that
- * some sources answer and some don't:
- *
- *  - Meta Ad Library answered. Live ads, advertisers, the gallery, the movers
- *    and the change feed are all present and real.
- *  - StoreLeads did not. Every `estimated` figure — the `est-ecom-sales` KPI
- *    and the domain table's sales/visits columns — is missing, each carrying
- *    `STORELEADS_NA_REASON`, which names the source out loud.
- *  - A scan only commits when every source answers, so the run StoreLeads
- *    dropped out of never landed. What's on screen is the last COMPLETE scan,
- *    three days old, and `lastScanLabel` / `refreshNote` / `staleness` say so
- *    plainly instead of implying freshness.
- *
- * This is where the provenance system pays for itself: the page can name the
- * broken source, name the tier that degraded with it, and leave every other
- * tier standing.
- */
-function buildError(): DashboardFixture {
-  const base = buildPopulated();
-  const asOf = shortDateLabel(ERROR_SCAN_AGE_DAYS);
-  const ago = relativeDayLabel(ERROR_SCAN_AGE_DAYS);
-  const sources = sourcesStoreLeadsDown();
-
-  // The whole workspace was scanned in the same run, so every industry's
-  // "last scanned" slides back by the same three days. Leaving them at 0
-  // would contradict the banner directly above them.
-  const coverage: CoverageInfo = {
-    ...base.coverage,
-    followed: base.coverage.followed.map<FollowedIndustry>((f) => ({
-      ...f,
-      lastScanDaysAgo:
-        f.lastScanDaysAgo === null ? null : f.lastScanDaysAgo + ERROR_SCAN_AGE_DAYS,
-    })),
-  };
-
-  const meta: DashboardMeta = {
-    ...base.meta,
-    state: "error",
-    dataAsOfLabel: `Data as of ${asOf}`,
-    lastScanLabel: `Last complete scan ${ago}`,
-    refreshNote: `StoreLeads hasn't answered since the run ${ago}, and a scan only completes when every source does — so nothing has committed since then. The Meta figures below are real and from that scan: ${ago}, not now. StoreLeads figures live in the full Competitors view, not on this page.`,
-    cadenceScopeNote: `New ads per week from the ${base.watchlist.followCount} brands you follow · 12 weeks to ${asOf}`,
-    stateNote: `${POPULATED_FOLLOWED.length} of ${SEEDED_INDUSTRY_COUNT} industries followed. StoreLeads is down, but nothing on this page depends on it — everything below is from the last complete scan, ${ago}.`,
-    isLoading: false,
-    sources,
-    failedSources: sources.filter((s) => s.state === "failed"),
-    degradedTiers: sources.filter((s) => s.state === "failed").map((s) => s.tier),
-    staleness: buildStaleness(
-      ERROR_SCAN_AGE_DAYS,
-      `Last complete scan ${ago}`,
-      `What's on screen is the last scan that completed, on ${asOf}. Every run since stopped at StoreLeads and never committed.`,
-    ),
-  };
-
-  return {
-    ...base,
-    state: "error",
-    meta,
-    kpis: toErrorKpis(base.kpis),
-    domains: toErrorDomains(base.domains),
-    coverage,
-    brief: {
-      ...base.brief,
-      generatedLabel: `Written from your followed industries · the 7 days to ${asOf}, the last window we could scan`,
-    },
-  };
-}
+const TRENDS_SUMMARY_LOADING: TrendsSummary = {
+  sources: TRENDS_SOURCE_DEFS.map<TrendsSourceCount>(({ key, label, href }) => ({
+    key,
+    label,
+    count: 0,
+    href,
+  })),
+  totalUpdates: 0,
+  newUpdates: null,
+  newUpdatesNaReason: "Still checking Trends for the first time.",
+  lastCheckedLabel: "Checking now…",
+  href: TRENDS_HREF,
+  isEmpty: false,
+  isLoading: true,
+};
 
 // ═════════════════════════════════════════════════════════════════════════
 // §9  Entry point
@@ -3464,43 +3598,43 @@ export function getDashboardFixture(state: DashboardState): DashboardFixture {
   if (hit) return hit;
   const built =
     state === "populated" ? buildPopulated() :
-    state === "thin" ? buildThin() :
+    state === "firstTime" ? buildFirstTime() :
     state === "loading" ? buildLoading() :
-    state === "error" ? buildError() :
-    buildZero();
+    buildEmpty();
   FIXTURE_CACHE.set(state, built);
   return built;
 }
 
 /**
- * The five states, in demo-toggle order: the three data states first, then
- * the two fetch states. `DashboardState` is validated against this list in
+ * The four states, in demo-toggle order: the three data states first, then
+ * the loading transition. `DashboardState` is validated against this list in
  * `state/DashboardState.tsx`, so adding a member here is all it takes for
- * `?state=` to accept it.
+ * `?state=` to accept it. (`thin` / `zero` / `error` are gone — see
+ * `DashboardState` in `./types.ts`; old links carrying those values are
+ * aliased to their replacements in `state/DashboardState.tsx`, not here.)
  */
 export const DASHBOARD_STATES: readonly DashboardState[] = [
   "populated",
-  "thin",
-  "zero",
+  "firstTime",
+  "empty",
   "loading",
-  "error",
 ];
 
 /** Short labels for a state switcher. */
 export const DASHBOARD_STATE_LABELS: Readonly<Record<DashboardState, string>> = {
   populated: "Populated",
-  thin: "Thin (day 1)",
-  zero: "Zero",
+  firstTime: "First-time (day 1)",
+  empty: "Empty",
   loading: "Loading",
-  error: "Source down",
 };
 
 /**
  * Two groups for the dev state switcher: how much data there is, versus
- * whether the fetch behind it worked. Five buttons in one row is too wide for
- * a corner pill, and the split is the real distinction anyway — `zero` and
- * `loading` look identical and mean opposite things, so putting them in
- * separate groups is a labelling decision as much as a layout one.
+ * whether the fetch behind it worked. `loading` stays in its own "Fetch" row
+ * even though it is alone there now — `empty` and `loading` render almost
+ * identically and mean opposite things, and separating them by heading keeps
+ * a reviewer reading them as different questions rather than merging the
+ * groups into one three-across row.
  */
 export interface DashboardStateGroup {
   key: "data" | "fetch";
@@ -3510,6 +3644,6 @@ export interface DashboardStateGroup {
 }
 
 export const DASHBOARD_STATE_GROUPS: readonly DashboardStateGroup[] = [
-  { key: "data", label: "Data", states: ["populated", "thin", "zero"] },
-  { key: "fetch", label: "Fetch", states: ["loading", "error"] },
+  { key: "data", label: "Data", states: ["populated", "firstTime", "empty"] },
+  { key: "fetch", label: "Fetch", states: ["loading"] },
 ];
