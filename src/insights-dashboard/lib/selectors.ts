@@ -84,12 +84,17 @@ import type {
   FormatMixEntry,
   FunnelDomainRow,
   IndustryScanState,
+  IndustryShareBrand,
+  IndustryShareRow,
   KpiTile,
   LaunchCadenceWeek,
   LongRunnerAd,
   LongRunnerTier,
   Mover,
   MyBrand,
+  NavSurfaceCount,
+  NavSurfaceKey,
+  PageRow,
   ProvenanceTier,
   SetupChecklistItem,
   ShareOfVoiceRow,
@@ -123,12 +128,17 @@ export type {
   FollowedIndustry,
   FormatMixEntry,
   FunnelDomainRow,
+  IndustryShareBrand,
+  IndustryShareRow,
   KpiTile,
   LaunchCadenceWeek,
   LongRunnerAd,
   LongRunnerTier,
   Mover,
   MyBrand,
+  NavSurfaceCount,
+  NavSurfaceKey,
+  PageRow,
   ProvenanceTier,
   SetupChecklistItem,
   StalenessInfo,
@@ -472,29 +482,72 @@ export function useDashboardStatus(): DashboardStatusView {
 /**
  * The five tiles the KPI row renders, in render order.
  *
- * The fixture carries SEVEN. The row shows five, and the choice is not "the
- * first five": these are the tiles whose numbers are `observed` or `derived`
- * from our own scan. The two that drop out are `est-ecom-sales` (the only
- * `estimated`, third-party-modelled figure — it needs its own labelling, so it
- * reads badly wedged between observed counts) and `quiet-advertisers` (no
- * series, no delta, and the watchlist block states it in context anyway).
+ * ── WHY THESE FIVE, AND WHY THE OLD FIVE ARE GONE ─────────────────────────
+ * The row used to say LIVE ADS OBSERVED · ADVERTISERS INDEXED · MEDIAN
+ * CREATIVE LIFESPAN · YOUR SHARE OF LIVE CREATIVE. Three of those phrases were
+ * invented for this page — that vocabulary appears nowhere else in FabAds. If
+ * the person who asked for a metric cannot find it, no user will either.
+ *
+ * These five use FabAds' own words, taken off the product's Dashboard:
+ * Total saved ads · Industries followed · Brands followed ·
+ * Competitors followed · Total competitor ads. Every one is a figure another
+ * block on this page already shows, so the row cannot contradict what is under
+ * it:
+ *
+ *   Total saved ads        Σ board item counts (`useBoardHealth().boards`)
+ *   Industries followed    `useCoverage().followedCount`
+ *   Brands followed        `useWatchlistHealth().followCount`, and its
+ *                          `subNote` is `useWatchlistHealth().inactiveNote`
+ *   Competitors followed   `useWatchlistHealth().trackedCompetitorCount` ===
+ *                          `useTopCompetitors().followedCompetitorCount` — the
+ *                          same set every `followed` / `tracked` pill on the
+ *                          domain and pages lists is lit from
+ *   Total competitor ads   `useWatchlistHealth().trackedCompetitorLiveAds` ===
+ *                          `useTopCompetitors().followedCompetitorLiveAds` — Σ
+ *                          `liveAds` of those competitors, each the same
+ *                          `liveAds` `usePagesAndDomains()` prints for the
+ *                          same domain
+ *
+ * BRANDS AND COMPETITORS ARE TWO LISTS, as they are in FabAds itself
+ * (`insight_follows` and `insight_competitors`). Competitors followed is the
+ * short list; that it is a small number is the point, not a bug. "Total
+ * competitor ads" counts ONLY those competitors' ads — never the whole indexed
+ * market, which is what made the old row contradict the competitors block.
+ *
+ * The retired tiles (`live-ads`, `advertisers`, `creative-lifespan`,
+ * `your-share-of-creative`) still exist in the fixture and still come back in
+ * `secondary` — `useMyBrandVsMarket` reads `creative-lifespan` off the tile so
+ * the two can never disagree — they are simply no longer the headline.
  *
  * Exported so a block can re-slice deliberately instead of hardcoding an
  * index range that silently breaks when a tile is added.
  */
 export const KPI_PRIMARY_KEYS: readonly string[] = [
-  "live-ads",
-  "advertisers",
-  "new-signals",
-  "creative-lifespan",
-  "your-share-of-creative",
+  "total-saved-ads",
+  "industries-followed",
+  "brands-followed",
+  "competitors",
+  "total-competitor-ads",
 ];
+
+/**
+ * The exact labels the five tiles carry, keyed by tile key. Mirrors the
+ * fixture; exported only so a test or a design review can assert the wording
+ * without reaching into `./fixtures`.
+ */
+export const KPI_PRIMARY_LABELS: Readonly<Record<string, string>> = {
+  "total-saved-ads": "Total saved ads",
+  "industries-followed": "Industries followed",
+  "brands-followed": "Brands followed",
+  competitors: "Competitors followed",
+  "total-competitor-ads": "Total competitor ads",
+};
 
 /** How many tiles the KPI row renders. */
 export const KPI_PRIMARY_COUNT = 5;
 
 export interface KpiRowView {
-  /** All seven tiles, fixture display order. */
+  /** Every tile the fixture carries, display order (headline five first). */
   tiles: KpiTile[];
   /** Exactly the five the row renders, in render order. */
   primary: KpiTile[];
@@ -521,7 +574,7 @@ export interface KpiRowView {
 }
 
 /**
- * KPI tiles, whole set plus the five the row renders.
+ * KPI tiles, whole set plus the five the row renders (`KPI_PRIMARY_KEYS`).
  *
  * Tiles are passed through by reference, untouched, so the data layer's
  * invariant survives: `value === null` always arrives with an `naReason`, and
@@ -943,49 +996,196 @@ export interface LaunchCadenceView {
   isLoading: boolean;
 }
 
-/** 12 weeks of new-creative volume, with the one annotated spike surfaced. */
+/**
+ * The cadence view, as a PURE function of the fixture slice.
+ *
+ * Factored out of `useLaunchCadence` so `useTopCompetitors` can hand the same
+ * object back inside its combined view. One implementation means the standalone
+ * chart and the merged competitors-plus-cadence card can never disagree about
+ * the average, the spike, or the range.
+ */
+function buildCadenceView(
+  weeks: readonly LaunchCadenceWeek[],
+  scopeNote: string,
+  isLoading: boolean,
+): LaunchCadenceView {
+  const values = weeks.map((w) => w.adsLaunched);
+
+  const total = sum(values);
+  const average = weeks.length ? round(total / weeks.length, 1) : 0;
+
+  const spike = weeks.find((w) => w.isSpike) ?? null;
+  const latest = weeks.length ? weeks[weeks.length - 1] : null;
+  const previous = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+
+  const latestDeltaPct =
+    latest && previous && previous.adsLaunched > 0
+      ? Math.round(
+          ((latest.adsLaunched - previous.adsLaunched) / previous.adsLaunched) * 100,
+        )
+      : null;
+
+  return {
+    weeks: [...weeks],
+    weekCount: weeks.length,
+    windowWeeks: CADENCE_WEEKS,
+    scopeNote,
+    totalLaunched: total,
+    max: maxOf(values),
+    min: minOf(values),
+    average,
+    averageLabel: weeks.length
+      ? `${weeks.length}-week average ${Math.round(average)}/wk`
+      : "",
+    spike,
+    spikeNote: spike?.spikeNote ?? null,
+    latest,
+    previous,
+    latestDeltaPct,
+    rangeLabel: weeks.length
+      ? `${weeks[0].weekStartLabel} – ${weeks[weeks.length - 1].weekStartLabel}`
+      : "",
+    isEmpty: weeks.length === 0,
+    isLoading,
+  };
+}
+
+/**
+ * 12 weeks of new-creative volume, with the one annotated spike surfaced.
+ *
+ * NOT A STANDALONE BLOCK any more: the same view arrives as
+ * `useTopCompetitors().cadence`, built by the same function, and that merged
+ * card is where the chart renders. This hook stays exported for anything that
+ * already reads it — expect nothing to mount it on its own.
+ */
 export function useLaunchCadence(): LaunchCadenceView {
   const state = useDashboardState();
   return useMemo<LaunchCadenceView>(() => {
     const { cadence, meta } = getDashboardFixture(state);
-    const weeks = cadence;
-    const values = weeks.map((w) => w.adsLaunched);
+    return buildCadenceView(cadence, meta.cadenceScopeNote, meta.isLoading);
+  }, [state]);
+}
 
-    const total = sum(values);
-    const average = weeks.length ? round(total / weeks.length, 1) : 0;
+// ═════════════════════════════════════════════════════════════════════════
+// §6b  Top competitors, merged with launch cadence
+// ═════════════════════════════════════════════════════════════════════════
 
-    const spike = weeks.find((w) => w.isSpike) ?? null;
-    const latest = weeks.length ? weeks[weeks.length - 1] : null;
-    const previous = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+/** How many competitors the merged block ranks. */
+export const TOP_COMPETITOR_COUNT = 5;
 
-    const latestDeltaPct =
-      latest && previous && previous.adsLaunched > 0
-        ? Math.round(
-            ((latest.adsLaunched - previous.adsLaunched) / previous.adsLaunched) * 100,
-          )
-        : null;
+export interface TopCompetitorRow {
+  /** 1-based position in the ranked list. */
+  rank: number;
+  domain: string;
+  industry: string;
+  /** New ads in the last 30 days — the volume the ranking is by. */
+  adCount30d: number;
+  /** The 30 days before that, so the change is checkable. */
+  adCountPrev30d: number;
+  /** Change on the prior 30 days. Can be negative. */
+  deltaPct: number;
+  /** Already on your watchlist. */
+  tracked: boolean;
+  /** `/insights/discover?domain=…` — every ad we have for this competitor. */
+  discoverHref: string;
+  /** The underlying mover row, if a block needs anything else off it. */
+  mover: Mover;
+}
+
+export interface TopCompetitorsView {
+  /** Top 5 by 30-day ad volume. Fewer when fewer exist; never padded. */
+  competitors: TopCompetitorRow[];
+  competitorCount: number;
+  /**
+   * THE COMPETITORS YOU FOLLOW (`insight_competitors`) — the tracked set, not
+   * the ranked five above. `followedCompetitorCount` is the "Competitors
+   * followed" KPI value and `followedCompetitorLiveAds` is "Total competitor
+   * ads", so this block can print the rows those two tiles add up from.
+   *
+   * Each row's `liveAds` is ads RUNNING NOW — the same figure
+   * `usePagesAndDomains()` prints for the same domain. Do not sum `adCount30d`
+   * against it; that is ads launched in 30 days, a different question.
+   */
+  followedCompetitors: WatchItem[];
+  followedCompetitorCount: number;
+  /** Σ `followedCompetitors[].liveAds`. Equals the "Total competitor ads" KPI. */
+  followedCompetitorLiveAds: number;
+  /** Plain-words basis for the two totals above. */
+  followedBasisNote: string;
+  /** How many of the ranked five you already follow. */
+  trackedCount: number;
+  /** How many you do NOT follow — the reason the row needs a follow action. */
+  untrackedCount: number;
+  /** Largest `adCount30d` in the list — bar scaling. 0 when empty. */
+  maxAdCount: number;
+  /** Largest absolute `deltaPct` — bar scaling. 0 when empty. */
+  maxAbsDeltaPct: number;
+  /** Fixed window disclosure, same wording the movers block uses. */
+  windowLabel: string;
+  /**
+   * The 12-week launch cadence, IDENTICAL to `useLaunchCadence()` — same
+   * object shape, built by the same function. The merged card renders the
+   * ranked list beside/above this chart.
+   */
+  cadence: LaunchCadenceView;
+  isEmpty: boolean;
+  /** Nothing resolved yet — render skeletons for BOTH halves. */
+  isLoading: boolean;
+}
+
+/**
+ * Top competitors and launch cadence in ONE view, because they answer one
+ * question: who is shipping, and how much.
+ *
+ * `useMovers()` and `useLaunchCadence()` are untouched and still work — this is
+ * the combined view, not a replacement.
+ *
+ * The ranking is by `adCount30d`, the same field the movers list prints, and
+ * the window label is the same string, so the two blocks cannot appear to
+ * measure different things. NOTE the distinction a component must respect:
+ * `adCount30d` is ads LAUNCHED in the last 30 days, while the domain table's
+ * `liveAds` is ads RUNNING right now. Different questions, different numbers —
+ * label the column "New ads (30d)", never "Live ads".
+ */
+const FOLLOWED_COMPETITOR_BASIS_NOTE =
+  "Ads running right now from the competitors you follow. Not the whole market — only the brands on your competitor list.";
+
+export function useTopCompetitors(): TopCompetitorsView {
+  const state = useDashboardState();
+  return useMemo<TopCompetitorsView>(() => {
+    const { movers, cadence, meta, watchlist } = getDashboardFixture(state);
+
+    const competitors = [...movers]
+      .sort((a, b) => b.adCount30d - a.adCount30d || a.domain.localeCompare(b.domain))
+      .slice(0, TOP_COMPETITOR_COUNT)
+      .map<TopCompetitorRow>((mover, i) => ({
+        rank: i + 1,
+        domain: mover.domain,
+        industry: mover.industry,
+        adCount30d: mover.adCount30d,
+        adCountPrev30d: mover.adCountPrev30d,
+        deltaPct: mover.deltaPct,
+        tracked: mover.tracked,
+        discoverHref: `/insights/discover?domain=${encodeURIComponent(mover.domain)}`,
+        mover,
+      }));
+
+    const trackedCount = competitors.filter((c) => c.tracked).length;
 
     return {
-      weeks,
-      weekCount: weeks.length,
-      windowWeeks: CADENCE_WEEKS,
-      scopeNote: meta.cadenceScopeNote,
-      totalLaunched: total,
-      max: maxOf(values),
-      min: minOf(values),
-      average,
-      averageLabel: weeks.length
-        ? `${weeks.length}-week average ${Math.round(average)}/wk`
-        : "",
-      spike,
-      spikeNote: spike?.spikeNote ?? null,
-      latest,
-      previous,
-      latestDeltaPct,
-      rangeLabel: weeks.length
-        ? `${weeks[0].weekStartLabel} – ${weeks[weeks.length - 1].weekStartLabel}`
-        : "",
-      isEmpty: weeks.length === 0,
+      competitors,
+      competitorCount: competitors.length,
+      followedCompetitors: watchlist.trackedCompetitors,
+      followedCompetitorCount: watchlist.trackedCompetitorCount,
+      followedCompetitorLiveAds: watchlist.trackedCompetitorLiveAds,
+      followedBasisNote: FOLLOWED_COMPETITOR_BASIS_NOTE,
+      trackedCount,
+      untrackedCount: competitors.length - trackedCount,
+      maxAdCount: maxOf(competitors.map((c) => c.adCount30d)),
+      maxAbsDeltaPct: maxOf(competitors.map((c) => Math.abs(c.deltaPct))),
+      windowLabel: MOVERS_WINDOW_LABEL,
+      cadence: buildCadenceView(cadence, meta.cadenceScopeNote, meta.isLoading),
+      isEmpty: competitors.length === 0 && cadence.length === 0,
       isLoading: meta.isLoading,
     };
   }, [state]);
@@ -1018,9 +1218,69 @@ export interface AngleMixRow {
   comparisonLabel: string;
 }
 
+/** Reserved key for the roll-up bucket. Not a real `AngleKey`. */
+export const ANGLE_OTHERS_KEY = "others";
+
+/** How many angles are named before the rest fold into Others. */
+export const ANGLE_TOP_COUNT = 5;
+
+/** "Others" — the label to print. Plain word, no invention. */
+export const ANGLE_OTHERS_LABEL = "Others";
+
+/**
+ * One row of the DISPLAY breakdown: the top five angles plus an explicit
+ * `Others` bucket, so the percentages add to the whole and nothing is silently
+ * dropped off the end of the list.
+ *
+ * `isOthers` rows are structurally different and must render differently:
+ *  - `key` is the reserved string `"others"`, not an `AngleKey`;
+ *  - `discoverHref` is `null`, because there is no single `?angle=` value that
+ *    means "everything else". A link that lies is worse than no link — so the
+ *    Others row gets no link at all;
+ *  - `rolledUp` names the angles folded into it, for a tooltip.
+ */
+export interface AngleMixDisplayRow {
+  /** An `AngleKey`, or `"others"` for the bucket. */
+  key: string;
+  /** "Question-led" / "Others". */
+  angle: string;
+  marketPct: number;
+  adCount: number;
+  /** `null` on the Others row — no honest single destination exists. */
+  discoverHref: string | null;
+  /** Share of YOUR live creative. `null` = no brand configured, not zero. */
+  yourPct: number | null;
+  gapPct: number | null;
+  /** True for the roll-up bucket only. Style it apart. */
+  isOthers: boolean;
+  /** Labels of the angles folded into Others. `[]` on a named angle. */
+  rolledUp: string[];
+  /** "Question-led 32% (you: 8%)". */
+  comparisonLabel: string;
+}
+
 export interface AngleMixView {
-  /** All six angles, market share descending. */
+  /**
+   * EVERY angle, market share descending — the full breakdown, unchanged.
+   * Use `displayRows` for the block; this stays for anything that needs the
+   * complete list (a drilldown, a tooltip, an export).
+   */
   rows: AngleMixRow[];
+  /**
+   * WHAT THE BLOCK SHOULD RENDER: the top 5 angles plus a 6th `Others` row
+   * summing every remaining angle, so the percentages total the whole. At most
+   * 6 rows. When there are 5 or fewer angles there is no Others row and no
+   * empty bucket is fabricated.
+   */
+  displayRows: AngleMixDisplayRow[];
+  /** The five named angles of `displayRows`. */
+  topRows: AngleMixDisplayRow[];
+  /** The Others bucket, or null when every angle is named. */
+  othersRow: AngleMixDisplayRow | null;
+  /** How many angles folded into Others. 0 when there is no bucket. */
+  othersAngleCount: number;
+  /** Sums `displayRows[].marketPct` — the whole, ~100 when populated. */
+  displayTotalPct: number;
   /** False when there is no brand to compare against — the your-side is absent. */
   hasYourSide: boolean;
   yourBrandName: string | null;
@@ -1090,8 +1350,67 @@ export function useAngleMix(): AngleMixView {
       (r): r is AngleMixRow & { gapPct: number } => r.gapPct !== null,
     );
 
+    // ── Top 5 + Others ───────────────────────────────────────────────────
+    // `rows` is already market-share descending, so the head is the top five
+    // and the tail is everything else. The tail is SUMMED, never dropped: a
+    // breakdown whose slices don't add to the whole invites the reader to
+    // wonder what is missing.
+    const named = rows.slice(0, ANGLE_TOP_COUNT);
+    const tail = rows.slice(ANGLE_TOP_COUNT);
+
+    const toDisplay = (r: AngleMixRow): AngleMixDisplayRow => ({
+      key: r.angleKey,
+      angle: r.angle,
+      marketPct: r.marketPct,
+      adCount: r.adCount,
+      discoverHref: r.discoverHref,
+      yourPct: r.yourPct,
+      gapPct: r.gapPct,
+      isOthers: false,
+      rolledUp: [],
+      comparisonLabel: r.comparisonLabel,
+    });
+
+    const topRows = named.map(toDisplay);
+
+    // The your-side of Others is only knowable when we have a brand at all.
+    // `null` there means absent, exactly as it does on a named angle.
+    const tailYourPcts = tail.map((r) => r.yourPct).filter((p): p is number => p !== null);
+    const othersYourPct =
+      tail.length && tailYourPcts.length === tail.length
+        ? round(sum(tailYourPcts), 1)
+        : null;
+    const othersMarketPct = round(sum(tail.map((r) => r.marketPct)), 1);
+
+    const othersRow: AngleMixDisplayRow | null = tail.length
+      ? {
+          key: ANGLE_OTHERS_KEY,
+          angle: ANGLE_OTHERS_LABEL,
+          marketPct: othersMarketPct,
+          adCount: sum(tail.map((r) => r.adCount)),
+          // No single `?angle=` means "everything else".
+          discoverHref: null,
+          yourPct: othersYourPct,
+          gapPct:
+            othersYourPct === null ? null : round(othersMarketPct - othersYourPct, 1),
+          isOthers: true,
+          rolledUp: tail.map((r) => r.angle),
+          comparisonLabel:
+            othersYourPct === null
+              ? `${ANGLE_OTHERS_LABEL} ${othersMarketPct}%`
+              : `${ANGLE_OTHERS_LABEL} ${othersMarketPct}% (you: ${othersYourPct}%)`,
+        }
+      : null;
+
+    const displayRows = othersRow ? [...topRows, othersRow] : topRows;
+
     return {
       rows,
+      displayRows,
+      topRows,
+      othersRow,
+      othersAngleCount: tail.length,
+      displayTotalPct: round(sum(displayRows.map((r) => r.marketPct)), 1),
       hasYourSide: Boolean(yourByKey) && rows.some((r) => r.yourPct !== null),
       yourBrandName: myBrand?.name ?? null,
       marketTotalPct: round(sum(rows.map((r) => r.marketPct)), 1),
@@ -1142,6 +1461,15 @@ export interface MyBrandVsMarketView {
   /** `[]` when there is no brand configured. */
   rows: BrandComparisonRow[];
   formatMix: FormatMixEntry[];
+  /**
+   * @deprecated READ ANGLES FROM `useAngleMix()` INSTEAD.
+   *
+   * Angle data belongs to the angle block and nowhere else — two blocks each
+   * printing their own angle split is how the page ends up contradicting
+   * itself. Kept only so existing readers compile; `YouVsMarket` drops it.
+   * `useAngleMix().displayRows` carries YOUR share and the market's side by
+   * side, which is the comparison this field was reaching for anyway.
+   */
   angleMix: AngleMixEntry[];
   /** "new creative every 9 days". Null when there is no brand. */
   refreshCadenceLabel: string | null;
@@ -1209,9 +1537,9 @@ export function useMyBrandVsMarket(): MyBrandVsMarketView {
     const domainLiveAds = domains.map((d) => d.liveAds);
     const liveAdsBaseline = median(watchLiveAds) ?? median(domainLiveAds);
     const liveAdsBaselineLabel = watchLiveAds.length
-      ? `Median across the ${watchLiveAds.length} advertisers you follow`
+      ? `Median across the ${watchLiveAds.length} brands you follow`
       : domainLiveAds.length
-        ? `Median across the ${domainLiveAds.length} advertisers in your domain table`
+        ? `Median across the ${domainLiveAds.length} domains in your domain table`
         : "No indexed advertisers to compare against";
 
     // Baseline 2 — new ads per week per advertiser. The cadence chart is the
@@ -1784,7 +2112,402 @@ export function useDomainRows(): DomainRowsView {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// §10b  Domains AND pages — one block, two entities
+// ═════════════════════════════════════════════════════════════════════════
+
+/** Which entity the block is currently ranking. */
+export type AdvertiserEntity = "domain" | "page";
+
+/** FabAds' own words for the two entities. Use these on the toggle. */
+export const ADVERTISER_ENTITY_LABELS: Readonly<Record<AdvertiserEntity, string>> = {
+  domain: "Domains",
+  page: "Pages",
+};
+
+export const ADVERTISER_ENTITY_ORDER: readonly AdvertiserEntity[] = ["domain", "page"];
+
+/** How many rows the "top" list shows. */
+export const TOP_ADVERTISER_COUNT = 5;
+
+/**
+ * One row of the Domains-or-Pages list. ONE shape for both entities, so the
+ * component renders a single row type and only the toggle changes.
+ *
+ * A page is the Meta identity that runs the ads; a domain is where those ads
+ * point. One advertiser can run two pages against one domain — which is why
+ * the two rankings differ. The pages of a domain sum to that domain's
+ * `liveAds` exactly, so neither view can contradict the other.
+ */
+export interface TopAdvertiserRow {
+  /** Stable React key. Unique across both lists. */
+  key: string;
+  entity: AdvertiserEntity;
+  /** What to print: the page name, or the domain. */
+  label: string;
+  /** Always the domain behind the ads — a page row carries it too. */
+  domain: string;
+  /** Page avatar. `null` on a domain row: we have no logo for a domain. */
+  avatarUrl: string | null;
+  /** Industry / category. Same vocabulary as the rest of the page. */
+  industry: string;
+  /** Ads running right now. */
+  liveAds: number;
+  /**
+   * Ads LAUNCHED in the last 30 days. THIS IS NOT `liveAds` — label the column
+   * `NEW_ADS_30D_COLUMN_LABEL` ("New ads (30d)") and never "live ads".
+   *
+   * This is where the deleted "Market movers" block went: the 30-day change now
+   * rides on the row it was always describing. Where a domain also appears in
+   * `useMovers()` / `useTopCompetitors()`, the counts are identical — one
+   * derivation feeds all three.
+   */
+  newAds30d: number;
+  /** The 30 days before that, so the change is checkable against its inputs. */
+  newAdsPrev30d: number;
+  /** Change on the prior 30 days, whole percent. Negative when they slowed. */
+  newAds30dDeltaPct: number;
+  /** Already followed / tracked. The follow action toggles this. */
+  followed: boolean;
+  /** Days since new creative. */
+  lastNewCreativeDaysAgo: number;
+  /**
+   * `/insights/discover?domain=…`. Domain-scoped for BOTH entities: Discover
+   * filters by domain, and a page-scoped filter does not exist — so a page row
+   * links to its domain's ads rather than to a URL that would 404.
+   */
+  discoverHref: string;
+  provenance: ProvenanceTier;
+}
+
+export interface AdvertiserIndustryFilter {
+  /** `null` is the "All industries" option. */
+  industry: string | null;
+  label: string;
+  domainCount: number;
+  pageCount: number;
+}
+
+export interface PagesAndDomainsView {
+  /** Every domain row, live ads descending. */
+  domains: TopAdvertiserRow[];
+  /** Every page row, live ads descending. */
+  pages: TopAdvertiserRow[];
+  byEntity: Record<AdvertiserEntity, TopAdvertiserRow[]>;
+  /** Top 5 domains, no filter. */
+  topDomains: TopAdvertiserRow[];
+  /** Top 5 pages, no filter. */
+  topPages: TopAdvertiserRow[];
+  /**
+   * Top N of one entity within one industry. `industry: null` = all.
+   * Stable for the life of the state, so it is safe in a render.
+   */
+  topFor: (
+    entity: AdvertiserEntity,
+    industry?: string | null,
+    limit?: number,
+  ) => TopAdvertiserRow[];
+  /** Filter options, "All industries" first, then industries by domain count. */
+  industryFilters: AdvertiserIndustryFilter[];
+  /** Just the industry names, in the same order as `industryFilters`. */
+  industries: string[];
+  entityLabels: Readonly<Record<AdvertiserEntity, string>>;
+  followedDomainCount: number;
+  followedPageCount: number;
+  domainCount: number;
+  pageCount: number;
+  /** Plain-words basis for the block footer. */
+  basisNote: string;
+  /** Column heading for the 30-day launch count: "New ads (30d)". */
+  newAdsColumnLabel: string;
+  /** Sub-heading / delta caption for that column: "vs prior 30 days". */
+  newAdsDeltaLabel: string;
+  /** One line saying what that column is, and what it is not. */
+  newAdsNote: string;
+  /** Biggest `newAds30d` in the domain list — bar scaling. 0 when empty. */
+  maxNewAds30d: number;
+  /** Biggest absolute `newAds30dDeltaPct` across both lists. 0 when empty. */
+  maxAbsNewAdsDeltaPct: number;
+  isEmpty: boolean;
+  /** Nothing resolved yet — render row skeletons, not the empty state. */
+  isLoading: boolean;
+}
+
+/**
+ * The exact heading for the folded-in movers column. "New ads (30d)" — ads
+ * LAUNCHED in the window. It is a different question from `liveAds` (ads
+ * running now) and must never be labelled as one.
+ */
+export const NEW_ADS_30D_COLUMN_LABEL = "New ads (30d)";
+
+/** The comparison the delta is against. Print it beside the delta. */
+export const NEW_ADS_30D_DELTA_LABEL = "vs prior 30 days";
+
+/** What the column is, and what it is not, in one line. */
+export const NEW_ADS_30D_NOTE =
+  "New ads (30d) is what they launched in the last 30 days, against the 30 days before. Live ads is what is running right now — the two move independently.";
+
+const ADVERTISER_BASIS_NOTE =
+  "Ranked by ads running right now. A page is the account that runs the ads; a domain is where they point — one advertiser can run more than one page.";
+
+/**
+ * The Domains ↔ Pages block: top 5 of either entity, filterable by industry,
+ * with a follow target on every row — and the 30-day launch change on every row
+ * as well, which is where the deleted "Market movers" block went.
+ *
+ * TWO NUMBERS PER ROW, AND THEY ANSWER DIFFERENT QUESTIONS:
+ *   `liveAds`    ads RUNNING right now
+ *   `newAds30d`  ads LAUNCHED in the last 30 days, with
+ *                `newAds30dDeltaPct` against the 30 days before
+ * Label the second one `newAdsColumnLabel` ("New ads (30d)") with
+ * `newAdsDeltaLabel` ("vs prior 30 days") on the delta. Never call it live ads.
+ * `newAdsNote` is the one-line disclosure for the block footer.
+ *
+ * The follow action matters because the top advertisers are NOT necessarily the
+ * ones you already follow — `followed` is false on plenty of these rows, and
+ * the block is the natural place to fix that. Writes stay local (`useState` +
+ * a toast); nothing here persists.
+ */
+export function usePagesAndDomains(): PagesAndDomainsView {
+  const state = useDashboardState();
+  return useMemo<PagesAndDomainsView>(() => {
+    const { domains, pages, meta } = getDashboardFixture(state);
+
+    const domainRows: TopAdvertiserRow[] = domains
+      .map<TopAdvertiserRow>((row) => ({
+        key: `domain-${row.domain}`,
+        entity: "domain",
+        label: row.domain,
+        domain: row.domain,
+        avatarUrl: null,
+        industry: row.industry,
+        liveAds: row.liveAds,
+        newAds30d: row.newAds30d,
+        newAdsPrev30d: row.newAdsPrev30d,
+        newAds30dDeltaPct: row.newAds30dDeltaPct,
+        followed: row.tracked,
+        lastNewCreativeDaysAgo: row.lastNewCreativeDaysAgo,
+        discoverHref: `/insights/discover?domain=${encodeURIComponent(row.domain)}`,
+        provenance: row.provenance,
+      }))
+      .sort((a, b) => b.liveAds - a.liveAds || a.label.localeCompare(b.label));
+
+    const pageRows: TopAdvertiserRow[] = pages
+      .map<TopAdvertiserRow>((page) => ({
+        key: page.pageId,
+        entity: "page",
+        label: page.pageName,
+        domain: page.domain,
+        avatarUrl: page.avatarUrl,
+        industry: page.industry,
+        liveAds: page.liveAds,
+        newAds30d: page.newAds30d,
+        newAdsPrev30d: page.newAdsPrev30d,
+        newAds30dDeltaPct: page.newAds30dDeltaPct,
+        followed: page.followed,
+        lastNewCreativeDaysAgo: page.lastNewCreativeDaysAgo,
+        discoverHref: `/insights/discover?domain=${encodeURIComponent(page.domain)}`,
+        provenance: page.provenance,
+      }))
+      .sort((a, b) => b.liveAds - a.liveAds || a.label.localeCompare(b.label));
+
+    const byEntity: Record<AdvertiserEntity, TopAdvertiserRow[]> = {
+      domain: domainRows,
+      page: pageRows,
+    };
+
+    const topFor = (
+      entity: AdvertiserEntity,
+      industry: string | null = null,
+      limit: number = TOP_ADVERTISER_COUNT,
+    ): TopAdvertiserRow[] => {
+      const pool = byEntity[entity];
+      const scoped = industry ? pool.filter((r) => r.industry === industry) : pool;
+      return scoped.slice(0, limit);
+    };
+
+    // Industry options ordered by how much there is to look at, so the most
+    // useful filter is nearest the "All" chip.
+    const industryNames = Array.from(
+      new Set([...domainRows, ...pageRows].map((r) => r.industry)),
+    ).sort((a, b) => {
+      const an = domainRows.filter((r) => r.industry === a).length;
+      const bn = domainRows.filter((r) => r.industry === b).length;
+      return bn - an || a.localeCompare(b);
+    });
+
+    const industryFilters: AdvertiserIndustryFilter[] = [
+      {
+        industry: null,
+        label: "All industries",
+        domainCount: domainRows.length,
+        pageCount: pageRows.length,
+      },
+      ...industryNames.map<AdvertiserIndustryFilter>((industry) => ({
+        industry,
+        label: industry,
+        domainCount: domainRows.filter((r) => r.industry === industry).length,
+        pageCount: pageRows.filter((r) => r.industry === industry).length,
+      })),
+    ];
+
+    return {
+      domains: domainRows,
+      pages: pageRows,
+      byEntity,
+      topDomains: topFor("domain"),
+      topPages: topFor("page"),
+      topFor,
+      industryFilters,
+      industries: industryNames,
+      entityLabels: ADVERTISER_ENTITY_LABELS,
+      followedDomainCount: domainRows.filter((r) => r.followed).length,
+      followedPageCount: pageRows.filter((r) => r.followed).length,
+      domainCount: domainRows.length,
+      pageCount: pageRows.length,
+      basisNote: ADVERTISER_BASIS_NOTE,
+      newAdsColumnLabel: NEW_ADS_30D_COLUMN_LABEL,
+      newAdsDeltaLabel: NEW_ADS_30D_DELTA_LABEL,
+      newAdsNote: NEW_ADS_30D_NOTE,
+      maxNewAds30d: maxOf(domainRows.map((r) => r.newAds30d)),
+      maxAbsNewAdsDeltaPct: maxOf(
+        [...domainRows, ...pageRows].map((r) => Math.abs(r.newAds30dDeltaPct)),
+      ),
+      isEmpty: domainRows.length === 0 && pageRows.length === 0,
+      isLoading: meta.isLoading,
+    };
+  }, [state]);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// §10c  Top industries, and which brands hold what share of them
+// ═════════════════════════════════════════════════════════════════════════
+
+export interface IndustryBrandShareView {
+  /** Industries by live-ad volume, biggest first. `[]` in thin / zero. */
+  industries: IndustryShareRow[];
+  industryCount: number;
+  /** The biggest industry, or null. */
+  top: IndustryShareRow | null;
+  /**
+   * The metric name to put on the block, in plain words. "Live ads" — not
+   * "share of voice", not "impression share".
+   */
+  metricLabel: string;
+  /** One-line basis. Says out loud that we see ads, not spend. */
+  basisNote: string;
+  isEmpty: boolean;
+  /** Nothing resolved yet — render bar skeletons, not the empty state. */
+  isLoading: boolean;
+}
+
+const INDUSTRY_SHARE_METRIC_LABEL = "Live ads";
+const INDUSTRY_SHARE_BASIS_NOTE =
+  "Share of the ads running in each industry right now. We can see ads, not spend.";
+
+/**
+ * Top industries / categories, and inside each, which brands hold what share.
+ *
+ * This is the plain-language reframe of `useShareOfVoice()`. That hook asks
+ * "what is MY share" and names it in invented vocabulary; this one asks the
+ * question Maalik actually wants answered — which industry is biggest, and who
+ * holds it — and names everything in words that already exist in FabAds.
+ * `useShareOfVoice()` is untouched and still works.
+ *
+ * Both read the same underlying counts (`MY_BRAND_INDUSTRY_AD_COUNTS` for your
+ * side, the same per-domain derivation for the leaders), so they agree
+ * number-for-number on every brand they both mention.
+ *
+ * Each row ends with an `Others` bucket (`isOthers`), so the shares add up to
+ * the industry's whole and no reader has to wonder what the remainder is. That
+ * bucket has no `discoverHref` — there is no single destination for "everyone
+ * else".
+ */
+export function useIndustryBrandShare(): IndustryBrandShareView {
+  const state = useDashboardState();
+  return useMemo<IndustryBrandShareView>(() => {
+    const { industryShare, meta } = getDashboardFixture(state);
+
+    return {
+      industries: industryShare,
+      industryCount: industryShare.length,
+      top: industryShare.length ? industryShare[0] : null,
+      metricLabel: INDUSTRY_SHARE_METRIC_LABEL,
+      basisNote: INDUSTRY_SHARE_BASIS_NOTE,
+      isEmpty: industryShare.length === 0,
+      isLoading: meta.isLoading,
+    };
+  }, [state]);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// §10d  Nav overview — the module's surfaces, with a count each
+// ═════════════════════════════════════════════════════════════════════════
+
+export interface NavOverviewView {
+  /** All six surfaces, always, in nav order. */
+  surfaces: NavSurfaceCount[];
+  byKey: Record<NavSurfaceKey, NavSurfaceCount>;
+  /** Surfaces with a real count (a real 0 counts — it is a fact). */
+  counted: NavSurfaceCount[];
+  /** Surfaces whose count we cannot state; each carries an `naReason`. */
+  uncounted: NavSurfaceCount[];
+  countedCount: number;
+  uncountedCount: number;
+  /** True when not one surface has a number — the loading case. */
+  allUncounted: boolean;
+  isEmpty: boolean;
+  /** Nothing resolved yet — render skeletons, not "0" everywhere. */
+  isLoading: boolean;
+}
+
+/**
+ * The module's own surfaces — My Feeds · Discover · Saved Ads · Competitor ·
+ * Domain · Trends — each with a description and a live count.
+ *
+ * Every count is a figure another block on this page already shows, so this
+ * block is a table of contents, not a second set of numbers. Where a count is
+ * not honestly knowable it is `null` with a reason (`naReason`, printed as
+ * `countLabel`) rather than a zero — "we haven't scanned yet" and "there are
+ * none" are different facts and must not look the same.
+ */
+export function useNavOverview(): NavOverviewView {
+  const state = useDashboardState();
+  return useMemo<NavOverviewView>(() => {
+    const { navSurfaces, meta } = getDashboardFixture(state);
+
+    const byKey = {} as Record<NavSurfaceKey, NavSurfaceCount>;
+    for (const s of navSurfaces) byKey[s.key] = s;
+
+    const counted = navSurfaces.filter((s) => s.count !== null);
+    const uncounted = navSurfaces.filter((s) => s.count === null);
+
+    return {
+      surfaces: navSurfaces,
+      byKey,
+      counted,
+      uncounted,
+      countedCount: counted.length,
+      uncountedCount: uncounted.length,
+      allUncounted: navSurfaces.length > 0 && counted.length === 0,
+      isEmpty: navSurfaces.length === 0,
+      isLoading: meta.isLoading,
+    };
+  }, [state]);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // §11  Movers
+//
+// NOT A STANDALONE BLOCK any more. The 30-day change data these rows carry now
+// rides on the rows it describes: every domain and page from
+// `usePagesAndDomains()` carries `newAds30d` / `newAdsPrev30d` /
+// `newAds30dDeltaPct`, derived by the SAME function these movers are, so the
+// two can never disagree. This hook stays exported for anything that already
+// reads it.
+//
+// The distinction that matters wherever these numbers land: `adCount30d` /
+// `newAds30d` is ads LAUNCHED in the window; `liveAds` is ads RUNNING NOW.
+// Different questions. Never label a 30-day count "live ads".
 // ═════════════════════════════════════════════════════════════════════════
 
 export interface MoversView {
@@ -1888,13 +2611,19 @@ export interface WatchlistHealthView {
   /** All three bands, quiet first. May be empty. */
   statusGroups: WatchStatusGroup[];
   counts: { active: number; ramping: number; quiet: number; total: number };
+  /** Brands followed (`insight_follows`). Equals `items.length`. No cap exists. */
   followCount: number;
-  followCap: number;
-  nearCap: boolean;
-  /** "18 of 25 advertiser slots used — you're close to the cap." */
-  capNote: string;
-  /** followCount / followCap as a whole percent. */
-  capPct: number;
+  /** Followed brands with no new creative in `inactiveThresholdDays`+ days. */
+  inactiveCount: number;
+  inactiveThresholdDays: number;
+  /** "12 followed · 2 inactive" — the sub-note on the Brands-followed KPI. Null when none. */
+  inactiveNote: string | null;
+  /** Competitors followed (`insight_competitors`) — the tracked subset. */
+  trackedCompetitors: WatchItem[];
+  /** The "Competitors followed" KPI value. */
+  trackedCompetitorCount: number;
+  /** The "Total competitor ads" KPI value — Σ `trackedCompetitors[].liveAds`. */
+  trackedCompetitorLiveAds: number;
   quietThresholdDays: number;
   /** "2 of 7 haven't shipped in 21+ days." Null when nothing is quiet. */
   quietNote: string | null;
@@ -1903,7 +2632,18 @@ export interface WatchlistHealthView {
   isLoading: boolean;
 }
 
-/** Followed advertisers, banded by activity. Quiet is the actionable band. */
+/**
+ * Followed brands, banded by activity.
+ *
+ * NOT A STANDALONE BLOCK any more. Its one useful signal — followed brands that
+ * stopped shipping — is now the `subNote` on the Brands-followed KPI tile
+ * (`inactiveNote` here, `12 followed · 2 inactive`). Still exported because
+ * other code may read it; expect nothing to render it.
+ *
+ * There is NO FOLLOW CAP. The deprecated cap-shaped fields (`followCap`,
+ * `nearCap`, `capNote`, `capPct`) have been removed now that the only
+ * consumer — the retired "Watchlist health" block — is gone.
+ */
 export function useWatchlistHealth(): WatchlistHealthView {
   const state = useDashboardState();
   return useMemo<WatchlistHealthView>(() => {
@@ -1940,15 +2680,17 @@ export function useWatchlistHealth(): WatchlistHealthView {
         total: items.length,
       },
       followCount: watchlist.followCount,
-      followCap: watchlist.followCap,
-      nearCap: watchlist.nearCap,
-      capNote: watchlist.capNote,
-      capPct: watchlist.followCap
-        ? Math.round((watchlist.followCount / watchlist.followCap) * 100)
-        : 0,
+      inactiveCount: watchlist.inactiveCount,
+      inactiveThresholdDays: watchlist.inactiveThresholdDays,
+      inactiveNote: watchlist.inactiveCount
+        ? `${formatInt(watchlist.followCount)} followed · ${formatInt(watchlist.inactiveCount)} inactive`
+        : null,
+      trackedCompetitors: watchlist.trackedCompetitors,
+      trackedCompetitorCount: watchlist.trackedCompetitorCount,
+      trackedCompetitorLiveAds: watchlist.trackedCompetitorLiveAds,
       quietThresholdDays: QUIET_THRESHOLD_DAYS,
       quietNote: watchlist.quietCount
-        ? `${watchlist.quietCount} of the ${items.length} advertisers here ${plural(watchlist.quietCount, "hasn't", "haven't")} shipped anything new in ${QUIET_THRESHOLD_DAYS}+ days.`
+        ? `${watchlist.quietCount} of the ${items.length} brands here ${plural(watchlist.quietCount, "hasn't", "haven't")} shipped anything new in ${QUIET_THRESHOLD_DAYS}+ days.`
         : null,
       isEmpty: items.length === 0,
       isLoading: meta.isLoading,

@@ -8,27 +8,21 @@
  * feature does not exist, and a checklist promising a capability we don't
  * ship would undercut the honesty the rest of this page is built on.
  *
- * `done` is never touched locally — every row reflects the selector's real
- * underlying state, and clicking a CTA only navigates. That matters most for
- * "Install the Chrome extension": there is no way to detect a real install
- * from here, and an earlier build of this checklist marked that row done
- * forever the instant the store link was clicked, even if the user bailed
- * before installing anything. This component renders that row through the
- * exact same "quiet until `done` says otherwise" path as the other two, and
- * its CTA opens the store in a new tab rather than an in-app route, so the
- * "you're leaving FabAds for this" cue is visible instead of implying the
- * click itself finishes the job.
+ * Scannable pass (2026-08): the surface is now exactly three marks — the
+ * progress bar, "N of 3 done", and the single next step as one button. The
+ * other two items' descriptions never rendered as prose here; the next
+ * step's own description moves to a `title` tooltip on its row instead of a
+ * paragraph. `done` is never touched locally — the row always reflects the
+ * selector's real state, and the CTA only navigates.
  *
- * Visual weight is entirely a function of the data, not the dashboard state:
- * done rows are quiet (checked, muted, no button), the first remaining item
- * (`nextStep`) gets the one prominent filled button, and any other remaining
- * items get a smaller outline button — "one clear next action, not three
- * equal buttons." In the zero state that naturally makes the block feel like
- * the page's first instruction (nothing done yet to quiet down); in the
- * populated/complete state it collapses to three quiet checked rows with no
- * button at all, never a celebration banner.
+ * "Install the Chrome extension" has no way to detect a real install from
+ * here, so its CTA opens the store in a new tab (external link icon) rather
+ * than an in-app route — the click must not imply the install finished.
+ *
+ * When `complete` is true the block renders nothing. The page may still
+ * mount it — it just goes quiet instead of showing a celebration banner.
  */
-import { ArrowRight, CheckCircle2, Circle, ExternalLink } from "lucide-react";
+import { ArrowRight, Circle, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
@@ -36,6 +30,8 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSetupChecklist, type SetupChecklistItem } from "@/insights-dashboard/lib/selectors";
+
+const SECTION_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70";
 
 /** Only the extension step's href is external; the other two are in-app routes. */
 function isExternalHref(href: string): boolean {
@@ -77,121 +73,55 @@ function ChecklistCta({
   );
 }
 
-/** Same quiet-link treatment as the CTA button, sized down for a done row. */
-function ChecklistQuietLink({ item }: { item: SetupChecklistItem }) {
-  const className =
-    "shrink-0 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm";
+export function SetupChecklist({ className }: { className?: string }): JSX.Element | null {
+  const { progressPct, progressLabel, nextStep, complete, isLoading } = useSetupChecklist();
 
-  if (isExternalHref(item.href)) {
-    return (
-      <a href={item.href} target="_blank" rel="noopener noreferrer" className={className}>
-        {item.ctaLabel}
-      </a>
-    );
-  }
-
-  return (
-    <Link to={item.href} className={className}>
-      {item.ctaLabel}
-    </Link>
-  );
-}
-
-function ChecklistRow({ item, isNextStep }: { item: SetupChecklistItem; isNextStep: boolean }) {
-  if (item.done) {
-    // Quiet + checked. A small text link keeps "go manage this" reachable
-    // (user control, recognition over recall) without competing for
-    // attention the way a full button would.
-    return (
-      <li className="flex items-start gap-2.5 py-2">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <div className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <span className="text-sm text-muted-foreground line-through decoration-muted-foreground/40">
-            {item.label}
-          </span>
-          <ChecklistQuietLink item={item} />
-        </div>
-      </li>
-    );
-  }
-
-  if (isNextStep) {
-    // The one visually prominent action on the whole card.
-    return (
-      <li className="rounded-md border border-border bg-muted/40 p-3">
-        <div className="flex items-start gap-2.5">
-          <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">{item.label}</p>
-            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{item.description}</p>
-            <ChecklistCta item={item} variant="default" className="mt-2.5" />
-          </div>
-        </div>
-      </li>
-    );
-  }
-
-  // Remaining, but not the immediate next step — visible and still
-  // actionable, deliberately quieter than the prominent row above so there
-  // is never more than one full-weight button on screen at once.
-  return (
-    <li className="flex items-start gap-2.5 py-2">
-      <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-foreground">{item.label}</p>
-        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{item.description}</p>
-      </div>
-      <ChecklistCta item={item} variant="outline" className="shrink-0" />
-    </li>
-  );
-}
-
-export function SetupChecklist({ className }: { className?: string }): JSX.Element {
-  const { items, progressPct, progressLabel, nextStep, isLoading } = useSetupChecklist();
-
-  // CHECK isLoading BEFORE reading `done`. The three items always exist, but
-  // every one reads `done: false` while nothing has resolved yet — rendering
-  // that verbatim would say "0 of 3 done" to a user who may have already
-  // finished all three. A skeleton keeps this from asserting an unearned zero.
+  // CHECK isLoading BEFORE reading `complete`/`nextStep`. The three items
+  // always exist, but every one reads `done: false` while nothing has
+  // resolved yet — rendering that verbatim would say "0 of 3 done" to a user
+  // who may have already finished all three. A skeleton keeps this from
+  // asserting an unearned zero.
   if (isLoading) {
     return (
       <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
-        <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Get set up</h2>
+        <header className="mb-2 flex items-center justify-between gap-2">
+          <h2 className={SECTION_LABEL}>Finish setup</h2>
           <Skeleton className="h-2.5 w-14" />
         </header>
         <Skeleton className="h-1.5 w-full rounded-full" />
-        <ul className="mt-3.5 space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <li key={i} className="flex items-start gap-2.5 py-2">
-              <Skeleton className="mt-0.5 h-4 w-4 shrink-0 rounded-full" />
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <Skeleton className="h-3.5 w-40" />
-                <Skeleton className="h-3 w-56" />
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <Skeleton className="h-3.5 w-32" />
+          <Skeleton className="h-7 w-24 shrink-0" />
+        </div>
       </section>
     );
   }
 
+  // Hide quietly once all three are done — the page may still mount this
+  // component, it just has nothing left to ask for.
+  if (complete || !nextStep) {
+    return null;
+  }
+
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
-      <header className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">Get set up</h2>
-        <span className="shrink-0 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          {progressLabel}
-        </span>
+      <header className="mb-2 flex items-center justify-between gap-2">
+        <h2 className={SECTION_LABEL}>Finish setup</h2>
+        <span className="shrink-0 text-xs font-medium text-foreground/70">{progressLabel}</span>
       </header>
 
       <Progress value={progressPct} className="h-1.5" />
 
-      <ul className="mt-3.5 space-y-1">
-        {items.map((item) => (
-          <ChecklistRow key={item.key} item={item} isNextStep={nextStep?.key === item.key} />
-        ))}
-      </ul>
+      <div
+        title={nextStep.description}
+        className="mt-3 flex items-center justify-between gap-3"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <Circle className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="truncate text-xs font-medium text-foreground">{nextStep.label}</span>
+        </div>
+        <ChecklistCta item={nextStep} variant="default" className="h-7 shrink-0 px-2.5 text-xs" />
+      </div>
     </section>
   );
 }

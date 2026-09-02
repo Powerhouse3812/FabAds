@@ -14,12 +14,16 @@
  * undefined the columns render as plain, non-interactive marks rather than
  * faking an affordance that does nothing.
  *
- * `compact` — a shorter variant for the demoted supporting row this block
- * shares with `AngleMixDonut`. Shrinks the plot area and margins and drops
- * the average reference line + scope caption; the spike bar, its inline
- * annotation and click-to-select all survive because they're the chart's
- * entire reason for existing. `compact` undefined/false is pixel-identical
- * to the original block.
+ * `compact` — a dense ~130-150px variant for the narrow (~240px) right-hand
+ * column this block shares with `AngleMixDonut`. Shrinks the plot area and
+ * margins hard and drops the average reference line + scope caption; the
+ * spike bar, its click-to-select and its annotation all survive because
+ * they're the chart's entire reason for existing — the annotation just
+ * moves from a bordered callout box to a single truncated micro-line under
+ * the chart, since a two-line bubble no longer fits the height budget. The
+ * header also gains the latest-week delta as a signed number — "more data,
+ * less height" instead of leaving that pixel row half-empty. `compact`
+ * undefined/false is pixel-identical to the original block.
  */
 import { useState } from "react";
 import {
@@ -32,6 +36,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
@@ -41,17 +46,32 @@ import {
 } from "@/insights-dashboard/lib/selectors";
 
 const BAR_SIZE = 22;
-const BAR_SIZE_COMPACT = 16;
+const BAR_SIZE_COMPACT = 14;
 const CHART_HEIGHT = 190;
-/** `compact` demotes this block to a supporting row alongside AngleMixDonut —
- * shorter plot area, tighter margins, average line + scope caption dropped —
- * while the spike bar, its annotation and click-to-select all survive
- * untouched, because those are this chart's entire reason for existing. */
-const CHART_HEIGHT_COMPACT = 110;
+/** `compact` demotes this block into the ~130-150px supporting row it shares
+ * with `AngleMixDonut`. The plot area shrinks hard — average line and scope
+ * caption are dropped entirely — while the spike bar, its annotation and
+ * click-to-select all survive because they're this chart's entire reason
+ * for existing. */
+const CHART_HEIGHT_COMPACT = 68;
 /** Reserved top band (px) the spike caption floats inside — kept clear of bars
  *  by the headroom baked into `yDomain` below. */
 const TOP_MARGIN = 34;
-const TOP_MARGIN_COMPACT = 18;
+const TOP_MARGIN_COMPACT = 14;
+
+/** Signed, tabular-nums delta chip for the compact header — text carries the
+ * sign so this never relies on colour alone. */
+function DeltaChip({ pct }: { pct: number }): JSX.Element {
+  const isUp = pct >= 0;
+  const Icon = isUp ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className="inline-flex items-center gap-0.5 font-mono text-[9px] font-medium tabular-nums text-foreground">
+      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
+      {isUp ? "+" : ""}
+      {pct}%
+    </span>
+  );
+}
 
 function weekTickRenderer(anchorIndices: Set<number>) {
   return function WeekTick(props: {
@@ -121,8 +141,18 @@ export function LaunchCadenceChart({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const interactive = Boolean(onSelectWeek);
 
-  const { weeks, isEmpty, isLoading, scopeNote, spike, spikeNote, averageLabel, average, rangeLabel } =
-    cadence;
+  const {
+    weeks,
+    isEmpty,
+    isLoading,
+    scopeNote,
+    spike,
+    spikeNote,
+    averageLabel,
+    average,
+    rangeLabel,
+    latestDeltaPct,
+  } = cadence;
 
   const chartHeight = compact ? CHART_HEIGHT_COMPACT : CHART_HEIGHT;
   const topMargin = compact ? TOP_MARGIN_COMPACT : TOP_MARGIN;
@@ -135,11 +165,14 @@ export function LaunchCadenceChart({
   if (isLoading) {
     return (
       <section className={cn("rounded-lg border border-border bg-card", compact ? "p-3" : "p-4", className)}>
-        <header className={cn("flex items-center justify-between gap-2", compact ? "mb-0.5" : "mb-1")}>
-          <h2 className="text-sm font-semibold text-foreground">Launch cadence</h2>
+        <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1" : "mb-1")}>
+          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">Launch cadence</h2>
+          {compact && <Skeleton className="h-2.5 w-14" />}
         </header>
         <Skeleton className="w-full rounded-md" style={{ height: chartHeight }} />
-        {!compact && (
+        {compact ? (
+          <Skeleton className="mt-1.5 h-2.5 w-3/4" />
+        ) : (
           <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
             <Skeleton className="h-3 w-48" />
             <Skeleton className="h-3 w-20" />
@@ -152,10 +185,10 @@ export function LaunchCadenceChart({
   if (isEmpty) {
     return (
       <section className={cn("rounded-lg border border-border bg-card", compact ? "p-3" : "p-4", className)}>
-        <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1.5" : "mb-3")}>
-          <h2 className="text-sm font-semibold text-foreground">Launch cadence</h2>
+        <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1" : "mb-3")}>
+          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">Launch cadence</h2>
         </header>
-        <p className="text-sm text-muted-foreground">{scopeNote}</p>
+        <p className={cn("text-foreground/70", compact ? "text-[11px] leading-snug" : "text-sm")}>{scopeNote}</p>
       </section>
     );
   }
@@ -175,13 +208,20 @@ export function LaunchCadenceChart({
 
   return (
     <section className={cn("rounded-lg border border-border bg-card", compact ? "p-3" : "p-4", className)}>
-      <header className={cn("flex items-center justify-between gap-2", compact ? "mb-0.5" : "mb-1")}>
-        <h2 className="text-sm font-semibold text-foreground">Launch cadence</h2>
-        {rangeLabel && (
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {rangeLabel}
-          </span>
-        )}
+      <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1" : "mb-1")}>
+        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">Launch cadence</h2>
+        <span className="flex items-center gap-1.5">
+          {rangeLabel && (
+            <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+              {rangeLabel}
+            </span>
+          )}
+          {/* "More data, less height" — the latest-week delta as a signed
+              number costs nothing extra vertically since it shares the
+              header row the rangeLabel already occupies. */}
+          {compact && latestDeltaPct !== null && <DeltaChip pct={latestDeltaPct} />}
+          {compact && <Provenance tier="derived" compact />}
+        </span>
       </header>
 
       <div className="relative" style={{ height: chartHeight }}>
@@ -277,29 +317,31 @@ export function LaunchCadenceChart({
       </div>
 
       {/* The annotated spike is the whole point of this chart, so it survives
-          compact untouched (aside from a tighter box) — only the average
-          line and the scope caption below are what compact sheds. */}
+          compact untouched in substance — only its shape changes. At full
+          size it's a bordered callout box; in compact that box no longer
+          fits the ~130-150px height budget, so it collapses to a single
+          truncated micro-line with the same "Week of …" + spikeNote content. */}
       {spike && spikeNote && (
-        <p
-          className={cn(
-            "mt-2 rounded-md border border-border/60 bg-muted/30 leading-snug text-foreground",
-            compact ? "px-2 py-1.5 text-[10px]" : "px-2.5 py-2 text-[11px]",
-          )}
-        >
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Week of {spike.weekStartLabel}
-          </span>{" "}
-          {spikeNote}
-        </p>
+        compact ? (
+          <p className="mt-1.5 truncate text-[10px] leading-snug text-foreground" title={`Week of ${spike.weekStartLabel} — ${spikeNote}`}>
+            <span className="font-mono font-medium uppercase tracking-[0.14em] text-foreground/70">
+              Wk {spike.weekStartLabel}
+            </span>{" "}
+            {spikeNote}
+          </p>
+        ) : (
+          <p className="mt-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 text-[11px] leading-snug text-foreground">
+            <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+              Week of {spike.weekStartLabel}
+            </span>{" "}
+            {spikeNote}
+          </p>
+        )
       )}
 
-      {compact ? (
-        <div className="mt-2 flex items-center justify-end border-t border-border/60 pt-2">
-          <Provenance tier="derived" compact />
-        </div>
-      ) : (
+      {!compact && (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-          <p className="text-xs text-muted-foreground">{scopeNote}</p>
+          <p className="text-xs text-foreground/70">{scopeNote}</p>
           <Provenance tier="derived" />
         </div>
       )}

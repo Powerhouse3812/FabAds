@@ -51,7 +51,7 @@ export const PROVENANCE_META: Record<
     label: "Derived",
     source: "Computed by FabAds",
     description:
-      "Calculated by us from observed data — deltas, cadence, share of voice. Only as reliable as our last scan.",
+      "Calculated by us from observed data — changes, launch cadence, brand share. Only as reliable as our last scan.",
   },
 };
 
@@ -88,7 +88,7 @@ export function Provenance({
             aria-label={compact ? accessibleName : undefined}
             className={cn(
               "inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-1.5 py-0.5",
-              "font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground",
+              "font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70",
               "cursor-help select-none",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               compact && "px-1",
@@ -106,7 +106,7 @@ export function Provenance({
           <p className="text-xs font-medium text-foreground">
             {meta.label} · {meta.source}
           </p>
-          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+          <p className="mt-0.5 text-xs leading-snug text-foreground/70">
             {meta.description}
           </p>
         </TooltipContent>

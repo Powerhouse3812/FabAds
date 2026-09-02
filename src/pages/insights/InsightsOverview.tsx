@@ -7,7 +7,6 @@ import { AlertTriangle, FlaskConical, History, Info, Loader2, RefreshCw } from "
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import {
@@ -17,7 +16,7 @@ import {
 import {
   useDashboardMeta,
   useDashboardStatus,
-  useLaunchCadence,
+  useSetupChecklist,
   type DashboardStatusBanner,
 } from "@/insights-dashboard/lib/selectors";
 
@@ -25,14 +24,13 @@ import { StatePill } from "@/insights-dashboard/components/StatePill";
 import { KpiRow } from "@/insights-dashboard/components/KpiRow";
 import { LongRunnersGallery } from "@/insights-dashboard/components/LongRunnersGallery";
 import { ChangeFeed } from "@/insights-dashboard/components/ChangeFeed";
-import { LaunchCadenceChart } from "@/insights-dashboard/components/LaunchCadenceChart";
+import { TopCompetitors } from "@/insights-dashboard/components/TopCompetitors";
 import { AngleMixDonut } from "@/insights-dashboard/components/AngleMixDonut";
 import { YouVsMarket } from "@/insights-dashboard/components/YouVsMarket";
 import { ShareOfVoice } from "@/insights-dashboard/components/ShareOfVoice";
 import { DomainsTeaser } from "@/insights-dashboard/components/DomainsTeaser";
-import { MarketMovers } from "@/insights-dashboard/components/MarketMovers";
-import { WatchlistHealth } from "@/insights-dashboard/components/WatchlistHealth";
 import { BoardHygiene } from "@/insights-dashboard/components/BoardHygiene";
+import { WhereToGo } from "@/insights-dashboard/components/WhereToGo";
 import { SetupChecklist } from "@/insights-dashboard/components/SetupChecklist";
 import { CoverageRescue } from "@/insights-dashboard/components/CoverageRescue";
 
@@ -88,148 +86,14 @@ function StatusBanner({ banner }: { banner: DashboardStatusBanner }): JSX.Elemen
         <p
           className={cn(
             "text-sm font-semibold",
-            banner.tone === "degraded" ? "text-destructive" : "text-foreground",
+            banner.tone === "degraded" ? "text-error-text" : "text-foreground",
           )}
         >
           {banner.title}
         </p>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">{banner.body}</p>
+        <p className="max-w-3xl text-sm leading-relaxed text-foreground/70">{banner.body}</p>
       </div>
     </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Loading skeletons
-// ═══════════════════════════════════════════════════════════════════════════
-//
-// `loading` and `zero` are byte-identical on the surface — every collection is
-// empty, every KPI is null — and mean opposite things. So the page never lets
-// an empty state paint while `isLoading`: it mounts placeholders shaped like
-// the blocks they stand in for. Each traces the real card's geometry (shell,
-// header row, body mass) so the swap to real content does not shift the page.
-//
-// The two exceptions, both deliberate:
-//   · `KpiRow` renders for real — its loading tiles carry `value: null` with a
-//     `naReason` that names the source being waited on ("waiting on the Meta
-//     Ad Library"). That is honest and specific; a grey band would say less.
-//   · `ChangeFeed` renders for real — it owns its own skeleton, including the
-//     brief folded into it, and knows to check `isLoading` before `isEmpty`.
-
-function SkeletonBlock({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}): JSX.Element {
-  return (
-    <section
-      aria-hidden="true"
-      className={cn("rounded-lg border border-border bg-card p-4", className)}
-    >
-      {children}
-    </section>
-  );
-}
-
-function SkeletonBlockHeader({ withMeta = true }: { withMeta?: boolean }): JSX.Element {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-2">
-      <Skeleton className="h-4 w-44" />
-      {withMeta && <Skeleton className="h-3 w-20" />}
-    </div>
-  );
-}
-
-/** Rows shaped like a rail list: leading mark, two-line label, trailing figure. */
-function SkeletonRows({ count }: { count: number }): JSX.Element {
-  return (
-    <ul className="divide-y divide-border/60">
-      {Array.from({ length: count }).map((_, i) => (
-        <li key={i} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-          <Skeleton className="h-3.5 w-3.5 shrink-0 rounded" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Skeleton className="h-3.5 w-2/3" />
-            <Skeleton className="h-3 w-1/3" />
-          </div>
-          <Skeleton className="h-4 w-12 shrink-0" />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * Header, plot area, scope note — the shape every chart block on this page has.
- *
- * `compact` mirrors the same prop on the real charts. The two charts render in
- * the demoted row, so their skeletons have to be short too — a full-height
- * placeholder that swaps for a compact chart is the layout jump a skeleton
- * exists to prevent.
- */
-function SkeletonChartBlock({ compact = false }: { compact?: boolean }): JSX.Element {
-  return (
-    <SkeletonBlock>
-      <SkeletonBlockHeader />
-      <Skeleton className={cn("w-full rounded-md", compact ? "h-28" : "h-40")} />
-      <Skeleton className="mt-3 h-3 w-3/4" />
-    </SkeletonBlock>
-  );
-}
-
-/**
- * One long-runner tile: media, brand + tier badge, hook, meta line, actions.
- *
- * Written here rather than reusing `IndustryInsightsAdsCardSkeleton` — that
- * one traces the Insights *feed* card, which is a different and much taller
- * component (avatar row, six icon actions, fixed 16:9 media). Dropped into
- * this grid it stood ~70px taller than the tile it stands in for, which is
- * precisely the layout jump a skeleton exists to prevent. The ragged aspect
- * ratios are deliberate: `mediaAspectRatio` really does vary per ad, and a
- * grid of identical boxes would settle into a rhythm the real one never has.
- */
-function SkeletonAdCard({ ratio }: { ratio: string }): JSX.Element {
-  return (
-    <div className="flex flex-col gap-2.5 rounded-md border border-border/70 bg-background p-2.5">
-      <Skeleton className="w-full rounded-md" style={{ aspectRatio: ratio }} />
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1 space-y-1">
-          <Skeleton className="h-4 w-2/3" />
-          <Skeleton className="h-3 w-1/2" />
-        </div>
-        <Skeleton className="h-5 w-14 shrink-0 rounded-full" />
-      </div>
-      <div className="space-y-1">
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-4/5" />
-      </div>
-      <Skeleton className="h-3 w-1/2" />
-      <div className="flex items-center gap-1.5 pt-1">
-        <Skeleton className="h-7 flex-1 rounded-md" />
-        <Skeleton className="h-7 flex-1 rounded-md" />
-      </div>
-    </div>
-  );
-}
-
-/** Card shell + one tier heading + the gallery's `sm:2 / xl:3` tile grid. */
-function SkeletonGallery(): JSX.Element {
-  return (
-    <SkeletonBlock>
-      <SkeletonBlockHeader />
-      <div className="space-y-2.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <Skeleton className="h-3.5 w-40" />
-          <Skeleton className="h-3 w-10" />
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {["1/1", "2/3", "16/9"].map((ratio) => (
-            <SkeletonAdCard key={ratio} ratio={ratio} />
-          ))}
-        </div>
-      </div>
-    </SkeletonBlock>
   );
 }
 
@@ -244,11 +108,9 @@ function SkeletonGallery(): JSX.Element {
 // `md:overflow-visible` for exactly this reason. Do not wrap this page in a
 // scroller.
 //
-// Two offsets, kept here so the header bar and the rail cannot drift apart:
-//   · the top bar is ~44px tall (py-2 around an h-7 control) + a 1px rule
-//   · the rail sticks below it with 12px of air, and caps its own height so
-//     its lower half is never parked off-screen
-const RAIL_STICKY = "lg:sticky lg:top-14 lg:max-h-[calc(100vh-4.5rem)] lg:overflow-y-auto";
+// There is no tall rail in this layout (that died with the two-column grid),
+// so there is nothing here to keep pinned — just the clearance offset so a
+// programmatic scroll lands below the sticky top bar instead of under it.
 /** Clears the sticky top bar when something is scrolled to programmatically. */
 const SCROLL_CLEARANCE = "scroll-mt-20";
 
@@ -258,9 +120,7 @@ function InsightsOverviewContent(): JSX.Element {
   const dashboardState = useDashboardState();
   const meta = useDashboardMeta();
   const status = useDashboardStatus();
-  const cadence = useLaunchCadence();
-  const changeFeedRef = useRef<HTMLDivElement>(null);
-  const railRef = useRef<HTMLElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
 
   // ORDER MATTERS. `isLoading` is evaluated before anything that tests for
   // emptiness, because in `loading` every collection is empty and that means
@@ -276,7 +136,29 @@ function InsightsOverviewContent(): JSX.Element {
   // `isThin` and `isZero` are all false there, so it falls through to the
   // populated block set on purpose — the banner and the per-figure `naReason`
   // strings carry the degradation, not a different set of blocks.
-  const showFullBoard = !isLoading && !isThin && !isZero;
+  //
+  // `isLoading` falls through to the SAME block set. Every block below owns
+  // its own `isLoading` check (ahead of its own `isEmpty` check) and its own
+  // skeleton sized to its own resolved geometry, so the page does not need a
+  // parallel page-level skeleton to keep in sync by hand — mounting the real
+  // components IS the loading state, and there is zero chance of it drifting
+  // out of measurement with what it resolves into.
+  const showFullBoard = isLoading || (!isThin && !isZero);
+
+  // `SetupChecklist` returns null once all three steps are done (it will not
+  // render a celebration banner), so the page cannot hand it a fixed
+  // `col-span-4` and assume something fills it — in `populated` and `error`
+  // setup IS complete, which left a third of that row visibly empty beside
+  // "Where to go". The page owns layout, so the page asks the same selector
+  // the block does and gives the row's whole width to `WhereToGo` when the
+  // checklist has nothing to ask for.
+  //
+  // Mirrors the block's own render contract exactly, in the same order:
+  // skeleton while loading (so the slot is held and the row does not reflow
+  // on resolve), then null when `complete || !nextStep`.
+  const setup = useSetupChecklist();
+  const showChecklist = isLoading || !(setup.complete || !setup.nextStep);
+  const summaryMainSpan = showChecklist ? "lg:col-span-8" : "lg:col-span-12";
 
   const handleRefresh = useCallback(() => {
     // Honest: there is no scheduled re-sync behind this button. It never
@@ -284,36 +166,26 @@ function InsightsOverviewContent(): JSX.Element {
     toast(meta.refreshNote);
   }, [meta.refreshNote]);
 
-  const handleSelectWeek = useCallback(
-    (weekIndex: number) => {
-      const week = cadence.weeks[weekIndex];
-      toast(
-        week
-          ? `Showing the change feed for the week of ${week.weekStartLabel}`
-          : "Showing the change feed",
-      );
-      changeFeedRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    },
-    [cadence.weeks],
-  );
-
   /**
    * Skip link. `<main>` carries 200+ tab stops, nearly all of them inside the
-   * change feed and the gallery, so a keyboard user who wants the rail's
-   * reference blocks currently tabs through the entire page to reach them.
+   * change feed and the top-ads strip, so a keyboard user who wants the
+   * "where to go" + "finish setup" pair currently tabs through the entire
+   * page to reach it. There is no tall rail in this layout — the target is
+   * whichever row is last on the page in the active state, which is this
+   * pair in all five states.
    *
    * The anchor's `href` is the no-JS fallback; the handler is what actually
-   * runs, because the default anchor jump would land the rail underneath the
-   * sticky top bar. `preventScroll` then `scrollIntoView` lets `scroll-mt`
-   * do the clearing, and focusing the container (not a control inside it)
-   * means the next Tab enters the rail at its first control.
+   * runs, because the default anchor jump would land the target underneath
+   * the sticky top bar. `preventScroll` then `scrollIntoView` lets
+   * `scroll-mt` do the clearing, and focusing the container (not a control
+   * inside it) means the next Tab enters it at its first control.
    */
   const handleSkipToSummary = useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
-    const rail = railRef.current;
-    if (!rail) return;
+    const target = railRef.current;
+    if (!target) return;
     event.preventDefault();
-    rail.focus({ preventScroll: true });
-    rail.scrollIntoView({ block: "start" });
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
   }, []);
 
   return (
@@ -348,12 +220,12 @@ function InsightsOverviewContent(): JSX.Element {
           rule, nothing else. Do not put the h1 or the state note in here. */}
       <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border bg-background px-6 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{meta.lastScanLabel}</span>
+          <span className="text-xs text-foreground/70">{meta.lastScanLabel}</span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+            className="h-7 gap-1.5 px-2 text-xs text-foreground/70"
             onClick={handleRefresh}
           >
             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -362,7 +234,7 @@ function InsightsOverviewContent(): JSX.Element {
         </div>
         <Link
           to="/insights-v2/feed"
-          className="text-xs font-medium text-primary hover:underline"
+          className="text-xs font-medium text-primary-text hover:underline"
         >
           Manage preferences
         </Link>
@@ -373,10 +245,15 @@ function InsightsOverviewContent(): JSX.Element {
           `.v3-page-mesh` paints nothing, which is how the other Insights pages
           break in dark mode. */}
       <div className="flex flex-col gap-6 p-6">
-        {/* Header */}
+        {/* Header. No visible title or description — the sticky top bar
+            already says where you are (freshness + preferences) and the
+            sidebar names the module, so a repeated "Industry Insights" heading
+            was pure vertical space. An `sr-only` h1 keeps the page's
+            accessible name for screen readers and the browser tab structure;
+            only the visible copy was cut. */}
         <div className="flex flex-col gap-2">
+          <h1 className="sr-only">Industry Insights</h1>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-foreground">Industry Insights</h1>
             <Tooltip>
               {/* Badge is a plain function component, so `asChild` cannot forward
                   a ref to it (React warns, and the tooltip loses its anchor). The
@@ -400,12 +277,7 @@ function InsightsOverviewContent(): JSX.Element {
               </TooltipContent>
             </Tooltip>
           </div>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Follow industries and competitor brands to see their live Meta and Instagram
-            ads, the domains behind those ads, and the boards you have saved — one
-            overview of the whole Industry Insights module.
-          </p>
-          <p className="text-xs text-muted-foreground">{meta.stateNote}</p>
+          <p className="text-xs text-foreground/70">{meta.stateNote}</p>
 
           {/* Sample-data disclosure — outside dev only.
               Every figure on this page is fabricated. In dev the ?state= pill
@@ -416,7 +288,7 @@ function InsightsOverviewContent(): JSX.Element {
               this module's whole provenance layer exists to prevent. Remove
               this when the page is wired to real sources, not before. */}
           {shouldDiscloseSampleData() && (
-            <p className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-foreground">
               <FlaskConical className="h-3 w-3 shrink-0" aria-hidden="true" />
               Prototype · every figure on this page is sample data
             </p>
@@ -428,217 +300,139 @@ function InsightsOverviewContent(): JSX.Element {
             stop reading the one that matters. */}
         {status.needsDisclosure && status.banner && <StatusBanner banner={status.banner} />}
 
-        {/* KpiRow spans full width, between the header and the grid, in every
-            state — it is the page's honesty strip, including the explanation
-            for why the rest of the page is thin below it.
-
-            DEVIATION from Maalik's sketch, which put the KPI band second, under
-            the change feed. It stays first for two reasons: it is a five-tile
-            band that needs the full width, and a full-width block sandwiched
-            below a two-column grid reads as a stray footer rather than a
-            section. The point of the sketch — that the differentiating block
-            leads — is preserved: the KPI band is now three chunks per tile, a
-            thin strip rather than a wall, and the change feed sits directly
-            under it at the top of the main column, above the gallery. */}
+        {/* KpiRow spans full width — the page's honesty strip, including the
+            explanation for why the rest of the page is thin below it. Flat,
+            first, no chrome around it beyond its own. */}
         <KpiRow />
 
-        {/* The repo's usual 5/3/2 (lg:col-span-5 / -3 / -2 of 12) leaves the main
-            column too narrow once two side-by-side chart rows sit inside it —
-            each chart ends up under 300px wide. 8/4 is the justified deviation
-            here: it gives the chart rows real width without starving the rail. */}
-        <div
-          className="grid grid-cols-1 gap-6 lg:grid-cols-12"
-          aria-busy={isLoading || undefined}
-        >
-          <div className="flex min-w-0 flex-col gap-6 lg:col-span-8">
-            {isLoading && (
-              <>
-                {/* Real component: it owns its skeleton (feed rows + the brief
-                    folded into it) and checks isLoading before isEmpty. */}
-                <ChangeFeed />
-                <SkeletonGallery />
-                {/* Same order and the same widths as the real board below —
-                    the two comparison blocks full-width, then the demoted
-                    compact chart pair. */}
-                <SkeletonBlock>
-                  <SkeletonBlockHeader />
-                  <SkeletonRows count={3} />
-                </SkeletonBlock>
-                <SkeletonBlock>
-                  <SkeletonBlockHeader />
-                  <Skeleton className="h-6 w-full rounded-full" />
-                  <div className="mt-3">
-                    <SkeletonRows count={3} />
-                  </div>
-                </SkeletonBlock>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <SkeletonChartBlock compact />
-                  <SkeletonChartBlock compact />
-                </div>
-                <SkeletonBlock>
-                  <SkeletonBlockHeader />
-                  <SkeletonRows count={5} />
-                </SkeletonBlock>
-              </>
-            )}
-
-            {/* populated AND error. The change feed leads: it is the one block
-                nothing else in this category ships, and it used to sit fourth,
-                under a gallery every competitor has. The brief is inside it now
-                — the two answered the same question twice. */}
-            {showFullBoard && (
-              <>
-                <div ref={changeFeedRef} className={SCROLL_CLEARANCE}>
-                  <ChangeFeed />
-                </div>
-                <LongRunnersGallery />
-
-                {/* ── The two blocks nobody else can build ──────────────────
-                    "You vs the market" and share of live creative are the only
-                    blocks on this page that need BOTH sides — the market's
-                    behaviour and the user's own account. A competitor with the
-                    same Ad Library feed can ship the cadence chart and the angle
-                    donut; neither can ship these. They used to sit in a 2-up row
-                    identical in shell, weight and width to the generic charts
-                    directly above them, so nothing told the eye which mattered.
-                    Full-width, one per row, and ahead of the charts now. Wider
-                    also fixes them on their own terms: the comparison table gets
-                    a real your/market column split instead of wrapping, and the
-                    stacked share bars get enough pixels to label segments. */}
-                <YouVsMarket />
-                <ShareOfVoice />
-
-                {/* ── Demoted: the two generic charts ───────────────────────
-                    Kept, because they are the context the blocks above are read
-                    against — but half-width and `compact`, which is the whole
-                    hierarchy signal. Cadence stays interactive: clicking a week
-                    scrolls back up to the change feed. */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <LaunchCadenceChart compact onSelectWeek={handleSelectWeek} />
+        {/* Everything below is one repeating 12-column rhythm — full-width
+            rows and paired rows, same gap (gap-6) and same card shell
+            (rounded-lg border bg-card) throughout. That single repeated
+            grammar is what makes a dashboard with this much in it still read
+            as scannable rather than as nine different card anatomies stitched
+            together. Blocks never receive a wrapper div for sizing — every
+            block takes `className` and merges it onto its own root, so the
+            grid column span is passed straight through. */}
+        <div className="flex flex-col gap-6" aria-busy={isLoading || undefined}>
+          {/* populated, error, AND loading share this block set. `error` is
+              the populated board minus the StoreLeads-modelled figures
+              (per-figure `naReason`, not a different layout). `loading` is
+              the same board with every block's own `isLoading` branch
+              painting its own skeleton — see the note on `showFullBoard`
+              above for why that beats a parallel page-level skeleton. */}
+          {showFullBoard && (
+            <>
+              {/* Row: what changed, beside your angle mix and your account
+                  against the market. The change feed leads — it's the one
+                  block nothing else on this page ships — and its 8-col
+                  height (~440px, a fixed recent-activity list, not fluid) set
+                  the row. A lone compact `AngleMixDonut` in the 4-col column
+                  used to be stretched to match it, ~73% empty — the exact
+                  "failed to load" read a monitor already flagged once on
+                  Board hygiene. `AngleMixDonut`'s compact mode was built for
+                  a narrower column shared with the now-deleted
+                  `LaunchCadenceChart`; that partner is gone, so this column
+                  gets a new one. `YouVsMarket` stacked underneath is a real
+                  content pairing (both are "you vs the market" reads, just
+                  two different axes) and, combined, its content plus the
+                  compact donut's lands within a few px of ChangeFeed's own
+                  height — no stretch-void on either side, and the row does
+                  not grow past its original height. This is the one place on
+                  the page two blocks share a grid cell, hence the wrapper
+                  div (every other block takes its span via `className`
+                  directly). */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                <ChangeFeed className="lg:col-span-8" />
+                <div className="flex flex-col gap-6 lg:col-span-4">
                   <AngleMixDonut compact />
+                  <YouVsMarket />
                 </div>
+              </div>
 
-                {/* Deliberately last / below the fold — it carries the only
-                    modelled money numbers on the page, and leading with an
-                    estimate is the most-criticised habit in this category. */}
-                <DomainsTeaser />
-              </>
-            )}
+              {/* Top-performing ads — one horizontal strip, full width. */}
+              <LongRunnersGallery />
 
-            {isThin && (
-              <>
-                {/* Day 1 leads with the fix, not with the gap. The change feed
-                    leads everywhere it has something to report; here it has
-                    nothing, and "nothing to compare against yet" is a poor first
-                    impression above the one block that can actually change that.
-                    So the rescue block takes the slot and the merged
-                    brief+feed — which still carries the honest reason there is
-                    no summary — follows it. */}
-                <CoverageRescue />
-                <div ref={changeFeedRef} className={SCROLL_CLEARANCE}>
-                  <ChangeFeed />
-                </div>
-                {/* myBrand IS present in "thin" — this is the one genuinely
-                    non-empty block, and the your-side/market-side asymmetry
-                    is exactly this state's story. */}
-                <YouVsMarket />
-              </>
-            )}
+              {/* Row: who's shipping (ranked list + launch cadence, merged
+                  into one card) beside where the money-adjacent traffic goes. */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                <TopCompetitors className="lg:col-span-6" />
+                <DomainsTeaser className="lg:col-span-6" />
+              </div>
 
-            {/* zero: starter industries only, nothing fabricated above it. No
-                change feed here — with nothing followed, "we need two scans of
-                the same advertiser" is an answer to a question the user has not
-                asked yet, and CoverageRescue already says the true thing. */}
-            {isZero && <CoverageRescue />}
-          </div>
+              {/* Row: which industry is biggest and who holds it, beside
+                  board maintenance. `YouVsMarket` moved into the hero row
+                  above (see there), so this is a 2-up row now, not 3 —
+                  `BoardHygiene` keeps its own `self-start` (sized to its two
+                  numbers, not stretched) exactly as before; only the spans
+                  changed to fill the freed column. */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                <ShareOfVoice className="lg:col-span-8" />
+                <BoardHygiene className="lg:col-span-4" />
+              </div>
 
-          {/* ── The rail ─────────────────────────────────────────────────────
-              Everything in here is reference material — who moved, what the
-              watchlist is doing, which boards have rotted, what is still unset —
-              and it stays useful for the whole scroll. It used to run out after
-              ~1,800px against a ~6,300px main column, so four fifths of the
-              right side of the page was empty. It travels now.
+              {/* Row: where the rest of the module lives, beside whatever
+                  setup is still worth finishing. Last row on the page, so
+                  this is the skip-link target in every state. */}
+              <div
+                ref={railRef}
+                id="insights-summary"
+                tabIndex={-1}
+                aria-label="Where to go and setup"
+                className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
+              >
+                <WhereToGo className={summaryMainSpan} />
+                {showChecklist && <SetupChecklist className="lg:col-span-4" />}
+              </div>
+            </>
+          )}
 
-              THE CHOICE, since sticky-to-top alone cannot fix this: the rail's
-              own content is taller than the viewport, so pinning its top would
-              simply park its lower half permanently off-screen. Options were
-              (a) one sticky wrapper that scrolls internally, or (b) sticking
-              only the top two cards and letting board hygiene + setup scroll
-              away. This is (a). (b) costs half the rail to save one affordance,
-              and the two cards it sacrifices are the two with unfinished work in
-              them — precisely what you want reachable at any depth. The cost of
-              (a) is a second scroll axis, which is real but small here: 1,800px
-              of content in an ~830px window is roughly one flick, the content is
-              independent cards rather than prose, and wheel scroll chains back
-              to the page once the rail bottoms out (no `overscroll-contain`).
+          {isThin && (
+            <>
+              {/* Day 1 leads with the fix, not with the gap. The change feed
+                  leads everywhere it has something to report; here it has
+                  nothing, and "nothing to compare against yet" is a poor first
+                  impression above the one block that can actually change that.
+                  So the rescue block takes the slot and the merged
+                  brief+feed — which still carries the honest reason there is
+                  no summary — follows it. myBrand IS present in "thin" —
+                  YouVsMarket is the one genuinely non-empty block here. */}
+              <CoverageRescue />
+              <ChangeFeed />
+              <YouVsMarket />
 
-              No `tabIndex` on the scroller: WCAG only requires a scrollable
-              region be keyboard-operable, and every card in here already has
-              focusable controls that the browser scrolls into view. Adding one
-              would mean adding a tab stop to a page that has 200 too many.
+              <div
+                ref={railRef}
+                id="insights-summary"
+                tabIndex={-1}
+                aria-label="Where to go and setup"
+                className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
+              >
+                <WhereToGo className={summaryMainSpan} />
+                {showChecklist && <SetupChecklist className="lg:col-span-4" />}
+              </div>
+            </>
+          )}
 
-              `-mr-2 pr-2` parks the scrollbar in the grid gap so the cards keep
-              their alignment with the blocks above. Sticky is `lg:`-gated —
-              below that the grid is one column and the rail is just the tail of
-              the page. */}
-          <aside
-            id="insights-summary"
-            ref={railRef}
-            tabIndex={-1}
-            aria-label="Summary, watchlist and setup"
-            className={cn("min-w-0 lg:col-span-4", SCROLL_CLEARANCE, "focus:outline-none")}
-          >
-            <div className={cn("flex min-w-0 flex-col gap-6", RAIL_STICKY, "lg:-mr-2 lg:pr-2")}>
-              {isLoading && (
-                <>
-                  <SkeletonBlock>
-                    <SkeletonBlockHeader />
-                    <SkeletonRows count={5} />
-                  </SkeletonBlock>
-                  <SkeletonBlock>
-                    <SkeletonBlockHeader />
-                    <SkeletonRows count={4} />
-                  </SkeletonBlock>
-                  <SkeletonBlock>
-                    <SkeletonBlockHeader />
-                    <SkeletonRows count={3} />
-                  </SkeletonBlock>
-                  {/* The checklist always carries its three items, but every one
-                      reads `done: false` until something resolves — rendering it
-                      live here would claim "0 of 3 done" about a workspace we
-                      have not finished reading. */}
-                  <SkeletonBlock>
-                    <SkeletonBlockHeader withMeta={false} />
-                    <Skeleton className="mb-3 h-1.5 w-full rounded-full" />
-                    <SkeletonRows count={3} />
-                  </SkeletonBlock>
-                </>
-              )}
+          {/* zero: starter industries only, nothing fabricated above it. No
+              change feed here — with nothing followed, "we need two scans of
+              the same advertiser" is an answer to a question the user has not
+              asked yet, and CoverageRescue already says the true thing. */}
+          {isZero && (
+            <>
+              <CoverageRescue />
 
-              {showFullBoard && (
-                <>
-                  <MarketMovers />
-                  <WatchlistHealth />
-                  <BoardHygiene />
-                  <SetupChecklist />
-                </>
-              )}
-
-              {isThin && (
-                <>
-                  <WatchlistHealth />
-                  <SetupChecklist />
-                </>
-              )}
-
-              {isZero && (
-                <>
-                  <SetupChecklist />
-                  <WatchlistHealth />
-                </>
-              )}
-            </div>
-          </aside>
+              <div
+                ref={railRef}
+                id="insights-summary"
+                tabIndex={-1}
+                aria-label="Where to go and setup"
+                className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
+              >
+                <WhereToGo className={summaryMainSpan} />
+                {showChecklist && <SetupChecklist className="lg:col-span-4" />}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

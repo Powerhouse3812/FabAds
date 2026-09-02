@@ -8,163 +8,111 @@
  *
  * THE RULE THIS FILE MUST NOT BREAK: no vanity total. `useBoardHealth()` does
  * not expose a "N ads saved" figure and one must not be invented here. The
- * only totals that exist (`staleTotal`, `neverBriefedTotal`, folded into
- * `summaryLine`) are ones that imply an action, not a number to feel good
- * about. Per-board `itemCount` is shown for orientation only, never summed
- * into a headline.
+ * only totals that exist — `staleTotal` and `neverBriefedTotal` — are the
+ * marks on the surface, because both imply an action, not a number to feel
+ * good about.
  *
- * Tone: a maintenance nudge, not a scolding and not a celebration. The
- * practitioner ritual this models is "delete what no longer represents a
- * live pattern, archive a long-runner that still demonstrates a mechanism" —
- * so the CTA on a stale board is "Review", never "Delete". Any action here is
- * local optimistic state only (`useState` + `sonner` toast); nothing is
- * written to a shared store and nothing survives a reload.
+ * Scannable pass (2026-08): the surface is now those two counts and nothing
+ * else. Per-board rows and the explainer sentence (`summaryLine` / `note`)
+ * moved behind a click-to-expand disclosure — nothing deleted, one level
+ * down. "Review" still routes straight to `board.href`; marking a board
+ * reviewed is local-optimistic only (`useState` + a `sonner` toast), no
+ * shared-store write.
  */
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Check, Folder } from "lucide-react";
+import { Check, ChevronDown, Folder } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { useBoardHealth } from "@/insights-dashboard/lib/selectors";
 import type { BoardHealthItem } from "@/insights-dashboard/lib/selectors";
 
-function formatTouched(daysAgo: number): string {
-  if (daysAgo <= 0) return "touched today";
-  if (daysAgo === 1) return "touched 1 day ago";
-  return `touched ${daysAgo} days ago`;
-}
+const SECTION_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70";
 
+/** Condensed row inside the expander — one line, orientation only. */
 function BoardRow({
   board,
-  isDormant,
-  needsReview,
   reviewed,
   onMarkReviewed,
 }: {
   board: BoardHealthItem;
-  isDormant: boolean;
-  needsReview: boolean;
   reviewed: boolean;
   onMarkReviewed: (board: BoardHealthItem) => void;
 }) {
-  const showAction = needsReview && !reviewed;
-
   return (
-    // TWO ROWS, not two columns. This card lives in the 4-of-12 rail (~336px
-    // of usable width). Two stacked stat columns plus the action cluster ate
-    // ~280px of that as `shrink-0`, leaving the board name 54px — every board
-    // rendered as "Comp…", "Hook t…", "Winter…". Name and action share the
-    // first row; the counts move to the metadata line, where the mono-caps
-    // label sits inline before its number instead of above it.
-    <div className="py-2.5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          {/* `min-w-0` on the Link itself, not just its parent: a flex item's
-              default `min-width: auto` otherwise refuses to shrink below the
-              board name's intrinsic width, so a long single-token name
-              (60-char brand, no spaces to wrap on) would overflow the card
-              instead of truncating. `title` restores the full name on hover
-              once the text is cut. */}
-          <Link
-            to={board.href}
-            title={board.name}
-            className="block min-w-0 max-w-full truncate text-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+    <div className="flex items-center justify-between gap-2 py-1.5">
+      <Link
+        to={board.href}
+        title={board.name}
+        className="block min-w-0 max-w-full truncate text-xs font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+      >
+        {board.name}
+      </Link>
+      <div className="flex shrink-0 items-center gap-2.5">
+        <span className="whitespace-nowrap text-[11px] text-foreground/70">
+          {board.staleItemCount > 0 && `${board.staleItemCount} stale`}
+          {board.staleItemCount > 0 && board.neverBriefedCount > 0 && " · "}
+          {board.neverBriefedCount > 0 && `${board.neverBriefedCount} never briefed`}
+        </span>
+        <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px]">
+          <Link to={board.href}>Review</Link>
+        </Button>
+        {!reviewed && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 shrink-0 text-muted-foreground"
+            aria-label={`Mark ${board.name} reviewed`}
+            onClick={() => onMarkReviewed(board)}
           >
-            {board.name}
-          </Link>
-          {isDormant && (
-            <Badge
-              variant="outline"
-              className="shrink-0 rounded-full px-1.5 py-0 text-[10px] font-normal leading-4 text-muted-foreground"
-            >
-              Dormant
-            </Badge>
-          )}
-          {reviewed && (
-            <span className="shrink-0 text-[11px] italic text-muted-foreground">
-              Marked reviewed
-            </span>
-          )}
-        </div>
-
-        {showAction && (
-          <div className="flex shrink-0 items-center gap-1">
-            <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs">
-              <Link to={board.href}>Review</Link>
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-muted-foreground"
-              aria-label={`Mark ${board.name} reviewed`}
-              onClick={() => onMarkReviewed(board)}
-            >
-              <Check className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
-          </div>
+            <Check className="h-3 w-3" aria-hidden="true" />
+          </Button>
         )}
-      </div>
-
-      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-        <span>
-          {board.itemCount.toLocaleString()} saved · {formatTouched(board.lastTouchedDaysAgo)}
-        </span>
-        <span className="flex items-baseline gap-1.5">
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em]">
-            Stale
-          </span>
-          <span className="font-medium tabular-nums text-foreground">
-            {board.staleItemCount.toLocaleString()}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em]">
-            Never briefed
-          </span>
-          <span className="font-medium tabular-nums text-foreground">
-            {board.neverBriefedCount.toLocaleString()}
-          </span>
-        </span>
       </div>
     </div>
   );
 }
 
 export function BoardHygiene({ className }: { className?: string }): JSX.Element {
-  const { boards, boardCount, isEmpty, isLoading, needsAttention, dormant, summaryLine, note } =
-    useBoardHealth();
+  const { boards, isEmpty, isLoading, summaryLine, note } = useBoardHealth();
   const [reviewedIds, setReviewedIds] = useState<ReadonlySet<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
 
   // CHECK isLoading BEFORE `isEmpty`. `boards` is `[]` in both `loading` and a
   // genuinely empty board set — a skeleton keeps first paint from claiming
   // "nothing saved yet" while boards simply haven't loaded.
   if (isLoading) {
+    // `self-start` here too, matching the resolved card — without it the
+    // skeleton stretches to the row (~243px) and then snaps to ~101px the
+    // moment data lands, which is the layout jump this file's skeletons
+    // exist to avoid.
     return (
-      <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
+      <section className={cn("self-start rounded-lg border border-border bg-card p-4", className)}>
         <header className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-foreground">Board hygiene</h2>
+          <h2 className={SECTION_LABEL}>Board hygiene</h2>
         </header>
-        <Skeleton className="h-3.5 w-56" />
-        <Skeleton className="mt-1.5 h-3 w-40" />
-        <div className="mt-3 divide-y divide-border/60">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="py-2.5">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="mt-1.5 h-3 w-56" />
-            </div>
-          ))}
+        <div className="flex items-center gap-5">
+          <Skeleton className="h-8 w-12" />
+          <Skeleton className="h-8 w-20" />
         </div>
       </section>
     );
   }
 
-  const attentionIds = new Set(needsAttention.map((b) => b.id));
-  const dormantIds = new Set(dormant.map((b) => b.id));
+  const attentionBoards = boards
+    .filter((b) => b.staleItemCount > 0 || b.neverBriefedCount > 0)
+    .filter((b) => !reviewedIds.has(b.id))
+    .sort((a, b) => b.staleItemCount - a.staleItemCount);
+
+  const liveStaleTotal = attentionBoards.reduce((sum, b) => sum + b.staleItemCount, 0);
+  const liveNeverBriefedTotal = attentionBoards.reduce((sum, b) => sum + b.neverBriefedCount, 0);
+  const hasIssues = liveStaleTotal > 0 || liveNeverBriefedTotal > 0;
 
   const handleMarkReviewed = (board: BoardHealthItem) => {
     setReviewedIds((prev) => new Set(prev).add(board.id));
@@ -173,14 +121,24 @@ export function BoardHygiene({ className }: { className?: string }): JSX.Element
     });
   };
 
+  // `self-start` opts this card out of the grid row's default `stretch`.
+  // Collapsed, its whole surface is two numbers — about 100px — while its row
+  // siblings resolve near 280px, so stretching left roughly 180px of blank
+  // card below the counts and the block read as having failed to load. Sized
+  // to its content the same two numbers read as a deliberately small card,
+  // and the leftover height becomes page background rather than a void inside
+  // a border. No-op below `lg`, where every card is its own single-item row.
   return (
-    <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
+    <section className={cn("self-start rounded-lg border border-border bg-card p-4", className)}>
       <header className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-foreground">Board hygiene</h2>
+        <h2 className={SECTION_LABEL}>Board hygiene</h2>
         {!isEmpty && (
-          <span className="shrink-0 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {boardCount} {boardCount === 1 ? "board" : "boards"}
-          </span>
+          <Link
+            to="/insights/boards"
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+          >
+            View all →
+          </Link>
         )}
       </header>
 
@@ -193,23 +151,57 @@ export function BoardHygiene({ className }: { className?: string }): JSX.Element
         />
       ) : (
         <div>
-          <p className="text-xs leading-snug text-foreground">
-            {summaryLine ?? "No boards need attention right now."}
-          </p>
-          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{note}</p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                disabled={attentionBoards.length === 0}
+                aria-expanded={expanded}
+                className="flex items-center gap-5 rounded-md text-left disabled:cursor-default"
+              >
+                <div>
+                  <p className="text-xl font-semibold leading-none tabular-nums text-foreground">
+                    {liveStaleTotal}
+                  </p>
+                  <p className={cn(SECTION_LABEL, "mt-1")}>Stale</p>
+                </div>
+                <div>
+                  <p className="text-xl font-semibold leading-none tabular-nums text-foreground">
+                    {liveNeverBriefedTotal}
+                  </p>
+                  <p className={cn(SECTION_LABEL, "mt-1")}>Never briefed</p>
+                </div>
+                {attentionBoards.length > 0 && (
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 self-center text-muted-foreground transition-transform",
+                      expanded && "rotate-180",
+                    )}
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[240px] text-xs">
+              {hasIssues
+                ? [summaryLine, note].filter(Boolean).join(" · ")
+                : "No boards need attention right now."}
+            </TooltipContent>
+          </Tooltip>
 
-          <div className="mt-3 divide-y divide-border/60">
-            {boards.map((board) => (
-              <BoardRow
-                key={board.id}
-                board={board}
-                isDormant={dormantIds.has(board.id)}
-                needsReview={attentionIds.has(board.id)}
-                reviewed={reviewedIds.has(board.id)}
-                onMarkReviewed={handleMarkReviewed}
-              />
-            ))}
-          </div>
+          {expanded && attentionBoards.length > 0 && (
+            <div className="mt-2 divide-y divide-border/60 border-t border-border/60 pt-1">
+              {attentionBoards.map((board) => (
+                <BoardRow
+                  key={board.id}
+                  board={board}
+                  reviewed={reviewedIds.has(board.id)}
+                  onMarkReviewed={handleMarkReviewed}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>

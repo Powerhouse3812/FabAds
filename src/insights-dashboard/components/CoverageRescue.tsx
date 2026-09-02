@@ -61,7 +61,7 @@ const SCAN_STATE_ICON: Readonly<Record<ScanState, LucideIcon>> = {
 function ScanStateBadge({ state }: { state: ScanState }) {
   const Icon = SCAN_STATE_ICON[state];
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
       <Icon className={cn("h-2.5 w-2.5", state === "scanning" && "animate-spin")} aria-hidden="true" />
       {SCAN_STATE_LABELS[state]}
     </span>
@@ -78,13 +78,13 @@ function FollowedRow({ item }: { item: FollowedIndustry }) {
       <div className="grid grid-cols-3 gap-x-4 tabular-nums sm:flex sm:items-baseline sm:gap-4">
         <div className="flex flex-col sm:items-end">
           <span className="text-sm font-semibold text-foreground">{formatInt(item.indexedAds)}</span>
-          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
             Indexed ads
           </span>
         </div>
         <div className="flex flex-col sm:items-end">
           <span className="text-sm font-semibold text-foreground">{formatInt(item.advertisers)}</span>
-          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
             Advertisers
           </span>
         </div>
@@ -92,7 +92,7 @@ function FollowedRow({ item }: { item: FollowedIndustry }) {
           <span className="text-sm font-semibold text-foreground">
             {item.lastScanDaysAgo === null ? "Never" : `${item.lastScanDaysAgo}d ago`}
           </span>
-          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
             Last scan
           </span>
         </div>
@@ -114,19 +114,19 @@ function AdjacentRow({
     <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-foreground">{item.industry}</p>
-        <p className="text-xs text-muted-foreground">{item.reason}</p>
+        <p className="text-xs text-foreground/70">{item.reason}</p>
       </div>
       <div className="flex items-center gap-4 sm:shrink-0">
         <div className="flex items-baseline gap-4 tabular-nums">
           <div className="flex flex-col items-end">
             <span className="text-sm font-semibold text-foreground">{formatInt(item.liveAds)}</span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
               Live ads
             </span>
           </div>
           <div className="flex flex-col items-end">
             <span className="text-sm font-semibold text-foreground">{formatInt(item.advertisers)}</span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
+            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-foreground/70">
               Advertisers
             </span>
           </div>
@@ -206,7 +206,7 @@ export function CoverageRescue({ className }: { className?: string }): JSX.Eleme
         </header>
         <div className="flex items-center gap-3">
           <Progress value={coverage.coveragePct} className="h-1.5 flex-1" />
-          <span className="shrink-0 text-xs text-muted-foreground">{coverage.coverageLabel}</span>
+          <span className="shrink-0 text-xs text-foreground/70">{coverage.coverageLabel}</span>
         </div>
       </section>
     );
@@ -232,7 +232,7 @@ export function CoverageRescue({ className }: { className?: string }): JSX.Eleme
           followed yet. */}
       {coverage.followed.length > 0 && (
         <div className="mb-4 space-y-2">
-          <h3 className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <h3 className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
             What you follow
           </h3>
           <div className="space-y-2">
@@ -246,7 +246,7 @@ export function CoverageRescue({ className }: { className?: string }): JSX.Eleme
       {/* Adjacent industries — the rescue itself. Real counts prove the
           suggestion; Follow takes effect immediately, no scan required. */}
       <div className="space-y-2">
-        <h3 className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <h3 className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
           {coverage.adjacentHeading}
         </h3>
         <div className="divide-y divide-border/60 rounded-md border border-border/60">
@@ -264,7 +264,7 @@ export function CoverageRescue({ className }: { className?: string }): JSX.Eleme
       {/* Coverage summary. */}
       <div className="mt-4 flex items-center gap-3 border-t border-border/60 pt-3">
         <Progress value={coverage.coveragePct} className="h-1.5 flex-1" />
-        <span className="shrink-0 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground tabular-nums">
+        <span className="shrink-0 font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70 tabular-nums">
           {coverage.coverageLabel}
         </span>
       </div>

@@ -283,6 +283,17 @@ export interface KpiTile {
   naReason?: string;
   /** Source + freshness, always present. e.g. "Meta Ad Library · scanned 6h ago". */
   caption: string;
+  /**
+   * ONE short extra line under the value, in FabAds' own words.
+   *
+   * This is where a signal that used to need its own block lands: the
+   * `brands-followed` tile carries `"12 followed · 2 inactive"` here, which is
+   * the whole of what the deleted "Watchlist health" block was for. Present
+   * only when there is something to say; never a restatement of `caption`, and
+   * never present on a tile whose `value` is null (there is nothing to
+   * qualify).
+   */
+  subNote?: string;
   /** Week-over-week change. Omitted when there is no prior scan to compare. */
   deltaPct?: number;
   provenance: ProvenanceTier;
@@ -429,6 +440,23 @@ export interface DomainRowBase {
   domain: string;
   industry: string;
   liveAds: number;
+  /**
+   * Ads LAUNCHED in the last 30 days. NOT `liveAds`.
+   *
+   * `liveAds` answers "how many ads are running right now"; this answers "how
+   * many did they put out in the last 30 days". A domain can run 400 ads and
+   * have launched none of them this month. Label the column "New ads (30d)" —
+   * never "live ads", never just "ads".
+   *
+   * This is the 30-day change data that used to be its own "Market movers"
+   * block, folded onto the row it describes. Where a domain also appears in
+   * `movers`, both carry the SAME two counts by construction.
+   */
+  newAds30d: number;
+  /** The 30 days before that, so the change is checkable against its inputs. */
+  newAdsPrev30d: number;
+  /** `(newAds30d - newAdsPrev30d) / newAdsPrev30d`, whole percent. Can be negative. */
+  newAds30dDeltaPct: number;
   firstSeenDaysAgo: number;
   lastNewCreativeDaysAgo: number;
   tracked: boolean;
@@ -518,6 +546,144 @@ export interface DomainTypeCounts {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Pages — the advertiser's Meta page, a different entity from the domain
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * One advertiser PAGE.
+ *
+ * A page is not a domain. The page is the Meta identity that runs the ads; the
+ * domain is where those ads point. One advertiser can run two pages against one
+ * domain (a main page plus a shop / regional page), and that is exactly why the
+ * "top 5" list differs depending on which entity you rank by.
+ *
+ * RECONCILIATION RULE: the pages behind one domain sum EXACTLY to that
+ * domain's `liveAds`. The two views of the same advertiser must never disagree
+ * — that is the failure mode this whole block exists to avoid.
+ *
+ * `industry` is the plain FabAds word for the category a page sits in; there is
+ * no second taxonomy.
+ */
+export interface PageRow {
+  /** Stable id, `page-<domain>-<n>`. */
+  pageId: string;
+  /** Display name of the page, e.g. "GlowSkin" / "GlowSkin Shop". */
+  pageName: string;
+  avatarUrl: string;
+  /** The domain its ads point at. */
+  domain: string;
+  /** Industry / category. Same vocabulary as everywhere else on the page. */
+  industry: string;
+  liveAds: number;
+  /**
+   * Ads LAUNCHED in the last 30 days by this page. Same rule as
+   * `DomainRowBase.newAds30d` — not ads running now.
+   *
+   * The pages behind one domain sum EXACTLY to that domain's `newAds30d`, the
+   * same reconciliation `liveAds` keeps.
+   */
+  newAds30d: number;
+  /** The 30 days before that. Pages of one domain sum to `newAdsPrev30d`. */
+  newAdsPrev30d: number;
+  /** Derived from this page's own two counts. Can be negative. */
+  newAds30dDeltaPct: number;
+  /** Already on your watchlist. The follow action toggles this. */
+  followed: boolean;
+  /** Days since this page last put out new creative. */
+  lastNewCreativeDaysAgo: number;
+  firstSeenDaysAgo: number;
+  provenance: ProvenanceTier;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Top industry / category, and which brands hold what share of it
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * One brand's slice of an industry.
+ *
+ * `sharePct` is share of LIVE ADS RUNNING — never spend, never budget. We
+ * cannot see spend. `isOthers` marks the roll-up bucket, which has no single
+ * Discover link (there is no `?domain=` value for "everyone else"), so its
+ * `discoverHref` is null.
+ */
+export interface IndustryShareBrand {
+  /** Domain, or the reserved keys `"you"` / `"others"`. */
+  key: string;
+  /** Brand name where we know it, otherwise the domain. */
+  name: string;
+  /** `null` for the Others bucket. */
+  domain: string | null;
+  liveAds: number;
+  /** Share of this industry's live ads. Ads running, not money. */
+  sharePct: number;
+  isYou: boolean;
+  isOthers: boolean;
+  /** `null` for the Others bucket — a link that lies is worse than no link. */
+  discoverHref: string | null;
+}
+
+/**
+ * One industry, and the brands inside it by share of live ads.
+ *
+ * The denominator (`liveAds`) is the same figure `FollowedIndustry.indexedAds`
+ * carries, and the named brands' counts come from the same derivation the
+ * domain table prints — so this block cannot contradict its neighbours.
+ */
+export interface IndustryShareRow {
+  industry: string;
+  /** Every live ad indexed in this industry — the denominator. */
+  liveAds: number;
+  /** Distinct advertisers indexed in it. */
+  advertisers: number;
+  /** Named brands, share descending, with the Others bucket last. */
+  brands: IndustryShareBrand[];
+  /** Biggest named brand, or null when the industry has none indexed. */
+  topBrand: IndustryShareBrand | null;
+  /** Your own brand's slice, or null when you don't advertise here. */
+  you: IndustryShareBrand | null;
+  /** Plain-words basis. States that this is ads running, not spend. */
+  basis: string;
+  provenance: ProvenanceTier;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Nav overview — the module's own surfaces, with a live count each
+// ─────────────────────────────────────────────────────────────────────────
+
+/** The six surfaces of the Industry Insights module. */
+export type NavSurfaceKey =
+  | "my-feeds"
+  | "discover"
+  | "saved-ads"
+  | "competitor"
+  | "domain"
+  | "trends";
+
+/**
+ * One surface in the nav-overview block.
+ *
+ * Same invariant as `KpiTile`: `count === null` MUST carry an `naReason`. A
+ * real zero is `count: 0` and needs none — "you have saved nothing" is a fact,
+ * "we haven't looked yet" is not.
+ */
+export interface NavSurfaceCount {
+  key: NavSurfaceKey;
+  /** FabAds' own name for the surface, e.g. "Saved Ads". */
+  label: string;
+  /** One plain line on what lives there. No jargon. */
+  description: string;
+  href: string;
+  count: number | null;
+  /** Required whenever `count` is null. */
+  naReason?: string;
+  /** Display-ready: "1,063", or the `naReason` when there is no count. */
+  countLabel: string;
+  /** What the count counts, in FabAds words: "industries", "live ads". */
+  unitLabel: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // You vs your market
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -553,6 +719,14 @@ export interface MyBrand {
   /** Ready-to-render, e.g. "new creative every 9 days". */
   refreshCadenceLabel: string;
   formatMix: FormatMixEntry[];
+  /**
+   * Your angle split.
+   *
+   * ANGLES ARE THE ANGLE BLOCK'S JOB. `useAngleMix()` prints your share beside
+   * the market's; a second block printing its own version is how two parts of
+   * one page end up disagreeing. This field survives because the angle block
+   * itself is built from it — read it there, not here.
+   */
   angleMix: AngleMixEntry[];
   /** One-line reminder of what this comparison does and doesn't cover. */
   scopeNote: string;
@@ -592,19 +766,45 @@ export interface WatchItem {
 }
 
 /**
- * Watchlist rollup. `quiet` advertisers (21+ days without new creative) are
- * the actionable signal — either they stopped, or the slot is wasted.
+ * The two follow sets, which FabAds keeps in two different tables.
+ *
+ *  - `items` / `followCount` — BRANDS FOLLOWED (`insight_follows`). Every brand
+ *    you follow. `items.length === followCount` — there is no hidden remainder
+ *    and there is NO CAP. An earlier version invented a 25-slot limit; no such
+ *    limit exists in the product, so nothing here mentions one.
+ *  - `trackedCompetitors` — COMPETITORS FOLLOWED (`insight_competitors`). The
+ *    followed brands you also track as competitors: a small subset, and the
+ *    ONLY set the `tracked` / `followed` flags on domain, page and mover rows
+ *    are about. That is why the "Competitors followed" KPI is a small number
+ *    and the "Brands followed" KPI is a larger one.
+ *
+ * `inactiveCount` is the one signal the deleted "Watchlist health" block
+ * carried: followed brands that have shipped nothing new in
+ * `inactiveThresholdDays`. It renders as a sub-note on the Brands-followed KPI
+ * tile, not as a block.
  */
 export interface WatchlistHealth {
   items: WatchItem[];
+  /** Brands followed. Always equal to `items.length`. */
   followCount: number;
-  followCap: number;
-  /** True when `followCount / followCap >= 0.8`. */
-  nearCap: boolean;
-  /** Ready-to-render cap sentence, e.g. "18 of 25 slots used." */
-  capNote: string;
+  /** Followed brands with no new creative in `inactiveThresholdDays`+ days. */
+  inactiveCount: number;
+  /** The threshold behind `inactiveCount`, in days. Print it with the count. */
+  inactiveThresholdDays: number;
+  /** Competitors followed — a subset of `items`. Drives every `tracked` flag. */
+  trackedCompetitors: WatchItem[];
+  /** `trackedCompetitors.length`. The "Competitors followed" KPI value. */
+  trackedCompetitorCount: number;
+  /**
+   * Σ `trackedCompetitors[].liveAds` — the "Total competitor ads" KPI value.
+   * Ads running NOW from the competitors you follow, and nothing else: it is
+   * not the whole indexed market, and each domain's share of it is the same
+   * `liveAds` the domain table and the pages list print for that domain.
+   */
+  trackedCompetitorLiveAds: number;
   activeCount: number;
   rampingCount: number;
+  /** Same number as `inactiveCount` — the `quiet` band. Kept for existing readers. */
   quietCount: number;
 }
 
@@ -830,6 +1030,15 @@ export interface DashboardFixture {
   angles: AngleSlice[];
   movers: Mover[];
   domains: DomainRow[];
+  /**
+   * Advertiser PAGES for the same followed industries. Sums per domain match
+   * `domains[].liveAds` exactly — see `PageRow`.
+   */
+  pages: PageRow[];
+  /** Top industries with their brand-share breakdown. */
+  industryShare: IndustryShareRow[];
+  /** The module's own surfaces, with a count each. Always all six. */
+  navSurfaces: NavSurfaceCount[];
   domainTypeCounts: DomainTypeCounts;
   myBrand: MyBrand | null;
   shareOfVoice: ShareOfVoiceRow[];

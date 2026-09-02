@@ -21,6 +21,8 @@ import {
   angleForHeadline,
   ANGLE_LABELS,
   daysRunningFor,
+  DOMAIN_INDUSTRY,
+  industryForDomain,
   tierFor,
 } from "@/insights-dashboard/lib/fixtures";
 import type { AngleKey, LongRunnerTier } from "@/insights-dashboard/lib/types";
@@ -56,6 +58,28 @@ function longevityTierForAd(ad: InsightAd): LongRunnerTier {
 }
 
 /**
+ * An ad's industry, corrected through the dashboard's domain→industry map —
+ * the same `DOMAIN_INDUSTRY` / `industryForDomain` in
+ * `src/insights-dashboard/lib/fixtures.ts` that the "Top industries · brand
+ * share" block uses to decide which brands belong to which industry.
+ *
+ * `InsightAd.industry` is the RAW, uncorrected field: the source generator
+ * assigns brand and industry independently, so the same domain can carry an
+ * unrelated industry label (see the `DOMAIN_INDUSTRY` doc comment — e.g.
+ * "OrbitGym — Meal kits delivered weekly"). Filtering on the raw field let a
+ * dashboard `?industry=` link resolve to ads that don't belong to any of the
+ * brands the dashboard just named. Resolving through the same map the
+ * dashboard uses means the two can never disagree.
+ *
+ * Falls back to the ad's own raw `industry` field only if its domain isn't in
+ * the curated map at all — every domain in the current corpus is, so this is
+ * a defensive fallback, not a live path.
+ */
+function industryForAd(ad: InsightAd): string {
+  return ad.domain in DOMAIN_INDUSTRY ? industryForDomain(ad.domain) : ad.industry;
+}
+
+/**
  * InsightsDiscover — paginated grid of all ads, filterable + searchable.
  *
  * A-12.179: all interactive state is URL-backed so deep-link / refresh /
@@ -65,7 +89,9 @@ function longevityTierForAd(ad: InsightAd): LongRunnerTier {
  *   ?page=<n>                            (omit on 1)
  *   ?perPage=<n>                         (omit on 12)
  *   ?q=<text>                            (filter: search)
- *   ?industry=<key>                      (filter: industry)
+ *   ?industry=<key>                      (filter: industry, resolved through
+ *                                          the dashboard's domain→industry
+ *                                          map — see `industryForAd` below)
  *   ?platform=<key>                      (filter: platform)
  *   ?status=<key>                        (filter: status)
  *   ?country=<key>                       (filter: country)
@@ -355,13 +381,13 @@ export default function InsightsDiscover() {
   //    on them the way "industry"/"platform" tabs do above) ───────────────
   let ads = DUMMY_ADS;
   if (tab === "trending") ads = ads.filter((_, i) => i % 3 === 0);
-  if (tab === "industry" && filters.industry) ads = ads.filter((a) => a.industry === filters.industry);
+  if (tab === "industry" && filters.industry) ads = ads.filter((a) => industryForAd(a) === filters.industry);
   if (tab === "platform" && filters.platform) ads = ads.filter((a) => a.platforms.includes(filters.platform as any));
   if (filters.search) {
     const q = filters.search.toLowerCase();
     ads = ads.filter((a) => a.pageName.toLowerCase().includes(q) || a.headline.toLowerCase().includes(q));
   }
-  if (filters.industry && tab !== "industry") ads = ads.filter((a) => a.industry === filters.industry);
+  if (filters.industry && tab !== "industry") ads = ads.filter((a) => industryForAd(a) === filters.industry);
   if (filters.platform && tab !== "platform") ads = ads.filter((a) => a.platforms.includes(filters.platform as any));
   if (filters.status) ads = ads.filter((a) => a.status === filters.status);
   // An unrecognised angle/longevity value simply matches nothing here — see
