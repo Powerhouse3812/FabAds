@@ -65,3 +65,24 @@ export function recordsForRule(state: SyncStoreState, ruleId: string): SyncRecor
     .filter((record) => record.ruleId === ruleId)
     .sort((a, b) => Date.parse(b.queuedAt) - Date.parse(a.queuedAt));
 }
+
+/**
+ * EVERY sync record, newest-first — the whole history with no filter applied.
+ * Backs the Sync history screen, which is the first surface that has to show
+ * manual, rule-fired and workflow-fired uploads side by side.
+ *
+ * Sorted on `queuedAt` (not `finishedAt`) for the same reason the other
+ * selectors here do: `queuedAt` is the one timestamp every record has, in every
+ * status, so the ordering never depends on how far a record got. Ties keep
+ * `Object.values` order rather than being broken on id — a stable-looking but
+ * arbitrary alphabetical tiebreak would imply an ordering the data doesn't have.
+ *
+ * Returns a NEW array per call, exactly like `recordsForRule` — call it inside
+ * the consumer's own `useMemo`, never from a store `getSnapshot` (see the file
+ * header and syncStore.ts's snapshot-stability warning).
+ */
+export function allSyncRecordsNewestFirst(state: SyncStoreState): SyncRecord[] {
+  return Object.values(state.records).sort(
+    (a, b) => Date.parse(b.queuedAt) - Date.parse(a.queuedAt),
+  );
+}

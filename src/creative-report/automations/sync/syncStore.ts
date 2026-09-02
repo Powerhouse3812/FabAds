@@ -74,6 +74,12 @@ function isValidRecord(r: unknown): r is SyncRecord {
     (rec.status === "queued" || rec.status === "running" || rec.status === "done" || rec.status === "failed") &&
     (rec.ruleId === null || typeof rec.ruleId === "string") &&
     typeof rec.ruleName === "string" &&
+    // Folder provenance is OPTIONAL and must stay optional: every record
+    // written before the 2026-08-13 granularity ruling lacks both fields, and
+    // demanding them here would silently discard the entire existing history
+    // on first load. A non-string present value is the only rejectable case.
+    (rec.folderId === undefined || typeof rec.folderId === "string") &&
+    (rec.folderName === undefined || typeof rec.folderName === "string") &&
     typeof rec.queuedAt === "string" &&
     (rec.startedAt === undefined || typeof rec.startedAt === "string") &&
     (rec.finishedAt === undefined || typeof rec.finishedAt === "string") &&
@@ -82,6 +88,65 @@ function isValidRecord(r: unknown): r is SyncRecord {
     (rec.resumedAfterReload === undefined || typeof rec.resumedAfterReload === "boolean") &&
     rec.simulated === true
   );
+}
+
+/**
+ * FOLDER-PROVENANCE CONTRADICTION RULE (Finding S12, 2026-08-13): a record may
+ * carry folder attribution (`folderId` and/or `folderName`) ONLY when a
+ * canvas workflow queued it. Tracing every writer of a `SyncSource` in this
+ * codebase: the ONE call site that ever threads folder fields through is
+ * `syncFolderToAccounts` in `src/automations/executors.ts`, and it stamps
+ * `ruleId: ctx.workflowId` — always a graph id minted by `makeGraphId()`
+ * (`automations/graphStore.ts`), which is unconditionally shaped
+ * `wf-<timestamp>-<counter>`. Every OTHER writer — the manual bulk-sync
+ * action (`ruleId: null`), the Creative Report v3 rule action in
+ * `actions/registry.ts` (`ruleId` = a `rule-<ts>-<n>` id from
+ * `rulesStore.ts`'s `makeId()`), and this store's own seed data — never
+ * passes a folder field at all. So a record is CONTRADICTORY, and the folder
+ * claim is fabricated, whenever it carries a folder field but `ruleId` is
+ * `null` or does not start with `"wf-"`. This mirrors (without importing, to
+ * avoid coupling this store to a UI component) the same id-prefix heuristic
+ * `SyncStatusPanel.tsx`'s `sourceKind()` already uses to tell a workflow from
+ * a rule — both readings agree a folder can only ride along with a workflow.
+ *
+ * Hand-edited/tampered `localStorage` is the only realistic way to reach this
+ * (e.g. injecting `folderName` onto a `ruleId: null` record) — no code path in
+ * this repo produces it — so the fix is proportionate: strip the two folder
+ * fields, keep the rest of the record. A record's provenance is exactly its
+ * `ruleId`/`ruleName`, which stay untouched.
+ */
+function contradictsFolderProvenance(rec: SyncRecord): boolean {
+  const hasFolder = rec.folderId !== undefined || rec.folderName !== undefined;
+  if (!hasFolder) return false;
+  const carriedByWorkflow = rec.ruleId !== null && rec.ruleId.startsWith("wf-");
+  return !carriedByWorkflow;
+}
+
+/**
+ * SECOND HALF of the same cross-check: `folderId` and `folderName` must
+ * travel together. The only writer of either (`syncFolderToAccounts` in
+ * `executors.ts`) always sets both from the same node data in one spread, so
+ * a record with exactly one of the two is never legitimate — either a corrupt
+ * write or, same as above, a hand-edit. `SyncStatusPanel.tsx`'s `folderLine()`
+ * renders off `folderName` alone, so an orphaned `folderId` with no name
+ * would just silently not render — but leaving it in the persisted record
+ * makes that store state a lie (a folder id with nothing backing it), so it
+ * gets stripped here rather than left to rot.
+ */
+function hasAsymmetricFolderFields(rec: SyncRecord): boolean {
+  return (rec.folderId !== undefined) !== (rec.folderName !== undefined);
+}
+
+/** Drop just the folder fields — never the record. Same "coerce the bad
+ *  field, don't nuke the row" philosophy as the `running` -> `queued` rewind
+ *  below. No-op (returns the same reference) when there is nothing to strip,
+ *  so this is safe to call unconditionally. */
+function stripFolderProvenance(rec: SyncRecord): SyncRecord {
+  if (rec.folderId === undefined && rec.folderName === undefined) return rec;
+  const next: SyncRecord = { ...rec };
+  delete next.folderId;
+  delete next.folderName;
+  return next;
 }
 
 /** Validate localStorage payloads defensively — corrupt/hand-edited JSON
@@ -101,10 +166,20 @@ function sanitize(raw: unknown): SyncStoreState {
     for (const [key, value] of Object.entries(records)) {
       if (!isValidRecord(value)) continue;
       if (!ACCOUNT_BY_ID[value.accountId]) continue;
-      validRecords[key] =
-        value.status === "running"
-          ? { ...value, status: "queued", progress: 0, startedAt: undefined, resumedAfterReload: true }
+
+      // Finding S12: a folder claim that contradicts the record's own
+      // provenance (e.g. a manual/`ruleId: null` record hand-edited to carry
+      // a `folderName`), or that names only one of the two folder fields,
+      // gets the folder stripped, not the record dropped.
+      const clean =
+        contradictsFolderProvenance(value) || hasAsymmetricFolderFields(value)
+          ? stripFolderProvenance(value)
           : value;
+
+      validRecords[key] =
+        clean.status === "running"
+          ? { ...clean, status: "queued", progress: 0, startedAt: undefined, resumedAfterReload: true }
+          : clean;
     }
   }
 
@@ -136,6 +211,31 @@ function sanitize(raw: unknown): SyncStoreState {
  * once — only on a truly empty localStorage key (see readInitial below) —
  * and persists immediately, so real activity afterward accumulates on top of
  * it rather than this re-seeding on every visit.
+ *
+ * ─── LOAD-BEARING: `startedAt === queuedAt` IS A FINGERPRINT ───────────────
+ * These records deliberately stamp `startedAt` at the SAME INSTANT as
+ * `queuedAt`, because a fabricated pair is finished in one step. Nothing else
+ * in this store does that, and `SyncHistoryScreen`'s `isFabricatedHistory()`
+ * relies on it to label these rows "Seeded — no sync occurred" instead of
+ * "Manual sync" — a seeded row claiming a person synced something is the lie
+ * that check exists to remove. **Do not "normalise" these two timestamps.**
+ *
+ * A real record cannot collide with the fingerprint today, but that rests on
+ * TWO invariants that no assertion enforces — an adversarial pass confirmed
+ * both hold and flagged the fragility:
+ *   1. TICK ORDERING. Every runner calls `advanceQueue(ms)` BEFORE the work
+ *      that enqueues syncs (`runEngine.ts`'s `onTick`, and this module's own
+ *      consumer in `creative-report/automations/runner.ts`), so a freshly
+ *      queued pair is only promoted on a LATER tick — `startedAt` lands
+ *      ≥500ms after `queuedAt`. Enqueue-then-`tickNow()` in one synchronous
+ *      turn would break this.
+ *   2. ROUTE EXCLUSIVITY. `AutomationsLayout` and `CreativeReportLayout` are
+ *      sibling routes, so their runners are never registered at the same time.
+ *      `tickNow()` fans one shared `now` out to every registered runner, so
+ *      co-mounting them would let one runner's `advanceQueue` promote a pair
+ *      the other just enqueued, within the same millisecond.
+ * If either changes, make the seeded flag explicit on the record instead of
+ * inferring it here.
  */
 function seedInitialRecords(): Record<string, SyncRecord> {
   const accounts = metaAccounts();
@@ -233,14 +333,39 @@ export function getSyncState(): SyncStoreState {
   return state;
 }
 
-function buildQueuedRecord(creativeId: string, accountId: string, ruleId: string | null, ruleName: string): SyncRecord {
+/**
+ * Where a queued upload came from. `ruleId`/`ruleName` are required (a manual
+ * sync passes `ruleId: null` and a human-readable `ruleName`); the folder pair
+ * is optional because most syncs have no folder to name — see `SyncRecord`.
+ */
+export interface SyncSource {
+  ruleId: string | null;
+  ruleName: string;
+  /** Creative Library folder id, when the push was folder-granular. */
+  folderId?: string;
+  /** Folder name SNAPSHOT at fire time — the store never re-resolves an id. */
+  folderName?: string;
+}
+
+/**
+ * Folder fields are attached only when they carry a value, never as explicit
+ * `undefined`s. An absent key and a key holding `undefined` survive
+ * `JSON.stringify` identically, so this is about the in-memory record too: a
+ * read path that checks `"folderId" in record` must not be told yes for a
+ * manual sync.
+ */
+function buildQueuedRecord(creativeId: string, accountId: string, src: SyncSource): SyncRecord {
+  const folderId = src.folderId?.trim();
+  const folderName = src.folderName?.trim();
   return {
     id: pairKey(creativeId, accountId),
     creativeId,
     accountId,
     status: "queued",
-    ruleId,
-    ruleName,
+    ruleId: src.ruleId,
+    ruleName: src.ruleName,
+    ...(folderId ? { folderId } : {}),
+    ...(folderName ? { folderName } : {}),
     queuedAt: new Date().toISOString(),
     progress: 0,
     simulated: true,
@@ -249,18 +374,20 @@ function buildQueuedRecord(creativeId: string, accountId: string, ruleId: string
 
 /** Guard 1 — pair uniqueness. Returns "skipped-existing" and does nothing if
  *  a queued/running/done record already exists for this creative::account
- *  pair, regardless of which rule (or user action) put it there. */
-export function enqueueSync(i: {
-  creativeId: string;
-  accountId: string;
-  ruleId: string | null;
-  ruleName: string;
-}): "queued" | "skipped-existing" {
+ *  pair, regardless of which rule (or user action) put it there.
+ *
+ *  A folder-granular push is NOT exempt from this guard and does NOT re-tag the
+ *  record it skipped: the folder is provenance, not part of the key, and
+ *  overwriting a finished record's folder would claim an upload that didn't
+ *  happen. See syncModel.ts's pair-key decision. */
+export function enqueueSync(
+  i: { creativeId: string; accountId: string } & SyncSource,
+): "queued" | "skipped-existing" {
   const id = pairKey(i.creativeId, i.accountId);
   const existing = state.records[id];
   if (existing && BLOCKING_STATUSES.has(existing.status)) return "skipped-existing";
 
-  const record = buildQueuedRecord(i.creativeId, i.accountId, i.ruleId, i.ruleName);
+  const record = buildQueuedRecord(i.creativeId, i.accountId, i);
   state = { ...state, records: { ...state.records, [id]: record } };
   persist();
   return "queued";
@@ -269,7 +396,7 @@ export function enqueueSync(i: {
 export function enqueueSyncMany(
   creativeIds: string[],
   accountIds: string[],
-  src: { ruleId: string | null; ruleName: string },
+  src: SyncSource,
 ): { queued: number; skipped: number } {
   let queued = 0;
   let skipped = 0;
@@ -283,7 +410,7 @@ export function enqueueSyncMany(
         skipped += 1;
         continue;
       }
-      nextRecords[id] = buildQueuedRecord(creativeId, accountId, src.ruleId, src.ruleName);
+      nextRecords[id] = buildQueuedRecord(creativeId, accountId, src);
       queued += 1;
     }
   }
