@@ -155,6 +155,11 @@ const THEME_BY_ID: Record<string, Theme> = {
   scratch: "abstract", "create-variations": "product-closeup", "ugc-video": "talking-head",
   "image-to-video": "product-closeup", broll: "lifestyle", "bg-remover": "product-closeup",
   resize: "abstract",
+  // FB-5752 creative approaches — on-theme previews per intent.
+  "product-hero": "hero-cinematic", "offer-push": "product-closeup",
+  "eligibility-quiz": "testimonial", "founder-story": "talking-head",
+  "feature-demo": "tutorial",
+  // ("problem-solution" already keyed above as an angle → tutorial.)
   // Approach sub-types (the ones not already keyed above)
   "talking-head": "talking-head", tutorial: "tutorial", reaction: "talking-head",
   "day-in-life": "lifestyle", "whole-ad": "hero-cinematic", "media-only": "lifestyle",

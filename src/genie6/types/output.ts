@@ -157,6 +157,24 @@ export interface OutputData {
   /** IDs of sibling outputs generated in the same batch. */
   siblings?: string[];
 
+  /* ── Batch grouping (FB-5752 Library) ──
+       `siblings[]` links peers; these make the BATCH a first-class, nameable,
+       timestamped grouping so the Library can group-by-Batch alongside
+       group-by-Angle. DB persistence is mocked for now. */
+  /** Stable id of the generation batch this output belongs to. */
+  batchId?: string;
+  /** Human label for the batch. Auto-generated default:
+   *  `Brand · Approach · DD MMM, HH:MM`. Editable later. */
+  batchName?: string;
+  /** When the batch was generated. */
+  batchTimestamp?: Date;
+
+  /* ── Video preview (FB-5752 media-previews) ──
+       Source clip for in-card autoplay (muted + in-view) on video outputs.
+       Consumed by OutputCard / OutputCardHybrid / concept cards via
+       PreviewVideo.tsx. Falls back to `thumbnail` when absent. */
+  videoUrl?: string;
+
   /* ── Provenance / generation context (A-12.196 canonical Ad Detail) ──
        Surfaces "How this was made" section: Mode / Format / AI model row,
        Knowledge base usage, Concept presets consumed, and multi-angle tags. */

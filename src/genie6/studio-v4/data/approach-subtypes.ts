@@ -59,6 +59,14 @@ export const APPROACH_SUBTYPES: Record<Mode, ApproachSubType[]> = {
   "bg-remover": [],
   "resize": [],
   "scratch": [],
+  // FB-5752 mode-aware creative approaches — leaf (no sub-types); auto-fill
+  // carries angle + concept via DEFAULTS below.
+  "product-hero": [],
+  "problem-solution": [],
+  "offer-push": [],
+  "eligibility-quiz": [],
+  "founder-story": [],
+  "feature-demo": [],
 };
 
 /** Does this approach have sub-types to choose from? */
@@ -115,6 +123,13 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
     "bg-remover":       { angleId: "hero", conceptIds: [] },
     "resize":           { angleId: null, conceptIds: [] },
     "scratch":          { angleId: null, conceptIds: [] },
+    // FB-5752 creative approaches → sensible angle + concept auto-fill.
+    "product-hero":     { angleId: "hero", conceptIds: ["c-hero-pack"] },
+    "problem-solution": { angleId: "problem-solution", conceptIds: ["c-before-after"] },
+    "offer-push":       { angleId: "urgency", conceptIds: ["c-flash-sale"] },
+    "eligibility-quiz": { angleId: "social-proof", conceptIds: ["c-ugc-creator"] },
+    "founder-story":    { angleId: "story", conceptIds: ["c-founder-note"] },
+    "feature-demo":     { angleId: "demo", conceptIds: ["c-detail-macro"] },
   };
   return DEFAULTS[mode] ?? { angleId: null, conceptIds: [] };
 }

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import type { KbInstruction } from "../data/kbInstructions";
+import type { StudioMode, PerformanceSubType } from "../data/modeMatrix";
 
 export type Category = "asset" | "ad" | "social";
 export type Format = "image" | "video";
@@ -12,7 +13,27 @@ export type Mode =
   | "image-to-video"
   | "broll"
   | "bg-remover"
-  | "resize";
+  | "resize"
+  // FB-5752 mode-aware creative approaches (see data/modeMatrix.ts catalog).
+  | "product-hero"
+  | "problem-solution"
+  | "offer-push"
+  | "eligibility-quiz"
+  | "founder-story"
+  | "feature-demo";
+
+/**
+ * Industry-Insights "Create Variant" handoff payload. Captured when the user
+ * starts a generation from a competitor ad — which elements to borrow + what
+ * to substitute + how close to clone. (FB-5752 hero feature.)
+ */
+export type InsightReuseElement =
+  | "hook"
+  | "layout"
+  | "visual-style"
+  | "script"
+  | "visual-direction";
+export type InsightSubstitution = "product" | "brand" | "copy" | "cta";
 
 export type AttachSource =
   | "upload"
@@ -41,6 +62,15 @@ export interface UploadedFile {
 export interface WizardState {
   step: 1 | 2 | 3 | 4 | 5;
   category: Category | null;
+  /** Top-level studio mode (Product Ad / Brand Ad / Product Shoot / Performance
+   *  Ad / Social). Drives the mode-aware input engine (data/modeMatrix.ts):
+   *  required inputs on Step 2 + offered approaches on Step 3. */
+  studioMode: StudioMode | null;
+  /** Performance Ad only — "What are you promoting?" 3-way split. */
+  performanceSubType: PerformanceSubType | null;
+  /** Brand Ad only — "Feature a product?" toggle. When true, a product may be
+   *  selected and Product-Hero is surfaced among the approaches. */
+  featureProduct: boolean;
   format: Format | null;
   /** Step 2 selection — XOR across brand / product / category. User picks
    *  EITHER a brand, a product, or a category — never more than one.
@@ -83,11 +113,26 @@ export interface WizardState {
   useBrandGuidelines: boolean;
   /** User-created KB instructions (additive over the built-in defaults). */
   customKbInstructions: KbInstruction[];
+
+  /* ── Industry Insights "Create Variant" handoff (FB-5752) ── */
+  /** Source competitor ad id when the flow was started from Industry Insights.
+   *  null = normal flow (not a remix). */
+  insightAdId: string | null;
+  /** Fidelity 0–100: 0 = Inspire (loosely borrow), 100 = Clone (match closely).
+   *  Drives the brand-safety warning at high values. */
+  insightFidelity: number;
+  /** Which elements of the reference ad to reuse. */
+  insightReuse: InsightReuseElement[];
+  /** Which of the user's own assets replace the competitor's. */
+  insightSubstitutions: InsightSubstitution[];
 }
 
 const INITIAL_STATE: WizardState = {
   step: 1,
   category: null,
+  studioMode: null,
+  performanceSubType: null,
+  featureProduct: false,
   format: null,
   brandId: null,
   productId: null,
@@ -115,6 +160,10 @@ const INITIAL_STATE: WizardState = {
   useKnowledgeBase: true,
   useBrandGuidelines: true,
   customKbInstructions: [],
+  insightAdId: null,
+  insightFidelity: 35,
+  insightReuse: [],
+  insightSubstitutions: [],
 };
 
 export interface UseWizardReturn {
