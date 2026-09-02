@@ -72,8 +72,8 @@ import {
 /** Rows the merged card always ranks — same as `TOP_COMPETITOR_COUNT`. */
 const ROW_COUNT = 5;
 
-const CHART_HEIGHT = 108;
-const TOP_MARGIN = 18;
+const CHART_HEIGHT = 90;
+const TOP_MARGIN = 16;
 const BAR_SIZE = 12;
 /** Value label above each bar — small, tabular-nums, never colour-only. */
 const VALUE_LABEL_STYLE = {
@@ -296,7 +296,7 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
             </li>
           ))}
         </ul>
-        <div className="mt-3 border-t border-border/60 pt-3">
+        <div className="mt-2 border-t border-border/60 pt-2">
           <Skeleton className="w-full rounded-md" style={{ height: CHART_HEIGHT + 24 }} />
         </div>
       </section>
@@ -324,7 +324,7 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
 
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
-      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <header className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
           Top competitors
         </h2>
@@ -359,7 +359,7 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
         </ul>
       </div>
 
-      <div className="mt-3 border-t border-border/60 pt-3">
+      <div className="mt-2 border-t border-border/60 pt-2">
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
             Launch cadence
@@ -379,7 +379,7 @@ export function TopCompetitors({ className }: { className?: string }): JSX.Eleme
         )}
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1.5">
         <p className="text-xs text-foreground/70" title={followedBasisNote}>
           {followedCompetitorCount} followed · {formatInt(followedCompetitorLiveAds)} live ads now
         </p>
