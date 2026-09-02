@@ -295,7 +295,7 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
                         </InfoTip>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[110px] truncate whitespace-nowrap py-1 text-xs text-foreground/70">
+                    <TableCell className="max-w-[136px] truncate whitespace-nowrap py-1 text-xs text-foreground/70">
                       {row.industry}
                     </TableCell>
                     <TableCell className="whitespace-nowrap py-1 text-right text-xs tabular-nums text-foreground">
