@@ -1,5 +1,5 @@
 /**
- * KpiRow — the honesty strip at the top of the Industry Insights dashboard.
+ * KpiRow — the flat KPI strip at the top of the Industry Insights dashboard.
  *
  * Renders the 5 primary KPI tiles (`useKpis().primary`) in a fixed order:
  * live ads · advertisers · new signals · creative lifespan · your share of
@@ -11,27 +11,28 @@
  * never a dash. A real zero is `value: "0"` with no reason and renders as an
  * ordinary number — the two are visually distinct on purpose.
  *
- * ── REBALANCED FOR WORKING MEMORY (design critique fix) ───────────────────
- * A tile used to be six competing chunks — label, value, delta, caption,
- * source chip, sparkline — times five tiles, i.e. exactly the "~30 chunks
- * in one band" a design critique flagged (Miller's ~4). Two changes:
+ * ── SCANNABLE PASS (design critique fix) ───────────────────────────────────
+ * Every tile used to carry six competing chunks — label, value, delta,
+ * caption, source chip, sparkline — times five tiles. This band is now the
+ * flat FabAds-dashboard-style strip: mono-caps LABEL · big VALUE · signed
+ * DELTA, hairline dividers between tiles, nothing else on the surface.
  *
- *  1. The per-tile source chip is gone. Every tile still discloses its
- *     source, but as ONE sentence in the band footer instead of five
- *     separate tab-stops — built from `PROVENANCE_META` (the same map the
- *     chip itself reads), grouped by tier, so it can't drift from what the
- *     chip would have said. This also removes 5 of the ~40 keyboard tab
- *     stops the page-wide chip critique was about.
- *  2. Caption and sparkline are demoted, not deleted: smaller, lower
- *     contrast, folded onto one footer line per tile, so label → value+delta
- *     reads as the dominant pair and everything else recedes to a glance.
+ *  - The per-tile caption (source + freshness, e.g. "Meta Ad Library ·
+ *    scanned 6h ago") moved to a native `title` tooltip on the tile — still
+ *    reachable, not printed.
+ *  - The per-tile sparkline is gone. Decoration at this size; the delta
+ *    already carries direction.
+ *  - The row keeps exactly ONE source line for the whole strip, built from
+ *    `PROVENANCE_META` grouped by tier so it can't drift from what the
+ *    `Provenance` chip itself would say.
  *
  * ── DOORWAYS ───────────────────────────────────────────────────────────────
- * Only tiles with a genuine destination are links — `live-ads` → Discover,
- * `advertisers` → Competitors. The other three (new signals, creative
- * lifespan, your share of creative) have no page that shows exactly what the
- * tile claims, so they stay plain: a link that doesn't return what the
- * number promised is worse than no link.
+ * Only tiles with a genuine destination are links — `total-competitor-ads` →
+ * Competitors (the same set the competitors page counts ads for), and
+ * `total-saved-ads` → Saved (the boards page those saves live on). The other
+ * three (industries followed, brands followed, competitors followed) have no
+ * page that shows exactly what the tile claims, so they stay plain: a link
+ * that doesn't return what the number promised is worse than no link.
  *
  * ── NO VISIBLE HEADING (design critique fix) ────────────────────────────────
  * The "Key metrics" `<h2>` is gone — it was filler occupying the first
@@ -45,15 +46,14 @@ import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmtDelta } from "@/creative-report-v2/lib/format";
-import { Sparkline } from "@/creative-report-v2/components/Sparkline";
 import { PROVENANCE_META } from "@/insights-dashboard/components/Provenance";
 import { useKpis, type KpiTile, type ProvenanceTier } from "@/insights-dashboard/lib/selectors";
 
 /** Only tiles with a destination that genuinely returns what the number
  * claims get a link. Keyed on `KpiTile["key"]`. */
 const KPI_TILE_HREF: Readonly<Record<string, string>> = {
-  "live-ads": "/insights/discover",
-  advertisers: "/insights/competitors",
+  "total-competitor-ads": "/insights/competitors",
+  "total-saved-ads": "/insights/saved",
 };
 
 const PROVENANCE_ORDER: readonly ProvenanceTier[] = ["observed", "estimated", "derived"];
@@ -92,7 +92,7 @@ function DeltaChip({ pct }: { pct: number }) {
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5",
-        "font-mono text-[10px] font-medium tabular-nums text-muted-foreground",
+        "font-mono text-[10px] font-medium tabular-nums text-foreground",
       )}
     >
       <Icon className="h-2.5 w-2.5" strokeWidth={2.4} aria-hidden="true" />
@@ -101,15 +101,29 @@ function DeltaChip({ pct }: { pct: number }) {
   );
 }
 
+/**
+ * Tile tooltip: caption (source + freshness) survives here, not printed.
+ *
+ * `subNote` joins it rather than getting a printed line of its own. It is the
+ * one signal the deleted "Watchlist health" block carried ("12 followed · 2
+ * inactive"), and its headline half is already on the surface twice — as this
+ * tile's own value and as the change feed's "2 of 12 inactive brands" stat —
+ * so printing it here would cost a row of height to repeat what is visible
+ * two blocks down. Without this it was simply unread: the fixture set
+ * `subNote` and nothing ever rendered it.
+ */
+function tileTitle(tile: KpiTile): string | undefined {
+  return [tile.caption, tile.subNote].filter(Boolean).join(" · ") || undefined;
+}
+
 function KpiTileBody({ tile }: { tile: KpiTile }) {
   return (
     <>
-      <span className="truncate font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+      <span className="truncate font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70">
         {tile.label}
       </span>
 
-      {/* The dominant pair — value + delta read as one gestalt, the only
-          thing this tile needs to communicate at a glance. */}
+      {/* label → value+delta is the whole tile now. */}
       {tile.value !== null ? (
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
           <span className="text-2xl font-semibold leading-none text-foreground tabular-nums">
@@ -118,54 +132,26 @@ function KpiTileBody({ tile }: { tile: KpiTile }) {
           {typeof tile.deltaPct === "number" && <DeltaChip pct={tile.deltaPct} />}
         </div>
       ) : (
-        <span className="text-sm font-medium italic leading-snug text-muted-foreground">
+        <span className="text-xs font-medium italic leading-snug text-foreground/70">
           {tile.naReason ?? "No data"}
         </span>
       )}
-
-      {/* Demoted: caption + sparkline share one low-contrast footer line
-          instead of two separate rows fighting for attention. */}
-      <div className="flex items-end justify-between gap-2">
-        <span
-          title={tile.caption}
-          className="line-clamp-1 text-[11px] leading-snug text-muted-foreground/75"
-        >
-          {tile.caption}
-        </span>
-        {/* Tone is deliberately `neutral`, never up/down. `Sparkline`'s "down"
-            tone strokes in `--destructive`, which would paint a falling median
-            creative lifespan red — exactly the good/bad judgement `DeltaChip`
-            above refuses to make about the same number. One rule per fact. */}
-        {tile.series && tile.series.length > 0 && (
-          <Sparkline
-            data={tile.series}
-            tone="neutral"
-            width={40}
-            height={16}
-            className="shrink-0 opacity-70"
-          />
-        )}
-      </div>
     </>
   );
 }
 
 /**
- * Skeleton for one tile, shaped like `KpiTileBody` — label / value+delta /
- * caption+sparkline footer — so first paint occupies the exact footprint the
- * resolved tile will, and swapping in the real content never jumps the
- * layout. Loading and "nothing found yet" render identically otherwise
- * (both hand this row empty collections), so this is what tells them apart.
+ * Skeleton for one tile, shaped like `KpiTileBody` — label / value+delta —
+ * so first paint occupies the exact footprint the resolved tile will, and
+ * swapping in the real content never jumps the layout. Loading and "nothing
+ * found yet" render identically otherwise (both hand this row empty
+ * collections), so this is what tells them apart.
  */
 function KpiTileSkeleton() {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-md lg:px-4 lg:first:pl-0 lg:last:pr-0">
+    <div className="flex min-w-0 flex-col gap-1.5 lg:px-4 lg:first:pl-0 lg:last:pr-0">
       <Skeleton className="h-2.5 w-16" />
       <Skeleton className="h-7 w-14" />
-      <div className="flex items-end justify-between gap-2">
-        <Skeleton className="h-2.5 w-20" />
-        <Skeleton className="h-4 w-10" />
-      </div>
     </div>
   );
 }
@@ -178,7 +164,7 @@ function KpiTileView({ tile }: { tile: KpiTile }) {
     return (
       <Link
         to={href}
-        title={`Open ${tile.label.toLowerCase()} in ${tile.key === "live-ads" ? "Discover" : "Competitors"}`}
+        title={tileTitle(tile) ?? `Open ${tile.label.toLowerCase()} in ${tile.key === "total-saved-ads" ? "Saved" : "Competitors"}`}
         className={cn(
           sharedClassName,
           "transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
@@ -190,7 +176,7 @@ function KpiTileView({ tile }: { tile: KpiTile }) {
   }
 
   return (
-    <div className={sharedClassName}>
+    <div className={sharedClassName} title={tileTitle(tile)}>
       <KpiTileBody tile={tile} />
     </div>
   );
@@ -210,16 +196,10 @@ export function KpiRow({ className }: { className?: string }): JSX.Element {
   // landmark named for screen readers without occupying first-screen space.
   if (kpis.isLoading) {
     return (
-      <section
-        aria-label="Key metrics"
-        className={cn("rounded-lg border border-border bg-card p-4", className)}
-      >
-        <div className="mb-3 flex items-center justify-end gap-2">
-          <span className="text-xs text-muted-foreground">Loading…</span>
-        </div>
+      <section aria-label="Key metrics" className={cn("py-1", className)}>
         <div
           className={cn(
-            "grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3",
+            "grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3",
             "lg:grid-cols-5 lg:gap-y-0 lg:divide-x lg:divide-border/60",
           )}
         >
@@ -234,21 +214,16 @@ export function KpiRow({ className }: { className?: string }): JSX.Element {
   const sourceFooter = buildSourceFooter(kpis.primary);
 
   return (
-    <section
-      aria-label="Key metrics"
-      className={cn("rounded-lg border border-border bg-card p-4", className)}
-    >
+    <section aria-label="Key metrics" className={cn("py-1", className)}>
       {kpis.allUnavailable && (
-        <div className="mb-3 flex items-center justify-end gap-2">
-          <span className="text-xs text-muted-foreground">
-            First scan in progress — every figure below explains why, not just that it's missing
-          </span>
-        </div>
+        <p className="mb-1.5 text-[11px] text-foreground/70">
+          First scan in progress — figures below explain why, not just that they're missing
+        </p>
       )}
 
       <div
         className={cn(
-          "grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3",
+          "grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3",
           "lg:grid-cols-5 lg:gap-y-0 lg:divide-x lg:divide-border/60",
         )}
       >
@@ -258,7 +233,7 @@ export function KpiRow({ className }: { className?: string }): JSX.Element {
       </div>
 
       {sourceFooter && (
-        <p className="mt-3 border-t border-border/60 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 text-[10px] leading-snug text-foreground/70">
           Source: {sourceFooter}
         </p>
       )}

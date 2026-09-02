@@ -67,8 +67,13 @@ import type {
   EcomPlatform,
   FollowedIndustry,
   FormatMixEntry,
+  IndustryShareBrand,
+  IndustryShareRow,
   KpiTile,
   LaunchCadenceWeek,
+  NavSurfaceCount,
+  NavSurfaceKey,
+  PageRow,
   LongRunnerAd,
   LongRunnerTier,
   Mover,
@@ -476,7 +481,29 @@ export const QUIET_THRESHOLD_DAYS = 21;
 /** Days running past which longevity may mean saturation, not proof. */
 export const SATURATION_CAVEAT_DAYS = 90;
 
-export const FOLLOW_CAP = 25;
+/**
+ * Brands followed in the populated workspace (`insight_follows`).
+ *
+ * THERE IS NO FOLLOW CAP. An earlier version of this file invented a 25-slot
+ * limit and every caption on the page repeated it; the product has no such
+ * limit, so the constant is gone and no wording refers to slots.
+ *
+ * The number is also the real length of `watchlist.items` — the tile says
+ * "12 followed" because twelve rows exist, not because twelve was typed in.
+ */
+export const POPULATED_BRANDS_FOLLOWED = 12;
+
+/**
+ * Competitors followed in the populated workspace (`insight_competitors`) —
+ * the followed brands you also track as competitors.
+ *
+ * Deliberately much smaller than `POPULATED_BRANDS_FOLLOWED`: these are two
+ * different lists in FabAds, and the tracked-competitor list is the short one.
+ * This set is the ONLY source of the `tracked` / `followed` flags on domain,
+ * page and mover rows, so "Competitors followed" and every follow pill on the
+ * page count the same thing.
+ */
+export const POPULATED_COMPETITORS_FOLLOWED = 6;
 
 /**
  * The six followed industries in the populated state. All six are real values
@@ -685,7 +712,7 @@ function sourcesStoreLeadsDown(): DataSourceStatus[] {
       lastSuccessLabel: `Last answered ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
       failureNote: `StoreLeads has not answered since the run ${relativeDayLabel(
         ERROR_SCAN_AGE_DAYS,
-      )}. It models storefront sales and visits; every other number on this page comes from somewhere else.`,
+      )}. It models store economics — those figures live in the full Competitors view and may be stale there. Everything on this page comes from the Meta Ad Library and is unaffected.`,
       naReason: STORELEADS_NA_REASON,
       affects: [...STORELEADS_AFFECTS],
     }),
@@ -1057,18 +1084,44 @@ function statusFor(lastNewDaysAgo: number, newCreatives30d: number): WatchStatus
   return "active";
 }
 
+/**
+ * The brands you follow, and inside them the competitors you track.
+ *
+ * `items.length` IS `followCount` — the tile can say "12 followed" because
+ * twelve rows exist. There is no cap and no hidden remainder.
+ *
+ * `trackedCompetitors` is the first `POPULATED_COMPETITORS_FOLLOWED` rows after
+ * the sort, i.e. the followed brands shipping the most new creative — the ones
+ * you would actually track. Their domains are what every `tracked` flag on the
+ * page is derived from, so the KPI, the follow pills on the domain table and
+ * the follow pills on the pages list all agree.
+ */
 function buildWatchlist(industries: readonly string[]): WatchlistHealth {
   const pool = BRAND_DOMAIN_PAIRS.filter((p) =>
     industries.includes(industryForDomain(p.domain)),
   );
-  const chosen = randSample("watchlist-pick", pool.length ? pool : BRAND_DOMAIN_PAIRS, 7);
+  const chosen = randSample(
+    "watchlist-pick",
+    pool.length ? pool : BRAND_DOMAIN_PAIRS,
+    Math.min(POPULATED_BRANDS_FOLLOWED, (pool.length ? pool : BRAND_DOMAIN_PAIRS).length),
+  );
 
   // Statuses are assigned by slot, not left to chance, so all three bands are
-  // always on screen: two quiet (the actionable signal), two ramping, three
+  // always on screen: exactly two quiet (the actionable signal, and the
+  // "N inactive" sub-note on the Brands-followed KPI), three ramping, the rest
   // steady. Pure hashing here reliably produced zero ramping rows.
+  // Slots clamped to the list length so a smaller pool cannot silently lose the
+  // quiet band — the "N inactive" sub-note depends on it existing.
+  const quietSlots = new Set(
+    [3, 8].map((n) => Math.min(n, chosen.length - 1)).filter((n) => n >= 0),
+  );
+  const rampingSlots = new Set(
+    [0, 1, 5].filter((n) => n < chosen.length && !quietSlots.has(n)),
+  );
+
   const items: WatchItem[] = chosen.map((p, i) => {
     const band: WatchStatus =
-      i === 2 || i === 5 ? "quiet" : i === 0 || i === 3 ? "ramping" : "active";
+      quietSlots.has(i) ? "quiet" : rampingSlots.has(i) ? "ramping" : "active";
 
     const lastNewCreativeDaysAgo =
       band === "quiet" ? randInt(`watch-quiet|${p.domain}`, QUIET_THRESHOLD_DAYS, 47) :
@@ -1095,53 +1148,117 @@ function buildWatchlist(industries: readonly string[]): WatchlistHealth {
 
   items.sort((a, b) => b.newCreatives30d - a.newCreatives30d);
 
-  const followCount = 18;
-  const nearCap = followCount / FOLLOW_CAP >= 0.8;
+  // The competitors you track: the shortest, most active head of the follow
+  // list. Deterministic (the sort above is), and the sole source of the
+  // `tracked` flags everywhere else on the page.
+  const trackedCompetitors = items.slice(0, POPULATED_COMPETITORS_FOLLOWED);
+  const quietCount = items.filter((i) => i.status === "quiet").length;
+
   return {
     items,
-    followCount,
-    followCap: FOLLOW_CAP,
-    nearCap,
-    capNote: `${followCount} of ${FOLLOW_CAP} advertiser slots used${
-      nearCap ? " — you're close to the cap" : ""
-    }.`,
+    followCount: items.length,
+    inactiveCount: quietCount,
+    inactiveThresholdDays: QUIET_THRESHOLD_DAYS,
+    trackedCompetitors,
+    trackedCompetitorCount: trackedCompetitors.length,
+    trackedCompetitorLiveAds: trackedCompetitors.reduce((s, i) => s + i.liveAds, 0),
     activeCount: items.filter((i) => i.status === "active").length,
     rampingCount: items.filter((i) => i.status === "ramping").length,
-    quietCount: items.filter((i) => i.status === "quiet").length,
+    quietCount,
   };
 }
 
-const EMPTY_WATCHLIST = (followCount: number): WatchlistHealth => ({
+/** Nothing followed and nothing tracked. Every count is a real zero. */
+const EMPTY_WATCHLIST = (): WatchlistHealth => ({
   items: [],
-  followCount,
-  followCap: FOLLOW_CAP,
-  nearCap: false,
-  capNote: `${followCount} of ${FOLLOW_CAP} advertiser slots used.`,
+  followCount: 0,
+  inactiveCount: 0,
+  inactiveThresholdDays: QUIET_THRESHOLD_DAYS,
+  trackedCompetitors: [],
+  trackedCompetitorCount: 0,
+  trackedCompetitorLiveAds: 0,
   activeCount: 0,
   rampingCount: 0,
   quietCount: 0,
 });
 
-// ── 7.2  Movers ──────────────────────────────────────────────────────────
+// ── 7.2  New ads in the last 30 days, and the movers built from them ─────
+
+/**
+ * Ads a domain LAUNCHED in the 30 days before this one.
+ *
+ * Scaled off the same `liveAdsForDomain` the row prints, because the two sit on
+ * one line and a reader will compare them: an independent random draw produced
+ * rows like "28 live ads · 296 new ads (30d)", which reads as broken however
+ * honest the labels are. A month's launches are a slice of what is running.
+ */
+function newAdsPrev30dFor(domain: string): number {
+  const live = liveAdsForDomain(domain);
+  return Math.max(1, Math.round(live * randFloat(`mover-prev-share|${domain}`, 0.06, 0.34)));
+}
+
+/**
+ * Ads a domain LAUNCHED in the last 30 days.
+ *
+ * NOT `liveAdsForDomain` — that is ads running right now, a different question.
+ * Both numbers appear on the same row, so the two must never be mixed up: the
+ * column label is "New ads (30d)".
+ *
+ * Capped at 80% of the live count for the same plausibility reason as
+ * `newAdsPrev30dFor`. The delta is derived from the two FINAL counts, so a
+ * capped row is still internally consistent with what it prints.
+ */
+function newAds30dFor(domain: string): number {
+  const prev = newAdsPrev30dFor(domain);
+  const factor = randBool(`mover-dir|${domain}`, 0.62)
+    ? randFloat(`mover-up|${domain}`, 1.34, 3.4)
+    : randFloat(`mover-down|${domain}`, 0.22, 0.74);
+  const ceiling = Math.max(1, Math.round(liveAdsForDomain(domain) * 0.8));
+  return Math.min(ceiling, Math.max(1, Math.round(prev * factor)));
+}
+
+/** Whole-percent change, derived from the two counts so a row is checkable. */
+function newAdsDeltaPct(cur: number, prev: number): number {
+  return prev === 0 ? 0 : Math.round(((cur - prev) / prev) * 100);
+}
+
+/**
+ * The 30-day figures for one domain, as they appear on a domain row, on that
+ * domain's pages, and in `movers`. ONE function, so the three cannot disagree —
+ * this is what makes the "Market movers" block safe to delete: its data now
+ * rides on the row it was always describing.
+ */
+function newAdsWindowFor(domain: string): {
+  newAds30d: number;
+  newAdsPrev30d: number;
+  newAds30dDeltaPct: number;
+} {
+  const newAdsPrev30d = newAdsPrev30dFor(domain);
+  const newAds30d = newAds30dFor(domain);
+  return {
+    newAds30d,
+    newAdsPrev30d,
+    newAds30dDeltaPct: newAdsDeltaPct(newAds30d, newAdsPrev30d),
+  };
+}
 
 function buildMovers(industries: readonly string[], trackedDomains: Set<string>): Mover[] {
   const pool = DOMAINS.filter((d) => industries.includes(industryForDomain(d)));
   const chosen = randSample("movers-pick", pool.length >= 8 ? pool : DOMAINS, 8);
 
-  const rows: Mover[] = chosen.map((domain, i) => {
-    const prev = randInt(`mover-prev|${domain}`, 12, 240);
-    // Five climbers, three fallers — a mover list with no decline is a lie.
-    const factor = i < 5
-      ? randFloat(`mover-up|${domain}`, 1.34, 3.4)
-      : randFloat(`mover-down|${domain}`, 0.22, 0.74);
-    const cur = Math.max(1, Math.round(prev * factor));
+  // The counts come from `newAdsWindowFor`, the SAME function the domain rows
+  // and page rows use, so a domain's 30-day figures are identical wherever it
+  // appears. Direction is hash-decided per domain (≈62% climbing), which keeps
+  // real declines in the list — a mover list with no decline is a lie.
+  const rows: Mover[] = chosen.map((domain) => {
+    const w = newAdsWindowFor(domain);
     return {
       domain,
       industry: industryForDomain(domain),
       // Derived from the two counts, so the row is internally consistent.
-      deltaPct: Math.round(((cur - prev) / prev) * 100),
-      adCount30d: cur,
-      adCountPrev30d: prev,
+      deltaPct: w.newAds30dDeltaPct,
+      adCount30d: w.newAds30d,
+      adCountPrev30d: w.newAdsPrev30d,
       tracked: trackedDomains.has(domain),
     };
   });
@@ -1191,10 +1308,10 @@ function buildCadence(pool: InsightAd[], scale: number, spikeMover: Mover | null
       week.spikeNote = spikeMover
         ? `${Math.round(adsLaunched / Math.max(1, mean) * 100 - 100)}% above the 12-week average. ${
             spikeMover.domain
-          } accounts for most of it — ${spikeMover.adCount30d} live ads in ${spikeMover.industry}, up ${
+          } accounts for most of it — ${spikeMover.adCount30d} new ads in ${spikeMover.industry}, up ${
             spikeMover.deltaPct
           }% on the prior 30 days.`
-        : `${Math.round(adsLaunched / Math.max(1, mean) * 100 - 100)}% above the 12-week average across the advertisers you follow.`;
+        : `${Math.round(adsLaunched / Math.max(1, mean) * 100 - 100)}% above the 12-week average across the brands you follow.`;
     }
     return week;
   });
@@ -1246,6 +1363,9 @@ function buildDomainRow(domain: string, trackedDomains: Set<string>): DomainRow 
     domain,
     industry: industryForDomain(domain),
     liveAds: liveAdsForDomain(domain),
+    // 30-day launch window — the old "Market movers" data, on the row it
+    // describes. Same function `movers` uses, so the two always match.
+    ...newAdsWindowFor(domain),
     firstSeenDaysAgo: randInt(`dfirst|${domain}`, 34, 780),
     lastNewCreativeDaysAgo: randInt(`dlast|${domain}`, 0, 26),
     tracked: trackedDomains.has(domain),
@@ -1313,12 +1433,29 @@ function buildDomainRows(trackedDomains: Set<string>, industries: readonly strin
   const byType = (t: DomainType) =>
     all.filter((r) => r.type === t).sort((a, b) => b.liveAds - a.liveAds);
 
+  /**
+   * Top `n` of a type, PLUS any tracked competitor of that type the cut would
+   * have dropped.
+   *
+   * Without the second half, a competitor you follow could be missing from this
+   * table while the "Total competitor ads" KPI still counted its ads — a number
+   * on the page with nothing under it to check against. Every followed
+   * competitor now has a row here, so the KPI is the sum of rows a reader can
+   * see.
+   */
+  const pick = (t: DomainType, n: number): DomainRow[] => {
+    const rows = byType(t);
+    const head = rows.slice(0, n);
+    const missingTracked = rows.filter((r) => r.tracked && !head.includes(r));
+    return [...head, ...missingTracked].sort((a, b) => b.liveAds - a.liveAds);
+  };
+
   return [
-    ...byType("ecom").slice(0, 6),
-    ...byType("affiliate").slice(0, 4),
-    ...byType("leadgen").slice(0, 2),
-    ...byType("ppc").slice(0, 1),
-    ...byType("telehealth").slice(0, 1),
+    ...pick("ecom", 6),
+    ...pick("affiliate", 4),
+    ...pick("leadgen", 2),
+    ...pick("ppc", 1),
+    ...pick("telehealth", 1),
   ];
 }
 
@@ -1689,6 +1826,20 @@ function buildMyBrand(seed: MyBrandSeed): MyBrand {
 const SOV_BASIS = "Share of live creative in this industry — not share of spend.";
 
 /**
+ * How the brand's own live ads split across the industries it advertises in.
+ *
+ * ONE source of truth, read by BOTH `buildShareOfVoice` and
+ * `buildIndustryShare`. The counts sum to exactly `MY_BRAND_SEED_POPULATED
+ * .liveAds` (47), so the two blocks and the brand card can never disagree
+ * about how many ads the user is running.
+ */
+export const MY_BRAND_INDUSTRY_AD_COUNTS: readonly { industry: string; adCount: number }[] = [
+  { industry: "Beauty", adCount: 31 },
+  { industry: "E-commerce", adCount: 10 },
+  { industry: "Health & Wellness", adCount: 6 },
+];
+
+/**
  * Creative share of voice for the industries the user actually advertises in.
  * `you.pct + Σ leaders.pct` always leaves a long-tail remainder under 100.
  */
@@ -1705,11 +1856,11 @@ function buildShareOfVoice(myBrand: MyBrand): ShareOfVoiceRow[] {
   // split across the industries it advertises in.
   //
   // `yourAdCount` sums to exactly `myBrand.liveAds`.
-  const configs: Array<{ industry: string; yourAdCount: number }> = [
-    { industry: "Beauty", yourAdCount: 31 },
-    { industry: "E-commerce", yourAdCount: 10 },
-    { industry: "Health & Wellness", yourAdCount: 6 },
-  ];
+  const configs: Array<{ industry: string; yourAdCount: number }> =
+    MY_BRAND_INDUSTRY_AD_COUNTS.map((c) => ({
+      industry: c.industry,
+      yourAdCount: c.adCount,
+    }));
 
   const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -1738,6 +1889,288 @@ function buildShareOfVoice(myBrand: MyBrand): ShareOfVoiceRow[] {
       basis: SOV_BASIS,
       provenance: "derived",
     };
+  });
+}
+
+// ── 7.8b  Pages (the advertiser's Meta page) ─────────────────────────────
+
+/**
+ * How many pages one advertiser runs. Most run one; some run a main page plus
+ * a shop / regional page. Hash-decided, so a domain's page count never moves.
+ */
+function pageCountFor(domain: string): number {
+  return randBool(`page-split|${domain}`, 0.35) ? 2 : 1;
+}
+
+/** Suffix for the second page of an advertiser. Plain words, no invention. */
+const SECOND_PAGE_SUFFIXES = ["Shop", "Official", "Store"] as const;
+
+/**
+ * Pages behind the domain rows we already show.
+ *
+ * THE INVARIANT: the pages of one domain sum to EXACTLY that domain's
+ * `liveAds`. A page's ads are a subset of its domain's ads, so a split — never
+ * a fresh random number — is the only honest way to derive them. That is also
+ * what makes the Domains ↔ Pages toggle worth having: the same corpus ranks
+ * differently, without either view contradicting the other.
+ *
+ * `followed` mirrors the watchlist: an advertiser you follow is followed on its
+ * MAIN page. Second pages start unfollowed, which is precisely Maalik's point
+ * — the top advertisers are not necessarily the ones you already follow.
+ */
+function buildPages(rows: readonly DomainRow[], trackedDomains: Set<string>): PageRow[] {
+  const out: PageRow[] = [];
+
+  for (const row of rows) {
+    const brand = brandForDomain(row.domain);
+    const count = pageCountFor(row.domain);
+
+    // Split the domain's live ads across its pages. The main page keeps the
+    // larger share; the remainder goes to the second page, so the two always
+    // add back up to `row.liveAds`.
+    const mainShare = count === 1
+      ? 1
+      : randFloat(`page-share|${row.domain}`, 0.55, 0.82);
+    const mainAds = count === 1 ? row.liveAds : Math.max(1, Math.round(row.liveAds * mainShare));
+    const secondAds = row.liveAds - mainAds;
+
+    // The 30-day launch counts split on the SAME share, so the pages of one
+    // domain sum to that domain's `newAds30d` / `newAdsPrev30d` exactly — the
+    // reconciliation rule `liveAds` already keeps.
+    const splitWindow = (total: number): [number, number] => {
+      if (count === 1) return [total, 0];
+      const main = Math.min(total, Math.max(1, Math.round(total * mainShare)));
+      return [main, total - main];
+    };
+    const [mainNew30, secondNew30] = splitWindow(row.newAds30d);
+    const [mainPrev30, secondPrev30] = splitWindow(row.newAdsPrev30d);
+
+    out.push({
+      pageId: `page-${row.domain}-1`,
+      pageName: brand,
+      avatarUrl: `https://i.pravatar.cc/150?u=${brand.toLowerCase().replace(/\s+/g, "")}`,
+      domain: row.domain,
+      industry: row.industry,
+      liveAds: mainAds,
+      newAds30d: mainNew30,
+      newAdsPrev30d: mainPrev30,
+      newAds30dDeltaPct: newAdsDeltaPct(mainNew30, mainPrev30),
+      followed: trackedDomains.has(row.domain),
+      lastNewCreativeDaysAgo: row.lastNewCreativeDaysAgo,
+      firstSeenDaysAgo: row.firstSeenDaysAgo,
+      provenance: "observed",
+    });
+
+    if (count === 2 && secondAds > 0) {
+      const suffix = randPick(`page-suffix|${row.domain}`, SECOND_PAGE_SUFFIXES);
+      out.push({
+        pageId: `page-${row.domain}-2`,
+        pageName: `${brand} ${suffix}`,
+        avatarUrl: `https://i.pravatar.cc/150?u=${row.domain}-2`,
+        domain: row.domain,
+        industry: row.industry,
+        liveAds: secondAds,
+        newAds30d: secondNew30,
+        newAdsPrev30d: secondPrev30,
+        newAds30dDeltaPct: newAdsDeltaPct(secondNew30, secondPrev30),
+        followed: false,
+        lastNewCreativeDaysAgo: randInt(`page2-last|${row.domain}`, 0, 34),
+        firstSeenDaysAgo: Math.max(
+          1,
+          row.firstSeenDaysAgo - randInt(`page2-first|${row.domain}`, 0, 120),
+        ),
+        provenance: "observed",
+      });
+    }
+  }
+
+  return out.sort((a, b) => b.liveAds - a.liveAds);
+}
+
+// ── 7.8c  Top industry / category with brand share ───────────────────────
+
+/**
+ * Plain-words basis line. It is the ADS RUNNING, not the money behind them —
+ * stated without jargon, because "share of voice" is exactly the invented
+ * vocabulary this pass removes.
+ */
+export const INDUSTRY_SHARE_BASIS =
+  "Share of the ads running in this industry right now. We can see ads, not spend.";
+
+/** How many brands are named before the rest roll into Others. */
+export const INDUSTRY_SHARE_NAMED_BRANDS = 4;
+
+/**
+ * Top industries, and inside each, which brands hold what share.
+ *
+ * Every number here is DIVIDED, never declared:
+ *  - the denominator is `FollowedIndustry.indexedAds`, the same figure the
+ *    coverage block prints;
+ *  - each brand's ad count comes from `liveAdsForDomain`, the same function the
+ *    domain table and the movers list print;
+ *  - the user's own count comes from `MY_BRAND_INDUSTRY_AD_COUNTS`, shared with
+ *    `buildShareOfVoice`.
+ *
+ * So no two blocks on the page can report a different number for one brand.
+ */
+function buildIndustryShare(
+  followed: readonly FollowedIndustry[],
+  myBrand: MyBrand | null,
+): IndustryShareRow[] {
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  const yourByIndustry = new Map(
+    MY_BRAND_INDUSTRY_AD_COUNTS.map((c) => [c.industry, c.adCount]),
+  );
+
+  return [...followed]
+    .filter((f) => f.indexedAds > 0)
+    .sort((a, b) => b.indexedAds - a.indexedAds)
+    .map<IndustryShareRow>((f) => {
+      const total = f.indexedAds;
+
+      const named = DOMAINS
+        .filter((d) => industryForDomain(d) === f.industry)
+        .map((domain) => ({ domain, liveAds: liveAdsForDomain(domain) }))
+        .sort((a, b) => b.liveAds - a.liveAds)
+        .slice(0, INDUSTRY_SHARE_NAMED_BRANDS);
+
+      const brands: IndustryShareBrand[] = named.map((n) => ({
+        key: n.domain,
+        name: brandForDomain(n.domain),
+        domain: n.domain,
+        liveAds: n.liveAds,
+        sharePct: round1((n.liveAds / total) * 100),
+        isYou: false,
+        isOthers: false,
+        discoverHref: `/insights/discover?domain=${encodeURIComponent(n.domain)}`,
+      }));
+
+      const yourAdCount = myBrand ? yourByIndustry.get(f.industry) ?? null : null;
+      const you: IndustryShareBrand | null =
+        yourAdCount === null || !myBrand
+          ? null
+          : {
+              key: "you",
+              name: myBrand.name,
+              domain: myBrand.domain,
+              liveAds: yourAdCount,
+              sharePct: round1((yourAdCount / total) * 100),
+              isYou: true,
+              isOthers: false,
+              discoverHref: null,
+            };
+
+      if (you) brands.push(you);
+      brands.sort((a, b) => b.liveAds - a.liveAds);
+
+      const namedAds = brands.reduce((s, b) => s + b.liveAds, 0);
+      const othersAds = Math.max(0, total - namedAds);
+      // Others absorbs the rounding drift, so the row's percentages add to
+      // EXACTLY 100 and a stacked bar can't overflow by a tenth.
+      const namedPct = brands.reduce((s, b) => s + b.sharePct, 0);
+      const othersRow: IndustryShareBrand = {
+        key: "others",
+        name: "Others",
+        domain: null,
+        liveAds: othersAds,
+        sharePct: Math.max(0, round1(100 - namedPct)),
+        isYou: false,
+        isOthers: true,
+        // There is no single `?domain=` value for "everyone else".
+        discoverHref: null,
+      };
+
+      return {
+        industry: f.industry,
+        liveAds: total,
+        advertisers: f.advertisers,
+        brands: [...brands, othersRow],
+        topBrand: brands.length ? brands[0] : null,
+        you,
+        basis: INDUSTRY_SHARE_BASIS,
+        provenance: "derived",
+      };
+    });
+}
+
+// ── 7.8d  Nav overview counts ────────────────────────────────────────────
+
+/** The six surfaces, in nav order, with FabAds' own names. */
+const NAV_SURFACE_META: readonly {
+  key: NavSurfaceKey;
+  label: string;
+  description: string;
+  href: string;
+  unitLabel: string;
+}[] = [
+  {
+    key: "my-feeds",
+    label: "My Feeds",
+    description: "your personalized stream of ads from industries and brands you follow",
+    href: "/insights-v2/feed",
+    unitLabel: "industries followed",
+  },
+  {
+    key: "discover",
+    label: "Discover",
+    description: "explore ads across every industry",
+    href: "/insights/discover",
+    unitLabel: "live ads",
+  },
+  {
+    key: "saved-ads",
+    label: "Saved Ads",
+    description: "come back to ads you wanted to keep",
+    href: "/insights/saved",
+    unitLabel: "saved ads",
+  },
+  {
+    key: "competitor",
+    // Counts the competitors YOU FOLLOW — the same set as the "Competitors
+    // followed" KPI. It used to count every advertiser in your industries
+    // (1,063) under the word "competitors", which directly contradicted that
+    // tile. The whole-market figure lives on the Domain surface below, where the
+    // word is "domains".
+    label: "Competitor",
+    description: "keep an eye on brands and domains you care about",
+    href: "/insights/competitors",
+    unitLabel: "competitors followed",
+  },
+  {
+    key: "domain",
+    label: "Domain",
+    description: "find advertisers and start tracking them",
+    href: "/insights/competitors?view=domains",
+    unitLabel: "domains",
+  },
+  {
+    key: "trends",
+    label: "Trends",
+    description: "what's rising in your industries right now",
+    href: "/insights/trends",
+    unitLabel: "changes this week",
+  },
+];
+
+/**
+ * Per-surface counts.
+ *
+ * `counts[key] === null` means we genuinely cannot say, and the matching
+ * `reasons[key]` is printed instead of a number. Nothing here is a guess: every
+ * figure is one another block on this page already shows.
+ */
+function buildNavSurfaces(
+  counts: Readonly<Partial<Record<NavSurfaceKey, number | null>>>,
+  reasons: Readonly<Partial<Record<NavSurfaceKey, string>>>,
+): NavSurfaceCount[] {
+  return NAV_SURFACE_META.map<NavSurfaceCount>((meta) => {
+    const raw = counts[meta.key];
+    const count = raw === undefined ? null : raw;
+    if (count === null) {
+      const naReason = reasons[meta.key] ?? "nothing indexed yet";
+      return { ...meta, count: null, naReason, countLabel: naReason };
+    }
+    return { ...meta, count, countLabel: formatInt(count) };
   });
 }
 
@@ -1826,15 +2259,25 @@ function buildChecklist(done: { industries: boolean; competitor: boolean; extens
       description: "Tells us which slice of the ad library to scan for you.",
       done: done.industries,
       ctaLabel: done.industries ? "Manage industries" : "Pick industries",
-      href: "/insights/competitors?tab=industries",
+      // `/insights/competitors?tab=industries` was a dead end: that page never
+      // reads a `tab` param and has no industry-follow surface at all, so the
+      // CTA landed on the competitor list with nothing to do. Industries are
+      // followed in the feed's preferences modal, which opens on
+      // `?modal=prefs` (InsightsV2Feed: `urlModal === "settings" || "prefs"`).
+      href: "/insights-v2/feed?modal=prefs",
     },
     {
       key: "track-competitor",
       label: "Track your first competitor",
       description: "Follow an advertiser and we'll flag their new creative.",
       done: done.competitor,
-      ctaLabel: done.competitor ? "Manage watchlist" : "Add a competitor",
-      href: "/insights/competitors",
+      // "Manage watchlist" said "watchlist" — vocabulary that exists nowhere
+      // else in FabAds. The surface is called Competitors, so this says that.
+      ctaLabel: done.competitor ? "Manage competitors" : "Add a competitor",
+      // `?modal=add` is the trigger InsightsCompetitors already implements for
+      // exactly this step (its own comment names it); the bare path left the
+      // CTA landing on the list without opening the add dialog it promises.
+      href: "/insights/competitors?modal=add",
     },
     {
       key: "install-extension",
@@ -1866,13 +2309,116 @@ function makeSeries(key: string, end: number, driftPct: number): number[] {
   });
 }
 
+/**
+ * ── THE HEADLINE FIVE, IN FABADS' OWN WORDS ───────────────────────────────
+ *
+ * The previous row said "Live ads observed", "Advertisers indexed", "Median
+ * creative lifespan", "Your share of live creative". Three of those were
+ * invented for this page: that vocabulary exists nowhere else in FabAds, so a
+ * user (and the product owner) cannot find the metric they asked for. These
+ * five reuse the words the FabAds Dashboard already uses.
+ *
+ * Every figure is one the rest of this page already shows, so no two blocks can
+ * disagree:
+ *
+ *   Total saved ads        Σ `boards[].itemCount` — the Saved-Ads block's own rows
+ *   Industries followed    `coverage.followedCount`
+ *   Brands followed        `watchlist.followCount` === `watchlist.items.length`
+ *   Competitors followed   `watchlist.trackedCompetitorCount` — the set every
+ *                          `tracked` / `followed` flag on the page comes from
+ *   Total competitor ads   `watchlist.trackedCompetitorLiveAds` — Σ `liveAds`
+ *                          of those competitors, each one the same `liveAds`
+ *                          the domain table and the pages list print
+ *
+ * TWO SEPARATE LISTS, because FabAds keeps two: brands you follow
+ * (`insight_follows`) and competitors you track (`insight_competitors`).
+ * "Competitors followed" is therefore a SMALL number and that is correct — and
+ * "Total competitor ads" counts only those competitors' ads, not the whole
+ * indexed market, so it cannot contradict the competitors block beneath it.
+ *
+ * The three follow counts carry NO delta: a follow list has no prior-scan
+ * history to compare against, and inventing one would be a lie.
+ */
+function buildHeadlineKpis(ctx: {
+  savedAdsTotal: number;
+  industriesFollowed: number;
+  brandsFollowed: number;
+  inactiveBrands: number;
+  inactiveThresholdDays: number;
+  boardCount: number;
+  competitorsFollowed: number;
+  totalCompetitorAds: number;
+}): KpiTile[] {
+  return [
+    {
+      key: "total-saved-ads",
+      label: "Total saved ads",
+      value: formatInt(ctx.savedAdsTotal),
+      caption: `Across your ${ctx.boardCount} ${plural(ctx.boardCount, "board", "boards")} · your own saves`,
+      provenance: "derived",
+    },
+    {
+      key: "industries-followed",
+      label: "Industries followed",
+      value: formatInt(ctx.industriesFollowed),
+      caption: `of ${formatInt(SEEDED_INDUSTRY_COUNT)} in the catalogue · your follow list`,
+      provenance: "derived",
+    },
+    {
+      key: "brands-followed",
+      label: "Brands followed",
+      value: formatInt(ctx.brandsFollowed),
+      caption: `Brands you follow · inactive means no new ads in ${ctx.inactiveThresholdDays}+ days`,
+      // The one signal the deleted "Watchlist health" block carried.
+      subNote: `${formatInt(ctx.brandsFollowed)} followed · ${formatInt(ctx.inactiveBrands)} inactive`,
+      provenance: "derived",
+    },
+    {
+      key: "competitors",
+      label: "Competitors followed",
+      value: formatInt(ctx.competitorsFollowed),
+      caption: "Followed brands you also track as competitors · your own list",
+      provenance: "derived",
+    },
+    {
+      key: "total-competitor-ads",
+      label: "Total competitor ads",
+      value: formatInt(ctx.totalCompetitorAds),
+      caption: `Ads running now from those ${formatInt(ctx.competitorsFollowed)} ${plural(ctx.competitorsFollowed, "competitor", "competitors")} · Meta Ad Library, last scan 6h ago`,
+      deltaPct: 8.4,
+      provenance: "observed",
+      series: makeSeries("kpi-total-competitor-ads", ctx.totalCompetitorAds, 8.4),
+    },
+  ];
+}
+
+/** `count === 1 ? one : many`. Local copy — this file has no other pluraliser. */
+function plural(count: number, one: string, many: string): string {
+  return count === 1 ? one : many;
+}
+
 function buildPopulatedKpis(ctx: {
   quietCount: number;
   followCount: number;
+  inactiveThresholdDays: number;
+  competitorsFollowed: number;
+  totalCompetitorAds: number;
   medianLifespanDays: number;
   yourSovPct: number;
+  savedAdsTotal: number;
+  boardCount: number;
 }): KpiTile[] {
   return [
+    ...buildHeadlineKpis({
+      savedAdsTotal: ctx.savedAdsTotal,
+      industriesFollowed: POPULATED_FOLLOWED.length,
+      brandsFollowed: ctx.followCount,
+      inactiveBrands: ctx.quietCount,
+      inactiveThresholdDays: ctx.inactiveThresholdDays,
+      boardCount: ctx.boardCount,
+      competitorsFollowed: ctx.competitorsFollowed,
+      totalCompetitorAds: ctx.totalCompetitorAds,
+    }),
     {
       key: "live-ads",
       label: "Live ads observed",
@@ -1929,7 +2475,9 @@ function buildPopulatedKpis(ctx: {
     },
     {
       key: "quiet-advertisers",
-      label: "Quiet advertisers",
+      // Same word the Brands-followed sub-note uses. Two labels for one signal
+      // is exactly the vocabulary drift this pass removes.
+      label: "Inactive brands",
       value: `${ctx.quietCount} of ${ctx.followCount}`,
       caption: `No new creative in ${QUIET_THRESHOLD_DAYS}+ days · derived from scan history`,
       provenance: "derived",
@@ -1944,6 +2492,48 @@ function buildPopulatedKpis(ctx: {
  */
 function buildThinKpis(): KpiTile[] {
   return [
+    // The two figures that come from the user's own account are REAL ZEROS —
+    // we looked, there is nothing saved and nothing followed. The two that need
+    // an index are null with a reason. Those are different facts.
+    {
+      key: "total-saved-ads",
+      label: "Total saved ads",
+      value: "0",
+      caption: "You haven't saved an ad to a board yet",
+      provenance: "derived",
+    },
+    {
+      key: "industries-followed",
+      label: "Industries followed",
+      value: "1",
+      caption: `of ${formatInt(SEEDED_INDUSTRY_COUNT)} in the catalogue · Credit Repair, added today`,
+      provenance: "derived",
+    },
+    {
+      key: "brands-followed",
+      label: "Brands followed",
+      value: "0",
+      caption: "Follow a brand and we'll track what it ships",
+      provenance: "derived",
+    },
+    // Both competitor tiles are REAL ZEROS here, not missing figures: they
+    // count YOUR OWN tracked list, and we can see that it is empty. The
+    // market-side tiles below stay null with a reason, because those do need
+    // an index we haven't built yet.
+    {
+      key: "competitors",
+      label: "Competitors followed",
+      value: "0",
+      caption: "Track a competitor and we'll watch what it ships",
+      provenance: "derived",
+    },
+    {
+      key: "total-competitor-ads",
+      label: "Total competitor ads",
+      value: "0",
+      caption: "You're not tracking any competitors yet",
+      provenance: "observed",
+    },
     {
       key: "live-ads",
       label: "Live ads observed",
@@ -1994,10 +2584,12 @@ function buildThinKpis(): KpiTile[] {
     },
     {
       key: "quiet-advertisers",
-      label: "Quiet advertisers",
+      // Same word the Brands-followed sub-note uses. Two labels for one signal
+      // is exactly the vocabulary drift this pass removes.
+      label: "Inactive brands",
       value: null,
       naReason: "nothing tracked yet",
-      caption: "Track an advertiser and we'll flag when they go quiet",
+      caption: "Follow a brand and we'll flag when it stops shipping",
       provenance: "derived",
     },
   ];
@@ -2006,6 +2598,43 @@ function buildThinKpis(): KpiTile[] {
 /** Zero-state KPIs. Real zeros where a zero is a fact; null plus a reason otherwise. */
 function buildZeroKpis(): KpiTile[] {
   return [
+    // Nothing followed, nothing saved, nothing scanned. Every one of these is a
+    // real zero — a fact about an empty workspace, not a missing figure.
+    {
+      key: "total-saved-ads",
+      label: "Total saved ads",
+      value: "0",
+      caption: "You haven't saved an ad to a board yet",
+      provenance: "derived",
+    },
+    {
+      key: "industries-followed",
+      label: "Industries followed",
+      value: "0",
+      caption: `of ${formatInt(SEEDED_INDUSTRY_COUNT)} in the catalogue · pick one to start`,
+      provenance: "derived",
+    },
+    {
+      key: "brands-followed",
+      label: "Brands followed",
+      value: "0",
+      caption: "Follow a brand and we'll track what it ships",
+      provenance: "derived",
+    },
+    {
+      key: "competitors",
+      label: "Competitors followed",
+      value: "0",
+      caption: "Track a competitor and we'll watch what it ships",
+      provenance: "derived",
+    },
+    {
+      key: "total-competitor-ads",
+      label: "Total competitor ads",
+      value: "0",
+      caption: "You're not tracking any competitors yet",
+      provenance: "observed",
+    },
     {
       key: "live-ads",
       label: "Live ads observed",
@@ -2054,10 +2683,12 @@ function buildZeroKpis(): KpiTile[] {
     },
     {
       key: "quiet-advertisers",
-      label: "Quiet advertisers",
+      // Same word the Brands-followed sub-note uses. Two labels for one signal
+      // is exactly the vocabulary drift this pass removes.
+      label: "Inactive brands",
       value: null,
       naReason: "nothing tracked yet",
-      caption: "Track an advertiser and we'll flag when they go quiet",
+      caption: "Follow a brand and we'll flag when it stops shipping",
       provenance: "derived",
     },
   ];
@@ -2084,7 +2715,7 @@ function buildPopulatedBrief(ctx: {
   ];
   if (topMover) {
     sentences.push(
-      `The sharpest move is ${topMover.domain} in ${topMover.industry} — ${topMover.adCount30d} live ads in the last 30 days against ${topMover.adCountPrev30d} the month before, up ${topMover.deltaPct}%.`,
+      `The sharpest move is ${topMover.domain} in ${topMover.industry} — ${topMover.adCount30d} new ads in the last 30 days against ${topMover.adCountPrev30d} the month before, up ${topMover.deltaPct}%.`,
     );
   }
   if (topAngle) {
@@ -2093,7 +2724,7 @@ function buildPopulatedBrief(ctx: {
     );
   }
   sentences.push(
-    `${quietCount} of the ${followCount} advertisers you follow haven't shipped anything new in ${QUIET_THRESHOLD_DAYS} days.`,
+    `${quietCount} of the ${followCount} brands you follow haven't shipped anything new in ${QUIET_THRESHOLD_DAYS} days.`,
   );
 
   const facts: DailyBriefFact[] = [
@@ -2105,7 +2736,7 @@ function buildPopulatedBrief(ctx: {
   if (topMover) {
     facts.push({
       label: "Fastest-growing domain",
-      value: `${topMover.domain} · ${topMover.adCountPrev30d} → ${topMover.adCount30d} live ads`,
+      value: `${topMover.domain} · ${topMover.adCountPrev30d} → ${topMover.adCount30d} new ads (30d)`,
       provenance: "derived",
     });
   }
@@ -2117,7 +2748,7 @@ function buildPopulatedBrief(ctx: {
     });
   }
   facts.push({
-    label: "Quiet advertisers",
+    label: "Inactive brands",
     value: `${quietCount} of ${followCount}`,
     provenance: "derived",
   });
@@ -2145,7 +2776,11 @@ function buildPopulated(): DashboardFixture {
   const pool = adsForIndustries(POPULATED_INDUSTRY_NAMES);
 
   const watchlist = buildWatchlist(POPULATED_INDUSTRY_NAMES);
-  const trackedDomains = new Set(watchlist.items.map((i) => i.domain));
+  // `tracked` on a domain / page / mover row means "a competitor you follow",
+  // NOT "a brand you follow" — so it comes off the competitor subset. That is
+  // what keeps the "Competitors followed" KPI equal to the number of follow
+  // pills already lit on the page.
+  const trackedDomains = new Set(watchlist.trackedCompetitors.map((i) => i.domain));
 
   const movers = buildMovers(POPULATED_INDUSTRY_NAMES, trackedDomains);
   const topMover = movers.length ? movers[0] : null;
@@ -2158,8 +2793,13 @@ function buildPopulated(): DashboardFixture {
   const signals = buildSignals(pool, POPULATED_INDUSTRY_NAMES);
   const longRunners = buildLongRunners(POPULATED_INDUSTRY_NAMES);
   const domains = buildDomainRows(trackedDomains, POPULATED_INDUSTRY_NAMES);
+  // Pages are a SPLIT of the domain rows above, so the two views of one
+  // advertiser always add up. See `buildPages`.
+  const pages = buildPages(domains, trackedDomains);
   const shareOfVoice = buildShareOfVoice(myBrand);
+  const industryShare = buildIndustryShare(POPULATED_FOLLOWED, myBrand);
   const boards = buildBoards();
+  const savedAdsTotal = boards.boards.reduce((s, b) => s + b.itemCount, 0);
 
   // Median lifespan across the pool, from the parsed (not invented) durations.
   const durations = pool.map((a) => parseDurationDays(a.activeDuration)).sort((a, b) => a - b);
@@ -2168,11 +2808,30 @@ function buildPopulated(): DashboardFixture {
     : 0;
 
   const kpis = buildPopulatedKpis({
-    quietCount: watchlist.quietCount,
+    quietCount: watchlist.inactiveCount,
     followCount: watchlist.followCount,
+    inactiveThresholdDays: watchlist.inactiveThresholdDays,
+    competitorsFollowed: watchlist.trackedCompetitorCount,
+    totalCompetitorAds: watchlist.trackedCompetitorLiveAds,
     medianLifespanDays,
     yourSovPct: shareOfVoice[0]?.you.pct ?? 0,
+    savedAdsTotal,
+    boardCount: boards.boards.length,
   });
+
+  const navSurfaces = buildNavSurfaces(
+    {
+      "my-feeds": POPULATED_FOLLOWED.length,
+      discover: POPULATED_LIVE_ADS,
+      "saved-ads": savedAdsTotal,
+      // Competitors you follow — the same number the KPI prints. The
+      // whole-market figure is the Domain surface below it.
+      competitor: watchlist.trackedCompetitorCount,
+      domain: POPULATED_DOMAIN_COUNTS.total,
+      trends: POPULATED_NEW_SIGNALS,
+    },
+    {},
+  );
 
   const coverage: CoverageInfo = {
     followed: [...POPULATED_FOLLOWED],
@@ -2204,7 +2863,7 @@ function buildPopulated(): DashboardFixture {
     domainCount: POPULATED_DOMAIN_COUNTS.total,
     domainTypeCounts: POPULATED_DOMAIN_COUNTS,
     newSignalsThisWeek: POPULATED_NEW_SIGNALS,
-    cadenceScopeNote: `New ads per week from the ${watchlist.followCount} advertisers you follow · 12 weeks to ${shortDateLabel(0)}`,
+    cadenceScopeNote: `New ads per week from the ${watchlist.followCount} brands you follow · 12 weeks to ${shortDateLabel(0)}`,
     stateNote: `${POPULATED_FOLLOWED.length} of ${SEEDED_INDUSTRY_COUNT} industries followed.`,
     isLoading: false,
     sources: sourcesHealthy(),
@@ -2227,6 +2886,9 @@ function buildPopulated(): DashboardFixture {
     angles,
     movers,
     domains,
+    pages,
+    industryShare,
+    navSurfaces,
     domainTypeCounts: POPULATED_DOMAIN_COUNTS,
     myBrand,
     shareOfVoice,
@@ -2328,11 +2990,31 @@ function buildThin(): DashboardFixture {
     angles: [],
     movers: [],
     domains: [],
+    pages: [],
+    // Credit Repair has nothing indexed, so there is no industry breakdown to
+    // show. `[]` — not a fabricated row with zeros in it.
+    industryShare: [],
+    navSurfaces: buildNavSurfaces(
+      {
+        "my-feeds": 1,
+        discover: null,
+        "saved-ads": 0,
+        // Your own follow list — we can see it is empty. A real zero.
+        competitor: 0,
+        domain: null,
+        trends: null,
+      },
+      {
+        discover: "first scan in progress",
+        domain: "first scan in progress",
+        trends: "needs two scans to compare",
+      },
+    ),
     domainTypeCounts: EMPTY_DOMAIN_COUNTS,
     // Your side is known; the market side isn't. That asymmetry is the story.
     myBrand,
     shareOfVoice: [],
-    watchlist: EMPTY_WATCHLIST(0),
+    watchlist: EMPTY_WATCHLIST(),
     boards: EMPTY_BOARDS,
     coverage,
     checklist: buildChecklist({ industries: true, competitor: false, extension: false }),
@@ -2420,10 +3102,24 @@ function buildZero(): DashboardFixture {
     angles: [],
     movers: [],
     domains: [],
+    pages: [],
+    industryShare: [],
+    // Nothing followed, so every market count is a REAL ZERO, not a gap.
+    navSurfaces: buildNavSurfaces(
+      {
+        "my-feeds": 0,
+        discover: 0,
+        "saved-ads": 0,
+        competitor: 0,
+        domain: 0,
+        trends: 0,
+      },
+      {},
+    ),
     domainTypeCounts: EMPTY_DOMAIN_COUNTS,
     myBrand: null,
     shareOfVoice: [],
-    watchlist: EMPTY_WATCHLIST(0),
+    watchlist: EMPTY_WATCHLIST(),
     boards: EMPTY_BOARDS,
     coverage,
     checklist: buildChecklist({ industries: false, competitor: false, extension: false }),
@@ -2442,6 +3138,14 @@ function buildZero(): DashboardFixture {
 
 /** Which source each KPI tile is waiting on. Drives the loading captions. */
 const KPI_SOURCE: Readonly<Record<string, DataSourceKey>> = {
+  // The headline five. The FOUR configuration counts (saved / followed /
+  // tracked) come from our own records, so they sit under the FabAds scan; only
+  // "Total competitor ads" counts something Meta has to answer for.
+  "total-saved-ads": "fabads-scan",
+  "industries-followed": "fabads-scan",
+  "brands-followed": "fabads-scan",
+  competitors: "fabads-scan",
+  "total-competitor-ads": "meta-ad-library",
   "live-ads": "meta-ad-library",
   advertisers: "meta-ad-library",
   "new-signals": "fabads-scan",
@@ -2555,10 +3259,32 @@ function buildLoading(): DashboardFixture {
     angles: [],
     movers: [],
     domains: [],
+    pages: [],
+    industryShare: [],
+    // Every count is null with "waiting" as the reason. NOT zero: zero would
+    // tell the user they have nothing when we simply haven't looked yet.
+    navSurfaces: buildNavSurfaces(
+      {
+        "my-feeds": null,
+        discover: null,
+        "saved-ads": null,
+        competitor: null,
+        domain: null,
+        trends: null,
+      },
+      {
+        "my-feeds": "loading",
+        discover: "loading",
+        "saved-ads": "loading",
+        competitor: "loading",
+        domain: "loading",
+        trends: "loading",
+      },
+    ),
     domainTypeCounts: EMPTY_DOMAIN_COUNTS,
     myBrand: null,
     shareOfVoice: [],
-    watchlist: EMPTY_WATCHLIST(0),
+    watchlist: EMPTY_WATCHLIST(),
     boards: EMPTY_BOARDS,
     coverage,
     checklist: buildChecklist({ industries: false, competitor: false, extension: false }),
@@ -2584,6 +3310,14 @@ function buildLoading(): DashboardFixture {
  * at all and is handled separately.
  */
 const ERROR_KPI_CAPTIONS: Readonly<Record<string, string>> = {
+  // The three configuration counts are OUR OWN records and are not affected by
+  // a failed upstream — but they still say when they were read, because the
+  // whole page is showing a three-day-old scan.
+  "total-saved-ads": `Across your boards · your own saves, as of ${shortDateLabel(ERROR_SCAN_AGE_DAYS)}`,
+  "industries-followed": `of ${formatInt(SEEDED_INDUSTRY_COUNT)} in the catalogue · your follow list`,
+  "brands-followed": "Brands you follow · your own list",
+  competitors: "Followed brands you also track as competitors · your own list",
+  "total-competitor-ads": `Ads running from those competitors · Meta Ad Library, last complete scan ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
   "live-ads": `Across ${POPULATED_FOLLOWED.length} followed industries · Meta Ad Library, last complete scan ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
   advertisers: `Distinct domains running live creative · last complete scan ${relativeDayLabel(ERROR_SCAN_AGE_DAYS)}`,
   "new-signals": `7-day window ending ${shortDateLabel(ERROR_SCAN_AGE_DAYS)} — the last two scans we could compare`,
@@ -2685,9 +3419,9 @@ function buildError(): DashboardFixture {
     state: "error",
     dataAsOfLabel: `Data as of ${asOf}`,
     lastScanLabel: `Last complete scan ${ago}`,
-    refreshNote: `StoreLeads hasn't answered since the run ${ago}, and a scan only completes when every source does — so nothing has committed since then. The Meta figures below are real and from that scan: ${ago}, not now. Every StoreLeads-modelled number is missing rather than guessed.`,
-    cadenceScopeNote: `New ads per week from the ${base.watchlist.followCount} advertisers you follow · 12 weeks to ${asOf}`,
-    stateNote: `${POPULATED_FOLLOWED.length} of ${SEEDED_INDUSTRY_COUNT} industries followed. StoreLeads is down, so every estimated figure is missing; everything else is from the last complete scan, ${ago}.`,
+    refreshNote: `StoreLeads hasn't answered since the run ${ago}, and a scan only completes when every source does — so nothing has committed since then. The Meta figures below are real and from that scan: ${ago}, not now. StoreLeads figures live in the full Competitors view, not on this page.`,
+    cadenceScopeNote: `New ads per week from the ${base.watchlist.followCount} brands you follow · 12 weeks to ${asOf}`,
+    stateNote: `${POPULATED_FOLLOWED.length} of ${SEEDED_INDUSTRY_COUNT} industries followed. StoreLeads is down, but nothing on this page depends on it — everything below is from the last complete scan, ${ago}.`,
     isLoading: false,
     sources,
     failedSources: sources.filter((s) => s.state === "failed"),

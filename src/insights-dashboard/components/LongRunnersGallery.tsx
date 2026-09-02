@@ -1,5 +1,6 @@
 /**
- * LongRunnersGallery — the page's hero: competitor ads that have run longest.
+ * LongRunnersGallery — "Top performing ads": competitor ads that have run
+ * longest, as one horizontal row of Discover-style cards.
  *
  * Days-running is the only proxy this whole category has for "this creative
  * is working" — practitioners read testing (<21d) / working (21–45d) /
@@ -7,43 +8,67 @@
  * longevity and quietly presents it as truth. Past `saturationThresholdDays`
  * (90d) the same signal can mean the opposite: an audience burnt out, not a
  * winner. `useLongRunners()` flags those ads with `saturationCaveat` and
- * hands us a ready `caveatNote` per ad plus a block-level rollup — both are
- * surfaced ON the card/header, never demoted to a tooltip or footnote. Rank
- * by longevity, say plainly what it can't tell you.
+ * hands us a ready `caveatNote` per ad plus a block-level rollup (`caveatCount`).
  *
- * SIZE CAP (design critique: this block rendered at 3,043px — 3.4 viewport
- * heights, 45% of the page — because it showed the full 12-card set on a
- * page whose job is orientation, not "Discover with a different header").
- * Each tier shows at most `CARDS_PER_TIER_CAP` (2) cards — the spectrum
- * across Proven/Working/Testing is the point, so the cap is spread evenly
- * rather than just keeping the longest overall runners. Tier headings still
- * show the tier's TRUE count (`group.count`, never sliced) so the cap never
- * misrepresents how much exists. A footer "See all N in Discover" link
- * (`DISCOVER_HREF`, unfiltered — the whole point is the cross-tier spectrum,
- * so a single-tier deep link would misrepresent what "all N" means) carries
- * the true `totalCount`, so the cap is an honest crop, not a hidden one.
- * Media is forced to a uniform `aspect-[1.91/1]` here too (see `AdCardMedia`)
- * — three tier rows need to read as one aligned grid, which ragged per-ad
- * ratios fight, and a plain 1:1 square still left the block over the
- * ~1,200px budget at 6 cards (portrait/square media alone was ~46% of the
- * block's height). 1.91:1 is Meta's own link-ad image ratio — a landscape
- * crop that reads as native to this surface, not an arbitrary number.
- * `mediaAspectRatio` itself is untouched and still governs Discover's feed,
- * where ragged ratios are the point, not a cost.
+ * MAALIK, 2026-08-31: "Top performing Ads — use same layout as discover."
+ * Confirmed meaning: the same ad-card anatomy Discover uses, as ONE
+ * horizontal row of 5–6 cards — not Discover's full paginated grid (2,000px+).
  *
- * TAB STOPS (same critique: ~6 focusable stops × 12 cards inside this block
- * alone). Each card is now ONE primary stop — a single stretched `<Link>`
- * (`adHref`) layered under the visible content, first in DOM order — instead
- * of three separate links (media, hook, brand) that mostly duplicated the
- * same destination anyway. Brand/domain is rendered as plain text now, not
- * its own link; browsing everything a domain runs is still reachable from
- * Discover generally, just no longer a per-card shortcut. The action row
- * (Brief it / Save / Variation) stays fully keyboard-reachable — it's the
- * next stop(s) after the card link in DOM/tab order — but is visually
- * recessed (`opacity-0`) until the card is hovered or contains focus
- * (`group-focus-within`), so it's out of the *resting* path without ever
- * leaving the *tab* path. Hiding actions from the tab order entirely would
- * have been the worse failure; this keeps them one Tab away, always.
+ * WHICH DISCOVER CARD: `/insights/discover` (the route this block links out
+ * to) renders `InsightsDiscover.tsx`, which renders `InsightAdCard`
+ * (`src/components/insights/InsightAdCard.tsx`) — NOT
+ * `IndustryInsightsAdsCard` (that one belongs to `/insights-v2/feed`, a
+ * different route). `InsightAdCard` is the card this block matches.
+ *
+ * REUSE VERDICT: `InsightAdCard` could NOT be reused as-is, for two hard
+ * reasons, not convenience:
+ *  1. It's typed on `InsightAd` from `@/lib/insights-dummy-data`. The
+ *     selector contract for this page bans importing that module (or its
+ *     types) from any dashboard component — `LongRunnerAd` (from
+ *     `@/insights-dashboard/lib/selectors`) is a distinct, smaller
+ *     view-model with no `impressions`, `spend`, `platforms`, `status`,
+ *     `pageAvatar`, `activeDuration`, `createdAt`, or `primaryText` fields
+ *     to adapt into its props — those facts don't exist on this shape.
+ *  2. Its action set (Save to Board / Add Domain to Competitors / Add Page
+ *     to Competitors / Follow Brand / Save Ad / kebab → Copy Link + Generate
+ *     Variations) is Discover's full feed toolkit. This block's actions are
+ *     deliberately a smaller, local-only set (Brief it / Save / disabled
+ *     Variation — see below); wiring the bigger set here would either be
+ *     dead UI or scope creep past what this block owns.
+ *  Given that, this rebuilds `InsightAdCard`'s ANATOMY faithfully — status
+ *  meta row, avatar + brand + type row, `aspect-video` media with play
+ *  affordance, headline + secondary copy, bottom action bar dimmed until
+ *  hover/focus — sized for a one-row dashboard summary instead of a grid
+ *  tile. Same grammar, this block's data and actions.
+ *
+ * SCANNABLE PASS (2026-08-31), superseded by the above: this block
+ * previously rendered as three tier rows with headings, a caveat banner, and
+ * a per-card caveat paragraph — ~1,191px. That was collapsed to one card
+ * grammar, matching the reference Insights page. This pass keeps that
+ * collapse (one row, `overflow-x-auto`, tier survives as a chip not a
+ * heading) and additionally reshapes the card itself to match
+ * `InsightAdCard`'s anatomy per Maalik's instruction above.
+ *  - The hook quote, format label, similar-count, and the per-card caveat
+ *    paragraph stay OFF the card as prose. The saturation caveat survives as
+ *    a small icon + tooltip per affected card, plus ONE rolled-up count in
+ *    the section header ("`caveatCount` of `totalCount` shown run 90+
+ *    days") — a banner and a repeated sentence would still be prose; a mark
+ *    is not.
+ *  - Cards still cap at `CARDS_SHOWN_CAP` (6), spread evenly across the
+ *    maturity spectrum (`CARDS_PER_TIER_CAP` per tier) rather than just the
+ *    single longest runners — the point of this block is the spectrum
+ *    (proven/working/testing), not a leaderboard of one tier. Header/footer
+ *    counts stay true totals; only the rendered set is capped.
+ *
+ * TAB STOPS: each card is still ONE primary stop — a single stretched
+ * `<Link>` (`adHref`) layered under the visible content, first in DOM order.
+ * The tier chip, brand link, and the action row sit above that overlay
+ * (`relative`, later in DOM = higher in the paint/stacking order) so they
+ * stay independently reachable/clickable without adding a second card-wide
+ * link. The action row is dimmed (`opacity-60`) rather than hidden at rest —
+ * matching `InsightAdCard`'s footer, not a hover-reveal overlay — and goes
+ * fully opaque on hover or `focus-within`, so it never depends on hover to
+ * be *discoverable*, only to be *emphasised*.
  *
  * Card actions are intentionally uneven:
  *  - Brief it / Save — local optimistic only (`useState` + `toast`). No
@@ -54,19 +79,19 @@
  *    quietly loses your work is worse than one that admits it can't help.
  *
  * DOORWAYS — every card is still a route into Discover, not a dead end:
- *  - The whole card (media + brand + hook, one stretched link) → `?ad=<adId>`
- *    (the ad detail drawer) — the single destination that mattered most of
- *    the three the card used to expose separately.
- *  - Tier heading (Proven/Working/Testing) → `?longevity=<tier>`.
+ *  - The whole card (media + copy, one stretched link) → `?ad=<adId>` (the
+ *    ad detail drawer).
+ *  - Tier chip (Proven/Working/Testing) → `?longevity=<tier>`.
+ *  - Avatar + brand name → `?domain=<domain>` — every ad indexed for that
+ *    advertiser.
  *  - Footer "See all N in Discover" → the unfiltered Discover surface.
  *
  * CHIP CONSOLIDATION — every ad in this fixture is `provenance: "observed"`
- * (see `toLongRunner` in fixtures.ts), so a chip on every one of up to 12
- * cards said the identical thing 12 times — the exact "~40 chips, ~50 tab
- * stops" problem this page was critiqued for. One block-level chip in the
- * header now carries the claim; a per-card chip only reappears if that card's
+ * (see `toLongRunner` in fixtures.ts), so a chip on every one of up to 6
+ * cards would say the identical thing 6 times. One block-level chip in the
+ * header carries the claim; a per-card chip only reappears if that card's
  * tier genuinely diverges from the header's (computed, not assumed, so this
- * stays correct if the fixture ever mixes tiers).
+ * stays correct if the fixture ever mixes provenance tiers).
  */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -75,7 +100,6 @@ import {
   ArrowRight,
   Bookmark,
   ImageOff,
-  Layers,
   NotebookPen,
   PlayCircle,
   ShieldAlert,
@@ -84,8 +108,9 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -93,13 +118,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
-import { IndustryInsightsAdsCardGridSkeleton } from "@/components/insights-v2/IndustryInsightsAdsCardSkeleton";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
 import {
   useLongRunners,
   type LongRunnerAd,
   type LongRunnerTier,
-  type LongRunnerTierGroup,
   type ProvenanceTier,
 } from "@/insights-dashboard/lib/selectors";
 
@@ -109,8 +132,24 @@ interface CardActionState {
   saved: boolean;
 }
 
-/** At most this many cards per tier — see SIZE CAP in the file header. */
+/** At most this many cards per tier, spread across the maturity spectrum —
+ * see the file header. */
 const CARDS_PER_TIER_CAP = 2;
+/** Hard cap on the single row — 3 tiers × `CARDS_PER_TIER_CAP`. */
+const CARDS_SHOWN_CAP = 6;
+
+/** Card width in the row — sized to fit `InsightAdCard`'s anatomy at
+ * dashboard scale rather than grid-tile scale.
+ *
+ * AUDIT FIX (2026-09-02): at 216px, 6 cards + 5 `gap-3` (12px) + the row's
+ * `px-1` padding measured `scrollWidth 1364` against `clientWidth 1264` at
+ * 1440×900 — the 6th card was clipped with no scroll affordance. Narrowed to
+ * `w-48` (192px): 6×192 + 5×12 + 8 = 1280... still tight against 1256px of
+ * Narrowed to `w-48` (192px): 6×192 + 5×12(gap) + 8(px-1) = 1220px against
+ * the ~1256px of content width available inside `clientWidth 1264` — all 6
+ * cards now fit with room to spare. `overflow-x-auto` stays as a safety net
+ * for narrower viewports; it's just no longer load-bearing at 1440×900. */
+const CARD_WIDTH = "w-48";
 
 /** Unfiltered — "See all N" spans every tier, so the link must too. */
 const DISCOVER_HREF = "/insights/discover";
@@ -123,37 +162,30 @@ function adHref(adId: string): string {
 function longevityHref(tier: LongRunnerTier): string {
   return `/insights/discover?longevity=${tier}`;
 }
+/** `/insights/discover?domain=<domain>` — everything that advertiser runs. */
+function domainHref(domain: string): string {
+  return `/insights/discover?domain=${encodeURIComponent(domain)}`;
+}
 
 function AdCardMedia({ ad }: { ad: LongRunnerAd }) {
   // Thumbnails are remote (picsum). If one fails — offline demo, blocked
-  // host, dead seed — the card otherwise renders a tall empty box that reads
-  // as a broken layout in dark mode. Fall back to a labelled placeholder so
-  // the tile still says what it is.
+  // host, dead seed — the card otherwise renders an empty box that reads as
+  // a broken layout in dark mode. Fall back to a labelled placeholder.
   const [imageFailed, setImageFailed] = useState(false);
 
-  // Not a link — the whole card is now the one stretched link (see
-  // LongRunnerCard). This is purely visual content sitting above it.
-  //
-  // OVERVIEW AR OVERRIDE: `ad.mediaAspectRatio` (the ad's true ratio — 4:5,
-  // 9:16, 1:1, whatever it actually ran as) is intentionally ignored here.
-  // Ragged per-card aspect ratios are a Pinterest-masonry move that earns
-  // its keep in a browsing feed (Discover honours `mediaAspectRatio` there);
-  // on a summary block it just costs height and keeps three tier rows from
-  // reading as one aligned grid. A plain square (1:1) is the "safe" middle
-  // choice but still left this block over its ~1,200px height budget at 6
-  // cards, so this goes flatter: 1.91:1, Meta's own link-ad image ratio —
-  // landscape, uniform across every card, and still a native-looking crop
-  // rather than an arbitrary number picked to hit a target. This is a
-  // presentation choice local to this gallery only — the data itself is
-  // untouched, so Discover/the drawer still show the real ratio.
-  // `object-cover` on the <img> below crops to it rather than distorting.
+  // `aspect-video` matches `InsightAdCard`'s own media ratio (Row 6 there) —
+  // part of matching Discover's card grammar per Maalik's instruction. This
+  // intentionally ignores `ad.mediaAspectRatio` (the ad's true ratio) for
+  // the same reason Discover's own card does: a uniform ratio reads as one
+  // grammar, ragged per-card ratios read as a browsing feed. Local to this
+  // gallery only.
   return (
-    <div className="relative w-full overflow-hidden rounded-md bg-muted aspect-[1.91/1]">
+    <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-md bg-muted">
       {imageFailed ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center">
-          <ImageOff className="h-5 w-5 text-muted-foreground/60" aria-hidden="true" />
-          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {ad.format} · preview unavailable
+          <ImageOff className="h-4 w-4 text-muted-foreground/60" aria-hidden="true" />
+          <span className="font-mono text-[8px] font-medium uppercase tracking-[0.12em] text-foreground/70">
+            no preview
           </span>
         </div>
       ) : (
@@ -170,16 +202,16 @@ function AdCardMedia({ ad }: { ad: LongRunnerAd }) {
           className="absolute inset-0 flex items-center justify-center bg-black/10"
           aria-hidden="true"
         >
-          <PlayCircle className="h-9 w-9 text-white drop-shadow" strokeWidth={1.5} />
+          <PlayCircle className="h-6 w-6 text-white drop-shadow" strokeWidth={1.5} />
         </div>
       )}
       <span
         className={cn(
-          "absolute left-1.5 top-1.5 inline-flex items-center rounded-full bg-black/70 px-1.5 py-0.5",
-          "font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-white",
+          "absolute left-1 top-1 inline-flex items-center rounded-full bg-black/70 px-1.5 py-0.5",
+          "font-mono text-[8px] font-medium uppercase tracking-[0.1em] text-white",
         )}
       >
-        {ad.daysRunning}d running
+        {ad.daysRunning}d
       </span>
     </div>
   );
@@ -213,99 +245,133 @@ function LongRunnerCard({
     });
   };
 
+  const brandInitial = ad.brand[0]?.toUpperCase() ?? "?";
+
   return (
-    <div className="group relative flex flex-col gap-2 rounded-md border border-border/70 bg-background p-2 transition-shadow hover:shadow-sm">
+    <div
+      className={cn(
+        "group relative flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-background p-2.5",
+        "shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md",
+        CARD_WIDTH,
+      )}
+    >
       {/* The card's one primary tab stop — a stretched link laid under the
-          visible content, first in DOM order. Everything below (media,
-          brand, hook) is now plain, non-interactive content; this is the
-          single doorway into the ad detail drawer. See TAB STOPS in the
-          file header. */}
+          visible content, first in DOM order. Everything else that needs to
+          be independently reachable (tier chip, brand, actions) sits above
+          it via `relative` — see TAB STOPS in the file header. */}
       <Link
         to={adHref(ad.adId)}
-        aria-label={`${ad.brand} — "${ad.hook}" — ${ad.daysRunning} days running. Open in Discover.`}
-        className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+        aria-label={`${ad.brand} — ${ad.daysRunning} days running. Open in Discover.`}
+        className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       />
 
-      <AdCardMedia ad={ad} />
-
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p title={ad.brand} className="truncate text-sm font-semibold text-foreground">
-            {ad.brand}
-          </p>
-          <p title={ad.domain} className="truncate text-xs text-muted-foreground">
-            {ad.domain}
-          </p>
-        </div>
-        <Badge variant="outline" className="shrink-0 text-[10px] font-medium capitalize">
+      {/* Row 1 (matches InsightAdCard's status/duration row): tier + caveat +
+          divergent provenance. */}
+      <div className="relative flex items-center justify-between gap-1">
+        <Link
+          to={longevityHref(ad.tier)}
+          title={`View ${ad.tier} creative in Discover`}
+          className="inline-flex items-center rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
           {ad.tier}
-        </Badge>
-      </div>
-
-      <p className="line-clamp-2 text-xs leading-snug text-foreground/90">&ldquo;{ad.hook}&rdquo;</p>
-
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-        <span>{ad.format}</span>
-        <span aria-hidden="true">·</span>
-        <span>{ad.similarCount.toLocaleString()} similar</span>
-        {/* Only shown when this card's tier genuinely diverges from the
-            gallery's block-level chip in the header — see file header. */}
-        {ad.provenance !== dominantTier && <Provenance tier={ad.provenance} compact />}
-      </div>
-
-      {ad.saturationCaveat && ad.caveatNote && (
-        <div className="flex items-start gap-1.5 rounded-md bg-muted/60 px-2 py-1.5">
-          <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <p className="text-[11px] leading-snug text-muted-foreground">{ad.caveatNote}</p>
+        </Link>
+        <div className="flex shrink-0 items-center gap-1">
+          {ad.saturationCaveat && ad.caveatNote && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* span wrapper, not the bare svg: a raw `<svg>` has no
+                      tabIndex, so Radix's tooltip never opens for keyboard
+                      users — see `Provenance.tsx` for the same pattern. */}
+                  <span
+                    tabIndex={0}
+                    aria-label="Possibly saturated"
+                    className="inline-flex cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <ShieldAlert className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px]">
+                  <p className="text-xs leading-snug">{ad.caveatNote}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {ad.provenance !== dominantTier && <Provenance tier={ad.provenance} compact />}
         </div>
-      )}
+      </div>
 
-      {/* Action row: still fully keyboard-reachable (next Tab stops after the
-          card link above), just visually recessed until hovered or until it
-          contains focus — out of the resting path, never out of the tab
-          path. `relative` gives it a higher default stacking order than the
-          absolutely-positioned overlay link above (later DOM + positioned
-          beats positioned-with-no-z-index), so its buttons stay clickable. */}
-      <div className="relative mt-auto flex items-center gap-1.5 pt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100">
+      {/* Row 2 (matches InsightAdCard's avatar + brand + type row). */}
+      <div className="relative flex items-center gap-1.5">
+        <Link
+          to={domainHref(ad.domain)}
+          title={`View ${ad.brand} in Discover`}
+          className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-[10px] font-semibold">{brandInitial}</AvatarFallback>
+          </Avatar>
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link
+            to={domainHref(ad.domain)}
+            title={ad.brand}
+            className="block truncate text-xs font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {ad.brand}
+          </Link>
+          <p className="truncate text-[10px] text-foreground/70">
+            {ad.format} · Similar {ad.similarCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Row 3 (matches InsightAdCard's media row). */}
+      <div className="relative">
+        <AdCardMedia ad={ad} />
+      </div>
+
+      {/* Row 4 (matches InsightAdCard's headline + description row). */}
+      <div className="relative space-y-0.5">
+        <p className="line-clamp-1 text-xs font-medium leading-snug text-foreground">{ad.headline}</p>
+        <p className="line-clamp-1 text-[10px] text-foreground/70">{ad.hook}</p>
+      </div>
+
+      {/* Row 5 (matches InsightAdCard's footer action bar): dimmed at rest,
+          full opacity on hover/focus — discoverable without hover, not
+          hidden by it. */}
+      <div className="relative flex items-center gap-1 border-t border-border/60 pt-1.5 opacity-60 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
         <Button
-          size="sm"
+          size="icon"
           variant={state.briefed ? "secondary" : "outline"}
-          className="h-7 flex-1 gap-1 px-2 text-xs"
+          className="h-6 w-6"
           onClick={handleBrief}
+          aria-label={state.briefed ? "Briefed" : "Brief it"}
+          title={state.briefed ? "Briefed" : "Brief it"}
         >
           <NotebookPen className="h-3 w-3" aria-hidden="true" />
-          {state.briefed ? "Briefed" : "Brief it"}
         </Button>
         <Button
-          size="sm"
+          size="icon"
           variant={state.saved ? "secondary" : "outline"}
-          className="h-7 flex-1 gap-1 px-2 text-xs"
+          className="h-6 w-6"
           onClick={handleSave}
+          aria-label={state.saved ? "Saved" : "Save"}
+          title={state.saved ? "Saved" : "Save"}
         >
-          <Bookmark
-            className="h-3 w-3"
-            aria-hidden="true"
-            fill={state.saved ? "currentColor" : "none"}
-          />
-          {state.saved ? "Saved" : "Save"}
+          <Bookmark className="h-3 w-3" aria-hidden="true" fill={state.saved ? "currentColor" : "none"} />
         </Button>
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
               {/* span wrapper: disabled buttons don't fire hover/focus for Radix triggers */}
-              <span className="flex-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled
-                  className="h-7 w-full gap-1 px-2 text-xs"
-                >
+              <span>
+                <Button size="icon" variant="outline" disabled className="h-6 w-6" aria-label="Variation">
                   <Wand2 className="h-3 w-3" aria-hidden="true" />
-                  Variation
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[220px]">
+            <TooltipContent side="top" className="max-w-[200px]">
               <p className="text-xs leading-snug">
                 Genie doesn&apos;t read link context yet — this would drop the ad&apos;s hook and
                 thumbnail on the way in, so it&apos;s off until that&apos;s wired up.
@@ -318,44 +384,46 @@ function LongRunnerCard({
   );
 }
 
-function TierSection({
-  group,
-  dominantTier,
-}: {
-  /** `group.ads` here may already be capped for display — `group.count`
-   * always stays the tier's true total (see SIZE CAP in the file header). */
-  group: LongRunnerTierGroup;
-  dominantTier: ProvenanceTier | null;
-}) {
+function GallerySkeleton(): JSX.Element {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <Link
-          to={longevityHref(group.tier)}
-          title={`View ${group.label.toLowerCase()} creative (${group.rangeLabel.toLowerCase()}) in Discover`}
-          className="group flex items-baseline gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    <div className="flex gap-3 overflow-x-auto pb-1">
+      {Array.from({ length: CARDS_SHOWN_CAP }).map((_, i) => (
+        <div
+          key={i}
+          className={cn(
+            "flex shrink-0 flex-col gap-2 rounded-xl border border-border p-2.5",
+            CARD_WIDTH,
+          )}
         >
-          <h3 className="text-xs font-semibold text-foreground group-hover:underline">
-            {group.label}
-          </h3>
-          <span className="text-[11px] text-muted-foreground">{group.rangeLabel}</span>
-        </Link>
-        <span className="font-mono text-[10px] font-medium tabular-nums text-muted-foreground">
-          {group.count}
-        </span>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {group.ads.map((ad) => (
-          <LongRunnerCard key={ad.adId} ad={ad} dominantTier={dominantTier} />
-        ))}
-      </div>
+          <div className="flex items-center justify-between gap-1">
+            <Skeleton className="h-3 w-10 rounded-full" />
+            <Skeleton className="h-3 w-3 rounded-full" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="h-6 w-6 shrink-0 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-2.5 w-20" />
+            </div>
+          </div>
+          <Skeleton className="aspect-video w-full rounded-md" />
+          <div className="space-y-1">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-2.5 w-3/4" />
+          </div>
+          <div className="flex items-center gap-1 border-t border-border/60 pt-1.5">
+            <Skeleton className="h-6 w-6 rounded-md" />
+            <Skeleton className="h-6 w-6 rounded-md" />
+            <Skeleton className="h-6 w-6 rounded-md" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 export function LongRunnersGallery({ className }: { className?: string }): JSX.Element {
-  const { all, nonEmptyGroups, caveatNote, caveatCount, totalCount, isEmpty, isLoading } =
-    useLongRunners();
+  const { nonEmptyGroups, all, totalCount, isEmpty, isLoading } = useLongRunners();
 
   // See file header: every ad here is currently `observed`, so one
   // block-level chip replaces what would otherwise be a chip on every card.
@@ -377,57 +445,76 @@ export function LongRunnersGallery({ className }: { className?: string }): JSX.E
   }, [all]);
 
   // SIZE CAP (see file header): at most CARDS_PER_TIER_CAP per tier, spread
-  // across the maturity spectrum rather than just the longest runners
-  // overall. `count` is left untouched — only the rendered `ads` are sliced —
-  // so tier headings and the footer link both keep reporting true totals.
-  const displayGroups = useMemo<LongRunnerTierGroup[]>(
-    () => nonEmptyGroups.map((group) => ({ ...group, ads: group.ads.slice(0, CARDS_PER_TIER_CAP) })),
-    [nonEmptyGroups],
-  );
-  const shownCount = useMemo(
-    () => displayGroups.reduce((sum, group) => sum + group.ads.length, 0),
-    [displayGroups],
+  // across the maturity spectrum, then re-sorted longest-first for the one
+  // row. `nonEmptyGroups`' own `count`/`totalCount` stay untouched — only
+  // this locally-rendered set is capped.
+  const shownAds = useMemo<LongRunnerAd[]>(() => {
+    const picked = nonEmptyGroups.flatMap((group) => group.ads.slice(0, CARDS_PER_TIER_CAP));
+    return picked.sort((a, b) => b.daysRunning - a.daysRunning).slice(0, CARDS_SHOWN_CAP);
+  }, [nonEmptyGroups]);
+
+  // Rolled up to what's actually on screen — see CHIP CONSOLIDATION / caveat
+  // note in the file header. Not the block-wide `caveatCount`, which would
+  // overcount past the crop.
+  const shownCaveatCount = useMemo(
+    () => shownAds.filter((ad) => ad.saturationCaveat).length,
+    [shownAds],
   );
 
   // CHECK isLoading BEFORE `isEmpty`. `all` is `[]` in both `loading` and a
-  // genuinely empty gallery — a card-grid skeleton is the only render that
-  // doesn't tell a first-time visitor "nothing is running" while we simply
-  // haven't finished the first scan.
+  // genuinely empty gallery — a skeleton is the only render that doesn't
+  // tell a first-time visitor "nothing is running" while we simply haven't
+  // finished the first scan.
   if (isLoading) {
     return (
       <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
-        <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <header className="mb-3 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Longest-running creative</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              The strongest proxy this category has for “this is working.”
+            <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+              Top performing ads
+            </h2>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Ranked by days running — the longest-lived ads, not measured performance.
             </p>
           </div>
         </header>
-        <IndustryInsightsAdsCardGridSkeleton count={6} />
+        <GallerySkeleton />
       </section>
     );
   }
 
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
-      <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Longest-running creative</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {isEmpty
-              ? "The strongest proxy this category has for “this is working.”"
-              : `${totalCount} ads still live, longest first — the strongest proxy this category has for “this is working.”`}
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+              Top performing ads
+            </h2>
+            {!isEmpty && dominantTier && <Provenance tier={dominantTier} compact />}
+            {!isEmpty && shownCaveatCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground/70">
+                <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                {shownCaveatCount} of {shownAds.length} shown run 90+ days
+              </span>
+            )}
+          </div>
+          {/* AUDIT FIX (2026-09-02): the old three-tier layout said this
+              three times over in prose; the redesign collapsed all three
+              away. This restores the honesty hedge once, cheaply — the
+              per-card 90+ tooltip and the header count above stay as-is. */}
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            Ranked by days running — the longest-lived ads, not measured performance.
           </p>
         </div>
         {!isEmpty && (
-          <div className="flex shrink-0 items-center gap-2">
-            {dominantTier && <Provenance tier={dominantTier} compact />}
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              <Layers className="h-3 w-3" aria-hidden="true" />
-              {caveatCount} flagged as possibly saturated
-            </span>
-          </div>
+          <Link
+            to={DISCOVER_HREF}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary-text hover:underline"
+          >
+            See all {totalCount} in Discover
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
+          </Link>
         )}
       </header>
 
@@ -438,28 +525,10 @@ export function LongRunnersGallery({ className }: { className?: string }): JSX.E
           description="Once your followed competitors' ads have a few scans behind them, the ones still running longest will show up here, ranked and flagged for saturation risk."
         />
       ) : (
-        <div className="flex flex-col gap-3">
-          {caveatNote && (
-            <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/40 px-3 py-2">
-              <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <p className="text-xs leading-snug text-muted-foreground">{caveatNote}</p>
-            </div>
-          )}
-          {displayGroups.map((group) => (
-            <TierSection key={group.tier} group={group} dominantTier={dominantTier} />
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+          {shownAds.map((ad) => (
+            <LongRunnerCard key={ad.adId} ad={ad} dominantTier={dominantTier} />
           ))}
-          {/* Honest crop, not a hidden one — see SIZE CAP in the file header. */}
-          {shownCount < totalCount && (
-            <div className="flex justify-end border-t border-border/60 pt-3">
-              <Link
-                to={DISCOVER_HREF}
-                className="inline-flex items-center gap-1 rounded-sm text-xs font-medium text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                See all {totalCount} in Discover
-                <ArrowRight className="h-3 w-3" aria-hidden="true" />
-              </Link>
-            </div>
-          )}
         </div>
       )}
     </section>
