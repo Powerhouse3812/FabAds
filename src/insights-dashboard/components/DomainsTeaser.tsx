@@ -22,8 +22,8 @@
  * The two actions, exactly as specified:
  *  1. **View ads** — a real `<Link>` to `/insights/discover?domain=<domain>`.
  *     Discover has no page-level filter, so a PAGE row's link is still
- *     domain-scoped — the `title` on that link says so rather than pretending
- *     otherwise.
+ *     domain-scoped — its `InfoTip` (`action.view-ads`) says so rather than
+ *     pretending otherwise.
  *  2. **Clicking the name** — opens a `Sheet` that honestly says "Coming
  *     soon" and names what the real detail page will hold (ad history,
  *     tracker, landing pages). It does not pretend to be that page, and it is
@@ -56,13 +56,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -79,6 +72,7 @@ import {
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
 import {
   ADVERTISER_ENTITY_ORDER,
@@ -87,9 +81,6 @@ import {
   type AdvertiserEntity,
   type TopAdvertiserRow,
 } from "@/insights-dashboard/lib/selectors";
-
-/** Sentinel for the "All industries" option in the `<Select>` — its real value is `null`. */
-const ALL_INDUSTRIES_VALUE = "__all__";
 
 function formatInt(n: number): string {
   return Math.round(n).toLocaleString("en-US");
@@ -127,14 +118,12 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
     industryFilters,
     entityLabels,
     basisNote,
-    newAdsNote,
     isEmpty,
     isLoading,
   } = usePagesAndDomains();
-  const { isThin } = useDashboardMeta();
+  const { isFirstTime } = useDashboardMeta();
 
   const [activeEntity, setActiveEntity] = useState<AdvertiserEntity>("domain");
-  const [activeIndustry, setActiveIndustry] = useState<string | null>(null);
   const [followOverrides, setFollowOverrides] = useState<Record<string, boolean>>({});
   const [drawerRow, setDrawerRow] = useState<TopAdvertiserRow | null>(null);
 
@@ -166,8 +155,9 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
     return (
       <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
         <header className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+          <h2 className="flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
             Top domains &amp; pages
+            <InfoTip tip="block.domains-teaser" />
           </h2>
         </header>
         {/* The `thin` title used to read "No advertisers indexed yet" — the
@@ -178,9 +168,9 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
             ships with the component. */}
         <InsightsV2EmptyState
           icon={Globe}
-          title={isThin ? "No domains yet" : "Nothing to show yet"}
+          title={isFirstTime ? "No domains yet" : "Nothing to show yet"}
           description={
-            isThin
+            isFirstTime
               ? "Your followed industry hasn't been scanned yet — domains and pages land here once indexing completes."
               : "Follow an industry first to see who's running ads in it."
           }
@@ -189,9 +179,13 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
     );
   }
 
-  const currentFilter =
-    industryFilters.find((f) => f.industry === activeIndustry) ?? industryFilters[0];
-  const rows = topFor(activeEntity, activeIndustry);
+  // Industry filtering was removed from this block: it is a 5-row teaser, and
+  // a filter that can only ever narrow 5 rows costs a control and a decision
+  // for no reach. Filtering by industry lives on the full Competitors view,
+  // which the header links to. `industryFilters[0]` is the unscoped "all"
+  // entry, kept only for its domain/page counts on the entity toggle.
+  const currentFilter = industryFilters[0];
+  const rows = topFor(activeEntity, null);
 
   const isFollowed = (row: TopAdvertiserRow) => followOverrides[row.key] ?? row.followed;
 
@@ -204,8 +198,9 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
       <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+          <h2 className="flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
             Top domains &amp; pages
+            <InfoTip tip="block.domains-teaser" />
           </h2>
           {/* Block-level provenance, not per-row: every row shows Live ads
               (observed, Meta Ad Library) and New ads 30d (derived from
@@ -240,31 +235,12 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-
-        <Select
-          value={activeIndustry ?? ALL_INDUSTRIES_VALUE}
-          onValueChange={(next) => setActiveIndustry(next === ALL_INDUSTRIES_VALUE ? null : next)}
-        >
-          <SelectTrigger className="h-7 w-auto min-w-[140px] gap-1 text-[11px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {industryFilters.map((f) => (
-              <SelectItem
-                key={f.industry ?? ALL_INDUSTRIES_VALUE}
-                value={f.industry ?? ALL_INDUSTRIES_VALUE}
-                className="text-xs"
-              >
-                {f.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <InfoTip tip="metric.domain-vs-page-toggle" />
       </div>
 
       {rows.length === 0 ? (
         <p className="py-4 text-center text-xs text-foreground/70">
-          No {entityLabels[activeEntity].toLowerCase()} in {currentFilter.label.toLowerCase()}.
+          No {entityLabels[activeEntity].toLowerCase()} indexed yet.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -275,12 +251,17 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
                   {activeEntity === "page" ? "Page" : "Domain"}
                 </TableHead>
                 <TableHead className="h-7 whitespace-nowrap py-1 text-[11px] text-foreground/70">Industry</TableHead>
-                <TableHead className="h-7 whitespace-nowrap py-1 text-right text-[11px] text-foreground/70">Live ads</TableHead>
-                <TableHead
-                  className="h-7 whitespace-nowrap py-1 text-right text-[11px] text-foreground/70"
-                  title={newAdsNote}
-                >
-                  New ads (30d)
+                <TableHead className="h-7 whitespace-nowrap py-1 text-right text-[11px] text-foreground/70">
+                  <span className="inline-flex items-center justify-end gap-1">
+                    Live ads
+                    <InfoTip tip="column.live-ads" />
+                  </span>
+                </TableHead>
+                <TableHead className="h-7 whitespace-nowrap py-1 text-right text-[11px] text-foreground/70">
+                  <span className="inline-flex items-center justify-end gap-1">
+                    New ads (30d)
+                    <InfoTip tip="column.new-ads-30d" />
+                  </span>
                 </TableHead>
                 <TableHead className="h-7 whitespace-nowrap py-1 text-right text-[11px] text-foreground/70">Follow</TableHead>
                 <TableHead className="h-7 whitespace-nowrap py-1 text-right text-[11px] text-foreground/70">View ads</TableHead>
@@ -303,14 +284,15 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
                         ) : (
                           <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setDrawerRow(row)}
-                          title={`${row.label} — detail page coming soon`}
-                          className="max-w-[130px] truncate text-left font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
-                        >
-                          {row.label}
-                        </button>
+                        <InfoTip tip="action.domain-detail" asChild>
+                          <button
+                            type="button"
+                            onClick={() => setDrawerRow(row)}
+                            className="max-w-[130px] truncate text-left font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+                          >
+                            {row.label}
+                          </button>
+                        </InfoTip>
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[110px] truncate whitespace-nowrap py-1 text-xs text-foreground/70">
@@ -332,29 +314,28 @@ export function DomainsTeaser({ className }: { className?: string }): JSX.Elemen
                           Following
                         </span>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-[11px]"
-                          onClick={() => handleFollow(row)}
-                        >
-                          Follow
-                        </Button>
+                        <InfoTip tip="action.follow-domain" asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[11px]"
+                            onClick={() => handleFollow(row)}
+                          >
+                            Follow
+                          </Button>
+                        </InfoTip>
                       )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap py-1 text-right">
-                      <Link
-                        to={row.discoverHref}
-                        title={
-                          row.entity === "page"
-                            ? `All ads for ${row.domain} — Discover has no page-level filter`
-                            : `${row.domain} — every ad indexed`
-                        }
-                        className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
-                      >
-                        View ads
-                        <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                      </Link>
+                      <InfoTip tip="action.view-ads" asChild>
+                        <Link
+                          to={row.discoverHref}
+                          className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary-text hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
+                        >
+                          View ads
+                          <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                        </Link>
+                      </InfoTip>
                     </TableCell>
                   </TableRow>
                 );

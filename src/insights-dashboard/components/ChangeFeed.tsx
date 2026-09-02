@@ -28,14 +28,44 @@
  * the same way for everyone, every time. `seenStore.ts` still exists on disk
  * for whichever surface still wants it; this file no longer imports it.
  *
- * Two groups, deliberately not merged:
- *  - `trends` — signals that cleared the recurrence gate (seen 2+ times).
- *    These are the findings; they get the full row treatment and actions.
- *  - `gated` — seen exactly once. A single observation is not a trend (that's
- *    a named anti-pattern in this category), but hiding it entirely loses the
- *    teaching moment: the user should see that we *noticed* it and are
- *    deliberately declining to call it yet. Rendered de-emphasised, collapsed,
- *    no actions — that visible restraint is the trust-builder, not a bug.
+ * ── Second KISS pass — Maalik rejected the first cut too ────────────────
+ * Verbatim: "too complex to understand and cluttered also, too much content
+ * heavy." Removed, not merged or relabelled:
+ *  - **Brief it / Watch.** Two of three row actions, gone. Dismiss is the
+ *    only action left — it's the only one with a real, honest outcome (the
+ *    row leaves the feed, Undo brings it back). "Queued for a brief that
+ *    doesn't exist" and "watching with no real alert" were both inert
+ *    prototype state dressed as functionality; cutting them is the fix, not
+ *    explaining them better.
+ *  - **The "Watching — not yet a trend" group.** A single observation used
+ *    to get its own de-emphasised, collapsible section. Maalik: "what is
+ *    watching list, why it is there... looking too extra." Gated signals
+ *    (`observationCount` below the recurrence gate) now render nowhere —
+ *    not merged into the main list as if they were confirmed, just absent
+ *    until a second scan actually earns them a row. `useChangeFeed()` still
+ *    computes `gated` for whoever else wants it; this file no longer reads
+ *    that field.
+ *  - **The word "evidence," and the two-line cap.** The disclosure under the
+ *    chevron is now "Show detail," plain sentences with no quotation marks,
+ *    and `line-clamp-2` as a hard ceiling — not a courtroom transcript.
+ *  - **"X scans compared."** Cut from the lead card's source line — internal
+ *    scan telemetry, not something a user acts on. `Provenance` already owns
+ *    "where did this come from"; the source line now states just the source
+ *    and first-seen date, once.
+ *  - **The lead card's Before/Now magnitude bars.** Maalik: "Remove before
+ *    and now." `LeadChangeCard` itself was briefly slated for a full
+ *    replacement and then explicitly un-slated — "biggest change ko intact
+ *    rakho" — so it stays as this block's lead, but the bars go regardless;
+ *    that cut was never contingent on the card's fate.
+ *
+ * Added, not just subtracted: a row's advertiser now also carries
+ * `ChangeSignal.advertiserRelationship` when the selector has it — a small
+ * check mark (`TrendRow`) or a plain-language line (`LeadChangeCard`, "a
+ * brand you follow" / "part of the wider market") answering the other half
+ * of "who is Mantra Labs??": not just what industry they're in, but whether
+ * they're one of yours. Both fields are optional on `ChangeSignal`, so every
+ * read here is guarded — a signal without them just renders as it did
+ * before.
  *
  * `representativeAdId` is null on withdrawal signals — the ad is gone, so
  * there is nothing to link to. Rather than invent a "View ad" affordance
@@ -43,9 +73,19 @@
  * detail route yet), we simply never build UI off that id.
  *
  * Kinds are never colour-coded — icon + label carries the distinction, per
- * the design system's ban on hue-only meaning. Row actions (Brief it / Watch
- * / Dismiss) are local optimistic state only: no store writes, no Supabase,
- * no network. Dismiss actually drops the row from view, with an Undo toast.
+ * the design system's ban on hue-only meaning, and the kind label now always
+ * renders as text (never icon-only, at any width) so a state glyph like
+ * `withdrawal`'s `EyeOff` is never left to be misread as another action
+ * glyph next to Dismiss's `X` — see `TrendRow` below. Dismiss is local
+ * optimistic state only: no store writes, no Supabase, no network. It
+ * actually drops the row from view, with an Undo toast.
+ *
+ * The advertiser name in a row is now always paired with its industry
+ * (`Mantra Labs · Skincare`) rather than standing alone. Maalik's complaint
+ * was that the bold word in the middle of a row had no identity — "angle
+ * hai, category hai kya hai" — pairing a proper noun with a category name
+ * is a self-evident, no-hover way to say "this is a company, here's its
+ * industry," using a field (`ChangeSignal.industry`) that already existed.
  *
  * ── The brief moved out ──────────────────────────────────────────────────
  * `DailyBrief` used to be embedded at the top of this card. Maalik: "^ new
@@ -64,15 +104,12 @@ import { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowRightLeft,
-  Bell,
-  Binoculars,
+  Check,
   ChevronDown,
   EyeOff,
   Gauge,
-  Info,
   Layers,
   Lightbulb,
-  NotebookPen,
   Radar,
   Tag,
   X,
@@ -87,16 +124,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import { Provenance, PROVENANCE_META } from "@/insights-dashboard/components/Provenance";
 import {
   CHANGE_KIND_LABELS,
   useChangeFeed,
+  useDashboardMeta,
   type ChangeSignal,
   type ChangeSignalKind,
 } from "@/insights-dashboard/lib/selectors";
@@ -120,13 +154,13 @@ const MICRO_LABEL =
 const LIST_MAX_HEIGHT = "max-h-[264px]";
 
 /**
- * ── Lead card magnitude parsing ────────────────────────────────────────────
- * Maalik's complaint was two-fold: the feed is boring (all text, no marks)
- * and unsourced ("kaha se aa rahi hai, kya hai wo data?"). The lead card fixes
- * both — but its numbers have to be REAL, not decoration invented for the
- * mockup. `ChangeSignal` has no structured `adCount` field; the count lives
- * inside `headline` / `evidence`, the exact strings the selector already
- * assembled (see `SIGNAL_TEMPLATES` in fixtures.ts). This reads that number
+ * ── Lead card number parsing ───────────────────────────────────────────────
+ * Maalik's complaint was that the feed was unsourced ("kaha se aa rahi hai,
+ * kya hai wo data?"). The lead card fixes that — but its numbers have to be
+ * REAL, not decoration invented for the mockup. `ChangeSignal` has no
+ * structured `adCount` field; the count lives inside `headline` / `evidence`,
+ * the exact strings the selector already assembled (see `SIGNAL_TEMPLATES`
+ * in fixtures.ts). This reads that number
  * back out rather than minting a new one.
  */
 function extractAdCount(signal: ChangeSignal): number | null {
@@ -144,44 +178,6 @@ function extractWindowDays(signal: ChangeSignal): number | null {
   return match ? Number(match[1]) : null;
 }
 
-type MagnitudeDirection = "up" | "down" | "flat";
-
-/**
- * Which way this kind of change moves ad VOLUME — the axis the lead card's
- * mini bars encode. `offer-shift` and `landing-page-change` swap content on
- * the same ads rather than adding or removing any, so they're honestly
- * "flat", not a fabricated up or down.
- */
-function magnitudeDirection(signal: ChangeSignal): MagnitudeDirection {
-  if (signal.kind === "withdrawal") return "down";
-  if (
-    signal.kind === "new-angle" ||
-    signal.kind === "format-expansion" ||
-    signal.kind === "velocity-change"
-  ) {
-    return "up";
-  }
-  return "flat";
-}
-
-/**
- * Before → after ad-count pair for the lead card's two-bar mark. Every number
- * here is grounded in the signal's own text: `after` is `extractAdCount`;
- * `before` is either explicitly stated ("12-week average of N" on a
- * velocity-change) or honestly zero where the evidence itself says so ("none
- * did … before", "static-only before") or unchanged where the evidence says
- * the ad count didn't move (offer/page swaps). Nothing here is invented for
- * the chart.
- */
-function leadMagnitude(signal: ChangeSignal): { before: number; after: number } {
-  const after = extractAdCount(signal) ?? signal.observationCount;
-  const direction = magnitudeDirection(signal);
-  if (direction === "down") return { before: after, after: 0 };
-  if (direction === "flat") return { before: after, after };
-  const avgMatch = signal.evidence.join(" ").match(/average of (\d+)/i);
-  return { before: avgMatch ? Number(avgMatch[1]) : 0, after };
-}
-
 /** One short, real fact for a remaining row — e.g. "3 ads changed" — never
  * the full quoted evidence (that stays behind the row's expander). Null when
  * this signal's text doesn't carry a countable number; the row falls back to
@@ -191,7 +187,7 @@ function shortFact(signal: ChangeSignal): string | null {
   if (n === null) return null;
   switch (signal.kind) {
     case "withdrawal":
-      return `${n} ads pulled`;
+      return `${n} ads stopped running`;
     case "new-angle":
       return `${n} ads on new angle`;
     case "offer-shift":
@@ -219,41 +215,6 @@ function pickLeadSignal(trends: readonly ChangeSignal[]): ChangeSignal | null {
   })[0];
 }
 
-/**
- * The lead card's one small visual: a real before → after ad-count pair as
- * two labelled bars. Labelled `Before` / `Now` per Maalik — the previous `B`
- * / `N` shorthand was cryptic. Per-advertiser weekly cadence isn't reachable
- * from the selector layer, so this falls back to the signal's own numbers —
- * still a real measured pair, not a fabricated series.
- */
-function LeadMagnitudeBars({ before, after }: { before: number; after: number }): JSX.Element {
-  const max = Math.max(before, after, 1);
-  const bars: { key: string; label: string; value: number }[] = [
-    { key: "before", label: "Before", value: before },
-    { key: "after", label: "Now", value: after },
-  ];
-  return (
-    <div
-      className="flex h-10 shrink-0 items-end gap-2"
-      role="img"
-      aria-label={`Ad count moved from ${before} to ${after}`}
-    >
-      {bars.map((bar) => (
-        <div key={bar.key} className="flex w-10 flex-col items-center gap-0.5">
-          <div
-            className="w-3 rounded-sm bg-foreground/70"
-            style={{ height: `${Math.max(4, Math.round((bar.value / max) * 22))}px` }}
-            aria-hidden="true"
-          />
-          <span className="font-mono text-[8px] uppercase leading-none tracking-wide text-foreground/70">
-            {bar.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function daysAgoLabel(n: number): string {
   if (n <= 0) return "today";
   if (n === 1) return "1d ago";
@@ -277,25 +238,32 @@ function freshnessLine(signal: ChangeSignal): string {
 }
 
 interface RowActionState {
-  briefed: boolean;
-  watched: boolean;
-  onBrief: () => void;
-  onWatch: () => void;
   onDismiss: () => void;
 }
 
 /**
- * One line: kind icon + kind label · advertiser · one short fact · age.
- * Everything beyond that surface is a hover/click away, not gone:
+ * One line: kind icon + kind label · advertiser + industry · one short fact
+ * · age · Dismiss. Everything beyond that surface is a hover/click away, not
+ * gone:
  *
  *  - Evidence lives behind a `Collapsible`, triggered by the chevron. It is
  *    this row's credibility, so the trigger itself stays always-visible,
- *    only the quotes are hidden until asked for.
+ *    only the detail text is hidden until asked for.
  *  - The full freshness range and provenance tier live in the age mark's
  *    `title` — a hover away, not gone.
- *  - Actions reveal on hover / focus-within, so a mouse user only sees them
- *    over the row they're looking at, and a keyboard user still reaches them
- *    by Tab (opacity, never `hidden`, keeps them in the tab order).
+ *  - Dismiss reveals on hover / focus-within, so a mouse user only sees it
+ *    over the row they're looking at, and a keyboard user still reaches it
+ *    by Tab (opacity, never `hidden`, keeps it in the tab order). It sits
+ *    alone at the row's trailing edge — with Brief it and Watch gone, there
+ *    is nothing left beside it to compete with, so its corner position now
+ *    reads as chrome, not as one of several row-body actions.
+ *
+ * The kind icon + label is always rendered as text, at every width — never
+ * icon-only. That is what keeps a state glyph (`withdrawal`'s `EyeOff`, "went
+ * quiet") from ever being mistaken for an action glyph like Dismiss's `X`:
+ * one always carries a caption, the other is a single, standard, corner
+ * close control. Per Maalik: two remove-shaped icons on one row with nothing
+ * telling them apart was the actual defect, not the icons themselves.
  */
 function TrendRow({
   signal,
@@ -317,21 +285,36 @@ function TrendRow({
     <Collapsible asChild open={open} onOpenChange={onOpenChange}>
       <li className="group/row -mx-1.5 rounded-md px-1.5 hover:bg-muted/30 focus-within:bg-muted/30">
         <div className="flex items-center gap-2 py-1.5">
-          <span
-            className="inline-flex shrink-0 items-center gap-1"
-            title={signal.headline}
-          >
+          <span className="inline-flex shrink-0 items-center gap-1">
             <KindIcon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-            <span className="hidden text-xs text-foreground/70 sm:inline">
-              {CHANGE_KIND_LABELS[signal.kind]}
-            </span>
+            <span className="text-xs text-foreground/70">{CHANGE_KIND_LABELS[signal.kind]}</span>
           </span>
 
+          {/* Advertiser paired with its industry — never a bare bold word.
+              Fixes "angle hai, category hai kya hai": the proper noun +
+              category-name pairing is self-identifying without a hover. */}
           <span
-            className="max-w-[120px] shrink-0 truncate text-sm font-medium leading-snug text-foreground"
-            title={signal.advertiser}
+            className="inline-flex max-w-[180px] shrink-0 items-center gap-1 truncate text-sm leading-snug"
+            title={
+              signal.advertiserRelationshipLabel
+                ? `${signal.advertiser} · ${signal.industry} — ${signal.advertiserRelationshipLabel}`
+                : `${signal.advertiser} · ${signal.industry}`
+            }
           >
-            {signal.advertiser}
+            {/* A tracked competitor gets a small check — the same marker
+                `MarketMovers` uses for "Tracked" elsewhere on this page —
+                answering "who is this" for the case that actually matters to
+                act on. Silence means market-only, matching that pattern. */}
+            {signal.advertiserRelationship === "followed" && (
+              <>
+                <Check className="h-3 w-3 shrink-0 text-foreground/70" aria-hidden="true" />
+                <span className="sr-only">Tracked competitor</span>
+              </>
+            )}
+            <span className="truncate">
+              <span className="font-medium text-foreground">{signal.advertiser}</span>
+              <span className="text-foreground/70"> · {signal.industry}</span>
+            </span>
           </span>
 
           <span
@@ -356,7 +339,7 @@ function TrendRow({
                 "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground",
                 "hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               )}
-              aria-label={open ? "Hide evidence" : "Show evidence"}
+              aria-label={open ? "Hide detail" : "Show detail"}
             >
               <ChevronDown
                 className={cn("h-3.5 w-3.5 transition-transform duration-150", open && "rotate-180")}
@@ -369,60 +352,30 @@ function TrendRow({
 
           <div
             className={cn(
-              "flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity",
+              "shrink-0 opacity-0 transition-opacity",
               "group-hover/row:opacity-100 group-focus-within/row:opacity-100",
             )}
           >
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              disabled={actions.briefed}
-              onClick={actions.onBrief}
-              title={actions.briefed ? "Queued for the weekly brief" : "Brief it"}
-              className="h-6 w-6 text-foreground/70 hover:text-foreground disabled:opacity-100"
-            >
-              <NotebookPen className="h-3 w-3" aria-hidden="true" />
-              <span className="sr-only">{actions.briefed ? "Queued" : "Brief it"}</span>
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={actions.onWatch}
-              aria-pressed={actions.watched}
-              title={actions.watched ? "Watching" : "Watch"}
-              className={cn(
-                "h-6 w-6 hover:text-foreground",
-                actions.watched ? "text-foreground" : "text-foreground/70",
-              )}
-            >
-              <Bell className={cn("h-3 w-3", actions.watched && "fill-current")} aria-hidden="true" />
-              <span className="sr-only">{actions.watched ? "Watching" : "Watch"}</span>
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={actions.onDismiss}
-              title="Dismiss"
-              className="h-6 w-6 text-foreground/70 hover:text-foreground"
-            >
-              <X className="h-3 w-3" aria-hidden="true" />
-              <span className="sr-only">Dismiss</span>
-            </Button>
+            <InfoTip tip="action.dismiss-signal" asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={actions.onDismiss}
+                className="h-6 w-6 rounded-full text-foreground/70 hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+                <span className="sr-only">Dismiss</span>
+              </Button>
+            </InfoTip>
           </div>
         </div>
 
         {hasEvidence && (
           <CollapsibleContent>
-            <ul className="space-y-0.5 py-1 pb-2 pl-[3.75rem] pr-2">
-              {signal.evidence.map((fact, idx) => (
-                <li key={idx} className="text-xs leading-snug text-foreground/70">
-                  &ldquo;{fact}&rdquo;
-                </li>
-              ))}
-            </ul>
+            <p className="line-clamp-2 py-1 pb-2 pl-[3.75rem] pr-2 text-xs leading-snug text-foreground/70">
+              {signal.evidence.join(" · ")}
+            </p>
           </CollapsibleContent>
         )}
       </li>
@@ -430,37 +383,22 @@ function TrendRow({
   );
 }
 
-function GatedRow({ signal }: { signal: ChangeSignal }) {
-  const KindIcon = CHANGE_KIND_ICONS[signal.kind];
-  return (
-    <li className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-foreground/70">
-      <span className="inline-flex shrink-0 items-center gap-1 pt-0.5">
-        <KindIcon className="h-3 w-3" aria-hidden="true" />
-        {CHANGE_KIND_LABELS[signal.kind]}
-      </span>
-      <span className="min-w-0 flex-1 leading-snug">
-        <span className="font-medium text-foreground/80">{signal.advertiser}</span>
-        {" — "}
-        {signal.headline}
-        <span className="whitespace-nowrap"> · {freshnessLine(signal)}</span>
-      </span>
-      <Provenance tier={signal.provenance} compact />
-    </li>
-  );
-}
-
 /**
  * The single biggest change of the week: a real plain-language headline, the
- * concrete numbers (ad count + window), the source stated on the surface —
- * never behind a hover, that's the exact fix for "kaha se aa rahi hai" — and
- * one mini before → now bar mark beside it. Same row actions as `TrendRow`
- * (Brief it / Watch / Dismiss) — dismissing the lead just promotes the next
- * biggest change on the next render, since `pickLeadSignal` reads off the
- * live (non-dismissed) trend list every time.
+ * concrete numbers (ad count + window), and the source stated on the
+ * surface — never behind a hover, that's the exact fix for "kaha se aa rahi
+ * hai." Same lone Dismiss action as `TrendRow` — dismissing the lead just
+ * promotes the next biggest change on the next render, since
+ * `pickLeadSignal` reads off the live (non-dismissed) trend list every time.
  *
- * Actions here render always-visible rather than hover-gated: this is the
- * hero row, not a dense list line, so there's no "which row am I over"
- * ambiguity hover-gating exists to solve on `TrendRow`.
+ * The Before/Now magnitude bars this card used to carry are gone — a
+ * deliberate cut ("Remove before and now"), not a casualty of some larger
+ * rework. This card stays the block's lead, just decluttered to the same
+ * standard as the rows below it.
+ *
+ * Dismiss renders always-visible rather than hover-gated: this is the hero
+ * row, not a dense list line, so there's no "which row am I over" ambiguity
+ * hover-gating exists to solve on `TrendRow`.
  */
 function LeadChangeCard({
   signal,
@@ -480,109 +418,91 @@ function LeadChangeCard({
   const windowDays = extractWindowDays(signal);
   const windowLabel =
     windowDays !== null ? `over ${windowDays}d` : `since ${daysAgoLabel(signal.firstSeenDaysAgo)}`;
-  // The exact fix for "kaha se aa rahi hai" — source, freshness and scan
-  // count stated on the surface, not left to a hover.
-  const sourceLine = `${provenanceMeta.source} · first seen ${daysAgoLabel(signal.firstSeenDaysAgo)} · ${signal.observationCount} ${signal.observationCount === 1 ? "scan" : "scans"} compared`;
-  const { before, after } = leadMagnitude(signal);
+  // The exact fix for "kaha se aa rahi hai" — source and freshness stated on
+  // the surface, not left to a hover. The scan count that used to sit here
+  // ("6 scans compared") was cut per Maalik: internal telemetry with no
+  // action attached to it, and `Provenance` already owns "where's this from."
+  const sourceLine = `${provenanceMeta.source} · first seen ${daysAgoLabel(signal.firstSeenDaysAgo)}`;
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div className="rounded-md border border-border bg-muted/20 p-2.5">
-        <div className="flex items-start gap-2.5">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className={MICRO_LABEL}>Biggest change this week</span>
-              <span
-                className="inline-flex shrink-0 items-center"
-                title={CHANGE_KIND_LABELS[signal.kind]}
-              >
-                <KindIcon className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                <span className="sr-only">{CHANGE_KIND_LABELS[signal.kind]}</span>
-              </span>
-            </div>
-            <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
-              {signal.headline}
-            </p>
-            <p className="mt-0.5 text-sm tabular-nums text-foreground">
-              {adCount} {adCount === 1 ? "ad" : "ads"} · {windowLabel}
-            </p>
-            <p className={cn(MICRO_LABEL, "mt-0.5")} title={sourceLine}>
-              {sourceLine}
-            </p>
-          </div>
+      <div className="relative rounded-md border border-border bg-muted/20 p-2.5">
+        {/* Dismiss sits in the card's TOP-RIGHT CORNER, per Maalik: "keep the
+            cross action but on the top right corner". It is the card's only
+            action now (Brief it / Watch are gone), so cornering it reads as
+            chrome — the way a close affordance reads on any card — rather
+            than as one option among several in a footer. `pr-7` on the header
+            keeps the label clear of it. */}
+        <InfoTip tip="action.dismiss-signal" asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={actions.onDismiss}
+            className="absolute right-1 top-1 h-6 w-6 shrink-0 rounded-full text-foreground/70 hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-3 w-3" aria-hidden="true" />
+            <span className="sr-only">Dismiss</span>
+          </Button>
+        </InfoTip>
 
-          <LeadMagnitudeBars before={before} after={after} />
+        <div className="min-w-0 pr-7">
+          <div className="flex items-center gap-1.5">
+            <span className={MICRO_LABEL}>Biggest change this week</span>
+            {/* Kind label always renders as text here too, same rule as
+                `TrendRow`: a state glyph (e.g. `withdrawal`'s `EyeOff`) must
+                never be left to an icon-only, hover-only reading. */}
+            <span className="inline-flex shrink-0 items-center gap-1">
+              <KindIcon className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              <span className="text-xs font-normal normal-case tracking-normal text-foreground/70">
+                {CHANGE_KIND_LABELS[signal.kind]}
+              </span>
+            </span>
+          </div>
+          <p className="mt-0.5 text-sm font-semibold leading-snug text-foreground">
+            {signal.headline}
+          </p>
+          {/* Answers "who is this advertiser" directly — the exact context
+              Maalik said made the sentence click for him. Guarded: the field
+              is optional, and older/edge signals may not carry it. */}
+          {signal.advertiserRelationshipLabel && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-foreground/70">
+              {signal.advertiserRelationship === "followed" && (
+                <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+              )}
+              {signal.advertiserRelationshipLabel}
+            </p>
+          )}
+          <p className="mt-0.5 text-sm tabular-nums text-foreground">
+            {adCount} {adCount === 1 ? "ad" : "ads"} · {windowLabel}
+          </p>
+          <p className={cn(MICRO_LABEL, "mt-0.5")}>
+            {sourceLine}
+          </p>
         </div>
 
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          {hasEvidence ? (
+        <div className="mt-1.5 flex items-center gap-2">
+          {hasEvidence && (
             <CollapsibleTrigger
               className={cn(
                 "inline-flex items-center gap-1 text-xs font-medium text-foreground/70",
                 "hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               )}
             >
-              {open ? "Hide evidence" : "Show evidence"}
+              {open ? "Hide detail" : "Show detail"}
               <ChevronDown
                 className={cn("h-3.5 w-3.5 transition-transform duration-150", open && "rotate-180")}
                 aria-hidden="true"
               />
             </CollapsibleTrigger>
-          ) : (
-            <span aria-hidden="true" />
           )}
-
-          <div className="flex shrink-0 items-center gap-0.5">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              disabled={actions.briefed}
-              onClick={actions.onBrief}
-              title={actions.briefed ? "Queued for the weekly brief" : "Brief it"}
-              className="h-6 w-6 text-foreground/70 hover:text-foreground disabled:opacity-100"
-            >
-              <NotebookPen className="h-3 w-3" aria-hidden="true" />
-              <span className="sr-only">{actions.briefed ? "Queued" : "Brief it"}</span>
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={actions.onWatch}
-              aria-pressed={actions.watched}
-              title={actions.watched ? "Watching" : "Watch"}
-              className={cn(
-                "h-6 w-6 hover:text-foreground",
-                actions.watched ? "text-foreground" : "text-foreground/70",
-              )}
-            >
-              <Bell className={cn("h-3 w-3", actions.watched && "fill-current")} aria-hidden="true" />
-              <span className="sr-only">{actions.watched ? "Watching" : "Watch"}</span>
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={actions.onDismiss}
-              title="Dismiss"
-              className="h-6 w-6 text-foreground/70 hover:text-foreground"
-            >
-              <X className="h-3 w-3" aria-hidden="true" />
-              <span className="sr-only">Dismiss</span>
-            </Button>
-          </div>
         </div>
 
         {hasEvidence && (
           <CollapsibleContent>
-            <ul className="mt-1.5 space-y-0.5">
-              {signal.evidence.map((fact, idx) => (
-                <li key={idx} className="text-xs leading-snug text-foreground/70">
-                  &ldquo;{fact}&rdquo;
-                </li>
-              ))}
-            </ul>
+            <p className="line-clamp-2 mt-1.5 text-xs leading-snug text-foreground/70">
+              {signal.evidence.join(" · ")}
+            </p>
           </CollapsibleContent>
         )}
       </div>
@@ -628,34 +548,25 @@ function ChangeFeedSkeleton(): JSX.Element {
 }
 
 export function ChangeFeed({ className }: { className?: string }): JSX.Element {
-  const { trends, gated, gatedNote, sinceLabel, isEmpty, isLoading } = useChangeFeed();
+  // `gated` / `gatedNote` are still computed by the selector but no longer
+  // read here — per Maalik's "what is watching list, why it is there," the
+  // once-observed group renders nowhere now, not merged into `trends` as if
+  // it had already cleared the recurrence gate. See the file doc comment.
+  const { trends, sinceLabel, isEmpty, isLoading } = useChangeFeed();
+  // `firstTime`/`empty` still show real market-wide changes (`signals` is
+  // never scoped to the user's own follow list — see CONTRACT.md's caption
+  // trap). "Since {sinceLabel}" implies a personal last-visit baseline that
+  // doesn't exist there, so the header reframes to the market and states the
+  // honest gap — real changes, and how few industries this user follows to
+  // catch them — using the same "industries FabAds tracks" phrasing already
+  // used elsewhere on this page (`cadenceScopeNote`, `stateNote`).
+  const { isFirstTime, isEmptyState, followedIndustryCount } = useDashboardMeta();
+  const isMarketFraming = isFirstTime || isEmptyState;
 
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
-  const [briefedIds, setBriefedIds] = useState<Set<string>>(() => new Set());
-  const [watchedIds, setWatchedIds] = useState<Set<string>>(() => new Set());
   // Which rows' evidence expander is open. Evidence is a row's credibility —
   // demoted off the surface, not deleted — so this is per-row, not global.
   const [openEvidenceIds, setOpenEvidenceIds] = useState<Set<string>>(() => new Set());
-  // The gated group stays visible restraint, not a permanent tax on the
-  // card's height — it opens on request rather than sitting expanded at rest.
-  const [gatedOpen, setGatedOpen] = useState(false);
-
-  function handleBrief(signal: ChangeSignal) {
-    if (briefedIds.has(signal.id)) return;
-    setBriefedIds((prev) => new Set(prev).add(signal.id));
-    toast.success("Queued for the weekly brief", { description: signal.headline });
-  }
-
-  function handleWatch(signal: ChangeSignal) {
-    const willWatch = !watchedIds.has(signal.id);
-    setWatchedIds((prev) => {
-      const next = new Set(prev);
-      if (willWatch) next.add(signal.id);
-      else next.delete(signal.id);
-      return next;
-    });
-    toast.success(willWatch ? `Watching ${signal.advertiser}` : `Stopped watching ${signal.advertiser}`);
-  }
 
   // Deliberately does NOT write anywhere else: a dismissed row is just gone
   // from view, and Undo puts it right back, lossless.
@@ -702,18 +613,21 @@ export function ChangeFeed({ className }: { className?: string }): JSX.Element {
 
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
-      {/* Zone 1 — one line, nothing else. Attribution rides in the title
-          rather than as its own all-caps row on the surface. */}
-      <header
-        className="mb-2 flex flex-wrap items-baseline gap-x-2"
-        title="Observed via Meta Ad Library · recurrence and deltas derived by FabAds"
-      >
-        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
-          What changed
-        </h2>
+      {/* Zone 1 — one line, nothing else. `InfoTip` now carries the
+          attribution/explanation that used to live in a bare `title=""` on
+          this header — kept as one tooltip, not stacked as two. */}
+      <header className="mb-2 flex flex-wrap items-baseline gap-x-2">
+        <span className="inline-flex items-center gap-1">
+          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+            What changed
+          </h2>
+          <InfoTip tip="block.change-feed" />
+        </span>
         {!isLoading && !isEmpty && (
           <span className="text-xs text-foreground/70">
-            Since {sinceLabel} · {liveTrends.length} {liveTrends.length === 1 ? "change" : "changes"}
+            {isMarketFraming
+              ? `Across the industries FabAds tracks · ${liveTrends.length} ${liveTrends.length === 1 ? "change" : "changes"} · you follow ${followedIndustryCount} ${followedIndustryCount === 1 ? "industry" : "industries"}`
+              : `Since ${sinceLabel} · ${liveTrends.length} ${liveTrends.length === 1 ? "change" : "changes"}`}
           </span>
         )}
       </header>
@@ -736,13 +650,7 @@ export function ChangeFeed({ className }: { className?: string }): JSX.Element {
               signal={leadSignal}
               open={openEvidenceIds.has(leadSignal.id)}
               onOpenChange={(open) => setEvidenceOpen(leadSignal.id, open)}
-              actions={{
-                briefed: briefedIds.has(leadSignal.id),
-                watched: watchedIds.has(leadSignal.id),
-                onBrief: () => handleBrief(leadSignal),
-                onWatch: () => handleWatch(leadSignal),
-                onDismiss: () => handleDismiss(leadSignal),
-              }}
+              actions={{ onDismiss: () => handleDismiss(leadSignal) }}
             />
           )}
 
@@ -755,13 +663,7 @@ export function ChangeFeed({ className }: { className?: string }): JSX.Element {
                   signal={signal}
                   open={openEvidenceIds.has(signal.id)}
                   onOpenChange={(open) => setEvidenceOpen(signal.id, open)}
-                  actions={{
-                    briefed: briefedIds.has(signal.id),
-                    watched: watchedIds.has(signal.id),
-                    onBrief: () => handleBrief(signal),
-                    onWatch: () => handleWatch(signal),
-                    onDismiss: () => handleDismiss(signal),
-                  }}
+                  actions={{ onDismiss: () => handleDismiss(signal) }}
                 />
               ))}
             </ul>
@@ -771,61 +673,6 @@ export function ChangeFeed({ className }: { className?: string }): JSX.Element {
                 No signal has cleared the recurrence gate yet.
               </p>
             )
-          )}
-
-          {gated.length > 0 && (
-            <Collapsible
-              open={gatedOpen}
-              onOpenChange={setGatedOpen}
-              className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-1"
-            >
-              <div className="flex items-center gap-1">
-                {/* The restraint itself — "we noticed but won't call it a
-                    trend yet" — stays visible at rest as a one-line summary.
-                    Only the individual observations collapse; opening this is
-                    optional, seeing that we're being careful is not. */}
-                <CollapsibleTrigger
-                  className={cn(
-                    "flex flex-1 items-center gap-1.5 rounded py-0.5 text-left text-xs font-medium text-foreground/70",
-                    "hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                  )}
-                >
-                  <Binoculars className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>Watching — not yet a trend</span>
-                  <span className="tabular-nums text-foreground/70">{gated.length}</span>
-                  <ChevronDown
-                    className={cn(
-                      "ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-150",
-                      gatedOpen && "rotate-180",
-                    )}
-                    aria-hidden="true"
-                  />
-                </CollapsibleTrigger>
-                {gatedNote && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        className="inline-flex shrink-0 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        <Info className="h-3 w-3" aria-hidden="true" />
-                        <span className="sr-only">Why these aren&rsquo;t trends yet</span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[260px]">
-                      {gatedNote}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              <CollapsibleContent>
-                <ul className="mt-2 space-y-2 pb-1">
-                  {gated.map((signal) => (
-                    <GatedRow key={signal.id} signal={signal} />
-                  ))}
-                </ul>
-              </CollapsibleContent>
-            </Collapsible>
           )}
         </div>
       )}

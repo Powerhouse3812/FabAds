@@ -6,22 +6,31 @@
  * and there is no separate store to drift out of sync with the link someone
  * pastes into Slack.
  *
- * Two differences from that precedent:
+ * Three differences from that precedent:
  *
  *  1. No "real data" fallthrough. This module never had a live backend, so an
  *     absent or unrecognised `state` param means `"populated"` — never null.
  *     `useDashboardState` therefore returns `DashboardState`, not
  *     `DashboardState | null`, and components must never branch on null here.
- *     The accepted values are exactly `DASHBOARD_STATES` — five of them now:
- *     `populated` · `thin` · `zero` · `loading` · `error`. Validation reads
- *     that array rather than a literal list, so adding a state there is all
- *     it takes for `?state=` to accept it, and anything unrecognised
+ *     The accepted values are exactly `DASHBOARD_STATES` — four of them now:
+ *     `populated` · `firstTime` · `empty` · `loading`. Validation reads that
+ *     array rather than a literal list, so adding a state there is all it
+ *     takes for `?state=` to accept it, and anything unrecognised
  *     (`?state=lodaing`) still falls back to `populated` rather than
  *     rendering a broken page.
- *  2. We also need a setter (the dev-only state pill writes the param), so
+ *  2. LEGACY ALIASES. The state model used to be five values —
+ *     `populated` · `thin` · `zero` · `loading` · `error` — and review links
+ *     shared before this pass carry those old names in their `?state=`.
+ *     `LEGACY_STATE_ALIASES` maps them silently onto their replacements
+ *     (`thin` → `firstTime`, `zero` → `empty`) or, for the deleted `error`
+ *     state, onto `populated` — so a stale link renders the closest sensible
+ *     state instead of 404ing into a blank page. This is resolved BEFORE the
+ *     `DASHBOARD_STATES` membership check below, and it never rewrites the
+ *     URL — the alias is silent, read-only translation, not a redirect.
+ *  3. We also need a setter (the dev-only state pill writes the param), so
  *     this file wraps `useSearchParams` on both ends:
  *       - Reads default to `"populated"` when the param is missing or does
- *         not match one of `DASHBOARD_STATES`.
+ *         not match one of `DASHBOARD_STATES` (after alias resolution).
  *       - Writes use `{ replace: true }` so rapid toggling (pill-clicking)
  *         does not spam browser history with one entry per click.
  *       - Writing `"populated"` REMOVES the param instead of writing it out
@@ -42,8 +51,25 @@ export const DASHBOARD_STATE_PARAM = "state";
 
 const DEFAULT_STATE: DashboardState = "populated";
 
-function isDashboardState(value: string | null): value is DashboardState {
-  return value !== null && (DASHBOARD_STATES as readonly string[]).includes(value);
+/**
+ * Old `?state=` values from before the five-to-four collapse, mapped onto
+ * their replacement. `error` (a partial source failure) has no replacement —
+ * it falls back to `populated`, the closest honest reading: the page it
+ * showed was `populated` with some figures degraded, and `populated` is what
+ * survives once that degradation model is gone.
+ */
+const LEGACY_STATE_ALIASES: Readonly<Record<string, DashboardState>> = {
+  thin: "firstTime",
+  zero: "empty",
+  error: "populated",
+};
+
+function resolveDashboardState(value: string | null): DashboardState | null {
+  if (value === null) return null;
+  const aliased = LEGACY_STATE_ALIASES[value] ?? value;
+  return (DASHBOARD_STATES as readonly string[]).includes(aliased)
+    ? (aliased as DashboardState)
+    : null;
 }
 
 type SetDashboardState = (next: DashboardState) => void;
@@ -55,7 +81,7 @@ export function DashboardStateProvider({ children }: { children: React.ReactNode
   const [searchParams, setSearchParams] = useSearchParams();
 
   const raw = searchParams.get(DASHBOARD_STATE_PARAM);
-  const value: DashboardState = isDashboardState(raw) ? raw : DEFAULT_STATE;
+  const value: DashboardState = resolveDashboardState(raw) ?? DEFAULT_STATE;
 
   const setValue = useCallback<SetDashboardState>(
     (next) => {

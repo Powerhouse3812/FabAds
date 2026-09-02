@@ -39,33 +39,42 @@
  * gaps, no animation, centre shows the total live-ad count the donut is a
  * breakdown of. Never a categorical rainbow, never a new token.
  *
- * `compact` — a dense ~130-150px variant for the narrow (~240px) right-hand
- * column this block shares with `LaunchCadenceChart`. At that height budget
- * a stacked donut-then-legend (the full-size layout) no longer fits six
- * legend rows, so compact runs the donut and legend SIDE BY SIDE instead —
- * a small fixed-size donut plus a legend column that keeps the full ~240px
- * minus the donut's width, not a viewport breakpoint, so the earlier
+ * `compact` — a dense ~130-150px variant for the narrow right-hand column
+ * this block shares with `YouVsMarket` (stacked underneath it). At that
+ * height budget a stacked donut-then-legend (the full-size layout) no longer
+ * fits six legend rows, so compact runs the donut and legend SIDE BY SIDE
+ * instead — a small fixed-size donut plus a legend column that keeps the
+ * rest of the column's width, not a viewport breakpoint, so the earlier
  * "Be…"/"Qu…" truncation bug (a `sm:flex-row` firing on viewport width
  * while the card was ~324px) cannot recur: the layout is chosen once, by
  * `compact`, sized against this container's own budget, never re-measured
  * against the window. Drops the biggest-gap takeaway sentence and the
- * basisNote footnote, surfacing the single sharpest gap as a signed number
- * in the header instead. Every slice still navigates and the legend's
- * market-vs-yours comparison per row survives untouched — those two things
- * are what earn this block its place at all (see above). `compact`
- * undefined/false is pixel-identical to the original block.
+ * basisNote footnote. An earlier revision resurfaced the sharpest gap as a
+ * signed "-10.7pt" figure in the header instead — that shipped with no
+ * visible unit explanation, no stated sign referent, and the angle it was
+ * about hidden in a native `title=""`. Maalik couldn't decode it ("ek %
+ * samajh ati, why 2 and what are the pt value in top?"). Rather than
+ * re-patch a number with nowhere legible to put angle + sign + magnitude in
+ * a ~120px header slot, it's dropped outright: the header now carries a
+ * one-time "You / Market" column label (see the header JSX below) so every
+ * row's own pair — rendered you-first to match `YouVsMarket`'s column order —
+ * reads on its own, no abbreviation, no hidden `title`. Every slice still
+ * navigates and the legend's market-vs-yours comparison per row survives
+ * untouched — those two things are what earn this block its place at all
+ * (see above). `compact` undefined/false is pixel-identical to the original
+ * block.
  */
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, ChartPie } from "lucide-react";
+import { ChartPie } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import {
   useAngleMix,
-  type AngleMixDisplayRow,
   type AngleMixRow,
 } from "@/insights-dashboard/lib/selectors";
 
@@ -74,8 +83,8 @@ const OUTER_RADIUS = 76;
 const INNER_RADIUS = 48;
 
 /** `compact` demotes this block into the ~130-150px supporting row it shares
- * with `LaunchCadenceChart`, laid out side-by-side (donut left, legend
- * right) rather than stacked, so six legend rows fit the height budget. The
+ * with `YouVsMarket`, laid out side-by-side (donut left, legend right)
+ * rather than stacked, so six legend rows fit the height budget. The
  * slices stay real navigation and the market-vs-yours comparison per row
  * survives, because those are the two things that earn this block its
  * place (see file header). `compact` undefined/false renders identically
@@ -110,37 +119,16 @@ function biggestGapSentence(row: AngleMixRow): string {
     : `${angle} is your widest gap: the market runs ${marketPct}% of live creative vs your ${yourPct}%.`;
 }
 
-/** The sharpest gap as a signed number for the compact header — replaces the
- * full takeaway sentence (dropped in compact). Positive = you outrun the
- * market on this angle; negative = you trail it. Text carries the sign, the
- * icon just reinforces it, so this never relies on colour alone. */
-function GapChip({ row }: { row: AngleMixRow }): JSX.Element | null {
-  if (row.yourPct === null || row.gapPct === null) return null;
-  const yourLead = round1(-row.gapPct);
-  const Icon = yourLead >= 0 ? ArrowUpRight : ArrowDownRight;
-  return (
-    <span
-      className="inline-flex items-center gap-0.5 font-mono text-[9px] font-medium tabular-nums text-foreground/70"
-      title={`Widest gap — ${row.angle}: market ${row.marketPct}% vs your ${row.yourPct}%`}
-    >
-      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
-      {yourLead > 0 ? "+" : ""}
-      {yourLead}pt
-    </span>
-  );
-}
-
-/** Tooltip for the Others row. The angle taxonomy currently has exactly 6
- * members, so Others typically folds in exactly one — naming it directly
- * (rather than a vague "and more") keeps the bucket honest about what it
- * actually hides. Falls back to a list if the taxonomy ever grows. */
-function othersTooltip(row: AngleMixDisplayRow): string {
-  const { rolledUp } = row;
-  if (rolledUp.length === 1) {
-    return `Others — folds in "${rolledUp[0]}", the only angle outside the top 5.`;
-  }
-  return `Others — folds in ${rolledUp.length} angles: ${rolledUp.join(", ")}.`;
-}
+/* GapChip and othersTooltip used to live here, surfacing the widest gap as a
+ * signed "-10.7pt" header figure and an angle-list explanation as native
+ * `title=""` hovers. Both are gone: "pt" is unlabelled jargon, the sign had
+ * no stated referent, and the angle it belonged to lived only in a
+ * `title` — invisible to anyone who doesn't hover, and the exact failure
+ * this file is being fixed for (see the compact doc above). Rather than
+ * patch a number that has nowhere legible to put angle + sign + magnitude in
+ * a ~120px header slot, it's dropped: the header now carries a one-time
+ * "You / Market" column label (rendered inline below) that makes every row's
+ * own pair self-explanatory instead. */
 
 export function AngleMixDonut({
   className,
@@ -166,7 +154,10 @@ export function AngleMixDonut({
     return (
       <section className={cn("rounded-lg border border-border bg-card", compact ? "p-3" : "p-4", className)}>
         <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1" : "mb-3")}>
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">Copy angle mix</h2>
+          <h2 className="flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+            Copy angle mix
+            <InfoTip tip="block.angle-mix" />
+          </h2>
           {compact && <Skeleton className="h-2.5 w-14" />}
         </header>
         <div className={cn(compact ? "flex items-center gap-1.5" : "flex flex-col gap-4")}>
@@ -199,7 +190,10 @@ export function AngleMixDonut({
     return (
       <section className={cn("rounded-lg border border-border bg-card", compact ? "p-3" : "p-4", className)}>
         <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1" : "mb-3")}>
-          <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">Copy angle mix</h2>
+          <h2 className="flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+            Copy angle mix
+            <InfoTip tip="block.angle-mix" />
+          </h2>
         </header>
         <InsightsV2EmptyState
           icon={ChartPie}
@@ -217,13 +211,30 @@ export function AngleMixDonut({
   return (
     <section className={cn("rounded-lg border border-border bg-card", compact ? "p-3" : "p-4", className)}>
       <header className={cn("flex items-center justify-between gap-2", compact ? "mb-1" : "mb-3")}>
-        <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">Copy angle mix</h2>
-        {/* Compact drops the biggest-gap takeaway sentence below and
-            resurfaces it here as a signed number — "more data, less height"
-            costs nothing extra vertically since it shares this header row. */}
+        <h2 className="flex items-center gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+          Copy angle mix
+          <InfoTip tip="block.angle-mix" />
+        </h2>
+        {/* Compact drops the biggest-gap takeaway sentence below in favour of
+            one column label for the whole legend: "You / Market" — stated
+            once here rather than repeated on all six rows, and read left-to-
+            right to match the order each row renders its own pair in (see
+            the legend below), and `YouVsMarket`'s own You/Market order.
+            It's also this block's only literal column-header-shaped text, so
+            `metric.copy-angle-share` (per-row market-vs-you share) hangs its
+            one tip here rather than on any of the six repeated row values. */}
         {compact && (
           <span className="flex items-center gap-1.5">
-            {hasYourSide && biggestGap && <GapChip row={biggestGap} />}
+            {/* With no brand connected there is no "you" column to name and
+                each row prints ONE number, so the header names that one
+                thing instead of promising a pair the rows can't deliver.
+                (The pair-with-a-placeholder version rendered "n/a /25%" —
+                an absence dressed up as a value, which is the dash-in-
+                disguise this page's copy rule forbids.) */}
+            <span className="flex items-center gap-1 font-mono text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/70">
+              {hasYourSide ? "You / Market" : "Market share"}
+              <InfoTip tip="metric.copy-angle-share" />
+            </span>
             <Provenance tier="derived" compact />
           </span>
         )}
@@ -238,67 +249,87 @@ export function AngleMixDonut({
           full card width.
           Compact: SIDE BY SIDE instead. At the ~130-150px height budget six
           stacked legend rows below a donut no longer fit, so compact shrinks
-          the donut to a fixed 60px and hands the legend the rest of the
-          ~240px card width — still comfortably wider than the ~148px that
+          the donut to a fixed 48px and hands the legend the rest of the
+          column's width — still comfortably wider than the ~148px that
           caused the truncation bug above, because the donut itself is much
           smaller here. This is a fixed layout choice keyed off `compact`,
           not a viewport breakpoint, so it can't refire the same bug. */}
       <div className={cn(compact ? "flex items-center gap-1.5" : "flex flex-col gap-4")}>
-        {/* Donut — decorative/mouse-only, see file header for why. */}
-        <div
-          className="relative mx-auto shrink-0"
-          style={{ width: chartSize, height: chartSize }}
-          aria-hidden="true"
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={displayRows}
-                dataKey="marketPct"
-                nameKey="angle"
-                innerRadius={innerRadius}
-                outerRadius={outerRadius}
-                paddingAngle={2}
-                stroke="none"
-                isAnimationActive={false}
-                onClick={(_, index) => {
-                  // Others carries no `discoverHref` — there is no single
-                  // `?angle=` value meaning "everything else", so a click on
-                  // that wedge is a no-op rather than a lying destination.
-                  const href = displayRows[index]?.discoverHref;
-                  if (href) navigate(href);
-                }}
+        {/* Donut + centre-count wrapper. `mx-auto` used to sit directly on
+            the sized `relative` div; it now sits on this outer flex-col so
+            compact can hang a "live ads" caption underneath the circle
+            without touching the circle's own size — the caption has the
+            legend column's full ~100px of unused vertical budget to sit in
+            (the legend's six rows are taller than the 48px donut regardless),
+            so it costs nothing extra vertically. Full size is unaffected:
+            one child, same as before. */}
+        <div className="mx-auto flex shrink-0 flex-col items-center">
+          {/* Donut — decorative/mouse-only, see file header for why. */}
+          <div
+            className="relative"
+            style={{ width: chartSize, height: chartSize }}
+            aria-hidden="true"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={displayRows}
+                  dataKey="marketPct"
+                  nameKey="angle"
+                  innerRadius={innerRadius}
+                  outerRadius={outerRadius}
+                  paddingAngle={2}
+                  stroke="none"
+                  isAnimationActive={false}
+                  onClick={(_, index) => {
+                    // Others carries no `discoverHref` — there is no single
+                    // `?angle=` value meaning "everything else", so a click on
+                    // that wedge is a no-op rather than a lying destination.
+                    const href = displayRows[index]?.discoverHref;
+                    if (href) navigate(href);
+                  }}
+                >
+                  {displayRows.map((row, i) => (
+                    <Cell
+                      key={row.key}
+                      fill={sliceFill(i)}
+                      cursor={row.discoverHref ? "pointer" : "default"}
+                    />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span
+                className={cn(
+                  "font-semibold tabular-nums text-foreground",
+                  compact ? "text-[9px] leading-none" : "text-lg",
+                )}
               >
-                {displayRows.map((row, i) => (
-                  <Cell
-                    key={row.key}
-                    fill={sliceFill(i)}
-                    cursor={row.discoverHref ? "pointer" : "default"}
-                  />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span
-              className={cn(
-                "font-semibold tabular-nums text-foreground",
-                compact ? "text-[9px] leading-none" : "text-lg",
-              )}
-            >
-              {totalAdCount.toLocaleString()}
-            </span>
-            {/* At 48px the donut is too small to hold a two-line centre
-                label without the text bleeding past the inner ring, so
-                compact drops the "live ads" sub-label — the count alone is
-                still a real mark, and the full figure lives in the KPI row
-                above this block anyway. */}
-            {!compact && (
-              <span className="font-mono font-medium uppercase tracking-[0.14em] text-foreground/70 text-[9px]">
-                live ads
+                {totalAdCount.toLocaleString("en-US")}
               </span>
-            )}
+              {/* At 48px the donut is too small to hold a two-line centre
+                  label without the text bleeding past the inner ring, so
+                  full size keeps its label inside (room for two lines); the
+                  compact equivalent renders as a caption below the circle
+                  instead (see below) rather than going unlabelled. */}
+              {!compact && (
+                <span className="font-mono font-medium uppercase tracking-[0.14em] text-foreground/70 text-[9px]">
+                  live ads
+                </span>
+              )}
+            </div>
           </div>
+          {/* Compact: same "live ads" label as full size, just relocated
+              outside the circle where there's room — the legend column next
+              to it is already taller than the 48px donut, so this costs no
+              extra section height. Fixes the bare, unlabelled "182" Maalik
+              flagged. */}
+          {compact && (
+            <span className="mt-0.5 whitespace-nowrap font-mono text-[7px] font-medium uppercase tracking-[0.08em] text-foreground/70">
+              live ads
+            </span>
+          )}
         </div>
 
         {/* Legend — the real, keyboard-reachable navigation surface. Each
@@ -337,25 +368,48 @@ export function AngleMixDonut({
                     compact ? "gap-0.5 text-[9px]" : "gap-1 text-xs",
                   )}
                 >
-                  {/* Compact rounds to whole points — density over precision
-                      at ~130-150px, and it buys back the width "Direct /
-                      product" and "Question-led" need to render in full
-                      rather than truncating (the earlier "Be…"/"Qu…" bug). */}
-                  <span className={row.isOthers ? "text-foreground/70" : "text-foreground"}>
-                    {compact ? Math.round(row.marketPct) : row.marketPct}%
-                  </span>
-                  {row.yourPct !== null ? (
-                    <span className="text-foreground/70">
-                      {compact ? `/${Math.round(row.yourPct)}%` : `you ${row.yourPct}%`}
-                    </span>
+                  {/* Full size: market first (bare number, the ranking
+                      metric), "you X%" second — already labelled, unambiguous
+                      as-is. Compact: reordered you-first/market-second to
+                      match the "You / Market" column header above (and
+                      `YouVsMarket`'s own column order) — the header names the
+                      order once, so neither number here needs its own label.
+                      Compact still rounds to whole points for width (buys
+                      back the room "Direct / product" and "Question-led"
+                      need to render in full rather than truncating — the
+                      earlier "Be…"/"Qu…" bug). */}
+                  {compact ? (
+                    // A missing `yourPct` is an ABSENCE, and this page's rule
+                    // is that an absence renders as words, never as a token
+                    // standing in for a number. There is no room for words in
+                    // a ~40px compact value slot, so the row drops the pair
+                    // entirely and prints the one number it actually has —
+                    // the header above says "Market share" when that happens,
+                    // so nothing is left unlabelled. A real `yourPct: 0` still
+                    // prints "0%", which is a measurement, not an absence.
+                    row.yourPct !== null ? (
+                      <>
+                        <span className={row.isOthers ? "text-foreground/70" : "text-foreground"}>
+                          {Math.round(row.yourPct)}%
+                        </span>
+                        <span className="text-foreground/70">/{Math.round(row.marketPct)}%</span>
+                      </>
+                    ) : (
+                      <span className={row.isOthers ? "text-foreground/70" : "text-foreground"}>
+                        {Math.round(row.marketPct)}%
+                      </span>
+                    )
                   ) : (
-                    // Absent brand data, never a bare dash — "n/a" in compact
-                    // (space-constrained), the full label at full size. Kept
-                    // visually distinct from a real `yourPct: 0`, which
-                    // renders as an actual "0%" above.
-                    <span className="italic text-foreground/70">
-                      {compact ? "n/a" : "no brand data"}
-                    </span>
+                    <>
+                      <span className={row.isOthers ? "text-foreground/70" : "text-foreground"}>
+                        {row.marketPct}%
+                      </span>
+                      {row.yourPct !== null ? (
+                        <span className="text-foreground/70">you {row.yourPct}%</span>
+                      ) : (
+                        <span className="italic text-foreground/70">no brand data</span>
+                      )}
+                    </>
                   )}
                 </span>
               </>
@@ -369,7 +423,6 @@ export function AngleMixDonut({
                       "flex items-center justify-between gap-1 rounded-md px-1",
                       compact ? "py-px" : "py-1",
                     )}
-                    title={othersTooltip(row)}
                   >
                     {rowInner}
                   </div>
@@ -381,7 +434,7 @@ export function AngleMixDonut({
               <li key={row.key}>
                 <Link
                   to={row.discoverHref as string}
-                  title={`${row.adCount.toLocaleString()} ads — open in Discover`}
+                  aria-label={`${row.angle}, ${row.adCount.toLocaleString("en-US")} ads — open in Discover`}
                   className={cn(
                     "group -mx-1 flex items-center justify-between gap-1 rounded-md px-1 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     compact ? "py-px" : "py-1",
@@ -396,13 +449,13 @@ export function AngleMixDonut({
       </div>
 
       {/* The takeaway sentence and the basisNote footnote are the two things
-          compact sheds entirely — the sentence restates what the legend's
-          market-vs-yours column already shows, and the footnote is a
-          methodology caption of the same class as LaunchCadenceChart's
-          `scopeNote`. Both survive at full size; in compact the sharpest
-          gap moves into the header as a signed number instead (see header
-          above), and the `Provenance` marker moves there too, so neither is
-          actually lost — they're demoted, not deleted. */}
+          compact sheds entirely. The sentence restated what the legend's
+          market-vs-yours column already shows — and now that compact labels
+          that column ("You / Market", see header above), it has nothing left
+          to add, so it's dropped rather than fixed. The footnote is a
+          methodology caption; only the `Provenance` marker survives from this
+          block in compact, relocated into the header. Both the sentence and
+          the footnote still render in full. */}
       {!compact && (
         <>
           {hasYourSide && biggestGap ? (

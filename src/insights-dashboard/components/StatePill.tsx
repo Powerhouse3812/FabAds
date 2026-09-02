@@ -1,6 +1,13 @@
 /**
  * StatePill — dev-only floating switcher for forcing the dashboard into any
- * of its five states: `populated` / `thin` / `zero` / `loading` / `error`.
+ * of its four states: `populated` / `firstTime` / `empty` / `loading`.
+ *
+ * Collapsed from five (Maalik: keep only populated, first-time and empty,
+ * plus the loading transition — `error`, a partial source failure, is gone
+ * entirely). `thin` → `firstTime`, `zero` → `empty`; old `?state=` links using
+ * any of the three retired values still resolve, silently aliased in
+ * `state/DashboardState.tsx`, so a previously shared review link never lands
+ * on a blank page.
  *
  * This is how the entire review of this dashboard happens: Maalik flips
  * between the states to check every block's coverage, so the control has to
@@ -8,19 +15,18 @@
  * content it's reviewing.
  *
  * ── Why two rows rather than one ──────────────────────────────────────────
- * Five buttons in a single row is ~380px of corner furniture, which starts
- * covering the content it exists to review. They split cleanly anyway:
+ * Four buttons split as:
  *
- *   DATA   how much data exists      populated · thin · zero
- *   FETCH  whether the fetch worked  loading · error
+ *   DATA   how much data exists      populated · firstTime · empty
+ *   FETCH  whether the fetch worked  loading
  *
- * The split is a labelling decision as much as a layout one. `zero` and
+ * The split is a labelling decision as much as a layout one. `empty` and
  * `loading` render almost identically — empty everywhere — and mean opposite
  * things ("you have none" versus "we haven't looked yet"). Putting them under
- * different headings makes the reviewer read them as different questions.
- * Order comes from `DASHBOARD_STATES`, labels from `DASHBOARD_STATE_LABELS`,
- * grouping from `DASHBOARD_STATE_GROUPS` — so a sixth state appears here
- * automatically.
+ * different headings makes the reviewer read them as different questions,
+ * even with `loading` alone in its row now. Order comes from
+ * `DASHBOARD_STATES`, labels from `DASHBOARD_STATE_LABELS`, grouping from
+ * `DASHBOARD_STATE_GROUPS` — so a future state appears here automatically.
  *
  * Same house grammar as `src/creative-report-v2/components/StatesSwitcher.tsx`
  * (FlaskConical icon, dashed border, mono micro-labels, deliberately
@@ -31,10 +37,10 @@
  *
  * That is the SAME flag that reveals the dashboard's nav row, and it is
  * deliberately not `import.meta.env.DEV`. The states are the whole point of
- * this page — thin, zero, loading and the partial-failure state carry most of
- * its design argument — and they are reviewed on the deployed build, not on
- * localhost. A DEV-only pill meant the one person allowed to see the page had
- * to hand-type `?state=` to see four fifths of it.
+ * this page — firstTime, empty and loading carry most of its design argument
+ * — and they are reviewed on the deployed build, not on localhost. A DEV-only
+ * pill meant the one person allowed to see the page had to hand-type
+ * `?state=` to see most of it.
  *
  * Anyone who has set the flag has already opted in past the nav gate, so
  * showing them the switcher reveals nothing new. End users, who never set it,
@@ -75,8 +81,11 @@ const ROWS: ReadonlyArray<{ key: string; label: string; states: DashboardState[]
     : rows;
 })();
 
+/** `text-foreground/70` (5.99:1), not `text-muted-foreground` (3.48:1 on
+ * `bg-card` in light — fails WCAG AA for text). The flask ICON beside it may
+ * stay muted; this is real text. */
 const MICRO_LABEL =
-  "font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground";
+  "font-mono text-[9px] font-medium uppercase tracking-[0.14em] text-foreground/70";
 
 export function StatePill(): JSX.Element | null {
   // Hooks are called unconditionally (Rules of Hooks). The flag is read once
@@ -122,8 +131,10 @@ export function StatePill(): JSX.Element | null {
                     "whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-[0.14em] transition-colors",
                     "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                     isActive
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? // `text-primary-text` (5.25:1), never `text-primary`
+                        // (1.99:1 on this tint in light mode).
+                        "bg-primary/15 text-primary-text"
+                      : "text-foreground/70 hover:text-foreground",
                   )}
                 >
                   {DASHBOARD_STATE_LABELS[state]}

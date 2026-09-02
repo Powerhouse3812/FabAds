@@ -14,8 +14,9 @@
  * user could see *that* there were 3 steps but never *what* the other two
  * were, so they couldn't plan against it. All three rows now always render:
  * done steps go quiet (checked, muted, a small "Manage" link, no competing
- * CTA), the next step stays the one prominent row with the primary CTA, and
- * later pending steps show their label with no loud CTA. `done` is never
+ * CTA), the next step stays the one prominent row with the block's only
+ * actionable CTA (see the progress-meter note below on why it's `outline`,
+ * not lime), and later pending steps show their label with no CTA. `done` is never
  * touched locally — every row always reflects the selector's real state, and
  * CTAs only navigate.
  *
@@ -32,6 +33,25 @@
  *
  * When `complete` is true the block renders nothing. The page may still
  * mount it — it just goes quiet instead of showing a celebration banner.
+ *
+ * Progress-meter pass (2026-09): every other block on this dashboard now
+ * carries its own market-grounded provocation and its own single action in
+ * `firstTime`/`empty` (follow an industry, track a competitor, save an ad,
+ * launch your first ads) — so this block stopped being the page's only
+ * instruction and risked becoming a fourth restatement of two of those same
+ * three asks. It was NOT cut, because it is the one place that shows overall
+ * setup progress across all three steps at once — the only form of
+ * gamification this page is allowed (standing rule: progress, nothing more)
+ * — and `coverage`/`checklist`/`watchlist`/`boards` are the genuinely
+ * user-scoped collections with no market number to lean on instead. What
+ * changed is emphasis: the next-step CTA below is deliberately styled
+ * `outline`, not the lime `default` used for a block's own big pitch
+ * elsewhere on the page (e.g. a per-row "Follow" on `CoverageRescue` /
+ * `TopCompetitors`). That's the resolution — this row is a return path back
+ * to a step already introduced elsewhere, not a second full-throated ask for
+ * the same thing. The progress bar and "N of 3 done" label stay the loudest
+ * thing in the block, which is the point: nothing else on the page shows
+ * that number.
  */
 import { ArrowRight, Check, Circle, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -46,6 +66,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import { useSetupChecklist, type SetupChecklistItem } from "@/insights-dashboard/lib/selectors";
 
 const SECTION_LABEL = "font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70";
@@ -59,28 +81,32 @@ function isExternalHref(href: string): boolean {
  * Renders `item.ctaLabel` as either an in-app `Link` or an external anchor
  * that opens in a new tab — never an in-app route standing in for a
  * destination that isn't actually part of FabAds.
+ *
+ * `tip`, when passed, wraps the rendered `Button` in `InfoTip` wrap-mode
+ * (the button itself becomes the trigger, no added glyph) instead of a
+ * second tooltip stacked beside it. Only the "follow-industries" step's
+ * live CTA uses this — `action.follow-industry` describes what clicking it
+ * actually does, which is only true while the step is still actionable.
  */
 function ChecklistCta({
   item,
   variant,
   className,
+  tip,
 }: {
   item: SetupChecklistItem;
   variant: ButtonProps["variant"];
   className?: string;
+  tip?: string;
 }) {
-  if (isExternalHref(item.href)) {
-    return (
-      <Button asChild variant={variant} size="sm" className={className}>
-        <a href={item.href} target="_blank" rel="noopener noreferrer">
-          {item.ctaLabel}
-          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-        </a>
-      </Button>
-    );
-  }
-
-  return (
+  const button = isExternalHref(item.href) ? (
+    <Button asChild variant={variant} size="sm" className={className}>
+      <a href={item.href} target="_blank" rel="noopener noreferrer">
+        {item.ctaLabel}
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+      </a>
+    </Button>
+  ) : (
     <Button asChild variant={variant} size="sm" className={className}>
       <Link to={item.href}>
         {item.ctaLabel}
@@ -88,6 +114,16 @@ function ChecklistCta({
       </Link>
     </Button>
   );
+
+  if (tip) {
+    return (
+      <InfoTip tip={tip} asChild>
+        {button}
+      </InfoTip>
+    );
+  }
+
+  return button;
 }
 
 /**
@@ -107,9 +143,13 @@ function ChecklistLabel({ item, className }: { item: SetupChecklistItem; classNa
           {item.label}
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[240px]">
-        <p className="text-xs leading-snug">{item.description}</p>
-      </TooltipContent>
+      {/* Portalled — an unportalled TooltipContent clips inside any ancestor
+          scroller. Same pattern as `InfoTip`. */}
+      <TooltipPrimitive.Portal>
+        <TooltipContent side="top" className="max-w-[240px]">
+          <p className="text-xs leading-snug">{item.description}</p>
+        </TooltipContent>
+      </TooltipPrimitive.Portal>
     </Tooltip>
   );
 }
@@ -127,7 +167,10 @@ export function SetupChecklist({ className }: { className?: string }): JSX.Eleme
     return (
       <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
         <header className="mb-2 flex items-center justify-between gap-2">
-          <h2 className={SECTION_LABEL}>Finish setup</h2>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h2 className={SECTION_LABEL}>Finish setup</h2>
+            <InfoTip tip="block.setup-checklist" />
+          </div>
           <Skeleton className="h-2.5 w-14" />
         </header>
         <Skeleton className="h-1.5 w-full rounded-full" />
@@ -155,7 +198,10 @@ export function SetupChecklist({ className }: { className?: string }): JSX.Eleme
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
       <header className="mb-2 flex items-center justify-between gap-2">
-        <h2 className={SECTION_LABEL}>Finish setup</h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className={SECTION_LABEL}>Finish setup</h2>
+          <InfoTip tip="block.setup-checklist" />
+        </div>
         <span className="shrink-0 text-xs font-medium text-foreground/70">{progressLabel}</span>
       </header>
 
@@ -183,14 +229,24 @@ export function SetupChecklist({ className }: { className?: string }): JSX.Eleme
             }
 
             if (item.key === nextStep.key) {
-              // Next: the one prominent row with the primary CTA.
+              // Next: the one prominent row on this block — but the CTA is
+              // `outline`, not the lime `default` a block's own provocation
+              // uses elsewhere on the page. This step's ask (follow an
+              // industry / track a competitor) is already made, with its own
+              // market-grounded case, by another block; this row is a return
+              // path back to it, not a second full-throated pitch for it.
               return (
                 <div key={item.key} className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <Circle className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <ChecklistLabel item={item} className="text-xs font-medium text-foreground" />
                   </div>
-                  <ChecklistCta item={item} variant="default" className="h-7 shrink-0 px-2.5 text-xs" />
+                  <ChecklistCta
+                    item={item}
+                    variant="outline"
+                    className="h-7 shrink-0 px-2.5 text-xs"
+                    tip={item.key === "follow-industries" ? "action.follow-industry" : undefined}
+                  />
                 </div>
               );
             }

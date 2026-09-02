@@ -54,6 +54,28 @@
  * When `row.you` IS the top brand, the top-brand callout already says
  * "YourBrand (you) X%" (see below), so the extra mark is skipped rather than
  * repeating the same number twice on one line.
+ *
+ * STATE CONSOLIDATION (populated / firstTime / empty / loading): `industries`
+ * is now the FULL market preview in every non-loading state, not just
+ * `populated` — `firstTime`/`empty` build these same rows from
+ * `buildMarketSnapshot`, the six industries FabAds indexes, rather than the
+ * user's own (near-empty) follow list. That is exactly the point: the leader's
+ * real share sits next to the user's real absence ("Not advertising here"),
+ * which is the honest FOMO this block is built to carry — never a fabricated
+ * "your competitor is winning" line, always a real number from the same
+ * `liveAdsForDomain` derivation the domains table prints. The header's right-
+ * hand caption reflects this: only `populated` calls the count "tracked" (the
+ * rows there ARE the user's followed set); `firstTime`/`empty` say "shown"
+ * instead, since claiming these six as "tracked" would imply a follow list
+ * the user doesn't have yet — the caption trap this consolidation pass exists
+ * to catch. `isEmpty` below is a defensive fallback for a literal zero-row
+ * result; it does not fire in any of today's three content states.
+ *
+ * TOOLTIPS: `block.share-of-voice` sits on the heading (explains the whole
+ * block, in both the loading skeleton and the real header). `metric.
+ * brand-share-callout` explains the repeated "top brand % / your %" pattern
+ * that every row renders — per the one-tip-per-concept rule it sits ONCE, on
+ * the header's metric-basis caption, not on all six rows.
  */
 import { Link } from "react-router-dom";
 import { PieChart } from "lucide-react";
@@ -62,7 +84,9 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import {
+  useDashboardMeta,
   useIndustryBrandShare,
   type IndustryShareBrand,
   type IndustryShareRow,
@@ -99,7 +123,7 @@ function IndustryBreakdownCard({ row }: { row: IndustryShareRow }) {
   return (
     <div className="space-y-2">
       <p className="text-xs font-medium text-foreground">
-        {row.liveAds.toLocaleString()} live ads across {row.advertisers.toLocaleString()} advertisers
+        {row.liveAds.toLocaleString("en-US")} live ads across {row.advertisers.toLocaleString("en-US")} advertisers
       </p>
       <ul className="space-y-1">
         {row.brands.map((brand) => {
@@ -232,6 +256,14 @@ function IndustryRowView({ row }: { row: IndustryShareRow }) {
 export function ShareOfVoice({ className }: { className?: string }): JSX.Element {
   const { industries, isEmpty, isLoading, metricLabel, basisNote, industryCount } =
     useIndustryBrandShare();
+  // `populated` builds these rows from the user's own followed set, so
+  // "tracked" is literally true there. `firstTime`/`empty` build the SAME
+  // shape from the market preview (`buildMarketSnapshot`) — the six
+  // industries FabAds indexes, not the industries this user follows. Saying
+  // "tracked" in those two states would claim a follow list that doesn't
+  // exist yet (the exact caption trap this pass exists to catch), so they
+  // get neutral, equally-short wording instead.
+  const { isPopulated } = useDashboardMeta();
 
   // CHECK isLoading BEFORE `isEmpty`. `industries` is `[]` in both `loading`
   // and a genuinely empty result — bar-row skeletons keep first paint from
@@ -243,6 +275,7 @@ export function ShareOfVoice({ className }: { className?: string }): JSX.Element
           <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
             Top industries · brand share
           </h2>
+          <InfoTip tip="block.share-of-voice" />
         </header>
         <div>
           {Array.from({ length: 3 }).map((_, i) => (
@@ -262,12 +295,20 @@ export function ShareOfVoice({ className }: { className?: string }): JSX.Element
   return (
     <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
       <header className="mb-0.5 flex items-center justify-between gap-2">
-        <h2 className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
-          Top industries · brand share
-        </h2>
+        <div className="flex min-w-0 items-center gap-1">
+          <h2 className="truncate font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+            Top industries · brand share
+          </h2>
+          <InfoTip tip="block.share-of-voice" />
+        </div>
         {!isEmpty && (
-          <span className="shrink-0 text-[10px] text-foreground/70">
-            {industryCount} tracked · {metricLabel.toLowerCase()}
+          <span className="flex shrink-0 items-center gap-1 text-[10px] text-foreground/70">
+            {industryCount} {isPopulated ? "tracked" : "shown"} · {metricLabel.toLowerCase()}
+            {/* One trigger for the whole repeated "top brand % / your %"
+                pattern below — every row renders the same concept, so per
+                the trigger-discipline rule this sits once on the metric's
+                label line, not once per industry row. */}
+            <InfoTip tip="metric.brand-share-callout" />
           </span>
         )}
       </header>

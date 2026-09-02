@@ -7,23 +7,22 @@ import { AlertTriangle, FlaskConical, History, Info, Loader2, RefreshCw } from "
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-import {
-  DashboardStateProvider,
-  useDashboardState,
-} from "@/insights-dashboard/state/DashboardState";
+import { DashboardStateProvider } from "@/insights-dashboard/state/DashboardState";
 import {
   useDashboardMeta,
   useDashboardStatus,
   useSetupChecklist,
+  useTrendsSummary,
   type DashboardStatusBanner,
 } from "@/insights-dashboard/lib/selectors";
 
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import { StatePill } from "@/insights-dashboard/components/StatePill";
 import { KpiRow } from "@/insights-dashboard/components/KpiRow";
 import { LongRunnersGallery } from "@/insights-dashboard/components/LongRunnersGallery";
 import { ChangeFeed } from "@/insights-dashboard/components/ChangeFeed";
+import { WhatToTryNext } from "@/insights-dashboard/components/WhatToTryNext";
 import { TopCompetitors } from "@/insights-dashboard/components/TopCompetitors";
 import { AngleMixDonut } from "@/insights-dashboard/components/AngleMixDonut";
 import { YouVsMarket } from "@/insights-dashboard/components/YouVsMarket";
@@ -32,13 +31,12 @@ import { DomainsTeaser } from "@/insights-dashboard/components/DomainsTeaser";
 import { BoardHygiene } from "@/insights-dashboard/components/BoardHygiene";
 import { WhereToGo } from "@/insights-dashboard/components/WhereToGo";
 import { SetupChecklist } from "@/insights-dashboard/components/SetupChecklist";
-import { CoverageRescue } from "@/insights-dashboard/components/CoverageRescue";
+import { TrendsSummary } from "@/insights-dashboard/components/TrendsSummary";
 
-/**
- * The module pulls from exactly four sources. The Figma spec said eight —
- * that number was never substantiated, so this page does not repeat it.
- */
-const SOURCES = ["Meta Ad Library", "StoreLeads", "AdPlexity", "Google Trends"];
+// The module pulls from exactly four sources — Meta Ad Library, StoreLeads,
+// AdPlexity, Google Trends. The Figma spec said eight; that number was never
+// substantiated, so this page does not repeat it. The badge below states the
+// count; `block.page-sources` (in `lib/tooltipCopy.ts`) carries the rest.
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Status banner
@@ -117,48 +115,87 @@ const SCROLL_CLEARANCE = "scroll-mt-20";
 // ═══════════════════════════════════════════════════════════════════════════
 
 function InsightsOverviewContent(): JSX.Element {
-  const dashboardState = useDashboardState();
   const meta = useDashboardMeta();
   const status = useDashboardStatus();
   const railRef = useRef<HTMLDivElement>(null);
 
   // ORDER MATTERS. `isLoading` is evaluated before anything that tests for
   // emptiness, because in `loading` every collection is empty and that means
-  // "not yet", not "none". Everything below reads these flags, never a raw
+  // "not yet", not "none". Everything below reads this flag, never a raw
   // `state` string or a `length === 0`.
   const isLoading = status.isLoading;
-  const isThin = !isLoading && dashboardState === "thin";
-  const isZero = !isLoading && dashboardState === "zero";
 
-  // `error` is NOT an empty state and NOT a layout of its own: it is the
-  // populated page with the StoreLeads-modelled figures removed and a
-  // three-day-old timestamp on everything that survives. `isPopulated`,
-  // `isThin` and `isZero` are all false there, so it falls through to the
-  // populated block set on purpose — the banner and the per-figure `naReason`
-  // strings carry the degradation, not a different set of blocks.
-  //
-  // `isLoading` falls through to the SAME block set. Every block below owns
-  // its own `isLoading` check (ahead of its own `isEmpty` check) and its own
-  // skeleton sized to its own resolved geometry, so the page does not need a
-  // parallel page-level skeleton to keep in sync by hand — mounting the real
-  // components IS the loading state, and there is zero chance of it drifting
-  // out of measurement with what it resolves into.
-  const showFullBoard = isLoading || (!isThin && !isZero);
+  // The page used to fork into three near-identical branches keyed off
+  // `isThin` / `isZero` (renamed `isFirstTime` / `isEmptyState` on
+  // `useDashboardMeta()`), collapsing most of the board and swapping in
+  // a coverage-rescue block. That is gone — the block was removed outright.
+  // Every block below mounts in every state
+  // — `populated`, `firstTime`, `empty`, `loading` — in the same grid, same
+  // order. `firstTime`/`empty` are no longer a different LAYOUT; they are the
+  // same layout with market-wide data (each block's own selector already
+  // draws from the shared market preview in those states) and the user's own
+  // side rendered honestly absent (`null`/`hasYourData: false`), never a
+  // blank card. `loading` falls through to the same block set too: every
+  // block owns its own `isLoading` check (ahead of its own emptiness check)
+  // and paints its own skeleton, so mounting the real components IS the
+  // loading state — there is no parallel page-level skeleton to keep in sync
+  // by hand.
 
   // `SetupChecklist` returns null once all three steps are done (it will not
   // render a celebration banner), so the page cannot hand it a fixed
-  // `col-span-4` and assume something fills it — in `populated` and `error`
-  // setup IS complete, which left a third of that row visibly empty beside
-  // "Where to go". The page owns layout, so the page asks the same selector
-  // the block does and gives the row's whole width to `WhereToGo` when the
-  // checklist has nothing to ask for.
+  // `col-span-4` and assume something fills it — in `populated`, setup IS
+  // complete, which left a third of that row visibly empty beside "Where to
+  // go". The page owns layout, so the page asks the same selector the block
+  // does and gives the row's whole width to `WhereToGo` when the checklist
+  // has nothing to ask for.
   //
   // Mirrors the block's own render contract exactly, in the same order:
   // skeleton while loading (so the slot is held and the row does not reflow
   // on resolve), then null when `complete || !nextStep`.
   const setup = useSetupChecklist();
   const showChecklist = isLoading || !(setup.complete || !setup.nextStep);
-  const summaryMainSpan = showChecklist ? "lg:col-span-8" : "lg:col-span-12";
+
+  // Same contract as `SetupChecklist` above: skeleton while loading, then
+  // hidden only if the hook genuinely has nothing. In practice `isEmpty` is
+  // `false` in every state now — Trends is market-wide (Google Trends +
+  // news), independent of what the user follows — but the check stays so the
+  // page never assumes that instead of asking the selector.
+  const trendsSummary = useTrendsSummary();
+  const showTrends = isLoading || !trendsSummary.isEmpty;
+
+  // WhereToGo gets the row's whole width only when nothing trails it. One
+  // trailing block keeps the original 8/4 split; two share the freed 4-col
+  // slot stacked (the same "two blocks, one grid cell" pattern ChangeFeed's
+  // row already uses above), so neither the checklist's own layout nor its
+  // "renders null when complete" contract has to change.
+  const trailingCount = (showChecklist ? 1 : 0) + (showTrends ? 1 : 0);
+  const summaryMainSpan = trailingCount === 0 ? "lg:col-span-12" : "lg:col-span-8";
+
+  // Identical in every state — populated / firstTime / empty / loading all
+  // share this exact node now that there is only one render path, so
+  // `railRef` and the `insights-summary` id are attached exactly once.
+  const summaryRow = (
+    <div
+      ref={railRef}
+      id="insights-summary"
+      tabIndex={-1}
+      aria-label="Where to go, setup, and trends"
+      className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
+    >
+      <WhereToGo className={summaryMainSpan} />
+      {trailingCount === 2 ? (
+        <div className="flex flex-col gap-6 lg:col-span-4">
+          <SetupChecklist />
+          <TrendsSummary />
+        </div>
+      ) : (
+        <>
+          {showChecklist && <SetupChecklist className="lg:col-span-4" />}
+          {showTrends && <TrendsSummary className="lg:col-span-4" />}
+        </>
+      )}
+    </div>
+  );
 
   const handleRefresh = useCallback(() => {
     // Honest: there is no scheduled re-sync behind this button. It never
@@ -171,8 +208,8 @@ function InsightsOverviewContent(): JSX.Element {
    * change feed and the top-ads strip, so a keyboard user who wants the
    * "where to go" + "finish setup" pair currently tabs through the entire
    * page to reach it. There is no tall rail in this layout — the target is
-   * whichever row is last on the page in the active state, which is this
-   * pair in all five states.
+   * the summary row, which is now the last row on the page in every state,
+   * since there is only one render path.
    *
    * The anchor's `href` is the no-JS fallback; the handler is what actually
    * runs, because the default anchor jump would land the target underneath
@@ -221,23 +258,27 @@ function InsightsOverviewContent(): JSX.Element {
       <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border bg-background px-6 py-2">
         <div className="flex items-center gap-2">
           <span className="text-xs text-foreground/70">{meta.lastScanLabel}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 px-2 text-xs text-foreground/70"
-            onClick={handleRefresh}
-          >
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            Refresh now
-          </Button>
+          <InfoTip tip="action.refresh-now" asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-xs text-foreground/70"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              Refresh now
+            </Button>
+          </InfoTip>
         </div>
-        <Link
-          to="/insights-v2/feed"
-          className="text-xs font-medium text-primary-text hover:underline"
-        >
-          Manage preferences
-        </Link>
+        <InfoTip tip="action.manage-preferences" asChild>
+          <Link
+            to="/insights-v2/feed"
+            className="text-xs font-medium text-primary-text hover:underline"
+          >
+            Manage preferences
+          </Link>
+        </InfoTip>
       </div>
 
       {/* Everything below the sticky bar carries the page padding. The root
@@ -254,28 +295,23 @@ function InsightsOverviewContent(): JSX.Element {
         <div className="flex flex-col gap-2">
           <h1 className="sr-only">Industry Insights</h1>
           <div className="flex flex-wrap items-center gap-3">
-            <Tooltip>
-              {/* Badge is a plain function component, so `asChild` cannot forward
-                  a ref to it (React warns, and the tooltip loses its anchor). The
-                  span is the ref target; tabIndex keeps the tooltip reachable by
-                  keyboard as well as hover. Fixing this by editing
-                  components/ui/badge.tsx is not an option — shadcn primitives are
-                  not modified in this repo. */}
-              <TooltipTrigger asChild>
-                <span tabIndex={0} className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-                  <Badge
-                    variant="secondary"
-                    className="cursor-default gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.1em]"
-                  >
-                    <Info className="h-3 w-3" aria-hidden="true" />
-                    US · 4 sources
-                  </Badge>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-[220px] text-xs">{SOURCES.join(" · ")}</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* Badge is a plain function component, so `asChild` cannot forward
+                a ref to it (React warns, and the tooltip loses its anchor). The
+                span is the ref target; tabIndex keeps the tooltip reachable by
+                keyboard as well as hover. Fixing this by editing
+                components/ui/badge.tsx is not an option — shadcn primitives are
+                not modified in this repo. */}
+            <InfoTip tip="block.page-sources" asChild>
+              <span tabIndex={0} className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <Badge
+                  variant="secondary"
+                  className="cursor-default gap-1 font-mono text-[10px] font-medium uppercase tracking-[0.1em]"
+                >
+                  <Info className="h-3 w-3" aria-hidden="true" />
+                  US · 4 sources
+                </Badge>
+              </span>
+            </InfoTip>
           </div>
           <p className="text-xs text-foreground/70">{meta.stateNote}</p>
 
@@ -295,9 +331,9 @@ function InsightsOverviewContent(): JSX.Element {
           )}
         </div>
 
-        {/* Disclosure before data. Null in populated / thin / zero — those states
-            have nothing to disclose, and a permanent banner would train people to
-            stop reading the one that matters. */}
+        {/* Disclosure before data. Null in populated / firstTime / empty — those
+            states have nothing to disclose, and a permanent banner would train
+            people to stop reading the one that matters. */}
         {status.needsDisclosure && status.banner && <StatusBanner banner={status.banner} />}
 
         {/* KpiRow spans full width — the page's honesty strip, including the
@@ -314,125 +350,73 @@ function InsightsOverviewContent(): JSX.Element {
             block takes `className` and merges it onto its own root, so the
             grid column span is passed straight through. */}
         <div className="flex flex-col gap-6" aria-busy={isLoading || undefined}>
-          {/* populated, error, AND loading share this block set. `error` is
-              the populated board minus the StoreLeads-modelled figures
-              (per-figure `naReason`, not a different layout). `loading` is
-              the same board with every block's own `isLoading` branch
-              painting its own skeleton — see the note on `showFullBoard`
-              above for why that beats a parallel page-level skeleton. */}
-          {showFullBoard && (
-            <>
-              {/* Row: what changed, beside your angle mix and your account
-                  against the market. The change feed leads — it's the one
-                  block nothing else on this page ships — and its 8-col
-                  height (~440px, a fixed recent-activity list, not fluid) set
-                  the row. A lone compact `AngleMixDonut` in the 4-col column
-                  used to be stretched to match it, ~73% empty — the exact
-                  "failed to load" read a monitor already flagged once on
-                  Board hygiene. `AngleMixDonut`'s compact mode was built for
-                  a narrower column shared with the now-deleted
-                  `LaunchCadenceChart`; that partner is gone, so this column
-                  gets a new one. `YouVsMarket` stacked underneath is a real
-                  content pairing (both are "you vs the market" reads, just
-                  two different axes) and, combined, its content plus the
-                  compact donut's lands within a few px of ChangeFeed's own
-                  height — no stretch-void on either side, and the row does
-                  not grow past its original height. This is the one place on
-                  the page two blocks share a grid cell, hence the wrapper
-                  div (every other block takes its span via `className`
-                  directly). */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                <ChangeFeed className="lg:col-span-8" />
-                <div className="flex flex-col gap-6 lg:col-span-4">
-                  <AngleMixDonut compact />
-                  <YouVsMarket />
-                </div>
-              </div>
+          {/* One render path, mounted in every state — populated, firstTime,
+              empty, loading. Nothing here forks on `dashboardState` any
+              more; every block below reads its own selector and paints its
+              own content (market-wide data plus an honest read of the
+              user's own side), so the page never has to decide what's
+              visible. */}
 
-              {/* Top-performing ads — one horizontal strip, full width. */}
-              <LongRunnersGallery />
-
-              {/* Row: who's shipping (ranked list + launch cadence, merged
-                  into one card) beside where the money-adjacent traffic goes. */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                <TopCompetitors className="lg:col-span-6" />
-                <DomainsTeaser className="lg:col-span-6" />
-              </div>
-
-              {/* Row: which industry is biggest and who holds it, beside
-                  board maintenance. `YouVsMarket` moved into the hero row
-                  above (see there), so this is a 2-up row now, not 3 —
-                  `BoardHygiene` keeps its own `self-start` (sized to its two
-                  numbers, not stretched) exactly as before; only the spans
-                  changed to fill the freed column. */}
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                <ShareOfVoice className="lg:col-span-8" />
-                <BoardHygiene className="lg:col-span-4" />
-              </div>
-
-              {/* Row: where the rest of the module lives, beside whatever
-                  setup is still worth finishing. Last row on the page, so
-                  this is the skip-link target in every state. */}
-              <div
-                ref={railRef}
-                id="insights-summary"
-                tabIndex={-1}
-                aria-label="Where to go and setup"
-                className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
-              >
-                <WhereToGo className={summaryMainSpan} />
-                {showChecklist && <SetupChecklist className="lg:col-span-4" />}
-              </div>
-            </>
-          )}
-
-          {isThin && (
-            <>
-              {/* Day 1 leads with the fix, not with the gap. The change feed
-                  leads everywhere it has something to report; here it has
-                  nothing, and "nothing to compare against yet" is a poor first
-                  impression above the one block that can actually change that.
-                  So the rescue block takes the slot and the merged
-                  brief+feed — which still carries the honest reason there is
-                  no summary — follows it. myBrand IS present in "thin" —
-                  YouVsMarket is the one genuinely non-empty block here. */}
-              <CoverageRescue />
-              <ChangeFeed />
+          {/* Row: what changed, beside your angle mix and your account
+              against the market. The change feed leads — it's the one
+              block nothing else on this page ships — and its 8-col
+              height (~440px, a fixed recent-activity list, not fluid) set
+              the row. A lone compact `AngleMixDonut` in the 4-col column
+              used to be stretched to match it, ~73% empty — the exact
+              "failed to load" read a monitor already flagged once on
+              Board hygiene. `AngleMixDonut`'s compact mode was built for
+              a narrower column shared with the now-deleted
+              `LaunchCadenceChart`; that partner is gone, so this column
+              gets a new one. `YouVsMarket` stacked underneath is a real
+              content pairing (both are "you vs the market" reads, just
+              two different axes) and, combined, its content plus the
+              compact donut's lands within a few px of ChangeFeed's own
+              height — no stretch-void on either side, and the row does
+              not grow past its original height. This is the one place on
+              the page two blocks share a grid cell, hence the wrapper
+              div (every other block takes its span via `className`
+              directly). */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <ChangeFeed className="lg:col-span-8" />
+            <div className="flex flex-col gap-6 lg:col-span-4">
+              <AngleMixDonut compact />
               <YouVsMarket />
+            </div>
+          </div>
 
-              <div
-                ref={railRef}
-                id="insights-summary"
-                tabIndex={-1}
-                aria-label="Where to go and setup"
-                className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
-              >
-                <WhereToGo className={summaryMainSpan} />
-                {showChecklist && <SetupChecklist className="lg:col-span-4" />}
-              </div>
-            </>
-          )}
+          {/* What to try next — one suggestion at a time, carousel-style,
+              horizontal layout (Maalik: "ek card, but changable, means
+              carousel ki trah may be... horizontal layout me rakhna
+              chahiye"). Sits directly under the hero row: ChangeFeed, the
+              angle mix, and You vs market are literally this block's
+              inputs, so the suggestion reads as their conclusion. */}
+          <WhatToTryNext />
 
-          {/* zero: starter industries only, nothing fabricated above it. No
-              change feed here — with nothing followed, "we need two scans of
-              the same advertiser" is an answer to a question the user has not
-              asked yet, and CoverageRescue already says the true thing. */}
-          {isZero && (
-            <>
-              <CoverageRescue />
+          {/* Top-performing ads — one horizontal strip, full width. */}
+          <LongRunnersGallery />
 
-              <div
-                ref={railRef}
-                id="insights-summary"
-                tabIndex={-1}
-                aria-label="Where to go and setup"
-                className={cn("grid grid-cols-1 gap-6 lg:grid-cols-12", SCROLL_CLEARANCE, "focus:outline-none")}
-              >
-                <WhereToGo className={summaryMainSpan} />
-                {showChecklist && <SetupChecklist className="lg:col-span-4" />}
-              </div>
-            </>
-          )}
+          {/* Row: who's shipping (ranked list + launch cadence, merged
+              into one card) beside where the money-adjacent traffic goes. */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <TopCompetitors className="lg:col-span-6" />
+            <DomainsTeaser className="lg:col-span-6" />
+          </div>
+
+          {/* Row: which industry is biggest and who holds it, beside
+              board maintenance. `YouVsMarket` moved into the hero row
+              above (see there), so this is a 2-up row, not 3 —
+              `BoardHygiene` keeps its own `self-start` (sized to its two
+              numbers, not stretched); only the spans fill the freed
+              column. */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <ShareOfVoice className="lg:col-span-8" />
+            <BoardHygiene className="lg:col-span-4" />
+          </div>
+
+          {/* Row: where the rest of the module lives, beside whatever
+              setup is still worth finishing. Last row on the page, so
+              this is the skip-link target in every state. */}
+          {summaryRow}
         </div>
       </div>
     </div>

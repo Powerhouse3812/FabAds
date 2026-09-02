@@ -117,9 +117,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
+import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
 import {
+  useDashboardMeta,
   useLongRunners,
   type LongRunnerAd,
   type LongRunnerTier,
@@ -268,13 +271,14 @@ function LongRunnerCard({
       {/* Row 1 (matches InsightAdCard's status/duration row): tier + caveat +
           divergent provenance. */}
       <div className="relative flex items-center justify-between gap-1">
-        <Link
-          to={longevityHref(ad.tier)}
-          title={`View ${ad.tier} creative in Discover`}
-          className="inline-flex items-center rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          {ad.tier}
-        </Link>
+        <InfoTip tip="metric.long-runner-tier" asChild>
+          <Link
+            to={longevityHref(ad.tier)}
+            className="inline-flex items-center rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-[8px] font-medium uppercase tracking-[0.08em] text-foreground/70 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {ad.tier}
+          </Link>
+        </InfoTip>
         <div className="flex shrink-0 items-center gap-1">
           {ad.saturationCaveat && ad.caveatNote && (
             <TooltipProvider delayDuration={200}>
@@ -291,9 +295,13 @@ function LongRunnerCard({
                     <ShieldAlert className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                   </span>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[200px]">
-                  <p className="text-xs leading-snug">{ad.caveatNote}</p>
-                </TooltipContent>
+                {/* Portalled — an unportalled TooltipContent clips inside any
+                    ancestor scroller. Same pattern as `InfoTip`. */}
+                <TooltipPrimitive.Portal>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs leading-snug">{ad.caveatNote}</p>
+                  </TooltipContent>
+                </TooltipPrimitive.Portal>
               </Tooltip>
             </TooltipProvider>
           )}
@@ -341,44 +349,36 @@ function LongRunnerCard({
           full opacity on hover/focus — discoverable without hover, not
           hidden by it. */}
       <div className="relative flex items-center gap-1 border-t border-border/60 pt-1.5 opacity-60 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-        <Button
-          size="icon"
-          variant={state.briefed ? "secondary" : "outline"}
-          className="h-6 w-6"
-          onClick={handleBrief}
-          aria-label={state.briefed ? "Briefed" : "Brief it"}
-          title={state.briefed ? "Briefed" : "Brief it"}
-        >
-          <NotebookPen className="h-3 w-3" aria-hidden="true" />
-        </Button>
-        <Button
-          size="icon"
-          variant={state.saved ? "secondary" : "outline"}
-          className="h-6 w-6"
-          onClick={handleSave}
-          aria-label={state.saved ? "Saved" : "Save"}
-          title={state.saved ? "Saved" : "Save"}
-        >
-          <Bookmark className="h-3 w-3" aria-hidden="true" fill={state.saved ? "currentColor" : "none"} />
-        </Button>
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {/* span wrapper: disabled buttons don't fire hover/focus for Radix triggers */}
-              <span>
-                <Button size="icon" variant="outline" disabled className="h-6 w-6" aria-label="Variation">
-                  <Wand2 className="h-3 w-3" aria-hidden="true" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[200px]">
-              <p className="text-xs leading-snug">
-                Genie doesn&apos;t read link context yet — this would drop the ad&apos;s hook and
-                thumbnail on the way in, so it&apos;s off until that&apos;s wired up.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <InfoTip tip="action.brief-it" asChild>
+          <Button
+            size="icon"
+            variant={state.briefed ? "secondary" : "outline"}
+            className="h-6 w-6"
+            onClick={handleBrief}
+            aria-label={state.briefed ? "Briefed" : "Brief it"}
+          >
+            <NotebookPen className="h-3 w-3" aria-hidden="true" />
+          </Button>
+        </InfoTip>
+        <InfoTip tip="action.save-ad" asChild>
+          <Button
+            size="icon"
+            variant={state.saved ? "secondary" : "outline"}
+            className="h-6 w-6"
+            onClick={handleSave}
+            aria-label={state.saved ? "Saved" : "Save"}
+          >
+            <Bookmark className="h-3 w-3" aria-hidden="true" fill={state.saved ? "currentColor" : "none"} />
+          </Button>
+        </InfoTip>
+        <InfoTip tip="action.variation-disabled" asChild>
+          {/* span wrapper: disabled buttons don't fire hover/focus for Radix triggers */}
+          <span>
+            <Button size="icon" variant="outline" disabled className="h-6 w-6" aria-label="Variation">
+              <Wand2 className="h-3 w-3" aria-hidden="true" />
+            </Button>
+          </span>
+        </InfoTip>
       </div>
     </div>
   );
@@ -424,6 +424,13 @@ function GallerySkeleton(): JSX.Element {
 
 export function LongRunnersGallery({ className }: { className?: string }): JSX.Element {
   const { nonEmptyGroups, all, totalCount, isEmpty, isLoading } = useLongRunners();
+  // `firstTime`/`empty` only — this block's data is market-wide and full in
+  // both (see CONTRACT.md), so the provocation isn't "come back once you
+  // have data", it's "your own swipe file is empty while this is already
+  // sitting here". Grounded in `totalCount`, a real figure this hook
+  // already computes — never a fabricated "your competitor" claim.
+  const { isFirstTime, isEmptyState } = useDashboardMeta();
+  const showSaveProvocation = (isFirstTime || isEmptyState) && !isEmpty;
 
   // See file header: every ad here is currently `observed`, so one
   // block-level chip replaces what would otherwise be a chip on every card.
@@ -470,10 +477,13 @@ export function LongRunnersGallery({ className }: { className?: string }): JSX.E
       <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
         <header className="mb-3 flex items-center justify-between gap-2">
           <div>
-            <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
-              Top performing ads
-            </h2>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
+                Top performing ads
+              </h2>
+              <InfoTip tip="block.long-runners" />
+            </div>
+            <p className="mt-0.5 text-[10px] text-foreground/70">
               Ranked by days running — the longest-lived ads, not measured performance.
             </p>
           </div>
@@ -491,6 +501,7 @@ export function LongRunnersGallery({ className }: { className?: string }): JSX.E
             <h2 className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-foreground/70">
               Top performing ads
             </h2>
+            <InfoTip tip="block.long-runners" />
             {!isEmpty && dominantTier && <Provenance tier={dominantTier} compact />}
             {!isEmpty && shownCaveatCount > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-foreground/70">
@@ -503,18 +514,30 @@ export function LongRunnersGallery({ className }: { className?: string }): JSX.E
               three times over in prose; the redesign collapsed all three
               away. This restores the honesty hedge once, cheaply — the
               per-card 90+ tooltip and the header count above stay as-is. */}
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
+          <p className="mt-0.5 text-[10px] text-foreground/70">
             Ranked by days running — the longest-lived ads, not measured performance.
           </p>
         </div>
         {!isEmpty && (
-          <Link
-            to={DISCOVER_HREF}
-            className="inline-flex items-center gap-1 text-xs font-medium text-primary-text hover:underline"
-          >
-            See all {totalCount} in Discover
-            <ArrowRight className="h-3 w-3" aria-hidden="true" />
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* PROVOCATION (firstTime/empty only): your swipe file is empty,
+                but the market's proven creative already is not — one action,
+                grounded in `totalCount`, the real figure this hook computes.
+                Never "in your industries": this collection is market-wide in
+                these states (see CONTRACT.md), so the claim stays honest. */}
+            {showSaveProvocation && (
+              <span className="text-[10px] font-medium text-foreground/70">
+                Nothing saved yet — {totalCount} ads are already running this long. Save your first below.
+              </span>
+            )}
+            <Link
+              to={DISCOVER_HREF}
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary-text hover:underline"
+            >
+              See all {totalCount} in Discover
+              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </Link>
+          </div>
         )}
       </header>
 
@@ -522,7 +545,7 @@ export function LongRunnersGallery({ className }: { className?: string }): JSX.E
         <InsightsV2EmptyState
           icon={Sparkles}
           title="No long-running creative indexed yet"
-          description="Once your followed competitors' ads have a few scans behind them, the ones still running longest will show up here, ranked and flagged for saturation risk."
+          description="Once the market has ads with a few scans behind them, the ones still running longest will show up here, ranked and flagged for saturation risk."
         />
       ) : (
         <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
