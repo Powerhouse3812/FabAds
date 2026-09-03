@@ -11,7 +11,6 @@ import {
   Compass, Eye, Layers, Rss, TrendingUp,
   Plus,
 } from "lucide-react";
-import { isInsightsDashboardEnabled } from "@/insights-dashboard/lib/access";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -145,14 +144,13 @@ export const MODULES: ModuleDef[] = [
       // Kept first: it's the module's own home, everything else below is a
       // specific working surface.
       //
-      // GATED. The dashboard runs on fabricated data, so the nav row is hidden
-      // unless dev or the flag is set — see insights-dashboard/lib/access.ts.
-      // The ROUTE stays registered either way: a shared /insights/overview link
-      // (and its ?state= variants) must keep working, since that is how the
-      // thing is reviewed. Hidden from browsing, reachable on purpose.
-      ...(isInsightsDashboardEnabled()
-        ? [{ label: "Home", path: "/insights/overview", icon: LayoutDashboard }]
-        : []),
+      // Visible to everyone, in the prototype and in the live app. It was
+      // gated behind a localStorage flag while the route stayed open — the
+      // page runs on fabricated data, so it was reachable by link but never by
+      // browsing. That made it undiscoverable to its own owner, so the gate is
+      // gone. The non-dismissible sample-data disclosure on the page itself is
+      // now the thing that keeps the invented numbers honest.
+      { label: "Home", path: "/insights/overview", icon: LayoutDashboard },
       // Phase 3: My Feed is the primary surface (Industry Insights v2). The
       // remaining items continue to point at v1 routes until each gets its
       // own v2 redesign. Icons re-added to match Genie 6.0's sub-nav style.

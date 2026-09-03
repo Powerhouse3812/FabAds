@@ -32,7 +32,7 @@
  * (FlaskConical icon, dashed border, mono micro-labels, deliberately
  * unpolished so nobody mistakes it for product UI).
  *
- * Gated on `isInsightsDashboardEnabled()` inside this component itself (not by
+ * Gated on `areDashboardDevToolsEnabled()` inside this component itself (not by
  * the caller) — it must never render for end users.
  *
  * That is the SAME flag that reveals the dashboard's nav row, and it is
@@ -47,7 +47,7 @@
  * still never see this. Reachable on purpose, never by accident.
  */
 import { FlaskConical } from "lucide-react";
-import { isInsightsDashboardEnabled } from "@/insights-dashboard/lib/access";
+import { areDashboardDevToolsEnabled } from "@/insights-dashboard/lib/access";
 
 import { cn } from "@/lib/utils";
 import {
@@ -94,7 +94,7 @@ export function StatePill(): JSX.Element | null {
   const current = useDashboardState();
   const setState = useSetDashboardState();
 
-  if (!isInsightsDashboardEnabled()) return null;
+  if (!areDashboardDevToolsEnabled()) return null;
 
   return (
     <div
