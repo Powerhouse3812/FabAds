@@ -20,8 +20,24 @@
  */
 
 /**
- * The bar's Home destination. Today that is the Dashboard, which is already
- * mobile-first and is where `/` redirects. When a dedicated mobile landing
- * ships, this constant is the only line that changes.
+ * The bar's Home destination.
+ *
+ * CHANGED (2026-08-21, mobile scope cut — MOBILE_SPEC.md 2.2): this used to
+ * be the Dashboard, which was already mobile-first and was where `/`
+ * redirects. Mobile scope narrowed to Industry Insights + Genie's library +
+ * Onboarding only, and Dashboard flipped to `blocked` in
+ * `mobileRoutePolicy.ts` — it can no longer be the landing, so this now
+ * points at the Insights feed instead.
+ *
+ * Known consumers at the time of this change: `MobileTabBar.tsx` (its Home
+ * tab's `to`, and it re-exports this constant) and `mobile-tour/tourContent.ts`
+ * (the checklist's "back to normal" copy). Neither was edited here — this
+ * file only owns the constant, not its consumers.
+ *
+ * NOT covered by this constant, left for their own owners: `App.tsx`'s `/` →
+ * `/dashboard` redirect, `MobileTopBar.tsx`'s hardcoded `"/dashboard"`
+ * no-history fallback, and the post-auth / no-access redirects in
+ * `pages/Auth.tsx` and `pages/NoAccess.tsx` — all still point at a route that
+ * is now `blocked` on mobile and should eventually read this constant too.
  */
-export const MOBILE_HOME_PATH = "/dashboard";
+export const MOBILE_HOME_PATH = "/insights-v2/feed";

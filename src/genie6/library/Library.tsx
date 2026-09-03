@@ -7,6 +7,7 @@ import { SkeletonOutputGrid } from "../components/Skeletons";
 import { ErrorState } from "../components/ErrorState";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
 import { useDemoData } from "../hooks/useDemoData";
+import { DesktopOnlyPrompt } from "@/components/shell/DesktopOnlyPrompt";
 import { StudioLibrary } from "../variants/studio/StudioLibrary";
 import { CanvasLibrary } from "../variants/canvas/CanvasLibrary";
 import { CommandLibrary } from "../variants/command/CommandLibrary";
@@ -117,14 +118,36 @@ function LibraryZeroData() {
           <h1 className="font-g6-sans text-g6-h1 font-black tracking-[-0.025em] text-g6-text">
             Your library is empty
           </h1>
-          <p className="text-g6-base text-g6-text-secondary max-w-md">
+          {/* Two copies, gated by breakpoint — mobile cannot generate at all
+              (spec B §1.2 / "no new generation flow"), so the desktop line
+              would be asking for something the user has no way to do. */}
+          <p className="hidden text-g6-base text-g6-text-secondary max-w-md md:block">
             Generate your first batch and your library will fill with outputs from every mode.
           </p>
+          <p className="text-g6-base text-g6-text-secondary max-w-md md:hidden">
+            Generations are created on desktop. Once a batch finishes, its outputs
+            show up here for you to browse.
+          </p>
         </div>
+        {/* Zero-data state was the one dead end left on a mobile-allowed surface:
+            an enabled CTA navigating to /iq/genie6/generate, which the policy
+            blocks, so the empty library handed the user a gate screen. Mobile now
+            gets the disabled-and-explained treatment (Maalik's chosen pattern)
+            with a link they can open on a laptop; desktop keeps the real button
+            byte-for-byte (INV-4). Siblings, not a JS branch. */}
+        <DesktopOnlyPrompt
+          path="/iq/genie6/studio-alpha"
+          label="Studio"
+          shape="row"
+          className="w-auto justify-center gap-2 rounded-g6-pill px-5 md:hidden"
+        >
+          Start a generation
+          <ArrowUpRight className="h-4 w-4" />
+        </DesktopOnlyPrompt>
         <button
           type="button"
           onClick={() => navigate("/iq/genie6/generate")}
-          className="inline-flex items-center gap-2 rounded-g6-pill bg-g6-primary px-5 py-2.5 text-g6-sm font-semibold text-g6-text-on-accent shadow-g6-primary-btn transition-transform hover:-translate-y-0.5"
+          className="hidden items-center gap-2 rounded-g6-pill bg-g6-primary px-5 py-2.5 text-g6-sm font-semibold text-g6-text-on-accent shadow-g6-primary-btn transition-transform hover:-translate-y-0.5 md:inline-flex"
         >
           Start a generation
           <ArrowUpRight className="h-4 w-4" />
