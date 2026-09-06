@@ -405,7 +405,7 @@ export function LibraryToolbar() {
               type="button"
               onClick={chip.onRemove}
               aria-label={`Remove ${chip.label.toLowerCase()} filter: ${chip.value}`}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-g6-text-tertiary transition-colors hover:bg-g6-bg-container hover:text-g6-error focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-g6-primary-border"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-g6-text-tertiary transition-colors hover:bg-g6-bg-container hover:text-error-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-g6-primary-border"
             >
               <X className="h-3 w-3" />
             </button>

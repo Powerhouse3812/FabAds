@@ -506,7 +506,7 @@ function KnowledgeBaseCapacityPanel({
           </div>
           {atCap ? (
             <div className="mt-3 flex items-start gap-2 rounded-g6-lg border border-g6-error/30 bg-g6-error/10 px-3 py-2">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-g6-error" />
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-error-text" />
               <p className="text-g6-xs text-g6-text">
                 You're at the 50 Winner Ad limit. Remove one before Genie can save another — nothing gets silently
                 dropped to make room.
