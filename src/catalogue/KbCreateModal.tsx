@@ -379,7 +379,7 @@ export function KbCreateModal({ kind, entityType, entityId, entityName, onSave, 
               {aiOutputs.map((o, idx) => (
                 <div key={o.id} className="rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm">
                   <div className="mb-2 flex items-center gap-1.5">
-                    <Sparkles className="h-3 w-3 text-primary" />
+                    <Sparkles className="h-3 w-3 text-primary-text" />
                     <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       v{idx + 1}
                     </span>

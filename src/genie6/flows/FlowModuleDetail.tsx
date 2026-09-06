@@ -186,7 +186,7 @@ export function FlowModuleDetail() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 pt-8 pb-16">
       <div className="flex justify-end">
         <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1.5">
-          <Coins className="h-3.5 w-3.5 text-primary" />
+          <Coins className="h-3.5 w-3.5 text-primary-text" />
           <span className="font-mono text-[11px] font-semibold tabular-nums text-foreground">
             {formatCredits(CREDITS_REMAINING)}
           </span>
@@ -277,7 +277,7 @@ export function FlowModuleDetail() {
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                className="text-[11px] font-semibold text-primary hover:underline"
+                className="text-[11px] font-semibold text-primary-text hover:underline"
               >
                 Clear search
               </button>
@@ -347,7 +347,7 @@ function ActionCard({
         <span
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-lg",
-            selected ? "bg-primary/15 text-primary" : "bg-muted text-foreground",
+            selected ? "bg-primary/15 text-primary-text" : "bg-muted text-foreground",
           )}
         >
           <Icon className="h-4 w-4" strokeWidth={2} />
@@ -448,7 +448,7 @@ function SourceRow({
         className={cn(
           "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider",
           source.analysed
-            ? "bg-primary/10 text-primary"
+            ? "bg-primary/10 text-primary-text"
             : "bg-muted text-muted-foreground",
         )}
       >

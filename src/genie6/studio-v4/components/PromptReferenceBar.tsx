@@ -1067,6 +1067,7 @@ function LanguagePopover({ wizard }: { wizard: UseWizardReturn }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search 175 languages…"
+            aria-label="Search output languages"
             autoFocus
             className="h-8 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[12px] outline-none transition-colors focus:border-primary"
           />

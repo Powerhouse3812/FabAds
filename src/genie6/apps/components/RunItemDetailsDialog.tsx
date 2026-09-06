@@ -62,7 +62,7 @@ export function RunItemDetailsDialog({ item, children }: { item: RunItem; childr
         {item.outputId && (
           <Link
             to={`/iq/genie6/library?ad=${encodeURIComponent(item.outputId)}`}
-            className="inline-flex items-center gap-1 self-start text-[12.5px] font-medium text-primary hover:underline"
+            className="inline-flex items-center gap-1 self-start text-[12.5px] font-medium text-primary-text hover:underline"
           >
             Open in Library
             <ArrowUpRight className="h-3 w-3" />

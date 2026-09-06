@@ -19,8 +19,10 @@ export function ProvenanceBadge({ provenance, className }: { provenance: Provena
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.06em]",
         isSeeded
-          ? "border-muted-foreground/20 bg-muted text-muted-foreground"
-          : "border-primary/30 bg-primary/10 text-primary",
+          // Was text-muted-foreground on bg-muted = 3.48:1, under the 4.5:1
+          // floor. Same visual weight, readable.
+          ? "border-muted-foreground/20 bg-muted text-foreground/80"
+          : "border-primary/30 bg-primary/10 text-primary-text",
         className,
       )}
     >
@@ -42,7 +44,7 @@ export function CreditsPill({ className }: { className?: string }) {
       )}
       title={`${formatCredits(CREDITS_REMAINING)} of ${formatCredits(CREDITS_LIMIT)} credits remaining`}
     >
-      <Coins className="h-3.5 w-3.5 text-primary" />
+      <Coins className="h-3.5 w-3.5 text-primary-text" />
       <span className="tabular-nums">{formatCredits(CREDITS_REMAINING)}</span>
       <span className="text-muted-foreground">/ {formatCredits(CREDITS_LIMIT)} credits</span>
     </div>

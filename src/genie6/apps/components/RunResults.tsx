@@ -85,7 +85,7 @@ function BatchGroup({ batch }: { batch: RunBatch }) {
       {status === "done" && (
         <Link
           to="/iq/genie6/library"
-          className="inline-flex items-center gap-1 self-start text-[12.5px] font-medium text-primary hover:underline"
+          className="inline-flex items-center gap-1 self-start text-[12.5px] font-medium text-primary-text hover:underline"
         >
           View in your Library
           <ArrowUpRight className="h-3 w-3" />
@@ -105,7 +105,7 @@ function ZeroState({ app }: { app: GenieApp }) {
       <ol className="flex w-full max-w-sm flex-col gap-2 text-left">
         {z.steps.map((step, i) => (
           <li key={i} className="flex items-start gap-2.5 text-[13px] text-foreground">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono text-[10.5px] font-bold text-primary">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono text-[10.5px] font-bold text-primary-text">
               {i + 1}
             </span>
             <span>{step}</span>

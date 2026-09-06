@@ -67,6 +67,17 @@ export function SecondaryNavigationItem({
           // A-12.38 redesign: 32px tall, 16px radius (rounded-2xl), Geist 13px,
           // active = bg-foreground/[0.04] + medium weight.
           "flex h-8 w-full items-center gap-2 rounded-2xl pr-2 text-left transition-colors",
+          // A11y: this had NO focus-visible style at all, so keyboard focus on
+          // the entire second-tier sidebar showed only the 4%-opacity hover
+          // tint — measured 1.08:1 against a required 3:1, on every surface in
+          // the app. That's a keyboard user with no idea where they are.
+          //
+          // NOT the icon rail's lime ring: that ring is `#c3eb42` (banned in
+          // DS v1.2) and only reaches 12:1 because the rail is near-black. On
+          // this light panel lime measures ~1.3:1. A near-black ring on the
+          // light ground is the readable choice here, and it matches the
+          // native outline the main content area already uses.
+          "outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           active
             ? "bg-foreground/[0.04] text-foreground font-medium"
             : "text-foreground/65 hover:bg-foreground/[0.04] hover:text-foreground",

@@ -118,7 +118,7 @@ export function GenerationsFromAsset({
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  running: "border-primary/30 bg-primary/10 text-primary",
+  running: "border-primary/30 bg-primary/10 text-primary-text",
   done: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
   failed: "border-destructive/30 bg-destructive/10 text-destructive",
   partial: "border-warning-text/30 bg-warning-text/10 text-warning-text",

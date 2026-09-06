@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { OutputCard } from "../components/OutputCard";
 import type { OutputData } from "../types/output";
 import { useBatches } from "../lib/genieRunStore";
@@ -6,6 +6,7 @@ import { batchStatus } from "../lib/genieRunTypes";
 import type { RunBatch, RunItem } from "../lib/genieRunTypes";
 import { BatchProgressHeader, RunItemTile } from "../progress";
 import { BatchGroupHeader } from "./BatchGroupHeader";
+import { ConfirmActionDialog } from "./ConfirmActionDialog";
 import { originKey } from "./originLabels";
 import { useAttributedOutputIds } from "./useOutputBatchIndex";
 import type { GetOutputCardActions } from "./useOutputCardActions";
@@ -140,6 +141,16 @@ function BatchSection({
   getActions?: GetOutputCardActions;
 }) {
   const status = batchStatus(batch);
+  /**
+   * Cancel used to call cancelBatch() straight from the header — no confirm.
+   * Cancelling a running batch throws away work already in flight AND the
+   * credits already spent on the items that finished, and it cannot be undone
+   * (the store moves items to a terminal `cancelled`). The house policy is
+   * that destructive actions confirm and edits treat Save as the confirm, so
+   * this one needs the step. Kept per-batch rather than lifted, because the
+   * batch being cancelled IS the state.
+   */
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const visibleItems = useMemo(
     () =>
@@ -159,11 +170,21 @@ function BatchSection({
         <BatchProgressHeader
           batch={batch}
           onRetry={(scope) => retry(batch.batchId, scope)}
-          onCancel={() => cancelBatch(batch.batchId)}
+          onCancel={() => setConfirmCancel(true)}
         />
       ) : (
         <BatchGroupHeader batch={batch} />
       )}
+
+      <ConfirmActionDialog
+        open={confirmCancel}
+        onOpenChange={setConfirmCancel}
+        title="Cancel this batch?"
+        description={`${batch.label} — ${batch.items.filter((i) => i.status === "done").length} of ${batch.items.length} outputs are already finished. Cancelling stops the rest; the credits already spent aren't returned, and this can't be undone.`}
+        confirmLabel="Cancel batch"
+        destructive
+        onConfirm={() => cancelBatch(batch.batchId)}
+      />
 
       <div className="flex flex-wrap gap-4">
         {visibleItems.map((item) => (
@@ -219,6 +240,9 @@ function BatchItemTile({
       <RunItemTile
         item={item}
         stages={batch.stages}
+        // Keeps the in-flight placeholder the same shape as the OutputCard
+        // that replaces it, so a video batch doesn't jump on completion.
+        format={batch.config?.format}
         // Without itemId the store's "this-item" scope falls back to retrying
         // EVERY failed item in the batch — the wrong charge and the wrong promise.
         onRetry={(scope) => retry(batch.batchId, scope, { itemId: item.id })}

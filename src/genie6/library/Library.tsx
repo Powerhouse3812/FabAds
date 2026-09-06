@@ -79,23 +79,37 @@ export function Library() {
         variant switch. A-12.194 hoist: Maalik was on the Modular variant
         and the drawers only mounted inside StudioLibrary, which silently
         broke ?ad= deep-links + card clicks across the other 3 variants. */
-  const VariantBody = () => {
-    switch (variant) {
-      case "canvas":
-        return <CanvasLibrary />;
-      case "command":
-        return <CommandLibrary />;
-      case "modular":
-        return <ModularLibrary />;
-      case "studio":
-      default:
-        return <StudioLibrary />;
-    }
-  };
+  /**
+   * An ELEMENT, not a component defined during render.
+   *
+   * This was `const VariantBody = () => {…}` rendered as `<VariantBody />`.
+   * A component created inside the render body gets a fresh function identity
+   * on every render, so React sees a different component TYPE each time and
+   * unmounts + remounts the whole subtree rather than updating it — taking
+   * every child's state, focus and scroll position with it.
+   *
+   * It was latent for as long as nothing re-rendered this component often.
+   * Genie 2.0 changed that: `genieRunStore` ticks a live batch roughly every
+   * 700ms, which re-renders Library, which was remounting the entire Library
+   * body about once a second. Symptoms were subtle and easy to misattribute —
+   * a popover snapping shut after one selection, a focused input losing focus,
+   * accumulated scroll resetting. Computing the element keeps the types stable
+   * and React reconciles normally.
+   */
+  const variantBody =
+    variant === "canvas" ? (
+      <CanvasLibrary />
+    ) : variant === "command" ? (
+      <CommandLibrary />
+    ) : variant === "modular" ? (
+      <ModularLibrary />
+    ) : (
+      <StudioLibrary />
+    );
 
   return (
     <>
-      <VariantBody />
+      {variantBody}
       <AngleViewMoreDrawer />
       <AdDetailDrawer />
     </>

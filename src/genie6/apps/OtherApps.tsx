@@ -49,7 +49,7 @@ export function OtherApps() {
           </p>
         </div>
         <div className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1.5">
-          <Zap className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+          <Zap className="h-3.5 w-3.5 text-primary-text" strokeWidth={2} />
           <span className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
             {formatCredits(CREDITS_REMAINING)}
           </span>

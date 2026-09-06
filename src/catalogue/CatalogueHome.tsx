@@ -55,7 +55,7 @@ export function CatalogueHome() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                        <def.icon className="h-4 w-4 text-primary" />
+                        <def.icon className="h-4 w-4 text-primary-text" />
                       </div>
                       <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
                     </div>

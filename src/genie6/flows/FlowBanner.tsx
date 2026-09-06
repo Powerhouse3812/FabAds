@@ -46,7 +46,7 @@ export function FlowBanner({ ctx, className }: { ctx: FlowContext; className?: s
 
         <Fact label="Reference">
           <span className="flex items-center gap-1.5">
-            <span className="truncate">{referenceLabel}</span>
+            <span className="truncate" title={referenceLabel}>{referenceLabel}</span>
             {ctx.competitorOwned && (
               <span className="shrink-0 rounded-full border border-warning-text/30 bg-warning-text/10 px-1.5 py-px font-mono text-[8.5px] font-semibold uppercase tracking-wide text-warning-text">
                 Competitor ad
@@ -59,10 +59,6 @@ export function FlowBanner({ ctx, className }: { ctx: FlowContext; className?: s
 
         <Fact label="Action">{ctx.action.label}</Fact>
 
-        <Divider />
-
-        <Fact label="Produces">{ctx.produces}</Fact>
-
         <Link
           to={ctx.module.modulePath}
           aria-label={`Exit back to ${ctx.module.label}`}
@@ -72,6 +68,18 @@ export function FlowBanner({ ctx, className }: { ctx: FlowContext; className?: s
           <span className="hidden sm:inline">Exit to {ctx.module.label}</span>
         </Link>
       </div>
+
+      {/* Row 2 — Produces, on its own line so the sentence can be read.
+          Row 1 is the scannable provenance (where from / what / which
+          action); this is the payload: what the user is about to make. §6
+          Rule 5 lists it as one of the four facts the banner must state, and
+          a clipped promise is worse than no promise. */}
+      <p className="flex items-start gap-1.5 border-t border-border/60 pt-1.5 text-[12px] text-foreground">
+        <span className="mt-px shrink-0 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/80">
+          Produces
+        </span>
+        <span className="font-medium">{ctx.produces}</span>
+      </p>
 
       {ctx.caveat && (
         <p className="flex items-center gap-1.5 border-t border-border/60 pt-1.5 text-[11px] font-medium text-warning-text">
@@ -91,17 +99,34 @@ function Fact({
   label,
   icon,
   children,
+  wrap = false,
 }: {
   label: string;
   icon?: ReactNode;
   children: ReactNode;
+  /**
+   * Opt out of the shared 220px truncation.
+   *
+   * All four facts used to share it, which clipped "Produces" — a full
+   * sentence, and the single fact §6 Rule 5 exists to deliver ("what will be
+   * produced"). "A new ad, using this winner as your refe…" tells the user
+   * nothing they didn't already fear. From/Action are short by construction
+   * and Reference is a title that legitimately truncates; only this one needs
+   * to wrap.
+   */
+  wrap?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/80">
+    <div className={cn("flex items-center gap-1.5", wrap ? "min-w-0 flex-1" : "min-w-0")}>
+      <span className="shrink-0 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/80">
         {label}
       </span>
-      <span className="flex min-w-0 max-w-[220px] items-center gap-1 truncate text-[12px] font-semibold text-foreground">
+      <span
+        className={cn(
+          "flex items-center gap-1 text-[12px] font-semibold text-foreground",
+          wrap ? "min-w-0 flex-1" : "min-w-0 max-w-[220px] truncate",
+        )}
+      >
         {icon}
         {children}
       </span>

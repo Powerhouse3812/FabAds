@@ -58,7 +58,7 @@ export function CampaignExtractionCard({
     <div className={cn("flex flex-col gap-4 rounded-2xl border border-border bg-card p-5", className)}>
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-0.5">
-          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-primary-text">
             <Pencil className="h-3 w-3" />
             Extracted from the landing page — POC, review before you proceed
           </span>
@@ -79,7 +79,7 @@ export function CampaignExtractionCard({
       </div>
 
       {extraction.matchedProductId && (
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-[10px] font-semibold text-primary">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-[10px] font-semibold text-primary-text">
           <Check className="h-3 w-3" />
           Matched catalogue product &middot; pre-selected &amp; editable
         </span>

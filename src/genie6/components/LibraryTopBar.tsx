@@ -48,7 +48,27 @@ export function LibraryTopBar() {
     [setSearchParams],
   );
 
-  const [dayRange, setDayRange] = useState<string>("today");
+  /**
+   * Day range — URL-backed (`?days=`), like every other Library filter.
+   *
+   * This was `useState("today")` and nothing downstream read it: a dropdown
+   * that looked like the Library's primary time filter and filtered nothing.
+   * A dead control on the flagship surface is worse than an absent one — the
+   * user changes it, sees the same 50 outputs, and stops trusting the other
+   * five filters too. Default is "all" rather than "today", because defaulting
+   * to Today while showing three weeks of seeded batches was itself the lie.
+   */
+  const dayRange = searchParams.get("days") ?? "all";
+  const setDayRange = (v: string) =>
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (v === "all") sp.delete("days");
+        else sp.set("days", v);
+        return sp;
+      },
+      { replace: true },
+    );
 
   return (
     <header className="border-b border-g6-border-secondary bg-g6-bg-base px-5">
@@ -58,30 +78,41 @@ export function LibraryTopBar() {
           <PanelLeftClose className="h-4 w-4 text-g6-text-tertiary" />
           <span className="font-g6-sans text-g6-text-tertiary">Genie</span>
           <span className="text-g6-text-tertiary">/</span>
-          <span className="font-g6-sans font-semibold text-g6-text">
+          {/* The page had NO h1 at all — heading order jumped from the
+              sidebar's h2 straight to 50 h3 card titles, so nothing told a
+              screen-reader user which page they were on. The breadcrumb's
+              current segment IS the page title, so it carries the h1 rather
+              than adding a second visible one. Same pixels, real semantics. */}
+          <h1 className="font-g6-sans text-g6-sm font-semibold text-g6-text">
             Library
-          </span>
+          </h1>
         </div>
 
         {/* Center: view toggle + inline queue strip */}
         <div className="ml-4 flex min-w-0 flex-1 items-center gap-2">
           <MasonryGroupToggle value={view} onChange={setView} />
 
-          {/* Queue inline strip — compact Figma-accurate version */}
-          <QueueInlineStrip />
+          {/* Batch strip — only where it adds something. In "By batch" view the
+              page body renders a full header for every batch (id, status,
+              count, credits, origin, created-by) starting ~40px below this
+              row, so the strip was restating the newest one verbatim. In
+              Masonry and By-angle the body carries no batch context at all,
+              which is where a one-line "what's running" summary is the only
+              place that information exists. */}
+          {view !== "batch" && <QueueInlineStrip />}
         </div>
 
         {/* Select days — right-most */}
         <Select value={dayRange} onValueChange={setDayRange}>
           <SelectTrigger className="h-8 w-[150px] border-g6-border-secondary bg-g6-bg-container font-g6-sans text-g6-sm">
-            <SelectValue placeholder="Select days" />
+            <SelectValue placeholder="All time" />
           </SelectTrigger>
           <SelectContent className="g6-root border-g6-border bg-g6-bg-elevated font-g6-sans text-g6-sm">
+            <SelectItem value="all">All time</SelectItem>
             <SelectItem value="today">Today</SelectItem>
             <SelectItem value="7days">Last 7 days</SelectItem>
             <SelectItem value="30days">Last 30 days</SelectItem>
-            <SelectItem value="custom">Custom range</SelectItem>
-          </SelectContent>
+                      </SelectContent>
         </Select>
       </div>
     </header>

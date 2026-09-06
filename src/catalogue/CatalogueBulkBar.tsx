@@ -44,7 +44,7 @@ export function CatalogueBulkBar({
   return (
     <div className={cn("rounded-xl border border-border bg-muted/40 p-3", className)}>
       {bulkProductNotice && (
-        <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs text-primary">
+        <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs text-primary-text">
           <Info className="h-3.5 w-3.5 shrink-0" />
           <span>{bulkProductNotice}</span>
         </div>

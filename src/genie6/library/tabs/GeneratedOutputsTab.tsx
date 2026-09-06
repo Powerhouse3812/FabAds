@@ -153,6 +153,19 @@ export function GeneratedOutputsTab({
 
   const allOutputs = useMemo(() => [...localOutputs, ...sampleOutputs], [localOutputs]);
 
+  /** Millisecond floor implied by `?days=`; null = all time. */
+  const dayCutoff = useMemo(() => {
+    const days = searchParams.get("days");
+    const span = days === "today" ? 1 : days === "7days" ? 7 : days === "30days" ? 30 : null;
+    if (span === null) return null;
+    // Anchored to the seeded dataset's own clock, not wall-clock: sample
+    // outputs are stamped relative to a fixed NOW in sample-outputs.ts, so
+    // using Date.now() here would filter every seeded output away and make
+    // the control look broken in a different way.
+    const newest = allOutputs.reduce((max, o) => Math.max(max, o.generatedAt.getTime()), 0);
+    return newest - span * 24 * 60 * 60 * 1000;
+  }, [searchParams, allOutputs]);
+
   const filtered = useMemo(() => {
     let arr = allOutputs.filter((o) => {
       if (
@@ -180,6 +193,10 @@ export function GeneratedOutputsTab({
           .toLowerCase();
         if (!haystack.includes(q)) return false;
       }
+      // `?days=` from LibraryTopBar's range select. Previously that control
+      // was local state nothing read — it looked like the primary time filter
+      // and filtered nothing.
+      if (dayCutoff !== null && o.generatedAt.getTime() < dayCutoff) return false;
       return true;
     });
 
@@ -198,6 +215,7 @@ export function GeneratedOutputsTab({
   }, [
     allOutputs,
     effectiveBrandName,
+    dayCutoff,
     effectiveAngle,
     effectiveCategory,
     effectivePerf,

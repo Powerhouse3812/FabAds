@@ -559,6 +559,22 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     setShowFetchModal(true);
   };
 
+  /**
+   * Brand id currently shown in the suggested band, so the grid can exclude
+   * it. Without this, the suggested brand rendered TWICE — once in the band
+   * with "Use this", and again as the first card 40px below. Two affordances
+   * for one identical outcome makes a user scanning the screen doubt whether
+   * they mean different things, and it quietly undercuts the point of Rule
+   * 4's band (it is the suggestion; the grid is the alternatives).
+   *
+   * Only excluded while the band is actually on screen and unaccepted — once
+   * accepted, the brand belongs in the grid as the normal selected card.
+   */
+  const bandBrandId =
+    flowCtx && !flowCtx.preselect && flowCtx.highlight?.kind === "brand" && !wizard.state.brandId
+      ? flowCtx.highlight.id
+      : null;
+
   const filteredBrands = useMemo(() => {
     let list = ALL_BRANDS;
     if (industryFilter) list = list.filter((b) => b.category === industryFilter);
@@ -570,8 +586,11 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           b.category.toLowerCase().includes(q),
       );
     }
+    // Searching is the user going looking for something specific — if they
+    // type the suggested brand's name they should find it, band or no band.
+    if (bandBrandId && !q) list = list.filter((b) => b.id !== bandBrandId);
     return list.slice(0, 60);
-  }, [industryFilter, search]);
+  }, [industryFilter, search, bandBrandId]);
 
   const industries = useMemo(
     () => Array.from(new Set(ALL_BRANDS.map((b) => b.category))).sort(),
@@ -1566,14 +1585,14 @@ function BrandGrid({ brands, selectedId, onPick, search }: BrandGridProps) {
               {/* Logo / image area — square aspect */}
               <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
                 {b.logo ? (
-                  <img
-                    src={b.logo}
-                    alt={b.name}
-                    loading="lazy"
-                    className="h-16 w-16 rounded-lg object-contain"
-                  />
+                  <BrandLogoTile name={b.name} src={b.logo} />
                 ) : (
-                  <Building2 className="h-12 w-12 text-muted-foreground/40" />
+                  /* Was a generic Building2 at text-muted-foreground/40 on
+                     bg-muted — so faint that a logo-less card read as an empty
+                     broken tile rather than a brand. Initials on a tinted
+                     ground are recognisable, distinct per brand, and can never
+                     look like a failed image (Recognition over Recall). */
+                  <BrandInitials name={b.name} />
                 )}
                 {/* Industry chip top-left */}
                 <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-card/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
@@ -2180,5 +2199,51 @@ function FlowPreselectNote({ ctx }: { ctx: FlowContext }) {
         Pre-filled from {ctx.module.label} — edit below if this isn't right.
       </p>
     </div>
+  );
+}
+
+/** Up to two letters from a brand name — "boAt" → BO, "The Derma Co." → TD. */
+function brandInitials(name: string): string {
+  const words = name.replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2);
+  return (words[0][0] ?? "") + (words[1][0] ?? "");
+}
+
+/**
+ * Brand logo with a real fallback.
+ *
+ * `Brand.logo` points at `google.com/s2/favicons?domain=…` — a third-party
+ * service. When it's blocked (ad-blocker, corporate network, offline demo) or
+ * the domain doesn't resolve, the <img> either fails or returns a generic
+ * globe, and the tile reads as an empty broken card. That is a bad way for a
+ * client demo to fail, so an error swaps to initials instead: recognisable,
+ * distinct per brand, and never mistakable for a loading bug.
+ *
+ * Not swapping the data source — the favicons look right when they load, and
+ * `brands.ts` is shared with Catalogue. This just stops the failure mode.
+ */
+function BrandLogoTile({ name, src }: { name: string; src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <BrandInitials name={name} />;
+  return (
+    <img
+      src={src}
+      alt={name}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="h-16 w-16 rounded-lg object-contain"
+    />
+  );
+}
+
+function BrandInitials({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden
+      className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/10 font-mono text-[20px] font-bold uppercase tracking-tight text-primary-text"
+    >
+      {brandInitials(name)}
+    </span>
   );
 }

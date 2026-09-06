@@ -28,7 +28,7 @@ export function AppCard({ app, size }: AppCardProps) {
       )}
     >
       {app.badge && (
-        <span className="absolute right-3 top-3 rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
+        <span className="absolute right-3 top-3 rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary-text">
           {app.badge}
         </span>
       )}
@@ -42,7 +42,7 @@ export function AppCard({ app, size }: AppCardProps) {
       <span
         className={cn(
           "flex items-center justify-center rounded-xl",
-          isLive ? "bg-primary/10 text-primary" : "bg-foreground/[0.06] text-muted-foreground",
+          isLive ? "bg-primary/10 text-primary-text" : "bg-foreground/[0.06] text-muted-foreground",
           size === "lg" ? "h-12 w-12" : "h-10 w-10",
         )}
       >
@@ -75,7 +75,7 @@ export function AppCard({ app, size }: AppCardProps) {
           <span className="font-mono text-[10.5px] text-muted-foreground">Not built yet</span>
         )}
         {isLive && (
-          <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
+          <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary-text" />
         )}
       </div>
     </Link>

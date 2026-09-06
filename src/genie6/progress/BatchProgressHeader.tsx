@@ -23,8 +23,8 @@ import { creditsForRetry } from "../lib/genieRunStore";
  */
 
 const STATUS_META: Record<BatchStatus, { label: string; pillClass: string }> = {
-  running: { label: "Rendering", pillClass: "border-primary/30 bg-primary/10 text-primary" },
-  done: { label: "Done", pillClass: "border-primary/30 bg-primary/10 text-primary" },
+  running: { label: "Rendering", pillClass: "border-primary/30 bg-primary/10 text-primary-text" },
+  done: { label: "Done", pillClass: "border-primary/30 bg-primary/10 text-primary-text" },
   partial: {
     label: "Partial",
     pillClass: "border-warning-text/30 bg-warning-text/10 text-warning-text",
@@ -138,7 +138,7 @@ export function BatchProgressHeader({
 
       {isLongRunning && (
         <p className="flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
-          <Wand2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+          <Wand2 className="h-3.5 w-3.5 shrink-0 text-primary-text" aria-hidden />
           This can take a while — we&rsquo;ll notify you the moment it lands. You can{" "}
           {/* react-router Link, NOT <a href>. A plain href is a full document
               load, which tears down the module-level genieRunStore and
@@ -148,7 +148,7 @@ export function BatchProgressHeader({
               one-way door. */}
           <Link
             to="/iq/genie6/library"
-            className="font-medium text-primary underline-offset-2 hover:underline"
+            className="font-medium text-primary-text underline-offset-2 hover:underline"
           >
             head to the Library
           </Link>{" "}
@@ -166,10 +166,21 @@ export function BatchProgressHeader({
                 Cancelling…
               </span>
             ) : (
-              <Button type="button" size="sm" variant="outline" onClick={onCancel} className="rounded-full">
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Cancel
-              </Button>
+              /* Quiet, not a bordered Button.
+                 While a batch runs this is the ONLY control on the header, so
+                 an outline Button made the DESTRUCTIVE action the visual focus
+                 of the screen — a Fitts's-Law inversion on a surface whose job
+                 is "your work is in progress, go do something else". Cancel
+                 stays one click away and keyboard-reachable, but it no longer
+                 out-shouts the progress it would destroy. */
+              <button
+                type="button"
+                onClick={onCancel}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-destructive hover:underline"
+              >
+                <X className="h-3 w-3" aria-hidden />
+                Cancel this batch
+              </button>
             ))}
 
           {showRetryRow && failed.length > 0 && (

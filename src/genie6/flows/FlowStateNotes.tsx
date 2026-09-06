@@ -34,7 +34,7 @@ export function FlowZeroNote({
       <span className="text-[11px] text-muted-foreground">{text}</span>
       <Link
         to={to}
-        className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+        className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-primary-text hover:underline"
       >
         {ctaLabel}
         <ArrowUpRight className="h-3 w-3" />
@@ -68,7 +68,7 @@ export function FlowPartialNote({
       </span>
       <Link
         to={to}
-        className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+        className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-primary-text hover:underline"
       >
         Analyse in {label}
         <ArrowUpRight className="h-3 w-3" />

@@ -194,7 +194,7 @@ function ActionBtn({
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors",
         active
-          ? "border-primary/40 bg-primary/10 text-primary"
+          ? "border-primary/40 bg-primary/10 text-primary-text"
           : destructive
             ? "border-destructive/30 bg-background text-destructive hover:bg-destructive/10"
             : "border-border bg-background text-foreground hover:bg-muted",

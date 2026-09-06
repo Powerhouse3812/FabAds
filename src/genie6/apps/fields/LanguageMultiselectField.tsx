@@ -45,7 +45,7 @@ export function LanguageMultiselectField({
           {selected.map((code) => (
             <span
               key={code}
-              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2.5 pr-1 font-mono text-[11px] font-semibold uppercase tracking-wide text-primary"
+              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2.5 pr-1 font-mono text-[11px] font-semibold uppercase tracking-wide text-primary-text"
             >
               {languageLabel(code)}
               <button

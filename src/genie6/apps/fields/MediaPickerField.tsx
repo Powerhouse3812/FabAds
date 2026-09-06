@@ -226,6 +226,7 @@ export function MediaPickerField({ field, value, onChange }: MediaPickerFieldPro
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search your Library…"
+                aria-label="Search your Library"
                 className="h-8 rounded-full pl-7 text-[12.5px]"
               />
             </div>
@@ -268,6 +269,7 @@ export function MediaPickerField({ field, value, onChange }: MediaPickerFieldPro
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search the Catalogue…"
+                aria-label="Search the Catalogue"
                 className="h-8 rounded-full pl-7 text-[12.5px]"
               />
             </div>

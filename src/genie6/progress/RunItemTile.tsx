@@ -30,17 +30,32 @@ export function RunItemTile({
   stages,
   onRetry,
   className,
+  format,
 }: {
   item: RunItem;
   stages: string[];
   onRetry?: (s: RetryScope) => void;
   className?: string;
+  /**
+   * The batch's output format ("Image" / "Video"), from `RunBatch.config`.
+   *
+   * Every state in this tile was hardcoded to `aspect-[4/5]`, but the real
+   * OutputCard that replaces it on completion uses `aspect-[9/16]` for video
+   * (OutputCard.tsx). So a video batch rendered a 4:5 placeholder and then
+   * snapped to a much taller card the moment it finished — the
+   * skeleton-that-doesn't-match-layout anti-pattern, and a guaranteed jump on
+   * a surface the user is watching. Taken from the batch rather than the
+   * joined output because an in-flight item has no output to read yet.
+   */
+  format?: string;
 }) {
+  // Matches OutputCard's own media-zone rule.
+  const aspect = format?.toLowerCase() === "video" ? "aspect-[9/16]" : "aspect-[4/5]";
   switch (item.status) {
     case "pending":
       return (
         <div className={cn(CARD, className)}>
-          <div className="aspect-[4/5] w-full animate-pulse bg-muted" aria-hidden />
+          <div className={cn(aspect, "w-full animate-pulse bg-muted")} aria-hidden />
           <div className="flex items-center justify-between px-3 py-2">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Queued
@@ -53,7 +68,7 @@ export function RunItemTile({
     case "running":
       return (
         <div className={cn(CARD, className)}>
-          <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 bg-muted/40 px-4">
+          <div className={cn(aspect, "flex w-full flex-col items-center justify-center gap-3 bg-muted/40 px-4")}>
             <PulsingRingLoader size={40} />
             <p className="line-clamp-2 max-w-full text-center text-[12px] font-medium text-foreground">
               {item.title}
@@ -73,7 +88,7 @@ export function RunItemTile({
     case "done":
       return (
         <div className={cn(CARD, className)}>
-          <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+          <div className={cn(aspect, "relative w-full overflow-hidden bg-muted")}>
             {item.thumbnail ? (
               <img src={item.thumbnail} alt={item.title} className="h-full w-full object-cover" />
             ) : (
@@ -81,7 +96,7 @@ export function RunItemTile({
                 <Check className="h-8 w-8" strokeWidth={1.5} />
               </div>
             )}
-            <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-primary">
+            <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-primary-text">
               <Check className="h-2.5 w-2.5" strokeWidth={3} />
               Done
             </span>
@@ -143,7 +158,7 @@ export function RunItemTile({
     case "cancelling":
       return (
         <div className={cn(CARD, "opacity-75", className)}>
-          <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 bg-muted/40 px-4">
+          <div className={cn(aspect, "flex w-full flex-col items-center justify-center gap-2 bg-muted/40 px-4")}>
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-muted-foreground" aria-hidden />
             <p className="line-clamp-2 max-w-full text-center text-[12px] text-muted-foreground">
               {item.title}
@@ -160,7 +175,7 @@ export function RunItemTile({
     case "cancelled":
       return (
         <div className={cn(CARD, className)}>
-          <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 bg-muted/30 px-4">
+          <div className={cn(aspect, "flex w-full flex-col items-center justify-center gap-2 bg-muted/30 px-4")}>
             <span
               aria-hidden
               className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"

@@ -417,7 +417,7 @@ export function VideoEditor() {
                 <Button
                   type="button"
                   variant="link"
-                  className="w-fit p-0 text-primary"
+                  className="w-fit p-0 text-primary-text"
                   onClick={() => navigate("/iq/genie6/library")}
                 >
                   View in Library

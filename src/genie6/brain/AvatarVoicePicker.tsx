@@ -123,8 +123,8 @@ export function AvatarVoicePicker({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search avatars…"
-              className="h-9 rounded-full pl-8 text-sm"
               aria-label="Search avatars"
+              className="h-9 rounded-full pl-8 text-sm"
             />
           </div>
           <Select value={envFilter} onValueChange={setEnvFilter}>
@@ -270,10 +270,15 @@ function Tag({ children, variant = "default" }: { children: React.ReactNode; var
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.05em]",
+        // 10px, not 9px: 9 is below the design system's smallest type token
+        // (--text-xs = 10px), so these tags had drifted off the scale.
+        "inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em]",
         variant === "primary"
-          ? "border-primary/30 bg-primary/10 text-primary"
-          : "border-border bg-muted text-muted-foreground",
+          ? "border-primary/30 bg-primary/10 text-primary-text"
+          // text-muted-foreground on bg-muted measures 3.48:1 — under the
+          // 4.5:1 floor for text this size. foreground/80 composites to
+          // ~7.5:1 on the same ground while staying visibly secondary.
+          : "border-border bg-muted text-foreground/80",
       )}
     >
       {children}
@@ -507,7 +512,7 @@ function VoiceRow({
           <ProvenanceTag provenance={voice.provenance} />
         </div>
       </button>
-      {selected && <Check className="h-4 w-4 shrink-0 text-primary" strokeWidth={3} />}
+      {selected && <Check className="h-4 w-4 shrink-0 text-primary-text" strokeWidth={3} />}
     </div>
   );
 }
@@ -539,7 +544,7 @@ function ToneSelector({
                   active
                     ? "border-primary bg-primary text-primary-foreground"
                     : isMatch
-                      ? "border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
+                      ? "border-primary/50 bg-primary/5 text-primary-text hover:bg-primary/10"
                       : isConflict
                         ? "border-dashed border-muted-foreground/40 text-muted-foreground hover:border-muted-foreground/60"
                         : "border-border bg-card text-foreground hover:border-foreground/30",
@@ -552,7 +557,7 @@ function ToneSelector({
             </TooltipTrigger>
             <TooltipContent className="max-w-[220px] text-xs">
               <p>{toneDesc(t.id)}</p>
-              {isMatch && <p className="mt-1 font-semibold text-primary">Matches this brand's voice</p>}
+              {isMatch && <p className="mt-1 font-semibold text-primary-text">Matches this brand's voice</p>}
               {isConflict && <p className="mt-1 font-semibold text-muted-foreground">May clash with this brand's voice</p>}
             </TooltipContent>
           </Tooltip>

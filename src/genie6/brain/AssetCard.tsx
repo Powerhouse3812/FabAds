@@ -74,8 +74,15 @@ export function AssetCard({ preview, name, tags, usageLabel, lastUsedLabel, prov
           </p>
           <span
             className={cn(
-              "inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.05em]",
-              isSeeded ? "border-border bg-muted text-muted-foreground" : "border-primary/30 bg-primary/10 text-primary",
+              // 10px (the DS's smallest type token) not 9px, and
+              // text-foreground/80 not text-muted-foreground: the seeded
+              // variant measured 3.24:1 against a 4.5:1 floor. This is the
+              // THIRD copy of the same provenance badge in the codebase —
+              // see CatalogueShared.ProvenanceBadge and AvatarVoicePicker's
+              // Tag. All three now agree; consolidating them is worth doing
+              // but is a refactor, not a contrast fix.
+              "inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em]",
+              isSeeded ? "border-border bg-muted text-foreground/80" : "border-primary/30 bg-primary/10 text-primary-text",
             )}
           >
             {isSeeded ? "FabFunnel" : "Yours"}
@@ -163,7 +170,7 @@ function IconAction({
       onClick={onClick}
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-        active && "bg-primary/10 text-primary",
+        active && "bg-primary/10 text-primary-text",
         destructive && "hover:bg-destructive/10 hover:text-destructive",
       )}
     >

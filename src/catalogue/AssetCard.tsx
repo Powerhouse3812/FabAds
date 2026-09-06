@@ -74,28 +74,29 @@ export function AssetCard({
       )}
     >
       {selectable && (
-        // A plain <button> wrapping the Radix Checkbox (itself a <button>)
-        // is invalid DOM nesting (React warns on it) — a <span role="button">
-        // gets the same click target + keyboard reachability without it.
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelect?.();
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleSelect?.();
-            }
-          }}
-          className="absolute left-2 top-2 z-10 flex h-5 w-5 cursor-pointer items-center justify-center rounded-md border border-border bg-background/90 backdrop-blur-sm"
-          aria-label={selected ? "Deselect" : "Select"}
-        >
-          <Checkbox checked={selected} className="h-3.5 w-3.5" />
-        </span>
+        /* The Radix Checkbox IS the control — no wrapper.
+         *
+         * This was a <span role="button" tabIndex={0}> wrapping <Checkbox>,
+         * which itself renders <button role="checkbox">. Two nested
+         * interactive roles, both focusable: invalid ARIA, undefined tab
+         * order, and a screen reader announcing "Select, button" with a
+         * checkbox inside it. The wrapper existed to dodge a
+         * button-inside-button warning — but the Checkbox never needed
+         * wrapping, it needed sizing.
+         *
+         * Also sized up: the old target was a 14px checkbox in a 20px box,
+         * under the 24×24 minimum, and it is the ONLY bulk-select control on
+         * these lists. And the name is the asset's, not a bare "Select" —
+         * nine identical "Select" buttons tell a screen-reader user nothing
+         * about which row they're on.
+         */
+        <Checkbox
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onCheckedChange={() => onToggleSelect?.()}
+          aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
+          className="absolute left-2 top-2 z-10 h-6 w-6 rounded-md border-border bg-background/90 backdrop-blur-sm"
+        />
       )}
 
       {onToggleBookmark && (
@@ -109,7 +110,7 @@ export function AssetCard({
           aria-label={bookmarked ? "Remove bookmark" : "Bookmark"}
           className={cn(
             "absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border bg-background/90 backdrop-blur-sm transition-colors",
-            bookmarked ? "border-primary/40 text-primary" : "border-border text-muted-foreground/60 hover:text-foreground",
+            bookmarked ? "border-primary/40 text-primary-text" : "border-border text-muted-foreground/60 hover:text-foreground",
           )}
         >
           <Bookmark className="h-3 w-3" fill={bookmarked ? "currentColor" : "none"} />

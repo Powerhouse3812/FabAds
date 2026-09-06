@@ -425,4 +425,33 @@ All colors MUST be HSL.
 }
 @media (prefers-reduced-motion: reduce) {
   .cr-stagger { animation: none; opacity: 1; }
+
+  /* This block used to cover exactly one class, so everything else kept
+     animating for users who had asked the OS not to — most visibly the Radix
+     accordions on Genie Brain (six of them, accordion-up/accordion-down),
+     and the card hover lifts and shimmer skeletons across the new Genie 2.0
+     surfaces.
+
+     Blanket rule rather than a per-component list: a reduced-motion
+     preference is a request to stop moving things, and enumerating every
+     animated component guarantees the next one gets missed. Transitions are
+     collapsed to 1ms rather than 0 so transitionend handlers still fire and
+     nothing hangs waiting for an event that never comes. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Keep genuinely informative motion legible instead of frozen mid-state:
+     an indeterminate progress indicator that stops moving reads as "hung",
+     which is worse than the motion it removes. Slowed, not stopped. */
+  [role="progressbar"] *,
+  .animate-pulse {
+    animation-duration: 2.4s !important;
+    animation-iteration-count: infinite !important;
+  }
 }

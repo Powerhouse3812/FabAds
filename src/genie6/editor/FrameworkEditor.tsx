@@ -35,7 +35,7 @@ import { sectionBreakdown } from "./editorCredits";
 
 const PROVENANCE_META: Record<Provenance, { label: string; className: string }> = {
   "fabfunnel-seeded": { label: "FabFunnel", className: "border-border bg-muted text-muted-foreground" },
-  "client-created": { label: "Your framework", className: "border-primary/30 bg-primary/10 text-primary" },
+  "client-created": { label: "Your framework", className: "border-primary/30 bg-primary/10 text-primary-text" },
 };
 
 const REGEN_STAGES = ["Queued", "Re-rendering beat", "Compositing", "Finalizing"];

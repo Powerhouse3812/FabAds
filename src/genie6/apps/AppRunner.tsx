@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { AppFieldValues, GenieApp } from "./appTypes";
 import { previewCost } from "./data/appCost";
 import { startBatch } from "../lib/genieRunStore";
-import { CREDITS_REMAINING, exceedsBalance, formatCredits } from "../lib/credits";
+import { CREDITS_REMAINING, exceedsBalance, formatCredits, creditsLabel } from "../lib/credits";
 import { firstMissingRequiredField } from "./lib/fieldHelpers";
 import { buildRunPlan } from "./lib/runPlan";
 import { FieldRenderer } from "./fields";
@@ -84,7 +84,7 @@ export function AppRunner({ app }: { app: GenieApp }) {
                 <div key={field.id} className="flex flex-col gap-1.5">
                   <label className="text-[13px] font-medium text-foreground">
                     {field.label}
-                    {field.required && <span className="ml-0.5 text-primary">*</span>}
+                    {field.required && <span className="ml-0.5 text-primary-text">*</span>}
                   </label>
                   {field.hint && <p className="text-[12px] text-muted-foreground">{field.hint}</p>}
                   <FieldRenderer
@@ -117,7 +117,17 @@ export function AppRunner({ app }: { app: GenieApp }) {
               : "bg-primary text-primary-foreground hover:bg-primary/90",
           )}
         >
-          Generate ({formatCredits(preview.total)} credits)
+          {/* The label must never assert a charge the run can't produce.
+              previewCost() floors an empty multi-select at 1 (0 languages × a
+              rate is 0, which is a worse lie), so while required fields are
+              missing `preview.total` is a FLOOR, not a quote — CostBreakdown
+              below already says "From ~". Printing a hard figure up here at
+              the same time put two contradicting numbers on one screen, which
+              is the §21.2 defect this release exists to remove. So: a figure
+              only once the form can actually be priced. */}
+          {preview.provisional
+            ? "Generate"
+            : `Generate (${creditsLabel(preview.total)})`}
         </button>
 
         {missing && (

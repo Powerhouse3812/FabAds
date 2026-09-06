@@ -274,7 +274,7 @@ export function AnglePlaybookPanel({
             "ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors",
             emptyCount === 0
               ? "cursor-not-allowed bg-muted text-muted-foreground"
-              : "cursor-pointer bg-primary/10 text-primary hover:bg-primary/20",
+              : "cursor-pointer bg-primary/10 text-primary-text hover:bg-primary/20",
           )}
           title={
             emptyCount === 0
@@ -336,7 +336,7 @@ export function AnglePlaybookPanel({
                         fillCategory(cat);
                       }
                     }}
-                    className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20"
+                    className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary-text transition-colors hover:bg-primary/20"
                     title={`AI-draft ${catEmpty} empty angle${catEmpty === 1 ? "" : "s"} in ${cat.name}`}
                   >
                     <Sparkles className="h-2.5 w-2.5" />
@@ -507,7 +507,7 @@ function AngleEditor({
           type="button"
           onClick={handleAiFill}
           title="AI fill — 1 credit"
-          className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary transition-colors hover:bg-primary/20"
+          className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary-text transition-colors hover:bg-primary/20"
         >
           <Wand2 className="h-2.5 w-2.5" />
           AI · 1c

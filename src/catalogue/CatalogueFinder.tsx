@@ -692,7 +692,7 @@ function Pane1Row({
       <div className="min-w-0 flex-1">
         <p className={cnSafe(
           "text-[13px] font-medium truncate",
-          active ? "text-primary" : "text-foreground",
+          active ? "text-primary-text" : "text-foreground",
           // Hooks have long quoted copy — clamp to 1 line so the row stays compact.
           type === "hooks" && "italic"
         )}>
@@ -864,7 +864,7 @@ function Pane2Sections({
                 onClick={() => onSelectSection(sec.key)}
                 className={cnSafe(
                   "w-full text-left px-3 py-2 flex items-center gap-2 transition-colors",
-                  isOpen && !activeChildId ? "bg-primary/10 text-primary" : "hover:bg-muted/40 text-foreground"
+                  isOpen && !activeChildId ? "bg-primary/10 text-primary-text" : "hover:bg-muted/40 text-foreground"
                 )}
               >
                 <SecIcon className="h-3.5 w-3.5 shrink-0" />
@@ -887,7 +887,7 @@ function Pane2Sections({
                         onClick={() => onSelectChild(sec.key, child.id)}
                         className={cnSafe(
                           "w-full text-left pl-2.5 pr-3 py-1.5 rounded-md transition-colors flex items-center justify-between gap-2",
-                          childActive ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/40 text-foreground/80"
+                          childActive ? "bg-primary/10 text-primary-text font-medium" : "hover:bg-muted/40 text-foreground/80"
                         )}
                       >
                         <span className="text-[12px] truncate">{child.label}</span>
@@ -984,7 +984,7 @@ function GenericAssetSectionView({
             {card.thumbnail ? (
               <img src={card.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
-              <def.icon className="h-5 w-5 text-primary" />
+              <def.icon className="h-5 w-5 text-primary-text" />
             )}
           </div>
           <div className="min-w-0">
@@ -1095,7 +1095,7 @@ function ProductSectionView({ productId, section }: { productId: string; section
         <ul className="space-y-1.5">
           {prod.landingPages?.map((lp) => (
             <li key={lp}>
-              <a href={lp} target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline inline-flex items-center gap-1.5">
+              <a href={lp} target="_blank" rel="noreferrer" className="text-sm text-primary-text hover:underline inline-flex items-center gap-1.5">
                 {lp} <ExternalLink className="h-3 w-3" />
               </a>
             </li>
@@ -1112,7 +1112,7 @@ function ProductSectionView({ productId, section }: { productId: string; section
         <ul className="space-y-1.5">
           {prod.campaignUrls?.map((cu) => (
             <li key={cu}>
-              <a href={cu} target="_blank" rel="noreferrer" className="text-xs font-mono text-muted-foreground hover:text-primary inline-flex items-center gap-1.5">
+              <a href={cu} target="_blank" rel="noreferrer" className="text-xs font-mono text-muted-foreground hover:text-primary-text inline-flex items-center gap-1.5">
                 {cu} <ExternalLink className="h-3 w-3" />
               </a>
             </li>
@@ -1153,7 +1153,7 @@ function AudienceSectionView({ audienceId, section }: { audienceId: string; sect
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5 text-primary" />
+              <Users className="h-5 w-5 text-primary-text" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-foreground truncate">{audience.label}</h2>
@@ -1248,7 +1248,7 @@ function AngleSectionView({ angleId, section }: { angleId: string; section: stri
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Crosshair className="h-5 w-5 text-primary" />
+              <Crosshair className="h-5 w-5 text-primary-text" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-foreground truncate">{angle.label}</h2>
@@ -1308,7 +1308,7 @@ function HookSectionView({ hookId, section }: { hookId: string; section: string 
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <MessageSquareQuote className="h-5 w-5 text-primary" />
+              <MessageSquareQuote className="h-5 w-5 text-primary-text" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-base font-semibold text-foreground italic leading-snug">"{hook.text}"</h2>
@@ -1374,7 +1374,7 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Lightbulb className="h-5 w-5 text-primary" />
+              <Lightbulb className="h-5 w-5 text-primary-text" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-foreground truncate">{concept.name}</h2>
@@ -1498,7 +1498,7 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Mic className="h-5 w-5 text-primary" />
+              <Mic className="h-5 w-5 text-primary-text" />
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-foreground">{voice.name}</h2>
@@ -1516,7 +1516,7 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40"
             >
-              <Volume2 className="h-3.5 w-3.5 text-primary" />
+              <Volume2 className="h-3.5 w-3.5 text-primary-text" />
               <span className="font-medium text-foreground">Play sample</span>
             </a>
           </Section>
@@ -1544,7 +1544,7 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
             rel="noreferrer"
             className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40"
           >
-            <Volume2 className="h-3.5 w-3.5 text-primary" />
+            <Volume2 className="h-3.5 w-3.5 text-primary-text" />
             <span className="font-medium text-foreground">Play sample</span>
           </a>
         ) : (

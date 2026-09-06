@@ -265,7 +265,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
               to={`/catalogue/angles/${angle.id}`}
               className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
             >
-              <Crosshair className="h-3.5 w-3.5 text-primary" />
+              <Crosshair className="h-3.5 w-3.5 text-primary-text" />
               <span className="font-medium text-foreground">{angle.label}</span>
             </Link>
           ) : (
@@ -335,7 +335,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
               to={`/catalogue/angles/${angle.id}`}
               className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
             >
-              <Crosshair className="h-3.5 w-3.5 text-primary" />
+              <Crosshair className="h-3.5 w-3.5 text-primary-text" />
               <span className="font-medium text-foreground">{angle.label}</span>
             </Link>
           </Section>
@@ -431,7 +431,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40"
             >
-              <Volume2 className="h-3.5 w-3.5 text-primary" />
+              <Volume2 className="h-3.5 w-3.5 text-primary-text" />
               <span className="font-medium text-foreground">Play sample</span>
             </a>
           </Section>
@@ -852,7 +852,7 @@ function KbTabPanel({
         <button
           type="button"
           onClick={onCreate}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
           {createLabel}
@@ -1023,7 +1023,7 @@ function UsedElsewhereCards({
           className="group flex flex-col gap-2.5 rounded-xl border border-border/40 bg-card/60 p-3.5 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
         >
           <div className="flex items-center gap-2">
-            <BookOpen className="h-3.5 w-3.5 text-primary" />
+            <BookOpen className="h-3.5 w-3.5 text-primary-text" />
             <h5 className="text-[12px] font-semibold tracking-tight text-foreground">
               Angle Playbook
             </h5>
@@ -1061,7 +1061,7 @@ function UsedElsewhereCards({
                 {topAngles.map((label) => (
                   <span
                     key={label}
-                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/[0.08] px-2 py-0.5 text-[10px] font-medium text-primary"
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/[0.08] px-2 py-0.5 text-[10px] font-medium text-primary-text"
                   >
                     {label}
                   </span>
@@ -1092,7 +1092,7 @@ function UsedElsewhereCards({
           className="group flex flex-col gap-2 rounded-xl border border-border/40 bg-card/60 p-3.5 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md"
         >
           <div className="flex items-center gap-2">
-            <Trophy className="h-3.5 w-3.5 text-primary" />
+            <Trophy className="h-3.5 w-3.5 text-primary-text" />
             <h5 className="text-[12px] font-semibold tracking-tight text-foreground">
               Winner Ads
             </h5>
@@ -1185,7 +1185,7 @@ function InstructionRow({
 }) {
   return (
     <li className="flex items-start gap-3 rounded-lg border border-border/40 bg-background px-3 py-2">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-text">
         <BookOpen className="h-3.5 w-3.5" />
       </div>
       <div className="min-w-0 flex-1">
@@ -1270,7 +1270,7 @@ function ConceptCard({ concept }: { concept: KbConcept }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="truncate text-[13px] font-semibold text-foreground">{concept.name}</p>
-          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary">
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-primary-text">
             {concept.tone}
           </span>
         </div>
@@ -1481,7 +1481,7 @@ export function BrandDetail({
                   className={cn(
                     "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
                     active
-                      ? "bg-primary/20 text-primary"
+                      ? "bg-primary/20 text-primary-text"
                       : "bg-foreground/[0.08] text-foreground",
                   )}
                 >
@@ -1670,7 +1670,7 @@ function GuidelinesPanel({ brand }: { brand: Brand }) {
           href={`https://${brand.domain}`}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-[13px] text-foreground hover:text-primary"
+          className="inline-flex items-center gap-1 text-[13px] text-foreground hover:text-primary-text"
         >
           {brand.domain}
           <ExternalLink className="h-3 w-3" />
@@ -1687,7 +1687,7 @@ function GuidelinesPanel({ brand }: { brand: Brand }) {
                 <Link
                   key={cid}
                   to={`/catalogue/categories/${cid}`}
-                  className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary hover:bg-primary/15"
+                  className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary-text hover:bg-primary/15"
                 >
                   {c?.name ?? cid}
                 </Link>
@@ -1738,7 +1738,7 @@ function WinnersPanel({ brandId }: { brandId: string }) {
         <button
           type="button"
           onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
           Add winner ad
@@ -1897,7 +1897,7 @@ function ProductsPanel({
               `Add product to ${brand.name} — wire this to a creation modal next.`,
             )
           }
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
           Add product
@@ -2085,7 +2085,7 @@ export function ProductDetail({
                   className={cn(
                     "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
                     active
-                      ? "bg-primary/20 text-primary"
+                      ? "bg-primary/20 text-primary-text"
                       : "bg-foreground/[0.08] text-foreground",
                   )}
                 >
@@ -2162,7 +2162,7 @@ function ProductHero({
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-bold text-foreground">{product.name}</h1>
-          <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[11px] font-bold text-primary-text">
             {product.price}
           </span>
         </div>
@@ -2195,7 +2195,7 @@ function ProductHero({
           )}
         </div>
         {product.promo && (
-          <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+          <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary-text">
             {product.promo}
           </span>
         )}
@@ -2352,7 +2352,7 @@ function ProductGuidelinesPanel({
           {category ? (
             <Link
               to={`/catalogue/categories/${category.id}`}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-primary transition-colors hover:bg-primary/15"
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider text-primary-text transition-colors hover:bg-primary/15"
             >
               {category.name}
             </Link>
@@ -2368,7 +2368,7 @@ function ProductGuidelinesPanel({
             {product.price}
           </p>
           {product.promo && (
-            <span className="mt-1.5 inline-block rounded-full bg-primary/15 px-2 py-0.5 text-[11px] text-primary">
+            <span className="mt-1.5 inline-block rounded-full bg-primary/15 px-2 py-0.5 text-[11px] text-primary-text">
               {product.promo}
             </span>
           )}
@@ -2386,7 +2386,7 @@ function ProductGuidelinesPanel({
                     href={lp}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 truncate text-[12px] text-primary hover:underline"
+                    className="inline-flex items-center gap-1 truncate text-[12px] text-primary-text hover:underline"
                   >
                     {shortUrl(lp)}
                     <ExternalLink className="h-2.5 w-2.5" />
@@ -2440,7 +2440,7 @@ function ProductWinnersPanel({ productId }: { productId: string }) {
         <button
           type="button"
           onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
           Add winner ad
@@ -2590,7 +2590,7 @@ function ProductVariantsPanel({
           onClick={() =>
             alert(`Add variant to ${product.name} — coming soon.`)
           }
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
           Add variant
@@ -2790,7 +2790,7 @@ export function CategoryDetail({
                   className={cn(
                     "inline-flex items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold",
                     active
-                      ? "bg-primary/20 text-primary"
+                      ? "bg-primary/20 text-primary-text"
                       : "bg-foreground/[0.08] text-foreground",
                   )}
                 >
@@ -2921,7 +2921,7 @@ function CategoryHero({
             <Link
               key={c.id}
               to={`/catalogue/categories/${c.id}`}
-              className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-primary/15 hover:text-primary"
+              className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground transition-colors hover:bg-primary/15 hover:text-primary-text"
             >
               {c.name}
             </Link>
@@ -3058,7 +3058,7 @@ function CategoryOverviewPanel({
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 truncate text-[12px] text-primary hover:underline"
+                  className="inline-flex items-center gap-1 truncate text-[12px] text-primary-text hover:underline"
                 >
                   {shortUrl(url)}
                   <ExternalLink className="h-2.5 w-2.5" />
@@ -3088,7 +3088,7 @@ function CategoryWinnersPanel({ categoryId }: { categoryId: string }) {
         <button
           type="button"
           onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
-          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
           Add winner ad

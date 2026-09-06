@@ -76,7 +76,7 @@ export function StageProgress({
                 {state === "done" && (
                   <span
                     aria-hidden
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary-text"
                   >
                     <Check className="h-2.5 w-2.5" strokeWidth={3} />
                   </span>
