@@ -2,12 +2,15 @@ import { useMemo } from "react";
 import { angles } from "@/mocks/shared/angles";
 import { AngleRow } from "../../components/AngleRow";
 import type { OutputData } from "../../types/output";
+import type { GetOutputCardActions } from "../useOutputCardActions";
 
 interface GroupByAngleViewProps {
   outputs: OutputData[];
   selected: Set<string>;
   onSelect: (id: string) => void;
   onCardClick: (output: OutputData) => void;
+  /** See MasonryView — threaded down to each row's cards. Optional. */
+  getActions?: GetOutputCardActions;
 }
 
 /**
@@ -25,6 +28,7 @@ export function GroupByAngleView({
   selected,
   onSelect,
   onCardClick,
+  getActions,
 }: GroupByAngleViewProps) {
   const byAngle = useMemo(() => {
     const map = new Map<string, OutputData[]>();
@@ -74,6 +78,7 @@ export function GroupByAngleView({
           selected={selected}
           onSelect={onSelect}
           onCardClick={onCardClick}
+          getActions={getActions}
         />
       ))}
     </div>

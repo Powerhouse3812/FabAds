@@ -38,6 +38,14 @@ import { ConceptsLibrary } from "./concepts/ConceptsLibrary";
 import { AnglePlaybookPreview } from "./concepts/AnglePlaybookPreview";
 import { GenerateConceptsPage } from "./concepts/GenerateConceptsPage";
 import { OutputDetailPreview } from "./library/OutputDetailPreview";
+/* ── Genie 2.0 (§7 · §8 · §11 · §14) ── */
+import { OtherFlows } from "./flows/OtherFlows";
+import { FlowModuleDetail } from "./flows/FlowModuleDetail";
+import { OtherApps } from "./apps/OtherApps";
+import { AppScreen } from "./apps/AppScreen";
+import { GenieBrain } from "./brain/GenieBrain";
+import { VideoEditor } from "./editor/VideoEditor";
+import { ProgressShowcase } from "./progress/_dev/ProgressShowcase";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -51,6 +59,41 @@ import { OutputDetailPreview } from "./library/OutputDetailPreview";
 export const genie6Routes = (
   <Route path="iq/genie6" element={<Genie6Bridge />}>
     <Route index element={<Home />} />
+
+    {/* ─── Genie 2.0 ───────────────────────────────────────────────
+        §3's locked sub-nav is Overview · Studio · Other Flows · Other Apps ·
+        Concepts · Library · Settings. The two new surfaces are the release's
+        headline structural change: Genie stops being a place you GO TO and
+        becomes a place other modules FEED INTO (Other Flows), and the
+        scattered utility tools gather in one grid (Other Apps).
+        ───────────────────────────────────────────────────────────── */}
+
+    {/* §7 — Other Flows. The index lists the 11 source modules; :moduleKey
+        opens that module's actions, then its source picker, then hands off to
+        Studio carrying ?src/?ref/?act (see flows/flowTypes.ts for why the
+        flow context is URL-borne rather than held in a store). */}
+    <Route path="flows" element={<OtherFlows />} />
+    <Route path="flows/:moduleKey" element={<FlowModuleDetail />} />
+
+    {/* §8 — Other Apps. 15 apps, 7 live. One screen anatomy driven from
+        apps/data/appRegistry.ts, so a new app is a registry entry rather than
+        a new file. All output lands in the central Library (§8), never a
+        per-app store. */}
+    <Route path="apps" element={<OtherApps />} />
+    <Route path="apps/:appKey" element={<AppScreen />} />
+
+    {/* §11 — Genie Brain. §21.1 reversed the 26 Aug call that this was an
+        internal-admin surface: every user gets their own Brain. Lives under
+        Settings rather than the sub-nav, which §3 fixes at seven entries. */}
+    <Route path="settings/brain" element={<GenieBrain />} />
+
+    {/* §14 — video editor. Both models ship: framework-based (swap or
+        regenerate a named section) and timeline (clips + audio track). */}
+    <Route path="editor/:outputId" element={<VideoEditor />} />
+
+    {/* Dev — every progress / failure / retry state on one page. §18 has one
+        pattern for all of Genie, so it gets one place to inspect it. */}
+    <Route path="_dev/progress" element={<ProgressShowcase />} />
 
     {/* Library */}
     <Route path="library" element={<Library />} />

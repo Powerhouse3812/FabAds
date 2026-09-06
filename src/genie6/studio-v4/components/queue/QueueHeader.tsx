@@ -1,11 +1,11 @@
 import { ChevronLeft } from "lucide-react";
-import type { QueueBatch } from "../../types/queue";
+import type { RunBatch } from "@/genie6/lib/genieRunTypes";
 import { QueueStrip } from "./QueueStrip";
 import { VariantToggle, type QueueVariant } from "./VariantToggle";
 
 interface QueueHeaderProps {
   variant: QueueVariant;
-  batches: QueueBatch[];
+  batches: RunBatch[];
   activeBatchId: string | null;
   onSelectBatch: (id: string) => void;
   onBack?: () => void;

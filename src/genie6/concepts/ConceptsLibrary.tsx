@@ -1,113 +1,60 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import {
-  Calendar as CalendarIcon,
-  Check,
-  Filter,
-  Search,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { Check, Filter, Search, Sparkles, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  brands,
-  products,
-  categories,
-  concepts as catalogueConcepts,
-  KB_CONCEPTS,
-} from "@/mocks/shared";
-import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
-import { HeroHeader } from "@/genie6/studio-v4/components/HeroHeader";
-import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { useSavedStore } from "./saved-store";
+import { ConceptCard } from "./ConceptCard";
+import { BulkGenerateBar } from "./BulkGenerateBar";
+import {
+  AD_TYPE_LABEL,
+  buildConceptItems,
+  FORMAT_LABEL,
+  type AdType,
+  type ConceptItem,
+  type FormatKind,
+} from "./conceptItems";
+import { HeroHeader } from "@/genie6/studio-v4/components/HeroHeader";
+// RUN STORE agent's file (module manifest, BRIEF.md §8).
+import { useBatches } from "@/genie6/lib/genieRunStore";
 
 /**
  * ConceptsLibrary — full-page library at /iq/genie6/concepts.
  *
- * Aggregates 3 sources of concepts:
+ * Aggregates 3 sources of concepts (see conceptItems.ts):
  *   1. Catalogue concepts (50+) from @/mocks/shared/concepts.ts.
  *   2. KB-attached concepts (~9) from @/mocks/shared/kbConcepts.ts.
- *   3. User-saved (empty stub for now — future: lift global state).
+ *   3. User-saved (session-only, via saved-store.ts).
  *
- * Filters: search · angle · format · brand · product · category · source · tone
- *          · date range. Sort: recent / name / generations.
+ * §12 locks this screen's filters to exactly 2 dimensions — Format
+ * (Image / Video) and Ad type (Brand / Product / Category). The older
+ * "E-commerce / Affiliate / Both" idea is dropped (and was never present
+ * in this file — verified while doing this pass). Angle / Brand-entity /
+ * Product-entity / Category-entity / Source / Tone / Date-range filters
+ * that existed here before this pass are intentionally REMOVED as filter
+ * facets (angle + tone still show as descriptive tags on the card) — see
+ * this module's final report for why.
  *
- * URL-backed state via useSearchParams so any filter+sort combo is shareable.
+ * Search + Sort (Recent / Name / Most generated) stay, since §12 only
+ * fixes the *filters*, not search or sort.
+ *
+ * URL-backed state via useSearchParams (A-12.38 convention, extended not
+ * replaced): ?q ?format ?adtype ?sort, plus ?loading=1 / ?empty=1 demo
+ * flags (Library.tsx's convention — this page had no such flags before;
+ * added here for state-coverage completeness).
+ *
+ * Selection (multi-select bulk generate, §12) is the one non-URL state,
+ * matching Library's own precedent (RECON.md: "Selection is the ONE
+ * non-URL state").
  */
 
-type SourceKey =
-  | "catalogue"
-  | "kb"
-  | "saved-from-genie"
-  | "saved-from-insights";
-
-interface ConceptItem {
-  id: string;
-  name: string;
-  thumbnail?: string;
-  angle?: string;
-  format?: string;
-  tone?: string;
-  brandId?: string;
-  productId?: string;
-  categoryId?: string;
-  source: SourceKey;
-  capturedAt: Date;
-  generationCount: number;
-}
-
-const SOURCE_LABEL: Record<SourceKey, string> = {
-  catalogue: "Catalogue",
-  kb: "Knowledge Base",
-  "saved-from-genie": "Genie",
-  "saved-from-insights": "Insights",
-};
-
-type SortKey = "recent" | "name" | "generations";
-
-const SORT_LABEL: Record<SortKey, string> = {
-  recent: "Recent",
-  name: "Name (A-Z)",
-  generations: "Most generated",
-};
-
-/** Stable pseudo-date so catalogue concepts sort consistently. */
-function deriveCapturedAt(id: string): Date {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  const daysAgo = h % 90; // within last 90 days
-  return new Date(Date.now() - daysAgo * 86400_000);
-}
-
-/** Pool of real ad thumbnails sourced from sampleOutputs (Unsplash URLs).
- *  Used for catalogue concepts that lack their own thumbnail. */
-const REAL_THUMB_POOL: string[] = sampleOutputs
-  .map((o) => o.thumbnail)
-  .filter((t): t is string => typeof t === "string");
-
-/** Deterministic mapping: concept id → real thumbnail from sampleOutputs. */
-function deriveThumbnail(id: string): string | undefined {
-  if (REAL_THUMB_POOL.length === 0) return undefined;
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  return REAL_THUMB_POOL[h % REAL_THUMB_POOL.length];
-}
-
-function formatAge(d: Date): string {
-  const ms = Date.now() - d.getTime();
-  const days = Math.floor(ms / 86400_000);
-  if (days < 1) return "today";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
 export function ConceptsLibrary() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -121,149 +68,209 @@ export function ConceptsLibrary() {
     );
 
   const search = searchParams.get("q") ?? "";
-  const angleFilter = searchParams.get("angle");
-  const formatFilter = searchParams.get("format");
-  const brandFilter = searchParams.get("brand");
-  const productFilter = searchParams.get("product");
-  const categoryFilter = searchParams.get("category");
-  const sourceFilter = searchParams.get("source");
-  const toneFilter = searchParams.get("tone");
+  const formatFilter = searchParams.get("format") as FormatKind | null;
+  const adTypeFilter = searchParams.get("adtype") as AdType | null;
   const sort = (searchParams.get("sort") as SortKey | null) ?? "recent";
+  const forceLoading = searchParams.get("loading") === "1";
+  const forceEmpty = searchParams.get("empty") === "1";
 
   // Saved-store gives us the user-saved-during-this-session concepts.
   const { concepts: savedConcepts } = useSavedStore();
 
-  // Build unified feed: catalogue + KB seed + user-saved.
-  const items: ConceptItem[] = useMemo(() => {
-    const fromCatalogue: ConceptItem[] = catalogueConcepts.map((c) => ({
-      id: `cat-${c.id}`,
-      name: c.name,
-      thumbnail: deriveThumbnail(c.id),
-      angle: c.angle,
-      tone: c.tone,
-      format: c.format,
-      brandId: c.brandId,
-      source: "catalogue" as const,
-      capturedAt: deriveCapturedAt(c.id),
-      generationCount: c.generationCount,
-    }));
-    const mapKb = (c: typeof KB_CONCEPTS[number], idPrefix: string): ConceptItem => ({
-      id: `${idPrefix}-${c.id}`,
-      name: c.name,
-      thumbnail: c.thumbnail ?? deriveThumbnail(c.id),
-      tone: c.tone,
-      brandId: c.entityType === "brand" ? (c.entityId as string) : undefined,
-      productId: c.entityType === "product" ? (c.entityId as string) : undefined,
-      categoryId: c.entityType === "category" ? (c.entityId as string) : undefined,
-      source:
-        c.source === "from-winner-ad"
-          ? ("kb" as const)
-          : c.source === "saved-from-genie"
-            ? ("saved-from-genie" as const)
-            : ("saved-from-insights" as const),
-      capturedAt: c.capturedAt,
-      generationCount: 0,
-    });
-    const fromKb: ConceptItem[] = KB_CONCEPTS.map((c) => mapKb(c, "kb"));
-    const fromSaved: ConceptItem[] = savedConcepts.map((c) => mapKb(c, "saved"));
-    return [...fromCatalogue, ...fromKb, ...fromSaved];
-  }, [savedConcepts]);
-
-  // Distinct option lists.
-  const angleOptions = useMemo(
-    () => Array.from(new Set(items.map((i) => i.angle).filter(Boolean))) as string[],
-    [items],
-  );
-  const formatOptions = useMemo(
-    () => Array.from(new Set(items.map((i) => i.format).filter(Boolean))) as string[],
-    [items],
-  );
-  const toneOptions = useMemo(
-    () => Array.from(new Set(items.map((i) => i.tone).filter(Boolean))) as string[],
-    [items],
+  const allItems: ConceptItem[] = useMemo(
+    () => (forceEmpty ? [] : buildConceptItems(savedConcepts)),
+    [savedConcepts, forceEmpty],
   );
 
   // Apply filters + sort.
   const filtered = useMemo(() => {
-    let list = items;
+    let list = allItems;
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((c) => c.name.toLowerCase().includes(q));
     }
-    if (angleFilter) list = list.filter((c) => c.angle === angleFilter);
-    if (formatFilter) list = list.filter((c) => c.format === formatFilter);
-    if (brandFilter) list = list.filter((c) => c.brandId === brandFilter);
-    if (productFilter) list = list.filter((c) => c.productId === productFilter);
-    if (categoryFilter) list = list.filter((c) => c.categoryId === categoryFilter);
-    if (sourceFilter) list = list.filter((c) => c.source === sourceFilter);
-    if (toneFilter) list = list.filter((c) => c.tone === toneFilter);
+    if (formatFilter) list = list.filter((c) => c.formatKind === formatFilter);
+    if (adTypeFilter) list = list.filter((c) => c.adType === adTypeFilter);
 
     const sorted = [...list];
     if (sort === "recent") sorted.sort((a, b) => +b.capturedAt - +a.capturedAt);
     else if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === "generations") sorted.sort((a, b) => b.generationCount - a.generationCount);
     return sorted;
-  }, [
-    items,
-    search,
-    angleFilter,
-    formatFilter,
-    brandFilter,
-    productFilter,
-    categoryFilter,
-    sourceFilter,
-    toneFilter,
-    sort,
-  ]);
+  }, [allItems, search, formatFilter, adTypeFilter, sort]);
+
+  // Best-effort real usage — RunBatch carries no concept-id linkage field
+  // (genieRunTypes.ts's `config` is format/approach/model/angle/language/
+  // aspectRatio/promptSnippet/brandName/productName only), so this is a
+  // heuristic text match against each batch's label/promptSnippet, not a
+  // real foreign key. See this module's final report for the honest
+  // limitation. Falls back to the static generationCount when nothing
+  // matches, exactly as before this pass.
+  const batches = useBatches();
+  const usageBoost = useMemo(() => {
+    const map = new Map<string, { runs: number; lastUsedAt: Date | null }>();
+    for (const item of filtered) {
+      let extra = 0;
+      let lastUsedAt: Date | null = null;
+      for (const b of batches) {
+        const haystack = `${b.label} ${b.config?.promptSnippet ?? ""}`.toLowerCase();
+        if (!haystack.includes(item.name.toLowerCase())) continue;
+        extra += 1;
+        const createdAt = new Date(b.createdAt);
+        if (!lastUsedAt || createdAt > lastUsedAt) lastUsedAt = createdAt;
+      }
+      if (extra > 0) {
+        map.set(item.id, { runs: item.generationCount + extra, lastUsedAt });
+      }
+    }
+    return map;
+  }, [filtered, batches]);
 
   // Active-filter chips (X to clear).
   const activeChips: { key: string; label: string }[] = [];
-  if (angleFilter) activeChips.push({ key: "angle", label: `Angle · ${angleFilter}` });
-  if (formatFilter) activeChips.push({ key: "format", label: `Format · ${formatFilter}` });
-  if (brandFilter) {
-    const b = brands.find((x) => x.id === brandFilter);
-    activeChips.push({ key: "brand", label: `Brand · ${b?.name ?? brandFilter}` });
-  }
-  if (productFilter) {
-    const p = products.find((x) => x.id === productFilter);
-    activeChips.push({ key: "product", label: `Product · ${p?.name ?? productFilter}` });
-  }
-  if (categoryFilter) {
-    const c = categories.find((x) => x.id === categoryFilter);
-    activeChips.push({ key: "category", label: `Category · ${c?.name ?? categoryFilter}` });
-  }
-  if (sourceFilter) activeChips.push({ key: "source", label: `Source · ${SOURCE_LABEL[sourceFilter as SourceKey] ?? sourceFilter}` });
-  if (toneFilter) activeChips.push({ key: "tone", label: `Tone · ${toneFilter}` });
+  if (formatFilter) activeChips.push({ key: "format", label: `Format · ${FORMAT_LABEL[formatFilter]}` });
+  if (adTypeFilter) activeChips.push({ key: "adtype", label: `Ad type · ${AD_TYPE_LABEL[adTypeFilter]}` });
 
   const clearAll = () => {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        ["q", "angle", "format", "brand", "product", "category", "source", "tone"].forEach((k) => sp.delete(k));
+        ["q", "format", "adtype"].forEach((k) => sp.delete(k));
         return sp;
       },
       { replace: true },
     );
   };
 
+  // ── Selection (multi-select → bulk generate, §12) ──────────────────────
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectedItems = filtered.filter((i) => selectedIds.has(i.id));
+
+  const toggleSelect = (item: ConceptItem) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  };
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const imageCount = selectedItems.filter((i) => i.formatKind === "image").length;
+  const videoCount = selectedItems.filter((i) => i.formatKind === "video").length;
+  const mixedFormat = imageCount > 0 && videoCount > 0;
+
+  const keepOnlyFormat = (format: FormatKind) => {
+    setSelectedIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        const item = filtered.find((i) => i.id === id);
+        if (item && item.formatKind === format) next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // ── Hand-off to Studio ──────────────────────────────────────────────────
+  // §6 Rule 2: "Use X always asks for the entity explicitly — even when the
+  // source already contains it." So this deliberately does NOT pre-select a
+  // brand/product/category (Studio's ?brand=/?product=/?category= params
+  // hard-select today, not merely highlight — there's no "highlight only"
+  // param yet). It DOES pre-fill ?format=, since Format is not an entity and
+  // Studio needs exactly one format for the whole batch anyway.
+  //
+  // ?concepts=<comma of raw concept ids> is passed for forward-compat, but
+  // is NOT read by useUrlSync.ts / StudioAlpha.tsx's readUrlIntoState as of
+  // this pass (verified by reading both) — see final report. Landing on the
+  // "product" step slug forces category="ad" (readUrlIntoState sets this
+  // for ANY step slug), which structurally excludes Product Shoot (only
+  // reachable via StudioHome's category="asset" path) — this is the actual
+  // mechanism behind "Product Shoot is excluded from this path", not just
+  // the on-screen note in BulkGenerateBar.
+  function buildStudioHandoffUrl(items: ConceptItem[]): string {
+    const formats = new Set(items.map((i) => i.formatKind));
+    const format = formats.size === 1 ? [...formats][0] : undefined;
+    const params = new URLSearchParams();
+    if (format) params.set("format", format);
+    params.set("concepts", items.map((i) => i.rawId).join(","));
+    return `/iq/genie6/studio-alpha/product?${params.toString()}`;
+  }
+
+  const handleUseToGenerate = (item: ConceptItem) => {
+    navigate(buildStudioHandoffUrl([item]));
+  };
+
+  const handleBulkGenerate = () => {
+    if (mixedFormat || selectedItems.length === 0) return;
+    navigate(buildStudioHandoffUrl(selectedItems));
+  };
+
+  // ── Download (§12: 2 actions only — Download, Use concept to generate) ──
+  const handleDownload = (item: ConceptItem) => {
+    const lines = [
+      `Concept: ${item.name}`,
+      `Ad type: ${AD_TYPE_LABEL[item.adType]}`,
+      `Format: ${item.formatRaw ?? FORMAT_LABEL[item.formatKind]}`,
+      item.angle ? `Angle: ${item.angle}` : null,
+      item.tone ? `Tone: ${item.tone}` : null,
+      item.hook ? `Hook: ${item.hook}` : null,
+      item.visualDirection ? `Visual direction: ${item.visualDirection}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const blob = new Blob([lines], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded "${item.name}"`);
+  };
+
+  const isTrueZeroData = allItems.length === 0;
+  const isFilteredEmpty = !isTrueZeroData && filtered.length === 0;
+
   return (
-    <div className="v3-page-mesh mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-8 pb-10">
+    <div className="v3-page-mesh mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-8 pb-28">
       <div className="flex items-baseline gap-3">
         <HeroHeader title="Concepts" />
         <span className="font-mono text-[11px] text-muted-foreground">
-          {filtered.length} of {items.length}
+          {filtered.length} of {allItems.length}
         </span>
-        {/* A-12.60 (Maalik): structured AI generation entry point. */}
-        <Link
-          to="/iq/genie6/concepts/generate"
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[12px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          Generate with AI
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            aria-pressed={selectMode}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors",
+              selectMode
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-border/60 bg-background/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+            )}
+          >
+            {selectMode ? <XCircle className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+            {selectMode ? "Done selecting" : "Select"}
+          </button>
+          {/* A-12.60 (Maalik): structured AI generation entry point. */}
+          <Link
+            to="/iq/genie6/concepts/generate"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-[12px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate with AI
+          </Link>
+        </div>
       </div>
 
-      {/* Toolbar */}
+      {/* Toolbar — §12: exactly 2 filters (Format, Ad type) + search + sort. */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -276,55 +283,17 @@ export function ConceptsLibrary() {
           />
         </div>
 
-        <FilterPopover
-          label="Angle"
-          options={angleOptions}
-          value={angleFilter}
-          onChange={(v) => setParam("angle", v)}
-        />
-        <FilterPopover
+        <SingleSelectFilter
           label="Format"
-          options={formatOptions}
           value={formatFilter}
+          options={(["image", "video"] as FormatKind[]).map((f) => ({ value: f, label: FORMAT_LABEL[f] }))}
           onChange={(v) => setParam("format", v)}
         />
-        <FilterPopover
-          label="Brand"
-          options={brands.map((b) => ({ value: b.id, label: b.name }))}
-          value={brandFilter}
-          onChange={(v) => setParam("brand", v)}
-          searchable
-        />
-        <FilterPopover
-          label="Product"
-          options={products.slice(0, 60).map((p) => ({ value: p.id, label: p.name }))}
-          value={productFilter}
-          onChange={(v) => setParam("product", v)}
-          searchable
-        />
-        <FilterPopover
-          label="Category"
-          options={categories.slice(0, 60).map((c) => ({ value: c.id, label: c.name }))}
-          value={categoryFilter}
-          onChange={(v) => setParam("category", v)}
-          searchable
-        />
-        <FilterPopover
-          label="Source"
-          options={(["catalogue", "kb", "saved-from-genie", "saved-from-insights"] as SourceKey[]).map((s) => ({ value: s, label: SOURCE_LABEL[s] }))}
-          value={sourceFilter}
-          onChange={(v) => setParam("source", v)}
-        />
-        <FilterPopover
-          label="Tone"
-          options={toneOptions}
-          value={toneFilter}
-          onChange={(v) => setParam("tone", v)}
-        />
-
-        <DatePresetPopover
-          value={searchParams.get("preset")}
-          onChange={(v) => setParam("preset", v)}
+        <SingleSelectFilter
+          label="Ad type"
+          value={adTypeFilter}
+          options={(["brand", "product", "category"] as AdType[]).map((t) => ({ value: t, label: AD_TYPE_LABEL[t] }))}
+          onChange={(v) => setParam("adtype", v)}
         />
 
         <SortDropdown value={sort} onChange={(v) => setParam("sort", v === "recent" ? null : v)} />
@@ -354,116 +323,123 @@ export function ConceptsLibrary() {
         </div>
       )}
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/60 bg-background/30 px-6 py-16 text-center">
-          <Sparkles className="h-7 w-7 text-muted-foreground/40" />
-          <p className="text-sm font-semibold text-foreground">No concepts match your filters</p>
-          <button
-            type="button"
-            onClick={clearAll}
-            className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90"
-          >
-            Clear all filters
-          </button>
-        </div>
+      {/* Grid / states. */}
+      {forceLoading ? (
+        <LoadingGrid />
+      ) : isTrueZeroData ? (
+        <ZeroDataState />
+      ) : isFilteredEmpty ? (
+        <FilteredEmptyState onClear={clearAll} />
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filtered.map((item) => (
             <li key={item.id}>
-              <ConceptCard item={item} />
+              <ConceptCard
+                item={item}
+                usage={usageBoost.get(item.id)}
+                selectMode={selectMode}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={() => toggleSelect(item)}
+                onDownload={handleDownload}
+                onUseToGenerate={handleUseToGenerate}
+              />
             </li>
           ))}
         </ul>
+      )}
+
+      {selectMode && (
+        <BulkGenerateBar
+          count={selectedItems.length}
+          mixedFormat={mixedFormat}
+          imageCount={imageCount}
+          videoCount={videoCount}
+          onKeepFormat={keepOnlyFormat}
+          onClear={() => setSelectedIds(new Set())}
+          onGenerate={handleBulkGenerate}
+        />
       )}
     </div>
   );
 }
 
 /* ────────────────────────────────────────────────────────── *
- *  ConceptCard — single concept tile with thumbnail/monogram + chips.
+ *  Empty / loading states — populated / partial / zero-data
+ *  per the design-system state-coverage mandate. "0 concepts
+ *  matching a filter" and "0 concepts at all" are deliberately
+ *  two different screens with two different exits (§ constraints).
  * ────────────────────────────────────────────────────────── */
-function ConceptCard({ item }: { item: ConceptItem }) {
-  const brand = item.brandId ? brands.find((b) => b.id === item.brandId) : null;
-
+function ZeroDataState() {
   return (
-    <button
-      type="button"
-      className="group flex w-full flex-col overflow-hidden rounded-xl border border-border/40 bg-card/60 text-left backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-    >
-      {/* Aspect 4:3 — synced with Step 4 trending strip cards. */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-        {item.thumbnail ? (
-          <img
-            src={item.thumbnail}
-            alt={item.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground/40">
-            ✨
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/60 bg-background/30 px-6 py-16 text-center">
+      <Sparkles className="h-7 w-7 text-muted-foreground/40" aria-hidden />
+      <p className="text-sm font-semibold text-foreground">No concepts yet</p>
+      <p className="max-w-xs text-[12px] text-muted-foreground">
+        Concepts pulled from your Catalogue and Knowledge Base — or generated with AI — show up here.
+      </p>
+      <Link
+        to="/iq/genie6/concepts/generate"
+        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Generate with AI
+      </Link>
+    </div>
+  );
+}
+
+function FilteredEmptyState({ onClear }: { onClear: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/60 bg-background/30 px-6 py-16 text-center">
+      <Filter className="h-7 w-7 text-muted-foreground/40" aria-hidden />
+      <p className="text-sm font-semibold text-foreground">No concepts match your filters</p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90"
+      >
+        Clear all filters
+      </button>
+    </div>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      {Array.from({ length: 12 }).map((_, i) => (
+        <li key={i} className="flex flex-col overflow-hidden rounded-xl border border-border/40">
+          <div className="aspect-[4/3] w-full animate-pulse bg-muted" />
+          <div className="flex flex-col gap-1.5 px-2 py-1.5">
+            <div className="h-3 w-4/5 animate-pulse rounded bg-muted" />
+            <div className="h-2.5 w-1/2 animate-pulse rounded bg-muted" />
+            <div className="h-2.5 w-2/3 animate-pulse rounded bg-muted" />
           </div>
-        )}
-        {brand && (
-          <span className="absolute left-1.5 bottom-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-            {brand.name}
-          </span>
-        )}
-        <span className="absolute right-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider text-foreground backdrop-blur">
-          {SOURCE_LABEL[item.source]}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1 px-2 py-1.5">
-        <p className="line-clamp-2 text-[11px] font-bold leading-tight text-foreground">
-          {item.name}
-        </p>
-        <div className="flex flex-wrap items-center gap-1">
-          {item.angle && (
-            <span className="rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-foreground">
-              {item.angle}
-            </span>
-          )}
-          {item.tone && (
-            <span className="rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-foreground">
-              {item.tone}
-            </span>
-          )}
-        </div>
-        <p className="font-mono text-[10px] text-muted-foreground">
-          {item.generationCount} runs · {formatAge(item.capturedAt)}
-        </p>
-      </div>
-    </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 /* ────────────────────────────────────────────────────────── *
- *  FilterPopover — single-select with optional search.
+ *  SingleSelectFilter — one of the two §12 filters (Format / Ad type).
+ *  Same popover idiom as the file's previous FilterPopover, narrowed to a
+ *  fixed, small option set (no search box needed at 2-3 options).
  * ────────────────────────────────────────────────────────── */
-type FilterOption = string | { value: string; label: string };
-
-function FilterPopover({
+function SingleSelectFilter<T extends string>({
   label,
   options,
   value,
   onChange,
-  searchable = false,
 }: {
   label: string;
-  options: FilterOption[];
-  value: string | null;
-  onChange: (next: string | null) => void;
-  searchable?: boolean;
+  options: { value: T; label: string }[];
+  value: T | null;
+  onChange: (next: T | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const norm = (o: FilterOption) =>
-    typeof o === "string" ? { value: o, label: o } : o;
-  const filtered = options
-    .map(norm)
-    .filter((o) => !q || o.label.toLowerCase().includes(q.toLowerCase()));
   const active = !!value;
+  const activeLabel = options.find((o) => o.value === value)?.label;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -479,112 +455,33 @@ function FilterPopover({
         >
           <Filter className="h-3 w-3" />
           {label}
-          {active && (
-            <span className="font-mono text-[10px] text-muted-foreground">·</span>
-          )}
-          {active && <span>{norm(options.find((o) => norm(o).value === value) ?? value!).label}</span>}
+          {active && <span className="font-mono text-[10px] text-muted-foreground">·</span>}
+          {active && <span>{activeLabel}</span>}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-1">
-        {searchable && (
-          <div className="mb-1 px-1">
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5 text-xs outline-none focus:border-foreground/30"
-            />
-          </div>
-        )}
-        <div className="max-h-[260px] overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => {
-              onChange(null);
-              setOpen(false);
-            }}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-              !value ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.04]",
-            )}
-          >
-            <span className="flex-1 font-medium">All {label.toLowerCase()}</span>
-            {!value && <Check className="h-3.5 w-3.5 text-foreground" />}
-          </button>
-          {filtered.map((o) => {
-            const isActive = value === o.value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
-                  isActive ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.04]",
-                )}
-              >
-                <span className="flex-1 truncate">{o.label}</span>
-                {isActive && <Check className="h-3.5 w-3.5 text-foreground" />}
-              </button>
-            );
-          })}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/* ────────────────────────────────────────────────────────── *
- *  DatePresetPopover — Today / This week / This month / Custom (stub).
- * ────────────────────────────────────────────────────────── */
-function DatePresetPopover({
-  value,
-  onChange,
-}: {
-  value: string | null;
-  onChange: (next: string | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const presets: { key: string; label: string }[] = [
-    { key: "today", label: "Today" },
-    { key: "week", label: "This week" },
-    { key: "month", label: "This month" },
-    { key: "all", label: "All time" },
-  ];
-  const active = value && value !== "all";
-  const label = value
-    ? presets.find((p) => p.key === value)?.label ?? value
-    : "Date";
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverContent align="start" className="w-48 p-1">
         <button
           type="button"
+          onClick={() => {
+            onChange(null);
+            setOpen(false);
+          }}
           className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors",
-            active
-              ? "border-foreground/20 bg-foreground/[0.06] text-foreground"
-              : "border-border/60 bg-background/50 text-muted-foreground hover:border-foreground/20 hover:text-foreground",
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+            !value ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.04]",
           )}
         >
-          <CalendarIcon className="h-3 w-3" />
-          {label}
+          <span className="flex-1 font-medium">All {label.toLowerCase()}</span>
+          {!value && <Check className="h-3.5 w-3.5 text-foreground" />}
         </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-44 p-1">
-        {presets.map((p) => {
-          const isActive = (value ?? "all") === p.key;
+        {options.map((o) => {
+          const isActive = value === o.value;
           return (
             <button
-              key={p.key}
+              key={o.value}
               type="button"
               onClick={() => {
-                onChange(p.key === "all" ? null : p.key);
+                onChange(o.value);
                 setOpen(false);
               }}
               className={cn(
@@ -592,7 +489,7 @@ function DatePresetPopover({
                 isActive ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.04]",
               )}
             >
-              <span className="flex-1">{p.label}</span>
+              <span className="flex-1 truncate">{o.label}</span>
               {isActive && <Check className="h-3.5 w-3.5 text-foreground" />}
             </button>
           );
@@ -605,6 +502,14 @@ function DatePresetPopover({
 /* ────────────────────────────────────────────────────────── *
  *  SortDropdown — Recent / Name / Generations.
  * ────────────────────────────────────────────────────────── */
+type SortKey = "recent" | "name" | "generations";
+
+const SORT_LABEL: Record<SortKey, string> = {
+  recent: "Recent",
+  name: "Name (A-Z)",
+  generations: "Most generated",
+};
+
 function SortDropdown({
   value,
   onChange,
@@ -648,6 +553,3 @@ function SortDropdown({
     </Popover>
   );
 }
-
-// Suppress unused import warning if SectionHeader isn't used yet
-void SectionHeader;

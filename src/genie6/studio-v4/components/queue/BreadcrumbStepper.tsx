@@ -12,7 +12,7 @@ interface BreadcrumbStepperProps {
 
 const STEPS = [
   { num: 1 as const, label: "Home" },
-  { num: 2 as const, label: "Format" },
+  { num: 2 as const, label: "Mode & Format" }, // §21.2 — Mode is a visible step; matches AlphaProgressIndicator
   { num: 3 as const, label: "Product" },
   { num: 4 as const, label: "Approach" },
   { num: 5 as const, label: "Configure" },

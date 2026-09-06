@@ -1,12 +1,19 @@
-import { Pencil, Download, Rocket, FolderPlus, RefreshCw, X } from "lucide-react";
+import { Pencil, Download, Rocket, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CSVExportButton } from "./CSVExportButton";
 import type { OutputData } from "../types/output";
 
 /**
  * Slides in from top when 2+ output cards are selected. Same in Generate Results
- * and Library. Edit batch · Bulk download · Bulk launch · Add to folder · Bulk
- * regenerate · Export CSV. Pushes content down (no overlay).
+ * and Library. Edit batch · Bulk download · Bulk launch · Bulk regenerate ·
+ * Export CSV. Pushes content down (no overlay).
+ *
+ * "Add to folder" was dropped (Genie 2.0 §7 lists the "Folders" Other-Flow
+ * module as Coming-soon, and Genie's own Library has no folder concept of
+ * its own — only the separate Creative Library module has folders) — no
+ * honest destination exists yet, so the button isn't offered rather than
+ * left as a no-op. See EllipsisMenu.tsx for the same call on the per-card
+ * menu.
  */
 
 type Props = {
@@ -14,6 +21,16 @@ type Props = {
   onEditBatch?: () => void;
   onBulkDownload?: () => void;
   onBulkLaunch?: () => void;
+  /**
+   * Accepted for backward compatibility with existing callers outside this
+   * agent's ownership (`studio-v4/screens/Step5Results.tsx` and
+   * `Step5ResultsQueue.tsx` both still pass this) — but deliberately NOT
+   * rendered as a button here. "Folders" is Coming-soon as an Other-Flow
+   * module (§7) and Genie's Library has no folder concept of its own, so
+   * there's no honest destination for it; see EllipsisMenu.tsx for the same
+   * call on the per-card menu. Left in the type instead of deleting it so
+   * this shared component doesn't break a file this agent doesn't own.
+   */
   onAddToFolder?: () => void;
   onBulkRegenerate?: () => void;
   onClear: () => void;
@@ -25,7 +42,6 @@ export function BulkToolbar({
   onEditBatch,
   onBulkDownload,
   onBulkLaunch,
-  onAddToFolder,
   onBulkRegenerate,
   onClear,
   className,
@@ -49,7 +65,6 @@ export function BulkToolbar({
       <BulkBtn Icon={Pencil} label="Edit batch" onClick={onEditBatch} />
       <BulkBtn Icon={Download} label="Bulk download" onClick={onBulkDownload} />
       <BulkBtn Icon={Rocket} label="Bulk launch" onClick={onBulkLaunch} />
-      <BulkBtn Icon={FolderPlus} label="Add to folder" onClick={onAddToFolder} />
       <BulkBtn Icon={RefreshCw} label="Bulk regenerate" onClick={onBulkRegenerate} />
       <CSVExportButton outputs={selectedOutputs} filename="genie6-selection.csv" />
 

@@ -1,7 +1,16 @@
-import { Check, Download, Rocket, Save } from "lucide-react";
+import { Check, Download, ImageOff, Repeat2, Rocket, Save } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EllipsisMenu } from "../../components/OutputCard/EllipsisMenu";
 import { qualityTier, type EllipsisAction, type OutputData } from "../../types/output";
+import { flowSearchParams, type FlowActionId } from "@/genie6/flows/flowTypes";
 import { PreviewVideo } from "./PreviewVideo";
 import { videoForSeed } from "../data/studio-visuals";
 
@@ -15,6 +24,21 @@ interface OutputCardHybridProps {
   onDownload?: () => void;
   onAction?: (action: EllipsisAction) => void;
 }
+
+/**
+ * §21.2 — "Variation is a first-class action everywhere — Results card
+ * overflow, Library card overflow, and Ad detail. Same wording, same
+ * behaviour, same result in all three." The three labels below are the
+ * literal wording for FlowActionId "vary-script" / "vary-concept" /
+ * "vary-whole-video" (src/genie6/flows/flowTypes.ts) — the Library card
+ * overflow and Ad detail wire the identical strings to the identical ids so
+ * the spec's "same wording" holds across all three surfaces.
+ */
+const VARIATION_ACTIONS: { id: FlowActionId; label: string }[] = [
+  { id: "vary-script", label: "Vary script" },
+  { id: "vary-concept", label: "Vary concept" },
+  { id: "vary-whole-video", label: "Vary whole video" },
+];
 
 /**
  * OutputCardHybrid — Studio v4 Step 5 output card.
@@ -41,9 +65,21 @@ export function OutputCardHybrid({
   const tier = qualityTier(output.qualityScore);
   const brandName = output.brand?.name ?? "Studio";
   const brandInitial = brandName.charAt(0).toUpperCase();
+  const navigate = useNavigate();
 
   // Brand → consistent avatar color (mock — real impl would use brand.colors)
   const avatarBg = stringToHsl(brandName);
+
+  // §21.2 Rule 1 — variation asks nothing and lands straight on Configure
+  // (landingStep 4), pre-filled via the universal flow-context params.
+  const runVariation = (action: FlowActionId) => {
+    const params = flowSearchParams("creative-library", output.id, action);
+    navigate(`/iq/genie6/studio-alpha/configure?${params.toString()}`);
+  };
+
+  // §6 Rule 6 — "Send to Other Apps" is reachable from the module too, not
+  // only from Library.
+  const sendToOtherApps = () => navigate("/iq/genie6/apps");
 
   return (
     <div
@@ -88,6 +124,36 @@ export function OutputCardHybrid({
           <p className="truncate text-xs font-semibold text-foreground">{brandName}</p>
           <p className="text-[10px] text-muted-foreground">Sponsored</p>
         </div>
+        {/* §21.2 — Variation as a first-class card-overflow action, plus
+            Send to Other Apps (§6 Rule 6). Kept as its own trigger rather
+            than folded into EllipsisMenu — that component is a shared,
+            fixed-items menu (src/genie6/components/OutputCard/EllipsisMenu.tsx,
+            owned by the Library agent) with no slot for extra items. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Variation actions"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Repeat2 className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-52"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {VARIATION_ACTIONS.map((a) => (
+              <DropdownMenuItem key={a.id} onSelect={() => runVariation(a.id)}>
+                {a.label}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={sendToOtherApps}>Send to Other Apps</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <EllipsisMenu onAction={onAction} />
       </div>
 
@@ -115,8 +181,9 @@ export function OutputCardHybrid({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-3xl text-muted-foreground/50">
-            ✨
+          // §7 anti-pattern: no emojis in product UI — lucide icons only.
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+            <ImageOff className="h-8 w-8" strokeWidth={1.5} />
           </div>
         )}
         {tier && output.qualityScore !== undefined && (

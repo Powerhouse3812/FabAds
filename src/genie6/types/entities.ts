@@ -1,5 +1,7 @@
 /** Core domain types for Genie 6.0 entities — used by mocks and across screens. */
 
+import type { Provenance } from "@/genie6/lib/genieRunTypes";
+
 export type CategoryId = string;
 export type BrandId = string;
 export type ProductId = string;
@@ -116,6 +118,21 @@ export interface Avatar {
   thumbnail?: string;
   demographic: string; // e.g. "F · 28-34 · South Asian"
   language: string[];
+  /**
+   * Genie 2.0 §11/§13 — additive, all optional so no existing consumer breaks.
+   * `environmentId` / `personalityId` reference `AVATAR_ENVIRONMENTS` /
+   * `AVATAR_PERSONALITIES` in `src/genie6/brain/avatarTaxonomy.ts` — the SAME
+   * categorisation Genie Brain browses and Genie's own avatar-selection step
+   * filters by. §11: "the two must not diverge."
+   */
+  environmentId?: string;
+  personalityId?: string;
+  /** §13 upgrade 1 — looping preview clip so the user sees the avatar move
+   *  and speak before choosing, instead of a static image. Absent on a
+   *  deliberate few entries (edge case: avatar with no preview video yet). */
+  previewVideo?: string;
+  /** §21.2 — FabFunnel-seeded vs client-created. Structural, not a corner badge. */
+  provenance?: Provenance;
 }
 
 export interface Voice {
@@ -124,6 +141,14 @@ export interface Voice {
   language: string;
   sample?: string; // audio URL
   description: string;
+  /** §13 upgrade 3 — tone tags (ids into `VOICE_TONES`,
+   *  src/genie6/brain/avatarTaxonomy.ts) this voice reads as. Additive. */
+  tones?: string[];
+  /** §13 upgrade 2 — sample length, shown on the audio preview control even
+   *  when no `sample` URL resolves yet. */
+  durationSec?: number;
+  /** §21.2 — FabFunnel-seeded vs client-created. */
+  provenance?: Provenance;
 }
 
 /** Analytics tile data — drives Home asymmetric row. */

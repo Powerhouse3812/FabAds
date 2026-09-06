@@ -12,6 +12,9 @@ import { angles } from "@/mocks/shared/angles";
 import { brands } from "../mocks/brands";
 import { MODE_LABELS, type ModeId } from "../types/output";
 import { cn } from "@/lib/utils";
+import { useBatches } from "../lib/genieRunStore";
+import { originKey, originLabel } from "./originLabels";
+import { isCurrentUserAdmin } from "./currentUser";
 
 const MODE_IDS: ModeId[] = [
   "brand-ad",
@@ -33,11 +36,16 @@ const SORT_LABELS: Record<SortKey, string> = {
 /**
  * LibraryToolbar — URL-backed filter row for the Library redesign.
  *
- * 4 selects + search + clear-all chip:
+ * 6 selects + search + clear-all chip:
  *   - Angle      → ?angleFilter=<id>   (separate from ?angle=, which opens
  *                                       the AngleViewMoreDrawer)
  *   - Category   → ?category=<modeId>
  *   - Brand      → ?brand=<brandId>
+ *   - Source     → ?module=<originKey>   (§10 — every asset shows which
+ *                                          module it came from)
+ *   - Created by → ?createdBy=<name>     (§17 — admin-only; the name also
+ *                                          appears inside the record itself,
+ *                                          on the batch header + Ad Detail)
  *   - Sort       → ?sort=newest|oldest|score (default newest, omitted from URL)
  *   - Search     → ?q=<text>
  *
@@ -45,14 +53,18 @@ const SORT_LABELS: Record<SortKey, string> = {
  * history isn't polluted with every keystroke / dropdown click.
  *
  * The clear-all chip is only rendered when at least one filter is active —
- * gives the user one-click recovery without scanning four dropdowns.
+ * gives the user one-click recovery without scanning six dropdowns.
  */
 export function LibraryToolbar() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const batches = useBatches();
+  const admin = isCurrentUserAdmin();
 
   const angleFilter = searchParams.get("angleFilter") ?? "all";
   const category = searchParams.get("category") ?? "all";
   const brand = searchParams.get("brand") ?? "all";
+  const moduleFilter = searchParams.get("module") ?? "all";
+  const createdByFilter = searchParams.get("createdBy") ?? "all";
   const sort = (searchParams.get("sort") as SortKey | null) ?? "newest";
   const search = searchParams.get("q") ?? "";
 
@@ -81,6 +93,8 @@ export function LibraryToolbar() {
         sp.delete("angleFilter");
         sp.delete("category");
         sp.delete("brand");
+        sp.delete("module");
+        sp.delete("createdBy");
         sp.delete("sort");
         sp.delete("q");
         return sp;
@@ -94,10 +108,29 @@ export function LibraryToolbar() {
     [],
   );
 
+  // Options are derived from what's actually in the run store — no dead
+  // filter values pointing at zero results.
+  const moduleOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const b of batches) {
+      const key = originKey(b.origin);
+      if (!seen.has(key)) seen.set(key, originLabel(b.origin));
+    }
+    return Array.from(seen, ([value, label]) => ({ value, label }));
+  }, [batches]);
+
+  const createdByOptions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const b of batches) seen.add(b.createdBy);
+    return Array.from(seen).sort();
+  }, [batches]);
+
   const activeCount =
     (angleFilter !== "all" ? 1 : 0) +
     (category !== "all" ? 1 : 0) +
     (brand !== "all" ? 1 : 0) +
+    (moduleFilter !== "all" ? 1 : 0) +
+    (createdByFilter !== "all" ? 1 : 0) +
     (sort !== "newest" ? 1 : 0) +
     (search ? 1 : 0);
 
@@ -182,6 +215,38 @@ export function LibraryToolbar() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select value={moduleFilter} onValueChange={(v) => updateParam("module", v, "all")}>
+          <SelectTrigger className="h-8 w-[150px] border-g6-border-secondary bg-g6-bg-container font-g6-sans text-g6-sm">
+            <SelectValue placeholder="Source" />
+          </SelectTrigger>
+          <SelectContent className="g6-root border-g6-border bg-g6-bg-elevated font-g6-sans text-g6-sm">
+            <SelectItem value="all">All sources</SelectItem>
+            {moduleOptions.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* §17 — admin-only user filter. The user's name also appears
+            inside the record (batch header + Ad Detail's "Created By"). */}
+        {admin && (
+          <Select value={createdByFilter} onValueChange={(v) => updateParam("createdBy", v, "all")}>
+            <SelectTrigger className="h-8 w-[150px] border-g6-border-secondary bg-g6-bg-container font-g6-sans text-g6-sm">
+              <SelectValue placeholder="Created by" />
+            </SelectTrigger>
+            <SelectContent className="g6-root border-g6-border bg-g6-bg-elevated font-g6-sans text-g6-sm">
+              <SelectItem value="all">Everyone</SelectItem>
+              {createdByOptions.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <span
           aria-hidden

@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Zap, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
+import {
+  CREDITS_LIMIT,
+  CREDITS_PERCENT,
+  CREDITS_REMAINING,
+  CREDITS_USED,
+} from "@/genie6/lib/credits";
 
 /**
  * GenieCreditsAddonCard — footer-pinned add-on prompt for the Genie
@@ -56,10 +62,16 @@ function useDismissed(): [boolean, () => void] {
 
 // Mock cycle figures — mirror the dashboard CreditUsageCard so the
 // upsell surfaces cannot contradict each other.
-const USED = 1218;
-const LIMIT = 1500;
-const REMAINING = LIMIT - USED; // 282
-const PERCENT = Math.round((USED / LIMIT) * 100); // 81
+// Genie 2.0 §15 — credits are now shown in the sub-nav (here), Catalogue and
+// Studio. These were three separately hardcoded numbers; they now all read
+// src/genie6/lib/credits.ts so a walkthrough can never show two different
+// balances on two screens. This card is the USAGE meter (used of limit); the
+// pills elsewhere show the BALANCE (remaining) — different presentations of
+// one source, which is fine, two sources of truth is not.
+const USED = CREDITS_USED;
+const LIMIT = CREDITS_LIMIT;
+const REMAINING = CREDITS_REMAINING;
+const PERCENT = CREDITS_PERCENT;
 
 // Ring geometry. 72px outer with a 6px stroke reads as a clean donut at
 // this small size; round caps soften the arc terminus.

@@ -1,23 +1,24 @@
 import { cn } from "@/lib/utils";
-import type { QueueBatch } from "../../types/queue";
+import { batchStatus, type RunBatch } from "@/genie6/lib/genieRunTypes";
 import { QueueStatusPill } from "./QueueStatusPill";
 import { QueueProgressBar } from "./QueueProgressBar";
+import { batchConfigChips } from "./batchDisplay";
 
 interface QueueCardProps {
-  batch: QueueBatch;
+  batch: RunBatch;
   active?: boolean;
   /** Visual density variant. `compact` for V1 dense strip; `comfortable` for V2 wider cards. */
   density?: "compact" | "comfortable";
   onClick?: () => void;
 }
 
-function formatTime(d: Date) {
+function formatTime(ms: number) {
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   })
-    .format(d)
+    .format(new Date(ms))
     .toLowerCase()
     .replace(/\s/g, "");
 }
@@ -27,7 +28,8 @@ function formatTime(d: Date) {
  *
  * Composition (per Figma):
  *   - Top row: title (left) + timestamp (right)
- *   - Bottom row: chips for tags + "N generations" + status pill
+ *   - Bottom row: chips (derived from `batch.config` — RunBatch carries no
+ *     arbitrary tags) + "N generations" + status pill
  *
  * Active treatment uses the design-system "featured" lime border + tinted
  * surface — same visual language as the Library's featured cards. Density
@@ -36,7 +38,8 @@ function formatTime(d: Date) {
  */
 export function QueueCard({ batch, active, density = "compact", onClick }: QueueCardProps) {
   const isCompact = density === "compact";
-  const visibleTags = isCompact ? batch.tags.slice(0, 2) : batch.tags;
+  const chips = batchConfigChips(batch);
+  const visibleTags = isCompact ? chips.slice(0, 2) : chips;
 
   return (
     <button
@@ -63,17 +66,17 @@ export function QueueCard({ batch, active, density = "compact", onClick }: Queue
             isCompact ? "text-[13px]" : "text-[14px]",
           )}
         >
-          {batch.title}
+          {batch.label}
         </h3>
         <time
-          dateTime={batch.submittedAt.toISOString()}
+          dateTime={new Date(batch.createdAt).toISOString()}
           className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground"
         >
-          {formatTime(batch.submittedAt)}
+          {formatTime(batch.createdAt)}
         </time>
       </header>
 
-      {/* Chips row — tags + status pill (count moved into progress bar) */}
+      {/* Chips row — config-derived chips + status pill (count moved into progress bar) */}
       <div className="flex flex-wrap items-center gap-1">
         {visibleTags.map((t) => (
           <span
@@ -84,13 +87,12 @@ export function QueueCard({ batch, active, density = "compact", onClick }: Queue
           </span>
         ))}
         <span className="ml-auto">
-          <QueueStatusPill status={batch.status} />
+          <QueueStatusPill status={batchStatus(batch)} />
         </span>
       </div>
 
-      {/* Progress bar — Maalik A-12.185: replaces the "12 generations"
-          chip with a live "N/M" count + lime fill. Inline density for
-          the strip card so it doesn't add height. */}
+      {/* Progress bar — "N/M" count + lime fill. Inline density for the
+          strip card so it doesn't add height. */}
       <QueueProgressBar batch={batch} size="inline" hideSpinner />
     </button>
   );

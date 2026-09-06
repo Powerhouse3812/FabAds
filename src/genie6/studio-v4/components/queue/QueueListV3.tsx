@@ -1,23 +1,24 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { QueueBatch } from "../../types/queue";
+import { batchStatus, type RunBatch } from "@/genie6/lib/genieRunTypes";
 import { QueueStatusPill } from "./QueueStatusPill";
 import { QueueProgressBar } from "./QueueProgressBar";
+import { batchConfigChips } from "./batchDisplay";
 
 interface QueueListV3Props {
-  batches: QueueBatch[];
+  batches: RunBatch[];
   activeBatchId: string | null;
   onSelectBatch: (id: string) => void;
 }
 
-function formatTime(d: Date) {
+function formatTime(ms: number) {
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   })
-    .format(d)
+    .format(new Date(ms))
     .toLowerCase()
     .replace(/\s/g, "");
 }
@@ -32,9 +33,10 @@ function formatTime(d: Date) {
  *   - URL-driven selection (caller writes ?batch=<id>)
  *   - Hover lift micro-interaction + active lime treatment matching Finder
  *
- * Search filters by title + tags (case-insensitive). No filter chips, no
- * grouping — Maalik's call: "Just compact rows + search at top". Keeps the
- * left panel scannable; the right pane carries all the heavy chrome.
+ * Search filters by label + config-derived chips (case-insensitive). No
+ * filter chips, no grouping — Maalik's call: "Just compact rows + search at
+ * top". Keeps the left panel scannable; the right pane carries all the
+ * heavy chrome.
  *
  * Reference: src/catalogue/CatalogueFinder.tsx pane-1 layout (260px, search
  * input at top, vertical scrollable list, active row in primary/10 tint).
@@ -50,8 +52,9 @@ export function QueueListV3({
     if (!search.trim()) return batches;
     const q = search.trim().toLowerCase();
     return batches.filter((b) => {
-      if (b.title.toLowerCase().includes(q)) return true;
-      if (b.tags.some((t) => t.toLowerCase().includes(q))) return true;
+      if (b.label.toLowerCase().includes(q)) return true;
+      if (b.batchId.toLowerCase().includes(q)) return true;
+      if (batchConfigChips(b).some((t) => t.toLowerCase().includes(q))) return true;
       return false;
     });
   }, [batches, search]);
@@ -96,15 +99,15 @@ export function QueueListV3({
         ) : (
           <ul className="flex flex-col gap-0.5 px-2" role="listbox">
             {filtered.map((batch) => {
-              const isActive = batch.id === activeBatchId;
-              const visibleTags = batch.tags.slice(0, 2);
+              const isActive = batch.batchId === activeBatchId;
+              const visibleTags = batchConfigChips(batch).slice(0, 2);
               return (
-                <li key={batch.id}>
+                <li key={batch.batchId}>
                   <button
                     type="button"
                     role="option"
                     aria-selected={isActive}
-                    onClick={() => onSelectBatch(batch.id)}
+                    onClick={() => onSelectBatch(batch.batchId)}
                     className={cn(
                       "group flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-all",
                       isActive
@@ -120,10 +123,10 @@ export function QueueListV3({
                           isActive ? "text-primary" : "text-foreground",
                         )}
                       >
-                        {batch.title}
+                        {batch.label}
                       </h3>
                       <span className="shrink-0">
-                        <QueueStatusPill status={batch.status} />
+                        <QueueStatusPill status={batchStatus(batch)} />
                       </span>
                     </div>
 
@@ -147,16 +150,16 @@ export function QueueListV3({
                         ))}
                       </div>
                       <time
-                        dateTime={batch.submittedAt.toISOString()}
+                        dateTime={new Date(batch.createdAt).toISOString()}
                         className="shrink-0 font-mono text-[9.5px] tabular-nums text-muted-foreground"
                       >
-                        {formatTime(batch.submittedAt)}
+                        {formatTime(batch.createdAt)}
                       </time>
                     </div>
 
-                    {/* Progress bar — replaces the bare "12" chip with a
+                    {/* Progress bar — replaces the bare count chip with a
                         live N/M fill. Hides spinner since the row already
-                        has a status pill carrying the generating state. */}
+                        has a status pill carrying the running state. */}
                     <QueueProgressBar batch={batch} size="inline" hideSpinner />
                   </button>
                 </li>

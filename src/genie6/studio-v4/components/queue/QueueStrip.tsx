@@ -1,8 +1,8 @@
-import type { QueueBatch } from "../../types/queue";
+import type { RunBatch } from "@/genie6/lib/genieRunTypes";
 import { QueueCard } from "./QueueCard";
 
 interface QueueStripProps {
-  batches: QueueBatch[];
+  batches: RunBatch[];
   activeBatchId: string | null;
   onSelect: (batchId: string) => void;
   density?: "compact" | "comfortable";
@@ -40,12 +40,17 @@ export function QueueStrip({
       "
     >
       {batches.map((b) => (
-        <div key={b.id} className="snap-start" role="tab" aria-selected={b.id === activeBatchId}>
+        <div
+          key={b.batchId}
+          className="snap-start"
+          role="tab"
+          aria-selected={b.batchId === activeBatchId}
+        >
           <QueueCard
             batch={b}
-            active={b.id === activeBatchId}
+            active={b.batchId === activeBatchId}
             density={density}
-            onClick={() => onSelect(b.id)}
+            onClick={() => onSelect(b.batchId)}
           />
         </div>
       ))}

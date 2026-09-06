@@ -39,3 +39,13 @@ export * from "./referenceUrls";
 // Activity log — audit trail of edits / saves / runs across entities.
 // A-12.42: introduced for Brand Detail's Activity tab.
 export * from "./activityLog";
+
+// New Creative asset types — Genie 2.0 §9 / §21.1 (Catalogue merge) /
+// §21.2 (Angle, Template, Audience, Reference join the list). Angle and
+// Audience already existed above; Scripts / CTAs / Templates / References
+// are new. See src/catalogue/assetTypes.ts for the registry that ties all
+// fourteen types (3 Business + 11 Creative) together.
+export * from "./scripts";
+export * from "./ctas";
+export * from "./templates";
+export * from "./references";

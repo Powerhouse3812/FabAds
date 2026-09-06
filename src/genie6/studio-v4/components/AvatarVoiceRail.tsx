@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Globe, Mic, Pause, Play, Shuffle, Sparkles, User, X } from "lucide-react";
+import { ArrowRight, Check, Globe, MapPin, Mic, Pause, Play, Shuffle, Sparkles, User, Volume2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatars, voices } from "../../mocks/library";
+import type { Provenance } from "@/genie6/lib/genieRunTypes";
+import { playToneSweep } from "@/genie6/lib/voicePreviewTone";
+import {
+  AVATAR_ENVIRONMENTS,
+  AVATAR_PERSONALITIES,
+  VOICE_TONES,
+  environmentLabel,
+  personalityLabel,
+  toneLabel,
+} from "@/genie6/brain/avatarTaxonomy";
 
 interface AvatarVoiceRailProps {
   selectedAvatarId: string | null;
@@ -52,9 +62,6 @@ function presetIndexFor(seed: string, len: number): number {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return len > 0 ? h % len : 0;
 }
-
-/** How long a mock voice preview "plays" before auto-stopping (ms). */
-const PREVIEW_DURATION_MS = 3000;
 
 /** Derive gender from voice id/name — first names in our mock data. */
 const FEMALE_NAMES = new Set([
@@ -378,6 +385,18 @@ export function AvatarVoiceRail({
   // tabs. Presets stay as-is (curated personas; kept clean per Maalik's call).
   const [region, setRegion] = useState<RegionBucket | "all">("all");
 
+  // Environment / Personality / Tone — Genie 2.0 §11: "Avatars are categorised
+  // by environment and personality... that same categorisation — or a filter
+  // built on it — must also appear in Genie's own avatar-selection step. The
+  // two must not diverge." These read the SAME taxonomy Genie Brain's
+  // AvatarVoicePicker filters by (`avatarTaxonomy.ts`) and filter on the real
+  // tagged fields (`environmentId`/`personalityId`/`tones`) — never re-derived.
+  // Scoped to Browse-all only (the literal "scroll through a flat list" this
+  // section calls out); Region + Manual stay exactly as they were.
+  const [envFilter, setEnvFilter] = useState<string>("all");
+  const [personaFilter, setPersonaFilter] = useState<string>("all");
+  const [toneFilter, setToneFilter] = useState<string>("all");
+
   // Only one voice preview plays at a time across the whole rail. Lifted here
   // so switching cards / tabs / modes stops any in-flight preview. Mock only —
   // real audio is wired backend-side.
@@ -433,6 +452,41 @@ export function AvatarVoiceRail({
     region === "all"
       ? null
       : REGION_OPTIONS.find((o) => o.v === region)?.l ?? null;
+
+  /** Region-filtered avatars, further narrowed by the taxonomy filters.
+   *  Filters on `environmentId`/`personalityId` straight off the record —
+   *  never re-derived — so this can never disagree with Genie Brain's own
+   *  picker, which reads the same fields off the same taxonomy. */
+  const taxonomyAvatars = useMemo(
+    () =>
+      regionAvatars.filter((a) => {
+        if (envFilter !== "all" && a.environmentId !== envFilter) return false;
+        if (personaFilter !== "all" && a.personalityId !== personaFilter) return false;
+        return true;
+      }),
+    [regionAvatars, envFilter, personaFilter],
+  );
+  /** Region-filtered voices, further narrowed by the tone taxonomy filter —
+   *  reads `voice.tones` (already tagged by the shared classifier), not the
+   *  ad-hoc `extractTone` heuristic used for the display chip below. */
+  const taxonomyVoices = useMemo(
+    () =>
+      regionVoices.filter((v) => {
+        if (toneFilter !== "all" && !(v.tones ?? []).includes(toneFilter)) return false;
+        return true;
+      }),
+    [regionVoices, toneFilter],
+  );
+
+  const clearAvatarTaxonomyFilters = () => {
+    setRegion("all");
+    setEnvFilter("all");
+    setPersonaFilter("all");
+  };
+  const clearVoiceTaxonomyFilters = () => {
+    setRegion("all");
+    setToneFilter("all");
+  };
 
   // Stop any in-flight voice preview when the user switches tab or mode — the
   // card that owns the timer may unmount, so kill the "playing" id centrally.
@@ -746,15 +800,37 @@ export function AvatarVoiceRail({
 
             {mode === "browse" && (
               <>
+                <TaxonomyFilterGroup
+                  rows={[
+                    {
+                      icon: MapPin,
+                      label: "Environment",
+                      ariaLabel: "Filter avatars by environment",
+                      allLabel: "All environments",
+                      options: AVATAR_ENVIRONMENTS.map((e) => ({ v: e.id, l: e.label })),
+                      value: envFilter,
+                      onChange: setEnvFilter,
+                    },
+                    {
+                      icon: Sparkles,
+                      label: "Personality",
+                      ariaLabel: "Filter avatars by personality",
+                      allLabel: "All personalities",
+                      options: AVATAR_PERSONALITIES.map((p) => ({ v: p.id, l: p.label })),
+                      value: personaFilter,
+                      onChange: setPersonaFilter,
+                    },
+                  ]}
+                />
                 <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {regionAvatars.length} avatars
+                  {taxonomyAvatars.length} of {regionAvatars.length} avatars
                   {activeRegionLabel ? ` · ${activeRegionLabel}` : ""}
                 </p>
-                {regionAvatars.length === 0 ? (
-                  <RegionEmptyNote kind="avatars" region={activeRegionLabel} />
+                {taxonomyAvatars.length === 0 ? (
+                  <TaxonomyEmptyNote kind="avatars" onClear={clearAvatarTaxonomyFilters} />
                 ) : (
                   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {regionAvatars.map((av) => (
+                    {taxonomyAvatars.map((av) => (
                       <li key={av.id}>
                         <AvatarGalleryCard
                           avatar={av}
@@ -871,15 +947,28 @@ export function AvatarVoiceRail({
 
             {mode === "browse" && (
               <>
+                <TaxonomyFilterGroup
+                  rows={[
+                    {
+                      icon: Volume2,
+                      label: "Tone",
+                      ariaLabel: "Filter voices by tone",
+                      allLabel: "All tones",
+                      options: VOICE_TONES.map((t) => ({ v: t.id, l: t.label })),
+                      value: toneFilter,
+                      onChange: setToneFilter,
+                    },
+                  ]}
+                />
                 <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {regionVoices.length} voices
+                  {taxonomyVoices.length} of {regionVoices.length} voices
                   {activeRegionLabel ? ` · ${activeRegionLabel}` : ""}
                 </p>
-                {regionVoices.length === 0 ? (
-                  <RegionEmptyNote kind="voices" region={activeRegionLabel} />
+                {taxonomyVoices.length === 0 ? (
+                  <TaxonomyEmptyNote kind="voices" onClear={clearVoiceTaxonomyFilters} />
                 ) : (
                   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {regionVoices.map((v) => (
+                    {taxonomyVoices.map((v) => (
                       <li key={v.id}>
                         <VoiceGalleryCard
                           voice={v}
@@ -969,18 +1058,93 @@ function RegionSelect({
   );
 }
 
-/** Inline note shown when the active region filters a gallery to empty. */
-function RegionEmptyNote({
-  kind,
-  region,
+/**
+ * TaxonomyFilterGroup — Genie 2.0 §11: one or more environment/personality/
+ * tone filter rows, in the SAME pill-row visual language as `RegionSelect` /
+ * `AttributePicker` above (so this reads as an extension of the rail's own
+ * system, not a bolted-on second design). Options always come straight from
+ * `avatarTaxonomy.ts` — the one place this categorisation is defined; nothing
+ * here re-derives or re-labels a category.
+ */
+function TaxonomyFilterGroup({
+  rows,
 }: {
-  kind: "avatars" | "voices";
-  region: string | null;
+  rows: {
+    icon: React.ElementType;
+    label: string;
+    ariaLabel: string;
+    allLabel: string;
+    options: { v: string; l: string }[];
+    value: string;
+    onChange: (v: string) => void;
+  }[];
 }) {
   return (
-    <p className="rounded-xl border border-dashed border-border/50 bg-card/30 px-3 py-4 text-center text-[11px] text-muted-foreground">
-      No {kind}{region ? ` for ${region}` : ""} — try another region.
-    </p>
+    <div className="space-y-1.5 rounded-lg border border-border/40 bg-card/30 px-2 py-1.5">
+      {rows.map((row) => {
+        const Icon = row.icon;
+        const opts = [{ v: "all", l: row.allLabel }, ...row.options];
+        return (
+          <div key={row.label} role="group" aria-label={row.ariaLabel} className="flex items-center gap-2">
+            <span className="inline-flex w-[88px] shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              <Icon className="h-3 w-3" />
+              {row.label}
+            </span>
+            <div className="-mx-0.5 flex min-w-0 flex-1 items-center overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="inline-flex shrink-0 rounded-full border border-border/60 bg-background/40 p-0.5">
+                {opts.map((o) => {
+                  const active = row.value === o.v;
+                  return (
+                    <button
+                      key={o.v}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => row.onChange(o.v)}
+                      className={cn(
+                        "shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
+                        active
+                          ? o.v === "all"
+                            ? "bg-foreground/[0.08] text-foreground"
+                            : "bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {o.l}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Inline note shown when the active filter combination (region + taxonomy)
+ *  narrows a gallery to empty — e.g. a 0-avatar environment, or a personality
+ *  + region combo with no overlap. Always offers a real way out: Clear resets
+ *  every active filter for this tab (region included) so the list is never a
+ *  dead end. */
+function TaxonomyEmptyNote({
+  kind,
+  onClear,
+}: {
+  kind: "avatars" | "voices";
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/50 bg-card/30 px-3 py-6 text-center">
+      <p className="text-[11px] text-muted-foreground">No {kind} match these filters.</p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-full border border-border/60 px-3 py-1 text-[10px] font-semibold text-foreground transition-colors hover:bg-muted"
+      >
+        Clear filters
+      </button>
+    </div>
   );
 }
 
@@ -1343,6 +1507,7 @@ function VoicePresetCard({
     >
       {/* Visual: tinted radial glow + animated waveform + preview play control */}
       <VoiceWaveform
+        voiceId={voice.id}
         glow={preset.glow}
         active={active}
         playing={playing}
@@ -1484,6 +1649,9 @@ function AvatarGalleryCard({
     gender: "female" | "male";
     age: string;
     style: string;
+    environmentId?: string;
+    personalityId?: string;
+    provenance?: Provenance;
   };
   active: boolean;
   onSelect: () => void;
@@ -1548,6 +1716,14 @@ function AvatarGalleryCard({
         <Chip variant="primary">{styleLabel}</Chip>
       </div>
 
+      {/* Taxonomy chips — §11: the SAME environment/personality categorisation
+          Genie Brain browses, plus §21.2 provenance (FabFunnel vs client). */}
+      <div className="flex flex-wrap items-center gap-1">
+        <Chip>{environmentLabel(avatar.environmentId)}</Chip>
+        <Chip variant="primary">{personalityLabel(avatar.personalityId)}</Chip>
+        <ProvenanceChip provenance={avatar.provenance} />
+      </div>
+
       {active && (
         <span className="absolute right-2 top-2">
           <Check className="h-3 w-3 text-primary" strokeWidth={3} />
@@ -1555,6 +1731,14 @@ function AvatarGalleryCard({
       )}
     </button>
   );
+}
+
+/** §21.2 — FabFunnel-seeded vs client-created, same semantics as Genie
+ *  Brain's ProvenanceTag: muted for the seeded default, primary for the
+ *  brand's own supplied asset. */
+function ProvenanceChip({ provenance }: { provenance?: Provenance }) {
+  const isSeeded = (provenance ?? "fabfunnel-seeded") === "fabfunnel-seeded";
+  return <Chip variant={isSeeded ? "muted" : "primary"}>{isSeeded ? "FabFunnel" : "Yours"}</Chip>;
 }
 
 function VoiceGalleryCard({
@@ -1572,6 +1756,8 @@ function VoiceGalleryCard({
     lang: string;
     tone: string;
     description: string;
+    tones?: string[];
+    provenance?: Provenance;
   };
   active: boolean;
   playing: boolean;
@@ -1592,6 +1778,8 @@ function VoiceGalleryCard({
     >
       {/* Visual: tinted radial glow + animated waveform + preview play control */}
       <VoiceWaveform
+        voiceId={voice.id}
+        voiceName={voice.shortName}
         glow={glow}
         active={active}
         playing={playing}
@@ -1613,6 +1801,15 @@ function VoiceGalleryCard({
         <Chip>{voice.gender === "female" ? "♀ F" : "♂ M"}</Chip>
         <Chip>{voice.lang}</Chip>
         <Chip variant="primary">{voice.tone}</Chip>
+      </div>
+
+      {/* Taxonomy tone chips — real `tones[]` from the shared classifier
+          (not the ad-hoc chip above), plus §21.2 provenance. */}
+      <div className="flex flex-wrap items-center gap-1">
+        {(voice.tones ?? []).map((t) => (
+          <Chip key={t}>{toneLabel(t)}</Chip>
+        ))}
+        <ProvenanceChip provenance={voice.provenance} />
       </div>
 
       {active && (
@@ -1649,15 +1846,20 @@ function Chip({
  *  VoiceWaveform — shared visual for both voice cards.
  *  Tinted radial glow + 5 animated bars + a preview Play/Pause control.
  *  "Playing" is controlled by the parent (only one voice plays at a time);
- *  this component owns the ~3s auto-stop timer and stops it on unmount.
+ *  this component owns the tone-sweep playback and stops it on unmount.
  *  The play control stops propagation so previewing never selects the card.
  * ====================================================================== */
 function VoiceWaveform({
+  voiceId,
+  voiceName,
   glow,
   active,
   playing,
   onTogglePlay,
 }: {
+  voiceId: string;
+  /** Optional — used only to make the aria-label name the voice. */
+  voiceName?: string;
   glow: string;
   active: boolean;
   playing: boolean;
@@ -1668,15 +1870,20 @@ function VoiceWaveform({
   const playHeights = [55, 92, 100, 88, 60];
   const delays = [0, 100, 200, 300, 400];
 
-  // Auto-stop the mock preview after ~3s. Cleared on unmount and whenever the
-  // playing state flips (e.g. user toggles another card → parent clears this).
+  // §13 upgrade 2 — real audible output, not a decorative timer. Plays a
+  // short tone-sweep synthesised deterministically from `voiceId` (shared
+  // with Genie Brain's AvatarVoicePicker via `voicePreviewTone.ts`, so the
+  // two controls behave identically) — pressing "Preview" here actually
+  // makes sound instead of just pulsing bars for a fixed 3s. Auto-stops via
+  // `onEnded` when the sweep completes; cleared on unmount and whenever
+  // `playing` flips off (the parent enforces single-play-at-a-time).
   const stopRef = useRef(onTogglePlay);
   stopRef.current = onTogglePlay;
   useEffect(() => {
     if (!playing) return;
-    const t = window.setTimeout(() => stopRef.current(), PREVIEW_DURATION_MS);
-    return () => window.clearTimeout(t);
-  }, [playing]);
+    const stop = playToneSweep(voiceId, () => stopRef.current());
+    return () => stop();
+  }, [playing, voiceId]);
 
   return (
     <div className="relative h-16 overflow-hidden rounded-lg bg-foreground/[0.04]">
@@ -1709,12 +1916,17 @@ function VoiceWaveform({
         ))}
       </div>
 
-      {/* Preview Play/Pause control — separate from card select. */}
+      {/* Preview Play/Stop control — separate from card select. */}
       <span
         role="button"
         tabIndex={0}
-        aria-label={playing ? "Pause preview" : "Play preview"}
+        aria-label={
+          playing
+            ? `Stop preview cue${voiceName ? ` for ${voiceName}` : ""}`
+            : `Play preview cue${voiceName ? ` for ${voiceName}` : ""}`
+        }
         aria-pressed={playing}
+        title="Placeholder cue, synthesised — not the real voice"
         onClick={(e) => {
           e.stopPropagation();
           onTogglePlay();
@@ -1740,9 +1952,10 @@ function VoiceWaveform({
         )}
       </span>
 
-      {/* Tiny affordance label — makes it read clearly as a sample. */}
+      {/* Tiny affordance label — reads clearly as a placeholder cue, not the
+          real voice (no audio sample files ship in this repo yet). */}
       <span className="absolute bottom-1 right-1.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {playing ? "Playing…" : "Preview"}
+        {playing ? "Playing cue…" : "Preview cue"}
       </span>
     </div>
   );

@@ -1,10 +1,14 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Check,
   ChevronDown,
+  Coins,
   Database,
+  Globe,
+  Info,
   Plus,
+  Search,
   Sparkles,
   X,
   Link as LinkIcon,
@@ -25,6 +29,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatars, voices } from "../../mocks/library";
+import {
+  CREDITS_LIMIT,
+  CREDITS_REMAINING,
+  computeBreakdown,
+  exceedsBalance,
+  formatCredits,
+} from "../../lib/credits";
+import { languageLabel, searchLanguages } from "../../lib/languages";
+import { MODEL_CREDIT_MULTIPLIER } from "../data/modelPricing";
+import { buildCreditLines } from "../state/useWizard";
 // CHANGE #3: saved reference-URLs surfaced inside the URL-attach popover.
 // Mirrors ContextRail.tsx, which imports the same helpers from "@/mocks/shared"
 // (barrel re-exports src/mocks/shared/referenceUrls.ts).
@@ -46,6 +60,7 @@ import type {
   UseWizardReturn,
   AttachSource,
   AttachedRef,
+  WizardState,
 } from "../state/useWizard";
 
 /**
@@ -226,6 +241,34 @@ export function PromptReferenceBar({
   const showInlineSend = hideLayoutToggle || state.ctaLayout === "inline";
   const isUgcMode = state.mode === "ugc-video" || state.angleId === "ugc-style";
 
+  // §21.2 "Script becomes a gated pre-step" — script-led = the same
+  // definition PromptReferenceBar already uses to decide Avatar vs Style
+  // (isUgcMode: mode === "ugc-video" OR angleId === "ugc-style"). Script and
+  // avatar/voice are coupled features in this file, so reusing isUgcMode
+  // rather than inventing a second, narrower check keeps them consistent —
+  // a manually-set UGC angle on another approach gets the same Avatar/Voice
+  // AND the same script gate. A non-script approach is never gated.
+  const isScriptLed = isUgcMode;
+  const scriptGateOpen =
+    isScriptLed && !state.scriptApproved && !state.skipScriptReview;
+
+  // §21.2 "Credits need a breakdown" — the SAME buildCreditLines() the wizard
+  // uses to set state.credits, recomputed fresh here so the Generate button
+  // and the hover/click breakdown can never show a different number than the
+  // one that gets charged, no matter how state.credits was last set.
+  const creditBreakdown = computeBreakdown(buildCreditLines(state));
+  const overBudget = exceedsBalance(creditBreakdown.total);
+  const shortfall = overBudget ? creditBreakdown.total - CREDITS_REMAINING : 0;
+
+  // §6 Rule 3 — "Generate stays disabled until every required field is
+  // filled." A flow that carries no source format (Dashboard's fetched-ad
+  // rows) or a hand-edited URL can land here with the Overview reading
+  // "PICK A FORMAT" while this button stayed live and started a batch with
+  // format undefined. Same for the entity (§4: every ad type needs one).
+  const missingFormat = !state.format;
+  const missingEntity =
+    !state.brandId && !state.productId && !state.categoryId && !state.uploadedProductImage;
+
   // Concept · Angle compound value
   const conceptAngleValue =
     state.angleId || state.selectedConceptIds.length > 0
@@ -274,7 +317,14 @@ export function PromptReferenceBar({
               />
               <RefChip
                 label="Script"
-                value={state.script ? "Custom" : "Auto"}
+                value={
+                  scriptGateOpen
+                    ? "Needs approval"
+                    : state.script
+                      ? "Custom"
+                      : "Auto"
+                }
+                emphasize={scriptGateOpen}
                 onClick={() => onChipOpen("script")}
               />
               {isUgcMode ? (
@@ -303,6 +353,21 @@ export function PromptReferenceBar({
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
+              {/* §15 "credits are now also shown in Studio" — a PERSISTENT
+                  balance readout, not only inside the Generate button. Static
+                  display (no popover) — the button's own breakdown covers the
+                  interactive detail. */}
+              <span
+                title="Genie credit balance"
+                className="ml-auto inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border/40 bg-background/30 px-2.5 text-[11px] font-medium text-muted-foreground"
+              >
+                <Coins className="h-3 w-3" aria-hidden />
+                <span className="font-mono text-foreground/80">
+                  {formatCredits(CREDITS_REMAINING)}
+                </span>
+                <span aria-hidden className="text-muted-foreground/40">/</span>
+                <span className="font-mono">{formatCredits(CREDITS_LIMIT)}</span>
+              </span>
             </div>
           )}
 
@@ -516,6 +581,12 @@ export function PromptReferenceBar({
                               </span>
                             )}
                           </span>
+                          {/* §21.2 — model is one of the priced axes; showing
+                              its multiplier right where it's picked means the
+                              cost is visible on the action, not just after. */}
+                          <span className="shrink-0 font-mono text-[10px] font-semibold text-muted-foreground">
+                            ×{MODEL_CREDIT_MULTIPLIER[m.id] ?? 1}
+                          </span>
                         </div>
                       </button>
                     );
@@ -533,6 +604,12 @@ export function PromptReferenceBar({
               max={20}
             />
 
+            {/* Language — added §5 "Language selector added to Configure, for
+                choosing the output language of the ad". 175 options → a
+                searchable popover, never a <select> scroll (Hick's law).
+                Lives alongside Model + Variations — same pill DNA. */}
+            <LanguagePopover wizard={wizard} />
+
             {/* A-12.56 (Maalik): aspect ratio merged into the 3-dot Generation
                 Settings popover injected via footerExtras. AspectRatioPopover
                 component kept in this file as dead code in case we want to
@@ -542,25 +619,67 @@ export function PromptReferenceBar({
                 with Ratio + Quality + Audio sections) */}
             {footerExtras}
 
-            {/* Generate — credits inline in label */}
+            {/* Generate — credits inline in label, gated + breakdown (§21.2) */}
             {showInlineSend && (
-              <button
-                type="button"
-                onClick={() => wizard.goTo(5)}
-                disabled={!state.prompt.trim()}
-                className={cn(
-                  "ml-auto inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-5 text-[12px] font-bold text-primary-foreground transition-all",
-                  "shadow-md shadow-primary/20",
-                  "hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/30",
-                  "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none",
-                )}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Generate
-                <span className="font-mono text-[10px] font-medium opacity-80">
-                  ({state.credits} {state.credits === 1 ? "credit" : "credits"})
-                </span>
-              </button>
+              <div className="ml-auto flex items-center gap-1">
+                <CreditBreakdownInfo breakdown={creditBreakdown} />
+                <button
+                  type="button"
+                  onClick={() => wizard.goTo(5)}
+                  disabled={
+                    !state.prompt.trim() || scriptGateOpen || overBudget || missingFormat || missingEntity
+                  }
+                  title={
+                    missingFormat
+                      ? "Pick a format (Image or Video) on step 1 to generate"
+                      : missingEntity
+                        ? "Pick the brand, product or category this ad is for (step 2) to generate"
+                        : scriptGateOpen
+                      ? "Approve the script (or skip review) to generate — see the Script chip above"
+                      : overBudget
+                        ? `Short ${formatCredits(shortfall)} credits — top up, or lower Outputs/Concepts`
+                        : !state.prompt.trim()
+                          ? "Describe what you want, or tap a suggestion above"
+                          : undefined
+                  }
+                  className={cn(
+                    "inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-5 text-[12px] font-bold text-primary-foreground transition-all",
+                    "shadow-md shadow-primary/20",
+                    "hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/30",
+                    "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none",
+                  )}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {/* A disabled button that doesn't say why is a dead end. The
+                      script gate and the budget shortfall already explain
+                      themselves; the empty prompt did not — it just greyed out,
+                      which reads as broken rather than as "your turn". */}
+                  {missingFormat ? (
+                    "Pick a format to generate"
+                  ) : missingEntity ? (
+                    "Pick who it's for to generate"
+                  ) : scriptGateOpen ? (
+                    "Approve script to generate"
+                  ) : !state.prompt.trim() ? (
+                    "Describe your ad to generate"
+                  ) : overBudget ? (
+                    <>
+                      Need {formatCredits(shortfall)} more
+                      <span className="font-mono text-[10px] font-medium opacity-80">
+                        credits
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Generate
+                      <span className="font-mono text-[10px] font-medium opacity-80">
+                        ({formatCredits(creditBreakdown.total)}{" "}
+                        {creditBreakdown.total === 1 ? "credit" : "credits"})
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
             )}
 
             {/* Dev toggle — hidden in Alpha */}
@@ -665,20 +784,31 @@ function RefChip({
   label,
   value,
   onClick,
+  emphasize = false,
 }: {
   label: string;
   value: string;
   onClick: () => void;
+  /** §21.2 script gate — flags the chip (e.g. "Needs approval") so the
+   *  requirement is visible without opening the rail. */
+  emphasize?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-3 text-[11px] font-medium transition-colors hover:border-foreground/20 hover:bg-background/70"
+      className={cn(
+        "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition-colors",
+        emphasize
+          ? "border-primary/50 bg-primary/[0.08] hover:border-primary/70"
+          : "border-border/60 bg-background/50 hover:border-foreground/20 hover:bg-background/70",
+      )}
     >
       <span className="text-muted-foreground">{label}</span>
       <span aria-hidden className="text-muted-foreground/40">·</span>
-      <span className="text-foreground">{value}</span>
+      <span className={emphasize ? "font-semibold text-primary" : "text-foreground"}>
+        {value}
+      </span>
     </button>
   );
 }
@@ -788,16 +918,73 @@ function NumberStepper({
 }
 
 /* ────────────────────────────────────────────────────────── *
- *  AspectRatioPopover — pill trigger + popover with visual previews.
- *  Minimal: shows current ratio in the trigger, dropdown for selection.
+ *  Aspect ratio SHAPE preview — §5 "show an example of each shape, not just
+ *  the ratio name. This is what 'multi aspect ratio' means — a presentation
+ *  fix, not a multi-output generation feature."
+ *
+ *  RATIO_PREVIEW + RatioShapeOption are the ONE ratio presentation in the
+ *  codebase (exported so AlphaStep3Configure's Generation-settings popover —
+ *  where the ratio picker actually lives today, A-12.56 — reuses this exact
+ *  markup instead of a third hand-rolled version). AspectRatioPopover below
+ *  is kept as a self-contained trigger+popover for a future standalone use;
+ *  both now share the same option row.
  * ────────────────────────────────────────────────────────── */
-const RATIO_PREVIEW: Record<typeof RATIOS[number], { w: number; h: number; hint: string }> = {
+export const RATIO_PREVIEW: Record<typeof RATIOS[number], { w: number; h: number; hint: string }> = {
   "1:1": { w: 18, h: 18, hint: "Square" },
   "4:5": { w: 16, h: 20, hint: "Portrait" },
   "9:16": { w: 12, h: 20, hint: "Story / Reel" },
   "16:9": { w: 22, h: 12, hint: "Landscape" },
 };
 
+/** One selectable row: proportioned shape swatch + ratio + its use. */
+export function RatioShapeOption({
+  ratio,
+  active,
+  onSelect,
+}: {
+  ratio: typeof RATIOS[number];
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const { w, h, hint } = RATIO_PREVIEW[ratio];
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+        active ? "bg-primary/[0.08]" : "hover:bg-muted",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-sm border",
+          active ? "border-primary bg-primary/10" : "border-foreground/40",
+        )}
+        style={{ width: "24px", height: "24px" }}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "block rounded-[1px]",
+            active ? "bg-primary" : "bg-foreground/40",
+          )}
+          style={{ width: `${w}px`, height: `${h}px` }}
+        />
+      </span>
+      <span className="font-mono text-[11px] font-semibold">{ratio}</span>
+      <span className="ml-auto text-[10px] text-muted-foreground">{hint}</span>
+      {active && <Check className="h-3 w-3 shrink-0 text-primary" strokeWidth={3} />}
+    </button>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  AspectRatioPopover — pill trigger + popover with visual previews.
+ *  Minimal: shows current ratio in the trigger, dropdown for selection.
+ * ────────────────────────────────────────────────────────── */
 function AspectRatioPopover({
   value,
   onChange,
@@ -819,34 +1006,166 @@ function AspectRatioPopover({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" side="top" className="w-44 p-1">
-        {RATIOS.map((r) => {
-          const active = value === r;
-          const { w, h, hint } = RATIO_PREVIEW[r];
-          return (
-            <button
-              key={r}
-              type="button"
-              onClick={() => {
-                onChange(r);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                active ? "bg-foreground/[0.06]" : "hover:bg-muted",
-              )}
-            >
-              <span
-                aria-hidden
-                className="inline-block shrink-0 rounded-sm border border-foreground/40"
-                style={{ width: `${w}px`, height: `${h}px` }}
-              />
-              <span className="font-mono text-[11px] font-semibold">{r}</span>
-              <span className="ml-auto text-[10px] text-muted-foreground">
-                {hint}
+        {RATIOS.map((r) => (
+          <RatioShapeOption
+            key={r}
+            ratio={r}
+            active={value === r}
+            onSelect={() => {
+              onChange(r);
+              setOpen(false);
+            }}
+          />
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  LanguagePopover — §5 "Language selector added to Configure, for choosing
+ *  the output language of the ad." 175 options (src/genie6/lib/languages.ts)
+ *  → a SEARCHABLE popover, never a <select> scroll (Hick's law). Reads/writes
+ *  wizard.state.language directly — no new props needed, the wizard is
+ *  already threaded through. The Shell agent owns ?lang= in the URL; this
+ *  only touches wizard state.
+ * ────────────────────────────────────────────────────────── */
+function LanguagePopover({ wizard }: { wizard: UseWizardReturn }) {
+  const { state } = wizard;
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => searchLanguages(query), [query]);
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title="Output language"
+          className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border/60 bg-background/50 px-3 text-[11px] font-medium text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-background/70 hover:text-foreground"
+        >
+          <Globe className="h-3 w-3 text-muted-foreground" aria-hidden />
+          <span className="font-mono">{languageLabel(state.language)}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" side="top" className="w-72 p-3">
+        <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <Globe className="h-3.5 w-3.5" />
+          Output language
+        </div>
+        <div className="relative mb-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search 175 languages…"
+            autoFocus
+            className="h-8 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[12px] outline-none transition-colors focus:border-primary"
+          />
+        </div>
+        <ul className="max-h-64 space-y-0.5 overflow-y-auto pr-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
+          {results.map((l) => {
+            const active = state.language === l.code;
+            return (
+              <li key={l.code}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    wizard.set("language", l.code);
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                  aria-pressed={active}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition-colors",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground hover:bg-muted",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {l.name}{" "}
+                    <span className="text-muted-foreground">({l.region})</span>
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
+                    {l.code}
+                  </span>
+                  {active && <Check className="h-3 w-3 shrink-0 text-primary" />}
+                </button>
+              </li>
+            );
+          })}
+          {results.length === 0 && (
+            <li className="px-2 py-6 text-center text-[11px] italic text-muted-foreground">
+              No languages match "{query}"
+            </li>
+          )}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  CreditBreakdownInfo — §21.2 "Credits need a breakdown, not just a
+ *  number." Small info trigger next to Generate; click (Popover) or hover
+ *  (native title) shows the exact multiplier chain computeBreakdown() will
+ *  charge — outputs × concepts × model × quality — so a 6× jump between
+ *  Configure and Results never again arrives unexplained.
+ * ────────────────────────────────────────────────────────── */
+function CreditBreakdownInfo({
+  breakdown,
+}: {
+  breakdown: ReturnType<typeof computeBreakdown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const titleText = breakdown.lines
+    .map((l) => `${l.label} ${l.op === "base" ? l.factor : `×${l.factor}`}${l.note ? ` (${l.note})` : ""}`)
+    .join(" · ");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Credit cost breakdown"
+          title={titleText}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" side="top" className="w-64 p-3">
+        <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Credit breakdown
+        </p>
+        <ul className="space-y-1">
+          {breakdown.lines.map((l, i) => (
+            <li key={i} className="flex items-center justify-between text-[12px]">
+              <span className="text-foreground/80">
+                {l.label}
+                {l.note ? ` · ${l.note}` : ""}
               </span>
-            </button>
-          );
-        })}
+              <span className="font-mono text-foreground">
+                {l.op === "base" ? l.factor : `×${l.factor}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2 flex items-center justify-between border-t border-border/40 pt-2">
+          <span className="text-[12px] font-semibold text-foreground">Total</span>
+          <span className="font-mono text-[13px] font-bold text-primary">
+            {formatCredits(breakdown.total)} credits
+          </span>
+        </div>
       </PopoverContent>
     </Popover>
   );

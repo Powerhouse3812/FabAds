@@ -1,10 +1,12 @@
 import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HeroHeader } from "../components/HeroHeader";
+import { SectionHeader } from "../components/SectionHeader";
 import type { Format, UseWizardReturn } from "../state/useWizard";
+import { MODES, MODE_SCHEME, type AlphaMode } from "../data/modes";
 
 /**
- * AlphaStep1Format — Step 1: pick Image vs Video.
+ * AlphaStep1Format — Step 1: Mode + Format, ONE screen (§21.2).
  *
  * A-12.20 (Maalik: "boring + wireframmy" → make it feel like a creative studio):
  *   - Ambient layer: 22px dot grid + radial lime wash + 2 lime geometric shapes
@@ -17,12 +19,34 @@ import type { Format, UseWizardReturn } from "../state/useWizard";
  *   - Selected state untouched; hover lifts 1px and brightens borders.
  *   - All colours via design-system tokens (foreground / primary / muted-fg
  *     / border / card). No raw Tailwind palette.
+ *
+ * §21.2 MERGE (Studio Shell agent): "The breadcrumb reads Format › Product ›
+ * Approach › Configure and says 'Step 1 of 4' — so the mode chosen on Studio
+ * home is a step zero with no way back except Home. Either make Mode a
+ * visible step, or merge Mode and Format into one screen... the Format screen
+ * currently spends a whole 800px canvas on a binary choice, which makes
+ * merging the stronger option." Merged: a compact Mode row now sits above the
+ * Format cards on this same step-1 screen, so Back from Step 2 lands
+ * somewhere the user can change EITHER — no more full exit-to-Home required
+ * just to swap Mode. StudioHome (the pre-wizard landing page with its own
+ * Mode grid + History strip) is UNCHANGED and still the entry point; this is
+ * about what's reachable once you're already inside the wizard.
+ *
+ * Mode itself is NOT an ad-type selector — §4 is unambiguous that the Step-2
+ * tab (Brand/Product/Category) is the only ad-type picker in Genie. Mode
+ * stays the coarser "what kind of creative journey" choice from Studio Home
+ * (see data/modes.ts for the §22-item-2 reconciliation note).
  */
 
 interface Step1Props {
   wizard: UseWizardReturn;
   onAdvance: () => void;
   onBack?: () => void;
+  /** Current Mode (from StudioAlpha's homeMode) — shown selected in the row. */
+  mode: AlphaMode | null;
+  /** Changing Mode here does NOT advance — it's a parallel selection, not a
+   *  "next" action. Only Format advances (unchanged click-to-advance rule). */
+  onModeChange: (mode: AlphaMode) => void;
 }
 
 interface FormatOption {
@@ -102,7 +126,7 @@ function VideoPreview({ selected }: { selected: boolean }) {
   );
 }
 
-export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
+export function AlphaStep1Format({ wizard, onAdvance, onBack, mode, onModeChange }: Step1Props) {
   return (
     // Mobile: fills the step viewport (min-h-full) and centers so the two
     // cards read as one screen; `md:` restores the original top-aligned,
@@ -117,55 +141,113 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <HeroHeader title="Pick your format" onBack={onBack} />
+        <HeroHeader title="What are you creating?" onBack={onBack} />
         <p className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Step 1 of 4 · Choose how your creative will appear
+          Step 1 of 4 · Mode + how your creative will appear
         </p>
       </div>
 
-      {/* 1 column at phone widths (two 300px-tall cards side by side at 375px
-          left ~150px of usable card width — the preview + 3 pills collapsed).
-          sm: goes back to the 2-up grid, md: is byte-identical to before. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-2 md:gap-6">
-        {FORMAT_OPTIONS.map((f) => {
-          const selected = wizard.state.format === f.id;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => {
-                wizard.set("format", f.id);
-                onAdvance();
-              }}
-              className={cn(
-                "v3-glass-card group relative flex min-h-[180px] cursor-pointer flex-col items-center gap-3 overflow-hidden rounded-3xl p-4 transition-all duration-300 ease-out",
-                "md:min-h-[300px] md:gap-5 md:p-8",
-                selected
-                  ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
-                  : "shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:border-foreground/30 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)]",
-              )}
-            >
-              {!selected && (
-                <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(ellipse_at_top,hsl(74_81%_59%/0.12),transparent_75%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              )}
+      {/* Mode row — compact, so Format keeps its visual weight below.
+          Reachable here (not just on Studio Home) so Back from Step 2 can
+          change Mode without exiting the wizard (§21.2). */}
+      <section className="flex flex-col gap-2">
+        <SectionHeader title="Mode" size="compact" />
+        <ul className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] sm:flex-wrap sm:overflow-visible">
+          {MODES.map((m) => {
+            const selected = mode === m.id;
+            return (
+              <li key={m.id} className="shrink-0">
+                <button
+                  type="button"
+                  disabled={!m.available}
+                  aria-pressed={selected}
+                  onClick={() => m.available && onModeChange(m.id)}
+                  title={m.available ? m.title : `${m.title} — coming soon`}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full border px-3 py-2 text-left transition-all",
+                    !m.available && "cursor-not-allowed opacity-50",
+                    m.available && selected
+                      ? "border-primary/40 bg-primary/10 shadow-sm"
+                      : m.available
+                        ? "border-border bg-background hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm"
+                        : "border-border bg-background",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                      selected ? MODE_SCHEME[m.tone].bgSel : MODE_SCHEME[m.tone].bg,
+                      selected ? MODE_SCHEME[m.tone].textSel : MODE_SCHEME[m.tone].text,
+                    )}
+                  >
+                    <m.Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                  </span>
+                  <span className="whitespace-nowrap text-[12px] font-semibold text-foreground">
+                    {m.title}
+                  </span>
+                  {m.tag && (
+                    <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-primary">
+                      {m.tag}
+                    </span>
+                  )}
+                  {!m.available && (
+                    <span className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground">
+                      Soon
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
-              <div className="flex flex-1 items-center justify-center">
-                {f.id === "image" ? <ImagePreview selected={selected} /> : <VideoPreview selected={selected} />}
-              </div>
+      <section className="flex flex-col gap-2">
+        <SectionHeader title="Format" size="compact" />
+        {/* 1 column at phone widths (two 300px-tall cards side by side at 375px
+            left ~150px of usable card width — the preview + 3 pills collapsed).
+            sm: goes back to the 2-up grid, md: is byte-identical to before. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-2 md:gap-6">
+          {FORMAT_OPTIONS.map((f) => {
+            const selected = wizard.state.format === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => {
+                  wizard.set("format", f.id);
+                  onAdvance();
+                }}
+                className={cn(
+                  "v3-glass-card group relative flex min-h-[180px] cursor-pointer flex-col items-center gap-3 overflow-hidden rounded-3xl p-4 transition-all duration-300 ease-out",
+                  "md:min-h-[300px] md:gap-5 md:p-8",
+                  selected
+                    ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
+                    : "shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:border-foreground/30 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)]",
+                )}
+              >
+                {!selected && (
+                  <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(ellipse_at_top,hsl(74_81%_59%/0.12),transparent_75%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                )}
 
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-lg font-bold text-foreground">{f.title}</span>
-                <span className="text-center text-[13px] text-muted-foreground">{f.desc}</span>
-                <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
-                  {f.pills.map((p) => (
-                    <span key={p} className={PILL_CLS}>{p}</span>
-                  ))}
+                <div className="flex flex-1 items-center justify-center">
+                  {f.id === "image" ? <ImagePreview selected={selected} /> : <VideoPreview selected={selected} />}
                 </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-lg font-bold text-foreground">{f.title}</span>
+                  <span className="text-center text-[13px] text-muted-foreground">{f.desc}</span>
+                  <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
+                    {f.pills.map((p) => (
+                      <span key={p} className={PILL_CLS}>{p}</span>
+                    ))}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

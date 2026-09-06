@@ -299,12 +299,6 @@ export const TOOLTIP_COPY: Record<string, TooltipCopy> = {
     gives: "A quick bookmark while you browse the gallery.",
     action: "Not yet wired to your real boards — it resets if you reload the page.",
   },
-  "action.variation-disabled": {
-    label: "Variation",
-    what: "Would send this ad's hook and thumbnail into Genie as a starting point.",
-    gives: "Turned off because Genie can't read that context from a link yet.",
-    action: "Disabled for now — nothing happens if you click it.",
-  },
   "action.follow-competitor": {
     label: "Follow",
     what: "Adds this competitor to your watchlist, for this session only.",

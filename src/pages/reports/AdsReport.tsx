@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Wand2 } from "lucide-react";
 import { useReportsData, isGroupRow } from "@/hooks/use-reports-data";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { pinCopiesToSources, useWriteStore } from "@/lib/ad-entity-write-store";
@@ -19,6 +20,8 @@ import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { ColumnSettingsModal } from "@/components/reports/ColumnSettingsModal";
 import { MobileReportsShell } from "@/components/reports/mobile/MobileReportsShell";
 import { useAdEntityActions } from "@/components/reports/actions/useAdEntityActions";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 export default function AdsReport() {
   const isMobile = useIsMobile();
@@ -125,7 +128,7 @@ export default function AdsReport() {
   }, [selectedEntities, allFiltered]);
 
   const kebabActions = useCallback((entity: ReportEntity) => {
-    const actions = [];
+    const actions: { label: string; onClick?: () => void; render?: () => React.ReactNode }[] = [];
     if (entity.creative) {
       const path = entity.creative.type === "video"
         ? `/reports/creative/video?adId=${entity.id}`
@@ -133,6 +136,33 @@ export default function AdsReport() {
       actions.push({
         label: "View Creatives",
         onClick: () => navigate(path),
+      });
+    }
+    // §7.3 — ad-level rows only; a Genie action on an account/campaign/adset
+    // row is meaningless. `ReportsTable`'s kebabActions returns flat
+    // {label,onClick} tuples, which can't host SendToGenieMenu's own nested
+    // DropdownMenu — so this uses the `render` escape hatch (see
+    // ReportsTable.tsx's extended prop type) instead of reimplementing
+    // Genie's action list here. Flexible/carousel ads (entity.creative.adType)
+    // resolve their "static output only for now" caveat from whatever
+    // flowSources.ts seeds for this same ad id — this only hands over the
+    // id, not the format, since SendToGenieMenu takes no format prop.
+    if (entity.level === "ad") {
+      actions.push({
+        label: "Send to Genie",
+        render: () => (
+          <SendToGenieMenu
+            module="reports"
+            refId={entity.id}
+            align="end"
+            trigger={
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <Wand2 className="h-3.5 w-3.5 mr-2" />
+                Send to Genie
+              </DropdownMenuItem>
+            }
+          />
+        ),
       });
     }
     return actions;

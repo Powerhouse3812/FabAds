@@ -121,6 +121,7 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { InsightsV2EmptyState } from "@/components/insights-v2/InsightsV2EmptyState";
 import { InfoTip } from "@/insights-dashboard/components/InfoTip";
 import { Provenance } from "@/insights-dashboard/components/Provenance";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 import {
   useDashboardMeta,
   useLongRunners,
@@ -371,14 +372,35 @@ function LongRunnerCard({
             <Bookmark className="h-3 w-3" aria-hidden="true" fill={state.saved ? "currentColor" : "none"} />
           </Button>
         </InfoTip>
-        <InfoTip tip="action.variation-disabled" asChild>
-          {/* span wrapper: disabled buttons don't fire hover/focus for Radix triggers */}
-          <span>
-            <Button size="icon" variant="outline" disabled className="h-6 w-6" aria-label="Variation">
-              <Wand2 className="h-3 w-3" aria-hidden="true" />
-            </Button>
-          </span>
-        </InfoTip>
+        {/* Was a disabled button with an InfoTip explaining "Genie doesn't
+            read URL params yet" (see file header, REUSE VERDICT). That's no
+            longer true (see project_genie_url_params memory) and Other Flows
+            now exists, so this mounts the real thing instead of a reason to
+            wait. `ad.adId` is the underlying InsightAd.id (see toLongRunner()
+            in fixtures.ts — `adId: ad.id`), the same id Industry Insights'
+            own cards pass, so the picker resolves this card exactly like any
+            other Insights ad. Plain Tooltip (not InfoTip) since there's no
+            longer a "why disabled" reason to explain via tooltipCopy.ts. */}
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <SendToGenieMenu
+                  module="industry-insights"
+                  refId={ad.adId}
+                  trigger={
+                    <Button size="icon" variant="outline" className="h-6 w-6" aria-label="Variation">
+                      <Wand2 className="h-3 w-3" aria-hidden="true" />
+                    </Button>
+                  }
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p className="text-xs">Send to Genie</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );

@@ -40,12 +40,13 @@ import {
   Upload, Search, Trash2, Loader2, MoreVertical, Download, Link2,
   Play, Bookmark, X, Sparkles, Rocket, CloudUpload, Type, AlignLeft, FileText,
   Filter, ArrowUpDown, Shuffle, Plus, Music, Layers, FolderPlus,
-  BookmarkCheck, Copy, Trash, Package,
+  BookmarkCheck, Copy, Trash, Package, Wand2,
 } from "lucide-react";
 import { TextItemList } from "@/components/creative-library/TextItemList";
 import { BrandFilterBar } from "@/components/creative-library/BrandFilterBar";
 import { filterByBrand } from "@/mocks/shared/library-items";
 import { useSearchParams } from "react-router-dom";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 import { CreateAdgroupModal } from "@/components/creative-library/CreateAdgroupModal";
 import { AdgroupPropertiesModal } from "@/components/creative-library/AdgroupPropertiesModal";
 import { useClFolders, useCreateClFolder, useUpdateClFolder, useReorderClFolders } from "@/hooks/use-cl-folders";
@@ -749,6 +750,25 @@ export default function CreativeLibrary() {
                               <DropdownMenuItem onClick={() => setMoveToFolderItem({ ids: [asset.id], type: "media" })}>
                                 <FolderPlus className="h-4 w-4 mr-2" /> Add to folder
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {/* §7.6 — a single Ad (this media asset) redirects
+                                  into Genie; folders never do. §7.6 also says
+                                  non-Genie assets (uploaded/imported/pinned)
+                                  get the SAME actions as Genie-made ones — no
+                                  gate on `asset.source` here. SendToGenieMenu's
+                                  own action list for "creative-library"
+                                  already includes "Send to Other Apps" (§6
+                                  Rule 6) — no separate item needed here. */}
+                              <SendToGenieMenu
+                                module="creative-library"
+                                refId={asset.id}
+                                align="end"
+                                trigger={
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                    <Wand2 className="h-4 w-4 mr-2" /> Send to Genie
+                                  </DropdownMenuItem>
+                                }
+                              />
                               {!asset.is_dummy && (
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteTarget(asset)}>
                                   <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -872,6 +892,21 @@ export default function CreativeLibrary() {
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleLaunchFromAdgroups([ag.id]); }}>
                         <Rocket className="h-4 w-4 mr-2" /> Launch Adgroup
                       </DropdownMenuItem>
+                      {/* §7.6 — this adgroup IS the single Ad that redirects
+                          into Genie; folders never get this. Same actions
+                          regardless of `source` (uploaded/generated/imported).
+                          SendToGenieMenu's own "creative-library" action list
+                          already includes "Send to Other Apps" (§6 Rule 6). */}
+                      <SendToGenieMenu
+                        module="creative-library"
+                        refId={ag.id}
+                        align="end"
+                        trigger={
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Wand2 className="h-4 w-4 mr-2" /> Send to Genie
+                          </DropdownMenuItem>
+                        }
+                      />
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <DropdownMenuItem disabled><Copy className="h-4 w-4 mr-2" /> Duplicate</DropdownMenuItem>
@@ -973,9 +1008,19 @@ export default function CreativeLibrary() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span><Button variant="ghost" size="icon" className="h-7 w-7" disabled><Sparkles className="h-3.5 w-3.5" /></Button></span>
+                            <span onClick={(e) => e.stopPropagation()}>
+                              <SendToGenieMenu
+                                module="creative-library"
+                                refId={ag.id}
+                                trigger={
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Send to Genie">
+                                    <Wand2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                }
+                              />
+                            </span>
                           </TooltipTrigger>
-                          <TooltipContent><p>Coming Soon</p></TooltipContent>
+                          <TooltipContent><p>Send to Genie</p></TooltipContent>
                         </Tooltip>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>

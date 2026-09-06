@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Apple,
   ChevronLeft,
   ChevronRight,
   PanelLeftClose,
 } from "lucide-react";
+import { useBatches } from "@/genie6/lib/genieRunStore";
+import { batchDoneCount, batchStatus } from "@/genie6/lib/genieRunTypes";
 import {
   Select,
   SelectContent,
@@ -25,15 +26,19 @@ import { MasonryGroupToggle, type LibraryView } from "./MasonryGroupToggle";
  */
 export function LibraryTopBar() {
   const [searchParams, setSearchParams] = useSearchParams();
+  // §10 — "batch" is now the default view, so it's the one omitted from the
+  // URL (same delete-on-default convention LibraryToolbar uses for its own
+  // params — `?view=` only ever appears for the two non-default groupings).
+  const rawView = searchParams.get("view");
   const view: LibraryView =
-    searchParams.get("view") === "grouped" ? "grouped" : "masonry";
+    rawView === "masonry" || rawView === "grouped" ? rawView : "batch";
 
   const setView = useCallback(
     (next: LibraryView) => {
       setSearchParams(
         (prev) => {
           const sp = new URLSearchParams(prev);
-          if (next === "masonry") sp.delete("view");
+          if (next === "batch") sp.delete("view");
           else sp.set("view", next);
           return sp;
         },
@@ -84,56 +89,81 @@ export function LibraryTopBar() {
 }
 
 /**
- * QueueInlineStrip — compact inline version of LibraryQueueStrip used inside
- * the top bar. Static for now; can be wired to the same mock queue source
- * later. Mirrors Figma frame 2147225521 layout.
+ * QueueInlineStrip — compact inline batch strip in the Library top bar.
+ *
+ * Was hardcoded to "Product Ad · Apple · iPad pro · Performance · Story Ad ·
+ * 12/12 · 1h ago" from a Figma frame. That put an Apple iPad batch directly
+ * above a Library full of Mamaearth and Noise outputs — a brand that isn't on
+ * the roster at all, next to real data, which reads as a bug rather than a
+ * placeholder. It also claimed "queue (3/5)" and a full progress bar while the
+ * real store might have nothing running.
+ *
+ * Now reads the same `genieRunStore` the rest of the Library does (§8: per-app
+ * and per-surface history are VIEWS over one store, never separate stores), so
+ * the strip is the newest batch, live, and it renders nothing at all when
+ * there are no batches instead of inventing one.
  */
 function QueueInlineStrip() {
+  const batches = useBatches();
+  const newest = batches[0];
+  if (!newest) return null;
+
+  const status = batchStatus(newest);
+  const position = 1;
+  const running = batches.filter((b) => batchStatus(b) === "running").length;
+
   return (
     <div className="flex items-center gap-2 truncate">
-      {/* queue (3/5) prev/next */}
       <span className="flex items-center gap-1 font-g6-mono text-g6-xs text-g6-text">
         <ChevronLeft className="h-2.5 w-2.5 text-g6-text-tertiary" />
-        <span>queue (3/5)</span>
+        <span>
+          batch ({position}/{batches.length})
+          {running > 0 && ` · ${running} running`}
+        </span>
         <ChevronRight className="h-2.5 w-2.5 text-g6-text-tertiary" />
       </span>
-      <span
-        aria-hidden
-        className="mx-1 inline-block h-3 w-px bg-g6-border-secondary"
-      />
+      <span aria-hidden className="mx-1 inline-block h-3 w-px bg-g6-border-secondary" />
 
-      {/* Batch tags */}
       <div className="flex items-center gap-2 truncate">
-        <span className="font-g6-sans text-g6-sm text-g6-text">Product Ad</span>
-        <span className="inline-flex items-center gap-1 rounded-g6-pill bg-g6-bg-spotlight px-2 py-0.5 font-g6-mono text-[11px] text-g6-text">
-          <Apple className="h-3.5 w-3.5" /> Apple
+        {/* Batch ID = Job ID (§10), displayed with the batch it identifies. */}
+        <span className="font-g6-mono text-[11px] font-semibold uppercase tracking-wide text-g6-text-secondary">
+          {newest.batchId}
         </span>
-        <span className="inline-flex items-center rounded-g6-pill bg-g6-bg-spotlight px-2 py-0.5 font-g6-mono text-[11px] text-g6-text">
-          iPad pro
-        </span>
-        <span className="inline-flex items-center rounded-g6-pill bg-g6-bg-spotlight px-2 py-0.5 font-g6-mono text-[11px] text-g6-text">
-          Performance
-        </span>
-        <span className="inline-flex items-center rounded-g6-pill bg-g6-bg-spotlight px-2 py-0.5 font-g6-mono text-[11px] text-g6-text">
-          Story Ad
+        <span className="truncate font-g6-sans text-g6-sm text-g6-text">{newest.label}</span>
+        <span className="inline-flex items-center rounded-g6-pill bg-g6-bg-spotlight px-2 py-0.5 font-g6-mono text-[11px] uppercase tracking-wide text-g6-text">
+          {status}
         </span>
 
-        {/* Progress mini */}
         <span className="flex items-center gap-2 font-g6-mono text-g6-xs tabular-nums text-g6-text">
-          <span>12/12</span>
+          <span>{batchDoneCount(newest)}</span>
           <span className="relative inline-block h-1 w-[41px] overflow-hidden rounded-full bg-g6-bg-spotlight">
-            <span className="absolute inset-0 rounded-full bg-g6-primary" />
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-g6-primary transition-[width] duration-500"
+              style={{
+                width: `${Math.round(
+                  (newest.items.filter((i) => i.status === "done").length /
+                    Math.max(newest.items.length, 1)) * 100,
+                )}%`,
+              }}
+            />
           </span>
         </span>
       </div>
 
-      <span
-        aria-hidden
-        className="mx-1 inline-block h-3 w-px bg-g6-border-secondary"
-      />
+      <span aria-hidden className="mx-1 inline-block h-3 w-px bg-g6-border-secondary" />
       <span className="font-g6-mono text-g6-xs text-g6-text-tertiary">
-        1h ago
+        {relativeFromNow(newest.createdAt)}
       </span>
     </div>
   );
+}
+
+/** Short relative label — the strip has room for "9h ago", not a sentence. */
+function relativeFromNow(ts: number): string {
+  const mins = Math.max(1, Math.round((Date.now() - ts) / 60000));
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  return days === 1 ? "Yesterday" : `${days}d ago`;
 }

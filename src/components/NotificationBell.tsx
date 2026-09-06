@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, X } from "lucide-react";
+import { Bell, Wand2, X } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -12,6 +12,8 @@ import { useConnectorConnections } from "@/connector/connectionsStore";
 import { getAgentPreset } from "@/connector/catalogue";
 import { AgentAvatar } from "@/connector/components/AgentAvatar";
 import type { AgentKind, AuditOutcome, ConnectorAuditEntry } from "@/connector/model";
+import { useBatches } from "@/genie6/lib/genieRunStore";
+import { batchStatus, type RunBatch } from "@/genie6/lib/genieRunTypes";
 
 /* ------------------------------------------------------------------ */
 /*  NotificationBell — the connector audit log, condensed                */
@@ -72,6 +74,69 @@ const OUTCOME_CLASS: Record<AuditOutcome, string> = {
 
 const ALL_AGENTS = "all";
 
+/**
+ * §16 — "The prototype shows generation started · in progress · done. Every
+ * one of them carries a Genie logo, so a single glance tells the user this
+ * notification is Genie's — without reading it." Derived from useBatches()'s
+ * CURRENT state (there's no persisted notification log for batches) — each
+ * batch contributes exactly one row reflecting where it stands right now,
+ * newest batch first (the store's own order).
+ */
+type GenieNotificationTone = "info" | "success" | "warning" | "error";
+
+interface GenieNotification {
+  id: string;
+  label: string;
+  detail: string;
+  tone: GenieNotificationTone;
+  at: number;
+  href: string;
+}
+
+function genieNotificationFor(batch: RunBatch): GenieNotification {
+  const status = batchStatus(batch);
+  const doneCount = batch.items.filter((i) => i.status === "done").length;
+  let label: string;
+  let tone: GenieNotificationTone;
+  if (status === "running") {
+    // The two "in-flight" kinds §16 asks for: nothing finished yet vs. partway.
+    label = doneCount === 0 ? "Generation started" : "Generation in progress";
+    tone = "info";
+  } else if (status === "done") {
+    label = "Generation done";
+    tone = "success";
+  } else if (status === "partial") {
+    label = "Generation done — some items failed";
+    tone = "warning";
+  } else if (status === "failed") {
+    label = "Generation failed";
+    tone = "error";
+  } else {
+    label = "Generation cancelled";
+    tone = "warning";
+  }
+  const firstOutputId = batch.items.find((i) => i.outputId)?.outputId;
+  return {
+    id: `genie-${batch.batchId}`,
+    label,
+    detail: batch.label,
+    tone,
+    at: batch.createdAt,
+    href: firstOutputId ? `/iq/genie6/library?ad=${firstOutputId}` : "/iq/genie6/library",
+  };
+}
+
+const GENIE_NOTIFICATION_CLASS: Record<GenieNotificationTone, string> = {
+  info: "text-muted-foreground",
+  success: "text-primary",
+  warning: "text-warning-text",
+  error: "text-error-text",
+};
+
+/** Recent-3 — this is a glance strip, not a second full log; "See all
+ *  events" below still covers the connector audit trail. */
+const MAX_GENIE_VISIBLE = 3;
+
 export function NotificationBell({ compact = false }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const [agentFilter, setAgentFilter] = useState<AgentKind | typeof ALL_AGENTS>(ALL_AGENTS);
@@ -93,6 +158,14 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
 
   const { entries } = useConnectorAudit();
   const { auditLastSeenAt } = useConnectorConnections();
+
+  // §16 — Genie's own notification rows, always real (driven off the run
+  // store), rendered in the same panel as the connector activity feed below.
+  const genieBatches = useBatches();
+  const genieNotifications = useMemo(
+    () => genieBatches.slice(0, MAX_GENIE_VISIBLE).map(genieNotificationFor),
+    [genieBatches],
+  );
 
   /**
    * Distinct agents present in the log, in first-seen order (entries are
@@ -208,6 +281,49 @@ export function NotificationBell({ compact = false }: NotificationBellProps) {
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        {/* §16 — Genie notifications. Own visual slot (Wand2 in a lime-tinted
+            chip, not just a word) so these read as Genie's at a glance, same
+            spirit as AgentAvatar's monogram chip below but never confusable
+            with a connected agent. Mounted regardless of whether the
+            connector feed below is empty — the two are independent. */}
+        {genieNotifications.length > 0 && (
+          <div className="divide-y divide-border border-b border-border bg-background">
+            {genieNotifications.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  navigate(n.href);
+                }}
+                className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-accent/30 transition-colors"
+              >
+                <span
+                  className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/15"
+                  aria-hidden="true"
+                >
+                  <Wand2 className="h-4 w-4 text-primary" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className={cn("text-[12px] font-medium leading-snug", GENIE_NOTIFICATION_CLASS[n.tone])}>
+                    {n.label}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 truncate">
+                    {n.detail}
+                  </p>
+                  <time
+                    dateTime={new Date(n.at).toISOString()}
+                    title={new Date(n.at).toLocaleString()}
+                    className="block text-[10px] text-muted-foreground/60 mt-1"
+                  >
+                    {formatDistanceToNowStrict(n.at, { addSuffix: true })}
+                  </time>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 text-center">

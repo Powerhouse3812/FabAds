@@ -1,7 +1,10 @@
-import { LayoutGrid, Layers } from "lucide-react";
+import { LayoutGrid, Layers, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type LibraryView = "masonry" | "grouped";
+/** §10 — "Default view: latest batch first, grouped." `"batch"` is the new
+ *  default; `"masonry"` and `"grouped"` (by angle) remain as alternative
+ *  groupings, unchanged. */
+export type LibraryView = "batch" | "masonry" | "grouped";
 
 type Props = {
   value: LibraryView;
@@ -27,6 +30,12 @@ export function MasonryGroupToggle({ value, onChange, className }: Props) {
       )}
     >
       <ViewBtn
+        Icon={Package}
+        label="By batch"
+        active={value === "batch"}
+        onClick={() => onChange("batch")}
+      />
+      <ViewBtn
         Icon={LayoutGrid}
         label="Masonry"
         active={value === "masonry"}
@@ -34,7 +43,7 @@ export function MasonryGroupToggle({ value, onChange, className }: Props) {
       />
       <ViewBtn
         Icon={Layers}
-        label="Grouped"
+        label="By angle"
         active={value === "grouped"}
         onClick={() => onChange("grouped")}
       />

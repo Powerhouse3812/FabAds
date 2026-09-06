@@ -1,40 +1,68 @@
-import { useState, useMemo } from "react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { Link, useSearchParams, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
-  Layers, FileText, Globe, Settings as SettingsIcon, Wand2, Sparkles,
+  Layers, FileText, Globe, Settings as SettingsIcon, Wand2,
   Users, Megaphone,
   Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic, Volume2,
   Languages,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   brands, categories, products, audiences,
   angles, hooks, concepts, avatars, voices,
+  scripts, ctas, templates, references,
 } from "@/mocks/shared";
 import type {
   Brand, Category, Product, Audience,
   Angle, Hook, Concept, Avatar, Voice,
 } from "@/genie6/types/entities";
+import type { ScriptAsset } from "@/mocks/shared/scripts";
+import type { CtaAsset } from "@/mocks/shared/ctas";
+import type { TemplateAsset } from "@/mocks/shared/templates";
+import type { ReferenceAsset } from "@/mocks/shared/references";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { BrandDetail, CategoryDetail, ProductDetail } from "./CatalogueDetailPage";
 import { AddBrandModal } from "./AddBrandModal";
 import { AddProductModal } from "./AddProductModal";
 import { AddCategoryModal } from "./AddCategoryModal";
+import {
+  getAssetType,
+  findEntityById,
+  firstIdForType,
+  buildDuplicate,
+  type CatalogueType,
+} from "./assetTypes";
+import {
+  useCatalogueWrites,
+  addAsset,
+  archiveAsset,
+  deleteAsset,
+  duplicateAsset,
+} from "./catalogue-write-store";
+import { CreditsPill, ProvenanceBadge, UnknownAssetType } from "./CatalogueShared";
+import { AssetDetailActions } from "./AssetDetailActions";
+import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFromAsset";
+import { useInGenieUrl, bulkUseInGenieUrl, brandNameForProducts } from "./genieHandoff";
+import { AssetFormModal } from "./AssetFormModal";
+import { CatalogueBulkBar } from "./CatalogueBulkBar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-type CatalogueType =
-  | "categories"
-  | "brands"
-  | "products"
-  | "audiences"
-  | "angles"
-  | "hooks"
-  | "concepts"
-  | "avatars"
-  | "voices";
-
-type AnyEntity = Brand | Category | Product | Audience | Angle | Hook | Concept | Avatar | Voice;
+type AnyEntity =
+  | Brand | Category | Product | Audience
+  | Angle | Hook | Concept | Avatar | Voice
+  | ScriptAsset | CtaAsset | TemplateAsset | ReferenceAsset;
 
 /**
  * CatalogueFinder — 3-pane drill-down (Genie WorkspaceMasterDetail pattern).
@@ -48,51 +76,11 @@ type AnyEntity = Brand | Category | Product | Audience | Angle | Hook | Concept 
  * Per-type section configs below — easy to extend.
  */
 
-const TYPE_CONFIG: Record<
-  CatalogueType,
-  { label: string; singular: string; icon: React.ElementType; description: string }
-> = {
-  categories: {
-    label: "Categories", singular: "Category", icon: Tag,
-    description: "Browse categories — drill into linked brands, products, KB.",
-  },
-  brands: {
-    label: "Brands", singular: "Brand", icon: Building2,
-    description: "Browse brands — drill into products, categories, voice + identity.",
-  },
-  products: {
-    label: "Products", singular: "Product", icon: Package,
-    description: "Browse products — drill into landing pages, campaign URLs, KB.",
-  },
-  audiences: {
-    label: "Audiences", singular: "Audience", icon: Users,
-    description: "Targeting segments your campaigns reach. Each audience has a brand link, demographic profile, and generation history.",
-  },
-  angles: {
-    label: "Angles", singular: "Angle", icon: Crosshair,
-    description: "Strategic ad angles — how a creative frames the product (Hero, Lifestyle, Social Proof, Urgency, etc.). Reusable across brands and campaigns.",
-  },
-  hooks: {
-    label: "Hooks", singular: "Hook", icon: MessageSquareQuote,
-    description: "Opening lines + visual hooks proven to grab attention. Linked to brand + angle, with CTR + impression history.",
-  },
-  concepts: {
-    label: "Concepts", singular: "Concept", icon: Lightbulb,
-    description: "Repeatable creative concepts — angle + hook + visual direction packaged together. Used as Genie generation seeds.",
-  },
-  avatars: {
-    label: "Avatars", singular: "Avatar", icon: UserRound,
-    description: "Avatar identities for UGC video generation. Cross-language profiles with demographic + style.",
-  },
-  voices: {
-    label: "Voices", singular: "Voice", icon: Mic,
-    description: "Voice samples across languages and tones. Powers audio-led UGC generations.",
-  },
-};
-
 export function CatalogueFinder({ type }: { type: CatalogueType }) {
-  const cfg = TYPE_CONFIG[type];
-  const Icon = cfg.icon;
+  const def = getAssetType(type);
+  const writes = useCatalogueWrites(); // subscribes so resolve() below sees fresh writes
+  const { id: routeId } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isLoading = searchParams.get("loading") === "1";
   // A-12.46 (Maalik): pane-1 search query is URL-backed via ?q= so HTML.to.design
@@ -114,103 +102,94 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
   // they keep their existing first-entity fallback and ignore ?selected.
   const isRouteOwned = type === "brands" || type === "products" || type === "categories";
   const urlSelected = searchParams.get("selected");
+  // RECON bug fix: this used to ignore `:id` entirely and always fall back
+  // to the first item (`/catalogue/products/prod-x` rendered `products[0]`).
+  // `routeId` is now read directly and validated against the registry
+  // before trusting it, for every type — not just the three that happen to
+  // route straight through this component.
   const [selectedId, setSelectedId] = useState<string | null>(() => {
-    if (type === "brands") return brands[0]?.id ?? null;
-    if (type === "categories") return categories[0]?.id ?? null;
+    if (routeId && def && findEntityById(type, routeId)) return routeId;
     if (!isRouteOwned && urlSelected) return urlSelected;
-    if (type === "audiences") return audiences[0]?.id ?? null;
-    if (type === "angles") return angles[0]?.id ?? null;
-    if (type === "hooks") return hooks[0]?.id ?? null;
-    if (type === "concepts") return concepts[0]?.id ?? null;
-    if (type === "avatars") return avatars[0]?.id ?? null;
-    if (type === "voices") return voices[0]?.id ?? null;
-    return products[0]?.id ?? null;
+    return def ? (firstIdForType(type) ?? null) : null;
   });
+  // Keep selection in sync with the route on navigation (e.g. a ListPage
+  // card click, or a direct deep link) — not just on first mount.
+  useEffect(() => {
+    if (routeId && def && findEntityById(type, routeId)) {
+      setSelectedId(routeId);
+      setSection("overview");
+      setChildId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId, type]);
   const [section, setSection] = useState<string>("overview");
   const [childId, setChildId] = useState<string | null>(null);
   // Add modal — single state, the type drives which modal renders.
   const [addOpen, setAddOpen] = useState(false);
+  // Bulk select — §9 / §21.2, one Set of ids, cleared whenever the type changes.
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  useEffect(() => {
+    setBulkSelected(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
+
+  if (!def) return <UnknownAssetType type={type} />;
+
+  const canAdd = isRouteOwned || !!def.addForm;
 
   const handleAddClick = () => {
-    if (type === "brands" || type === "products" || type === "categories") {
+    if (isRouteOwned) {
       setAddOpen(true);
       return;
     }
-    toast.info(`Add ${cfg.singular} flow not built yet`, {
-      description: "Brand, Product and Category come first.",
+    if (def.addForm) {
+      setAddOpen(true);
+      return;
+    }
+    // Avatars: no addForm by design (V1 is presets-only — §9/§13).
+    toast.info(`${def.singular} creation isn't available yet`, {
+      description: "Avatar presets ship in V1; avatar creation is a V2 feature.",
     });
   };
 
-  // Pane 1 list — search field varies per entity type.
-  // brands/categories/products: name
-  // audiences: label + segment
-  // angles: label + description
-  // hooks: text
-  // concepts: name + tone + visualDirection
-  // avatars: name + demographic
-  // voices: name + language + description
+  const handleAddSubmit = (input: { name: string; tags: string[]; body?: string }) => {
+    if (!def.buildAdded) return;
+    const created = def.buildAdded(input);
+    addAsset(def.id, created as { id: string });
+  };
+
+  // Registry-driven data resolution + search — replaces both the
+  // per-type data ternary AND the per-type search-matching ternary RECON
+  // flagged (the ternary's fallthrough default silently rendered
+  // `products`; a type absent from the registry now bails out above
+  // instead). Search matches against the same name/subtitle/tags the
+  // asset-card grammar surfaces, so Finder and the grid page never
+  // disagree about what "matches" means.
   const items = useMemo<AnyEntity[]>(() => {
-    const base: AnyEntity[] =
-      type === "brands"
-        ? brands
-        : type === "categories"
-          ? categories
-          : type === "audiences"
-            ? audiences
-            : type === "angles"
-              ? angles
-              : type === "hooks"
-                ? hooks
-                : type === "concepts"
-                  ? concepts
-                  : type === "avatars"
-                    ? avatars
-                    : type === "voices"
-                      ? voices
-                      : products;
+    const base = def.resolve() as AnyEntity[];
     const q = query.trim().toLowerCase();
     if (!q) return base;
     return base.filter((it) => {
-      if (type === "angles") {
-        const a = it as Angle;
-        return a.label.toLowerCase().includes(q) || (a.description?.toLowerCase().includes(q) ?? false);
-      }
-      if (type === "hooks") {
-        const h = it as Hook;
-        return h.text.toLowerCase().includes(q);
-      }
-      if (type === "concepts") {
-        const c = it as Concept;
-        return (
-          c.name.toLowerCase().includes(q) ||
-          c.tone.toLowerCase().includes(q) ||
-          c.visualDirection.toLowerCase().includes(q)
-        );
-      }
-      if (type === "avatars") {
-        const av = it as Avatar;
-        return av.name.toLowerCase().includes(q) || av.demographic.toLowerCase().includes(q);
-      }
-      if (type === "voices") {
-        const v = it as Voice;
-        return (
-          v.name.toLowerCase().includes(q) ||
-          v.language.toLowerCase().includes(q) ||
-          v.description.toLowerCase().includes(q)
-        );
-      }
-      if ("label" in it && "segment" in it) {
-        return (
-          it.label.toLowerCase().includes(q) ||
-          it.segment.toLowerCase().includes(q)
-        );
-      }
-      if ("name" in it) {
-        return it.name.toLowerCase().includes(q);
-      }
-      return false;
+      const card = def.toCard(it);
+      return (
+        card.name.toLowerCase().includes(q) ||
+        (card.subtitle?.toLowerCase().includes(q) ?? false) ||
+        card.tags.some((t) => t.toLowerCase().includes(q))
+      );
     });
-  }, [type, query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [def, query, writes]);
+
+  // A deleted (or searched-away) selection must not keep rendering its
+  // detail pane — after "Delete Notion" the left list dropped the row while
+  // the right pane still showed Notion's full profile with live buttons.
+  useEffect(() => {
+    if (selectedId && !items.some((it) => def.getId(it) === selectedId)) {
+      setSelectedId(items[0] ? def.getId(items[0]) : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, selectedId]);
 
   const handleSelectEntity = (id: string) => {
     setSelectedId(id);
@@ -231,6 +210,61 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
     }
   };
 
+  // §9 "Bulk select with bulk actions" / §21.2 "Multi-select and bulk
+  // behave IDENTICALLY everywhere" — this is the LIVE surface (RECON:
+  // CatalogueListPage's grid "survives only behind /grid"), so bulk
+  // selection lives here too, not only on the grid page.
+  const toggleBulkSelect = (bulkId: string) => {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(bulkId)) next.delete(bulkId);
+      else next.add(bulkId);
+      return next;
+    });
+  };
+  const bulkIds = Array.from(bulkSelected);
+  const bulkCount = bulkIds.length;
+
+  const handleBulkArchive = () => {
+    bulkIds.forEach((bid) => archiveAsset(def.id, bid, true));
+    toast.success(`${bulkCount} archived`);
+    setBulkSelected(new Set());
+  };
+  const handleBulkDuplicate = () => {
+    let created = 0;
+    for (const bid of bulkIds) {
+      const source = items.find((it) => it.id === bid);
+      if (!source) continue;
+      const clone = buildDuplicate(def, source as { id: string });
+      duplicateAsset(def.id, bid, clone);
+      created += 1;
+    }
+    toast.success(`${created} duplicated`, { description: "Local to this session." });
+    setBulkSelected(new Set());
+  };
+  const handleBulkDownload = () => {
+    toast.success(`${bulkCount} prepared for download`, {
+      description: "Prototype surface: no real files are attached.",
+    });
+  };
+  const handleBulkDeleteConfirm = () => {
+    bulkIds.forEach((bid) => deleteAsset(def.id, bid));
+    toast.success(`${bulkCount} deleted`, { description: "Local to this session." });
+    setBulkSelected(new Set());
+    setBulkDeleteConfirmOpen(false);
+  };
+  // §9 "Bulk product selection ... Selecting N products produces ONE ad
+  // containing all of them — not N separate ads." Products is the one
+  // type where multi-select changes what Generate DOES, so it states the
+  // outcome before the user commits, and its bulk "Use in Genie" carries
+  // all N ids via `?products=` (see genieHandoff.ts's report note).
+  const bulkProductNotice =
+    type === "products" && bulkCount >= 2
+      ? `${bulkCount} products${brandNameForProducts(bulkIds) ? ` from ${brandNameForProducts(bulkIds)}` : ""} will become ONE ad, not ${bulkCount} separate ads.`
+      : undefined;
+  const handleBulkUseInGenie =
+    type === "products" ? () => navigate(bulkUseInGenieUrl(bulkIds)) : undefined;
+
   const handleSelectSection = (s: string) => {
     setSection(s);
     setChildId(null);
@@ -242,22 +276,44 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
       <header className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-            <Icon className="h-4 w-4 text-muted-foreground" />
+            <def.icon className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <h1 className="text-base font-semibold text-foreground">{cfg.label}</h1>
-            <p className="text-[11px] text-muted-foreground">{cfg.description}</p>
+            <h1 className="text-base font-semibold text-foreground">{def.label}</h1>
+            <p className="text-[11px] text-muted-foreground">{def.description}</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleAddClick}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] active:scale-[0.99] transition-transform"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New {cfg.singular}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* §15 — credits balance now also shows in Catalogue, not just the Genie sub-nav. */}
+          <CreditsPill />
+          {canAdd && (
+            <button
+              type="button"
+              onClick={handleAddClick}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] active:scale-[0.99] transition-transform"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New {def.singular}
+            </button>
+          )}
+        </div>
       </header>
+
+      {bulkCount >= 2 && (
+        <div className="px-4 pt-3 shrink-0">
+          <CatalogueBulkBar
+            count={bulkCount}
+            onDuplicate={handleBulkDuplicate}
+            onArchive={handleBulkArchive}
+            onDelete={() => setBulkDeleteConfirmOpen(true)}
+            onDownload={handleBulkDownload}
+            onUseInGenie={handleBulkUseInGenie}
+            useInGenieLabel="Use in Genie (1 ad)"
+            bulkProductNotice={bulkProductNotice}
+            onClear={() => setBulkSelected(new Set())}
+          />
+        </div>
+      )}
 
       {/* 3-pane Finder body */}
       <div className="flex-1 flex min-h-0">
@@ -270,7 +326,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${cfg.label.toLowerCase()}…`}
+                placeholder={`Search ${def.label.toLowerCase()}…`}
                 className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none w-full"
               />
             </div>
@@ -280,13 +336,21 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
               <Pane1Skeleton />
             ) : items.length === 0 ? (
               <p className="px-3 py-4 text-xs text-muted-foreground text-center">
-                No {cfg.label.toLowerCase()} match "{query}"
+                No {def.label.toLowerCase()} match "{query}"
               </p>
             ) : (
               items.map((item) => {
                 const active = selectedId === item.id;
                 return (
-                  <Pane1Row key={item.id} item={item} type={type} active={active} onClick={() => handleSelectEntity(item.id)} />
+                  <Pane1Row
+                    key={item.id}
+                    item={item}
+                    type={type}
+                    active={active}
+                    onClick={() => handleSelectEntity(item.id)}
+                    bulkSelected={bulkSelected.has(item.id)}
+                    onToggleBulkSelect={() => toggleBulkSelect(item.id)}
+                  />
                 );
               })
             )}
@@ -335,9 +399,39 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
       </div>
 
       {/* Add modals — only mounted when their type is active. Single state
-          drives whichever modal corresponds to the current entity type. */}
+          drives whichever modal corresponds to the current entity type.
+          Brand/Product/Category keep their existing dedicated modals
+          untouched; every other Creative type with an `addForm` shares
+          the one generic `AssetFormModal` (§9 "manually add or upload"). */}
       {type === "brands" && (
-        <AddBrandModal open={addOpen} onOpenChange={setAddOpen} />
+        <AddBrandModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          // Without this the modal toasted "Brand created … added to catalogue"
+          // and nothing appeared — the row count stayed at 58 (QA-confirmed).
+          // Build a complete Brand record so BrandDetail/toCard (usps, colors,
+          // categoryIds…) never hit an undefined field.
+          onCreated={(p) => {
+            const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            const id = `brand-${slug}-${Date.now().toString(36)}`;
+            addAsset("brands", {
+              id,
+              name: p.name,
+              domain: p.domain,
+              logo: `https://www.google.com/s2/favicons?sz=128&domain=${p.domain}`,
+              category: categories.find((c) => c.id === p.categoryId)?.name ?? "Uncategorised",
+              categoryIds: p.categoryId ? [p.categoryId] : [],
+              tone: p.voice,
+              fonts: { display: "Geist", body: "Geist" },
+              colors: [],
+              voice: p.voice,
+              usps: [],
+              competitors: [],
+              productIds: [],
+            });
+            navigate(`/catalogue/brands/${id}`);
+          }}
+        />
       )}
       {type === "products" && (
         <AddProductModal open={addOpen} onOpenChange={setAddOpen} />
@@ -345,6 +439,37 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
       {type === "categories" && (
         <AddCategoryModal open={addOpen} onOpenChange={setAddOpen} />
       )}
+      {!isRouteOwned && def.addForm && (
+        <AssetFormModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          mode="add"
+          singular={def.singular}
+          addForm={def.addForm}
+          onSubmit={handleAddSubmit}
+        />
+      )}
+
+      <AlertDialog open={bulkDeleteConfirmOpen} onOpenChange={setBulkDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {bulkCount} {def.label.toLowerCase()}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This can't be undone within this session — these rows are gone until reload resets
+              the demo data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete {bulkCount}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -422,11 +547,15 @@ function Pane1Row({
   type,
   active,
   onClick,
+  bulkSelected,
+  onToggleBulkSelect,
 }: {
   item: AnyEntity;
   type: CatalogueType;
   active: boolean;
   onClick: () => void;
+  bulkSelected?: boolean;
+  onToggleBulkSelect?: () => void;
 }) {
   const meta = (() => {
     if (type === "brands") {
@@ -491,22 +620,61 @@ function Pane1Row({
         fallbackIcon: Mic as React.ElementType,
       };
     }
-    const p = item as Product;
-    const brand = brands.find((b) => b.id === p.brandId);
-    return { line1: p.name, line2: `${brand?.name ?? ""} · ${p.price}`, logo: brand?.logo, fallbackIcon: Package as React.ElementType };
+    // Generic fallback — every type without a bespoke branch above
+    // (Products, Scripts, CTAs, Frameworks, Templates, References) renders
+    // through the registry's own card shape instead of assuming a type
+    // that isn't there. This is what replaces RECON's fallthrough-to-
+    // `products` bug — a genuinely unrecognised type would have already
+    // been caught by the `!def` check in `CatalogueFinder` itself.
+    const def = getAssetType(type);
+    const card = def?.toCard(item);
+    return {
+      line1: card?.name ?? "—",
+      line2: card?.subtitle ?? "",
+      logo: card?.thumbnail,
+      fallbackIcon: (def?.icon ?? Package) as React.ElementType,
+    };
   })();
   const FallbackIcon = meta.fallbackIcon;
   // Avatar gets a deterministic colored circle instead of plain icon.
   const avatarVis = type === "avatars" ? avatarVisual(item as Avatar) : null;
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
       className={cnSafe(
-        "w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors",
+        "w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors cursor-pointer",
         active ? "bg-primary/10" : "hover:bg-muted/40"
       )}
     >
+      {onToggleBulkSelect && (
+        // <Checkbox> (Radix) renders its own <button> — wrapping it in
+        // another <button> is invalid DOM nesting. A <span role="button">
+        // gives the same click target + keyboard reachability without it.
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleBulkSelect();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleBulkSelect();
+            }
+          }}
+          aria-label={bulkSelected ? "Deselect" : "Select"}
+          className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded border border-border bg-background"
+        >
+          <Checkbox checked={!!bulkSelected} className="h-3.5 w-3.5" />
+        </span>
+      )}
       {meta.logo ? (
         <img src={meta.logo} alt="" className="h-6 w-6 rounded-md bg-muted shrink-0" />
       ) : avatarVis ? (
@@ -534,7 +702,7 @@ function Pane1Row({
           <p className="text-[10px] text-muted-foreground truncate">{meta.line2}</p>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -635,14 +803,23 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
       { key: "generations", label: "Generations", icon: Wand2, count: 0 },
     ];
   }
-  // products
-  const product = products.find((p) => p.id === selectedId);
+  if (type === "products") {
+    const product = products.find((p) => p.id === selectedId);
+    return [
+      { key: "overview", label: "Overview", icon: FileText },
+      { key: "landingPages", label: "Landing Pages", icon: Globe, count: product?.landingPages?.length ?? 0 },
+      { key: "campaignUrls", label: "Campaign URLs", icon: ExternalLink, count: product?.campaignUrls?.length ?? 0 },
+      { key: "kb", label: "Knowledge Base", icon: Layers },
+      { key: "generations", label: "Generations", icon: Wand2, count: product?.generatedCount ?? 0 },
+    ];
+  }
+  // Scripts / CTAs / Frameworks / Templates / References — new §21.2 types
+  // with no relational data model to cross-link, so a generic Overview +
+  // Generations pair (same as every other simple type ends with) is
+  // honest rather than inventing bespoke relations that don't exist.
   return [
     { key: "overview", label: "Overview", icon: FileText },
-    { key: "landingPages", label: "Landing Pages", icon: Globe, count: product?.landingPages?.length ?? 0 },
-    { key: "campaignUrls", label: "Campaign URLs", icon: ExternalLink, count: product?.campaignUrls?.length ?? 0 },
-    { key: "kb", label: "Knowledge Base", icon: Layers },
-    { key: "generations", label: "Generations", icon: Wand2, count: product?.generatedCount ?? 0 },
+    { key: "generations", label: "Generations", icon: Wand2, count: 0 },
   ];
 }
 
@@ -662,19 +839,11 @@ function Pane2Sections({
   onSelectChild: (s: string, id: string) => void;
 }) {
   const sections = getSections(type, selectedId);
-  // Entity lookup — each type has a different "primary label" field.
-  const entityName = (() => {
-    if (type === "brands") return brands.find((b) => b.id === selectedId)?.name ?? "—";
-    if (type === "categories") return categories.find((c) => c.id === selectedId)?.name ?? "—";
-    if (type === "audiences") return audiences.find((a) => a.id === selectedId)?.label ?? "—";
-    if (type === "angles") return angles.find((a) => a.id === selectedId)?.label ?? "—";
-    if (type === "hooks") return hooks.find((h) => h.id === selectedId)?.text ?? "—";
-    if (type === "concepts") return concepts.find((c) => c.id === selectedId)?.name ?? "—";
-    if (type === "avatars") return avatars.find((a) => a.id === selectedId)?.name ?? "—";
-    if (type === "voices") return voices.find((v) => v.id === selectedId)?.name ?? "—";
-    return products.find((p) => p.id === selectedId)?.name ?? "—";
-  })();
-  const entityKindLabel = TYPE_CONFIG[type].singular;
+  // Registry-driven — replaces the per-type "primary label" ternary.
+  const def = getAssetType(type);
+  const entityItem = def ? findEntityById(type, selectedId) : undefined;
+  const entityName = def && entityItem ? def.getName(entityItem) : "—";
+  const entityKindLabel = def?.singular ?? type;
 
   return (
     <div className="flex flex-col h-full">
@@ -770,7 +939,86 @@ function Pane3Detail({
   if (type === "concepts") return <ConceptSectionView conceptId={selectedId} section={section} />;
   if (type === "avatars") return <AvatarSectionView avatarId={selectedId} section={section} />;
   if (type === "voices") return <VoiceSectionView voiceId={selectedId} section={section} />;
-  return <ProductSectionView productId={selectedId} section={section} />;
+  if (type === "products") return <ProductSectionView productId={selectedId} section={section} />;
+  // Scripts / CTAs / Frameworks / Templates / References — §21.2 additions
+  // with no bespoke relational view of their own. Generic overview + real
+  // Generations-from-it + full action set, shared with every other type.
+  return <GenericAssetSectionView type={type} selectedId={selectedId} section={section} />;
+}
+
+/* ─── Generic section view — Scripts / CTAs / Frameworks / Templates /
+ * References. One implementation instead of five bespoke ones, since none
+ * of these types has a relational model worth a dedicated view (unlike
+ * Angle→Hooks→Concepts). Overview shows the registry's own card fields
+ * (name / subtitle / tags / provenance) plus the shared action row;
+ * Generations shows the real batches-made-from-it. ─── */
+function GenericAssetSectionView({
+  type,
+  selectedId,
+  section,
+}: {
+  type: CatalogueType;
+  selectedId: string;
+  section: string;
+}) {
+  const def = getAssetType(type);
+  const item = def ? findEntityById<{ id: string }>(type, selectedId) : undefined;
+  if (!def || !item) return <Empty>{def?.singular ?? "Item"} not found</Empty>;
+  const card = def.toCard(item);
+  const criteria = deriveGenieMatchCriteria(type, item);
+  const genieHref = useInGenieUrl(type, selectedId);
+
+  if (section === "generations") {
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-5 max-w-3xl">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
+            {card.thumbnail ? (
+              <img src={card.thumbnail} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <def.icon className="h-5 w-5 text-primary" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-foreground line-clamp-2 leading-snug">{card.name}</h2>
+            {card.subtitle && <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{card.subtitle}</p>}
+          </div>
+        </div>
+        <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+      </div>
+
+      {card.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {card.tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-muted-foreground/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
+        <span>{card.usageCount} runs</span>
+        <span aria-hidden>·</span>
+        <span>Last used {card.lastUsedLabel}</span>
+      </div>
+
+      <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
+
+      <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+    </div>
+  );
 }
 
 /* Brand section views */
@@ -875,7 +1123,18 @@ function ProductSectionView({ productId, section }: { productId: string; section
     );
   }
   if (section === "kb") return <div className="p-6"><Empty>Product KB · stub. Per-product KB editor ships next sprint.</Empty></div>;
-  if (section === "generations") return <div className="p-6"><Empty>{prod.generatedCount} generations linked. Detail view ships next sprint.</Empty></div>;
+  if (section === "generations") {
+    const brand = brands.find((b) => b.id === prod.brandId);
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset
+          brandName={brand?.name}
+          productName={prod.name}
+          useInGenieHref={useInGenieUrl("products", prod.id)}
+        />
+      </div>
+    );
+  }
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
 }
 
@@ -884,18 +1143,24 @@ function AudienceSectionView({ audienceId, section }: { audienceId: string; sect
   const audience = audiences.find((a) => a.id === audienceId);
   if (!audience) return <Empty>Audience not found</Empty>;
   const brand = audience.brandId ? brands.find((b) => b.id === audience.brandId) : undefined;
+  const def = getAssetType("audiences")!;
+  const card = def.toCard(audience);
+  const genieHref = useInGenieUrl("audiences", audience.id);
 
   if (section === "overview") {
     return (
       <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Users className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-foreground truncate">{audience.label}</h2>
+              <p className="text-xs text-muted-foreground truncate">{audience.segment}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground truncate">{audience.label}</h2>
-            <p className="text-xs text-muted-foreground truncate">{audience.segment}</p>
-          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
         <Section title="Segment definition">
           <p className="text-sm text-foreground">{audience.segment}</p>
@@ -919,6 +1184,8 @@ function AudienceSectionView({ audienceId, section }: { audienceId: string; sect
         <Section title="Linked campaigns">
           <p className="text-sm text-muted-foreground italic">No campaigns linked yet.</p>
         </Section>
+        <AssetDetailActions def={def} item={audience} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("audiences", audience)} useInGenieHref={genieHref} />
       </div>
     );
   }
@@ -971,18 +1238,24 @@ function AngleSectionView({ angleId, section }: { angleId: string; section: stri
   if (!angle) return <Empty>Angle not found</Empty>;
   const linkedHooks = hooks.filter((h) => h.angleId === angle.id);
   const linkedConcepts = concepts.filter((c) => c.angle.toLowerCase() === angle.label.toLowerCase());
+  const def = getAssetType("angles")!;
+  const card = def.toCard(angle);
+  const genieHref = useInGenieUrl("angles", angle.id);
 
   if (section === "overview") {
     return (
       <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Crosshair className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Crosshair className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-foreground truncate">{angle.label}</h2>
+              {angle.description && <p className="text-xs text-muted-foreground truncate">{angle.description}</p>}
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground truncate">{angle.label}</h2>
-            {angle.description && <p className="text-xs text-muted-foreground truncate">{angle.description}</p>}
-          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
         {angle.description && (
           <Section title="What it is"><p className="text-sm text-foreground">{angle.description}</p></Section>
@@ -1005,11 +1278,16 @@ function AngleSectionView({ angleId, section }: { angleId: string; section: stri
             <p className="text-sm text-muted-foreground italic">No concepts linked yet.</p>
           )}
         </Section>
+        <AssetDetailActions def={def} item={angle} useInGenieHref={genieHref} />
       </div>
     );
   }
   if (section === "generations") {
-    return <div className="p-6"><Empty>No generations yet.</Empty></div>;
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("angles", angle)} useInGenieHref={genieHref} />
+      </div>
+    );
   }
   return <div className="p-6"><Empty>Pick an item from the list to see details.</Empty></div>;
 }
@@ -1020,22 +1298,28 @@ function HookSectionView({ hookId, section }: { hookId: string; section: string 
   if (!hook) return <Empty>Hook not found</Empty>;
   const brand = hook.brandId ? brands.find((b) => b.id === hook.brandId) : undefined;
   const angle = hook.angleId ? angles.find((a) => a.id === hook.angleId) : undefined;
+  const def = getAssetType("hooks")!;
+  const card = def.toCard(hook);
+  const genieHref = useInGenieUrl("hooks", hook.id);
 
   if (section === "overview") {
     return (
       <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start gap-3">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <MessageSquareQuote className="h-5 w-5 text-primary" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <MessageSquareQuote className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-semibold text-foreground italic leading-snug">"{hook.text}"</h2>
+              {(brand || angle) && (
+                <p className="text-xs text-muted-foreground mt-1 truncate">
+                  {brand?.name}{brand && angle && " · "}{angle?.label}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-foreground italic leading-snug">"{hook.text}"</h2>
-            {(brand || angle) && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {brand?.name}{brand && angle && " · "}{angle?.label}
-              </p>
-            )}
-          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
         {hook.performance && (
           <Section title="Performance">
@@ -1051,6 +1335,7 @@ function HookSectionView({ hookId, section }: { hookId: string; section: string 
             </div>
           </Section>
         )}
+        <AssetDetailActions def={def} item={hook} useInGenieHref={genieHref} />
       </div>
     );
   }
@@ -1063,7 +1348,11 @@ function HookSectionView({ hookId, section }: { hookId: string; section: string 
     return <AngleSectionView angleId={angle.id} section="overview" />;
   }
   if (section === "generations") {
-    return <div className="p-6"><Empty>No generations yet.</Empty></div>;
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("hooks", hook)} useInGenieHref={genieHref} />
+      </div>
+    );
   }
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
 }
@@ -1075,20 +1364,26 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
   const brand = brands.find((b) => b.id === concept.brandId);
   const angle = angles.find((a) => a.label.toLowerCase() === concept.angle.toLowerCase());
   const linkedHook = hooks.find((h) => h.text === concept.hook);
+  const def = getAssetType("concepts")!;
+  const card = def.toCard(concept);
+  const genieHref = useInGenieUrl("concepts", concept.id);
 
   if (section === "overview") {
     return (
       <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start gap-3">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <Lightbulb className="h-5 w-5 text-primary" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Lightbulb className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-foreground truncate">{concept.name}</h2>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">
+                {concept.angle} · {concept.tone}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground truncate">{concept.name}</h2>
-            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">
-              {concept.angle} · {concept.tone}
-            </p>
-          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
         <Section title="Format"><p className="text-sm text-foreground font-mono">{concept.format}</p></Section>
         <Section title="Visual direction"><p className="text-sm text-foreground">{concept.visualDirection}</p></Section>
@@ -1099,6 +1394,7 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
             <p className="text-sm text-foreground font-mono tabular-nums">{concept.generationCount} runs</p>
           </div>
         </Section>
+        <AssetDetailActions def={def} item={concept} useInGenieHref={genieHref} />
       </div>
     );
   }
@@ -1115,7 +1411,11 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
     return <HookSectionView hookId={linkedHook.id} section="overview" />;
   }
   if (section === "generations") {
-    return <div className="p-6"><Empty>No detailed generation history yet — concept has {concept.generationCount} runs total.</Empty></div>;
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("concepts", concept)} useInGenieHref={genieHref} />
+      </div>
+    );
   }
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
 }
@@ -1125,21 +1425,27 @@ function AvatarSectionView({ avatarId, section }: { avatarId: string; section: s
   const avatar = avatars.find((a) => a.id === avatarId);
   if (!avatar) return <Empty>Avatar not found</Empty>;
   const visual = avatarVisual(avatar);
+  const def = getAssetType("avatars")!;
+  const card = def.toCard(avatar);
+  const genieHref = useInGenieUrl("avatars", avatar.id);
 
   if (section === "overview") {
     return (
       <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-12 w-12 rounded-full flex items-center justify-center text-[14px] font-semibold"
-            style={{ background: visual.bg, color: visual.fg }}
-          >
-            {visual.initials}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="h-12 w-12 rounded-full flex items-center justify-center text-[14px] font-semibold shrink-0"
+              style={{ background: visual.bg, color: visual.fg }}
+            >
+              {visual.initials}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-foreground">{avatar.name}</h2>
+              <p className="text-xs text-muted-foreground">{avatar.demographic}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground">{avatar.name}</h2>
-            <p className="text-xs text-muted-foreground">{avatar.demographic}</p>
-          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
         <Section title={`Languages · ${avatar.language.length}`}>
           <div className="flex flex-wrap gap-1.5">
@@ -1148,9 +1454,11 @@ function AvatarSectionView({ avatarId, section }: { avatarId: string; section: s
             ))}
           </div>
         </Section>
-        <Section title="Generation history">
-          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
-        </Section>
+        {/* No "New avatar" affordance anywhere (V1 = presets only, §9/§13) —
+            but Edit/Duplicate/Archive/Delete/Use-in-Genie on an existing
+            preset are all fine, so the full action row still applies. */}
+        <AssetDetailActions def={def} item={avatar} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("avatars", avatar)} useInGenieHref={genieHref} />
       </div>
     );
   }
@@ -1167,7 +1475,11 @@ function AvatarSectionView({ avatarId, section }: { avatarId: string; section: s
     );
   }
   if (section === "generations") {
-    return <div className="p-6"><Empty>No generations yet.</Empty></div>;
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("avatars", avatar)} useInGenieHref={genieHref} />
+      </div>
+    );
   }
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
 }
@@ -1176,18 +1488,24 @@ function AvatarSectionView({ avatarId, section }: { avatarId: string; section: s
 function VoiceSectionView({ voiceId, section }: { voiceId: string; section: string }) {
   const voice = voices.find((v) => v.id === voiceId);
   if (!voice) return <Empty>Voice not found</Empty>;
+  const def = getAssetType("voices")!;
+  const card = def.toCard(voice);
+  const genieHref = useInGenieUrl("voices", voice.id);
 
   if (section === "overview") {
     return (
       <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Mic className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Mic className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-foreground">{voice.name}</h2>
+              <p className="text-xs text-muted-foreground font-mono">{voice.language}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground">{voice.name}</h2>
-            <p className="text-xs text-muted-foreground font-mono">{voice.language}</p>
-          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
         <Section title="Description"><p className="text-sm text-foreground">{voice.description}</p></Section>
         {voice.sample && (
@@ -1203,9 +1521,8 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
             </a>
           </Section>
         )}
-        <Section title="Generation history">
-          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
-        </Section>
+        <AssetDetailActions def={def} item={voice} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("voices", voice)} useInGenieHref={genieHref} />
       </div>
     );
   }
@@ -1237,7 +1554,11 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
     );
   }
   if (section === "generations") {
-    return <div className="p-6"><Empty>No generations yet.</Empty></div>;
+    return (
+      <div className="p-6 max-w-3xl">
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("voices", voice)} useInGenieHref={genieHref} />
+      </div>
+    );
   }
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
 }

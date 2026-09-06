@@ -109,7 +109,7 @@ export function PreviewPane({
         <div className="mt-2 flex flex-wrap gap-1">
           {[
             { label: "Edit", action: "edit" as const },
-            { label: "Forge 10 more", action: "forge10more" as const },
+            { label: "Forge more", action: "forgeMore" as const },
             { label: "Save text-only", action: "saveTextOnly" as const },
             { label: "Save media-only", action: "saveMediaOnly" as const },
             { label: "Add feedback", action: "addFeedback" as const },

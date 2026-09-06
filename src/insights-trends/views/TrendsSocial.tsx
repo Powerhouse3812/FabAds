@@ -27,11 +27,13 @@
  * pixel ratios (ig/li 280×280, yt/x 280×157), confirming this is the
  * intended shape, not a guess.
  *
- * Genie actions boundary (doc §9.1): TrendActionBar's GENIE_ACTIONS_BY_SOURCE
- * only defines actions for "meta" and "tiktok" — every card here (including
- * every OtherSocialCard) renders through the same TrendActionBar, so
- * Instagram/YouTube/LinkedIn/X automatically get zero Genie affordances
- * without this file inventing or special-casing anything.
+ * Genie actions boundary: this used to read that GENIE_ACTIONS_BY_SOURCE
+ * "only defines actions for meta and tiktok", so Instagram/YouTube/LinkedIn/X
+ * got zero Genie affordances. Genie 2.0 §7.4 makes no such distinction — a
+ * trend is a trend — so that map now covers all ten TrendSourceTypes via a
+ * generic three-action set, and every card here picks them up through the same
+ * shared TrendActionBar. This file still invents and special-cases nothing;
+ * the difference is that the shared map is no longer sparse.
  *
  * State coverage:
  *  - loading — a short, bounded synthetic delay (mirrors the pattern

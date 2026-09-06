@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  ImageOff,
   Link2,
   PanelRightClose,
   Sparkles,
@@ -12,6 +13,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveUploadedImage } from "@/genie6/lib/uploaded-image-store";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
 import {
@@ -99,7 +101,15 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
       : undefined) ||
     null;
 
-  const productName = selectedProduct?.name ?? category?.name ?? null;
+  const hasUploadedImage = !!state.uploadedProductImage;
+  // DEFECT FIX: state.uploadedProductImage is an opaque TOKEN (see
+  // uploaded-image-store.ts) — resolve it back to the actual data: URL only
+  // where something needs to paint it. undefined when the token no longer
+  // resolves (e.g. after a reload); every render site below must treat that
+  // as "needs re-upload," never point <img src> at the raw token.
+  const uploadedImageUrl = resolveUploadedImage(state.uploadedProductImage);
+  const productName =
+    selectedProduct?.name ?? category?.name ?? (hasUploadedImage ? "Uploaded product" : null);
 
   const formatText =
     state.format === "image" ? "Image" : state.format === "video" ? "Video" : null;
@@ -108,8 +118,21 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
     ? (ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId)
     : null;
 
-  // Heuristic: "ready" once product + format + angle are all set.
-  const complete = !!selectedProduct && !!state.format && !!state.angleId;
+  // §4 + §21.2 — the required entity depends on which tab produced the pick:
+  //   Category (Performance) Ad → category (product optional, becomes hero)
+  //   Product Ad                → a catalogue product, OR (§21.2's third
+  //                                route) a brand + one uploaded image
+  //   Brand Ad                  → brand alone
+  // THIS IS THE ONE READINESS GATE — don't add a second one beside it. It
+  // used to hard-require `selectedProduct`, which incorrectly blocked
+  // "Ready to generate" for Brand Ads, Category Ads, and Product Shoot's
+  // upload-image route.
+  const hasRequiredEntity =
+    !!category ||
+    !!selectedProduct ||
+    (!!brand && hasUploadedImage) ||
+    (!!brand && !selectedProduct && !category);
+  const complete = hasRequiredEntity && !!state.format && !!state.angleId;
 
   // Resolve readiness caption. Tone is orange when pending, neutral when ready.
   let readinessCaption: string;
@@ -117,8 +140,8 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
   if (complete) {
     readinessCaption = "READY TO GENERATE";
     readinessTone = "ready";
-  } else if (!selectedProduct) {
-    readinessCaption = "PICK A PRODUCT";
+  } else if (!hasRequiredEntity) {
+    readinessCaption = "PICK A BRAND, PRODUCT OR CATEGORY";
     readinessTone = "pending";
   } else if (!state.format) {
     readinessCaption = "PICK A FORMAT";
@@ -218,13 +241,29 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
               {brand?.name?.charAt(0) ?? "—"}
             </div>
           )}
-          {/* Product thumb */}
+          {/* Product thumb — falls back to the §21.2 uploaded image when
+              there's no catalogue product (Product Shoot's third route). */}
           {selectedProduct?.thumbnail ? (
             <img
               src={selectedProduct.thumbnail}
               alt={selectedProduct.name}
               className="h-11 w-11 rounded-lg border border-border/50 object-cover"
             />
+          ) : uploadedImageUrl ? (
+            <img
+              src={uploadedImageUrl}
+              alt="Uploaded product"
+              className="h-11 w-11 rounded-lg border border-border/50 object-cover"
+            />
+          ) : hasUploadedImage ? (
+            // DEFECT FIX — degrade honestly when the token no longer
+            // resolves (reload): never render a broken <img src>.
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-dashed border-warning-text/40 bg-muted text-muted-foreground"
+              title="Uploaded image needs re-uploading"
+            >
+              <ImageOff className="h-4 w-4" />
+            </div>
           ) : (
             <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-border/50 bg-muted text-xs text-muted-foreground">
               —
@@ -240,6 +279,14 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
           <Chip filled={!!angleText} accent>
             {angleText ?? "Angle: Auto"}
           </Chip>
+          {/* §9 — bulk product selection outcome, closing the loop back to
+              what Step 2 already said in words before the user committed. */}
+          {state.bulkProductIds.length > 0 && (
+            <Chip filled accent>
+              +{state.bulkProductIds.length} more product
+              {state.bulkProductIds.length > 1 ? "s" : ""}
+            </Chip>
+          )}
         </div>
       </div>
 
@@ -250,7 +297,7 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
             "font-mono text-[10px] uppercase tracking-[0.18em]",
             readinessTone === "ready"
               ? "text-foreground"
-              : "text-amber-600 dark:text-amber-400",
+              : "text-warning-text",
           )}
         >
           {readinessTone === "ready" && <Check className="inline h-3 w-3 mr-1" strokeWidth={3} />}
@@ -305,6 +352,9 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
             <ProductMiniCard
               product={selectedProduct ?? null}
               category={category}
+              hasUploadedImage={hasUploadedImage}
+              uploadedImageUrl={uploadedImageUrl}
+              bulkCount={state.bulkProductIds.length}
             />
 
             {/* ── Related Products strip ────────────────────── */}
@@ -470,11 +520,55 @@ function BrandMiniCard({
 function ProductMiniCard({
   product,
   category,
+  hasUploadedImage,
+  uploadedImageUrl,
+  bulkCount = 0,
 }: {
   product: (typeof ALL_PRODUCTS[number]) | null;
   category: (typeof ALL_CATEGORIES[number]) | null;
+  /** §21.2 — Product Shoot's third route: brand + one uploaded image, no
+   *  catalogue product. Rendered here so "More details" doesn't fall back
+   *  to the generic "Pick a product" placeholder when this is what's set. */
+  hasUploadedImage?: boolean;
+  /** Resolved data: URL for `hasUploadedImage` — undefined when the token no
+   *  longer resolves (reload). DEFECT FIX: this used to be the raw token
+   *  itself passed straight to <img src>; see uploaded-image-store.ts. */
+  uploadedImageUrl?: string;
+  /** §9 — co-star count (excludes the hero, which IS `product`). */
+  bulkCount?: number;
 }) {
   if (!product) {
+    if (hasUploadedImage) {
+      return (
+        <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
+          <div className="flex items-start gap-2.5">
+            {uploadedImageUrl ? (
+              <img
+                src={uploadedImageUrl}
+                alt="Uploaded product"
+                className="h-10 w-10 shrink-0 rounded-lg border border-border/40 object-cover"
+              />
+            ) : (
+              // DEFECT FIX — degrade honestly rather than a broken <img>.
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-warning-text/40 bg-muted text-muted-foreground">
+                <ImageOff className="h-4 w-4" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <BlockLabel>Product</BlockLabel>
+              <p className="mt-0.5 text-[11px] font-medium text-foreground">
+                {uploadedImageUrl ? "Uploaded image" : "Image needs re-uploading"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {uploadedImageUrl
+                  ? "Not in the Catalogue — brand + image only."
+                  : "This session's upload didn't survive the reload."}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="rounded-xl border border-dashed border-border/50 bg-background/30 px-3 py-2.5">
         <BlockLabel>Product</BlockLabel>
@@ -544,6 +638,16 @@ function ProductMiniCard({
           <Sparkles className="h-2.5 w-2.5 shrink-0" />
           <span className="line-clamp-1 italic">{product.promo}</span>
         </div>
+      )}
+
+      {/* §9 — bulk co-stars. `product` above is the hero; this states the
+          outcome again here, closing the loop with what Step 2 already said
+          in words before the user committed. */}
+      {bulkCount > 0 && (
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          + {bulkCount} more product{bulkCount > 1 ? "s" : ""} in this ad — one ad, not{" "}
+          {bulkCount + 1} separate ones.
+        </p>
       )}
     </div>
   );

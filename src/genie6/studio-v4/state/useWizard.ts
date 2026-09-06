@@ -1,4 +1,7 @@
 import { useCallback, useState } from "react";
+import { DEFAULT_LANGUAGE } from "../../lib/languages";
+import { computeBreakdown, type CreditLine } from "../../lib/credits";
+import { MODEL_CREDIT_MULTIPLIER, MODEL_LABEL } from "../data/modelPricing";
 import type { KbInstruction } from "../data/kbInstructions";
 
 export type Category = "asset" | "ad" | "social";
@@ -77,6 +80,35 @@ export interface WizardState {
    */
   varyAmount: number;
   aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  /**
+   * Output language of the ad (§5 — "Language selector added to Configure").
+   * A code from src/genie6/lib/languages.ts, not a display name, so the
+   * selector, the URL (?lang=) and the batch config all carry one value.
+   */
+  language: string;
+  /**
+   * §9 bulk product selection — applies to Category Ad and Product Ad.
+   * Selecting N products produces ONE ad containing all of them, NOT N
+   * separate ads. `productId` stays the hero; these are the co-stars.
+   * Empty = single-product ad.
+   */
+  bulkProductIds: string[];
+  /**
+   * §21.2 — Product Shoot must accept a brand plus ONE UPLOADED IMAGE, not
+   * only a Catalogue product, for brands whose product isn't in the Catalogue
+   * yet and for one-offs. When set, Step 2 is satisfied by brand + image and
+   * the Overview card must stop gating "Ready to generate" on a product id.
+   */
+  uploadedProductImage: string | null;
+  /**
+   * §21.2 — script is a GATED pre-step for every script-led approach:
+   * generate → review → edit → approve → then generate the ad. Generate stays
+   * disabled until this is true. At 30-40 min per video an unseen auto-script
+   * is an expensive mistake. `skipScriptReview` is the explicit power-user
+   * escape, and it satisfies the gate on its own.
+   */
+  scriptApproved: boolean;
+  skipScriptReview: boolean;
   videoResolution: VideoResolution;
   videoAudio: boolean;
   useKnowledgeBase: boolean;
@@ -85,7 +117,7 @@ export interface WizardState {
   customKbInstructions: KbInstruction[];
 }
 
-const INITIAL_STATE: WizardState = {
+export const INITIAL_STATE: WizardState = {
   step: 1,
   category: null,
   format: null,
@@ -110,12 +142,65 @@ const INITIAL_STATE: WizardState = {
   count: 4,
   varyAmount: 10,
   aspectRatio: "1:1",
+  language: DEFAULT_LANGUAGE,
+  bulkProductIds: [],
+  uploadedProductImage: null,
+  scriptApproved: false,
+  skipScriptReview: false,
   videoResolution: "1080p",
   videoAudio: true,
   useKnowledgeBase: true,
   useBrandGuidelines: true,
   customKbInstructions: [],
 };
+
+/**
+ * §21.2 "Credits need a breakdown, not just a number" — Configure said
+ * `Generate (4 credits)` while the Results edit bar said `Generate (24
+ * credits)`, a 6× jump with no explanation. This builds the EXACT line list
+ * that `computeBreakdown()` (src/genie6/lib/credits.ts) turns into the
+ * charged total, so the number shown on the Generate button and the number
+ * actually charged can never diverge — both this recompute and
+ * PromptReferenceBar's hover/click breakdown call this same function.
+ *
+ * Axes: outputs × concepts × model × quality. Model multiplier comes from
+ * MODEL_CREDIT_MULTIPLIER (PromptReferenceBar.tsx — one roster, not a second
+ * copy). Quality (video-only) reuses the existing resolution multiplier;
+ * WizardState has no separate "duration" field, so resolution stands in for
+ * it here — see the doc comment on `videoResolution`.
+ */
+export function buildCreditLines(state: WizardState): CreditLine[] {
+  const conceptFactor = Math.max(state.selectedConceptIds.length, 1);
+  const modelMultiplier = MODEL_CREDIT_MULTIPLIER[state.modelId] ?? 1;
+  const modelName = MODEL_LABEL[state.modelId] ?? state.modelId;
+
+  const lines: CreditLine[] = [
+    { label: "Outputs", factor: state.count, op: "base" },
+    {
+      label: "Concepts",
+      factor: conceptFactor,
+      op: "multiply",
+      note: `${conceptFactor} concept${conceptFactor === 1 ? "" : "s"}`,
+    },
+    { label: "Model", factor: modelMultiplier, op: "multiply", note: modelName },
+  ];
+
+  if (state.format === "video") {
+    const resolutionMultiplier =
+      // Integer factors only — must match batchDisplay.ts's copy of this
+      // formula; a fractional per-item rate rounds differently in the run
+      // store and Configure/Library end up quoting two figures.
+      state.videoResolution === "4K" ? 3 : state.videoResolution === "1080p" ? 2 : 1;
+    lines.push({
+      label: "Quality",
+      factor: resolutionMultiplier,
+      op: "multiply",
+      note: state.videoResolution,
+    });
+  }
+
+  return lines;
+}
 
 export interface UseWizardReturn {
   state: WizardState;
@@ -142,23 +227,17 @@ export function useWizard(
     setState((prev) => {
       const updated: WizardState = { ...prev, [key]: value };
       // Recompute credits whenever count, selectedConceptIds, videoResolution,
-      // or format changes — video output has a resolution-based multiplier.
+      // format, or modelId changes — model is one of the four priced axes
+      // (§21.2) and was previously missing from this trigger list entirely,
+      // so switching models never updated the displayed number.
       if (
         key === "count" ||
         key === "selectedConceptIds" ||
         key === "videoResolution" ||
-        key === "format"
+        key === "format" ||
+        key === "modelId"
       ) {
-        const conceptCount = updated.selectedConceptIds.length;
-        const variations = updated.count;
-        const baseCredits = Math.max(conceptCount, 1) * variations;
-        const resolutionMultiplier =
-          updated.format === "video"
-            ? (updated.videoResolution === "4K" ? 3
-              : updated.videoResolution === "1080p" ? 1.5
-              : 1)
-            : 1;
-        updated.credits = Math.ceil(baseCredits * resolutionMultiplier);
+        updated.credits = computeBreakdown(buildCreditLines(updated)).total;
       }
       return updated;
     });
@@ -171,18 +250,10 @@ export function useWizard(
         "count" in p ||
         "selectedConceptIds" in p ||
         "videoResolution" in p ||
-        "format" in p
+        "format" in p ||
+        "modelId" in p
       ) {
-        const conceptCount = merged.selectedConceptIds.length;
-        const variations = merged.count;
-        const baseCredits = Math.max(conceptCount, 1) * variations;
-        const resolutionMultiplier =
-          merged.format === "video"
-            ? (merged.videoResolution === "4K" ? 3
-              : merged.videoResolution === "1080p" ? 1.5
-              : 1)
-            : 1;
-        merged.credits = Math.ceil(baseCredits * resolutionMultiplier);
+        merged.credits = computeBreakdown(buildCreditLines(merged)).total;
       }
       return merged;
     });

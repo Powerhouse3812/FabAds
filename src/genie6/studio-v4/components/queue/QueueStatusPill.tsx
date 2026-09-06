@@ -1,14 +1,27 @@
-import { Clock, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Clock, Loader2, CheckCircle2, AlertTriangle, XCircle, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { QueueStatus } from "../../types/queue";
+import type { BatchStatus } from "@/genie6/lib/genieRunTypes";
 
 interface QueueStatusPillProps {
-  status: QueueStatus;
+  status: BatchStatus;
   size?: "sm" | "md";
 }
 
+/**
+ * QueueStatusPill — small status chip used on each queue card / list row.
+ *
+ * Retyped onto the real run store's `BatchStatus` (genieRunTypes.ts) —
+ * "running" / "done" / "partial" / "failed" / "cancelled" — so the same five
+ * states genieRunStore computes via `batchStatus()` are the only ones this
+ * pill can ever be asked to render. "Partial" (§21.3's `19/20`) and
+ * "cancelled" (§21.3's missing in-flight states) didn't exist on the old
+ * QueueStatus enum this component used before.
+ *
+ * Visual states are co-encoded (icon + label + color) to satisfy the
+ * design-system rule against color-only state encoding.
+ */
 const STATUS_CONFIG: Record<
-  QueueStatus,
+  BatchStatus,
   {
     label: string;
     Icon: typeof Clock;
@@ -17,41 +30,39 @@ const STATUS_CONFIG: Record<
     animate?: boolean;
   }
 > = {
-  queued: {
-    label: "Queued",
-    Icon: Clock,
-    iconClass: "text-muted-foreground",
-    pillClass: "bg-muted/60 text-muted-foreground border-border/60",
-  },
-  generating: {
+  running: {
     label: "Generating",
     Icon: Loader2,
     iconClass: "text-primary",
     pillClass: "bg-primary/10 text-foreground border-primary/30",
     animate: true,
   },
-  ready: {
-    label: "Ready",
+  done: {
+    label: "Done",
     Icon: CheckCircle2,
     iconClass: "text-primary",
     pillClass: "bg-primary/10 text-foreground border-primary/30",
   },
+  partial: {
+    label: "Partial",
+    Icon: AlertTriangle,
+    iconClass: "text-warning-text",
+    pillClass: "bg-warning-text/10 text-warning-text border-warning-text/30",
+  },
   failed: {
     label: "Failed",
-    Icon: AlertCircle,
+    Icon: XCircle,
     iconClass: "text-destructive",
     pillClass: "bg-destructive/10 text-destructive border-destructive/30",
   },
+  cancelled: {
+    label: "Cancelled",
+    Icon: Ban,
+    iconClass: "text-muted-foreground",
+    pillClass: "bg-muted/60 text-muted-foreground border-border/60",
+  },
 };
 
-/**
- * QueueStatusPill — small status chip used on each queue card.
- *
- * Visual states are co-encoded (icon + label + color) to satisfy the
- * design-system rule against color-only state encoding. The `generating`
- * variant spins the Loader2 icon so live batches read as "alive" without
- * resorting to a global toast.
- */
 export function QueueStatusPill({ status, size = "sm" }: QueueStatusPillProps) {
   const c = STATUS_CONFIG[status];
   const Icon = c.Icon;

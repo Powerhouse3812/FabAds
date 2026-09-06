@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
@@ -17,6 +17,13 @@ import { ContextRail } from "./components/ContextRail";
 import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
 import { useWizard, type WizardState, type Format, type Mode } from "./state/useWizard";
 import { useStudioAlphaUrlSync } from "./state/useUrlSync";
+import { isKnownConceptId } from "./data/concepts";
+// §6 Rule 5 — the persistent flow banner + the context it renders from. Both
+// owned by other agents (Flow Data / Flows UI) per the shared build brief;
+// imported by contract path + signature, not reimplemented here.
+import { resolveFlowContext, flowInitialPatch } from "@/genie6/flows/data/resolveFlowContext";
+import { FlowBanner } from "@/genie6/flows/FlowBanner";
+import type { FlowContext } from "@/genie6/flows/flowTypes";
 
 /**
  * A-12.49 (Maalik): Read the URL (path :step + query string) and produce a
@@ -31,6 +38,7 @@ import { useStudioAlphaUrlSync } from "./state/useUrlSync";
 function readUrlIntoState(
   pathStep: string | undefined,
   searchParams: URLSearchParams,
+  flowCtx: FlowContext | null,
 ): Partial<WizardState> {
   const patch: Partial<WizardState> = {};
   if (pathStep && SLUG_TO_STEP[pathStep]) {
@@ -68,15 +76,61 @@ function readUrlIntoState(
   if (bg === "off") patch.useBrandGuidelines = false;
   const kb = searchParams.get("kb");
   if (kb === "off") patch.useKnowledgeBase = false;
+  // Mirror useUrlSync's mount-time reads. Without these, a hard refresh on
+  // Step 2 mounted the picker with bulkMode=false — its useState reads the
+  // array once, on the paint where it was still [] — and language/upload
+  // flashed their defaults before the sync effect caught up.
+  const lang = searchParams.get("lang");
+  if (lang) patch.language = lang;
+  const bulkProducts = searchParams.get("bulkProducts");
+  if (bulkProducts) patch.bulkProductIds = bulkProducts.split(",").filter(Boolean);
+  const productImage = searchParams.get("productImage");
+  if (productImage) patch.uploadedProductImage = productImage;
+  // §12 — a concept hand-off must land on the FIRST paint, same reasoning as
+  // every other param read here. Unknown ids are dropped (see useUrlSync).
+  const conceptsParam = searchParams.get("concepts");
+  if (conceptsParam) {
+    const ids = conceptsParam.split(",").filter(Boolean).filter(isKnownConceptId);
+    if (ids.length > 0) patch.selectedConceptIds = ids;
+  }
   // A-12.52 (Maalik): ?demo=1 seeds a full sample-result shape — 4 concept
   // rows × 4 variations = 16 outputs. Used to deliver shareable sample-result
   // URLs for HTML.to.design captures + design reviews.
   if (searchParams.get("demo") === "1") {
-    patch.selectedConceptIds = ["c-hero", "c-lifestyle", "c-social-proof", "c-unboxing"];
+    // These were ["c-hero", "c-lifestyle", "c-social-proof", "c-unboxing"] —
+    // none of which exist in data/concepts.ts's CONCEPTS. The sample-result
+    // URL therefore rendered with four unresolvable concept ids, so every
+    // concept row fell back to a placeholder. Replaced with real ids.
+    patch.selectedConceptIds = ["c-hero-pack", "c-morning-ritual", "c-founder-note", "c-before-after"];
     patch.count = 4;
     patch.credits = 16;
     if (!patch.angleId) patch.angleId = "hero";
     if (!patch.format) patch.format = "image";
+  }
+  // §6 Rules 1 & 2 (Studio Shell agent) — a flow context resolved from
+  // ?src/?ref/?act seeds the wizard at CONSTRUCTION, same reasoning as the
+  // rest of this function: no effect tick, so a hard refresh or a shared
+  // flow link lands pre-filled on the very first paint. flowInitialPatch()
+  // supplies the actual field values (brand/product/mode/etc.) AND
+  // `step: ctx.landingStep` — Rule 1 (variation asks nothing) lands on
+  // Configure, Rule 2 (use-X still asks for the entity) lands on Product;
+  // this function never re-derives that rule, it just honours it.
+  //
+  // In practice the module-side entry points (SendToGenieMenu,
+  // FlowModuleDetail) already navigate to an explicit /product or /configure
+  // path segment matching landingStep, so `pathStep` above and
+  // `flowCtx.landingStep` here agree. Merged AFTER the individual param
+  // reads so a flow's own field values win over any stray matching query
+  // param on the rarer path where a flow link omits the step segment.
+  if (flowCtx) {
+    // The explicit :step path segment wins over the flow's landingStep.
+    // Otherwise a hard refresh / deep link on /results rendered Step 5 for
+    // one paint (its mount effect started a phantom batch) and then bounced
+    // to Configure because landingStep (4) overwrote the path's step (5).
+    const { step: landingStep, ...flowPatch } = flowInitialPatch(flowCtx);
+    Object.assign(patch, flowPatch);
+    if (!patch.step) patch.step = landingStep;
+    patch.category = "ad"; // flows only ever produce ads, never assets
   }
   return patch;
 }
@@ -106,7 +160,8 @@ const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
  * the sticky footer carries "Step N of 4 · Label" instead.
  */
 const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: "Format",
+  // §21.2 — Mode + Format merged onto one screen; label reflects both now.
+  1: "Mode & Format",
   2: "Product",
   3: "Approach",
   4: "Configure",
@@ -119,7 +174,8 @@ const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
  * Architecture:
  *   - Home phase: StudioHome — click any available mode card → startWizard.
  *   - Wizard phase: 5 internal steps + a global right-side ContextRail.
- *       Step 1 = Format (Image/Video) — AlphaStep1Format
+ *       Step 1 = Mode & Format (§21.2: merged onto one screen — Mode is now
+ *         ALSO changeable here, not only on Home) — AlphaStep1Format
  *       Step 2 = Product — Step2Product
  *       Step 3 = Approach — Step3Approach
  *       Step 4 = Configure — AlphaStep3Configure
@@ -129,24 +185,39 @@ const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
  *     instruction, winners). Collapsible — railOpen state persists across
  *     step navigation.
  *   - Click-to-advance: each step auto-advances on selection (no footer buttons).
- *   - Topbar: ← Back (one step back; from step 1 → exits to Home).
- *   - AlphaProgressIndicator: 4 steps only (Format/Product/Approach/Configure).
- *     Hidden on step 5 (Results).
+ *   - Topbar: ← Back (one step back; from step 1 → exits to Home). Because
+ *     Mode now lives on step 1 too, Back-to-step-1 is enough to change Mode —
+ *     Home is no longer the only way back to it (§21.2).
+ *   - AlphaProgressIndicator: 4 steps only (Mode & Format/Product/Approach/
+ *     Configure). Hidden on step 5 (Results).
+ *   - FlowBanner (§6 Rule 5): mounted above the wizard body, on every step
+ *     including Results, whenever ?src/?ref/?act resolve to a FlowContext —
+ *     see resolveFlowContext() usage below and readUrlIntoState's flowCtx
+ *     branch for how Rules 1 & 2 seed the wizard at construction.
  */
 export function StudioAlpha() {
   const navigate = useNavigate();
   const params = useParams<{ step?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  // §6 Rule 5 / Rules 1 & 2 — resolved ONCE per searchParams identity, reused
+  // by construction-time hydration below, the phase/step sync effect, and the
+  // FlowBanner render. `null` when Studio is running standalone (no ?src).
+  const flowCtx = useMemo(() => resolveFlowContext(searchParams), [searchParams]);
   // A-12.49 (Maalik): hydrate wizard.state directly from the URL at construction
   // so deep links and hard refresh land on the correct step + selections
   // BEFORE first paint. Previously this happened via useEffect, which left
   // a one-tick gap where state.step was still 1 — long enough for HTML.to.design
-  // (and other headless capture tools) to grab the wrong frame.
-  const wizard = useWizard(readUrlIntoState(params.step, searchParams));
+  // (and other headless capture tools) to grab the wrong frame. A flow context
+  // hydrates the exact same way (see readUrlIntoState's flowCtx branch) — no
+  // extra tick for the flow-entry path either.
+  const wizard = useWizard(readUrlIntoState(params.step, searchParams, flowCtx));
   const { state } = wizard;
   // Selections / toggles ↔ URL (?brand, ?product, ?angle, ?ratio, etc.)
   useStudioAlphaUrlSync(wizard);
-  const [phase, setPhase] = useState<AlphaPhase>(() => (params.step ? "wizard" : "home"));
+  // A flow can land the wizard on step 2 or 4 via a URL with NO :step path
+  // segment yet (e.g. /studio-alpha?src=trends&ref=...&act=...) — phase must
+  // start "wizard" for that case too, not just when a :step segment exists.
+  const [phase, setPhase] = useState<AlphaPhase>(() => (params.step || flowCtx ? "wizard" : "home"));
   const [homeMode, setHomeMode] = useState<AlphaMode | null>("product-ad");
 
   // A-12.48 (Maalik): derive the render step DIRECTLY from URL on every render
@@ -220,6 +291,16 @@ export function StudioAlpha() {
   const urlSyncedRef = useRef(false);
   useEffect(() => {
     if (!params.step) {
+      // §6 Rules 1 & 2 — a flow lands here with NO :step segment yet
+      // (/studio-alpha?src=...&ref=...&act=...). state.step is already
+      // flowCtx.landingStep from construction and phase is already "wizard"
+      // (see the useState initializer above) — don't force Home. The
+      // state→URL effect below pushes the matching /product or /configure
+      // slug once urlSyncedRef flips, same as any other step change.
+      if (flowCtx) {
+        urlSyncedRef.current = true;
+        return;
+      }
       if (phase !== "home") setPhase("home");
       urlSyncedRef.current = true;
       return;
@@ -248,7 +329,19 @@ export function StudioAlpha() {
     const slug = STEP_TO_SLUG[state.step];
     if (!slug) return;
     if (params.step !== slug) {
-      navigate(`/iq/genie6/studio-alpha/${slug}`, { replace: false });
+      // Preserve the query string across the path change. `searchParams` from
+      // this render can be one tick stale relative to useStudioAlphaUrlSync's
+      // own state→URL effect (same wizard-state change, same commit, but that
+      // hook's setSearchParams call — registered earlier in hook order — runs
+      // first and already committed via history.replaceState by the time this
+      // effect runs). Reading window.location.search directly picks up that
+      // just-committed value instead of the stale closure, so a bare
+      // navigate(path) here can't clobber ?format/?brand/... OR the flow's
+      // ?src/?ref/?act — all of it rides along on every step change.
+      navigate(
+        { pathname: `/iq/genie6/studio-alpha/${slug}`, search: window.location.search },
+        { replace: false },
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.step, phase]);
@@ -259,6 +352,16 @@ export function StudioAlpha() {
     wizard.patch({ category, step: 1 });
     setPhase("wizard");
     navigate("/iq/genie6/studio-alpha/format", { replace: false });
+  };
+
+  // §21.2 — Mode is now ALSO changeable from inside the wizard (merged onto
+  // Step 1 alongside Format, see AlphaStep1Format), not only from Home. This
+  // is the in-wizard equivalent of startWizard's category derivation, without
+  // resetting phase/step/navigating — the user stays exactly where they are.
+  const handleModeChange = (mode: AlphaMode) => {
+    setHomeMode(mode);
+    const category = mode === "product-shoot" ? "asset" : "ad";
+    if (state.category !== category) wizard.patch({ category });
   };
 
   const exitToHome = () => {
@@ -338,12 +441,29 @@ export function StudioAlpha() {
             )}
           </div>
 
+          {/* §6 Rule 5 — persistent flow banner. Runs through the WHOLE
+              flow, on every step INCLUDING Results (step 5) — mounted here,
+              above all step content, rather than inside any one step's
+              component, so it survives Step5ResultsQueue owning its own
+              chrome below. Source module + reference + action + what will be
+              produced come from `ctx`; FlowBanner (Flows UI agent) resolves
+              its own exit from ctx.module.modulePath. Lives entirely off the
+              URL (?src/?ref/?act) per flowTypes.ts's header comment, so it
+              survives step navigation and a hard refresh for free. */}
+          {flowCtx && <FlowBanner ctx={flowCtx} className="shrink-0" />}
+
           {/* Wizard body — flex layout: main content + collapsible rail */}
           <div className="relative flex min-h-0 flex-1">
             {/* Main step content — scrollable */}
             <main className="min-h-0 flex-1 overflow-y-auto">
               {renderStep === 1 && (
-                <AlphaStep1Format wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
+                <AlphaStep1Format
+                  wizard={wizard}
+                  onAdvance={wizard.next}
+                  onBack={handleBack}
+                  mode={homeMode}
+                  onModeChange={handleModeChange}
+                />
               )}
               {renderStep === 2 && (
                 <Step2Product wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />

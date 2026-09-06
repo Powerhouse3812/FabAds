@@ -10,7 +10,10 @@ interface AlphaProgressIndicatorProps {
 }
 
 const STEPS: { num: AlphaStep; label: string }[] = [
-  { num: 1, label: "Format" },
+  // §21.2: Mode + Format merged onto one screen (was "Format" alone) — the
+  // label says so, and it's why Mode is no longer a Home-only, invisible
+  // "step zero": it's right here, in the breadcrumb, changeable via Back.
+  { num: 1, label: "Mode & Format" },
   { num: 2, label: "Product" },
   { num: 3, label: "Approach" },
   { num: 4, label: "Configure" },

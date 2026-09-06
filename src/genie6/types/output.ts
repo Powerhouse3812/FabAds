@@ -31,7 +31,14 @@ export const OUTPUT_TYPE_LABELS: Record<OutputType, string> = {
 
 export type EllipsisAction =
   | "edit"
-  | "forge10more"
+  /**
+   * §5: "Output count always uses this stepper. Never hardcode a count
+   * anywhere, including entry points that name one (e.g. 'Make 10 more')."
+   * This action was literally that example — `forge10more` fired a 10-item
+   * batch at a flat rate. Renamed and re-pointed at Studio's Configure step,
+   * where the stepper owns the count and computeBreakdown() owns the price.
+   */
+  | "forgeMore"
   | "addFeedback"
   | "addToFolder"
   | "saveAsConcept"
@@ -40,7 +47,23 @@ export type EllipsisAction =
   | "saveMediaOnly"
   | "downloadMediaOnly"
   | "saveToKb"
-  | "regenerate";
+  | "regenerate"
+  /**
+   * Genie 2.0 §21.2 — "Variation is a first-class action everywhere: Results
+   * card overflow, Library card overflow, and Ad detail. Same wording, same
+   * behaviour, same result in all three." These three mirror Video Sage's
+   * action vocabulary (src/genie6/flows/flowTypes.ts FlowActionId) verbatim —
+   * "Vary script" / "Vary concept" / "Vary whole video" — and per Rule 1
+   * (§6) ask nothing; they land straight on Configure.
+   */
+  | "varyScript"
+  | "varyConcept"
+  | "varyWholeVideo"
+  /** §7.2/§7.6 "Reference for a new ad" — the whole asset travels in as a
+   *  reference, not extracted elements. Maps to FlowActionId "reference-for-new-ad". */
+  | "referenceForNewAd"
+  /** §6 Rule 6 / §7.6 — "Send to Other Apps" is reachable from Library too. */
+  | "sendToOtherApps";
 
 export type KanbanColumn = "winner" | "maybe" | "reject";
 

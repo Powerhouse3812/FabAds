@@ -1,5 +1,9 @@
 # Dependencies
 node_modules/
+# ...and the bare symlink form. Worktrees don't get their own install, so
+# node_modules here is a symlink to the main checkout's — which the trailing
+# slash above does not match, and it would otherwise get committed.
+node_modules
 /.pnp
 .pnp.js
 

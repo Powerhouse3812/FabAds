@@ -26,6 +26,12 @@ import {
   isCurrencyDependentMetric,
 } from "@/lib/reports-dummy-data";
 import { type TableRow as TRow, type GroupedRow, isGroupRow } from "@/hooks/use-reports-data";
+import { useBatches } from "@/genie6/lib/genieRunStore";
+import { resolveGenieLineage } from "@/components/genie-lineage/reportsLineage";
+import { MadeInGenieBadge } from "@/components/genie-lineage/MadeInGenieBadge";
+// §7.3 — Reports gets SUGGESTIONS (never an editor), shown next to the
+// performance data so the decision sits beside the evidence.
+import { GenieSuggestionChip } from "@/components/genie-lineage/GenieSuggestionChip";
 
 interface ReportsTableProps {
   rows: TRow[];
@@ -43,7 +49,14 @@ interface ReportsTableProps {
   page: number;
   pageSize: number;
   onPageChange: (p: number) => void;
-  kebabActions?: (entity: ReportEntity) => { label: string; onClick: () => void }[];
+  /**
+   * `onClick` items render as plain `DropdownMenuItem`s (the "View Creatives"
+   * shape, unchanged). `render` is the escape hatch for an item that needs to
+   * host its own nested trigger/menu (Genie's SendToGenieMenu, which owns its
+   * own DropdownMenu) — a bare `{label, onClick}` tuple can't express that.
+   * Exactly one of `onClick`/`render` should be set per action.
+   */
+  kebabActions?: (entity: ReportEntity) => { label: string; onClick?: () => void; render?: () => React.ReactNode }[];
   onAddAdset?: (entity: ReportEntity) => void;
   onAddAd?: (entity: ReportEntity) => void;
 }
@@ -111,6 +124,11 @@ export function ReportsTable({
   const rowActions = useAdEntityActions();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const visibleCols = columns.filter((c) => visibleColumns.includes(c.key));
+  // Read ONCE at the top of the component — never inside the per-row
+  // render loop below (that would call a hook a variable number of times as
+  // rows page/sort/group, which breaks the rules of hooks). Per-row lookup
+  // is a plain function over this same array.
+  const genieBatches = useBatches();
 
   const toggleExpand = (key: string) => {
     setExpanded((prev) => {
@@ -229,6 +247,10 @@ export function ReportsTable({
       drillDownPath && drillDownParam
         ? `${drillDownPath}?${drillDownParam}=${entity.id}`
         : null;
+    // §7.3 creative lineage — "Made in Genie" badge. Ad-level rows only; an
+    // account/campaign/adset row has no single creative to trace.
+    const genieLineage =
+      entity.level === "ad" ? resolveGenieLineage(genieBatches, entity.id) : null;
     return (
     <TableRow
       key={entity.id}
@@ -244,16 +266,20 @@ export function ReportsTable({
       </TableCell>
       <TableCell className="relative" style={{ paddingLeft: indent * 16 + 16 }}>
         <EditedDot id={entity.id} offset={indent * 16 + 6} />
-        {drillDownPath && drillDownParam ? (
-          <button
-            className="text-sm font-medium text-foreground hover:underline text-left"
-            onClick={(e) => handleDrillDown(entity, e)}
-          >
-            {entity.name}
-          </button>
-        ) : (
-          <span className="text-sm font-medium text-foreground">{entity.name}</span>
-        )}
+        <span className="inline-flex items-center gap-2">
+          {drillDownPath && drillDownParam ? (
+            <button
+              className="text-sm font-medium text-foreground hover:underline text-left"
+              onClick={(e) => handleDrillDown(entity, e)}
+            >
+              {entity.name}
+            </button>
+          ) : (
+            <span className="text-sm font-medium text-foreground">{entity.name}</span>
+          )}
+          {genieLineage && <MadeInGenieBadge outputId={genieLineage.outputId} />}
+          <GenieSuggestionChip entity={entity} />
+        </span>
       </TableCell>
       <TableCell>
         <Badge variant="outline" className={`text-xs ${statusColor[entity.status]}`}>
@@ -296,9 +322,13 @@ export function ReportsTable({
             )}
             {onAddAdset && <DropdownMenuItem onClick={() => onAddAdset(entity)}>Add Ad Set</DropdownMenuItem>}
             {onAddAd && <DropdownMenuItem onClick={() => onAddAd(entity)}>Add Ad</DropdownMenuItem>}
-            {kebabActions?.(entity).map((a) => (
-              <DropdownMenuItem key={a.label} onClick={a.onClick}>{a.label}</DropdownMenuItem>
-            ))}
+            {kebabActions?.(entity).map((a) =>
+              a.render ? (
+                <span key={a.label}>{a.render()}</span>
+              ) : (
+                <DropdownMenuItem key={a.label} onClick={a.onClick}>{a.label}</DropdownMenuItem>
+              ),
+            )}
             {/* "Apply Rule" used to sit here firing a bare success toast with no
                 destination. Automation owns rules — a link to nowhere is worse
                 than no link. */}

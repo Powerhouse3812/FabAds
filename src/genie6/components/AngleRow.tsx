@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { OutputCard } from "./OutputCard";
 import type { OutputData } from "../types/output";
+import type { GetOutputCardActions } from "../library/useOutputCardActions";
 import { cn } from "@/lib/utils";
 
 interface AngleRowProps {
@@ -20,6 +21,8 @@ interface AngleRowProps {
   selected: Set<string>;
   onSelect: (id: string) => void;
   onCardClick: (output: OutputData) => void;
+  /** See MasonryView — optional per-card action handlers. */
+  getActions?: GetOutputCardActions;
 }
 
 const VISIBLE_LIMIT = 10;
@@ -49,6 +52,7 @@ export function AngleRow({
   selected,
   onSelect,
   onCardClick,
+  getActions,
 }: AngleRowProps) {
   const [, setSearchParams] = useSearchParams();
   const [featuredId, setFeaturedId] = useState<string>(outputs[0]?.id ?? "");
@@ -122,6 +126,7 @@ export function AngleRow({
             <div key={o.id} className="relative shrink-0">
               <OutputCard
                 {...o}
+                {...getActions?.(o)}
                 size="compact"
                 featured={isFeatured}
                 selected={selected.has(o.id)}

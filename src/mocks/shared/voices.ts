@@ -1,16 +1,61 @@
 import type { Voice } from "@/genie6/types/entities";
+import type { Provenance } from "@/genie6/lib/genieRunTypes";
+import { classifyTones } from "@/genie6/brain/avatarTaxonomy";
 
 /**
  * Voices — single source of truth (Catalogue ↔ Genie sync).
  *
- * 52 entries · voice samples across languages + tones. Used by the
+ * 51 entries · voice samples across languages + tones. Used by the
  * Studio generation flow for VO and dubbing.
+ *
+ * Genie 2.0 §13 additions (additive — see `Voice` in `@/genie6/types/entities`):
+ *  - `tones` — derived straight off each voice's own `description` via the
+ *    SAME keyword classifier `matchBrandTone` uses on a brand's voice/tone
+ *    copy (`classifyTones`, in `src/genie6/brain/avatarTaxonomy.ts`). One
+ *    mechanism for "tied to brand voice", not two guesses that can disagree.
+ *  - `durationSec` — sample length for the audio-preview control. There are
+ *    no audio files in this repo (`sample` stays undefined for every entry
+ *    below — that's real, not an oversight), so the control shows this
+ *    duration honestly alongside a "no sample yet" state rather than faking
+ *    playback. See `AudioPreviewControl` in `src/genie6/brain/AvatarVoicePicker.tsx`.
+ *  - `provenance` — a handful of entries are `client-created` (a brand's own
+ *    recorded VO) against the `fabfunnel-seeded` default, per §21.2.
  *
  * Schema: see `Voice` in `@/genie6/types/entities`.
  */
 
+const CLIENT_CREATED_IDS = new Set([
+  "voice-vikram-authority",
+  "voice-zoya-fashion",
+  "voice-jessica-creator",
+  "voice-mei-mandarin",
+  "voice-margaret-narrator",
+  "voice-sutradhaar",
+]);
+
+/** Tiny deterministic hash (FNV-1a) — stable per id, no runtime randomness. */
+function hash(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** Deterministic, non-round sample length in the 7-19s band. */
+function durationFor(id: string): number {
+  return 7 + (hash(id) % 13);
+}
+
 const vc = (id: string, name: string, language: string, description: string): Voice => ({
-  id, name, language, description,
+  id,
+  name,
+  language,
+  description,
+  tones: classifyTones(description),
+  durationSec: durationFor(id),
+  provenance: (CLIENT_CREATED_IDS.has(id) ? "client-created" : "fabfunnel-seeded") as Provenance,
 });
 
 export const voices: Voice[] = [

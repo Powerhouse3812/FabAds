@@ -16,13 +16,13 @@
  * alone.
  */
 import { useCallback, useSyncExternalStore } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
 import {
   Bookmark,
-  CheckCircle2,
   FileText,
   Hammer,
-  Loader2,
   type LucideIcon,
   Radar,
   Repeat2,
@@ -42,44 +42,36 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { TrendItem, TrendSourceType } from "@/insights-trends/types";
+import { flowSearchParams, type FlowActionId } from "@/genie6/flows/flowTypes";
 
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
-type GenieStatusValue = "analysing" | "generating" | "ready";
 type RelevanceValue = "relevant" | "not_relevant";
 
 interface TrendActionsState {
   saved: Set<string>;
   watched: Set<string>;
   dismissed: Set<string>;
-  genieStatus: Record<string, GenieStatusValue>;
 }
 
 const EMPTY_STATE: TrendActionsState = {
   saved: new Set(),
   watched: new Set(),
   dismissed: new Set(),
-  genieStatus: {},
 };
 
 let state: TrendActionsState = {
   saved: new Set(),
   watched: new Set(),
   dismissed: new Set(),
-  genieStatus: {},
 };
 
 // Feedback-only signal from Relevant / Not Relevant — not surfaced through
 // the hook's return type (no consumer needs it today), kept module-local so
 // re-clicking the same choice doesn't re-toast identical feedback.
 const relevanceById = new Map<string, RelevanceValue>();
-
-// Timers from an in-flight startGenie() progression, keyed by item id, so a
-// second click on the same item (or an unmount) can't leave a stale timeout
-// clobbering a later run.
-const genieTimers = new Map<string, ReturnType<typeof setTimeout>[]>();
 
 const listeners = new Set<() => void>();
 
@@ -155,45 +147,15 @@ function setRelevance(itemId: string, relevance: RelevanceValue) {
   );
 }
 
-function setGenieStatus(itemId: string, status: GenieStatusValue) {
-  state = { ...state, genieStatus: { ...state.genieStatus, [itemId]: status } };
-  emit();
-}
-
-function clearGenieTimers(itemId: string) {
-  const timers = genieTimers.get(itemId);
-  if (!timers) return;
-  timers.forEach((t) => clearTimeout(t));
-  genieTimers.delete(itemId);
-}
-
-/** Dummy analysing -> generating -> ready progression. `action` is the Genie
- *  action label (e.g. "Extract Winning Angle") — carried through only for the
- *  completion toast copy, nothing here calls a real model. */
-function startGenie(itemId: string, action: string) {
-  clearGenieTimers(itemId);
-  setGenieStatus(itemId, "analysing");
-  const t1 = setTimeout(() => setGenieStatus(itemId, "generating"), 900);
-  const t2 = setTimeout(() => {
-    setGenieStatus(itemId, "ready");
-    toast.success(`${action} — ready`, {
-      description: "Open Genie to review the draft.",
-    });
-  }, 2200);
-  genieTimers.set(itemId, [t1, t2]);
-}
-
 export function useTrendActions(): {
   saved: Set<string>;
   watched: Set<string>;
   dismissed: Set<string>;
-  genieStatus: Record<string, GenieStatusValue>;
   toggleSave: (itemId: string) => void;
   toggleWatch: (itemId: string) => void;
   dismiss: (itemId: string) => void;
   undoDismiss: (itemId: string) => void;
   setRelevance: (itemId: string, relevance: RelevanceValue) => void;
-  startGenie: (itemId: string, action: string) => void;
 } {
   const current = useSyncExternalStore(subscribe, snapshot, getServerSnapshot);
 
@@ -201,72 +163,72 @@ export function useTrendActions(): {
     saved: current.saved,
     watched: current.watched,
     dismissed: current.dismissed,
-    genieStatus: current.genieStatus,
     toggleSave,
     toggleWatch,
     dismiss,
     undoDismiss,
     setRelevance,
-    startGenie,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Genie actions — source-specific only. Per doc: meta and tiktok ONLY. Do not
-// invent Genie actions for any other TrendSourceType.
+// Genie actions — Other Flows §7.4. The doc names three canonical actions
+// with no per-source distinction ("§7.4 makes no such distinction"):
+//   1. generate an ad against a trending hook or angle -> "generate-against-trend"
+//   2. generate a script from a trend                 -> "script-from-trend"
+//   3. variation off the trend's winner ads            -> "generate-variation"
+//
+// meta/tiktok already had richer, source-flavoured copy from before Other
+// Flows existed — kept verbatim and mapped onto the same three ids rather
+// than duplicated:
+//   "Extract Winning Angle" (meta)   -> generate-against-trend (fills the
+//     angle from the trend, same as §7.4's action 1)
+//   "Remix Concept" (meta)           -> generate-variation (a remix of an
+//     existing concept IS a variation, §7.4's action 3)
+//   "Build Ad" (meta + tiktok)       -> generate-against-trend (the direct
+//     1:1 match for action 1)
+//   "Write Script" (tiktok)          -> script-from-trend (exact match,
+//     action 2)
+//   "Create Hook Variations" (tiktok)-> generate-variation (action 3)
+//
+// Every other TrendSourceType (news/report/podcast/google_trend/instagram/
+// youtube/linkedin/x) gets the same three actions under generic labels —
+// §7.4 draws no source distinction, so withholding them here would be this
+// file inventing a boundary the doc doesn't ask for.
 // ---------------------------------------------------------------------------
 
 interface GenieAction {
   label: string;
   icon: LucideIcon;
+  actionId: FlowActionId;
 }
 
-const GENIE_ACTIONS_BY_SOURCE: Partial<Record<TrendSourceType, GenieAction[]>> = {
+const GENERIC_GENIE_ACTIONS: GenieAction[] = [
+  { label: "Build Ad", icon: Hammer, actionId: "generate-against-trend" },
+  { label: "Write Script", icon: FileText, actionId: "script-from-trend" },
+  { label: "Variation", icon: Wand2, actionId: "generate-variation" },
+];
+
+const GENIE_ACTIONS_BY_SOURCE: Record<TrendSourceType, GenieAction[]> = {
   meta: [
-    { label: "Extract Winning Angle", icon: Target },
-    { label: "Remix Concept", icon: Repeat2 },
-    { label: "Build Ad", icon: Hammer },
+    { label: "Extract Winning Angle", icon: Target, actionId: "generate-against-trend" },
+    { label: "Remix Concept", icon: Repeat2, actionId: "generate-variation" },
+    { label: "Build Ad", icon: Hammer, actionId: "generate-against-trend" },
   ],
   tiktok: [
-    { label: "Write Script", icon: FileText },
-    { label: "Create Hook Variations", icon: Wand2 },
-    { label: "Build Ad", icon: Hammer },
+    { label: "Write Script", icon: FileText, actionId: "script-from-trend" },
+    { label: "Create Hook Variations", icon: Wand2, actionId: "generate-variation" },
+    { label: "Build Ad", icon: Hammer, actionId: "generate-against-trend" },
   ],
+  news: GENERIC_GENIE_ACTIONS,
+  report: GENERIC_GENIE_ACTIONS,
+  podcast: GENERIC_GENIE_ACTIONS,
+  google_trend: GENERIC_GENIE_ACTIONS,
+  instagram: GENERIC_GENIE_ACTIONS,
+  youtube: GENERIC_GENIE_ACTIONS,
+  linkedin: GENERIC_GENIE_ACTIONS,
+  x: GENERIC_GENIE_ACTIONS,
 };
-
-const GENIE_STATUS_COPY: Record<GenieStatusValue, { label: string; icon: LucideIcon; spin?: boolean }> = {
-  analysing: { label: "Genie is analysing…", icon: Loader2, spin: true },
-  generating: { label: "Genie is generating…", icon: Loader2, spin: true },
-  ready: { label: "Genie output ready", icon: CheckCircle2 },
-};
-
-/** Renders nothing until startGenie() has been called for this item — the
- *  status persists at "ready" rather than reverting to the action buttons,
- *  since the point is "Genie already produced something for this trend." */
-export function GenieStatusChip(props: { itemId: string }): JSX.Element | null {
-  const { genieStatus } = useTrendActions();
-  const status = genieStatus[props.itemId];
-  if (!status) return null;
-
-  const { label, icon: Icon, spin } = GENIE_STATUS_COPY[status];
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground"
-    >
-      <Icon
-        className={cn(
-          "h-3.5 w-3.5",
-          spin && "animate-spin",
-          status === "ready" && "text-primary",
-        )}
-      />
-      <span>{label}</span>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Action bar
@@ -298,13 +260,30 @@ function shareItem(item: TrendItem) {
 
 export function TrendActionBar(props: { item: TrendItem; variant: "card" | "story" }): JSX.Element {
   const { item, variant } = props;
-  const { saved, watched, genieStatus, toggleSave, toggleWatch, dismiss, setRelevance, startGenie } =
-    useTrendActions();
+  const { saved, watched, toggleSave, toggleWatch, dismiss, setRelevance } = useTrendActions();
+  const navigate = useNavigate();
 
   const isSaved = saved.has(item.id);
   const isWatched = watched.has(item.id);
-  const hasGenieStatus = Boolean(genieStatus[item.id]);
   const genieActions = GENIE_ACTIONS_BY_SOURCE[item.type];
+
+  /**
+   * §7.4 — "Both" travel to Genie: the trend fills the angle, and its
+   * supporting creatives arrive as references. That resolution (and the
+   * universal redirect rules — asks-nothing for variation, entity-pick for
+   * the rest) lives in resolveFlowContext()/Studio, not here. This bar's only
+   * job is the handoff: module "trends", the trend's own id as refId, and
+   * which action was chosen.
+   */
+  const goToGenie = (actionId: FlowActionId) => {
+    const sp = flowSearchParams("trends", item.id, actionId);
+    // Explicit step slug, same as SendToGenieMenu. The bare /studio-alpha
+    // path landed on Studio HOME (mode picker) whenever the ref couldn't be
+    // resolved — the user saw ?src=trends in the address bar and nothing else.
+    const ctx = resolveFlowContext(sp);
+    const target = ctx?.landingStep === 4 ? "configure" : "product";
+    navigate(`/iq/genie6/studio-alpha/${target}?${sp.toString()}`);
+  };
 
   const standardActions: StandardAction[] = [
     {
@@ -392,31 +371,26 @@ export function TrendActionBar(props: { item: TrendItem; variant: "card" | "stor
             );
           })}
 
-          {genieActions &&
-            (hasGenieStatus ? (
-              <GenieStatusChip itemId={item.id} />
-            ) : (
-              genieActions.map((genieAction) => {
-                const Icon = genieAction.icon;
-                return (
-                  <Tooltip key={genieAction.label}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={genieAction.label}
-                        className="h-8 w-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                        onClick={() => startGenie(item.id, genieAction.label)}
-                      >
-                        <Icon className="h-3.5 w-3.5 text-primary" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{genieAction.label}</TooltipContent>
-                  </Tooltip>
-                );
-              })
-            ))}
+          {genieActions.map((genieAction) => {
+            const Icon = genieAction.icon;
+            return (
+              <Tooltip key={genieAction.label}>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={genieAction.label}
+                    className="h-8 w-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    onClick={() => goToGenie(genieAction.actionId)}
+                  >
+                    <Icon className="h-3.5 w-3.5 text-primary" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{genieAction.label}</TooltipContent>
+              </Tooltip>
+            );
+          })}
         </div>
       </TooltipProvider>
     );
@@ -446,27 +420,22 @@ export function TrendActionBar(props: { item: TrendItem; variant: "card" | "stor
         );
       })}
 
-      {genieActions &&
-        (hasGenieStatus ? (
-          <GenieStatusChip itemId={item.id} />
-        ) : (
-          genieActions.map((genieAction) => {
-            const Icon = genieAction.icon;
-            return (
-              <Button
-                key={genieAction.label}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-primary/40 text-primary hover:text-primary"
-                onClick={() => startGenie(item.id, genieAction.label)}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {genieAction.label}
-              </Button>
-            );
-          })
-        ))}
+      {genieActions.map((genieAction) => {
+        const Icon = genieAction.icon;
+        return (
+          <Button
+            key={genieAction.label}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-primary/40 text-primary hover:text-primary"
+            onClick={() => goToGenie(genieAction.actionId)}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {genieAction.label}
+          </Button>
+        );
+      })}
     </div>
   );
 }

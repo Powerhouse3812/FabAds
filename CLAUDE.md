@@ -247,6 +247,89 @@ Do not regress on any of these. They have been deliberately dropped:
 
 ---
 
+## Genie 2.0 (Sep 2026) — read before touching Genie
+
+Genie stopped being a place you *go to* and became a place other modules
+*feed into*. Spec: `~/Downloads/genie-2.0-planning-handoff.md` (locked, reviewed).
+Sub-nav IA is **locked**: Overview · Studio · **Other Flows** · **Other Apps** ·
+Concepts · Library · Settings.
+
+### The three structural changes
+1. **Other Flows** (`src/genie6/flows/`) — 11 source modules (7 live) hand work
+   into Studio. **The flow context lives in three URL params — `?src` / `?ref` /
+   `?act`** — not a store, because §6 Rule 5 requires the banner to survive every
+   step *and* a refresh *and* a shared link. Everything else (labels, thumbnails,
+   produced-output copy) is DERIVED from `flows/data/flowRegistry.ts`, so copy can
+   never drift from data. `resolveFlowContext(sp)` returns null for an unknown
+   ref, degrading to plain Studio — never throw on a hand-edited URL.
+2. **Other Apps** (`src/genie6/apps/`) — 15 apps, 7 live, **declarative**: one
+   screen anatomy in `AppRunner`, each app a registry entry in
+   `apps/data/appRegistry.ts`. A new app is data, not a file.
+3. **Two predictable homes** — Catalogue holds every INPUT (14 asset types,
+   two groups), Library holds every OUTPUT under one Batch ID.
+
+### Invariants — do not regress these
+- **§7.2 the competitor rule.** Industry Insights ads belong to a COMPETITOR.
+  The Step-2 picker must highlight the user's OWN default brand
+  (`DEFAULT_BRAND_ID`), never the source's. `ctx.highlight` is the ONLY source
+  for what gets highlighted; **`ctx.ref.sourceBrandName` must never set an
+  entity id** — it is display text only. Getting this wrong tells the user to
+  make an ad for a rival.
+- **Highlighted ≠ selected** (§6 Rule 4). The suggested entity is a band pinned
+  above the picker with a "Use this" button and nothing written to state.
+  Only Campaign URLs pre-selects — the single documented exception.
+- **Rule 1 / Rule 2.** A variation asks nothing → lands on Configure. A "use X"
+  always asks who it's for → lands on Step 2, *even when the source already
+  carries the entity*.
+- **ONE progress + failure pattern** (`src/genie6/progress/`, §18): stage-wise
+  with an *updating* estimate, never a fixed countdown; a failure STAYS in the
+  list with a Retry that states its credit cost, never a toast. Studio, Flows
+  and Apps all import these components — two systems must not exist.
+- **ONE run store** (`src/genie6/lib/genieRunStore.ts`). Batch ID = Job ID.
+  Per-app history is `useRunsForApp()`, a VIEW, never a second array. Seeded by
+  consuming `sample-outputs.ts` — never fork or mutate that array, 15+ importers
+  depend on its reference. `RunItem.outputId` is the join key back to the rich
+  `OutputData`.
+- **ONE credit formula** (`src/genie6/lib/credits.ts`). `computeBreakdown()` is
+  the only path to a charged total, so Configure and Results cannot disagree —
+  that divergence (4 vs 24 credits) is the defect §21.2 exists to fix. Always
+  show the multipliers, not just a number.
+- **Never hardcode an output count** (§5). The stepper owns `count`, including
+  from entry points that name a number ("Make 10 more").
+- **Approaches filter by format, they are not deleted.** All 7 stay in
+  `Step3Approach`; `APPROACHES_BY_FORMAT` decides what's offerable. §8's
+  "BG Remover / Resize / Create Variations / Image to Video are apps" governs
+  the *app registry*, not this step — none of those four is among the locked 15
+  apps, so deleting them leaves the capability nowhere.
+- **Two concept id universes exist.** Studio's `c-*`
+  (`studio-v4/data/concepts.ts`) and the shared `concept-*` / `kc-*`.
+  `getConceptById` bridges them; `?concepts=` carries either. Don't duplicate
+  the shared set into Studio.
+- **Dark mode and mobile are explicit NON-GOALS** for this release (§21.2).
+  New Genie routes are unlisted in `mobileRoutePolicy.ts`, so they fail closed
+  to `BestOnDesktop` — that is correct, not a bug.
+
+### Deliberately open (§22) — don't "fix" these by guessing
+Empty/failed-state screens (deferred last by instruction) · Mode list vs ad
+types · Storyboard for Image: one carousel or N ads · Client management · and
+five backend questions for Pranav, of which two shape real code: can the
+pipeline return per-section time ranges and regenerate ONE section (gates the
+editor being edit-and-see vs queue-and-notify), and what failure reasons does
+generation actually return (gates the failure matrix).
+
+### Known accepted duplication
+Two asset cards to the §21.2 grammar: `src/catalogue/AssetCard.tsx` (CRUD grid)
+and `src/genie6/brain/AssetCard.tsx` (read-mostly browsing). Different use
+cases; left as-is on purpose. Don't "discover" it as a bug.
+
+### Pre-existing drift, out of this release's scope
+Raw `amber-*` Tailwind classes survive in ~14 older `genie6` files
+(`generate-new/*`, `generate-v3/*`, `Step1Setup`, `data/modes.ts`,
+`AnglePlaybookPanel`). New surfaces use the `warning-text` token. Converting the
+rest is its own cleanup.
+
+---
+
 ## Mobile shell (FB-7109) — read before touching the shell
 
 The app rendered **nothing** below 768px until this work: `AppShell` and

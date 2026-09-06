@@ -1,51 +1,54 @@
-import { useState } from "react";
-import {
-  Bookmark,
-  Download,
-  FolderPlus,
-  MoreHorizontal,
-  RefreshCw,
-  Rocket,
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import { Bookmark, Download, FolderPlus, MoreHorizontal, Rocket } from "lucide-react";
 import { OutputCardHybrid } from "../OutputCardHybrid";
 import { SectionHeader } from "../SectionHeader";
+import { RunItemTile } from "@/genie6/progress";
+import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import type { EllipsisAction, OutputData } from "../../../types/output";
-import type { QueueBatch } from "../../types/queue";
+import {
+  batchStatus,
+  type RetryScope,
+  type RunBatch,
+  type RunItem,
+} from "@/genie6/lib/genieRunTypes";
+import { groupItemsByConcept } from "./batchDisplay";
 import { cn } from "@/lib/utils";
 
 interface ResultsConceptsProps {
-  batch: QueueBatch;
-  /** Tell the dock which ad the user is "editing" — clicking a card forks it. */
+  batch: RunBatch;
+  /** Tell the dock which ad the user is "editing" — clicking a finished card forks it. */
   onEdit: (output: OutputData) => void;
-  /** Re-run this batch's whole concept row (stub). */
-  onRegenerateConcept?: (conceptId: string) => void;
+  /** §21.3 per-item retry — "retry this ad only" plus, via RunItemTile's own
+   *  scope choice, the item can also ask for a batch-wide scope. */
+  onRetryItem?: (itemId: string, scope: RetryScope) => void;
   /**
    * Controlled selection (V3 uses this so the parent can render BulkToolbar
-   * on 2+ selected). When ommitted, the component falls back to internal
-   * state — keeps V1 / V2 working without a refactor.
+   * on 2+ selected). When omitted, the component falls back to internal
+   * state — keeps V1 / V2 working without a refactor. Only DONE items (the
+   * ones rendered as OutputCardHybrid) are selectable — RunItemTile has no
+   * selection affordance, there's nothing to bulk-act on yet.
    */
   selected?: Set<string>;
   onToggleSelect?: (id: string) => void;
 }
 
 /**
- * ResultsConcepts — concept-grouped rows of generated outputs for the active
- * queue batch. Reuses the established Studio v4 patterns:
+ * ResultsConcepts — concept-grouped rows of a batch's `RunItem`s.
  *
- *   - `SectionHeader` — lime stripe + mono caps title + count badge + hint
- *   - `OutputCardHybrid` — the Step 5 ad card (Genie 5 Meta-ad chrome +
- *     Genie 6 actions)
+ * §12 — multi-select concepts produce ONE batch, grouped under one Batch ID;
+ * this groups `batch.items` back into concept rows via `groupItemsByConcept`
+ * (concept label is encoded per-item in `RunItem.tags[0]` at seed time — see
+ * Step5ResultsQueue — since RunItem has no dedicated conceptId field).
  *
- * Each row gets a right-aligned action cluster per Figma:
- *   Regenerate · Launch · FolderAdd · Bookmark · Download · More
- *
- * Selecting an output via click forks its config into the PromptDock's
- * "Editing" chip — the screen's primary fork affordance.
+ * §18/§2 — a failed or still-running item renders in the SAME grid cell it
+ * would have occupied (via `RunItemTile` from the Progress agent), never
+ * removed from the list and never a toast. Only `done` items with a
+ * resolvable `outputId` render the rich `OutputCardHybrid` ad card.
  */
 export function ResultsConcepts({
   batch,
   onEdit,
-  onRegenerateConcept,
+  onRetryItem,
   selected: controlledSelected,
   onToggleSelect: controlledToggle,
 }: ResultsConceptsProps) {
@@ -55,30 +58,25 @@ export function ResultsConcepts({
   const [internalSelected, setInternalSelected] = useState<Set<string>>(new Set());
   const selected = controlledSelected ?? internalSelected;
 
-  if (!batch.outputs || !batch.concepts || batch.outputs.length === 0) {
+  const status = batchStatus(batch);
+  const conceptGroups = useMemo(() => groupItemsByConcept(batch.items), [batch.items]);
+
+  if (batch.items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/20 p-12 text-center">
         <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           No outputs yet
         </p>
         <p className="text-[13px] text-foreground">
-          {batch.status === "generating"
-            ? "This batch is still generating. Results will appear here when ready."
-            : batch.status === "queued"
-              ? "This batch is queued — waiting for a generation slot to open."
+          {status === "running"
+            ? "This batch is still generating. Results will appear here as each output finishes."
+            : status === "cancelled"
+              ? "This batch was cancelled before anything finished."
               : "This batch returned no outputs."}
         </p>
       </div>
     );
   }
-
-  const conceptChunks = batch.concepts.map((c, idx) => {
-    const start = idx * c.variationCount;
-    return {
-      ...c,
-      outputs: batch.outputs!.slice(start, start + c.variationCount),
-    };
-  });
 
   const toggleSelect = (id: string) => {
     if (controlledToggle) {
@@ -93,26 +91,26 @@ export function ResultsConcepts({
     });
   };
 
+  const outputFor = (item: RunItem): OutputData | undefined =>
+    item.status === "done" && item.outputId
+      ? sampleOutputs.find((o) => o.id === item.outputId)
+      : undefined;
+
   return (
     <div className="flex flex-col gap-6">
-      {conceptChunks.map((row, rowIdx) => (
-        <section key={row.id} className="space-y-3">
+      {conceptGroups.map((row, rowIdx) => (
+        <section key={row.label} className="space-y-3">
           <SectionHeader
             title={row.label}
-            count={row.outputs.length}
-            hint={row.outputs.length === 1 ? "variation" : "variations"}
+            count={row.items.length}
+            hint={row.items.length === 1 ? "output" : "outputs"}
             trailing={
               <div className="flex items-center gap-1">
-                <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70 mr-1">
-                  Concept {rowIdx + 1}
-                </span>
-                <RowActionBtn
-                  Icon={RefreshCw}
-                  label="Regenerate concept"
-                  text="Regenerate"
-                  onClick={() => onRegenerateConcept?.(row.id)}
-                />
-                <span className="mx-0.5 h-3.5 w-px bg-border/60" />
+                {conceptGroups.length > 1 && (
+                  <span className="mr-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                    Concept {rowIdx + 1}
+                  </span>
+                )}
                 <RowActionBtn Icon={Rocket} label="Launch all in concept" />
                 <RowActionBtn Icon={FolderPlus} label="Save concept to folder" />
                 <RowActionBtn Icon={Bookmark} label="Bookmark concept" />
@@ -127,22 +125,33 @@ export function ResultsConcepts({
               [&::-webkit-scrollbar]:hidden [scrollbar-width:none]
             "
           >
-            {row.outputs.map((output) => (
-              <li key={output.id} className="snap-start shrink-0 w-[220px]">
-                <OutputCardHybrid
-                  output={output}
-                  selected={selected.has(output.id)}
-                  onToggleSelect={() => toggleSelect(output.id)}
-                  onClick={() => onEdit(output)}
-                  onSave={() => console.log("[queue] save", output.id)}
-                  onLaunch={() => console.log("[queue] launch", output.id)}
-                  onDownload={() => console.log("[queue] download", output.id)}
-                  onAction={(a: EllipsisAction) =>
-                    console.log("[queue] action", a, output.id)
-                  }
-                />
-              </li>
-            ))}
+            {row.items.map((item) => {
+              const output = outputFor(item);
+              return (
+                <li key={item.id} className="snap-start shrink-0 w-[220px]">
+                  {output ? (
+                    <OutputCardHybrid
+                      output={output}
+                      selected={selected.has(item.id)}
+                      onToggleSelect={() => toggleSelect(item.id)}
+                      onClick={() => onEdit(output)}
+                      onSave={() => console.log("[queue] save", item.id)}
+                      onLaunch={() => console.log("[queue] launch", item.id)}
+                      onDownload={() => console.log("[queue] download", item.id)}
+                      onAction={(a: EllipsisAction) =>
+                        console.log("[queue] action", a, item.id)
+                      }
+                    />
+                  ) : (
+                    <RunItemTile
+                      item={item}
+                      stages={batch.stages}
+                      onRetry={(scope) => onRetryItem?.(item.id, scope)}
+                    />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}
@@ -164,7 +173,7 @@ function RowActionBtn({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={onClick ?? (() => console.log(`[queue] row action: ${label}`))}
       title={label}
       aria-label={label}
       className={cn(

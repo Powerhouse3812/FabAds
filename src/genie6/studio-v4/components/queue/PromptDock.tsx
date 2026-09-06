@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Paperclip, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { CreditBreakdown } from "@/genie6/lib/credits";
 
 interface PromptDockProps {
   /**
@@ -14,9 +15,15 @@ interface PromptDockProps {
   value: string;
   onChange: (next: string) => void;
 
-  /** Cost preview shown inside the Generate CTA. */
-  creditCost: number;
-  /** Submit handler — caller decides whether to add a new queue batch. */
+  /**
+   * §21.2 — "Credits need a breakdown, not just a number." Built via
+   * computeBreakdown() from the SAME CreditLine[] shape Configure uses, so
+   * this screen's total can never drift from Configure's number for the
+   * same inputs. The CTA shows the total; the caption above it shows the
+   * multiplier chain (outputs × concepts × model × duration).
+   */
+  breakdown: CreditBreakdown;
+  /** Submit handler — caller decides whether to start a new run-store batch. */
   onSubmit: () => void;
   /** Disable the CTA + textarea (e.g. when the 10-concurrent cap is hit). */
   disabled?: boolean;
@@ -40,7 +47,7 @@ export function PromptDock({
   onClearEditing,
   value,
   onChange,
-  creditCost,
+  breakdown,
   onSubmit,
   disabled,
   disabledReason,
@@ -114,25 +121,38 @@ export function PromptDock({
         />
 
         {/* CTA row */}
-        <div className="mt-2 flex items-center justify-between">
-          <p className="text-[10px] text-muted-foreground/70">
-            {disabled && disabledReason
-              ? disabledReason
-              : "⌘ + Enter to generate"}
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="min-w-0 truncate font-mono text-[10px] text-muted-foreground/70">
+            {disabled && disabledReason ? (
+              disabledReason
+            ) : (
+              <>
+                ⌘ + Enter to generate
+                {breakdown.lines.length > 1 && (
+                  <span className="ml-2 text-muted-foreground/50">
+                    · {breakdown.lines
+                      .map((l) =>
+                        l.note ?? (l.op === "base" ? `${l.factor} ${l.label.toLowerCase()}` : `×${l.factor}`),
+                      )
+                      .join(" × ")}
+                  </span>
+                )}
+              </>
+            )}
           </p>
           <button
             type="button"
             onClick={onSubmit}
             disabled={disabled || !value.trim()}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-1.5",
               "font-sans text-[12.5px] font-semibold text-primary-foreground",
               "shadow-md shadow-primary/20 transition-opacity",
               "hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Generate ({creditCost} credits)
+            Generate ({breakdown.total} credit{breakdown.total === 1 ? "" : "s"})
           </button>
         </div>
       </div>

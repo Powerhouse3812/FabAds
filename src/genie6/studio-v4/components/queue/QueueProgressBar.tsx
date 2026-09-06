@@ -1,9 +1,9 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveCompleted, type QueueBatch, type QueueStatus } from "../../types/queue";
+import { batchStatus, batchDoneCount, type RunBatch } from "@/genie6/lib/genieRunTypes";
 
 interface QueueProgressBarProps {
-  batch: QueueBatch;
+  batch: RunBatch;
   /**
    * Visual density. `inline` is a 24px-tall row with count chip + 4px bar
    * (Library V2 list, V3 list rows, Studio queue cards). `stacked` is a
@@ -13,26 +13,23 @@ interface QueueProgressBarProps {
   size?: "inline" | "stacked";
   /** When true, hides the count chip — bar-only minimalism. Rarely useful. */
   hideCount?: boolean;
-  /** Suppress the loading spinner on generating state. */
+  /** Suppress the loading spinner on the running state. */
   hideSpinner?: boolean;
   className?: string;
 }
 
 /**
- * QueueProgressBar — single source of truth for "N/M variations" + the
- * thin progress fill across every queue surface in the app.
+ * QueueProgressBar — compact "N/M done" glance bar for list rows and card
+ * tiles (QueueCard, QueueListV3, BatchDetailsAccordion's closed header).
  *
- * Status → visual mapping:
- *   - queued     → empty bar, muted count, no spinner
- *   - generating → lime fill at completed/total, animated shimmer overlay,
- *                  inline Loader2 spinner next to the count
- *   - ready      → solid lime fill at 100%, no spinner, count in lime
- *   - failed     → red fill at whatever count was reached, no spinner,
- *                  count in destructive color
- *
- * The component reads `batch.completedCount` (with a `resolveCompleted`
- * fallback for legacy batches missing the field), so callers just pass
- * the whole batch — no math at the call site.
+ * NOTE on §18 scope: this is deliberately a plain completion-fraction bar —
+ * no stage names, no ETA claim, no failure copy — so it does not compete
+ * with the real stage-wise progress + failure pattern. That pattern (with
+ * an updating ETA and inline Retry) lives in the Progress agent's
+ * `StageProgress` / `BatchProgressHeader` / `RunItemTile` / `FailureNotice`,
+ * used for the ACTIVE batch's actual detail view. This bar is the "how far
+ * along is this OTHER row in the list" glance widget, the same role
+ * Library's queue-strip mini-bars play — not a second progress system.
  */
 export function QueueProgressBar({
   batch,
@@ -41,62 +38,58 @@ export function QueueProgressBar({
   hideSpinner = false,
   className,
 }: QueueProgressBarProps) {
-  const completed = resolveCompleted(batch);
-  const total = batch.generationCount;
+  const total = batch.items.length;
+  const completed = batch.items.filter((i) => i.status === "done").length;
   const pct = total > 0 ? Math.min(100, (completed / total) * 100) : 0;
 
-  const status = batch.status;
-  const isGenerating = status === "generating";
+  const status = batchStatus(batch);
+  const isRunning = status === "running";
   const isFailed = status === "failed";
-  const isReady = status === "ready";
-  const isQueued = status === "queued";
+  const isPartial = status === "partial";
+  const isDone = status === "done";
+  const isCancelled = status === "cancelled";
 
-  // Count chip color follows status. Lime for ready/generating, muted
-  // for queued, destructive for failed.
   const countColor = cn(
     "font-mono tabular-nums tracking-tight",
     size === "inline" ? "text-[10.5px]" : "text-[11px] font-semibold",
-    isReady && "text-primary",
-    isGenerating && "text-foreground",
-    isQueued && "text-muted-foreground",
+    isDone && "text-primary",
+    isRunning && "text-foreground",
+    isPartial && "text-warning-text",
+    isCancelled && "text-muted-foreground",
     isFailed && "text-destructive",
   );
 
-  // Fill color
   const fillColor = cn(
     "h-full rounded-full transition-[width] duration-500 ease-out",
     isFailed
       ? "bg-destructive"
-      : isQueued
-        ? "bg-muted-foreground/40"
-        : "bg-primary",
+      : isPartial
+        ? "bg-warning-text"
+        : isCancelled
+          ? "bg-muted-foreground/40"
+          : "bg-primary",
   );
 
-  // Track color — lighter for queued so the empty state still reads.
   const trackColor = cn(
     "relative w-full overflow-hidden rounded-full",
     size === "inline" ? "h-1" : "h-1.5",
     "bg-foreground/[0.08]",
   );
 
+  const count = batchDoneCount(batch);
+
   if (size === "stacked") {
     return (
       <div className={cn("flex flex-col gap-1", className)}>
         {!hideCount && (
           <div className="flex items-center justify-between gap-2">
-            <span className={countColor}>
-              {completed}/{total}
-            </span>
+            <span className={countColor}>{count}</span>
             <StatusLabel status={status} hideSpinner={hideSpinner} />
           </div>
         )}
         <div className={trackColor}>
-          <div
-            className={fillColor}
-            style={{ width: `${pct}%` }}
-            aria-hidden
-          />
-          {isGenerating && <ShimmerOverlay />}
+          <div className={fillColor} style={{ width: `${pct}%` }} aria-hidden />
+          {isRunning && <ShimmerOverlay />}
         </div>
       </div>
     );
@@ -105,27 +98,20 @@ export function QueueProgressBar({
   // inline
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {!hideCount && (
-        <span className={cn(countColor, "shrink-0")}>
-          {completed}/{total}
-        </span>
-      )}
+      {!hideCount && <span className={cn(countColor, "shrink-0")}>{count}</span>}
       <div className={trackColor}>
         <div className={fillColor} style={{ width: `${pct}%` }} aria-hidden />
-        {isGenerating && <ShimmerOverlay />}
+        {isRunning && <ShimmerOverlay />}
       </div>
-      {isGenerating && !hideSpinner && (
-        <Loader2
-          className="h-3 w-3 shrink-0 animate-spin text-primary"
-          aria-hidden
-        />
+      {isRunning && !hideSpinner && (
+        <Loader2 className="h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
       )}
     </div>
   );
 }
 
 /**
- * Animated shimmer over the lime fill while generating — same grammar as
+ * Animated shimmer over the lime fill while running — same grammar as
  * shadcn Skeleton, but constrained to the filled portion only.
  */
 function ShimmerOverlay() {
@@ -134,9 +120,6 @@ function ShimmerOverlay() {
       aria-hidden
       className={cn(
         "pointer-events-none absolute inset-0",
-        // Reuse the existing v3-shimmer keyframe from tailwind.config.ts
-        // (already used across Studio v3 / Genie 6 surfaces) so we don't
-        // introduce a one-off keyframe just for the progress bar.
         "bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.40)_50%,transparent_100%)]",
         "bg-[length:200%_100%] animate-v3-shimmer",
       )}
@@ -148,10 +131,10 @@ function StatusLabel({
   status,
   hideSpinner,
 }: {
-  status: QueueStatus;
+  status: ReturnType<typeof batchStatus>;
   hideSpinner: boolean;
 }) {
-  if (status === "generating") {
+  if (status === "running") {
     return (
       <span className="inline-flex items-center gap-1 font-mono text-[9.5px] uppercase tracking-wider text-primary">
         {!hideSpinner && <Loader2 className="h-2.5 w-2.5 animate-spin" />}
@@ -159,10 +142,10 @@ function StatusLabel({
       </span>
     );
   }
-  if (status === "queued") {
+  if (status === "partial") {
     return (
-      <span className="font-mono text-[9.5px] uppercase tracking-wider text-muted-foreground">
-        Queued
+      <span className="font-mono text-[9.5px] uppercase tracking-wider text-warning-text">
+        Partial
       </span>
     );
   }
@@ -173,10 +156,14 @@ function StatusLabel({
       </span>
     );
   }
-  // ready
+  if (status === "cancelled") {
+    return (
+      <span className="font-mono text-[9.5px] uppercase tracking-wider text-muted-foreground">
+        Cancelled
+      </span>
+    );
+  }
   return (
-    <span className="font-mono text-[9.5px] uppercase tracking-wider text-primary">
-      Done
-    </span>
+    <span className="font-mono text-[9.5px] uppercase tracking-wider text-primary">Done</span>
   );
 }

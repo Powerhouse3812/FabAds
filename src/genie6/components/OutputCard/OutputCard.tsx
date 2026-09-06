@@ -39,6 +39,15 @@ export interface OutputCardProps extends OutputData {
   onSelect?: () => void;
   onClick?: () => void;
   onKanbanMove?: (col: KanbanColumn) => void;
+
+  /** Reflects the Library's bookmark toggle (libraryActionsStore) — fills
+   *  the footer Save icon so the action reads as a real, remembered state
+   *  instead of a fire-and-forget button. */
+  bookmarked?: boolean;
+  /** Ellipsis items this card can't honestly perform right now (e.g. no
+   *  media to download on a text-only / zero-data output) — greyed out
+   *  and inert, never a silent no-op. */
+  disabledEllipsisActions?: EllipsisAction[];
 }
 
 /**
@@ -103,6 +112,8 @@ export function OutputCard({
   onEllipsisAction,
   onSelect,
   onClick,
+  bookmarked = false,
+  disabledEllipsisActions,
 }: OutputCardProps) {
   const [hovered, setHovered] = useState(false);
   const isVariantCompact = variant === "compact";
@@ -281,7 +292,14 @@ export function OutputCard({
       {/* ── Footer — 4-icon action row (top hairline divider) ────────── */}
       <div className="mt-auto flex h-10 items-center justify-between border-t border-g6-border-secondary px-3">
         <FooterIconBtn label="Launch" Icon={Send} onClick={onLaunch} stop={stop} />
-        <FooterIconBtn label="Save" Icon={Bookmark} onClick={onSave} stop={stop} />
+        <FooterIconBtn
+          label={bookmarked ? "Bookmarked" : "Save"}
+          Icon={Bookmark}
+          onClick={onSave}
+          stop={stop}
+          pressed={bookmarked}
+          iconClassName={bookmarked ? "fill-g6-primary text-g6-primary" : undefined}
+        />
         <FooterIconBtn
           label="Regenerate"
           Icon={RefreshCw}
@@ -289,7 +307,7 @@ export function OutputCard({
           stop={stop}
         />
         <span onClick={stop}>
-          <EllipsisMenu onAction={onEllipsisAction} />
+          <EllipsisMenu onAction={onEllipsisAction} disabled={disabledEllipsisActions} />
         </span>
       </div>
     </article>
@@ -316,7 +334,7 @@ function BrandRow({ brand }: { brand?: { name?: string; logo?: string } }) {
         )}
       </div>
       <span className="min-w-0 truncate font-g6-sans text-[12px] font-semibold leading-[22px] text-g6-text">
-        {brand?.name ?? "Unattributed"}
+        {brand?.name?.trim() || "Unattributed"}
       </span>
     </div>
   );
@@ -327,11 +345,16 @@ function FooterIconBtn({
   Icon,
   onClick,
   stop,
+  pressed,
+  iconClassName,
 }: {
   label: string;
   Icon: React.ComponentType<{ className?: string }>;
   onClick?: () => void;
   stop: (e: React.MouseEvent) => void;
+  /** Toggle state (e.g. bookmark) — sets aria-pressed for a11y. */
+  pressed?: boolean;
+  iconClassName?: string;
 }) {
   // Only intercept the click when a real handler is attached. If the parent
   // didn't pass onClick (Library masonry / Group-by-Angle row only wire the
@@ -349,11 +372,12 @@ function FooterIconBtn({
     <button
       type="button"
       aria-label={label}
+      aria-pressed={pressed}
       title={label}
       onClick={handle}
       className="inline-flex h-8 w-8 items-center justify-center rounded-g6-base text-g6-text-secondary transition-colors hover:bg-g6-bg-spotlight hover:text-g6-text"
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className={cn("h-3.5 w-3.5", iconClassName)} />
     </button>
   );
 }

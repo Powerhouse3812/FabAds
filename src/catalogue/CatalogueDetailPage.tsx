@@ -40,6 +40,10 @@ import {
   concepts,
   avatars,
   voices,
+  scripts,
+  ctas,
+  templates,
+  references,
   getInstructionsForEntity,
   getWinnerAdsForEntity,
   getReferenceUrlsForEntity,
@@ -74,22 +78,20 @@ import {
   useSavedInstructionsForEntity,
   useSavedWinnersForEntity,
 } from "@/genie6/concepts/saved-store";
-
-type CatalogueType =
-  | "categories"
-  | "brands"
-  | "products"
-  | "audiences"
-  | "angles"
-  | "hooks"
-  | "concepts"
-  | "avatars"
-  | "voices";
+import { getAssetType, type CatalogueType, type AssetTypeDef } from "./assetTypes";
+import { ProvenanceBadge, CreditsPill, UnknownAssetType } from "./CatalogueShared";
+import { AssetDetailActions } from "./AssetDetailActions";
+import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFromAsset";
+import { useInGenieUrl } from "./genieHandoff";
 
 // Note: KB block (KnowledgeBaseSection) only renders inside the brand /
-// product / category branches below. The new types (angles / hooks /
-// concepts / avatars / voices) never reach it — they return their own
-// Shell before the products fallthrough.
+// product / category branches below. The other types (angles / hooks /
+// concepts / avatars / voices / scripts / ctas / frameworks / templates /
+// references) never reach it — they return their own Shell instead.
+//
+// `CatalogueType` now comes from `assetTypes.ts`'s registry (single source
+// of truth — see that file's header comment for why) instead of being
+// copy-pasted here a third time.
 
 /**
  * Catalogue entity detail — stub for iter-6 A-9.
@@ -107,6 +109,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   const navigate = useNavigate();
 
   if (!id) return <div className="p-6 text-muted-foreground">Missing entity id.</div>;
+  if (!getAssetType(type)) return <UnknownAssetType type={type} />;
 
   if (type === "brands") {
     const brand = brands.find((b) => b.id === id);
@@ -124,8 +127,17 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     const audience = audiences.find((a) => a.id === id);
     if (!audience) return <NotFound type={type} navigate={navigate} />;
     const brand = audience.brandId ? brands.find((b) => b.id === audience.brandId) : undefined;
+    const def = getAssetType("audiences")!;
+    const card = def.toCard(audience);
+    const genieHref = useInGenieUrl("audiences", audience.id);
     return (
-      <Shell type={type} title={audience.label} subtitle={audience.segment} icon={<Users className="h-5 w-5" />}>
+      <Shell
+        type={type}
+        title={audience.label}
+        subtitle={audience.segment}
+        icon={<Users className="h-5 w-5" />}
+        headerRight={<ProvenanceBadge provenance={card.provenance} />}
+      >
         <Section title="Segment definition">
           <p className="text-sm text-foreground">{audience.segment}</p>
         </Section>
@@ -148,6 +160,8 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
         <Section title="Linked campaigns">
           <p className="text-sm text-muted-foreground italic">No campaigns linked yet.</p>
         </Section>
+        <AssetDetailActions def={def} item={audience} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("audiences", audience)} useInGenieHref={genieHref} />
       </Shell>
     );
   }
@@ -160,8 +174,17 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     const linkedConcepts = concepts.filter(
       (c) => c.angle.toLowerCase() === angle.label.toLowerCase()
     );
+    const def = getAssetType("angles")!;
+    const card = def.toCard(angle);
+    const genieHref = useInGenieUrl("angles", angle.id);
     return (
-      <Shell type={type} title={angle.label} subtitle={angle.description} icon={<Crosshair className="h-5 w-5" />}>
+      <Shell
+        type={type}
+        title={angle.label}
+        subtitle={angle.description}
+        icon={<Crosshair className="h-5 w-5" />}
+        headerRight={<ProvenanceBadge provenance={card.provenance} />}
+      >
         {angle.description && (
           <Section title="What it is"><p className="text-sm text-foreground">{angle.description}</p></Section>
         )}
@@ -201,9 +224,8 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             <p className="text-sm text-muted-foreground italic">No concepts linked yet.</p>
           )}
         </Section>
-        <Section title="Generation history">
-          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
-        </Section>
+        <AssetDetailActions def={def} item={angle} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("angles", angle)} useInGenieHref={genieHref} />
       </Shell>
     );
   }
@@ -213,8 +235,17 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     if (!hook) return <NotFound type={type} navigate={navigate} />;
     const brand = hook.brandId ? brands.find((b) => b.id === hook.brandId) : undefined;
     const angle = hook.angleId ? angles.find((a) => a.id === hook.angleId) : undefined;
+    const def = getAssetType("hooks")!;
+    const card = def.toCard(hook);
+    const genieHref = useInGenieUrl("hooks", hook.id);
     return (
-      <Shell type={type} title={`"${hook.text}"`} subtitle={undefined} icon={<MessageSquareQuote className="h-5 w-5" />}>
+      <Shell
+        type={type}
+        title={`"${hook.text}"`}
+        subtitle={undefined}
+        icon={<MessageSquareQuote className="h-5 w-5" />}
+        headerRight={<ProvenanceBadge provenance={card.provenance} />}
+      >
         <Section title="Linked brand">
           {brand ? (
             <Link
@@ -255,9 +286,8 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             </div>
           </Section>
         )}
-        <Section title="Generation history">
-          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
-        </Section>
+        <AssetDetailActions def={def} item={hook} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("hooks", hook)} useInGenieHref={genieHref} />
       </Shell>
     );
   }
@@ -272,8 +302,17 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     // Find hooks that match this concept's hook text exactly (since Concept.hook
     // is also a string, not a ref).
     const linkedHook = hooks.find((h) => h.text === concept.hook);
+    const def = getAssetType("concepts")!;
+    const card = def.toCard(concept);
+    const genieHref = useInGenieUrl("concepts", concept.id);
     return (
-      <Shell type={type} title={concept.name} subtitle={`${concept.angle} · ${concept.tone}`} icon={<Lightbulb className="h-5 w-5" />}>
+      <Shell
+        type={type}
+        title={concept.name}
+        subtitle={`${concept.angle} · ${concept.tone}`}
+        icon={<Lightbulb className="h-5 w-5" />}
+        headerRight={<ProvenanceBadge provenance={card.provenance} />}
+      >
         <Section title="Format"><p className="text-sm text-foreground font-mono">{concept.format}</p></Section>
         <Section title="Visual direction"><p className="text-sm text-foreground">{concept.visualDirection}</p></Section>
         <Section title="Hook copy"><p className="text-sm text-foreground italic">"{concept.hook}"</p></Section>
@@ -311,12 +350,14 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             </Link>
           </Section>
         )}
-        <Section title="Generation history">
+        <Section title="Generations">
           <div className="flex items-baseline gap-2">
             <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-sm text-foreground font-mono tabular-nums">{concept.generationCount} runs</p>
           </div>
         </Section>
+        <AssetDetailActions def={def} item={concept} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("concepts", concept)} useInGenieHref={genieHref} />
       </Shell>
     );
   }
@@ -325,11 +366,15 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     const avatar = avatars.find((a) => a.id === id);
     if (!avatar) return <NotFound type={type} navigate={navigate} />;
     const visual = avatarVisual(avatar);
+    const def = getAssetType("avatars")!;
+    const card = def.toCard(avatar);
+    const genieHref = useInGenieUrl("avatars", avatar.id);
     return (
       <Shell
         type={type}
         title={avatar.name}
         subtitle={avatar.demographic}
+        headerRight={<ProvenanceBadge provenance={card.provenance} />}
         icon={
           <div
             className="flex h-full w-full items-center justify-center rounded-xl text-[14px] font-semibold"
@@ -349,9 +394,11 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             ))}
           </div>
         </Section>
-        <Section title="Generation history">
-          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
-        </Section>
+        {/* No "New avatar" affordance anywhere (V1 = presets only, §9/§13) —
+            Edit/Duplicate/Archive/Delete/Use-in-Genie on an EXISTING preset
+            are unaffected by that restriction. */}
+        <AssetDetailActions def={def} item={avatar} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("avatars", avatar)} useInGenieHref={genieHref} />
       </Shell>
     );
   }
@@ -359,8 +406,17 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   if (type === "voices") {
     const voice = voices.find((v) => v.id === id);
     if (!voice) return <NotFound type={type} navigate={navigate} />;
+    const def = getAssetType("voices")!;
+    const card = def.toCard(voice);
+    const genieHref = useInGenieUrl("voices", voice.id);
     return (
-      <Shell type={type} title={voice.name} subtitle={voice.language} icon={<Mic className="h-5 w-5" />}>
+      <Shell
+        type={type}
+        title={voice.name}
+        subtitle={voice.language}
+        icon={<Mic className="h-5 w-5" />}
+        headerRight={<ProvenanceBadge provenance={card.provenance} />}
+      >
         <Section title="Description"><p className="text-sm text-foreground">{voice.description}</p></Section>
         <Section title="Language">
           <span className="text-xs font-mono rounded bg-muted px-2 py-1 text-muted-foreground">
@@ -380,25 +436,66 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             </a>
           </Section>
         )}
-        <Section title="Generation history">
-          <p className="text-sm text-muted-foreground italic">No generations yet.</p>
-        </Section>
+        <AssetDetailActions def={def} item={voice} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...deriveGenieMatchCriteria("voices", voice)} useInGenieHref={genieHref} />
       </Shell>
     );
   }
 
-  // products
-  const prod = products.find((p) => p.id === id);
-  if (!prod) return <NotFound type={type} navigate={navigate} />;
-  const brand = brands.find((b) => b.id === prod.brandId);
-  const category = categories.find((c) => c.id === prod.categoryId);
+  if (type === "products") {
+    const prod = products.find((p) => p.id === id);
+    if (!prod) return <NotFound type={type} navigate={navigate} />;
+    const brand = brands.find((b) => b.id === prod.brandId);
+    const category = categories.find((c) => c.id === prod.categoryId);
+    return (
+      <ProductDetail
+        product={prod}
+        brand={brand}
+        category={category}
+        navigate={navigate}
+      />
+    );
+  }
+
+  // Scripts / CTAs / Frameworks / Templates / References — §21.2 additions.
+  // No relational data model to cross-link, so a generic Shell body (same
+  // fields the asset-card grammar shows) rather than five bespoke ones.
+  const def = getAssetType(type)!;
+  const genericSource: Record<string, { id: string }[]> = {
+    scripts, ctas, templates, references,
+  };
+  const item = genericSource[type]?.find((it) => it.id === id);
+  if (!item) return <NotFound type={type} navigate={navigate} />;
+  const card = def.toCard(item);
+  const genieHref = useInGenieUrl(type, id);
   return (
-    <ProductDetail
-      product={prod}
-      brand={brand}
-      category={category}
-      navigate={navigate}
-    />
+    <Shell
+      type={type}
+      title={card.name}
+      subtitle={card.subtitle}
+      icon={<def.icon className="h-5 w-5" />}
+      headerRight={<ProvenanceBadge provenance={card.provenance} />}
+    >
+      {card.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {card.tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-muted-foreground/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
+        <span>{card.usageCount} runs</span>
+        <span aria-hidden>·</span>
+        <span>Last used {card.lastUsedLabel}</span>
+      </div>
+      <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
+      <GenerationsFromAsset {...deriveGenieMatchCriteria(type, item)} useInGenieHref={genieHref} />
+    </Shell>
   );
 }
 
@@ -409,12 +506,15 @@ function Shell({
   title,
   subtitle,
   icon,
+  headerRight,
   children,
 }: {
   type: CatalogueType;
   title: string;
   subtitle?: string;
   icon: React.ReactNode;
+  /** §21.2 provenance badge — same slot for every non-B/P/C type. */
+  headerRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -423,12 +523,15 @@ function Shell({
         <Link to={`/catalogue/${type}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
           <ArrowLeft className="h-3 w-3" /> Back to {type}
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">{icon}</div>
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-            {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted shrink-0">{icon}</div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-foreground truncate">{title}</h1>
+              {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
+            </div>
           </div>
+          {headerRight}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto space-y-5">{children}</div>
@@ -442,6 +545,61 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <SectionHeader title={title} />
       <div className="mt-2">{children}</div>
     </section>
+  );
+}
+
+/**
+ * §9 / §21.2 surgical insertion for Brand/Product/Category — provenance +
+ * the shared action row + the real "generations made from this" batch
+ * list, all in one strip placed right after each hero header. Does NOT
+ * touch the Guidelines/KB/Winners/Library/Activity/Products tab strip
+ * below it — Library already shows a `sampleOutputs`-based generation
+ * count per Brand/Product/Category; this ADDS the batch-level view
+ * (Batch ID, date, output count, status) that closes the loop per §9,
+ * it doesn't replace what Library already does.
+ */
+function BusinessAssetStrip<T extends { id: string }>({
+  def,
+  item,
+  criteria,
+}: {
+  def: AssetTypeDef<T>;
+  item: T;
+  criteria: { brandName?: string; productName?: string; angleLabel?: string };
+}) {
+  const card = def.toCard(item);
+  const genieHref = useInGenieUrl(def.id, def.getId(item));
+  return (
+    <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ProvenanceBadge provenance={card.provenance} />
+        <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
+      </div>
+      <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+    </div>
+  );
+}
+
+function BrandBusinessAssetStrip({ brand }: { brand: Brand }) {
+  return (
+    <BusinessAssetStrip def={getAssetType("brands")!} item={brand} criteria={{ brandName: brand.name }} />
+  );
+}
+
+function ProductBusinessAssetStrip({ product }: { product: Product }) {
+  const brand = brands.find((b) => b.id === product.brandId);
+  return (
+    <BusinessAssetStrip
+      def={getAssetType("products")!}
+      item={product}
+      criteria={{ brandName: brand?.name, productName: product.name }}
+    />
+  );
+}
+
+function CategoryBusinessAssetStrip({ category }: { category: Category }) {
+  return (
+    <BusinessAssetStrip def={getAssetType("categories")!} item={category} criteria={{}} />
   );
 }
 
@@ -1296,6 +1454,11 @@ export function BrandDetail({
       {/* ── Hero header ── */}
       <BrandHero brand={brand} productCount={linkedProducts.length} />
 
+      {/* ── §21.2 provenance + §9 actions — added surgically, tab strip
+           below is untouched. Same three-piece insertion as Product/
+           CategoryDetail. ── */}
+      <BrandBusinessAssetStrip brand={brand} />
+
       {/* ── Tab strip ── */}
       <div className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5 self-start">
         {tabs.map((t) => {
@@ -1895,6 +2058,10 @@ export function ProductDetail({
 
       {/* ── Hero header ── */}
       <ProductHero product={product} brand={brand} category={category} />
+
+      {/* ── §21.2 provenance + §9 actions — see BrandDetail's identical
+           insertion for why this sits outside the tab strip. ── */}
+      <ProductBusinessAssetStrip product={product} />
 
       {/* ── Tab strip ── */}
       <div className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5 self-start">
@@ -2597,6 +2764,10 @@ export function CategoryDetail({
         linkedProducts={linkedProducts}
         similarCategories={similarCategories}
       />
+
+      {/* ── §21.2 provenance + §9 actions — see BrandDetail's identical
+           insertion for why this sits outside the tab strip. ── */}
+      <CategoryBusinessAssetStrip category={category} />
 
       <div className="flex flex-wrap gap-1 rounded-full border border-border/60 bg-background/40 p-0.5 self-start">
         {tabs.map((t) => {

@@ -26,6 +26,7 @@ import { FolderLinkedOffersSection } from "./FolderLinkedOffersSection";
 import { FolderLaunchModal } from "./FolderLaunchModal";
 import { AdgroupLaunchModal } from "./AdgroupLaunchModal";
 import type { AdgroupLaunchItem } from "@/hooks/use-adgroup-launch";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 interface FolderContentsViewProps {
   folder: ClFolder;
@@ -337,6 +338,30 @@ function FolderAdgroupCard({ ag, isBookmarked, onToggleBookmark, onRemove, onDow
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onDownload}>
               <Download className="h-4 w-4 mr-2" /> Download
+            </DropdownMenuItem>
+            {/* Genie 2.0 §7.6 — "Folders get no manual action. Only a single Ad
+                redirects into Genie." An ad INSIDE a folder is still a single
+                ad, so it gets the same actions as one in the flat grid; the
+                rule bars acting on the folder itself, which nothing here does.
+                §7.6 also says non-Genie assets get identical actions, so this
+                is deliberately not gated on the asset's source. */}
+            <DropdownMenuItem
+              onSelect={(e) => e.preventDefault()}
+              className="p-0 focus:bg-transparent"
+            >
+              <SendToGenieMenu
+                module="creative-library"
+                refId={ag.id}
+                align="end"
+                trigger={
+                  <button
+                    type="button"
+                    className="flex w-full items-center px-2 py-1.5 text-sm hover:bg-accent rounded-sm"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" /> Send to Genie
+                  </button>
+                }
+              />
             </DropdownMenuItem>
             {onLaunch && (
               <DropdownMenuItem onClick={onLaunch}>

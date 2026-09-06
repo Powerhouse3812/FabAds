@@ -10,6 +10,10 @@ import {
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss, TrendingUp,
   Plus,
+  // Genie 2.0: Other Flows + Other Apps sub-nav entries. GitMerge reads as
+  // "many sources converge here", which is exactly what Other Flows is;
+  // Workflow is already spoken for by the Automations module.
+  GitMerge, LayoutGrid,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -214,9 +218,24 @@ export const MODULES: ModuleDef[] = [
       //     pill Studio = a Genie internal layout variant.
       // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
       // matches the new /studio Product-first flow's primacy.
+      // Genie 2.0 §3 — the sub-nav IA is now LOCKED to:
+      //   Overview · Studio · Other Flows · Other Apps · Concepts · Library · Settings
+      // "Other Flows" and "Other Apps" sit between Studio and Concepts, which is
+      // the spec's stated position. The six greyed legacy entries below the
+      // divider are the ones §3 says to "ignore entirely" — they stay only so
+      // old bookmarks resolve.
       { label: "Overview",    path: "/iq/genie6",                  icon: Home },
       // A-12.17: Studio Alpha is primary. Studio v3 + Beta deprioritized below Old Studio.
-      { label: "Studio Alpha", path: "/iq/genie6/studio-alpha", icon: Wand2, badge: "New" },
+      // Genie 2.0: relabelled "Studio Alpha" → "Studio" per §3's locked list. The
+      // path stays /studio-alpha — every deep link, every ?src/?ref/?act flow URL
+      // and every design-capture URL in circulation points at it.
+      { label: "Studio",      path: "/iq/genie6/studio-alpha",     icon: Wand2 },
+      // Genie 2.0 §7 — Other Flows: the surface that turns Genie from a place you
+      // go to into a place other modules feed into. Lists the 11 source modules.
+      { label: "Other Flows", path: "/iq/genie6/flows",            icon: GitMerge },
+      // Genie 2.0 §8 — Other Apps: 15 single-purpose tools, 7 live. "Apps" and
+      // "Tools" are the same thing (§2 vocabulary) — never two concepts.
+      { label: "Other Apps",  path: "/iq/genie6/apps",             icon: LayoutGrid },
       // A-12.38: Concepts library promoted to primary. Aggregates catalogue +
       // KB-attached + user-saved concepts into one searchable feed.
       { label: "Concepts",    path: "/iq/genie6/concepts",         icon: Lightbulb },
@@ -239,6 +258,12 @@ export const MODULES: ModuleDef[] = [
       // A-12.38: reduced to 3 — Brands / Product / Category. Audiences /
       // Angles / Hooks / Concepts / Avatars / Voices removed from sub-nav per
       // Maalik. Routes + data files preserved (may be re-surfaced later).
+      // Genie 2.0 §9 — Catalogue now holds 14 asset types across two groups
+      // (Business + Creative). Listing all 14 here would be a wall (Miller's
+      // 7±2), and the A-12.38 cut to three was the right call for the day-to-day
+      // path — so the grouped picker at /catalogue is the way into the other
+      // eleven, and the three commercial types keep their direct entries.
+      { label: "All assets", path: "/catalogue", icon: Boxes },
       { label: "Brands", path: "/catalogue/brands", icon: Building2 },
       { label: "Product", path: "/catalogue/products", icon: Package },
       { label: "Category", path: "/catalogue/categories", icon: Tag },

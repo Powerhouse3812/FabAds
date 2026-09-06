@@ -8,12 +8,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Link2, Search, SlidersHorizontal, Rocket, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, Link2, Search, SlidersHorizontal, Rocket, Zap, Wand2 } from "lucide-react";
 import { DUMMY_CAMPAIGN_URL_AUTOPILOT_USAGE } from "@/components/autopilot/autopilot-dummy-data";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import OfferSettingsDrawer from "@/components/offers/OfferSettingsDrawer";
 import LaunchFromCampaignUrlModal from "@/components/offers/LaunchFromCampaignUrlModal";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 export default function Offers() {
   const workspaceId = useWorkspace();
@@ -126,6 +127,28 @@ export default function Offers() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(o.id)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
+                    {/*
+                      §7.5 — these rows are Supabase-backed, so their ids never
+                      appear in the flow data agent's authored `flowSources.ts`
+                      (that registry is seeded mock data, keyed to the OTHER
+                      six live modules' own dummy ids). Handing over `o.id`
+                      honestly rather than inventing a fake match: when
+                      resolveFlowContext() can't find this id, the flow
+                      degrades to §7.5's documented no-match branch — "picker
+                      opens neutral, user's default brand highlighted" — which
+                      is exactly the right behaviour for a URL with no
+                      catalogue match, not a bug to work around.
+                    */}
+                    <SendToGenieMenu
+                      module="campaign-urls"
+                      refId={o.id}
+                      align="end"
+                      trigger={
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Send to Genie">
+                          <Wand2 className="h-4 w-4" />
+                        </Button>
+                      }
+                    />
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteId(o.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>

@@ -3,13 +3,26 @@ import { ChevronUp, ChevronDown, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODE_LABELS } from "../../types/output";
 import type { OutputData } from "../../types/output";
+import type { RunBatch } from "../../lib/genieRunTypes";
+import { originLabel } from "../../library/originLabels";
+import { languageLabel } from "../../lib/languages";
+import { angles } from "@/mocks/shared/angles";
 
 interface HowThisWasMadeProps {
   output: OutputData;
+  /** The real batch this output belongs to (§10), when known. Carries the
+   *  facts OutputData itself never had a home for: Batch ID, source module,
+   *  Created By, provenance, language. */
+  batch?: RunBatch;
   /** Default expanded. URL-driven via parent if needed. */
   defaultExpanded?: boolean;
   className?: string;
 }
+
+const PROVENANCE_LABEL: Record<RunBatch["provenance"], string> = {
+  "fabfunnel-seeded": "FabFunnel-seeded",
+  "client-created": "Client-created",
+};
 
 /**
  * HowThisWasMade — provenance section for the canonical Ad Detail drawer.
@@ -24,6 +37,7 @@ interface HowThisWasMadeProps {
  */
 export function HowThisWasMade({
   output,
+  batch,
   defaultExpanded = true,
   className,
 }: HowThisWasMadeProps) {
@@ -109,12 +123,20 @@ export function HowThisWasMade({
               </p>
               {output.angleTags && output.angleTags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
+                  {/* Resolve the angle id to its human label. These arrive as
+                      slugs ("ang-asp-lifestyle"), and rendering the slug put a
+                      database key in front of the user — right next to
+                      properly-labelled fields like "Product Ad" and "GPT 5.5",
+                      which made it read as a bug rather than an id. Falls back
+                      to the raw value so an unknown angle still shows
+                      something rather than vanishing. */}
                   {output.angleTags.map((tag) => (
                     <span
                       key={tag}
+                      title={tag}
                       className="inline-flex items-center rounded-full bg-muted/40 px-2 py-0.5 text-[11px] text-foreground/85"
                     >
-                      {tag}
+                      {angleLabel(tag)}
                     </span>
                   ))}
                 </div>
@@ -122,6 +144,25 @@ export function HowThisWasMade({
                 <p className="text-[11px] text-muted-foreground italic">—</p>
               )}
             </div>
+          </div>
+
+          {/* Row 3 — Batch facts (§10). Only when a real batch is on
+              record; otherwise say so honestly rather than fabricate one. */}
+          <div className="grid grid-cols-3 gap-6 pt-2 border-t border-border/40">
+            <Field label="Batch ID" value={batch?.batchId ?? "Not tracked"} mono />
+            <Field label="Source module" value={batch ? originLabel(batch.origin) : "—"} />
+            <Field label="Created by" value={batch?.createdBy ?? "—"} />
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            <Field
+              label="Provenance"
+              value={batch ? PROVENANCE_LABEL[batch.provenance] : "—"}
+            />
+            <Field
+              label="Language"
+              value={batch?.config?.language ? languageLabel(batch.config.language) : "—"}
+            />
+            <Field label="Credits (batch)" value={batch ? `${batch.credits}` : "—"} mono />
           </div>
 
           {/* Prompt snippet — only if we actually captured one */}
@@ -144,13 +185,20 @@ export function HowThisWasMade({
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </p>
-      <p className="text-[12.5px] text-foreground/85 leading-tight">{value}</p>
+      <p
+        className={cn(
+          "text-[12.5px] text-foreground/85 leading-tight",
+          mono && "font-mono uppercase tracking-[0.04em]",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -182,4 +230,9 @@ function CopyButton({ text }: { text: string }) {
       <Icon className="h-3 w-3" strokeWidth={2} />
     </button>
   );
+}
+
+/** Angle id → label, from the shared canonical angle list. */
+function angleLabel(id: string): string {
+  return angles.find((a) => a.id === id)?.label ?? id;
 }

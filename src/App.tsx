@@ -74,6 +74,7 @@ import VideoReport from "@/pages/reports/VideoReport";
 import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
 import { CatalogueDetailPage } from "@/catalogue/CatalogueDetailPage";
 import { CatalogueFinder } from "@/catalogue/CatalogueFinder";
+import { CatalogueHome } from "@/catalogue/CatalogueHome";
 import { ComingSoonPage } from "@/components/ComingSoonPage";
 import { PlanProvider } from "@/contexts/PlanContext";
 
@@ -285,8 +286,20 @@ const App = () => (
                 <Route path="settings" element={<WorkspaceSettings />} />
                 <Route path="dashboard" element={<Dashboard />} />
 
-                {/* Catalogue — new FabAds-wide module */}
-                <Route path="catalogue" element={<Navigate to="/catalogue/categories" replace />} />
+                {/* Catalogue — new FabAds-wide module.
+                    Genie 2.0 §9 + §21.1: the Catalogue is now the home for EVERY
+                    input asset, not just the commercial ones. §21.1 records the
+                    reversal of the 26 Aug "keep Asset Library and Catalogue
+                    separate" call — they are merged, under two groups:
+                      Business assets — Brands · Products · Categories
+                      Creative assets — Avatars · Voices · Scripts · Concepts ·
+                                        Hooks · CTAs · Frameworks
+                                        (+ §21.2's Angles · Templates ·
+                                         Audiences · References/Winner ads)
+                    The index is now the grouped picker rather than a redirect
+                    into Categories — with 14 types, dropping the user into one
+                    of them hides the other thirteen. */}
+                <Route path="catalogue" element={<CatalogueHome />} />
                 {/* A-12.42 (Maalik, refined): Finder layout PRESERVED for brand/product/
                     category LISTING. On brand click → full-screen 6-tab Brand Detail page
                     (CatalogueDetailPage). Products + categories: Finder for both list and
@@ -311,6 +324,22 @@ const App = () => (
                 <Route path="catalogue/avatars/:id" element={<CatalogueFinder type="avatars" />} />
                 <Route path="catalogue/voices" element={<CatalogueFinder type="voices" />} />
                 <Route path="catalogue/voices/:id" element={<CatalogueFinder type="voices" />} />
+                {/* Genie 2.0 §9 — the five new Creative asset types. Frameworks
+                    are served from src/genie6/editor/frameworks.ts (a storyboard
+                    IS a framework with per-section visuals, §21.2), References
+                    adapt the existing WINNER_ADS rather than forking new winner
+                    data. */}
+                <Route path="catalogue/scripts" element={<CatalogueFinder type="scripts" />} />
+                <Route path="catalogue/scripts/:id" element={<CatalogueFinder type="scripts" />} />
+                <Route path="catalogue/ctas" element={<CatalogueFinder type="ctas" />} />
+                <Route path="catalogue/ctas/:id" element={<CatalogueFinder type="ctas" />} />
+                <Route path="catalogue/frameworks" element={<CatalogueFinder type="frameworks" />} />
+                <Route path="catalogue/frameworks/:id" element={<CatalogueFinder type="frameworks" />} />
+                <Route path="catalogue/templates" element={<CatalogueFinder type="templates" />} />
+                <Route path="catalogue/templates/:id" element={<CatalogueFinder type="templates" />} />
+                <Route path="catalogue/references" element={<CatalogueFinder type="references" />} />
+                <Route path="catalogue/references/:id" element={<CatalogueFinder type="references" />} />
+
                 {/* Backward-compat redirects: old /grid URLs → bare URLs */}
                 <Route path="catalogue/categories/grid" element={<Navigate to="/catalogue/categories" replace />} />
                 <Route path="catalogue/categories/grid/:id" element={<CatalogueDetailPage type="categories" />} />
@@ -331,6 +360,18 @@ const App = () => (
                 <Route path="catalogue/concepts/grid/:id" element={<CatalogueDetailPage type="concepts" />} />
                 <Route path="catalogue/avatars/grid/:id" element={<CatalogueDetailPage type="avatars" />} />
                 <Route path="catalogue/voices/grid/:id" element={<CatalogueDetailPage type="voices" />} />
+                {/* Grid fallbacks for the five new Creative types, mirroring the
+                    six above so every asset type has the same two surfaces. */}
+                <Route path="catalogue/scripts/grid" element={<CatalogueListPage type="scripts" />} />
+                <Route path="catalogue/scripts/grid/:id" element={<CatalogueDetailPage type="scripts" />} />
+                <Route path="catalogue/ctas/grid" element={<CatalogueListPage type="ctas" />} />
+                <Route path="catalogue/ctas/grid/:id" element={<CatalogueDetailPage type="ctas" />} />
+                <Route path="catalogue/frameworks/grid" element={<CatalogueListPage type="frameworks" />} />
+                <Route path="catalogue/frameworks/grid/:id" element={<CatalogueDetailPage type="frameworks" />} />
+                <Route path="catalogue/templates/grid" element={<CatalogueListPage type="templates" />} />
+                <Route path="catalogue/templates/grid/:id" element={<CatalogueDetailPage type="templates" />} />
+                <Route path="catalogue/references/grid" element={<CatalogueListPage type="references" />} />
+                <Route path="catalogue/references/grid/:id" element={<CatalogueDetailPage type="references" />} />
 
                 {/* Automation — canvas workflow builder + reporting-automation list */}
                 {automationsRoutes}

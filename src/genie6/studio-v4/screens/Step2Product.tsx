@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Search,
@@ -10,6 +10,15 @@ import {
   Package,
   FolderOpen,
   Factory,
+  Upload,
+  Image as ImageIcon,
+  ImageOff,
+  X,
+  CheckSquare,
+  Square,
+  Info,
+  Users,
+  Trash2,
   // A-12.70: category icons replace emoji
   Scissors, Droplet, Palette, Sparkles, FlaskConical, CircleDot, Sun,
   Bath, Footprints, Heart, Baby, Smile, User, Flower2, Eye,
@@ -25,10 +34,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { brands as ALL_BRANDS, products as ALL_PRODUCTS, categories as ALL_CATEGORIES } from "@/mocks/shared";
+import { registerUploadedImage, resolveUploadedImage } from "@/genie6/lib/uploaded-image-store";
 import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import { UrlFetchModal } from "../components/UrlFetchModal";
 import type { UseWizardReturn } from "../state/useWizard";
+// Genie 2.0 §6 Rule 4 — Step 2 IS the ad-type screen for every module that
+// redirects into Genie. `resolveFlowContext` turns the ?src/?ref/?act URL
+// params (owned by the Flows Data agent, src/genie6/flows/data/) into the
+// module/action/source-ref/highlight this screen reacts to. Contract:
+// src/genie6/flows/data/resolveFlowContext.ts.
+import { resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
+import type { FlowContext } from "@/genie6/flows/flowTypes";
 
 interface Step2Props {
   wizard: UseWizardReturn;
@@ -136,9 +153,9 @@ const CATEGORY_SCHEME = {
     textRest: "text-fuchsia-600", textSelected: "text-fuchsia-700",
   },
   amber: {
-    bgRest: "bg-amber-50", bgHover: "group-hover:bg-amber-100",
-    bgSelected: "bg-amber-100",
-    textRest: "text-amber-600", textSelected: "text-amber-700",
+    bgRest: "bg-warning-text/10", bgHover: "group-hover:bg-warning-text/10",
+    bgSelected: "bg-warning-text/10",
+    textRest: "text-warning-text", textSelected: "text-warning-text",
   },
   rose: {
     bgRest: "bg-rose-50", bgHover: "group-hover:bg-rose-100",
@@ -300,15 +317,35 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   // Picker opens use replace:false → browser Back closes the picker first.
   // Tab switching uses replace:true → no history clutter.
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // ── §6 Rule 4 — flow context resolution ─────────────────────────────
+  // When a module redirects into Genie, ?src/?ref/?act resolve to a
+  // FlowContext. It decides which tab opens (`action.entityTab`) and what
+  // to show as the suggested/pre-selected entity (`highlight` / `preselect`)
+  // — see the render blocks below and `acceptHighlight`. `null` means Studio
+  // is running standalone (no redirect), which must behave exactly as it
+  // does today.
+  const flowCtx: FlowContext | null = useMemo(
+    () => resolveFlowContext(searchParams),
+    [searchParams],
+  );
+
   const urlTab = searchParams.get("step-tab");
   const tab: Tab =
     urlTab === "product" || urlTab === "category" || urlTab === "brand"
       ? urlTab
-      : wizard.state.productId
-        ? "product"
-        : wizard.state.categoryId
-          ? "category"
-          : "brand";
+      : flowCtx
+        ? // Open the tab the highlight lives on. For a competitor-owned or
+          // undetected source the highlight is forced to the user's own BRAND
+          // while the action's default tab is often "product" — opening the
+          // product tab made §7.2's one visible safeguard (own brand
+          // highlighted at the top of the picker) render nowhere.
+          (flowCtx.highlight?.kind ?? flowCtx.action.entityTab)
+        : wizard.state.productId
+          ? "product"
+          : wizard.state.categoryId
+            ? "category"
+            : "brand";
   const setTab = (next: Tab) => {
     setSearchParams(
       (prev) => {
@@ -350,6 +387,146 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   const [fetching, setFetching] = useState(false);
   const [showFetchModal, setShowFetchModal] = useState(false);
   const [fetchedProduct, setFetchedProduct] = useState<typeof ALL_PRODUCTS[0] | null>(null);
+
+  // ── §7.5 — Campaign URLs' documented exception to Rule 4 ────────────
+  // A matched catalogue product is PRE-SELECTED and editable (because the
+  // landing page is the user's own — unlike every other source). This
+  // effect seeds that initial value once per source ref; after that the
+  // user is free to click a different brand/product/category below and
+  // this never re-applies over their own choice.
+  const preselectedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!flowCtx?.preselect || !flowCtx.highlight) return;
+    if (preselectedForRef.current === flowCtx.ref.id) return;
+    preselectedForRef.current = flowCtx.ref.id;
+    const { kind, id } = flowCtx.highlight;
+    if (kind === "product") wizard.patch({ productId: id, brandId: null, categoryId: null });
+    else if (kind === "brand") wizard.patch({ brandId: id, productId: null, categoryId: null });
+    else wizard.patch({ categoryId: id, productId: null, brandId: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowCtx?.ref.id, flowCtx?.preselect, flowCtx?.highlight?.id, flowCtx?.highlight?.kind]);
+
+  // ── §6 Rule 4 base case — highlighted, NOT selected ─────────────────
+  // One click on the suggested band commits it. Nothing is written to
+  // wizard state before that click (Rule 3: Generate stays disabled until
+  // the user actually chooses).
+  const acceptHighlight = () => {
+    if (!flowCtx?.highlight) return;
+    const { kind, id } = flowCtx.highlight;
+    if (kind === "brand") wizard.patch({ brandId: id, productId: null, categoryId: null });
+    else if (kind === "product") wizard.patch({ productId: id, brandId: null, categoryId: null });
+    else wizard.patch({ categoryId: id, productId: null, brandId: null });
+    onAdvance();
+  };
+
+  /** Renders the flow band for a given tab — the amber "Suggested" band
+   *  for the highlight-only case, or the neutral "pre-filled" note for the
+   *  §7.5 exception. `null` on every other tab and when there's no flow
+   *  context at all. */
+  const flowBandForTab = (t: Tab) => {
+    if (!flowCtx?.highlight || flowCtx.highlight.kind !== t) return null;
+    return flowCtx.preselect ? (
+      <FlowPreselectNote ctx={flowCtx} />
+    ) : (
+      <FlowHighlightBand ctx={flowCtx} onAccept={acceptHighlight} />
+    );
+  };
+
+  // ── §9 — bulk product selection (Category Ad + Product Ad) ─────────
+  // `productId` stays the hero; `bulkProductIds` are the co-stars. Toggling
+  // in EITHER the Product tab or the Category tab's refine section writes
+  // the same two wizard fields, so the outcome — one ad containing all of
+  // them — is identical regardless of which tab built it.
+  const [bulkMode, setBulkMode] = useState(() => wizard.state.bulkProductIds.length > 0);
+  const bulkSelectedIds = useMemo(
+    () =>
+      new Set(
+        [wizard.state.productId, ...wizard.state.bulkProductIds].filter(
+          (x): x is string => !!x,
+        ),
+      ),
+    [wizard.state.productId, wizard.state.bulkProductIds],
+  );
+  const toggleBulkProduct = (id: string) => {
+    const hero = wizard.state.productId;
+    const bulk = wizard.state.bulkProductIds;
+    if (hero === id) {
+      const [nextHero, ...rest] = bulk;
+      wizard.patch({ productId: nextHero ?? null, bulkProductIds: rest });
+      return;
+    }
+    if (bulk.includes(id)) {
+      wizard.patch({ bulkProductIds: bulk.filter((x) => x !== id) });
+      return;
+    }
+    if (!hero) {
+      wizard.patch({ productId: id });
+      return;
+    }
+    wizard.patch({ bulkProductIds: [...bulk, id] });
+  };
+
+  // ── §21.2 — Product Shoot's third route: Brand → skip product →
+  // upload image. Lets a brand whose product isn't in the Catalogue yet
+  // (or a one-off) satisfy Step 2 without a catalogue product id.
+  const [uploadOpen, setUploadOpen] = makePopoverUrlState("upload-image");
+  const [uploadBrandId, setUploadBrandId] = useState<string | null>(
+    () => wizard.state.brandId,
+  );
+  const [uploadBrandSearch, setUploadBrandSearch] = useState("");
+  // DEFECT FIX: wizard.state.uploadedProductImage is a TOKEN now (see
+  // uploaded-image-store.ts), not the data: URL itself — resolve it back to
+  // the actual image for this popover's local preview. A token that no
+  // longer resolves (reload) seeds `null`, same as "nothing uploaded yet".
+  const [uploadPreview, setUploadPreview] = useState<string | null>(
+    () => resolveUploadedImage(wizard.state.uploadedProductImage) ?? null,
+  );
+  const [uploadProcessing, setUploadProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Resolved once per render for the "already uploaded" summary row below —
+  // undefined when the token is set but the in-memory store lost it (reload).
+  const uploadedImageDataUrl = resolveUploadedImage(wizard.state.uploadedProductImage);
+  const uploadNeedsReupload = !!wizard.state.uploadedProductImage && !uploadedImageDataUrl;
+
+  const uploadBrandOptions = useMemo(() => {
+    const term = uploadBrandSearch.trim().toLowerCase();
+    const list = term
+      ? ALL_BRANDS.filter((b) => b.name.toLowerCase().includes(term))
+      : ALL_BRANDS;
+    return list.slice(0, 30);
+  }, [uploadBrandSearch]);
+
+  const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadProcessing(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setUploadProcessing(false);
+      setUploadPreview(typeof reader.result === "string" ? reader.result : null);
+    };
+    reader.onerror = () => setUploadProcessing(false);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveUpload = () => {
+    if (!uploadBrandId || !uploadPreview) return;
+    // DEFECT FIX: never put the raw data: URL in wizard state — useUrlSync.ts
+    // mirrors this field straight into `?productImage=`, and a base64 image
+    // in a query string blows past URL length limits. Register it and keep
+    // only the short token.
+    wizard.patch({
+      brandId: uploadBrandId,
+      productId: null,
+      categoryId: null,
+      bulkProductIds: [],
+      uploadedProductImage: registerUploadedImage(uploadPreview),
+    });
+    setUploadOpen(false);
+    toast.success("Brand + image ready — no catalogue product needed");
+    onAdvance();
+  };
 
   const handleFetchUrl = async () => {
     const v = urlInput.trim();
@@ -459,20 +636,23 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     if (t === tab) return;
     setTab(t);
     setSearch("");
+    // §9 — a bulk co-star set belongs to whichever tab built it; leaving
+    // that tab clears it too, same as the XOR clearing below, so a stale
+    // set can't silently re-attach if the user comes back later.
     if (t === "brand") {
       // Picking the brand tab clears product + category
-      if (wizard.state.productId || wizard.state.categoryId) {
-        wizard.patch({ productId: null, categoryId: null });
+      if (wizard.state.productId || wizard.state.categoryId || wizard.state.bulkProductIds.length) {
+        wizard.patch({ productId: null, categoryId: null, bulkProductIds: [] });
       }
     }
     if (t === "product") {
-      if (wizard.state.brandId || wizard.state.categoryId) {
-        wizard.patch({ brandId: null, categoryId: null });
+      if (wizard.state.brandId || wizard.state.categoryId || wizard.state.bulkProductIds.length) {
+        wizard.patch({ brandId: null, categoryId: null, bulkProductIds: [] });
       }
     }
     if (t === "category") {
-      if (wizard.state.brandId || wizard.state.productId) {
-        wizard.patch({ brandId: null, productId: null });
+      if (wizard.state.brandId || wizard.state.productId || wizard.state.bulkProductIds.length) {
+        wizard.patch({ brandId: null, productId: null, bulkProductIds: [] });
       }
     }
   };
@@ -764,6 +944,177 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
                 </div>
               </PopoverContent>
             </Popover>
+
+            {/* §9 — bulk product selection toggle. Off = the fast single-pick
+                path (click a card → advance), unchanged from before. On =
+                clicking accumulates a set instead of advancing; the outcome
+                bar below states in words what will be produced. */}
+            <button
+              type="button"
+              onClick={() => setBulkMode((v) => !v)}
+              aria-pressed={bulkMode}
+              className={cn(
+                "shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-xs font-medium transition-colors",
+                bulkMode
+                  ? "border-primary/40 bg-primary/5 text-foreground"
+                  : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+              )}
+            >
+              {bulkMode ? (
+                <CheckSquare className="h-3.5 w-3.5" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+              Select multiple
+            </button>
+
+            {/* §21.2 — Product Shoot's third route: Brand → skip product →
+                upload image. For a brand whose product isn't in the
+                Catalogue yet, or a one-off. */}
+            <Popover open={uploadOpen} onOpenChange={setUploadOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-xs font-medium transition-colors",
+                    wizard.state.uploadedProductImage
+                      ? "border-primary/40 bg-primary/5 text-foreground"
+                      : "border-border text-foreground hover:border-foreground/30",
+                  )}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload image
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 space-y-3 p-3">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    No catalogue product? Use a brand + one image
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/80">
+                    For a brand-new SKU or a one-off — this satisfies Step 2
+                    on its own, no product id needed.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Brand
+                  </label>
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5">
+                    <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={uploadBrandSearch}
+                      onChange={(e) => setUploadBrandSearch(e.target.value)}
+                      placeholder="Search brand…"
+                      className="w-full bg-transparent text-xs outline-none"
+                    />
+                  </div>
+                  <div className="max-h-28 overflow-y-auto rounded-md border border-border/50">
+                    {uploadBrandOptions.length === 0 ? (
+                      <p className="px-2 py-2 text-[11px] text-muted-foreground">
+                        No match.
+                      </p>
+                    ) : (
+                      uploadBrandOptions.map((b) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setUploadBrandId(b.id)}
+                          className={cn(
+                            "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs transition-colors",
+                            uploadBrandId === b.id
+                              ? "bg-primary/10 text-foreground"
+                              : "text-foreground hover:bg-muted/40",
+                          )}
+                        >
+                          {b.logo ? (
+                            <img src={b.logo} alt="" className="h-3.5 w-3.5 rounded-sm shrink-0" />
+                          ) : (
+                            <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="flex-1 truncate">{b.name}</span>
+                          {uploadBrandId === b.id && (
+                            <Check className="h-3 w-3 shrink-0 text-primary" />
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Product image
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUploadFileChange}
+                    className="hidden"
+                    aria-label="Choose a product image to upload"
+                  />
+                  {uploadPreview ? (
+                    <div className="relative overflow-hidden rounded-md border border-border">
+                      <img
+                        src={uploadPreview}
+                        alt="Uploaded product"
+                        className="h-28 w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setUploadPreview(null)}
+                        aria-label="Remove image"
+                        className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-background/90 text-foreground shadow-sm"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadProcessing}
+                      className="flex h-20 w-full flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                    >
+                      {uploadProcessing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
+                      <span className="text-[11px]">
+                        {uploadProcessing ? "Reading…" : "Choose an image"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setUploadOpen(false)}
+                    className="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveUpload}
+                    disabled={!uploadBrandId || !uploadPreview}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors",
+                      !uploadBrandId || !uploadPreview
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary text-primary-foreground hover:opacity-90",
+                    )}
+                  >
+                    Use this brand + image
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </>
         )}
 
@@ -804,6 +1155,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Pick a brand
           </p>
+          {flowBandForTab("brand")}
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
             <BrandGrid
               brands={filteredBrands}
@@ -825,12 +1177,100 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Pick a product
           </p>
+          {flowBandForTab("product")}
+
+          {/* §21.2 — uploaded-image summary. Shown whenever a brand + image
+              already satisfies Step 2 without a catalogue product id. */}
+          {wizard.state.uploadedProductImage && (
+            <div className="mb-2 flex shrink-0 items-center gap-3 rounded-xl border border-border/50 bg-card/60 p-2.5">
+              {uploadedImageDataUrl ? (
+                <img
+                  src={uploadedImageDataUrl}
+                  alt="Uploaded product"
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                />
+              ) : (
+                // DEFECT FIX — degrade honestly: this session's in-memory
+                // image store didn't survive a reload, so the token no
+                // longer resolves. Never point <img src> at the token; show
+                // that it needs re-uploading instead of a broken image.
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-warning-text/40 bg-muted text-muted-foreground">
+                  <ImageOff className="h-4 w-4" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-foreground">
+                  {uploadNeedsReupload ? "Image needs re-uploading" : "Uploaded image"}
+                </p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {uploadNeedsReupload
+                    ? "This session's upload didn't survive the reload — choose it again."
+                    : `${ALL_BRANDS.find((b) => b.id === wizard.state.brandId)?.name ?? "No brand"} · no catalogue product needed`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUploadOpen(true)}
+                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                onClick={() => wizard.patch({ uploadedProductImage: null })}
+                aria-label="Remove uploaded image"
+                className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* §9 — bulk outcome, stated in words BEFORE the user commits. */}
+          {bulkMode && (
+            <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+              <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <p className="min-w-0 flex-1 text-[11px] font-medium text-foreground">
+                {bulkSelectedIds.size === 0
+                  ? "Select products to feature — they'll all be in ONE ad, not separate ads."
+                  : bulkSelectedIds.size === 1
+                    ? "1 product selected — the hero. Pick more, or continue with just this one."
+                    : `One ad featuring all ${bulkSelectedIds.size} products — not ${bulkSelectedIds.size} separate ads.`}
+              </p>
+              <button
+                type="button"
+                onClick={onAdvance}
+                disabled={bulkSelectedIds.size === 0}
+                className={cn(
+                  "shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                  bulkSelectedIds.size === 0
+                    ? "cursor-not-allowed bg-muted text-muted-foreground"
+                    : "bg-primary text-primary-foreground hover:opacity-90",
+                )}
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
             <ProductGrid
               products={filteredProducts}
               selectedId={wizard.state.productId}
+              multiSelect={bulkMode}
+              selectedIds={bulkSelectedIds}
+              heroId={wizard.state.productId}
               onPick={(id) => {
-                wizard.patch({ productId: id, categoryId: null, brandId: null });
+                if (bulkMode) {
+                  toggleBulkProduct(id);
+                  return;
+                }
+                wizard.patch({
+                  productId: id,
+                  categoryId: null,
+                  brandId: null,
+                  bulkProductIds: [],
+                });
                 onAdvance();
               }}
               search={search}
@@ -847,19 +1287,18 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           categories={filteredCategories}
           selectedCategoryId={wizard.state.categoryId}
           onPickCategory={(id) =>
-            wizard.patch({ categoryId: id, productId: null, brandId: null })
+            wizard.patch({
+              categoryId: id,
+              productId: null,
+              brandId: null,
+              bulkProductIds: [],
+            })
           }
           search={search}
           products={categoryProducts}
-          selectedProductId={wizard.state.productId}
-          onPickProduct={(id) => {
-            wizard.patch({
-              productId: wizard.state.productId === id ? null : id,
-              categoryId: wizard.state.categoryId,
-              brandId: null,
-            });
-            if (wizard.state.productId !== id) onAdvance();
-          }}
+          selectedProductIds={bulkSelectedIds}
+          heroProductId={wizard.state.productId}
+          onToggleProduct={toggleBulkProduct}
           onContinue={onAdvance}
           refineOpen={searchParams.get("refine") === "open"}
           onRefineToggle={(next) =>
@@ -873,6 +1312,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
               { replace: true },
             )
           }
+          highlightBand={flowBandForTab("category")}
         />
       )}
 
@@ -953,9 +1393,25 @@ interface ProductGridProps {
   selectedId: string | null;
   onPick: (id: string) => void;
   search: string;
+  /** §9 — bulk product selection. When true, `onPick` toggles membership in
+   *  `selectedIds` instead of committing a single pick; cards show a
+   *  checkbox-style badge instead of the single-select check-circle, and
+   *  `heroId` (== wizard.state.productId) gets a small HERO pill — it's the
+   *  product the ad is built around, the rest are co-stars. */
+  multiSelect?: boolean;
+  selectedIds?: Set<string>;
+  heroId?: string | null;
 }
 
-function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps) {
+function ProductGrid({
+  products,
+  selectedId,
+  onPick,
+  search,
+  multiSelect = false,
+  selectedIds,
+  heroId,
+}: ProductGridProps) {
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 px-3 py-12 text-center">
@@ -978,13 +1434,15 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
   return (
     <ul className="grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3">
       {products.map((p) => {
-        const isSelected = selectedId === p.id;
+        const isSelected = multiSelect ? (selectedIds?.has(p.id) ?? false) : selectedId === p.id;
+        const isHero = multiSelect && heroId === p.id;
         const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
         return (
           <li key={p.id}>
             <button
               type="button"
               onClick={() => onPick(p.id)}
+              aria-pressed={multiSelect ? isSelected : undefined}
               className={cn(
                 "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
                 isSelected
@@ -1013,10 +1471,26 @@ function ProductGrid({ products, selectedId, onPick, search }: ProductGridProps)
                     <span className="max-w-[80px] truncate">{brand.name}</span>
                   </span>
                 )}
-                {/* Check badge top-right when selected */}
+                {/* Selection badge top-right — circle check for single-select,
+                    square check for multi-select (§9), so the two modes read
+                    as visually distinct interaction models, not just a color. */}
                 {isSelected && (
-                  <span className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                  <span
+                    className={cn(
+                      "absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center bg-primary text-primary-foreground shadow-sm",
+                      multiSelect ? "rounded-md" : "rounded-full",
+                    )}
+                  >
                     <Check className="h-3 w-3" strokeWidth={3} />
+                  </span>
+                )}
+                {!isSelected && multiSelect && (
+                  <span className="absolute top-2 right-2 inline-flex h-5 w-5 items-center justify-center rounded-md border-2 border-background/80 bg-background/40 shadow-sm" />
+                )}
+                {/* Hero pill (§9 / §4) — this is the co-star set's lead product. */}
+                {isHero && (
+                  <span className="absolute bottom-2 left-2 inline-flex items-center rounded-full bg-foreground/90 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-background">
+                    Hero
                   </span>
                 )}
               </div>
@@ -1398,11 +1872,18 @@ interface CategoryBranchProps {
   onPickCategory: (id: string) => void;
   search: string;
   products: typeof ALL_PRODUCTS;
-  selectedProductId: string | null;
-  onPickProduct: (id: string) => void;
+  /** §9 — all currently-selected product ids (hero + co-stars combined). */
+  selectedProductIds: Set<string>;
+  /** The hero — wizard.state.productId. §4: for a Category Ad, product is
+   *  optional and a picked product becomes the hero of the ad. */
+  heroProductId: string | null;
+  onToggleProduct: (id: string) => void;
   onContinue: () => void;
   refineOpen: boolean;
   onRefineToggle: (next: boolean) => void;
+  /** §6 Rule 4 flow band (suggested / pre-filled), rendered pinned at the
+   *  top of the category picker. `null` outside a flow redirect. */
+  highlightBand?: React.ReactNode;
 }
 
 function CategoryBranch({
@@ -1411,15 +1892,18 @@ function CategoryBranch({
   onPickCategory,
   search,
   products,
-  selectedProductId,
-  onPickProduct,
+  selectedProductIds,
+  heroProductId,
+  onToggleProduct,
   onContinue,
   refineOpen,
   onRefineToggle,
+  highlightBand,
 }: CategoryBranchProps) {
   const selectedCategoryName =
     categories.find((c) => c.id === selectedCategoryId)?.name ?? null;
   const continueDisabled = !selectedCategoryId;
+  const bulkCount = selectedProductIds.size;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -1433,6 +1917,7 @@ function CategoryBranch({
         <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Pick a category
         </p>
+        {highlightBand}
         <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
           <CategoryGrid
             categories={categories}
@@ -1475,12 +1960,21 @@ function CategoryBranch({
         </button>
       </div>
 
-      {/* Products — only renders when refine ON. flex-[4] keeps the 60:40 ratio */}
+      {/* Products — only renders when refine ON. flex-[4] keeps the 60:40 ratio.
+          §4: product is OPTIONAL for a Category Ad — a pick becomes the hero.
+          §9: picking more than one is bulk selection — one ad featuring all
+          of them, never auto-advances; the always-visible Continue button
+          below is the only way forward from here. */}
       {refineOpen && (
         <div className="flex min-h-0 flex-[4] flex-col rounded-2xl border border-border/40 bg-card/40 p-3">
-          <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Products in {selectedCategoryName ?? "category"}
+          <p className="mb-1 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Products in {selectedCategoryName ?? "category"} · optional, first pick is the hero
           </p>
+          {bulkCount > 1 && (
+            <p className="mb-2 shrink-0 text-[11px] font-medium text-foreground">
+              One ad featuring all {bulkCount} products — not {bulkCount} separate ads.
+            </p>
+          )}
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
             {products.length === 0 ? (
               <p className="py-4 text-center text-[12px] italic text-muted-foreground">
@@ -1489,13 +1983,15 @@ function CategoryBranch({
             ) : (
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {products.map((p) => {
-                  const isSelected = selectedProductId === p.id;
+                  const isSelected = selectedProductIds.has(p.id);
+                  const isHero = heroProductId === p.id;
                   const brand = ALL_BRANDS.find((b) => b.id === p.brandId);
                   return (
                     <li key={p.id}>
                       <button
                         type="button"
-                        onClick={() => onPickProduct(p.id)}
+                        onClick={() => onToggleProduct(p.id)}
+                        aria-pressed={isSelected}
                         className={cn(
                           "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border bg-background text-left transition-all",
                           isSelected
@@ -1518,8 +2014,13 @@ function CategoryBranch({
                             />
                           )}
                           {isSelected && (
-                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm">
                               <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                            </span>
+                          )}
+                          {isHero && (
+                            <span className="absolute bottom-1 right-1 inline-flex items-center rounded-full bg-foreground/90 px-1 py-0.5 font-mono text-[7px] font-bold uppercase tracking-wider text-background">
+                              Hero
                             </span>
                           )}
                         </div>
@@ -1555,11 +2056,129 @@ function CategoryBranch({
           )}
         >
           {selectedCategoryName
-            ? `Continue with ${selectedCategoryName}`
+            ? bulkCount > 1
+              ? `Continue — ${bulkCount} products, one ad`
+              : `Continue with ${selectedCategoryName}`
             : "Pick a category to continue"}
           {!continueDisabled && <span aria-hidden>→</span>}
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── *
+ *  Flow-context bands (§6 Rule 4) — rendered pinned at the top
+ *  of whichever tab `flowCtx.action.entityTab` opens.
+ * ─────────────────────────────────────────────────────────── */
+
+/** Resolves a highlight's kind/id into something displayable — degrades to
+ *  the bare `{kind, id, name}` the URL carried if the id no longer resolves
+ *  against the current mock data (§ edge case: "a detectedEntity id that no
+ *  longer resolves" must never crash). */
+function resolveHighlightDisplay(
+  highlight: NonNullable<FlowContext["highlight"]>,
+): { name: string; sub: string; logo?: string } {
+  if (highlight.kind === "brand") {
+    const b = ALL_BRANDS.find((x) => x.id === highlight.id);
+    return { name: b?.name ?? highlight.name, sub: b?.category ?? "Brand", logo: b?.logo };
+  }
+  if (highlight.kind === "product") {
+    const p = ALL_PRODUCTS.find((x) => x.id === highlight.id);
+    const brand = p ? ALL_BRANDS.find((b) => b.id === p.brandId) : undefined;
+    return { name: p?.name ?? highlight.name, sub: brand?.name ?? "Product", logo: p?.thumbnail };
+  }
+  const c = ALL_CATEGORIES.find((x) => x.id === highlight.id);
+  return { name: c?.name ?? highlight.name, sub: "Category" };
+}
+
+/**
+ * FlowHighlightBand — §6 Rule 4 base case. "The detected entity appears
+ * highlighted at the top of the picker — highlighted, not selected. One
+ * click to accept, or search for something else."
+ *
+ * This is deliberately styled NOTHING like the grid's "selected" treatment
+ * (primary ring + circle check) — amber "Suggested" tag + an explicit
+ * "Use this" button, so it reads as a proposal, not a commitment. Nothing
+ * is written to wizard state until that button is clicked (Rule 3).
+ */
+function FlowHighlightBand({
+  ctx,
+  onAccept,
+}: {
+  ctx: FlowContext;
+  onAccept: () => void;
+}) {
+  if (!ctx.highlight) return null;
+  const display = resolveHighlightDisplay(ctx.highlight);
+  // §7.2 — competitorOwned is module metadata used ONLY for this explanatory
+  // note. It never changes what gets highlighted — that is, and must stay,
+  // ctx.highlight alone (see the big comment on flowCtx above).
+  const competitor = ctx.competitorOwned;
+  const refTitle =
+    ctx.ref.title.length > 60 ? `${ctx.ref.title.slice(0, 59)}…` : ctx.ref.title;
+
+  return (
+    <div className="mb-2 shrink-0 overflow-hidden rounded-xl border border-warning-text/30 bg-warning-text/10">
+      <div className="flex items-start gap-3 p-3">
+        {display.logo ? (
+          <img
+            src={display.logo}
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-lg border border-warning-text/30 bg-card object-contain"
+          />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-warning-text/30 bg-card text-xs font-bold text-warning-text">
+            {display.name.charAt(0)}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-warning-text/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-warning-text">
+              Suggested
+            </span>
+            <span className="truncate text-[10px] text-warning-text">
+              not selected yet
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-[13px] font-semibold text-foreground">
+            {display.name}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">{display.sub}</p>
+          {competitor && (
+            <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-muted-foreground">
+              <span className="font-semibold text-foreground">This ad is for your brand</span> — the
+              reference, "{refTitle}" by {ctx.ref.sourceBrandName}, belongs to a competitor and is used
+              only as inspiration, not the brand you're making this for.
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onAccept}
+          className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Use this
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * FlowPreselectNote — §7.5's documented exception to Rule 4. The Campaign
+ * URLs matched product is already pre-selected (shows with the grid's
+ * normal "selected" ring below, exactly like any other pick) — this note
+ * only makes the pre-fill VISIBLE and states plainly that it's editable.
+ */
+function FlowPreselectNote({ ctx }: { ctx: FlowContext }) {
+  if (!ctx.preselect || !ctx.highlight) return null;
+  return (
+    <div className="mb-2 flex shrink-0 items-center gap-2 rounded-xl border border-border/50 bg-muted/40 px-3 py-2">
+      <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+        Pre-filled from {ctx.module.label} — edit below if this isn't right.
+      </p>
     </div>
   );
 }

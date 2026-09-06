@@ -11,6 +11,7 @@ import { PlatformIcons } from "./PlatformIcons";
 
 import { toast } from "sonner";
 import type { InsightAd } from "@/lib/insights-dummy-data";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 interface Props {
   ad: InsightAd;
@@ -217,11 +218,21 @@ export function InsightAdCard({ ad, savedCount = 0, isFollowedBrand = false, onS
                   <Link className="h-3.5 w-3.5 mr-2" />
                   Copy Ad Link
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled className="opacity-50">
-                  <Sparkles className="h-3.5 w-3.5 mr-2" />
-                  Generate Variations
-                  <Badge variant="outline" className="ml-auto text-[9px] px-1 py-0 h-auto">Soon</Badge>
-                </DropdownMenuItem>
+                {/* §7.2 — whole ad travels to Genie as a reference; the picker
+                    highlights the user's own default brand, never this
+                    competitor's — resolved inside SendToGenieMenu from the
+                    ad's own id, not the brand name. */}
+                <SendToGenieMenu
+                  module="industry-insights"
+                  refId={ad.id}
+                  align="end"
+                  trigger={
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Sparkles className="h-3.5 w-3.5 mr-2" />
+                      Send to Genie
+                    </DropdownMenuItem>
+                  }
+                />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

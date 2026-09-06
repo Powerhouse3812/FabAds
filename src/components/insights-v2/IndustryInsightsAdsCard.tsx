@@ -34,6 +34,7 @@ import {
   DEFAULT_INSIGHTS_V2_DISPLAY_PREFS,
   type InsightsV2DisplayPrefs,
 } from "@/components/insights-v2/InsightsV2Toolbar";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 interface IndustryInsightsAdsCardProps {
   ad: InsightAd;
@@ -528,10 +529,23 @@ export function IndustryInsightsAdsCard({
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem disabled className="opacity-50">
-                  <Sparkles className="h-3.5 w-3.5 mr-2" />
-                  Generate Variations · Soon
-                </DropdownMenuItem>
+                {/* §7.2 — the whole ad travels to Genie as a reference; the
+                    picker highlights the user's OWN default brand, never this
+                    competitor's. SendToGenieMenu owns that resolution and the
+                    action list (generate variation / Video Sage actions once
+                    analysed / winner-as-reference / against-trend) — this
+                    just mounts it with the ad's own id as refId. */}
+                <SendToGenieMenu
+                  module="industry-insights"
+                  refId={ad.id}
+                  align="end"
+                  trigger={
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                      <Sparkles className="h-3.5 w-3.5 mr-2" />
+                      Send to Genie
+                    </DropdownMenuItem>
+                  }
+                />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

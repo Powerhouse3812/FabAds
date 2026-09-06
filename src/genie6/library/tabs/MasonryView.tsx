@@ -1,11 +1,19 @@
 import { OutputCard } from "../../components/OutputCard";
 import type { OutputData } from "../../types/output";
+import type { GetOutputCardActions } from "../useOutputCardActions";
 
 interface MasonryViewProps {
   outputs: OutputData[];
   selected: Set<string>;
   onSelect: (id: string) => void;
   onCardClick: (output: OutputData) => void;
+  /**
+   * Per-output ellipsis/footer handlers (bookmark, launch, regenerate,
+   * variation, save-as-*, etc). Optional so existing callers that don't
+   * wire actions (AngleViewMoreDrawer) keep compiling untouched — cards
+   * just render with no-op footer buttons in that case, same as before.
+   */
+  getActions?: GetOutputCardActions;
 }
 
 /**
@@ -27,7 +35,7 @@ interface MasonryViewProps {
  * variable height) — same OutputCard component the Group-by-Angle row
  * uses with `size="compact"`.
  */
-export function MasonryView({ outputs, selected, onSelect, onCardClick }: MasonryViewProps) {
+export function MasonryView({ outputs, selected, onSelect, onCardClick, getActions }: MasonryViewProps) {
   return (
     <div
       className="
@@ -43,6 +51,7 @@ export function MasonryView({ outputs, selected, onSelect, onCardClick }: Masonr
         <OutputCard
           key={o.id}
           {...o}
+          {...getActions?.(o)}
           selected={selected.has(o.id)}
           onSelect={() => onSelect(o.id)}
           onClick={() => onCardClick(o)}

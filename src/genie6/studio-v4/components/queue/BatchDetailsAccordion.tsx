@@ -2,33 +2,34 @@ import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, Clock, Layers, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { QueueBatch } from "../../types/queue";
+import { batchStatus, type RunBatch } from "@/genie6/lib/genieRunTypes";
 import { QueueStatusPill } from "./QueueStatusPill";
 import { QueueProgressBar } from "./QueueProgressBar";
+import { approachLabel, groupItemsByConcept, modelLabel } from "./batchDisplay";
 
 interface BatchDetailsAccordionProps {
-  batch: QueueBatch;
+  batch: RunBatch;
 }
 
 /**
  * BatchDetailsAccordion — collapsible config strip pinned ABOVE the results
- * in the V3 right pane. Closed-by-default: chevron toggle + title + status
- * pill + tiny meta row visible at rest; expanded reveals prompt + per-concept
- * breakdown + tag chips + submission timestamp.
+ * in the V3 right pane (and below BatchActionsBar in V1/V2). Closed-by-default:
+ * chevron toggle + title + status pill + tiny meta row visible at rest;
+ * expanded reveals the config snapshot (§10: "Library detail can explain how
+ * it was made") + concept breakdown + submission timestamp.
+ *
+ * §10 — Batch ID = Job ID, ONE identifier, "displayed above the batch": the
+ * closed header always shows `batch.batchId` in mono, not just on expand.
  *
  * Why an accordion vs. a sticky strip:
  *   - Per-batch config differs (different prompts, concept counts, status).
  *     A sticky strip would eat permanent vertical space even when the user
  *     just wants to triage results.
  *   - Closed state keeps the right pane breathing-room-rich while preserving
- *     the most important signals (title + status).
+ *     the most important signals (title + status + Batch ID).
  *
  * State (A-12.186): open/closed lives in the URL as `?details=open` so
  * refresh, deep-links, and back/forward all preserve the expanded view.
- * Single global flag — only one accordion renders at a time (the active
- * batch's), so when the user switches batches the state carries over.
- * Toggle uses `{ replace: true }` so back-button doesn't unwind through
- * every open/close.
  */
 export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -46,7 +47,7 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
     );
   }, [open, setSearchParams]);
 
-  const submitted = batch.submittedAt;
+  const submitted = new Date(batch.createdAt);
   const submittedLabel = new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
@@ -54,6 +55,9 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
     month: "short",
     day: "numeric",
   }).format(submitted);
+
+  const conceptGroups = groupItemsByConcept(batch.items);
+  const c = batch.config;
 
   return (
     <section
@@ -81,17 +85,18 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="truncate font-sans text-[15px] font-semibold leading-tight text-foreground">
-              {batch.title}
+              {batch.label}
             </h2>
-            <QueueStatusPill status={batch.status} />
+            <QueueStatusPill status={batchStatus(batch)} />
           </div>
-          {/* At-rest meta row: concept count + time. The generation count
-              moved into the progress bar below — keeps the meta row from
-              competing with the live N/M signal. */}
+          {/* §10 — Batch ID displayed above the batch, mono, always visible
+              (not gated behind expand). */}
           <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] tabular-nums text-muted-foreground">
-            {batch.concepts && batch.concepts.length > 0 && (
+            <span>{batch.batchId}</span>
+            <span aria-hidden>·</span>
+            {conceptGroups.length > 1 && (
               <>
-                <span>{batch.concepts.length} concepts</span>
+                <span>{conceptGroups.length} concepts</span>
                 <span aria-hidden>·</span>
               </>
             )}
@@ -100,8 +105,7 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {/* Inline progress bar in the closed header — gives the user
-              an at-a-glance N/M signal without expanding. Hide-count
-              false so the "10/50"-style chip is the primary visual. */}
+              an at-a-glance N/M signal without expanding. */}
           <div className="w-[140px]">
             <QueueProgressBar batch={batch} size="inline" hideSpinner />
           </div>
@@ -119,29 +123,49 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
         >
           {/* Prompt block — full-width when prompt is long; primary
               context for what this batch was asking for. */}
-          {batch.prompt && (
+          {c?.promptSnippet && (
             <div className="sm:col-span-2">
               <DetailLabel icon={Wand2}>Prompt</DetailLabel>
               <p className="mt-1 rounded-md border border-border/40 bg-background px-3 py-2 font-sans text-[12px] leading-relaxed text-foreground/85">
-                {batch.prompt}
+                {c.promptSnippet}
               </p>
             </div>
           )}
 
+          {/* Config snapshot — §10: "Library detail can explain how it was
+              made". Shows exactly the fields RunBatch.config carries. */}
+          {c && (
+            <div>
+              <DetailLabel icon={Sparkles}>How this was made</DetailLabel>
+              <dl className="mt-1.5 space-y-1 font-sans text-[12px] text-foreground/85">
+                {c.brandName && <ConfigRow term="Brand" value={c.brandName} />}
+                {c.productName && <ConfigRow term="Product" value={c.productName} />}
+                {c.format && (
+                  <ConfigRow term="Format" value={c.format === "video" ? "Video" : "Image"} />
+                )}
+                {c.approach && <ConfigRow term="Approach" value={approachLabel(c.approach) ?? c.approach} />}
+                {c.model && <ConfigRow term="Model" value={modelLabel(c.model) ?? c.model} />}
+                {c.angle && <ConfigRow term="Angle" value={c.angle} />}
+                {c.language && <ConfigRow term="Language" value={c.language} />}
+                {c.aspectRatio && <ConfigRow term="Aspect ratio" value={c.aspectRatio} />}
+              </dl>
+            </div>
+          )}
+
           {/* Concepts breakdown — which concept rows this batch produced
-              and how many variations per concept. */}
-          {batch.concepts && batch.concepts.length > 0 && (
+              and how many items per concept. */}
+          {conceptGroups.length > 1 && (
             <div>
               <DetailLabel icon={Layers}>Concepts</DetailLabel>
               <ul className="mt-1.5 space-y-1">
-                {batch.concepts.map((c) => (
+                {conceptGroups.map((g) => (
                   <li
-                    key={c.id}
+                    key={g.label}
                     className="flex items-center justify-between font-sans text-[12px] text-foreground/85"
                   >
-                    <span>{c.label}</span>
+                    <span>{g.label}</span>
                     <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
-                      {c.variationCount} variation{c.variationCount === 1 ? "" : "s"}
+                      {g.items.length} output{g.items.length === 1 ? "" : "s"}
                     </span>
                   </li>
                 ))}
@@ -149,25 +173,8 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
             </div>
           )}
 
-          {/* Tags */}
-          {batch.tags.length > 0 && (
-            <div>
-              <DetailLabel icon={Sparkles}>Tags</DetailLabel>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                {batch.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex h-[18px] items-center rounded-full bg-background px-2 font-sans text-[10.5px] font-medium text-muted-foreground ring-1 ring-inset ring-border"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Submission meta — full timestamp, status, id. Two columns
-              when there's room, stacks on narrow. */}
+          {/* Submission meta — full timestamp + Batch ID again for anyone
+              who expanded straight past the closed header. */}
           <div className="sm:col-span-2">
             <DetailLabel icon={Clock}>Submitted</DetailLabel>
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10.5px] tabular-nums text-foreground/80">
@@ -177,14 +184,22 @@ export function BatchDetailsAccordion({ batch }: BatchDetailsAccordionProps) {
                   timeStyle: "short",
                 })}
               </span>
-              <span className="text-muted-foreground">
-                batch id · {batch.id}
-              </span>
+              <span className="text-muted-foreground">batch id · {batch.batchId}</span>
+              <span className="text-muted-foreground">{batch.credits} credits charged</span>
             </div>
           </div>
         </div>
       )}
     </section>
+  );
+}
+
+function ConfigRow({ term, value }: { term: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-muted-foreground">{term}</dt>
+      <dd className="truncate text-right font-medium text-foreground">{value}</dd>
+    </div>
   );
 }
 

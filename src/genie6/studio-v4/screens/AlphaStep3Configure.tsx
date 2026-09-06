@@ -25,7 +25,10 @@ import type {
   AttachSource,
   AttachedRef,
   UseWizardReturn,
+  WizardState,
 } from "../state/useWizard";
+import { resolveFlowContext } from "../../flows/data/resolveFlowContext";
+import type { FlowContext } from "../../flows/flowTypes";
 import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import {
@@ -33,6 +36,7 @@ import {
   type ChipKind,
   ANGLE_CHIP_LABEL,
   RATIOS,
+  RatioShapeOption,
 } from "../components/PromptReferenceBar";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
@@ -193,6 +197,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     );
   };
 
+  // §7.3 / §7.4 / §7 — flow context (Other Flows). Resolved from the SAME
+  // three URL params every Studio step reads (?src/?ref/?act) — Configure
+  // doesn't own the banner (Flows UI agent's job) but DOES own the
+  // suggestions rail and the Angle·Concept card those flows feed. `null`
+  // when Studio is running standalone (no flow), which is the common case.
+  const flowCtx: FlowContext | null = resolveFlowContext(searchParams);
+
+  // §21.2 "Script becomes a gated pre-step" — script-led = the same
+  // definition PromptReferenceBar uses (mode === "ugc-video" OR
+  // angleId === "ugc-style"), so the chip label, the Generate gate, and the
+  // ScriptRail's approve flow all agree on what counts as script-led.
+  const isScriptLed =
+    wizard.state.mode === "ugc-video" || wizard.state.angleId === "ugc-style";
+
   // Trending concepts — top 16 sample outputs by qualityScore desc.
   // Pool is bigger so the horizontal-scroll strip has substance.
   const trending = useMemo(() => {
@@ -264,7 +282,13 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   // A-12.9 (Maalik MOM 06-05): once the user touches angle OR concepts, stop
   // auto-filling — going back/forward through the wizard must not clobber a
   // manual pick. A ref (not state) so flipping it never triggers a re-render.
-  const userEditedRef = useRef(false);
+  //
+  // §4/§6 "a flow-supplied angle lands in it, exactly as today": seeded TRUE
+  // when angleId is already non-null at first mount (from flowInitialPatch's
+  // URL-restore, or Rule 1's variation pre-fill) — otherwise the mode-based
+  // auto-fill effect below would overwrite that angle on this very mount,
+  // since it only checks THIS ref and starts unaware anything was pre-filled.
+  const userEditedRef = useRef(wizard.state.angleId !== null);
 
   // Click trending → toggle into selectedConceptIds via synthetic prefix
   // (so it doesn't collide with library concept IDs).
@@ -326,6 +350,42 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, approachSubType]);
 
+  // §7.4 "Trends → Genie: BOTH travel — the trend fills the angle, and its
+  // supporting creative arrives as a reference." Mount-only (flow context is
+  // fixed for the life of this Configure mount) and idempotent — guarded so
+  // it never re-applies (a later manual edit must win) and never double-
+  // attaches a reference flowInitialPatch may have already added upstream.
+  // Runs AFTER the mode-based auto-fill effect above (hook declaration order)
+  // so a trend angle always wins over the approach's default for this mount.
+  const flowSeededRef = useRef(false);
+  useEffect(() => {
+    if (flowSeededRef.current) return;
+    flowSeededRef.current = true;
+    if (!flowCtx || flowCtx.module.key !== "trends") return;
+
+    const patch: Partial<WizardState> = {};
+    if (flowCtx.ref.trendAngle && !wizard.state.angleId) {
+      patch.angleId = flowCtx.ref.trendAngle;
+      userEditedRef.current = true; // protect from a later mode change re-auto-filling
+    }
+    const refId = `flow-${flowCtx.ref.id}`;
+    const alreadyAttached = wizard.state.attachedReferences.some((r) => r.id === refId);
+    if (!alreadyAttached) {
+      patch.attachedReferences = [
+        ...wizard.state.attachedReferences,
+        {
+          id: refId,
+          source: "url",
+          label: `Trend · ${flowCtx.ref.title}`,
+          ...(flowCtx.ref.thumbnail ? { thumbnail: flowCtx.ref.thumbnail } : {}),
+        },
+      ];
+    }
+    if (Object.keys(patch).length > 0) wizard.patch(patch);
+    // Mount-only by design — see comment above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Inline Angles+Concepts card open/closed state. STARTS COLLAPSED because the
   // picks are auto-filled (A-12.9). URL-backed via ?picks=open so back/forward
   // is predictable and matches the existing accordion convention in this file.
@@ -376,10 +436,13 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
       <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto px-4 pt-6 pb-6 md:gap-6 md:px-6 md:pt-8 md:pb-10">
         <HeroHeader title="Configure" onBack={onBack} />
 
-          {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip */}
+          {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip.
+              §7.3/§7.4: adapted to the flow source (Reports' ad performance,
+              Trends' hook) when one exists; angle-aware fallback otherwise. */}
           {wizard.state.prompt.trim().length === 0 && (
             <PromptSuggestions
               angleId={wizard.state.angleId}
+              flowSuggestions={flowCtx ? flowAdaptedSuggestions(flowCtx) : null}
               onPick={(p) => wizard.set("prompt", p)}
             />
           )}
@@ -869,6 +932,33 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 onClose={handleAttachCancel}
               />
             )}
+            {railMode === "script" && (
+              // §21.2 "Script becomes a gated pre-step": generate → review →
+              // edit → approve → then generate. `gated` restricts the
+              // review/approve sequence to script-led approaches (UGC Video,
+              // or anything else with angleId "ugc-style") — a non-script
+              // approach saves and closes exactly as before.
+              <ScriptRail
+                currentScript={wizard.state.script}
+                gated={isScriptLed}
+                scriptApproved={wizard.state.scriptApproved}
+                skipScriptReview={wizard.state.skipScriptReview}
+                promptSeed={wizard.state.prompt}
+                onApprove={() => wizard.set("scriptApproved", true)}
+                onSkipReview={() => wizard.set("skipScriptReview", true)}
+                onSave={(script) => {
+                  // Editing an already-approved script invalidates that
+                  // approval — the user must re-approve the new text. A
+                  // no-op re-save of identical text doesn't reset it.
+                  const changed = script !== wizard.state.script;
+                  wizard.patch({
+                    script,
+                    ...(changed ? { scriptApproved: false } : {}),
+                  });
+                }}
+                onClose={() => setRailMode(null)}
+              />
+            )}
             {railMode === "kb-instruction" && (
               <KbInstructionRail
                 targetAngle={wizard.state.angleId}
@@ -1124,23 +1214,70 @@ const ANGLE_PROMPTS: Record<string, string[]> = {
 };
 
 /**
+ * §7.3 / §7.4 — flow-adapted suggestions for the rail.
+ *
+ * §7.4 "Auto-inject trends into Configure's suggestions rail" — when the flow
+ * came from Trends, suggestions are seeded from the trend's OWN hook/title
+ * (the angle itself is set on the Angle·Concept card by the effect above —
+ * this only covers the rail's prompt text).
+ *
+ * §7.3 "Reports gets suggestions only... adapted to that ad's performance" —
+ * when the flow came from Reports, suggestions reference the SOURCE AD'S
+ * ACTUAL metrics (ctx.ref.metrics), never a generic prompt.
+ *
+ * Returns null for every other module (or no flow at all) so the caller
+ * falls back to the existing angle-aware GENERIC_PROMPTS / ANGLE_PROMPTS —
+ * that's the zero-data path for this rail.
+ */
+function flowAdaptedSuggestions(ctx: FlowContext): string[] | null {
+  if (ctx.module.key === "reports") {
+    const metricLine = ctx.ref.metrics?.length
+      ? ctx.ref.metrics.map((m) => `${m.label} ${m.value}`).join(" · ")
+      : null;
+    return [
+      metricLine
+        ? `Refresh "${ctx.ref.title}" — keep what's working (${metricLine}), swap the visual`
+        : `Refresh "${ctx.ref.title}" — same offer, new creative angle`,
+      `New hook for "${ctx.ref.title}" — this one's fatiguing`,
+      `Bolder CTA on "${ctx.ref.title}" — test against the current control`,
+    ];
+  }
+  if (ctx.module.key === "trends") {
+    const angle = ctx.ref.trendAngle;
+    return [
+      angle
+        ? `Generate against "${ctx.ref.title}" — ${angle} angle, trending now`
+        : `Generate against "${ctx.ref.title}" — trending right now`,
+      `Script pulling the same hook as "${ctx.ref.title}"`,
+      `Remix "${ctx.ref.title}" for our own product line`,
+    ];
+  }
+  return null;
+}
+
+/**
  * PromptSuggestions — A-12.18 sleek single-line strip ABOVE the prompt bar.
  * Inspired by Old Studio's "TRY:" pattern — minimal, glass-like pills, click to fill.
  */
 function PromptSuggestions({
   angleId,
+  flowSuggestions,
   onPick,
 }: {
   angleId: string | null;
+  /** From flowAdaptedSuggestions(ctx) — null/undefined falls back below. */
+  flowSuggestions?: string[] | null;
   onPick: (prompt: string) => void;
 }) {
-  const suggestions =
-    (angleId && ANGLE_PROMPTS[angleId]) ?? GENERIC_PROMPTS;
+  const fromFlow = flowSuggestions && flowSuggestions.length > 0;
+  const suggestions = fromFlow
+    ? flowSuggestions!
+    : (angleId && ANGLE_PROMPTS[angleId]) ?? GENERIC_PROMPTS;
 
   return (
     <div className="flex items-center gap-2">
       <span className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Suggestions
+        {fromFlow ? "From your source" : "Suggestions"}
       </span>
       <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
         {suggestions.map((s) => (
@@ -1216,31 +1353,26 @@ function GenerationSettingsButton({
       <PopoverContent align="end" side="top" className="w-[310px] rounded-xl border bg-card p-4">
         <div className="flex flex-col gap-4">
           {/* — Aspect Ratio section (A-12.56: merged in from the standalone
-              picker that used to live in PromptReferenceBar's Row 3) — */}
+              picker that used to live in PromptReferenceBar's Row 3) —
+              §5 "show an example of each shape, not just the ratio name.
+              This is what 'multi aspect ratio' means — a presentation fix,
+              not a multi-output generation feature." Reuses the SAME
+              RatioShapeOption row PromptReferenceBar's AspectRatioPopover
+              renders (its own comment called it dead code "kept in case we
+              want to revert" — revived here instead of a third ratio UI). */}
           <div className="flex flex-col gap-1.5">
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Aspect Ratio
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {RATIOS.map((r) => {
-                const active = state.aspectRatio === r;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => wizard.set("aspectRatio", r)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex h-7 items-center justify-center rounded-full border px-3 font-mono text-[11px] font-medium transition-colors",
-                      active
-                        ? "border-primary/40 bg-primary/[0.10] text-primary"
-                        : "border-border/60 bg-background/50 text-foreground/80 hover:border-foreground/30",
-                    )}
-                  >
-                    {r}
-                  </button>
-                );
-              })}
+            <div className="flex flex-col gap-0.5">
+              {RATIOS.map((r) => (
+                <RatioShapeOption
+                  key={r}
+                  ratio={r}
+                  active={state.aspectRatio === r}
+                  onSelect={() => wizard.set("aspectRatio", r)}
+                />
+              ))}
             </div>
           </div>
 

@@ -8,6 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { sampleOutputs } from "../mocks/sample-outputs";
 import type { OutputData } from "../types/output";
+import type { RunBatch } from "../lib/genieRunTypes";
 import { LeftCreativeCard } from "./ad-detail/LeftCreativeCard";
 import { TopActionRow } from "./ad-detail/TopActionRow";
 import { AiVerdictCells } from "./ad-detail/AiVerdictCells";
@@ -17,6 +18,10 @@ import { SameBatchGrid } from "./ad-detail/SameBatchGrid";
 
 interface Props {
   output: OutputData;
+  /** The real batch this output belongs to, if any (§10) — resolved by
+   *  AdDetailDrawer via RunItem.outputId. Undefined for legacy outputs
+   *  generated before batch tracking existed. */
+  batch?: RunBatch;
   open: boolean;
   onClose: () => void;
   onSelectSibling?: (id: string) => void;
@@ -60,6 +65,7 @@ interface Props {
  */
 export function AdDetailDrawerContent({
   output,
+  batch,
   open,
   onClose,
   onSelectSibling,
@@ -118,7 +124,7 @@ export function AdDetailDrawerContent({
               </section>
 
               {/* How this was made */}
-              <HowThisWasMade output={output} />
+              <HowThisWasMade output={output} batch={batch} />
 
               {/* What to do next — coach rows */}
               {output.recommendations && output.recommendations.length > 0 && (
@@ -137,6 +143,7 @@ export function AdDetailDrawerContent({
               {/* Generated in same batch */}
               <SameBatchGrid
                 output={output}
+                batch={batch}
                 allOutputs={sampleOutputs}
                 onSelectSibling={onSelectSibling}
               />

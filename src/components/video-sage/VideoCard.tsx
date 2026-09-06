@@ -1,9 +1,10 @@
 import { format } from "date-fns";
-import { Play, Download, RefreshCw, Loader2 } from "lucide-react";
+import { Play, Download, RefreshCw, Loader2, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { VideoSageVideo } from "@/hooks/use-video-sage";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 interface Props {
   video: VideoSageVideo;
@@ -103,6 +104,23 @@ export default function VideoCard({ video, onOpen }: Props) {
           <Button variant="ghost" size="icon" className="h-7 w-7" disabled>
             <RefreshCw className="w-3.5 h-3.5" />
           </Button>
+          {/* §7.1 — Use script/concept/framework/storyboard and the three Vary
+              actions all read from this video's analysis, so the affordance
+              only appears once analysis exists (RECON: no kebab existed here
+              at all before this). */}
+          {video.status === "analysed" && (
+            <span onClick={(e) => e.stopPropagation()}>
+              <SendToGenieMenu
+                module="video-sage"
+                refId={video.id}
+                trigger={
+                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Send to Genie">
+                    <Wand2 className="w-3.5 h-3.5" />
+                  </Button>
+                }
+              />
+            </span>
+          )}
         </div>
       </div>
     </Card>

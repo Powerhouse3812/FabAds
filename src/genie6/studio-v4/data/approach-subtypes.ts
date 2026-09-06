@@ -1,4 +1,4 @@
-import type { Mode } from "../state/useWizard";
+import type { Format, Mode } from "../state/useWizard";
 
 /**
  * approach-subtypes — per-approach sub-types + the auto-fill mapping for the
@@ -118,3 +118,35 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
   };
   return DEFAULTS[mode] ?? { angleId: null, conceptIds: [] };
 }
+
+/**
+ * §21.2 — "Approach must filter by Format". The doc names the exact defect and
+ * the exact remedy: "Today Format=Image still offers *Image to Video*, and
+ * Format=Video still offers *BG Remover* and *Resize*. That contradiction is
+ * visible on screen right now. The approach list must be filtered by the
+ * chosen format."
+ *
+ * Those two examples ARE the mapping. Image to Video produces motion, so it is
+ * video-only. BG Remover and Resize operate on a still, so they are image-only.
+ * Everything else follows from what the approach actually produces:
+ *   - UGC Video and B-Roll are inherently motion       → video
+ *   - Create Variations iterates an existing creative
+ *     of either kind                                    → both
+ *   - From scratch is the format-agnostic catch-all      → both
+ *
+ * Note this is a FILTER, not a deletion. All seven approaches from §5 stay in
+ * Step3Approach's ALL_MODES (§1: "The 7 Studio approaches already exist and
+ * work — do not rebuild them"); this record only decides which are offerable
+ * for the format in hand. Deleting the four that §8 classifies as apps/tools
+ * was tried and reverted: none of them is among §8's locked 15 apps, so the
+ * Other Apps hand-off had nowhere to land, and Format=Image was left with a
+ * single offered approach — a step that asks a question with one answer.
+ *
+ * Both lists stay ≥2 entries deep, so neither format ever renders a one-card
+ * grid. Step3Approach's SingleApproachCard remains as the guard for a future
+ * format that genuinely resolves to one.
+ */
+export const APPROACHES_BY_FORMAT: Record<Format, Mode[]> = {
+  image: ["create-variations", "bg-remover", "resize", "scratch"],
+  video: ["ugc-video", "broll", "image-to-video", "create-variations", "scratch"],
+};
