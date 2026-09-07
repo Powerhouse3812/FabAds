@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { VIDEO_QUALITY_TIERS } from "../state/useWizard";
+import { isProductShootState, isScriptLedState, scriptResetPatch } from "../state/useWizard";
 import type {
   AttachSource,
   AttachedRef,
@@ -227,12 +228,13 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   // when Studio is running standalone (no flow), which is the common case.
   const flowCtx: FlowContext | null = resolveFlowContext(searchParams);
 
-  // §21.2 "Script becomes a gated pre-step" — script-led = the same
-  // definition PromptReferenceBar uses (mode === "ugc-video" OR
-  // angleId === "ugc-style"), so the chip label, the Generate gate, and the
-  // ScriptRail's approve flow all agree on what counts as script-led.
-  const isScriptLed =
-    wizard.state.mode === "ugc-video" || wizard.state.angleId === "ugc-style";
+  // §21.2 "Script becomes a gated pre-step" — script-led = the SHARED
+  // definition (useWizard.ts's isScriptLedState: UGC Video, a manually-set
+  // "ugc-style" angle, OR Product Shoot via studioMode), so the chip label,
+  // the Generate gate, and the ScriptRail's approve flow all agree on what
+  // counts as script-led — including Product Shoot, which the old local
+  // two-clause check here could never recognize.
+  const isScriptLed = isScriptLedState(wizard.state);
 
   // Trending concepts — top 16 sample outputs by qualityScore desc.
   // Pool is bigger so the horizontal-scroll strip has substance.
@@ -528,6 +530,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             onAttachPickerOpen={handleAttachPickerOpen}
             onChipOpen={handleChipOpen}
             hideLayoutToggle
+            studioMode={wizard.state.studioMode ?? undefined}
             footerExtras={
               <GenerationSettingsButton
                 wizard={wizard}
@@ -1042,6 +1045,19 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 scriptApproved={wizard.state.scriptApproved}
                 skipScriptReview={wizard.state.skipScriptReview}
                 promptSeed={wizard.state.prompt}
+                // §6 — these four were plumbed through ScriptRail's props
+                // (all optional, so the rail compiled and rendered fine
+                // without them) but never actually passed from here, which
+                // is exactly why the waiting/shimmer view and the Product
+                // Shoot "shot plan" copy never appeared: `scriptGenerating`
+                // drives the shimmer, `isProductShoot` swaps the language,
+                // `scriptOrigin` labels "Auto-written" vs "Edited by you" in
+                // the review header, and `onRegenerate` wires the review
+                // phase's Regenerate action to useWizard's own reset patch.
+                scriptGenerating={wizard.state.scriptGenerating}
+                isProductShoot={isProductShootState(wizard.state)}
+                scriptOrigin={wizard.state.scriptOrigin}
+                onRegenerate={() => wizard.patch(scriptResetPatch())}
                 onApprove={() => wizard.set("scriptApproved", true)}
                 onSkipReview={() => wizard.set("skipScriptReview", true)}
                 onSave={(script) => {

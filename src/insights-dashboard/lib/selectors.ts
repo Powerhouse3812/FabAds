@@ -42,6 +42,14 @@ import { useMemo } from "react";
 
 import { useDashboardState } from "@/insights-dashboard/state/DashboardState";
 
+// Genie 2.0 §7 — "the Studio generation flow is used for every generation,
+// whatever the entry point. There is no parallel flow for redirects." These
+// two are the only imports this file needs to route "Use this angle" / "Use
+// hook" through the real Studio Alpha flow instead of the legacy
+// `/iq/genie6/generate/*` scaffold.
+import { flowSearchParams } from "@/genie6/flows/flowTypes";
+import { resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
+
 import {
   CADENCE_WEEKS,
   DATA_SOURCE_ORDER,
@@ -2952,11 +2960,48 @@ const SUGGESTION_KIND_LABELS: Readonly<Record<SuggestionKind, string>> = {
  * `StudioBrandAdForm.tsx:72-79`) — so a navigate to this route carries the
  * chosen output type, never a hook or an angle. `works` on each action below
  * reflects exactly that split; do not change one without the other.
+ *
+ * NOTE (Genie 2.0 §7): `StudioBrandAdForm` lives under `/iq/genie6/generate/*`
+ * — the SAME legacy scaffold as `GenerateLanding` — which §7 forbids as a
+ * parallel flow for redirects ("used for every generation, whatever the
+ * entry point"). `buildFormatSuggestion` below still uses it (untouched here
+ * — out of this fix's scope, flagged in the build report) but the angle/hook
+ * actions have been moved off it entirely onto real Studio Alpha `?src/?ref/
+ * ?act` flow params; see `studioAlphaFlowHref` / `PLAIN_STUDIO_HREF`.
  */
 const GENIE_BRAND_AD_TEXT_HREF = "/iq/genie6/generate/brand-ad?output=whole-adcopy";
 
 function genieBrandAdHref(output: string): string {
   return `/iq/genie6/generate/brand-ad?output=${output}`;
+}
+
+/**
+ * Genie 2.0 §7 routing for "Use this angle" / "Use hook" below.
+ *
+ * `PLAIN_STUDIO_HREF` is the unbannered Studio Alpha entry — used whenever
+ * there is no real `FlowSourceRef` for what the suggestion is pointing at,
+ * so we never invent a `?src/?ref/?act` combination `resolveFlowContext`
+ * can't resolve (never a link back to the retired `/iq/genie6/generate/*`
+ * scaffold).
+ *
+ * `studioAlphaFlowHref` mirrors `SendToGenieMenu`'s own `go()` — same
+ * `landingStep` → route-segment mapping — and only returns a "real" URL when
+ * `resolveFlowContext` actually resolves the triple; otherwise it degrades to
+ * `PLAIN_STUDIO_HREF` exactly like the resolver itself degrades on an unknown
+ * ref (never throw, never guess).
+ */
+const PLAIN_STUDIO_HREF = "/iq/genie6/studio-alpha";
+
+function studioAlphaFlowHref(
+  module: Parameters<typeof flowSearchParams>[0],
+  refId: string,
+  action: Parameters<typeof flowSearchParams>[2],
+): { href: string; resolved: boolean } {
+  const sp = flowSearchParams(module, refId, action);
+  const ctx = resolveFlowContext(sp);
+  if (!ctx) return { href: PLAIN_STUDIO_HREF, resolved: false };
+  const target = ctx.landingStep === 4 ? "configure" : "product";
+  return { href: `/iq/genie6/studio-alpha/${target}?${sp.toString()}`, resolved: true };
 }
 
 const SUGGESTIONS_SOURCE_NOTE = "From what changed, angle mix and you vs market";

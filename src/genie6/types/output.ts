@@ -87,6 +87,19 @@ export interface PriorConfig {
   hookId?: string;
   /** First ~120 chars of the user's prompt that triggered the generation. */
   promptSnippet?: string;
+  /**
+   * §8.3 "Made in Genie" badge promise: "prompt, angle, reference" — the
+   * source ad/creative this generation referenced, when it came from an
+   * Other Flow that ran off a reference (Industry Insights winner ad,
+   * Reports top performer, Trends supporting creative, a Creative Library
+   * asset used as "reference for a new ad", etc). Title only, matching the
+   * shape of `RunOrigin`'s `flow.refTitle` (genieRunTypes.ts) — Genie
+   * captures what the reference WAS, not a live join back to it.
+   * HowThisWasMade prefers the tracked batch's own `refTitle` (the
+   * authoritative, currently-populated source) and falls back to this field
+   * for outputs that capture a reference directly, without a batch.
+   */
+  reference?: string;
   /** If this was started from a saved template, its label. */
   generatedFromTemplate?: string;
   generatedAt: Date;

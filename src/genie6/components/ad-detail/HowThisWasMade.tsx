@@ -5,8 +5,10 @@ import { MODE_LABELS } from "../../types/output";
 import type { OutputData } from "../../types/output";
 import type { RunBatch } from "../../lib/genieRunTypes";
 import { originLabel } from "../../library/originLabels";
+import { formatRelativeTime } from "../../library/relativeTime";
 import { languageLabel } from "../../lib/languages";
 import { angles } from "@/mocks/shared/angles";
+import { modelLabel } from "../../studio-v4/components/queue/batchDisplay";
 
 interface HowThisWasMadeProps {
   output: OutputData;
@@ -28,12 +30,17 @@ const PROVENANCE_LABEL: Record<RunBatch["provenance"], string> = {
  * HowThisWasMade — provenance section for the canonical Ad Detail drawer.
  *
  * Collapsed (42px): mono-caps eyebrow + "view more" lime link.
- * Expanded (~220px): two 3-col rows (Mode/Format/AI model and KB/Concepts/Angle)
- * plus an optional prompt snippet at the bottom.
+ * Expanded: 3-col rows — Mode/Format/AI model, Aspect ratio/Approach/Generated,
+ * KB/Concepts/Angle, Batch ID/Source module/Created by, Provenance/Language/
+ * Credits — plus the Reference and Prompt rows (§8.3's "prompt, angle,
+ * reference" trio, alongside Angle above) at the bottom.
  *
- * Pure provenance — never fabricates prompt content or model identity. If a
- * field is missing from the OutputData snapshot, we render an em-dash or an
- * italic "Not used" / "None" stub so the audit trail is honest.
+ * Pure provenance — never fabricates prompt, reference, or model identity.
+ * Every field renders unconditionally: a missing value shows an honest
+ * em-dash (or an italic "Not used" / "None" stub for the multi-value KB and
+ * Concepts fields) instead of the row silently not existing — so a fully
+ * populated generation, a partly-tracked one, and an untracked legacy
+ * output all read as deliberate, not broken.
  */
 export function HowThisWasMade({
   output,
@@ -43,6 +50,50 @@ export function HowThisWasMade({
 }: HowThisWasMadeProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const Chevron = expanded ? ChevronUp : ChevronDown;
+
+  /**
+   * AI model — used to read `output.aiModel` ("GPT 5.5"), a value that
+   * never matched what credits were actually priced against
+   * (`batch.config.model`, a Genie model id like "genie-1.0") and wasn't
+   * even shown anywhere. Prefer the batch's own model (resolved to its
+   * human label) since that's the model the generation actually used and
+   * priced against; fall back to `output.aiModel` only for outputs with no
+   * tracked batch, so a legacy item still shows whatever was captured
+   * rather than going blank.
+   */
+  const modelValue =
+    (batch?.config?.model && modelLabel(batch.config.model)) || output.aiModel;
+
+  /** Captured on the batch, read by nothing until now (§11 "full generation
+   *  detail in properties"). No fallback source on untracked outputs — an
+   *  honest "—" there, never a fabricated ratio or approach. */
+  const aspectRatioValue = batch?.config?.aspectRatio;
+  const approachValue = batch?.config?.approach;
+
+  /**
+   * Generated — the mock pool (`sample-outputs.ts`) freezes `generatedAt`
+   * at a fixed date while `batch.createdAt` is real `Date.now()`, so a
+   * batch header reading "2h ago" and this drawer could otherwise show a
+   * date months apart for the same asset. Prefer the batch's real
+   * timestamp whenever the asset belongs to a tracked batch — it's the one
+   * the rest of the app (batch headers, Library) already renders from —
+   * and fall back to the output's own `generatedAt` only when no batch is
+   * on record. Same `formatRelativeTime` the batch header uses, so the two
+   * can't drift into different formats either.
+   */
+  const generatedAtValue = formatRelativeTime(batch ? new Date(batch.createdAt) : output.generatedAt);
+
+  /** Reference — §8.3's third promised fact ("prompt, angle, reference").
+   *  Not rendered anywhere until now. A flow-sourced batch (Industry
+   *  Insights winner ad, Reports top performer, Trends supporting creative,
+   *  a Creative Library asset used as a reference, etc) already carries the
+   *  referenced ad's title on `RunOrigin` — the authoritative, currently
+   *  populated source. `priorConfig.reference` is the fallback for an
+   *  output that captures its own reference directly. Neither present →
+   *  honest "—", same rule as every other row here. */
+  const referenceValue =
+    output.priorConfig?.reference ??
+    (batch?.origin.kind === "flow" ? batch.origin.refTitle : undefined);
 
   return (
     <section className={cn("rounded-2xl border border-border/60 bg-card", className)}>
@@ -72,7 +123,16 @@ export function HowThisWasMade({
           <div className="grid grid-cols-3 gap-6">
             <Field label="Mode" value={MODE_LABELS[output.mode]} />
             <Field label="Format" value={output.format ?? "—"} />
-            <Field label="AI model" value={output.aiModel ?? "—"} />
+            <Field label="AI model" value={modelValue ?? "—"} />
+          </div>
+
+          {/* Row 1b — Aspect ratio / Approach / Generated (§11 "full
+              generation detail" — captured on the batch, surfaced nowhere
+              until now). */}
+          <div className="grid grid-cols-3 gap-6">
+            <Field label="Aspect ratio" value={aspectRatioValue ?? "—"} mono />
+            <Field label="Approach" value={approachValue ?? "—"} />
+            <Field label="Generated" value={generatedAtValue} mono />
           </div>
 
           {/* Row 2 — Knowledge base / Concepts / Angle */}
@@ -165,20 +225,39 @@ export function HowThisWasMade({
             <Field label="Credits (batch)" value={batch ? `${batch.credits}` : "—"} mono />
           </div>
 
-          {/* Prompt snippet — only if we actually captured one */}
-          {output.priorConfig?.promptSnippet && (
-            <div className="flex flex-col gap-1 pt-2">
-              <div className="flex items-center gap-1">
-                <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-                  Prompt
-                </p>
-                <CopyButton text={output.priorConfig.promptSnippet} />
-              </div>
-              <p className="text-[12.5px] text-foreground/85 leading-snug font-mono italic">
-                {output.priorConfig.promptSnippet}
+          {/* Reference — §8.3's third promised fact, alongside Prompt and
+              Angle. Always renders (never conditional on presence) so a
+              missing value reads as "not captured" rather than the row
+              silently not existing. */}
+          <div className="flex flex-col gap-1 pt-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+              Reference
+            </p>
+            <p className="text-[12.5px] text-foreground/85 leading-snug">
+              {referenceValue ?? "—"}
+            </p>
+          </div>
+
+          {/* Prompt — used to render only when promptSnippet existed, so a
+              missing value made the whole row vanish rather than reading as
+              "not captured" like every neighbouring field. Always renders
+              now, with the same "—" fallback; the copy button only appears
+              when there's real text to copy. Value uses the prose (Geist
+              Sans) treatment per the design system — not mono, which is
+              reserved for numeric/technical values like ids and ratios. */}
+          <div className="flex flex-col gap-1 pt-2">
+            <div className="flex items-center gap-1">
+              <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+                Prompt
               </p>
+              {output.priorConfig?.promptSnippet && (
+                <CopyButton text={output.priorConfig.promptSnippet} />
+              )}
             </div>
-          )}
+            <p className="text-[12.5px] text-foreground/85 leading-snug italic">
+              {output.priorConfig?.promptSnippet ?? "—"}
+            </p>
+          </div>
         </div>
       )}
     </section>

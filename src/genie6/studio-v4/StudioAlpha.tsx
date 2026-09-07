@@ -376,7 +376,11 @@ export function StudioAlpha() {
   const startWizard = (mode: AlphaMode) => {
     setHomeMode(mode);
     const category = mode === "product-shoot" ? "asset" : "ad";
-    wizard.patch({ category, step: 1 });
+    // §6 "Script as a pre-step" — studioMode must land in wizard state, not
+    // only in this component's local homeMode, or Product Shoot's script
+    // sub-step (isScriptLedState / isProductShootState, useWizard.ts) can
+    // never fire: it reads state.studioMode exclusively.
+    wizard.patch({ category, step: 1, studioMode: mode });
     setPhase("wizard");
     navigate("/iq/genie6/studio-alpha/format", { replace: false });
   };
@@ -388,7 +392,9 @@ export function StudioAlpha() {
   const handleModeChange = (mode: AlphaMode) => {
     setHomeMode(mode);
     const category = mode === "product-shoot" ? "asset" : "ad";
-    if (state.category !== category) wizard.patch({ category });
+    const patch: Partial<WizardState> = { studioMode: mode };
+    if (state.category !== category) patch.category = category;
+    wizard.patch(patch);
   };
 
   const exitToHome = () => {

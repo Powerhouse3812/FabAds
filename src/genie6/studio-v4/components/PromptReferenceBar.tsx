@@ -56,10 +56,12 @@ import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
 import { getModelVisual } from "../data/studio-visuals";
 import { PreviewVideo } from "./PreviewVideo";
+import { isScriptLedState } from "../state/useWizard";
 import type {
   UseWizardReturn,
   AttachSource,
   AttachedRef,
+  ReferenceContext,
   WizardState,
   Format,
 } from "../state/useWizard";
@@ -250,6 +252,21 @@ function getAvailableModels(
 export const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 export type AspectRatio = (typeof RATIOS)[number];
 
+/**
+ * §8.2 "Every reference carries a context tag saying in what context the
+ * referenced ad or video will be used" — display labels for `AttachedRef`'s
+ * optional `context` field (useWizard.ts). Short, tag-safe (fits the
+ * uppercase mono chip below) rather than the fuller phrasing in the type's
+ * own doc comment.
+ */
+export const REFERENCE_CONTEXT_LABEL: Record<ReferenceContext, string> = {
+  style: "Style",
+  structure: "Structure",
+  copy: "Copy",
+  concept: "Concept",
+  "whole-ad": "Whole ad",
+};
+
 export const ANGLE_CHIP_LABEL: Record<string, string> = {
   hero: "Hero",
   lifestyle: "Lifestyle",
@@ -368,16 +385,21 @@ export function PromptReferenceBar({
     : [];
 
   const showInlineSend = hideLayoutToggle || state.ctaLayout === "inline";
+  // isUgcMode answers a DIFFERENT question than script-led: it decides
+  // whether the Avatar chip (+ "Voice follows avatar" copy) shows in place
+  // of Style, below. UGC Video / a manually-set "ugc-style" angle need an
+  // avatar; Product Shoot (also script-led, via studioMode) does not — it
+  // has no avatar or voice concept at all. Keep this narrower than
+  // isScriptLedState on purpose; do not fold Product Shoot into it.
   const isUgcMode = state.mode === "ugc-video" || state.angleId === "ugc-style";
 
   // §6 "Script as a pre-step" — "From there they can edit it, or go straight
-  // to generate ... A review opportunity, not a hard gate." script-led = the
-  // same definition PromptReferenceBar already uses to decide Avatar vs Style
-  // (isUgcMode: mode === "ugc-video" OR angleId === "ugc-style"). Script and
-  // avatar/voice are coupled features in this file, so reusing isUgcMode
-  // rather than inventing a second, narrower check keeps them consistent —
-  // a manually-set UGC angle on another approach gets the same Avatar/Voice
-  // AND the same script nudge. A non-script approach never shows it.
+  // to generate ... A review opportunity, not a hard gate." script-led now
+  // comes from the SHARED useWizard.ts definition (isScriptLedState), which
+  // adds Product Shoot (via studioMode) on top of the UGC/"ugc-style" cases
+  // isUgcMode already covers — this local check used to hand-roll only those
+  // two clauses, so Product Shoot's script sub-step never lit up the Script
+  // chip or the review flow below.
   //
   // Item #1 defect: this used to also feed `generateDisabled` below, which
   // made it a HARD gate from a cold start — the only escape ("Skip review
@@ -386,7 +408,7 @@ export function PromptReferenceBar({
   // with no way past it. `scriptNeedsReview` now only flags the Script chip
   // (still visible, still one click to the rail) — it no longer disables
   // anything.
-  const isScriptLed = isUgcMode;
+  const isScriptLed = isScriptLedState(state);
   const scriptNeedsReview =
     isScriptLed && !state.scriptApproved && !state.skipScriptReview;
 
@@ -481,7 +503,20 @@ export function PromptReferenceBar({
                 emphasize={scriptNeedsReview}
                 onClick={() => onChipOpen("script")}
               />
-              {isUgcMode ? (
+              {/* §5 locks exactly 5 chips: Concept · Script · Style · Brand
+                  Guidelines · Knowledge Base. UGC-led approaches ALSO need an
+                  Avatar picker (+ its "voice follows avatar" coupling) — that
+                  used to render IN PLACE OF Style, silently dropping a
+                  documented chip on exactly the approaches that need an
+                  avatar. Avatar now renders ALONGSIDE Style instead of
+                  replacing it; the row is already `flex-wrap` (above), so a
+                  6th chip wraps to a second line rather than crowding one. */}
+              <RefChip
+                label="Style"
+                value="Auto"
+                onClick={() => onChipOpen("style-brand")}
+              />
+              {isUgcMode && (
                 <>
                   <RefChip
                     label="Avatar"
@@ -498,12 +533,6 @@ export function PromptReferenceBar({
                     Voice follows avatar
                   </span>
                 </>
-              ) : (
-                <RefChip
-                  label="Style"
-                  value="Auto"
-                  onClick={() => onChipOpen("style-brand")}
-                />
               )}
               <span aria-hidden className="mx-1 h-3.5 w-px bg-border/50" />
               <ToggleChip
@@ -915,13 +944,27 @@ function AttachedRefPill({
   const [previewOpen, setPreviewOpen] = useState(false);
   const SourceIcon = SOURCE_ICON[refItem.source];
   const hasThumb = Boolean(refItem.thumbnail);
+  // §8.2 — the context tag, when the producer set one (see the field's doc
+  // in useWizard.ts). Neither producer wired to this codebase yet (flow
+  // hand-offs / the attach popover) supplies `context`, so the common case
+  // today is still `null` — the tag segment below simply doesn't render,
+  // which is the "sensible presentation when absent" the field asks for.
+  const contextLabel = refItem.context
+    ? REFERENCE_CONTEXT_LABEL[refItem.context]
+    : null;
 
   return (
     <span
       className="relative inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/50 py-0.5 pl-1 pr-2 text-[11px] font-medium text-foreground"
+      title={contextLabel ? `${contextLabel} reference · ${refItem.label}` : refItem.label}
       onMouseEnter={() => hasThumb && setPreviewOpen(true)}
       onMouseLeave={() => setPreviewOpen(false)}
     >
+      {contextLabel && (
+        <span className="shrink-0 rounded-full bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          {contextLabel}
+        </span>
+      )}
       {hasThumb ? (
         <span
           className="inline-flex shrink-0"

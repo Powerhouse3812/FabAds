@@ -79,33 +79,55 @@ export function NewlyFetchedAdsCard() {
       <ul className="flex flex-col">
         {FETCHED.map((b) => (
           <li key={b.id}>
-            <Link
-              to="/insights-v2/feed"
-              className="group flex items-center gap-2.5 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/40"
-            >
-              {/* Monogram */}
-              <span
-                aria-hidden
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold"
-                style={{ backgroundColor: b.bg, color: b.ink }}
+            <div className="group flex items-center gap-1 rounded-md px-1 py-1.5 transition-colors hover:bg-muted/40">
+              <Link
+                to="/insights-v2/feed"
+                className="flex min-w-0 flex-1 items-center gap-2.5"
               >
-                {b.name.slice(0, 1)}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-foreground">
-                {b.name}
-              </span>
-              <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                {SOURCE_LABEL[b.source]}
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5",
-                  "font-mono text-[10px] font-semibold tabular-nums text-primary",
-                )}
-              >
-                +{b.newAdCount}
-              </span>
-            </Link>
+                {/* Monogram */}
+                <span
+                  aria-hidden
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold"
+                  style={{ backgroundColor: b.bg, color: b.ink }}
+                >
+                  {b.name.slice(0, 1)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-foreground">
+                  {b.name}
+                </span>
+                <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                  {SOURCE_LABEL[b.source]}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5",
+                    "font-mono text-[10px] font-semibold tabular-nums text-primary",
+                  )}
+                >
+                  +{b.newAdCount}
+                </span>
+              </Link>
+              {/* Secondary, icon-only affordance — the Link above stays the
+                  row's one primary action (into the feed). SendToGenieMenu
+                  resolves module="dashboard" + this row's dash-*-f ref
+                  itself; boAt/Noise are competitor rows so the resolver
+                  always highlights the user's own default brand, never the
+                  rival's (§7.2 — see the file header). */}
+              <SendToGenieMenu
+                module="dashboard"
+                refId={`dash-${b.id}-f`}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    aria-label={`Send ${b.name} to Genie`}
+                  >
+                    <Wand2 className="h-3.5 w-3.5" />
+                  </Button>
+                }
+              />
+            </div>
           </li>
         ))}
       </ul>

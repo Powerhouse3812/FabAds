@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { flowSearchParams, type FlowActionId, type FlowModuleKey } from "@/genie6/flows/flowTypes";
+import { resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
 
 /**
  * RecentlyFetchedCard — quick-action card on the AI-plan dashboard.
@@ -10,7 +12,18 @@ import { cn } from "@/lib/utils";
  *   Fetched — items scraped via the Industry Insights Chrome extension.
  *             Click → navigates to /insights-v2/feed
  *   Created — brands/products the user created in their workspace.
- *             Click → navigates to /iq/genie6/generate with pre-fill
+ *             Click → navigates into Studio Alpha, the real Genie 2.0 flow
+ *             (Genie 2.0 §7 — "There is no parallel flow for redirects").
+ *             `/iq/genie6/generate` (GenerateLanding) is a second, unbannered
+ *             wizard that bypasses Studio entirely and is NOT used here.
+ *
+ * Only ONE Created item (Mamaearth) has a real `dashboard` flow ref in the
+ * registry (`dash-g-2`, Genie's own past output for Mamaearth) — see
+ * `studioFlowHref` below. The other three Created items (Noise, Vitamin C
+ * Serum, ColorFit Pro Smartwatch) have no corresponding entry in
+ * `flowSources.ts`'s `DASHBOARD_PICKS`, so they fall back to plain,
+ * unbannered Studio rather than inventing a `?src/?ref/?act` combination the
+ * app can't resolve.
  *
  * Data is mocked at module scope (deterministic). Real wiring lands when
  * the recents selector is plumbed in.
@@ -89,6 +102,30 @@ const FETCHED_ITEMS: RecentItem[] = [
 ];
 
 /* -------------------------------------------------------------- */
+/* Created-tab hrefs — real Studio Alpha flow, never GenerateLanding */
+/* -------------------------------------------------------------- */
+
+/** Unbannered Studio entry — used whenever a Created item has no matching
+ *  `dashboard` ref in `flowSources.ts`, so we never invent a `?src/?ref/?act`
+ *  combination `resolveFlowContext` can't resolve. */
+const PLAIN_STUDIO_HREF = "/iq/genie6/studio-alpha";
+
+/**
+ * Builds a real `?src=&ref=&act=` Studio Alpha URL for a known flow ref,
+ * mirroring `SendToGenieMenu`'s own `go()` (same landingStep → route-segment
+ * mapping). Falls back to plain Studio if the triple somehow fails to
+ * resolve (e.g. the ref got pruned) — degrade, never throw, never link to
+ * the retired GenerateLanding wizard.
+ */
+function studioFlowHref(module: FlowModuleKey, refId: string, action: FlowActionId): string {
+  const sp = flowSearchParams(module, refId, action);
+  const ctx = resolveFlowContext(sp);
+  if (!ctx) return PLAIN_STUDIO_HREF;
+  const target = ctx.landingStep === 4 ? "configure" : "product";
+  return `/iq/genie6/studio-alpha/${target}?${sp.toString()}`;
+}
+
+/* -------------------------------------------------------------- */
 /* Mock data — Created                                             */
 /* -------------------------------------------------------------- */
 
@@ -99,7 +136,11 @@ const CREATED_ITEMS: RecentItem[] = [
     name: "Mamaearth",
     meta: "3 products · 47 ads generated",
     fetchedAt: "2026-05-28T11:20:00",
-    href: "/iq/genie6/generate?brand=mamaearth",
+    // Real flow ref: dash-g-2 is Genie's own past Mamaearth generation
+    // (flowSources.ts DASHBOARD_PICKS) — "generate-variation" is the action
+    // its own inline comment calls out as the fit for "pick up where you
+    // left off" without leaving the Dashboard.
+    href: studioFlowHref("dashboard", "dash-g-2", "generate-variation"),
   },
   {
     id: "noise-c",
@@ -107,7 +148,11 @@ const CREATED_ITEMS: RecentItem[] = [
     name: "Noise",
     meta: "5 products · 312 ads generated",
     fetchedAt: "2026-05-27T16:45:00",
-    href: "/iq/genie6/generate?brand=noise",
+    // No dashboard ref for "Noise as the user's own brand" — the only
+    // "noise" ref in the registry (dash-noise-f) is competitor-owned and
+    // would wrongly resolve the highlight away from Noise. Plain Studio,
+    // not a guessed param.
+    href: PLAIN_STUDIO_HREF,
   },
   {
     id: "vitamin-c",
@@ -115,7 +160,8 @@ const CREATED_ITEMS: RecentItem[] = [
     name: "Vitamin C Serum",
     meta: "Mamaearth · Skincare",
     fetchedAt: "2026-05-28T09:10:00",
-    href: "/iq/genie6/generate?product=vitamin-c-serum",
+    // No dashboard ref for this product id — plain Studio.
+    href: PLAIN_STUDIO_HREF,
   },
   {
     id: "smartwatch",
@@ -123,7 +169,8 @@ const CREATED_ITEMS: RecentItem[] = [
     name: "ColorFit Pro Smartwatch",
     meta: "Noise · Wearables",
     fetchedAt: "2026-05-26T14:30:00",
-    href: "/iq/genie6/generate?product=smartwatch-pro",
+    // No dashboard ref for this product id — plain Studio.
+    href: PLAIN_STUDIO_HREF,
   },
 ];
 

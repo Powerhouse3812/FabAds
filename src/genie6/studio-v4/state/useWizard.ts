@@ -45,11 +45,38 @@ export type AttachSource =
   | "seed-image"
   | "template";
 
+/**
+ * §8.2 "Every reference carries a context tag saying in what context the
+ * referenced ad or video will be used" — answers a DIFFERENT question than
+ * `AttachSource` on `AttachedRef` below. `source` says WHERE a reference came
+ * from (upload / library / brand-winner-ads / …); `context` says WHAT IT'S
+ * FOR once attached — a whole different reference can be "for style" vs "for
+ * structure" vs "for copy" from the exact same source. §8.1's named actions
+ * (Use script · Use concept · Use framework · Use storyboard) and §8.2's
+ * "whole ad as a reference" are what this enum is modeling.
+ */
+export type ReferenceContext =
+  | "style"
+  | "structure"
+  | "copy"
+  | "concept"
+  | "whole-ad";
+
 export interface AttachedRef {
   id: string;
   source: AttachSource;
   label: string;
   thumbnail?: string;
+  /**
+   * §8.2 context tag — optional. Two producers set `attachedReferences`
+   * outside this file: `resolveFlowContext.ts` (flow hand-offs from Video
+   * Sage / Industry Insights / Reports / Trends) and the manual attach
+   * popover (PromptReferenceBar.tsx, this file's sibling). Neither is wired
+   * to supply a value yet — this field only ADDS the slot; a reference with
+   * no `context` renders exactly as it did before (see AttachedRefPill,
+   * PromptReferenceBar.tsx, which falls back to no tag when this is absent).
+   */
+  context?: ReferenceContext;
 }
 
 export interface UploadedFile {
