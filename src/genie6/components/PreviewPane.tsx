@@ -5,6 +5,8 @@ import { OutputCard } from "./OutputCard";
 import { ModeBadge } from "./OutputCard/ModeBadge";
 import { QualityScoreChip } from "./OutputCard/QualityScoreChip";
 import { LineageChip } from "./OutputCard/LineageChip";
+import { originLabel } from "../library/originLabels";
+import { useOutputBatchIndex } from "../library/useOutputBatchIndex";
 
 /**
  * Right-rail preview pane — slides in 320px wide on output-card click.
@@ -33,7 +35,13 @@ export function PreviewPane({
   onEllipsisAction,
   className,
 }: Props) {
+  // §11 — hook called unconditionally (before the early return below) since
+  // this pane is reused across Library / Generate Results / Workspace right
+  // rail; a miss in the exhaustive run-store index means the output predates
+  // batch tracking, so it reads "Not tracked" rather than dropping the badge.
+  const batchIndex = useOutputBatchIndex();
   if (!output) return null;
+  const batch = batchIndex.get(output.id);
 
   return (
     <aside
@@ -61,6 +69,7 @@ export function PreviewPane({
         <OutputCard
           {...output}
           variant="compact"
+          moduleLabel={batch ? originLabel(batch.origin) : "Not tracked"}
           selectable={false}
         />
 

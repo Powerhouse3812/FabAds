@@ -14,69 +14,86 @@ import type { CatalogueType } from "./assetTypes";
 /**
  * Best-effort join key for `GenerationsFromAsset` — `RunBatch.config` only
  * ever carries `brandName` / `productName` / `angle` (free strings, no
- * ids), so this is the honest limit of what can match: any type without a
- * brand/product/angle to point at (Categories, Avatars, Voices, Templates,
- * References, Frameworks) always renders the zero-state, which is correct
- * given the data model rather than a bug to paper over.
+ * ids). `tracked` says whether that's enough to HONESTLY attribute a batch
+ * to this specific asset:
+ *
+ *   - Brands / Products / Angles / Hooks / Concepts (5 types) get a real,
+ *     specific criterion (name, or name+name, or a label) — `tracked: true`.
+ *   - Categories / Avatars / Voices / Frameworks / Templates (5 types) have
+ *     no brand/product/angle to point at whatsoever.
+ *   - Audiences / Scripts / CTAs (3 types) carry only a `brandId` → the
+ *     only criterion available is the parent brand's name, which would
+ *     match EVERY batch run for that brand — not this specific audience /
+ *     script / cta. That's a false positive dressed up as a real join, so
+ *     it's treated the same as "no criterion" rather than silently
+ *     over-matching.
+ *
+ * That's 8 of 13 types where `tracked: false` — see the report for why an
+ * honest "not tracked" beats a confident, fabricated "0".
  */
+export interface GenieMatchCriteria {
+  brandName?: string;
+  productName?: string;
+  angleLabel?: string;
+  tracked: boolean;
+}
+
 export function deriveGenieMatchCriteria(
   type: CatalogueType,
   item: any,
-): { brandName?: string; productName?: string; angleLabel?: string } {
-  if (type === "brands") return { brandName: item?.name };
+): GenieMatchCriteria {
+  if (type === "brands") return { brandName: item?.name, tracked: true };
   if (type === "products") {
     const brand = brands.find((b) => b.id === item?.brandId);
-    return { brandName: brand?.name, productName: item?.name };
+    return { brandName: brand?.name, productName: item?.name, tracked: true };
   }
-  if (type === "angles") return { angleLabel: item?.label };
+  if (type === "angles") return { angleLabel: item?.label, tracked: true };
   if (type === "hooks") {
     const brand = item?.brandId ? brands.find((b) => b.id === item.brandId) : undefined;
     const angle = item?.angleId ? angles.find((a) => a.id === item.angleId) : undefined;
-    return { brandName: brand?.name, angleLabel: angle?.label };
+    return { brandName: brand?.name, angleLabel: angle?.label, tracked: true };
   }
   if (type === "concepts") {
     const brand = brands.find((b) => b.id === item?.brandId);
-    return { brandName: brand?.name, angleLabel: item?.angle };
+    return { brandName: brand?.name, angleLabel: item?.angle, tracked: true };
   }
-  if (type === "audiences") {
-    const brand = item?.brandId ? brands.find((b) => b.id === item.brandId) : undefined;
-    return { brandName: brand?.name };
-  }
-  if (type === "scripts" || type === "ctas") {
-    const brand = item?.brandId ? brands.find((b) => b.id === item.brandId) : undefined;
-    return { brandName: brand?.name };
-  }
-  return {};
+  // Categories / Avatars / Voices / Frameworks / Templates: no criterion.
+  // Audiences / Scripts / CTAs: brand-only would over-match every batch for
+  // the brand, which is worse than an honest zero — see the docblock above.
+  return { tracked: false };
 }
 
 /**
  * §9 "An asset's detail view also lists the generations made from it. This
- * is what closes the loop between input and output." Reads
- * `useBatches()` and filters to batches whose `config` (brandName /
- * productName / angle) matches this asset — `RunBatch` carries no other
- * join key back to a Catalogue entity, so anything without a brand /
- * product / angle name to match against (Avatars, Voices, Templates,
- * References, Frameworks, Categories) honestly shows the zero-state
- * always. That's a real gap, not a placeholder — see the report.
+ * is what closes the loop between input and output." Reads `useBatches()`
+ * and filters to batches whose `config` (brandName / productName / angle)
+ * matches this asset — but ONLY when `tracked` says that match is honest
+ * for this asset type (see `deriveGenieMatchCriteria` above). For the 8
+ * types where it isn't, this renders a plain "not tracked" state instead
+ * of a fabricated "0 generations", which reads as a confident (and false)
+ * claim that nothing has ever been generated.
  */
-interface GenerationsFromAssetProps {
-  brandName?: string;
-  productName?: string;
-  angleLabel?: string;
+interface GenerationsFromAssetProps extends GenieMatchCriteria {
   useInGenieHref: string;
   className?: string;
+  /** Singular label for copy, e.g. "audience" / "template". Defaults to
+   *  "asset" for callers that don't have one handy. */
+  assetLabel?: string;
 }
 
 export function GenerationsFromAsset({
   brandName,
   productName,
   angleLabel,
+  tracked,
   useInGenieHref,
   className,
+  assetLabel = "asset",
 }: GenerationsFromAssetProps) {
   const batches = useBatches();
 
   const matched = useMemo(() => {
+    if (!tracked) return [];
     if (!brandName && !productName && !angleLabel) return [];
     return batches.filter((b) => {
       const cfg = b.config;
@@ -86,7 +103,28 @@ export function GenerationsFromAsset({
       if (angleLabel && (cfg.angle ?? "").toLowerCase() !== angleLabel.toLowerCase()) return false;
       return true;
     });
-  }, [batches, brandName, productName, angleLabel]);
+  }, [batches, brandName, productName, angleLabel, tracked]);
+
+  if (!tracked) {
+    return (
+      <section className={className}>
+        <SectionHeader title="Generations made from this" />
+        <div className="mt-2 flex flex-col items-start gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-4">
+          <p className="text-sm text-muted-foreground">
+            Not tracked for {assetLabel} assets yet — Genie's run history doesn't carry a link back
+            to a specific {assetLabel}, so this can't honestly show a count.
+          </p>
+          <Link
+            to={useInGenieHref}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] transition-transform"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Use in Genie
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={className}>

@@ -45,7 +45,6 @@ import {
   scripts,
   ctas,
   templates,
-  references,
   getInstructionsForEntity,
   getWinnerAdsForEntity,
   getReferenceUrlsForEntity,
@@ -63,9 +62,14 @@ import {
   ACTIVITY_LOG,
   getActivityLogForBrand,
   getActivityLogForEntity,
+  totalCreditsForEntity,
   type ActivityLogEntry,
   type ActivityKind,
+  type ActivityEntityType,
 } from "@/mocks/shared";
+import { creditsLabel } from "@/genie6/lib/credits";
+import { useCatalogueWrites, writeKey } from "./catalogue-write-store";
+import { CURRENT_USER } from "@/genie6/library/currentUser";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { KbCreateModal, type KbCreateKind } from "./KbCreateModal";
 import { AnglePlaybookPanel, CATEGORIES as ANGLE_CATEGORIES } from "./AnglePlaybookPanel";
@@ -135,6 +139,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     return (
       <Shell
         type={type}
+        id={audience.id}
         title={audience.label}
         subtitle={audience.segment}
         icon={<Users className="h-5 w-5" />}
@@ -163,7 +168,11 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           <p className="text-sm text-muted-foreground italic">No campaigns linked yet.</p>
         </Section>
         <AssetDetailActions def={def} item={audience} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("audiences", audience)} useInGenieHref={genieHref} />
+        <GenerationsFromAsset
+          {...deriveGenieMatchCriteria("audiences", audience)}
+          assetLabel={def.singular}
+          useInGenieHref={genieHref}
+        />
       </Shell>
     );
   }
@@ -182,6 +191,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     return (
       <Shell
         type={type}
+        id={angle.id}
         title={angle.label}
         subtitle={angle.description}
         icon={<Crosshair className="h-5 w-5" />}
@@ -227,7 +237,11 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           )}
         </Section>
         <AssetDetailActions def={def} item={angle} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("angles", angle)} useInGenieHref={genieHref} />
+        <GenerationsFromAsset
+          {...deriveGenieMatchCriteria("angles", angle)}
+          assetLabel={def.singular}
+          useInGenieHref={genieHref}
+        />
       </Shell>
     );
   }
@@ -243,6 +257,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     return (
       <Shell
         type={type}
+        id={hook.id}
         title={`"${hook.text}"`}
         subtitle={undefined}
         icon={<MessageSquareQuote className="h-5 w-5" />}
@@ -289,7 +304,11 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           </Section>
         )}
         <AssetDetailActions def={def} item={hook} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("hooks", hook)} useInGenieHref={genieHref} />
+        <GenerationsFromAsset
+          {...deriveGenieMatchCriteria("hooks", hook)}
+          assetLabel={def.singular}
+          useInGenieHref={genieHref}
+        />
       </Shell>
     );
   }
@@ -310,6 +329,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     return (
       <Shell
         type={type}
+        id={concept.id}
         title={concept.name}
         subtitle={`${concept.angle} · ${concept.tone}`}
         icon={<Lightbulb className="h-5 w-5" />}
@@ -352,14 +372,23 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             </Link>
           </Section>
         )}
-        <Section title="Generations">
+        {/* `concept.generationCount` is a fixture figure with no live source
+            behind it — labeled "Reported" and NOT "Generations" so it can't
+            be misread as the same number as the tracked count in the panel
+            two lines down (item 3's "four disagreeing counts" defect). */}
+        <Section title="Reported runs (fixture)">
           <div className="flex items-baseline gap-2">
             <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
-            <p className="text-sm text-foreground font-mono tabular-nums">{concept.generationCount} runs</p>
+            <p className="text-sm text-foreground font-mono tabular-nums">{concept.generationCount} reported</p>
+            <p className="text-[11px] italic text-muted-foreground">— not the tracked count below</p>
           </div>
         </Section>
         <AssetDetailActions def={def} item={concept} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("concepts", concept)} useInGenieHref={genieHref} />
+        <GenerationsFromAsset
+          {...deriveGenieMatchCriteria("concepts", concept)}
+          assetLabel={def.singular}
+          useInGenieHref={genieHref}
+        />
       </Shell>
     );
   }
@@ -374,6 +403,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     return (
       <Shell
         type={type}
+        id={avatar.id}
         title={avatar.name}
         subtitle={avatar.demographic}
         headerRight={<ProvenanceBadge provenance={card.provenance} />}
@@ -400,7 +430,11 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
             Edit/Duplicate/Archive/Delete/Use-in-Genie on an EXISTING preset
             are unaffected by that restriction. */}
         <AssetDetailActions def={def} item={avatar} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("avatars", avatar)} useInGenieHref={genieHref} />
+        <GenerationsFromAsset
+          {...deriveGenieMatchCriteria("avatars", avatar)}
+          assetLabel={def.singular}
+          useInGenieHref={genieHref}
+        />
       </Shell>
     );
   }
@@ -414,6 +448,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     return (
       <Shell
         type={type}
+        id={voice.id}
         title={voice.name}
         subtitle={voice.language}
         icon={<Mic className="h-5 w-5" />}
@@ -439,7 +474,11 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           </Section>
         )}
         <AssetDetailActions def={def} item={voice} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("voices", voice)} useInGenieHref={genieHref} />
+        <GenerationsFromAsset
+          {...deriveGenieMatchCriteria("voices", voice)}
+          assetLabel={def.singular}
+          useInGenieHref={genieHref}
+        />
       </Shell>
     );
   }
@@ -459,12 +498,15 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     );
   }
 
-  // Scripts / CTAs / Frameworks / Templates / References — §21.2 additions.
-  // No relational data model to cross-link, so a generic Shell body (same
-  // fields the asset-card grammar shows) rather than five bespoke ones.
+  // Scripts / CTAs / Frameworks / Templates — §21.2 additions. No
+  // relational data model to cross-link, so a generic Shell body (same
+  // fields the asset-card grammar shows) rather than four bespoke ones.
+  // (A fifth type, "References", shipped briefly alongside these and was
+  // removed per Maalik's ruling — 13 types now, not 14 — so it's gone from
+  // this source map too.)
   const def = getAssetType(type)!;
   const genericSource: Record<string, { id: string }[]> = {
-    scripts, ctas, templates, references,
+    scripts, ctas, templates,
   };
   const item = genericSource[type]?.find((it) => it.id === id);
   if (!item) return <NotFound type={type} navigate={navigate} />;
@@ -473,6 +515,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   return (
     <Shell
       type={type}
+      id={id}
       title={card.name}
       subtitle={card.subtitle}
       icon={<def.icon className="h-5 w-5" />}
@@ -490,13 +533,20 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           ))}
         </div>
       )}
+      {/* `card.usageCount` is a deterministic per-id hash (assetTypes.ts),
+          not a real count — "logged uses" (not "runs") so it doesn't read
+          as the same figure as the tracked panel below. */}
       <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
-        <span>{card.usageCount} runs</span>
+        <span>{card.usageCount} logged uses</span>
         <span aria-hidden>·</span>
         <span>Last used {card.lastUsedLabel}</span>
       </div>
       <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
-      <GenerationsFromAsset {...deriveGenieMatchCriteria(type, item)} useInGenieHref={genieHref} />
+      <GenerationsFromAsset
+        {...deriveGenieMatchCriteria(type, item)}
+        assetLabel={def.singular}
+        useInGenieHref={genieHref}
+      />
     </Shell>
   );
 }
@@ -505,6 +555,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
 
 function Shell({
   type,
+  id,
   title,
   subtitle,
   icon,
@@ -512,6 +563,8 @@ function Shell({
   children,
 }: {
   type: CatalogueType;
+  /** Entity id — feeds `SavedEditedMeta` (saved-by/edited-by, item 1). */
+  id: string;
   title: string;
   subtitle?: string;
   icon: React.ReactNode;
@@ -531,14 +584,14 @@ function Shell({
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-foreground truncate">{title}</h1>
               {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
+              <SavedEditedMeta type={type} id={id} className="mt-1" />
             </div>
           </div>
           {/* §15 — credits balance now also shows in Catalogue, not just the
               Genie sub-nav. Lives here (not per-caller) so every Shell-based
               detail page (Angles/Hooks/Concepts/Avatars/Voices/Audiences/
-              Scripts/CTAs/Frameworks/Templates/References) gets it in one
-              edit, matching CatalogueFinder / CatalogueListPage's header
-              placement. */}
+              Scripts/CTAs/Frameworks/Templates) gets it in one edit, matching
+              CatalogueFinder / CatalogueListPage's header placement. */}
           <div className="flex items-center gap-2 shrink-0">
             <CreditsPill />
             {headerRight}
@@ -548,6 +601,90 @@ function Shell({
       <div className="flex-1 overflow-y-auto space-y-5">{children}</div>
     </div>
   );
+}
+
+/**
+ * Item 1 — "Every saved asset carries a name and its basic properties —
+ * who saved it and when, and the same for edits." A repo-wide grep for
+ * savedBy/editedBy/savedAt/editedAt across the asset types returned zero
+ * hits; provenance was only ever a two-value enum ("FabFunnel-seeded" /
+ * "Client-created") — never a person, never a timestamp.
+ *
+ * Built on `catalogue-write-store.ts` — which already tracks REAL,
+ * session-scoped timestamps (`added[key].createdAt` / `fabricated[key]
+ * .createdAt` for a session add/duplicate, `overrides[key].updatedAt` for
+ * a rename) — rather than inventing dates. `useCatalogueWrites()` keeps
+ * this reactive to those writes.
+ *
+ * Honest limits, disclosed rather than papered over:
+ *   - Brands/Products/Categories don't route their Add/Edit modals
+ *     through this store (by design — see that file's header), so this
+ *     always reads "Saved by FabFunnel" / "Not edited this session" for
+ *     those three types until their modals are wired to it.
+ *   - Every FabFunnel-seeded row (the overwhelming majority) has no real
+ *     "who saved it" — there's no seed-time author to report — so it
+ *     reads "Saved by FabFunnel · Seed data" with NO date, rather than a
+ *     fabricated one.
+ */
+function SavedEditedMeta({
+  type,
+  id,
+  className,
+}: {
+  type: CatalogueType;
+  id: string;
+  className?: string;
+}) {
+  const snap = useCatalogueWrites();
+  const key = writeKey(type, id);
+  const created = snap.added[key] ?? snap.fabricated[key];
+  const override = snap.overrides[key];
+  const wasEdited = Boolean(
+    override && (override.nameOverride !== undefined || override.tagsOverride !== undefined),
+  );
+
+  const savedBy = created ? CURRENT_USER.name : "FabFunnel";
+  const savedAt = created ? new Date(created.createdAt) : undefined;
+  const editedBy = wasEdited ? CURRENT_USER.name : undefined;
+  const editedAt = wasEdited && override?.updatedAt ? new Date(override.updatedAt) : undefined;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground/80",
+        className,
+      )}
+    >
+      <span>
+        Saved by <span className="normal-case tracking-normal text-foreground/80">{savedBy}</span>
+        {savedAt ? (
+          <span className="tabular-nums"> · {formatSavedEditedDate(savedAt)}</span>
+        ) : (
+          <span className="normal-case tracking-normal italic"> · seed data</span>
+        )}
+      </span>
+      <span aria-hidden>·</span>
+      {editedBy && editedAt ? (
+        <span>
+          Edited by <span className="normal-case tracking-normal text-foreground/80">{editedBy}</span>
+          <span className="tabular-nums"> · {formatSavedEditedDate(editedAt)}</span>
+        </span>
+      ) : (
+        <span className="normal-case tracking-normal italic text-muted-foreground/60">
+          Not edited this session
+        </span>
+      )}
+    </div>
+  );
+}
+
+function formatSavedEditedDate(d: Date): string {
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -576,24 +713,31 @@ function BusinessAssetStrip<T extends { id: string }>({
 }: {
   def: AssetTypeDef<T>;
   item: T;
-  criteria: { brandName?: string; productName?: string; angleLabel?: string };
+  criteria: { brandName?: string; productName?: string; angleLabel?: string; tracked: boolean };
 }) {
   const card = def.toCard(item);
   const genieHref = useInGenieUrl(def.id, def.getId(item));
   return (
     <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ProvenanceBadge provenance={card.provenance} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ProvenanceBadge provenance={card.provenance} />
+          <SavedEditedMeta type={def.id} id={def.getId(item)} />
+        </div>
         <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
       </div>
-      <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+      <GenerationsFromAsset {...criteria} assetLabel={def.singular} useInGenieHref={genieHref} />
     </div>
   );
 }
 
 function BrandBusinessAssetStrip({ brand }: { brand: Brand }) {
   return (
-    <BusinessAssetStrip def={getAssetType("brands")!} item={brand} criteria={{ brandName: brand.name }} />
+    <BusinessAssetStrip
+      def={getAssetType("brands")!}
+      item={brand}
+      criteria={{ brandName: brand.name, tracked: true }}
+    />
   );
 }
 
@@ -603,14 +747,18 @@ function ProductBusinessAssetStrip({ product }: { product: Product }) {
     <BusinessAssetStrip
       def={getAssetType("products")!}
       item={product}
-      criteria={{ brandName: brand?.name, productName: product.name }}
+      criteria={{ brandName: brand?.name, productName: product.name, tracked: true }}
     />
   );
 }
 
 function CategoryBusinessAssetStrip({ category }: { category: Category }) {
   return (
-    <BusinessAssetStrip def={getAssetType("categories")!} item={category} criteria={{}} />
+    <BusinessAssetStrip
+      def={getAssetType("categories")!}
+      item={category}
+      criteria={{ tracked: false }}
+    />
   );
 }
 
@@ -1849,15 +1997,16 @@ function LibraryPanel({ brandName }: { brandName: string }) {
   );
 }
 
+/**
+ * Item 2 — "Activity log — for generation history. So a user can see when
+ * what was generated, and where their credits went." `ActivityKind` is now
+ * generation-run only (see `mocks/shared/activityLog.ts` header for why the
+ * old CRUD-audit kinds — instruction-added, product-added, winner-ad-saved,
+ * concept-saved, reference-added, brand-edited — were dropped: §18 keeps
+ * this log ONLY as generation history), so this map is one entry.
+ */
 const ACTIVITY_ICON: Record<ActivityKind, React.ElementType> = {
-  "instruction-added": BookOpen,
-  "instruction-edited": Pencil,
-  "product-added": Plus,
-  "winner-ad-saved": Trophy,
-  "concept-saved": Lightbulb,
   "generation-run": Sparkles,
-  "reference-added": Link2,
-  "brand-edited": Building2,
 };
 
 function formatActivityAge(d: Date): string {
@@ -1871,48 +2020,74 @@ function formatActivityAge(d: Date): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+/** "Where their credits went" — one settled total per entity, next to the
+ *  entry count. Renders nothing for a genuinely untouched entity (most
+ *  products/categories) rather than a fabricated "0 credits". */
+function ActivityCreditsSummary({
+  entityType,
+  entityId,
+}: {
+  entityType: ActivityEntityType;
+  entityId: string;
+}) {
+  const credits = totalCreditsForEntity(entityType, entityId);
+  if (credits <= 0) return null;
+  return (
+    <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-primary-text">
+      {creditsLabel(credits)} spent
+    </span>
+  );
+}
+
+function ActivityRow({ entry }: { entry: ActivityLogEntry }) {
+  const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
+  return (
+    <li className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
+        <Icon className="h-3.5 w-3.5 text-foreground/65" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-foreground">{entry.summary}</p>
+        {entry.detail && (
+          <p className="mt-0.5 text-[11px] italic text-muted-foreground">{entry.detail}</p>
+        )}
+      </div>
+      <div className="shrink-0 space-y-0.5 text-right">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
+          {entry.actor}
+        </p>
+        <p className="font-mono text-[10px] text-muted-foreground/60">
+          {formatActivityAge(entry.at)}
+        </p>
+        <p className="font-mono text-[10px] font-semibold tabular-nums text-primary-text">
+          {creditsLabel(entry.creditsSpent)}
+        </p>
+      </div>
+    </li>
+  );
+}
+
 function ActivityPanel({ brandId }: { brandId: string }) {
   const log = getActivityLogForBrand(brandId);
   return (
     <div className="space-y-3">
-      <SectionHeader
-        title={`Activity · ${log.length}`}
-        icon={History}
-        hint="audit log of edits, saves, and runs"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionHeader
+          title={`Activity · ${log.length}`}
+          icon={History}
+          hint="generation history — what was made and where credits went"
+        />
+        <ActivityCreditsSummary entityType="brand" entityId={brandId} />
+      </div>
       {log.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
-          <p className="text-[12px] italic text-muted-foreground">No activity yet for this brand.</p>
+          <p className="text-[12px] italic text-muted-foreground">No generations logged yet for this brand.</p>
         </div>
       ) : (
         <ol className="space-y-2">
-          {log.map((entry) => {
-            const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
-            return (
-              <li
-                key={entry.id}
-                className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm"
-              >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
-                  <Icon className="h-3.5 w-3.5 text-foreground/65" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-foreground">{entry.summary}</p>
-                  {entry.detail && (
-                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">{entry.detail}</p>
-                  )}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-                    {entry.actor}
-                  </p>
-                  <p className="font-mono text-[10px] text-muted-foreground/60">
-                    {formatActivityAge(entry.at)}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
+          {log.map((entry) => (
+            <ActivityRow key={entry.id} entry={entry} />
+          ))}
         </ol>
       )}
     </div>
@@ -2232,11 +2407,13 @@ function ProductHero({
               · {product.variants.length} variants
             </span>
           )}
-          {product.generatedCount > 0 && (
-            <span className="font-mono">
-              · {product.generatedCount} generations
-            </span>
-          )}
+          {/* `product.generatedCount` (src/mocks/shared/products.ts) used to
+              print here as "· 284 generations" directly above the real,
+              tracked "Generations made from this" panel (which could read
+              "0") — two numbers claiming to answer the same question,
+              disagreeing. Removed rather than relabeled: the panel below
+              is now the ONE place this product's generation count is
+              shown, so there's nothing left to contradict it. */}
         </div>
         {product.promo && (
           <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary-text">
@@ -2563,50 +2740,25 @@ function ProductActivityPanel({ productId }: { productId: string }) {
   const log = getActivityLogForEntity("product", productId);
   return (
     <div className="space-y-3">
-      <SectionHeader
-        title={`Activity · ${log.length}`}
-        icon={History}
-        hint="audit log of edits, saves, and runs"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionHeader
+          title={`Activity · ${log.length}`}
+          icon={History}
+          hint="generation history — what was made and where credits went"
+        />
+        <ActivityCreditsSummary entityType="product" entityId={productId} />
+      </div>
       {log.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
           <p className="text-[12px] italic text-muted-foreground">
-            No activity yet for this product.
+            No generations logged yet for this product.
           </p>
         </div>
       ) : (
         <ol className="space-y-2">
-          {log.map((entry) => {
-            const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
-            return (
-              <li
-                key={entry.id}
-                className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm"
-              >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
-                  <Icon className="h-3.5 w-3.5 text-foreground/65" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-foreground">
-                    {entry.summary}
-                  </p>
-                  {entry.detail && (
-                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">
-                      {entry.detail}
-                    </p>
-                  )}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-                    {entry.actor}
-                  </p>
-                  <p className="font-mono text-[10px] text-muted-foreground/60">
-                    {formatActivityAge(entry.at)}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
+          {log.map((entry) => (
+            <ActivityRow key={entry.id} entry={entry} />
+          ))}
         </ol>
       )}
     </div>
@@ -3220,50 +3372,25 @@ function CategoryActivityPanel({ categoryId }: { categoryId: string }) {
   const log = getActivityLogForEntity("category", categoryId);
   return (
     <div className="space-y-3">
-      <SectionHeader
-        title={`Activity · ${log.length}`}
-        icon={History}
-        hint="audit log of edits, saves, and runs"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionHeader
+          title={`Activity · ${log.length}`}
+          icon={History}
+          hint="generation history — what was made and where credits went"
+        />
+        <ActivityCreditsSummary entityType="category" entityId={categoryId} />
+      </div>
       {log.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
           <p className="text-[12px] italic text-muted-foreground">
-            No activity yet for this category.
+            No generations logged yet for this category.
           </p>
         </div>
       ) : (
         <ol className="space-y-2">
-          {log.map((entry) => {
-            const Icon = ACTIVITY_ICON[entry.kind] ?? Sparkles;
-            return (
-              <li
-                key={entry.id}
-                className="flex items-start gap-3 rounded-xl border border-border/40 bg-card/60 p-3 backdrop-blur-sm"
-              >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground/[0.06]">
-                  <Icon className="h-3.5 w-3.5 text-foreground/65" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-foreground">
-                    {entry.summary}
-                  </p>
-                  {entry.detail && (
-                    <p className="mt-0.5 text-[11px] italic text-muted-foreground">
-                      {entry.detail}
-                    </p>
-                  )}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-                    {entry.actor}
-                  </p>
-                  <p className="font-mono text-[10px] text-muted-foreground/60">
-                    {formatActivityAge(entry.at)}
-                  </p>
-                </div>
-              </li>
-            );
-          })}
+          {log.map((entry) => (
+            <ActivityRow key={entry.id} entry={entry} />
+          ))}
         </ol>
       )}
     </div>

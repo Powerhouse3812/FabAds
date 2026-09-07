@@ -9,6 +9,8 @@ import { concepts } from "../../mocks/library";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { OutputCard } from "../../components/OutputCard";
 import { useNewGenerationOverlay } from "../../shell/NewGenerationOverlay";
+import { originLabel } from "../../library/originLabels";
+import { useOutputBatchIndex } from "../../library/useOutputBatchIndex";
 
 /**
  * Cards + drawer view (Track 4.3 — Linear / Krea style).
@@ -249,22 +251,30 @@ function ConceptsTab({ brandId }: { brandId: string }) {
 function VariantsTab({ brandId, brandName }: { brandId: string; brandName: string }) {
   void brandId;
   const list = sampleOutputs.filter((o) => o.brand?.name === brandName);
+  // §11 — same rule as the Library views: a miss in the exhaustive run-store
+  // index means this variant predates batch tracking, so it reads "Not
+  // tracked" rather than dropping the badge silently.
+  const batchIndex = useOutputBatchIndex();
   if (list.length === 0)
     return <p className="text-g6-sm text-g6-text-tertiary">No variants generated yet.</p>;
   return (
     <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {list.map((o) => (
-        <li key={o.id}>
-          <OutputCard
-            {...o}
-            variant="compact"
-            selectable={false}
-            onSave={() => {}}
-            onLaunch={() => {}}
-            onDownload={() => {}}
-          />
-        </li>
-      ))}
+      {list.map((o) => {
+        const batch = batchIndex.get(o.id);
+        return (
+          <li key={o.id}>
+            <OutputCard
+              {...o}
+              variant="compact"
+              moduleLabel={batch ? originLabel(batch.origin) : "Not tracked"}
+              selectable={false}
+              onSave={() => {}}
+              onLaunch={() => {}}
+              onDownload={() => {}}
+            />
+          </li>
+        );
+      })}
     </ul>
   );
 }

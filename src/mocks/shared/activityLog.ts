@@ -1,23 +1,44 @@
 import type { BrandId, ProductId, CategoryId } from "@/genie6/types/entities";
 
 /**
- * Activity log — audit trail of edits / saves / runs across catalogue entities.
+ * Activity log — GENERATION HISTORY only.
  *
- * A-12.42: introduced for Brand Detail's Activity tab. Surfaces in the rail
- * timeline view; future: also Product + Category detail pages.
+ * Genie 2.0 §10: "Activity log — for generation history. So a user can see
+ * when what was generated, and where their credits went." §18 explicitly
+ * DROPS "Activity Logs as an audit trail" — the log is kept only as
+ * generation history, nothing else.
  *
- * In-memory mock for now. Future: backend audit table + websocket push.
+ * This file used to double as a general CRUD audit trail (instruction-
+ * added/edited, product-added, winner-ad-saved, concept-saved, reference-
+ * added, brand-edited) with no cost field anywhere and zero "credit" hits
+ * in the whole file — exactly the two defects §10/§18 call out. Fixed here:
+ *   1. `ActivityKind` is narrowed to `"generation-run"` only. Those other
+ *      actions already have their own surface (KB tab for instructions,
+ *      Winners tab for winner ads, Products tab for product-added) — they
+ *      don't belong in a "where did my credits go" ledger, and keeping them
+ *      here is exactly the audit-trail scope §18 rules out.
+ *   2. Every entry now carries `outputCount` + `creditsSpent` — the credit
+ *      math the summary text used to only gesture at ("Aarav generated 12
+ *      outputs" with no cost anywhere).
+ *
+ * Coverage — only 3 of the 13 Catalogue asset types (brand / product /
+ * category) have an entityType here; the other 10 (Avatars, Voices,
+ * Scripts, Concepts, Hooks, CTAs, Frameworks, Angles, Templates,
+ * Audiences) still have no activity surface at all — see
+ * `CatalogueDetailPage.tsx` report notes for the full list.
+ *
+ * Deliberately uneven coverage across brand/product/category — some
+ * brands (Sugar) and most individual products/categories have ZERO
+ * entries, on purpose (design system §3 state coverage: zero-data is a
+ * real state, not a gap to paper over with invented rows). A "generated"
+ * event is logged at brand grain always, and ALSO indexed at the
+ * product/category grain for the handful of runs where the product/
+ * category is unambiguous — real fan-out indexing, not duplicated filler.
+ *
+ * In-memory mock. Session-scoped; no backend yet.
  */
 
-export type ActivityKind =
-  | "instruction-added"
-  | "instruction-edited"
-  | "product-added"
-  | "winner-ad-saved"
-  | "concept-saved"
-  | "generation-run"
-  | "reference-added"
-  | "brand-edited";
+export type ActivityKind = "generation-run";
 
 export type ActivityEntityType = "brand" | "product" | "category";
 export type ActivityEntityId = BrandId | ProductId | CategoryId;
@@ -27,13 +48,24 @@ export interface ActivityLogEntry {
   entityType: ActivityEntityType;
   entityId: ActivityEntityId;
   kind: ActivityKind;
-  /** Human-readable summary, e.g. "Vidhi added a custom instruction". */
+  /** Human-readable summary, e.g. "Aarav generated 12 outputs". */
   summary: string;
-  /** Optional secondary text. e.g. "Festive campaigns guide". */
+  /** Optional secondary text. e.g. "Onion Shampoo · Hero Shot angle". */
   detail?: string;
-  /** Who performed the action. */
+  /** Who ran the generation. */
   actor: string;
   at: Date;
+  /** How many outputs this run produced — feeds `summary` and the credit math. */
+  outputCount: number;
+  /**
+   * Credits spent on this run — §10 "where their credits went". A flat,
+   * already-settled number (this is history, not a live estimate) — not
+   * reconstructed from `genie6/lib/credits.ts`'s `computeBreakdown()` since
+   * that needs the full request shape (avatar/format/resolution
+   * multipliers) this historical log doesn't carry; the number here is the
+   * amount that was actually charged for the run.
+   */
+  creditsSpent: number;
 }
 
 const NOW = new Date("2026-05-08T16:00:00");
@@ -41,98 +73,73 @@ const ago = (days: number, hours = 0): Date =>
   new Date(NOW.getTime() - days * 86_400_000 - hours * 3_600_000);
 
 export const ACTIVITY_LOG: ActivityLogEntry[] = [
-  // ── Mamaearth (8) ──────────────────────────────────────────
-  { id: "act-me-1", entityType: "brand", entityId: "mamaearth", kind: "winner-ad-saved",
-    summary: "Vidhi saved a Winner Ad", detail: "Diwali bundle — Mom's haircare ritual",
-    actor: "Vidhi", at: ago(0, 2) },
-  { id: "act-me-2", entityType: "brand", entityId: "mamaearth", kind: "instruction-added",
-    summary: "Maalik added a custom instruction", detail: "Festive campaigns — premium tone overlay",
-    actor: "Maalik", at: ago(0, 8) },
-  { id: "act-me-3", entityType: "brand", entityId: "mamaearth", kind: "generation-run",
+  // ── Mamaearth — populated (brand + 1 product-indexed run) ──────────
+  { id: "act-me-1", entityType: "brand", entityId: "mamaearth", kind: "generation-run",
     summary: "Aarav generated 12 outputs", detail: "Onion Shampoo · Hero Shot angle",
-    actor: "Aarav", at: ago(1, 3) },
-  { id: "act-me-4", entityType: "brand", entityId: "mamaearth", kind: "concept-saved",
-    summary: "Vidhi saved 'POV creator demo' concept",
-    actor: "Vidhi", at: ago(1, 14) },
-  { id: "act-me-5", entityType: "brand", entityId: "mamaearth", kind: "product-added",
-    summary: "Vidhi added a new product", detail: "Vit C Face Wash",
-    actor: "Vidhi", at: ago(2) },
-  { id: "act-me-6", entityType: "brand", entityId: "mamaearth", kind: "reference-added",
-    summary: "Maalik added a reference URL", detail: "amazon.in/mamaearth-onion-shampoo",
-    actor: "Maalik", at: ago(3) },
-  { id: "act-me-7", entityType: "brand", entityId: "mamaearth", kind: "brand-edited",
-    summary: "Vidhi updated brand voice", detail: "Tone shifted toward 'family-safe'",
-    actor: "Vidhi", at: ago(5) },
-  { id: "act-me-8", entityType: "brand", entityId: "mamaearth", kind: "winner-ad-saved",
-    summary: "Aarav saved a Winner Ad from Insights", detail: "30% off Onion Shampoo — limited time",
-    actor: "Aarav", at: ago(7) },
+    actor: "Aarav", at: ago(1, 3), outputCount: 12, creditsSpent: 28 },
+  { id: "act-me-2", entityType: "brand", entityId: "mamaearth", kind: "generation-run",
+    summary: "Vidhi generated 6 outputs", detail: "Vit C Face Wash · UGC Style angle",
+    actor: "Vidhi", at: ago(4), outputCount: 6, creditsSpent: 15 },
+  { id: "act-me-3", entityType: "brand", entityId: "mamaearth", kind: "generation-run",
+    summary: "Aarav generated 20 outputs", detail: "Biotin Gummies · Before/After angle (video)",
+    actor: "Aarav", at: ago(9), outputCount: 20, creditsSpent: 64 },
+  { id: "act-me-1-prod", entityType: "product", entityId: "mamaearth-onion-shampoo", kind: "generation-run",
+    summary: "Aarav generated 12 outputs", detail: "Onion Hair Shampoo for Hair Fall Control · Hero Shot angle",
+    actor: "Aarav", at: ago(1, 3), outputCount: 12, creditsSpent: 28 },
 
-  // ── Plum (5) ───────────────────────────────────────────────
-  { id: "act-plum-1", entityType: "brand", entityId: "plum", kind: "winner-ad-saved",
-    summary: "Vidhi saved a Winner Ad", detail: "Pro-clean Vit C serum — visible glow",
-    actor: "Vidhi", at: ago(2, 4) },
-  { id: "act-plum-2", entityType: "brand", entityId: "plum", kind: "instruction-added",
-    summary: "Maalik added a custom instruction", detail: "Hero shot guide — clean, ingredient-forward",
-    actor: "Maalik", at: ago(4) },
-  { id: "act-plum-3", entityType: "brand", entityId: "plum", kind: "generation-run",
+  // ── Plum — populated (brand + 1 product-indexed run) ────────────────
+  { id: "act-plum-1", entityType: "brand", entityId: "plum", kind: "generation-run",
     summary: "Aarav generated 8 outputs", detail: "Vit C Serum · Before / After angle",
-    actor: "Aarav", at: ago(6) },
-  { id: "act-plum-4", entityType: "brand", entityId: "plum", kind: "concept-saved",
-    summary: "Vidhi saved 'Glow grid' concept",
-    actor: "Vidhi", at: ago(9) },
-  { id: "act-plum-5", entityType: "brand", entityId: "plum", kind: "reference-added",
-    summary: "Aarav added a reference URL", detail: "plumgoodness.com/vc-serum",
-    actor: "Aarav", at: ago(12) },
+    actor: "Aarav", at: ago(6), outputCount: 8, creditsSpent: 19 },
+  { id: "act-plum-2", entityType: "brand", entityId: "plum", kind: "generation-run",
+    summary: "Vidhi generated 10 outputs", detail: "Niacinamide Serum · Hero Shot angle",
+    actor: "Vidhi", at: ago(15), outputCount: 10, creditsSpent: 24 },
+  { id: "act-plum-1-prod", entityType: "product", entityId: "plum-gh-serum", kind: "generation-run",
+    summary: "Aarav generated 8 outputs", detail: "Green Tea Skin Clarifying Serum · Before / After angle",
+    actor: "Aarav", at: ago(6), outputCount: 8, creditsSpent: 19 },
 
-  // ── Boat (5) ───────────────────────────────────────────────
-  { id: "act-boat-1", entityType: "brand", entityId: "boat", kind: "winner-ad-saved",
-    summary: "Maalik saved a Winner Ad", detail: "Airdopes 161 — 40hr battery, ₹999",
-    actor: "Maalik", at: ago(1, 8) },
+  // ── Boat — populated (brand + 1 product-indexed run) ────────────────
+  { id: "act-boat-1", entityType: "brand", entityId: "boat", kind: "generation-run",
+    summary: "Aarav generated 16 outputs", detail: "Airdopes 141 · Spec-led pricing hook",
+    actor: "Aarav", at: ago(3, 5), outputCount: 16, creditsSpent: 38 },
   { id: "act-boat-2", entityType: "brand", entityId: "boat", kind: "generation-run",
-    summary: "Aarav generated 16 outputs", detail: "Airdopes 161 · Spec-led pricing hook",
-    actor: "Aarav", at: ago(3, 5) },
-  { id: "act-boat-3", entityType: "brand", entityId: "boat", kind: "product-added",
-    summary: "Vidhi added a new product", detail: "Stone 1100 Speaker",
-    actor: "Vidhi", at: ago(8) },
-  { id: "act-boat-4", entityType: "brand", entityId: "boat", kind: "reference-added",
-    summary: "Aarav added a reference URL", detail: "boat-lifestyle.com/products/airdopes-161",
-    actor: "Aarav", at: ago(11) },
-  { id: "act-boat-5", entityType: "brand", entityId: "boat", kind: "instruction-edited",
-    summary: "Maalik updated 'Spec-led format' instruction",
-    actor: "Maalik", at: ago(14) },
+    summary: "Maalik generated 4 outputs", detail: "Rockerz 450 · Lifestyle angle",
+    actor: "Maalik", at: ago(10), outputCount: 4, creditsSpent: 11 },
+  { id: "act-boat-1-prod", entityType: "product", entityId: "boat-airdopes-141", kind: "generation-run",
+    summary: "Aarav generated 16 outputs", detail: "Airdopes 141 with 42hr Battery · Spec-led pricing hook",
+    actor: "Aarav", at: ago(3, 5), outputCount: 16, creditsSpent: 38 },
 
-  // ── Noise (3) ──────────────────────────────────────────────
-  { id: "act-noise-1", entityType: "brand", entityId: "noise", kind: "winner-ad-saved",
-    summary: "Aarav saved a Winner Ad", detail: "ColorFit Pro 5 — fitness Gen Z hero",
-    actor: "Aarav", at: ago(1, 18) },
-  { id: "act-noise-2", entityType: "brand", entityId: "noise", kind: "concept-saved",
-    summary: "Vidhi saved 'Workout flex' concept",
-    actor: "Vidhi", at: ago(5, 4) },
-  { id: "act-noise-3", entityType: "brand", entityId: "noise", kind: "generation-run",
+  // ── Noise — partial (brand + 1 product-indexed run) ─────────────────
+  { id: "act-noise-1", entityType: "brand", entityId: "noise", kind: "generation-run",
     summary: "Aarav generated 12 outputs", detail: "ColorFit Pro 5 · UGC Style angle",
-    actor: "Aarav", at: ago(10) },
+    actor: "Aarav", at: ago(10), outputCount: 12, creditsSpent: 30 },
+  { id: "act-noise-1-prod", entityType: "product", entityId: "noise-colorfit-pro-5", kind: "generation-run",
+    summary: "Aarav generated 12 outputs", detail: "ColorFit Pro 5 Buzz with Bluetooth Calling · UGC Style angle",
+    actor: "Aarav", at: ago(10), outputCount: 12, creditsSpent: 30 },
 
-  // ── Sleepyhead (3) ─────────────────────────────────────────
-  { id: "act-sh-1", entityType: "brand", entityId: "sleepyhead", kind: "instruction-added",
-    summary: "Maalik added a custom instruction", detail: "Settling-in couple voice",
-    actor: "Maalik", at: ago(2, 10) },
-  { id: "act-sh-2", entityType: "brand", entityId: "sleepyhead", kind: "winner-ad-saved",
-    summary: "Vidhi saved a Winner Ad", detail: "First-home mattress — quality sleep proof",
-    actor: "Vidhi", at: ago(6, 8) },
-  { id: "act-sh-3", entityType: "brand", entityId: "sleepyhead", kind: "generation-run",
+  // ── Sleepyhead — partial (brand + 1 product-indexed run) ────────────
+  { id: "act-sh-1", entityType: "brand", entityId: "sleepyhead", kind: "generation-run",
     summary: "Aarav generated 8 outputs", detail: "Original Mattress · Lifestyle angle",
-    actor: "Aarav", at: ago(13) },
+    actor: "Aarav", at: ago(13), outputCount: 8, creditsSpent: 21 },
+  { id: "act-sh-1-prod", entityType: "product", entityId: "sleepyhead-original-mattress", kind: "generation-run",
+    summary: "Aarav generated 8 outputs", detail: "The Original Memory Foam Mattress · Lifestyle angle",
+    actor: "Aarav", at: ago(13), outputCount: 8, creditsSpent: 21 },
 
-  // ── Sugar (3) ──────────────────────────────────────────────
-  { id: "act-sg-1", entityType: "brand", entityId: "sugar", kind: "concept-saved",
-    summary: "Vidhi saved 'Indian skin shade range' concept",
-    actor: "Vidhi", at: ago(0, 6) },
-  { id: "act-sg-2", entityType: "brand", entityId: "sugar", kind: "winner-ad-saved",
-    summary: "Maalik saved a Winner Ad", detail: "Matte lipstick — 30 shades for Indian skin",
-    actor: "Maalik", at: ago(4, 12) },
-  { id: "act-sg-3", entityType: "brand", entityId: "sugar", kind: "reference-added",
-    summary: "Vidhi added a reference URL", detail: "instagram.com/sugarcosmetics",
-    actor: "Vidhi", at: ago(9) },
+  // ── Sugar — deliberately ZERO. No generation-run has been logged for
+  // this brand yet; its Activity tab must read as empty, not "0 of
+  // something we forgot to seed". Real zero-data state (design system §3).
+
+  // ── Categories — sparse, aggregated view of the product runs above.
+  // Most of the 55 categories have zero entries on purpose. ───────────
+  { id: "act-cat-hair-care", entityType: "category", entityId: "hair-care", kind: "generation-run",
+    summary: "Aarav generated 12 outputs", detail: "Mamaearth · Onion Hair Shampoo · Hero Shot angle",
+    actor: "Aarav", at: ago(1, 3), outputCount: 12, creditsSpent: 28 },
+  { id: "act-cat-wireless-earbuds", entityType: "category", entityId: "wireless-earbuds", kind: "generation-run",
+    summary: "Aarav generated 16 outputs", detail: "boAt · Airdopes 141 · Spec-led pricing hook",
+    actor: "Aarav", at: ago(3, 5), outputCount: 16, creditsSpent: 38 },
+  { id: "act-cat-mattresses", entityType: "category", entityId: "mattresses", kind: "generation-run",
+    summary: "Aarav generated 8 outputs", detail: "Sleepyhead · Original Mattress · Lifestyle angle",
+    actor: "Aarav", at: ago(13), outputCount: 8, creditsSpent: 21 },
 ];
 
 export function getActivityLogForBrand(
@@ -154,4 +161,29 @@ export function getActivityLogForEntity(
     .filter((e) => e.entityType === entityType && e.entityId === entityId)
     .sort((a, b) => +b.at - +a.at)
     .slice(0, limit);
+}
+
+/** Sum of `creditsSpent` across an entity's generation history — §10
+ *  "where their credits went", as one settled total rather than making the
+ *  reader add up the list themselves. 0 for a genuinely untouched entity,
+ *  never fabricated. */
+export function totalCreditsForEntity(
+  entityType: ActivityEntityType,
+  entityId: ActivityEntityId,
+): number {
+  return getActivityLogForEntity(entityType, entityId).reduce(
+    (sum, e) => sum + e.creditsSpent,
+    0,
+  );
+}
+
+/** Sum of `outputCount` across an entity's generation history. */
+export function totalOutputsForEntity(
+  entityType: ActivityEntityType,
+  entityId: ActivityEntityId,
+): number {
+  return getActivityLogForEntity(entityType, entityId).reduce(
+    (sum, e) => sum + e.outputCount,
+    0,
+  );
 }

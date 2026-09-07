@@ -1273,6 +1273,8 @@ function ProductSectionView({ productId, section }: { productId: string; section
         <GenerationsFromAsset
           brandName={brand?.name}
           productName={prod.name}
+          tracked
+          assetLabel="product"
           useInGenieHref={useInGenieUrl("products", prod.id)}
         />
       </div>

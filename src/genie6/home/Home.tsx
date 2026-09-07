@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowUpRight, Sparkles } from "lucide-react";
+import { ArrowUpRight, Mic, Repeat, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DotGridPattern } from "../components/DotGridPattern";
 import { HeroPromptInput } from "../components/HeroPromptInput";
-import { MicroMotif } from "../components/MicroMotif";
-import { modeConfigs } from "../generate-legacy/modeConfigs";
 import { useGenie6Theme } from "../hooks/useGenie6Theme";
 import { StudioHome } from "../variants/studio/StudioHome";
 import { CanvasHome } from "../variants/canvas/CanvasHome";
 import { CommandHome } from "../variants/command/CommandHome";
 import { ModularHome } from "../variants/modular/ModularHome";
+// Type-only, read-only reference — Mode is StudioAlpha's `?approach` vocabulary
+// (see studio-v4/state/useUrlSync.ts). Importing the type does not create a
+// write dependency on studio-v4; this file still owns nothing but itself.
+import type { Mode } from "../studio-v4/state/useWizard";
 
 // NOTE: Persona toggle (Agency / Solo) intentionally removed from UI.
 // Personas remain a useful internal lens (for analytics, content prioritization, etc.)
@@ -55,7 +57,11 @@ function HomeZeroData() {
 
   const handlePrompt = () => {
     if (!prompt.trim()) return;
-    navigate("/iq/genie6/generate/product-ad");
+    // §7: every generation goes through the one Studio flow — there is no
+    // parallel wizard for redirects. The typed text itself has no honest
+    // param to carry (Studio's useUrlSync parses no ?prompt=/free-text key),
+    // so land on plain Studio rather than inventing one.
+    navigate("/iq/genie6/studio-alpha");
   };
 
   return (
@@ -102,7 +108,7 @@ function HomeZeroData() {
             title="Try with a demo brand"
             sub="Instant · 0 credits"
             cta="Try demo"
-            onClick={() => navigate("/iq/genie6/generate/product-ad?demo=1")}
+            onClick={() => navigate("/iq/genie6/studio-alpha?demo=1")}
           />
         </div>
 
@@ -114,12 +120,12 @@ function HomeZeroData() {
                 Starter pack — 5 free generations
               </p>
               <p className="text-g6-base text-g6-text-secondary">
-                Pick a mode below, paste a product URL, get 4 variants in under 60 seconds.
+                Pick an approach below, paste a product URL, get 4 variants in under 60 seconds.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => navigate("/iq/genie6/generate")}
+              onClick={() => navigate("/iq/genie6/studio-alpha")}
               className="shrink-0 inline-flex items-center gap-1.5 rounded-g6-base bg-g6-primary px-4 py-2.5 text-g6-sm font-semibold text-g6-text-on-accent shadow-g6-primary-btn transition-transform hover:-translate-y-0.5"
             >
               Start guided <ArrowUpRight className="h-4 w-4" />
@@ -127,62 +133,80 @@ function HomeZeroData() {
           </div>
         </div>
 
-        {/* Mode chips */}
+        {/* Approach chips — §2/§4: ad type is decided ONLY by the Step-2 tab
+            inside Studio (Brand/Product/Category), never here, so this row no
+            longer offers ad-type-flavored picks ("Brand Ad" / "Product Ad" /
+            "Affiliate Ad") as if they were peers of an approach — Affiliate in
+            particular is a Mode (§4), not an ad type, and isn't shown as one.
+            Every chip below is a genuine Studio "approach" (Step3Approach's
+            ALL_MODES) carried through the one param useUrlSync.ts actually
+            parses: ?approach=. No ?mode=/?preset= — Studio never reads those. */}
         <div className="g6-fade-up space-y-3" style={{ animationDelay: "480ms" }}>
           <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">
-            Or pick a mode
+            Or pick an approach
           </p>
           <div className="flex flex-wrap gap-2">
-            {/* Phase D P1-G5: disabled state for `comingSoon` modes — was missing,
-                so a future-flagged mode would silently navigate to a broken form.
-                Disabled chips: opacity-50, cursor-not-allowed, "Soon" pill, no
-                onClick + tabIndex={-1}. Hover description via title (P2-G4). */}
-            {modeConfigs.map((cfg) => {
-              const disabled = cfg.comingSoon === true;
-              // A-11.9: map legacy mode IDs to New Studio routes. Unknown modes
-              // fall back to the GenerateLanding picker.
-              const target = (() => {
-                switch (cfg.id) {
-                  case "brand-ad": return "/iq/genie6/generate/brand-ad";
-                  case "product-ad": return "/iq/genie6/generate/product-ad";
-                  case "affiliate-ad": return "/iq/genie6/generate/affiliate-ad";
-                  case "forge": return "/iq/genie6/generate/variation";
-                  case "ugc-video": return "/iq/genie6/generate/product-ad?output=video&preset=ugc-video";
-                  case "image-to-ad": return "/iq/genie6/generate/product-ad?output=video";
-                  default: return "/iq/genie6/generate";
-                }
-              })();
-              return (
-                <button
-                  key={cfg.id}
-                  type="button"
-                  onClick={disabled ? undefined : () => navigate(target)}
-                  disabled={disabled}
-                  title={cfg.description}
-                  aria-disabled={disabled}
-                  className={cn(
-                    "flex items-center gap-2 rounded-g6-pill border px-3 py-1.5 text-g6-sm font-medium transition-all",
-                    disabled
-                      ? "border-g6-border-secondary bg-g6-bg-base text-g6-text-tertiary opacity-60 cursor-not-allowed"
-                      : "border-g6-border-secondary bg-g6-bg-container text-g6-text-secondary hover:border-g6-primary-border hover:bg-g6-primary-bg hover:text-g6-text"
-                  )}
-                >
-                  <MicroMotif mode={cfg.id} size={14} />
-                  {cfg.label}
-                  {disabled && (
-                    <span className="ml-1 rounded bg-g6-bg-spotlight px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-g6-text-tertiary">
-                      Soon
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {APPROACH_QUICKSTART.map((cfg) => (
+              <button
+                key={cfg.id}
+                type="button"
+                onClick={() => navigate(`/iq/genie6/studio-alpha?approach=${cfg.id}`)}
+                title={cfg.desc}
+                className="flex items-center gap-2 rounded-g6-pill border border-g6-border-secondary bg-g6-bg-container px-3 py-1.5 text-g6-sm font-medium text-g6-text-secondary transition-all hover:border-g6-primary-border hover:bg-g6-primary-bg hover:text-g6-text"
+              >
+                <cfg.Icon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+                {cfg.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+/**
+ * APPROACH_QUICKSTART — a small, honest subset of Studio's real "approach"
+ * vocabulary (Step3Approach's ALL_MODES, `../studio-v4/screens/Step3Approach.tsx`,
+ * read-only reference — not re-exported there, so restated here rather than
+ * imported). Every id is a value `Mode` (useWizard.ts) accepts and every id
+ * round-trips through `?approach=` per useUrlSync.ts.
+ *
+ * Deliberately excludes the old "Brand Ad" / "Product Ad" / "Affiliate Ad"
+ * chips: those named an ad type (or, for Affiliate, a Mode) that Studio's
+ * Format/Home step never reads from the URL (`homeMode` in StudioAlpha.tsx is
+ * local React state, not URL-synced) — there is no honest param to carry
+ * them, and keeping them here mixed ad-type language with approach language
+ * in one undifferentiated row (§2/§4). "Image to Ad" is dropped too: the
+ * closest real approach, `image-to-video`, is video-only and format-gated,
+ * which would silently narrow a card whose old default output was a static
+ * image — not an honest mapping.
+ */
+const APPROACH_QUICKSTART: Array<{
+  id: Mode;
+  label: string;
+  desc: string;
+  Icon: typeof Wand2;
+}> = [
+  {
+    id: "scratch",
+    label: "From scratch",
+    desc: "Full flow — prompt, references, angle, model, output count.",
+    Icon: Wand2,
+  },
+  {
+    id: "ugc-video",
+    label: "UGC Video",
+    desc: "Avatar-led talking-head, script-first.",
+    Icon: Mic,
+  },
+  {
+    id: "create-variations",
+    label: "Create Variations",
+    desc: "Iterate on existing creatives — keep layout, colors, or copy.",
+    Icon: Repeat,
+  },
+];
 
 function NudgeCard({
   title,

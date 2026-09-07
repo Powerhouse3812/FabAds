@@ -9,6 +9,8 @@ import { CSVExportButton } from "../../components/CSVExportButton";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { MODE_LABELS } from "../../types/output";
 import type { KanbanColumn, EllipsisAction } from "../../types/output";
+import { originLabel } from "../../library/originLabels";
+import { useOutputBatchIndex } from "../../library/useOutputBatchIndex";
 
 type SortKey = "score" | "date";
 
@@ -20,6 +22,9 @@ export function CanvasResultsScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [kanbanAssignment, setKanbanAssignment] = useState<Record<string, KanbanColumn>>({});
+  // §11 — same index-lookup rule as every other Library-adjacent card: a
+  // miss means "not in any batch", a known, honest "Not tracked".
+  const batchIndex = useOutputBatchIndex();
 
   const outputs = [...sampleOutputs].filter((o) => o.thumbnail !== undefined || o.headline);
   const sorted = [...outputs].sort((a, b) => {
@@ -64,9 +69,12 @@ export function CanvasResultsScreen() {
         <div className="flex-1 overflow-y-auto p-5">
           {view === "grid" && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {sorted.map((output) => (
-                <OutputCard key={output.id} {...output} selected={selected.has(output.id)} onSelect={() => toggleSelect(output.id)} onClick={() => setPreviewId(output.id)} onEllipsisAction={(a) => handleEllipsis(output.id, a)} onSave={() => {}} onLaunch={() => {}} onDownload={() => {}} />
-              ))}
+              {sorted.map((output) => {
+                const batch = batchIndex.get(output.id);
+                return (
+                  <OutputCard key={output.id} {...output} moduleLabel={batch ? originLabel(batch.origin) : "Not tracked"} selected={selected.has(output.id)} onSelect={() => toggleSelect(output.id)} onClick={() => setPreviewId(output.id)} onEllipsisAction={(a) => handleEllipsis(output.id, a)} onSave={() => {}} onLaunch={() => {}} onDownload={() => {}} />
+                );
+              })}
             </div>
           )}
           {view === "kanban" && (

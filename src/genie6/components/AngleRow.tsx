@@ -11,6 +11,8 @@ import {
 import { OutputCard } from "./OutputCard";
 import type { OutputData } from "../types/output";
 import type { GetOutputCardActions } from "../library/useOutputCardActions";
+import { originLabel } from "../library/originLabels";
+import { useOutputBatchIndex } from "../library/useOutputBatchIndex";
 import { cn } from "@/lib/utils";
 
 interface AngleRowProps {
@@ -56,6 +58,11 @@ export function AngleRow({
 }: AngleRowProps) {
   const [, setSearchParams] = useSearchParams();
   const [featuredId, setFeaturedId] = useState<string>(outputs[0]?.id ?? "");
+  // §11 — Group-by-Angle rows previously dropped module attribution entirely
+  // (it only ever rendered on BatchGroupedView's terminal header). Resolve
+  // per-card against the run-store index: a miss is a KNOWN pre-tracking
+  // output (the index is exhaustive), so it reads "Not tracked", not blank.
+  const batchIndex = useOutputBatchIndex();
 
   const conceptLabel = useMemo(() => {
     const firstConcept = outputs[0]?.concepts?.[0];
@@ -122,11 +129,13 @@ export function AngleRow({
       >
         {visible.map((o) => {
           const isFeatured = featuredId === o.id;
+          const batch = batchIndex.get(o.id);
           return (
             <div key={o.id} className="relative shrink-0">
               <OutputCard
                 {...o}
                 {...getActions?.(o)}
+                moduleLabel={batch ? originLabel(batch.origin) : "Not tracked"}
                 size="compact"
                 featured={isFeatured}
                 selected={selected.has(o.id)}

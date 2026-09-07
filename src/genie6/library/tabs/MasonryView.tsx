@@ -1,6 +1,8 @@
 import { OutputCard } from "../../components/OutputCard";
 import type { OutputData } from "../../types/output";
 import type { GetOutputCardActions } from "../useOutputCardActions";
+import { originLabel } from "../originLabels";
+import { useOutputBatchIndex } from "../useOutputBatchIndex";
 
 interface MasonryViewProps {
   outputs: OutputData[];
@@ -36,6 +38,14 @@ interface MasonryViewProps {
  * uses with `size="compact"`.
  */
 export function MasonryView({ outputs, selected, onSelect, onCardClick, getActions }: MasonryViewProps) {
+  // §11 — Masonry mixes batch-tracked and pre-tracking outputs in one grid
+  // (no separate "Earlier generations" section like BatchGroupedView), so
+  // every card resolves its own attribution against the one run-store index:
+  // a hit gets the real module name, a miss is a KNOWN pre-tracking output
+  // (the index covers every batch there is), not an unknown — hence
+  // "Not tracked" rather than no badge.
+  const batchIndex = useOutputBatchIndex();
+
   return (
     <div
       className="
@@ -47,16 +57,20 @@ export function MasonryView({ outputs, selected, onSelect, onCardClick, getActio
         [&>*]:break-inside-avoid
       "
     >
-      {outputs.map((o) => (
-        <OutputCard
-          key={o.id}
-          {...o}
-          {...getActions?.(o)}
-          selected={selected.has(o.id)}
-          onSelect={() => onSelect(o.id)}
-          onClick={() => onCardClick(o)}
-        />
-      ))}
+      {outputs.map((o) => {
+        const batch = batchIndex.get(o.id);
+        return (
+          <OutputCard
+            key={o.id}
+            {...o}
+            {...getActions?.(o)}
+            moduleLabel={batch ? originLabel(batch.origin) : "Not tracked"}
+            selected={selected.has(o.id)}
+            onSelect={() => onSelect(o.id)}
+            onClick={() => onCardClick(o)}
+          />
+        );
+      })}
     </div>
   );
 }

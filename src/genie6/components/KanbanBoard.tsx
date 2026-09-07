@@ -11,6 +11,8 @@ import {
 import { cn } from "@/lib/utils";
 import { OutputCard } from "./OutputCard";
 import type { KanbanColumn, OutputData, EllipsisAction } from "../types/output";
+import { originLabel } from "../library/originLabels";
+import { useOutputBatchIndex } from "../library/useOutputBatchIndex";
 
 /**
  * Winner / Maybe / Reject Kanban triage.
@@ -128,12 +130,18 @@ function KanbanCard({
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
+  // §11 — same index-lookup rule as every other Library-adjacent card: a
+  // miss means "not in any batch", which is a known, honest "Not tracked",
+  // not an absent badge.
+  const batchIndex = useOutputBatchIndex();
+  const batch = batchIndex.get(output.id);
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn(isDragging && "opacity-60")}>
       <OutputCard
         {...output}
         variant="kanban"
+        moduleLabel={batch ? originLabel(batch.origin) : "Not tracked"}
         selected={selected}
         onSelect={onSelect}
         onClick={onClick}

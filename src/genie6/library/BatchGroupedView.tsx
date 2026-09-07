@@ -7,7 +7,7 @@ import type { RunBatch, RunItem } from "../lib/genieRunTypes";
 import { BatchProgressHeader, RunItemTile } from "../progress";
 import { BatchGroupHeader } from "./BatchGroupHeader";
 import { ConfirmActionDialog } from "./ConfirmActionDialog";
-import { originKey } from "./originLabels";
+import { originKey, originLabel } from "./originLabels";
 import { useAttributedOutputIds } from "./useOutputBatchIndex";
 import type { GetOutputCardActions } from "./useOutputCardActions";
 import type { SortKey } from "./LibraryToolbar";
@@ -113,6 +113,11 @@ export function BatchGroupedView({
                 key={o.id}
                 {...o}
                 {...getActions?.(o)}
+                // This section is exactly the outputs `useAttributedOutputIds`
+                // could NOT join to any batch — i.e. known to predate batch
+                // tracking, not merely "unknown". §11's honest-badge contract
+                // wants the literal "Not tracked" here, never a blank badge.
+                moduleLabel="Not tracked"
                 selected={selected.has(o.id)}
                 onSelect={() => onSelect(o.id)}
                 onClick={() => onCardClick(o)}
@@ -227,6 +232,12 @@ function BatchItemTile({
         <OutputCard
           {...output}
           {...getActions?.(output)}
+          // §11 — the batch this tile belongs to is already in scope here,
+          // so resolve the real module label directly rather than re-joining
+          // through the index; this is the one call site that renders on the
+          // batch's own terminal header, and it had NO badge on the card
+          // itself before this pass.
+          moduleLabel={originLabel(batch.origin)}
           selected={selected.has(output.id)}
           onSelect={() => onSelect(output.id)}
           onClick={() => onCardClick(output)}
