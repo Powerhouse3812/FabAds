@@ -26,13 +26,35 @@ import { resolvePrefillFromRoute } from "../lib/prefillContext";
  * for opening the palette, which is gone).
  *
  * Wraps the Outlet in `g6-root` so Geist + token-based bg/text apply to page content.
+ *
+ * `overflow-y-auto` — the shared scroll region for every Genie route.
+ *
+ * The FabAds shell is a fixed 100dvh box with INTERNAL scroll regions; routed
+ * content sits inside a `flex-1 min-h-0 overflow-hidden` container, so a page
+ * taller than the viewport is silently CLIPPED rather than scrolled. The
+ * shell's own `md:overflow-auto` can't rescue it — that intermediate container
+ * has already hidden the overflow before the shell sees it.
+ *
+ * Long-standing pages each solved this themselves (StudioLibrary wraps its
+ * body, StudioAlpha puts it on its `<main>`), but eight of the nine pages
+ * added in Genie 2.0 didn't, and lost everything below the fold: at 1440x820,
+ * Other Flows rendered 1242px of content into an 820px box and 422px of it was
+ * unreachable. Nothing looked broken, which is exactly why it shipped.
+ *
+ * Fixing it here rather than in each page means the next new Genie route can't
+ * reintroduce it. Pages that already manage their own scrolling are unaffected:
+ * they size to `h-full` (= this container's height), so they never overflow it
+ * and this scroller stays inert while their inner region keeps scrolling.
  */
 export function Genie6Bridge() {
   useGenie6Theme();
   useGenie6KeyboardShortcuts();
 
   return (
-    <div className="g6-root flex flex-1 min-h-0 flex-col" data-g6-build="2026-04-30-iter5">
+    <div
+      className="g6-root flex min-h-0 flex-1 flex-col overflow-y-auto"
+      data-g6-build="2026-04-30-iter5"
+    >
       <Outlet />
     </div>
   );
