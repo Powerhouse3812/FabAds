@@ -94,7 +94,7 @@ export function GeneratedOutputsTab({
 
   // ── Action wiring (§21.2 — wire the previously-dead ellipsis/bulk/footer
   //    actions) ─────────────────────────────────────────────────────────
-  const { getActions, confirmDialog, requestLaunch, regenerateSelection, downloadSelection } =
+  const { getActions, confirmDialog, folderModal, requestLaunch, regenerateSelection, downloadSelection } =
     useOutputCardActions();
   const outputBatchIndex = useOutputBatchIndex();
   const localOutputs = useLocalOutputs();
@@ -263,6 +263,7 @@ export function GeneratedOutputsTab({
           own filter chrome outside this component. */}
       {showToolbar && <LibraryToolbar />}
       {confirmDialog}
+      {folderModal}
 
       {filtered.length === 0 ? (
         // §21.3 "nothing matching the filter" — a DIFFERENT screen from the

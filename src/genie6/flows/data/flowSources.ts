@@ -402,12 +402,14 @@ function trendsRefs(): FlowSourceRef[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Campaign URLs — hand-authored. RECON confirms there is genuinely no
-// seeded data for this module (Supabase-backed, empty in the demo), so these
-// 6 are fresh, built on the real brand + product roster wherever they match,
+// Campaign URLs — hand-authored demo rows + real Supabase rows. Demo curates
+// 6 fresh rows built on the real brand + product roster wherever they match,
 // and on two invented client brands where they deliberately DON'T — the
 // no-match branch of §7.5 needs at least one honestly-unmatched landing
-// page, not a match forced for convenience.
+// page, not a match forced for convenience. Real campaign-url ids from
+// `/launch/campaign-urls` (Supabase-backed) are resolved on-demand: an
+// unrecognised id gets an empty, editable extraction the user can fill in
+// (§7.5: "shown and editable … the user must see and fix it").
 // ─────────────────────────────────────────────────────────────────────────
 
 function extraction(
@@ -701,12 +703,14 @@ function sampleOutputRef(out: OutputData): FlowSourceRef {
       ? brandEntity(brandMatch.id)
       : undefined;
   // Honest per-output format, read straight off mediaType — an output is
-  // either a video or an image. The handful of text-only outputs (the
-  // image-to-ad copy-only rows, plus the deliberate var_zerocase edge case)
-  // have no visual to vary at all, so sourceFormat is left unset for them
-  // rather than forced into either bucket.
+  // either a video or an image. Text-only outputs (image-to-ad copy-only rows
+  // and the deliberate var_zerocase edge case) are formatted as "image" since
+  // they represent copy-only ad variants which in Genie terms are static ads
+  // (Rule 1 §6 requires a variation to be fully pre-filled with no format
+  // question — an unset sourceFormat left Configure's format unset, reading as
+  // the flow asking something after all).
   const sourceFormat: FlowSourceRef["sourceFormat"] =
-    out.mediaType === "video" ? "video" : out.mediaType === "image" ? "image" : undefined;
+    out.mediaType === "video" ? "video" : "image";
   return {
     id: out.id,
     module: "creative-library" as FlowModuleKey,
@@ -783,6 +787,20 @@ function resolveLazySource(id: string): FlowSourceRef | undefined {
     }
   }
   if (!ref) ref = libraryMediaRef(id);
+  // Real Supabase campaign-url rows: an unrecognised id gets an empty,
+  // editable extraction. §7.5: "shown and editable … the user must see and
+  // fix it rather than discover the error in the output."
+  if (!ref && (id.startsWith("cu-") || (id.match(/^[a-f0-9\-]{36}$/) && id.includes("-")))) {
+    ref = {
+      id,
+      module: "campaign-urls" as FlowModuleKey,
+      title: "Landing page",
+      subtitle: "Landing page · extraction pending",
+      sourceBrandName: "Your landing page",
+      sourceFormat: "image",
+      extraction: extraction("", "", "", [], [], undefined),
+    };
+  }
   lazyCache.set(id, ref);
   return ref;
 }

@@ -117,8 +117,12 @@ function applyHighlight(patch: Partial<WizardState>, highlight: NonNullable<Flow
  * the exact same thing" (variation family — safe to set entity ids and mode
  * directly) or "context to seed the prompt with" (reference/trend/url
  * families — never an entity id, Step 2 still has to ask per Rule 2).
+ *
+ * @param ctx The resolved flow context from the URL params (src/ref/act).
+ * @param sp The raw URL search params, used to read edited extraction values
+ *           for Campaign URLs (xp/xo/xc) that override ref.extraction.
  */
-export function flowInitialPatch(ctx: FlowContext): Partial<WizardState> {
+export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partial<WizardState> {
   const { action, ref, highlight, preselect } = ctx;
   const patch: Partial<WizardState> = { step: ctx.landingStep };
 
@@ -196,22 +200,38 @@ export function flowInitialPatch(ctx: FlowContext): Partial<WizardState> {
     patch.attachedReferences = [{ id: ref.id, source: "library", label: ref.title, thumbnail: ref.thumbnail }];
   }
 
-  // Trends — the trend fills the angle as free text (§7.4). Trends' angles
-  // aren't catalogue angle ids, so angleId can't carry this; it rides in the
-  // prompt as a head start instead, same as Campaign URLs' extraction below.
+  // Trends — §8.4 "the trend fills the angle *and* brings supporting creatives
+  // as references." The angle is free text (not a catalogue id), so it rides in
+  // angleDescription (useWizard.ts renders ANGLE_CHIP_LABEL[angleId] ??
+  // angleId, so free text works the same as an id string). The prompt also
+  // gets a head start (same pattern as Campaign URLs below).
   if (action.id === "generate-against-trend" || action.id === "script-from-trend") {
+    if (ref.trendAngle) {
+      patch.angleDescription = ref.trendAngle;
+    }
     // Industry Insights offers "generate against this trend" too (§7.2) but
     // its refs have no trendAngle — without this fallback that action seeded
     // nothing at all and opened a bare Step 2.
     patch.prompt = ref.trendAngle
       ? `${ref.trendAngle} — inspired by "${ref.title}"`
       : `Build a new ad around the angle behind "${ref.title}".`;
+    // §8.4: "brings supporting creatives as references" — TrendItem currently
+    // carries no attached creatives field (separate lookup needed). TODO: once
+    // backend exposes related creatives or we have a data source for them,
+    // populate patch.attachedReferences here with context tags per §8.2.
   }
 
   // Campaign URLs — the extraction is visible and editable in its own card
   // (§7.5); this is just the prompt head start built from the same data.
+  // If the user edited the extraction in FlowModuleDetail, those edits
+  // (xp/xo/xc URL params) override the original ref.extraction.
   if (action.id === "generate-from-url" && ref.extraction) {
-    const { product, offer, claims } = ref.extraction;
+    const editedProduct = sp?.get("xp");
+    const editedOffer = sp?.get("xo");
+    const editedClaims = sp?.get("xc");
+    const product = editedProduct ?? ref.extraction.product;
+    const offer = editedOffer ?? ref.extraction.offer;
+    const claims = editedClaims ? editedClaims.split("|") : ref.extraction.claims;
     patch.prompt = `${product} — ${offer}. ${claims.join(", ")}.`;
   }
 

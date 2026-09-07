@@ -2955,26 +2955,11 @@ const SUGGESTION_KIND_LABELS: Readonly<Record<SuggestionKind, string>> = {
 };
 
 /**
- * `StudioBrandAdForm.tsx` reads `?brand=` / `?output=` / `?preset=` via
- * `useSearchParams` but NOT `?hook=` / `?angle=` (verified against
- * `StudioBrandAdForm.tsx:72-79`) — so a navigate to this route carries the
- * chosen output type, never a hook or an angle. `works` on each action below
- * reflects exactly that split; do not change one without the other.
- *
- * NOTE (Genie 2.0 §7): `StudioBrandAdForm` lives under `/iq/genie6/generate/*`
- * — the SAME legacy scaffold as `GenerateLanding` — which §7 forbids as a
- * parallel flow for redirects ("used for every generation, whatever the
- * entry point"). `buildFormatSuggestion` below still uses it (untouched here
- * — out of this fix's scope, flagged in the build report) but the angle/hook
- * actions have been moved off it entirely onto real Studio Alpha `?src/?ref/
- * ?act` flow params; see `studioAlphaFlowHref` / `PLAIN_STUDIO_HREF`.
+ * Genie 2.0 §7: all suggestion actions (angle, hook, format) route through
+ * the real Studio Alpha entry point (`PLAIN_STUDIO_HREF`) with no `?src/?ref/?act`
+ * params, never through the legacy `/iq/genie6/generate/*` scaffold.
+ * This ensures there is exactly one generation flow for every entry point.
  */
-const GENIE_BRAND_AD_TEXT_HREF = "/iq/genie6/generate/brand-ad?output=whole-adcopy";
-
-function genieBrandAdHref(output: string): string {
-  return `/iq/genie6/generate/brand-ad?output=${output}`;
-}
-
 /**
  * Genie 2.0 §7 routing for "Use this angle" / "Use hook" below.
  *
@@ -3047,10 +3032,10 @@ function buildAngleSuggestion(
       key: "use-angle",
       label: "Use this angle",
       intent: "navigate",
-      href: GENIE_BRAND_AD_TEXT_HREF,
+      href: PLAIN_STUDIO_HREF,
       works: false,
       caveat:
-        "Opens Genie's Brand Ad form with a blank prompt — the angle itself doesn't carry over yet.",
+        "Opens Studio for a new ad — the angle itself doesn't carry into the prompt yet.",
     },
     {
       key: "see-angle-ads",
@@ -3094,10 +3079,10 @@ function buildHookSuggestion(longRunners: LongRunnersView): SuggestionCard | nul
       key: "use-hook",
       label: "Use hook",
       intent: "navigate",
-      href: GENIE_BRAND_AD_TEXT_HREF,
+      href: PLAIN_STUDIO_HREF,
       works: false,
       caveat:
-        "Opens Genie's Brand Ad form — this hook isn't carried into the prompt yet. Copy it first if you want to bring the words with you.",
+        "Opens Studio for a new ad — this hook isn't carried into the prompt yet. Copy it first if you want to bring the words with you.",
     },
     { key: "save-hook", label: "Save", intent: "save", works: true },
     { key: "copy-hook", label: "Copy", intent: "copy", works: true },
@@ -3155,10 +3140,10 @@ function buildFormatSuggestion(
       key: "generate-format-ad",
       label: `Generate a ${formatWord} ad`,
       intent: "navigate",
-      href: genieBrandAdHref(formatWord),
-      // `output` IS read by `StudioBrandAdForm` — the one kind whose Genie
-      // handoff carries its whole payload today.
-      works: true,
+      href: PLAIN_STUDIO_HREF,
+      works: false,
+      caveat:
+        "Opens Studio for a new ad — the format word doesn't carry into the prompt yet.",
     },
     {
       key: "see-format-ads",

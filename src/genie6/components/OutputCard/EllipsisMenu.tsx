@@ -16,16 +16,13 @@ import type { EllipsisAction } from "../../types/output";
  *     so "same wording, same behaviour" holds across Results / Library / Ad
  *     detail. Grouped with the other regeneration actions (group 1).
  *   - "Reference for a new ad" and "Send to Other Apps" — §7.6 / §6 Rule 6.
+ *   - "Add to folder" — §8.6, now backed by GenieAddToFolderModal with
+ *     in-session membership tracking.
  *
  * REMOVED from the original 11 (RECON found all 11 unwired) — not carried
  * forward here because nothing in this codebase can honestly back them:
  *   - "Add feedback" — no feedback-capture surface (rating, comment, or
  *     coach-signal store) exists anywhere in genie6 to attach this to.
- *   - "Add to folder" — the "Folders" Other-Flow module is explicit
- *     Coming-soon (§7 table), and Genie's own Library has no folder concept
- *     of its own (only the separate Creative Library module has folders).
- *     Wiring this to nothing would be exactly the silent no-op the brief
- *     said to remove instead of ship.
  */
 const ITEMS: Array<{ action: EllipsisAction; label: string; group?: number }> = [
   { action: "edit", label: "Edit", group: 1 },
@@ -35,6 +32,7 @@ const ITEMS: Array<{ action: EllipsisAction; label: string; group?: number }> = 
   { action: "varyConcept", label: "Vary concept", group: 1 },
   { action: "varyWholeVideo", label: "Vary whole video", group: 1 },
   { action: "referenceForNewAd", label: "Reference for a new ad", group: 2 },
+  { action: "addToFolder", label: "Add to folder", group: 3 },
   { action: "saveAsConcept", label: "Save as Concept", group: 3 },
   { action: "saveAsTemplate", label: "Save as Template", group: 3 },
   { action: "saveTextOnly", label: "Save text-only to Library", group: 3 },

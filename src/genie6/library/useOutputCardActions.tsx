@@ -15,6 +15,7 @@ import {
 } from "./outputActions";
 import { addLocalOutput, isSaved, toggleSaved, useLibraryActionsState } from "./libraryActionsStore";
 import { ConfirmActionDialog } from "./ConfirmActionDialog";
+import { GenieAddToFolderModal } from "./GenieAddToFolderModal";
 
 /**
  * useOutputCardActions — the ONE place that turns an `OutputData` into the
@@ -42,6 +43,8 @@ export interface UseOutputCardActionsResult {
   /** Mount once per page (GeneratedOutputsTab does this). Hosts the shared
    *  Launch confirmation — single card AND bulk share one dialog instance. */
   confirmDialog: JSX.Element;
+  /** Hosts the shared "Add to folder" modal for all output cards on the page. */
+  folderModal: JSX.Element;
   requestLaunch: (count: number, onConfirm: () => void) => void;
   regenerateSelection: (outputs: OutputData[]) => void;
   downloadSelection: (outputs: OutputData[]) => void;
@@ -54,6 +57,8 @@ export function useOutputCardActions(): UseOutputCardActionsResult {
   // per-card output) whenever a bookmark/save flag flips.
   useLibraryActionsState();
   const [launchRequest, setLaunchRequest] = useState<LaunchRequest | null>(null);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
+  const [folderModalOutput, setFolderModalOutput] = useState<OutputData | null>(null);
 
   const goToBatchView = useCallback(() => {
     setSearchParams(
@@ -196,6 +201,10 @@ export function useOutputCardActions(): UseOutputCardActionsResult {
             toast.success("Download started");
             return;
           }
+          case "addToFolder":
+            setFolderModalOutput(output);
+            setFolderModalOpen(true);
+            return;
           default:
             return;
         }
@@ -231,5 +240,19 @@ export function useOutputCardActions(): UseOutputCardActionsResult {
     />
   );
 
-  return { getActions, confirmDialog, requestLaunch, regenerateSelection, downloadSelection };
+  const folderModal = (
+    <GenieAddToFolderModal
+      open={folderModalOpen}
+      onOpenChange={setFolderModalOpen}
+      output={folderModalOutput}
+      onChanged={(action, folderLabel) => {
+        const message = action === "added"
+          ? `Added to ${folderLabel}`
+          : `Removed from ${folderLabel}`;
+        toast.success(message);
+      }}
+    />
+  );
+
+  return { getActions, confirmDialog, folderModal, requestLaunch, regenerateSelection, downloadSelection };
 }

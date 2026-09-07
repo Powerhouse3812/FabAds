@@ -139,7 +139,7 @@ function readUrlIntoState(
     // Otherwise a hard refresh / deep link on /results rendered Step 5 for
     // one paint (its mount effect started a phantom batch) and then bounced
     // to Configure because landingStep (4) overwrote the path's step (5).
-    const { step: landingStep, ...flowPatch } = flowInitialPatch(flowCtx);
+    const { step: landingStep, ...flowPatch } = flowInitialPatch(flowCtx, searchParams);
     Object.assign(patch, flowPatch);
     if (!patch.step) patch.step = landingStep;
     patch.category = "ad"; // flows only ever produce ads, never assets
