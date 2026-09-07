@@ -23,9 +23,13 @@ import { formatRelativeTime } from "../relativeTime";
  *
  * Provenance row deliberately mirrors `BatchGroupHeader`'s pill/mono
  * vocabulary (batch id pill with copy, module chip, Created By, relative
- * time) so a Script/Concept draft reads as "the same kind of fact" as an
- * ad's batch header, just sized for a card footer instead of a full-width
- * header.
+ * time) so a Script/Concept/Storyboard draft reads as "the same kind of
+ * fact" as an ad's batch header, just sized for a card footer instead of a
+ * full-width header. The same row also carries a "Free" pill — the owner's
+ * call: asset generation (Script / Concept / Storyboard) doesn't cost
+ * credits, and a free thing should say so rather than showing no cost at
+ * all, which reads as an oversight next to `BatchGroupHeader`'s
+ * `creditsLabel()` on every ad batch.
  */
 export interface GeneratedAssetCardProps {
   icon: ReactNode;
@@ -45,8 +49,18 @@ export interface GeneratedAssetCardProps {
   batchIsPartial: boolean;
   /** Present once this draft has been saved — id in the real Catalogue. */
   savedCatalogueId?: string;
-  catalogueType: "scripts" | "concepts";
-  onSave: () => void;
+  catalogueType: "scripts" | "concepts" | "storyboards";
+  /**
+   * Default true. Set false when this `catalogueType` has no real Catalogue
+   * destination to save into — Storyboards (Genie 2.0 §10 lists exactly
+   * Avatars/Voices/Scripts/Concepts/Hooks/CTAs/Frameworks as Catalogue
+   * Creative types; `src/catalogue/assetTypes.ts`'s `CatalogueType` union has
+   * no `"storyboards"` member). When false, `onSave` is never called and the
+   * card shows an honest "no Catalogue home yet" state instead of a button
+   * that would either no-op or silently mis-save under the wrong type.
+   */
+  canSaveToCatalogue?: boolean;
+  onSave?: () => void;
 }
 
 export function GeneratedAssetCard({
@@ -65,6 +79,7 @@ export function GeneratedAssetCard({
   batchIsPartial,
   savedCatalogueId,
   catalogueType,
+  canSaveToCatalogue = true,
   onSave,
 }: GeneratedAssetCardProps) {
   const [copied, setCopied] = useState(false);
@@ -135,6 +150,12 @@ export function GeneratedAssetCard({
           {batchId}
           {copied ? <Check className="h-2.5 w-2.5 text-success-text" /> : <Copy className="h-2.5 w-2.5 text-g6-text-secondary" />}
         </button>
+        {/* Asset generation (Script / Concept / Storyboard) is free — stated
+            plainly, same slot an ad batch uses for `creditsLabel()`, rather
+            than leaving the cost line blank next to a paid ad's batch. */}
+        <span className="inline-flex items-center rounded-g6-pill border border-g6-success/30 bg-g6-success/10 px-2 py-0.5 font-g6-mono text-[10px] font-bold uppercase tracking-[0.06em] text-success-text">
+          Free
+        </span>
         {batchIsPartial && (
           <span className="inline-flex items-center rounded-g6-pill border border-g6-warning/30 bg-g6-warning/10 px-2 py-0.5 font-g6-mono text-[10px] font-bold uppercase tracking-[0.06em] text-warning-text">
             Partial batch
@@ -163,6 +184,18 @@ export function GeneratedAssetCard({
           >
             <RefreshCw className="h-3 w-3" /> Retry
           </button>
+        </div>
+      ) : !canSaveToCatalogue ? (
+        // Honest dead-end, not a fake save: this type has no real Catalogue
+        // destination yet (see `canSaveToCatalogue` doc above). A disabled
+        // look + explanatory copy, never a button that appears to work.
+        <div
+          className="flex items-center justify-between gap-2 rounded-g6-lg border border-dashed border-g6-border-secondary bg-g6-bg-spotlight/60 px-3 py-2"
+          title="Storyboard isn't a Catalogue asset type yet — this stays in Library only"
+        >
+          <span className="font-g6-mono text-[11px] text-g6-text-tertiary">
+            Library only — no Catalogue home yet
+          </span>
         </div>
       ) : savedCatalogueId ? (
         <div className="flex items-center justify-between">

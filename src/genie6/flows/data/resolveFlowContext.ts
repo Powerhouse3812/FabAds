@@ -2,26 +2,36 @@
  * Other Flows — URL → FlowContext resolver (Genie 2.0 §5, §6, §7).
  *
  * WHY THIS DEGRADES INSTEAD OF THROWING
- * A flow's whole identity lives in three URL params (see flowTypes.ts's file
+ * A flow's whole identity lives in four URL params (see flowTypes.ts's file
  * header). That means a bookmarked link, a stale share, or someone hand-
- * editing the address bar can point at a module/ref/action combination that
- * no longer exists — a ref that got pruned from the catalogue, an action a
- * module never actually offered, a typo. None of that should ever crash
- * Studio; it should just fall back to plain Studio, unbannered. Every lookup
- * below is written to return `null` on the first thing that doesn't check
- * out, never to throw.
+ * editing the address bar can point at a module/ref/action/target combination
+ * that no longer exists — a ref that got pruned from the catalogue, an action
+ * a module never actually offered, a target that action can't reach, a typo.
+ * None of that should ever crash Studio; it should just fall back to plain
+ * Studio, or to the action's default target. Every lookup below is written to
+ * return `null` on the first thing that doesn't check out, never to throw.
  *
  * This file does NOT decide what the highlight/preselect/caveat RULES are on
  * a case-by-case basis per module — those decisions already live on the data
  * (FlowModule.competitorOwned, FlowAction.preselectEntity, FlowModule.
  * staticOnlyNote, FlowSourceRef.detectedEntity/sourceFormat). This file is
  * just the one place that reads them in the right order.
+ *
+ * ASSETS TOO, NOT ONLY ADS (2026-09-08) — `target`/`source`/`isVariation` are
+ * new here. Landing step used to be a literal `action.asksNothing ? 4 : 2`;
+ * it is now the resolved plan's own first visible step
+ * (`resolveGenerationSteps`, useWizard.ts, read-only) — which also correctly
+ * handles the one case the old literal couldn't: a target only reachable AS A
+ * VARIATION (today, concept ← concept), which must ask nothing and land last,
+ * exactly like the original Ad-variation family, even though its action
+ * (`use-concept`) has `asksNothing: false`.
  */
 import type { FlowActionId, FlowContext, FlowModuleKey, FlowSourceRef } from "../flowTypes";
-import { FLOW_PARAM_ACT, FLOW_PARAM_REF, FLOW_PARAM_SRC } from "../flowTypes";
+import { FLOW_PARAM_ACT, FLOW_PARAM_REF, FLOW_PARAM_SRC, FLOW_PARAM_TARGET } from "../flowTypes";
 import { FLOW_ACTIONS, getFlowModule } from "./flowRegistry";
 import { DEFAULT_BRAND_ID, DEFAULT_BRAND_NAME, getFlowSource } from "./flowSources";
-import type { WizardState } from "../../studio-v4/state/useWizard";
+import type { Format, GenerationTarget, WizardState } from "../../studio-v4/state/useWizard";
+import { isFreeGeneration, isValidSourceForTarget, resolveGenerationSteps } from "../../studio-v4/state/useWizard";
 
 /**
  * Rule 1's variation family — asks nothing, pre-filled, lands on Configure.
@@ -61,7 +71,47 @@ export function resolveFlowContext(sp: URLSearchParams): FlowContext | null {
   const ref = getFlowSource(refRaw);
   if (!ref || ref.module !== module.key) return null;
 
-  const landingStep: 2 | 4 = action.asksNothing ? 4 : 2;
+  // Target — `?tgt` when it names one of THIS action's declared targets,
+  // else the action's own default (its first entry, always "ad" for every
+  // action whose `source` is "none"). A hand-edited `?tgt=storyboard` on an
+  // action that can't reach it (e.g. use-script) is exactly the kind of
+  // stale/bad URL this file exists to degrade gracefully from, not throw on.
+  const targetRaw = sp.get(FLOW_PARAM_TARGET) as GenerationTarget | null;
+  const target: GenerationTarget =
+    targetRaw && action.targets.includes(targetRaw) ? targetRaw : action.targets[0];
+
+  // Rule 1, fully resolved. `action.asksNothing` covers the original Ad-
+  // variation family (vary-script/vary-concept/vary-whole-video/generate-
+  // variation/refresh-fatigued) unconditionally. The OR clause covers the
+  // one case that's about the (target, source) PAIR rather than the action
+  // itself — today, only concept ← concept — via the exact same check
+  // `isValidSourceForTarget`'s own `isVariation` branch uses: valid as a
+  // variation but NOT valid as a plain pair.
+  const isVariation =
+    action.asksNothing ||
+    (!isValidSourceForTarget(target, action.source) && isValidSourceForTarget(target, action.source, true));
+
+  // Landing step — the resolved plan's OWN first visible step, never a
+  // literal. `ref.sourceFormat` seeds the format the same way
+  // `flowInitialPatch` below does, so Storyboard's video-only gate sees the
+  // same value Configure eventually will. Two rules override everything, in
+  // the order `resolveGenerationSteps` itself applies them: a variation asks
+  // nothing and lands on the last step (beats even Ad's own rule); otherwise
+  // an Ad — and, by the same "start the wizard fresh" logic, any asset
+  // target too — starts at Step 1, which is also where the target picker
+  // itself lives.
+  const format: Format | null = ref.sourceFormat ? (ref.sourceFormat === "video" ? "video" : "image") : null;
+  const landingStep = resolveGenerationSteps(target, action.source, { isVariation, format }).visibleSteps[0];
+
+  // Asset generation is free (Script/Concept/Storyboard) — Ad is the only
+  // priced target. See `isFreeGeneration` (useWizard.ts) — this file never
+  // computes a rate, only echoes whether one applies.
+  const free = isFreeGeneration(target);
+
+  // Banner sentence for THIS resolved target — per-target override first,
+  // falling back to the action's generic line (also what FlowModuleDetail's
+  // action card shows before a target is even chosen).
+  const produces = action.producesByTarget?.[target] ?? action.produces;
 
   // §7.2's critical rule overrides everything else: a competitor-owned
   // module (Industry Insights) NEVER highlights the source's own brand, no
@@ -97,11 +147,15 @@ export function resolveFlowContext(sp: URLSearchParams): FlowContext | null {
     module,
     action,
     ref,
+    target,
+    source: action.source,
+    isVariation,
     landingStep,
     highlight,
     preselect,
     competitorOwned,
-    produces: action.produces,
+    free,
+    produces,
     caveat,
   };
 }
@@ -124,7 +178,18 @@ function applyHighlight(patch: Partial<WizardState>, highlight: NonNullable<Flow
  */
 export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partial<WizardState> {
   const { action, ref, highlight, preselect } = ctx;
-  const patch: Partial<WizardState> = { step: ctx.landingStep };
+  const patch: Partial<WizardState> = {
+    step: ctx.landingStep,
+    // NEW (2026-09-08) — the wizard's own generation-target contract
+    // (`resolveGenerationStepsForState`, useWizard.ts) reads these three off
+    // state, not off the URL, so every flow hand-off has to seed them at
+    // construction same as everything else here. `ctx.source`/`ctx.target`
+    // already resolved (and validated) in resolveFlowContext — never
+    // re-derived here.
+    generationTarget: ctx.target,
+    generationSource: ctx.source,
+    isVariation: ctx.isVariation,
+  };
 
   // Format — Carousel/Flexible aren't real Studio formats (Format is
   // image|video only); both fold to "image", which is also exactly what
@@ -133,12 +198,14 @@ export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partia
     patch.format = ref.sourceFormat === "video" ? "video" : "image";
   }
 
-  // Rule 1 — only the variation family (and Campaign URLs' documented
-  // pre-select exception) are allowed to set an entity id directly, because
-  // only they are continuing something that already has one. Every other
-  // action leaves brandId/productId/categoryId untouched (null) so Step 2
-  // still makes the user choose explicitly — ctx.highlight is what shows the
-  // suggestion there; this function is what would silently skip asking.
+  // Rule 1 — only the ORIGINAL Ad-variation family (`action.asksNothing`,
+  // not `ctx.isVariation` — see below) are allowed to set an entity id
+  // directly and a Mode, because only they are continuing something that
+  // already has one and are approach-shaped (`Mode` is an Ad-approach
+  // concept — concept ← concept variation isn't). Every other action leaves
+  // brandId/productId/categoryId untouched (null) so Step 2 still makes the
+  // user choose explicitly — ctx.highlight is what shows the suggestion
+  // there; this function is what would silently skip asking.
   if (action.asksNothing && highlight) {
     applyHighlight(patch, highlight);
     if (VARIATION_ACTION_IDS.has(action.id)) patch.mode = "create-variations";
@@ -146,6 +213,18 @@ export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partia
   if (action.id === "generate-from-url" && preselect && highlight) {
     applyHighlight(patch, highlight);
     patch.mode = "scratch";
+  }
+
+  // NEW (2026-09-08) — the OTHER way `ctx.isVariation` can be true: the
+  // (target, source) pair itself is only valid as a variation (today, only
+  // concept ← concept, e.g. "Use concept" with Concept picked as the
+  // target). This is deliberately NOT folded into the block above — it must
+  // NOT set brandId/mode (asset targets keep the entity optional/Auto, and
+  // `Mode` doesn't mean anything for a Concept target) — it only needs a
+  // non-empty prompt so Configure's Generate button isn't disabled by an
+  // empty field Rule 1 says the flow should never have asked for.
+  if (ctx.isVariation && !action.asksNothing) {
+    patch.prompt = `Keep the core idea of "${ref.title}". Generate a new variation of this concept — free.`;
   }
 
   // vary-script — the script came FROM this source and has already been

@@ -33,6 +33,50 @@ export type Mode =
   | "bg-remover"
   | "resize";
 
+/**
+ * NEW (2026-09-08, product owner) — Genie generates more than Ads now:
+ * Script, Concept and Storyboard are all first-class generation targets.
+ * Framework is analyse-only and is NEVER a target — it only ever shows up
+ * below as a `GenerationSource`.
+ *
+ * Defaults to "ad" everywhere (see `INITIAL_STATE`), so nothing about
+ * today's ad wizard changes behaviour just from this field existing.
+ */
+export type GenerationTarget = "ad" | "script" | "concept" | "storyboard";
+
+/**
+ * The five things a generation can ARRIVE carrying (owner's ruling,
+ * verbatim):
+ *  - "angle"     → carries an angle only.
+ *  - "hook"      → carries neither an angle nor a concept.
+ *  - "concept"   → carries a concept AND its angle.
+ *  - "framework" → carries STRUCTURE ONLY — section order (hook > discovery
+ *                  > CTA > before/after > CTA, etc.) — never an angle or a
+ *                  concept.
+ *  - "script"    → carries the script text.
+ *  - "none"      → no incoming source — today's plain "from scratch" case,
+ *                  and every existing Ad flow's default.
+ */
+export type GenerationSource =
+  | "none"
+  | "angle"
+  | "hook"
+  | "concept"
+  | "framework"
+  | "script";
+
+/**
+ * Step 3's vocabulary correction (owner, verbatim): "Approach is nothing but
+ * angle + concept." The seven existing presets (`Mode`) are one route to
+ * that answer; picking angle + concept directly, with no preset, is the
+ * other. Neither route is re-derived elsewhere — the Step 3 screen (another
+ * agent's file) writes this the moment the user commits to one, so any
+ * later surface (Overview, Configure, the credit breakdown) can say HOW the
+ * approach requirement was satisfied without re-deriving it from
+ * `mode`/`angleId`/`selectedConceptIds`.
+ */
+export type ApproachRoute = "preset" | "custom";
+
 export type AttachSource =
   | "upload"
   | "library"
@@ -107,6 +151,36 @@ export interface WizardState {
   /** Sub-type within the chosen approach (e.g. UGC Video → tutorial / unboxing
    *  / talking-head). null = approach has no sub-type or none picked yet. */
   approachSubType: string | null;
+  /**
+   * NEW (2026-09-08) — what this generation is FOR: an Ad (default, existing
+   * behaviour, unchanged) or one of the three free asset targets — Script,
+   * Concept, Storyboard. See `resolveGenerationSteps` further down for what
+   * each target needs and how a source trims that. Framework is analyse-only
+   * and is never a value here — it only ever appears as `generationSource`.
+   */
+  generationTarget: GenerationTarget;
+  /**
+   * What this generation ARRIVED carrying, if anything — "none" is the
+   * default (today's from-scratch / Ad case). Read together with
+   * `generationTarget` by `resolveGenerationSteps` to decide which steps to
+   * ask. Not itself a source of truth for angle/concept VALUES (those still
+   * live in `angleId`/`selectedConceptIds` below) — just what kind of
+   * hand-off produced this generation.
+   */
+  generationSource: GenerationSource;
+  /**
+   * §7 Rule 1 — "a variation asks nothing and lands straight on Configure."
+   * Set by whatever hands off a vary-script/vary-concept/vary-whole-video
+   * action (mirrors Other-Flows' `FlowAction.asksNothing`). Default false.
+   */
+  isVariation: boolean;
+  /**
+   * Step 3's two routes to satisfying "approach" (= angle + concept): one of
+   * the seven existing presets (`mode`), or picking angle + concept directly
+   * with no preset. Written by the Step 3 screen the moment the user commits
+   * to a route; null = not yet decided (or n/a, before Step 3 loads).
+   */
+  approachRoute: ApproachRoute | null;
   modelId: string;
   angleId: string | null;
   /**
@@ -216,6 +290,10 @@ export const INITIAL_STATE: WizardState = {
   mode: "scratch",
   studioMode: null,
   approachSubType: null,
+  generationTarget: "ad",
+  generationSource: "none",
+  isVariation: false,
+  approachRoute: null,
   modelId: "genie-1.0",
   angleId: null,
   angleDescription: null,
@@ -330,6 +408,245 @@ export function buildCreditLines(state: WizardState): CreditLine[] {
 
   return lines;
 }
+
+/* ────────────────────────────────────────────────────────────────────── *
+ * Generation targets (Ad / Script / Concept / Storyboard) — 2026-09-08.
+ *
+ * Governing rule from the product owner: "the steps a flow asks for are
+ * what the TARGET needs, minus what the SOURCE already carries." This
+ * section is the ONE place that rule is encoded. Every other screen (Step1
+ * Format, Step2Product, Step3Approach, Step4Configure, the Overview panel)
+ * must call `resolveGenerationSteps` (or the state-reading convenience
+ * wrapper right after it) rather than re-deriving its own check — that's
+ * the whole point of doing this file first.
+ *
+ * Step numbers below are the wizard's own, UNCHANGED order:
+ *   1 = Mode & Format · 2 = Product (entity) · 3 = Approach (angle+concept)
+ *   4 = Configure
+ * (Step 5, Results/Queue, is the post-generation screen — it isn't part of
+ * "which steps do I ask" and always follows step 4.)
+ * ────────────────────────────────────────────────────────────────────── */
+
+/** What a target needs, independent of any source. */
+interface TargetSpec {
+  /** Step 2 — is picking a brand/product/category BLOCKING for this target?
+   *  True only for Ad. Every asset target's entity is optional/Auto (owner:
+   *  "if the user picks nothing, generation proceeds on Auto and infers
+   *  from the source"). */
+  entityRequired: boolean;
+  /** Step 3 — does this target need an angle? (All four do.) */
+  needsAngle: boolean;
+  /** Step 3 — does this target need a CONCEPT, not just an angle? Concept
+   *  itself only needs the angle (owner: "concept needs the angle but NOT a
+   *  concept" — it's the thing being made). */
+  needsConcept: boolean;
+  /** Storyboard only — offerable/valid for video format alone. */
+  videoOnly: boolean;
+}
+
+const TARGET_SPECS: Record<GenerationTarget, TargetSpec> = {
+  ad: { entityRequired: true, needsAngle: true, needsConcept: true, videoOnly: false },
+  script: { entityRequired: false, needsAngle: true, needsConcept: true, videoOnly: false },
+  concept: { entityRequired: false, needsAngle: true, needsConcept: false, videoOnly: false },
+  storyboard: { entityRequired: false, needsAngle: true, needsConcept: true, videoOnly: true },
+};
+
+/** What each source already satisfies toward the step-3 (angle+concept)
+ *  requirement — verbatim from the owner's ruling. A source never satisfies
+ *  the step-2 entity requirement; entity is a separate, always-optional ask
+ *  for every asset target regardless of source. */
+const SOURCE_CARRIES: Record<GenerationSource, { angle: boolean; concept: boolean }> = {
+  none: { angle: false, concept: false },
+  angle: { angle: true, concept: false },
+  hook: { angle: false, concept: false },
+  concept: { angle: true, concept: true },
+  // Framework fixes SECTION ORDER only (hook > discovery > CTA > …) — it
+  // never supplies an angle or a concept, so it satisfies nothing here.
+  framework: { angle: false, concept: false },
+  script: { angle: false, concept: false },
+};
+
+/** Confirmed source → target pairs (owner, verbatim). Used only to flag an
+ *  unsupported combination — `resolveGenerationSteps` still returns a plan
+ *  for an "invalid" pair rather than throwing (same spirit as
+ *  `resolveFlowContext` degrading instead of throwing on a bad URL). */
+const VALID_SOURCES_BY_TARGET: Record<GenerationTarget, GenerationSource[]> = {
+  ad: ["none", "angle", "hook", "concept", "framework", "script"],
+  script: ["none", "angle", "hook", "concept", "framework"],
+  concept: ["none", "angle", "hook", "framework", "script"],
+  storyboard: ["none", "angle", "hook", "concept", "framework"],
+};
+
+/**
+ * Is this (target, source) pair one the owner actually confirmed? A concept
+ * can also come from another concept, but ONLY as a variation (pass
+ * `isVariation: true`) — as a non-variation pair it isn't on the list.
+ */
+export function isValidSourceForTarget(
+  target: GenerationTarget,
+  source: GenerationSource,
+  isVariation = false,
+): boolean {
+  if (isVariation) return target === "concept" && source === "concept";
+  return VALID_SOURCES_BY_TARGET[target].includes(source);
+}
+
+/** Gates whether Storyboard may be OFFERED as a generation target at all,
+ *  given the current/known format — "Storyboard, video format only."
+ *  `null` (format not chosen yet) stays offerable, since there's nothing to
+ *  conflict with yet; the Format step itself is what narrows it to video. */
+export function isStoryboardOfferable(format: Format | null): boolean {
+  return format !== "image";
+}
+
+export type StepNumber = 1 | 2 | 3 | 4;
+export type StepStatus = "required" | "optional" | "skipped";
+
+export interface StepPlanEntry {
+  step: StepNumber;
+  /** "required" = must be filled to proceed. "optional" = shown, but Auto
+   *  satisfies it (never blocks Generate). "skipped" = not shown at all —
+   *  the source already carries what this step would have asked for. */
+  status: StepStatus;
+  /** Step 3 only, and only when NOT skipped — which piece(s) of the
+   *  angle+concept requirement are still unanswered, so the Approach screen
+   *  knows whether to ask for both or just the missing one. */
+  needsAngle?: boolean;
+  needsConcept?: boolean;
+}
+
+export interface GenerationStepPlan {
+  target: GenerationTarget;
+  source: GenerationSource;
+  isVariation: boolean;
+  /** One entry per wizard step, always in wizard order (1 → 4) — the order
+   *  never changes, only which steps are required/optional/skipped does. */
+  steps: StepPlanEntry[];
+  /** Convenience — the step numbers a caller must actually render, in
+   *  order. Prefer this over filtering `steps` yourself. */
+  visibleSteps: StepNumber[];
+  /** Step 2 — true only for Ad. Every asset target's entity is optional. */
+  entityRequired: boolean;
+  /** Echoes `TARGET_SPECS[target].videoOnly` for convenience. */
+  videoOnly: boolean;
+  /** False only when `format` was passed AND conflicts with `videoOnly`
+   *  (e.g. target is Storyboard but format is already "image"). */
+  formatValid: boolean;
+}
+
+/**
+ * THE function every screen must call instead of hand-rolling its own "do I
+ * need to ask this?" check. Pure — no state, no side effects.
+ *
+ * Two rules override the plain derivation, applied in this order:
+ *  1. A variation (`isVariation: true`) asks nothing and lands straight on
+ *     step 4 (§7 Rule 1) — this is checked FIRST because it beats even
+ *     Ad's own rule below, matching the Other-Flows "vary-*" actions
+ *     elsewhere (`flowTypes.ts`'s `landingStep: 4`).
+ *  2. Ad always gets the full, unchanged wizard ("Ads always start from
+ *     step 1") — no source ever trims a step for an Ad.
+ * Everything else derives step 2 (optional, never blocking, for every asset
+ * target) and step 3 (the target's angle/concept need, minus whatever the
+ * source already carries).
+ */
+export function resolveGenerationSteps(
+  target: GenerationTarget,
+  source: GenerationSource,
+  opts?: { isVariation?: boolean; format?: Format | null },
+): GenerationStepPlan {
+  const isVariation = !!opts?.isVariation;
+  const format = opts?.format ?? null;
+  const spec = TARGET_SPECS[target];
+  const formatValid = !spec.videoOnly || format == null || format === "video";
+
+  if (isVariation) {
+    return {
+      target,
+      source,
+      isVariation,
+      steps: [
+        { step: 1, status: "skipped" },
+        { step: 2, status: "skipped" },
+        { step: 3, status: "skipped" },
+        { step: 4, status: "required" },
+      ],
+      visibleSteps: [4],
+      entityRequired: false,
+      videoOnly: spec.videoOnly,
+      formatValid,
+    };
+  }
+
+  if (target === "ad") {
+    return {
+      target,
+      source,
+      isVariation,
+      steps: [
+        { step: 1, status: "required" },
+        { step: 2, status: "required" },
+        { step: 3, status: "required", needsAngle: true, needsConcept: true },
+        { step: 4, status: "required" },
+      ],
+      visibleSteps: [1, 2, 3, 4],
+      entityRequired: true,
+      videoOnly: false,
+      formatValid: true,
+    };
+  }
+
+  const carries = SOURCE_CARRIES[source];
+  const needsAngle = spec.needsAngle && !carries.angle;
+  const needsConcept = spec.needsConcept && !carries.concept;
+  const step3Required = needsAngle || needsConcept;
+
+  return {
+    target,
+    source,
+    isVariation,
+    steps: [
+      { step: 1, status: "required" },
+      { step: 2, status: "optional" },
+      step3Required
+        ? { step: 3, status: "required", needsAngle, needsConcept }
+        : { step: 3, status: "skipped" },
+      { step: 4, status: "required" },
+    ],
+    visibleSteps: step3Required ? [1, 2, 3, 4] : [1, 2, 4],
+    entityRequired: false,
+    videoOnly: spec.videoOnly,
+    formatValid,
+  };
+}
+
+/** Convenience wrapper reading target/source/isVariation/format straight off
+ *  a live `WizardState` — exactly `resolveGenerationSteps` under the hood,
+ *  kept separate so the pure function above stays trivially testable with
+ *  plain values instead of a full wizard state. */
+export function resolveGenerationStepsForState(state: WizardState): GenerationStepPlan {
+  return resolveGenerationSteps(state.generationTarget, state.generationSource, {
+    isVariation: state.isVariation,
+    format: state.format,
+  });
+}
+
+/**
+ * Asset generation is FREE (owner's ruling, verbatim: "free, stated as
+ * free") — Script, Concept and Storyboard never cost credits. Only Ad
+ * routes through `computeBreakdown()`/`buildCreditLines()` above. This is
+ * intentionally NOT a credit rate of 0 fed into that pipeline — the owner
+ * was explicit assets don't have a rate at all, they're simply free, so
+ * `src/genie6/lib/credits.ts` (read-only) stays the ONLY path to a charged
+ * total, and only for `target === "ad"`.
+ */
+export function isFreeGeneration(target: GenerationTarget): boolean {
+  return target !== "ad";
+}
+
+/** What the Generate button / Configure screen should say for a free
+ *  target, e.g. `Generate script · Free` instead of `Generate (12 credits)`.
+ *  A constant, not a function — there's no rate to compute. */
+export const FREE_GENERATION_LABEL = "Free";
 
 /* ────────────────────────────────────────────────────────────────────── *
  * §6 "Script as a pre-step" — the script/shot-plan ARRIVES generated for

@@ -1,35 +1,37 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, Search } from "lucide-react";
+import { Lightbulb, Search } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "../../components/EmptyState";
 import {
-  GENERATED_SCRIPTS,
+  GENERATED_CONCEPTS,
   partialBatchIds,
   poolBrandOptions,
 } from "./generatedAssetPool";
 import { GeneratedAssetCard } from "./GeneratedAssetCard";
-import { saveGeneratedScript, useSavedScriptCatalogueId } from "./generatedAssetsStore";
+import { saveGeneratedConcept, useSavedConceptCatalogueId } from "./generatedAssetsStore";
 
 /**
- * ScriptsGeneratedTab — Scripts Genie has generated, not yet saved to
- * Catalogue. Owner's spec: "Showing generated scripts... but they'll
- * saved to catalogue only for now" — this tab is a browse + save queue,
- * never a second script store (`generatedAssetsStore.ts` only remembers
- * "already saved this session"; the real record lives in Catalogue's
- * `scripts` type the moment Save fires).
+ * ConceptsGeneratedTab — Concepts Genie has generated, not yet saved to
+ * Catalogue. Same grammar as `ScriptsGeneratedTab` (§21.2 one asset-card
+ * grammar) — this file mirrors it deliberately rather than inventing a
+ * second layout, only swapping the data shape (angle/hook/tone/format
+ * instead of framework/body/duration) and the Catalogue destination
+ * (`concepts`, already wired in `generatedAssetsStore.ts`'s
+ * `saveGeneratedConcept` — that function existed before this tab did and
+ * was simply unused until now).
  */
-export function ScriptsGeneratedTab() {
+export function ConceptsGeneratedTab() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const search = searchParams.get("scriptsQ") ?? "";
-  const brandFilter = searchParams.get("scriptsBrand") ?? "all";
+  const search = searchParams.get("conceptsQ") ?? "";
+  const brandFilter = searchParams.get("conceptsBrand") ?? "all";
 
   const setQuery = (v: string) =>
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        if (v) sp.set("scriptsQ", v);
-        else sp.delete("scriptsQ");
+        if (v) sp.set("conceptsQ", v);
+        else sp.delete("conceptsQ");
         return sp;
       },
       { replace: true },
@@ -38,22 +40,22 @@ export function ScriptsGeneratedTab() {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        if (v !== "all") sp.set("scriptsBrand", v);
-        else sp.delete("scriptsBrand");
+        if (v !== "all") sp.set("conceptsBrand", v);
+        else sp.delete("conceptsBrand");
         return sp;
       },
       { replace: true },
     );
 
-  const brandOptions = useMemo(() => poolBrandOptions(GENERATED_SCRIPTS), []);
-  const partialBatches = useMemo(() => partialBatchIds(GENERATED_SCRIPTS), []);
+  const brandOptions = useMemo(() => poolBrandOptions(GENERATED_CONCEPTS), []);
+  const partialBatches = useMemo(() => partialBatchIds(GENERATED_CONCEPTS), []);
 
   const filtered = useMemo(() => {
-    return GENERATED_SCRIPTS.filter((s) => {
-      if (brandFilter !== "all" && s.brandId !== brandFilter) return false;
+    return GENERATED_CONCEPTS.filter((c) => {
+      if (brandFilter !== "all" && c.brandId !== brandFilter) return false;
       if (search) {
         const q = search.toLowerCase();
-        const haystack = [s.title, s.body, s.brandName, s.productName, ...s.tags]
+        const haystack = [c.name, c.angle, c.hook, c.tone, c.brandName, c.productName]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -68,8 +70,8 @@ export function ScriptsGeneratedTab() {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        sp.delete("scriptsQ");
-        sp.delete("scriptsBrand");
+        sp.delete("conceptsQ");
+        sp.delete("conceptsBrand");
         return sp;
       },
       { replace: true },
@@ -85,15 +87,15 @@ export function ScriptsGeneratedTab() {
             type="search"
             value={search}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search scripts..."
-            aria-label="Search generated scripts"
+            placeholder="Search concepts..."
+            aria-label="Search generated concepts"
             className="h-8 w-full rounded-g6-base border border-g6-border-secondary bg-g6-bg-container pl-8 pr-3 font-g6-sans text-g6-sm text-g6-text placeholder:text-g6-text-tertiary focus:border-g6-primary-border focus:outline-none focus:shadow-g6-input-active"
           />
         </div>
         <select
           value={brandFilter}
           onChange={(e) => setBrand(e.target.value)}
-          aria-label="Filter scripts by brand"
+          aria-label="Filter concepts by brand"
           className="h-8 rounded-g6-base border border-g6-border-secondary bg-g6-bg-container px-2.5 font-g6-sans text-g6-sm text-g6-text focus:border-g6-primary-border focus:outline-none"
         >
           <option value="all">All brands</option>
@@ -107,11 +109,11 @@ export function ScriptsGeneratedTab() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="No scripts match your filters"
+          title="No concepts match your filters"
           description={
             search
               ? `Nothing matches "${search}". Clear filters to see everything Genie's generated.`
-              : "Try a different brand, or clear the filter to see every generated script."
+              : "Try a different brand, or clear the filter to see every generated concept."
           }
           primaryAction={
             filtersActive ? (
@@ -128,47 +130,48 @@ export function ScriptsGeneratedTab() {
       ) : (
         <>
           <div className="font-g6-sans text-g6-sm text-g6-text-secondary">
-            <span className="font-g6-mono text-g6-text">{filtered.length}</span> scripts
+            <span className="font-g6-mono text-g6-text">{filtered.length}</span> concepts
           </div>
-          <ScriptGrid items={filtered} partialBatches={partialBatches} />
+          <ConceptGrid items={filtered} partialBatches={partialBatches} />
         </>
       )}
     </div>
   );
 }
 
-function ScriptGrid({
+function ConceptGrid({
   items,
   partialBatches,
 }: {
-  items: typeof GENERATED_SCRIPTS;
+  items: typeof GENERATED_CONCEPTS;
   partialBatches: Set<string>;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {items.map((s) => (
-        <ScriptCard key={s.id} item={s} isPartialBatch={partialBatches.has(s.batchId)} />
+      {items.map((c) => (
+        <ConceptCard key={c.id} item={c} isPartialBatch={partialBatches.has(c.batchId)} />
       ))}
     </div>
   );
 }
 
-function ScriptCard({
+function ConceptCard({
   item,
   isPartialBatch,
 }: {
-  item: (typeof GENERATED_SCRIPTS)[number];
+  item: (typeof GENERATED_CONCEPTS)[number];
   isPartialBatch: boolean;
 }) {
-  const savedCatalogueId = useSavedScriptCatalogueId(item.id);
+  const savedCatalogueId = useSavedConceptCatalogueId(item.id);
 
   return (
     <GeneratedAssetCard
-      icon={<FileText className="h-4 w-4" aria-hidden />}
-      title={item.title}
-      subtitle={`${item.brandName}${item.productName ? ` · ${item.productName}` : ""} · ${item.framework} · ${item.durationSec}s`}
-      bodyPreview={item.body}
-      tags={item.tags}
+      icon={<Lightbulb className="h-4 w-4" aria-hidden />}
+      thumbnail={item.thumbnail}
+      title={item.name}
+      subtitle={`${item.brandName}${item.productName ? ` · ${item.productName}` : ""} · ${item.formatLabel}`}
+      bodyPreview={item.hook}
+      tags={[item.angle, item.tone]}
       batchId={item.batchId}
       batchLabel={item.batchLabel}
       module={item.module}
@@ -177,10 +180,10 @@ function ScriptCard({
       status={item.status}
       batchIsPartial={isPartialBatch}
       savedCatalogueId={savedCatalogueId}
-      catalogueType="scripts"
+      catalogueType="concepts"
       onSave={() => {
-        saveGeneratedScript(item);
-        toast.success(`"${item.title}" saved to Catalogue`);
+        saveGeneratedConcept(item);
+        toast.success(`"${item.name}" saved to Catalogue`);
       }}
     />
   );

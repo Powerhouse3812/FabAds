@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
@@ -15,7 +15,15 @@ import { Step5ResultsQueue } from "./screens/Step5ResultsQueue";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
 import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
-import { useWizard, type WizardState, type Format, type Mode } from "./state/useWizard";
+import {
+  useWizard,
+  type WizardState,
+  type Format,
+  type Mode,
+  type StepNumber,
+  type GenerationTarget,
+  resolveGenerationStepsForState,
+} from "./state/useWizard";
 import { useStudioAlphaUrlSync } from "./state/useUrlSync";
 import { isKnownConceptId } from "./data/concepts";
 // §6 Rule 5 — the persistent flow banner + the context it renders from. Both
@@ -142,7 +150,11 @@ function readUrlIntoState(
     const { step: landingStep, ...flowPatch } = flowInitialPatch(flowCtx, searchParams);
     Object.assign(patch, flowPatch);
     if (!patch.step) patch.step = landingStep;
-    patch.category = "ad"; // flows only ever produce ads, never assets
+    // §5/§7 (2026-09-08) — flows now produce Script/Concept/Storyboard too,
+    // not only Ads. `category` must follow the resolved target (mirrors
+    // startWizard's `mode === "product-shoot" ? "asset" : "ad"` derivation),
+    // never be forced to "ad".
+    patch.category = flowCtx.target === "ad" ? "ad" : "asset";
   }
   return patch;
 }
@@ -169,7 +181,9 @@ const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
  * Step names for the mobile step-context footer. Below `md` the wizard is
  * one-screen-per-step and the breadcrumb stepper is hidden (it clips hard at
  * 375px — AlphaProgressIndicator is `overflow-hidden` with no ellipsis), so
- * the sticky footer carries "Step N of 4 · Label" instead.
+ * the sticky footer carries "Step N of M · Label" instead — M is this run's
+ * `plan.visibleSteps.length` (always 4 for an Ad; fewer for an asset flow
+ * that skips a step), not a hardcoded 4.
  */
 const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
   // §21.2 — Mode + Format merged onto one screen; label reflects both now.
@@ -179,6 +193,49 @@ const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
   4: "Configure",
   5: "Results",
 };
+
+/*
+ * §5/§7 asset-generation navigation (2026-09-08) — every Next/Back/deep-link
+ * landing in this file goes through these two pure helpers instead of the
+ * plain +1/-1 that `wizard.next()`/`wizard.back()` do (useWizard.ts is
+ * read-only; it can't know which steps THIS run needs). Both take the
+ * ordered `visibleSteps` from `resolveGenerationStepsForState(state)` — the
+ * one source of truth for "what does this target+source need."
+ *
+ * For an Ad, `visibleSteps` is always `[1, 2, 3, 4]`, so both helpers
+ * degrade to the exact +1/-1/exit-to-Home behaviour `wizard.next()` /
+ * `wizard.back()` gave before — an Ad run is byte-for-byte unchanged.
+ */
+
+/** Next visible step after `cur` (which may itself be a skipped step, e.g.
+ *  a stale deep link) — the smallest visible step number greater than
+ *  `cur`, or 5 (Results) once there is none. */
+function nextVisibleStep(cur: number, visibleSteps: StepNumber[]): WizardState["step"] {
+  const ahead = visibleSteps.filter((v) => v > cur);
+  return ahead.length > 0 ? (Math.min(...ahead) as WizardState["step"]) : 5;
+}
+
+/** Previous visible step before `cur` — the largest visible step number
+ *  less than `cur`, or `null` once there is none (Back from the first
+ *  visible step exits to Home; there's nothing earlier to land on). Also
+ *  correctly resolves Back-from-Results (state.step === 5): every plan's
+ *  `visibleSteps` always includes step 4, so "largest visible < 5" lands on
+ *  the run's actual last step even for a variation's single-step `[4]`. */
+function prevVisibleStep(cur: number, visibleSteps: StepNumber[]): WizardState["step"] | null {
+  const behind = visibleSteps.filter((v) => v < cur);
+  return behind.length > 0 ? (Math.max(...behind) as WizardState["step"]) : null;
+}
+
+/** Where a step that turns out to be SKIPPED for this run should actually
+ *  land — the smallest visible step at-or-after it, or 5 once there is
+ *  none. Used only as a safety net against landing ON a skipped step (a
+ *  stale deep link, or a target/source change after the URL was set) —
+ *  the normal Next/Back path above never needs it, since it always jumps
+ *  straight between entries already IN `visibleSteps`. */
+function nearestVisibleLanding(step: StepNumber, visibleSteps: StepNumber[]): WizardState["step"] {
+  const atOrAfter = visibleSteps.filter((v) => v >= step);
+  return atOrAfter.length > 0 ? (Math.min(...atOrAfter) as WizardState["step"]) : 5;
+}
 
 /**
  * StudioAlpha (A-12.26) — Studio Alpha shell.
@@ -197,11 +254,14 @@ const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
  *     instruction, winners). Collapsible — railOpen state persists across
  *     step navigation.
  *   - Click-to-advance: each step auto-advances on selection (no footer buttons).
- *   - Topbar: ← Back (one step back; from step 1 → exits to Home). Because
- *     Mode now lives on step 1 too, Back-to-step-1 is enough to change Mode —
- *     Home is no longer the only way back to it (§21.2).
- *   - AlphaProgressIndicator: 4 steps only (Mode & Format/Product/Approach/
- *     Configure). Hidden on step 5 (Results).
+ *   - Topbar: ← Back (one visible step back; from the first visible step →
+ *     exits to Home). Because Mode now lives on step 1 too, Back-to-step-1
+ *     is enough to change Mode — Home is no longer the only way back to it
+ *     (§21.2).
+ *   - AlphaProgressIndicator: renders `plan.visibleSteps` (§5/§7, 2026-09-08
+ *     — up to 4: Mode & Format/Product/Approach/Configure, fewer for an
+ *     asset target whose source already carries what a step would ask for).
+ *     Hidden on step 5 (Results).
  *   - FlowBanner (§6 Rule 5): mounted above the wizard body, on every step
  *     including Results, whenever ?src/?ref/?act resolve to a FlowContext —
  *     see resolveFlowContext() usage below and readUrlIntoState's flowCtx
@@ -226,6 +286,17 @@ export function StudioAlpha() {
   const { state } = wizard;
   // Selections / toggles ↔ URL (?brand, ?product, ?angle, ?ratio, etc.)
   useStudioAlphaUrlSync(wizard);
+  // §5/§7 — THE plan for this run: which of the 4 wizard steps are
+  // required/optional/skipped, given `generationTarget` + `generationSource`
+  // (+ isVariation, + format for Storyboard's video-only gate). Contract
+  // lives in useWizard.ts (read-only) — never re-derive this check here.
+  // Defaults to target "ad" / source "none", which resolves to the full,
+  // unchanged `visibleSteps: [1, 2, 3, 4]` — so an Ad run reads this plan
+  // and gets the exact same steps it always did.
+  const plan = useMemo(
+    () => resolveGenerationStepsForState(state),
+    [state.generationTarget, state.generationSource, state.isVariation, state.format],
+  );
   // A flow can land the wizard on step 2 or 4 via a URL with NO :step path
   // segment yet (e.g. /studio-alpha?src=trends&ref=...&act=...) — phase must
   // start "wizard" for that case too, not just when a :step segment exists.
@@ -373,6 +444,24 @@ export function StudioAlpha() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.step, phase]);
 
+  // §5/§7 safety net — a skipped step must never be landed on. Catches the
+  // rare case `next`/`back` below never produce on their own (they always
+  // jump straight between entries already IN `plan.visibleSteps`): a stale
+  // deep link / shared URL pointing at a step, or `generationTarget` /
+  // `generationSource` changing out from under a step the user is already
+  // sitting on. Redirects forward to the nearest step this run actually
+  // asks for. No-op for every Ad run: `plan.steps` never marks a step
+  // "skipped" for target "ad", so this effect never fires for one.
+  useEffect(() => {
+    if (phase !== "wizard") return;
+    if (state.step < 1 || state.step > 4) return;
+    const entry = plan.steps.find((s) => s.step === state.step);
+    if (entry?.status === "skipped") {
+      wizard.goTo(nearestVisibleLanding(state.step as StepNumber, plan.visibleSteps));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, state.step, plan]);
+
   const startWizard = (mode: AlphaMode) => {
     setHomeMode(mode);
     const category = mode === "product-shoot" ? "asset" : "ad";
@@ -381,6 +470,21 @@ export function StudioAlpha() {
     // sub-step (isScriptLedState / isProductShootState, useWizard.ts) can
     // never fire: it reads state.studioMode exclusively.
     wizard.patch({ category, step: 1, studioMode: mode });
+    setPhase("wizard");
+    navigate("/iq/genie6/studio-alpha/format", { replace: false });
+  };
+
+  // §5/§7 asset-generation entry point (2026-09-08) — StudioHome's "Or
+  // generate an asset" region (Script/Concept/Storyboard), below the seven
+  // modes. Mirrors `startWizard`'s shape exactly: patch the fields that
+  // decide this run's step plan, enter the wizard, navigate to the first
+  // step. No `studioMode` patch — no creative Mode was chosen for an
+  // asset-only run (per StudioHome's `onGenerateAsset` doc comment); every
+  // asset target's step plan (`resolveGenerationStepsForState`) still
+  // requires Format, so landing on step 1 / "/format" is correct exactly
+  // like an Ad's entry, same as `startWizard` below.
+  const startAssetWizard = (target: Exclude<GenerationTarget, "ad">) => {
+    wizard.patch({ generationTarget: target, category: "asset", step: 1 });
     setPhase("wizard");
     navigate("/iq/genie6/studio-alpha/format", { replace: false });
   };
@@ -407,13 +511,29 @@ export function StudioAlpha() {
     navigate("/iq/genie6/studio-alpha", { replace: false });
   };
 
+  // §5/§7 — Next/Back now move between `plan.visibleSteps` only, never the
+  // plain +1/-1 `wizard.next()`/`wizard.back()` do. For an Ad (visibleSteps
+  // always [1,2,3,4]) both helpers resolve to exactly +1/-1/exit-to-Home —
+  // see the doc comments on `nextVisibleStep`/`prevVisibleStep` above — so
+  // an Ad run's Next/Back is byte-for-byte unchanged.
+  const handleAdvance = useCallback(() => {
+    wizard.goTo(nextVisibleStep(state.step, plan.visibleSteps));
+  }, [wizard, state.step, plan]);
+
   const handleBack = () => {
-    if (state.step > 1) {
-      wizard.back();
-    } else {
+    const prev = prevVisibleStep(state.step, plan.visibleSteps);
+    if (prev === null) {
       exitToHome();
+    } else {
+      wizard.goTo(prev);
     }
   };
+  // Drives the Back-button label ("Back" vs "Home") off the same helper
+  // Back itself uses, instead of the old `state.step > 1` shorthand — for
+  // an Ad that's identical (step 1 is always the first visible step), but
+  // for a variation (visibleSteps `[4]`, landing directly on Configure)
+  // `state.step > 1` was true while the button actually exited Home.
+  const backGoesHome = prevVisibleStep(state.step, plan.visibleSteps) === null;
 
   const handleGenerateAgain = () => {
     setStep5Done(false);
@@ -426,6 +546,17 @@ export function StudioAlpha() {
   // Uses renderStep so the stepper highlight matches the screen on deep-link.
   const alphaStep = Math.min(renderStep, 4) as AlphaStep;
   const showStepper = renderStep <= 4;
+  // Truthful position/count for this run — an asset flow that skips a step
+  // (e.g. Concept → Script skips Approach) reads "1 of 3" / "2 of 3" /
+  // "3 of 3", never implying a 4th step nobody saw. Falls back to the raw
+  // step number only if it's genuinely not one of this run's visible steps
+  // (the guard effect above corrects that case on the next tick).
+  const visibleStepsForPlan = plan.visibleSteps as AlphaStep[];
+  const totalVisibleSteps = visibleStepsForPlan.length;
+  const visibleStepPosition = (() => {
+    const idx = visibleStepsForPlan.indexOf(alphaStep);
+    return idx === -1 ? alphaStep : idx + 1;
+  })();
 
   return (
     // Height: `h-full` at base, `md:h-[100dvh]` restores the desktop value
@@ -438,7 +569,7 @@ export function StudioAlpha() {
     <div className="v3-page-mesh flex h-full flex-col overflow-hidden bg-background text-foreground md:h-[100dvh]">
       {phase === "home" && (
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <StudioHome onStart={startWizard} />
+          <StudioHome onStart={startWizard} onGenerateAsset={startAssetWizard} />
         </main>
       )}
 
@@ -456,7 +587,7 @@ export function StudioAlpha() {
               className="hidden min-h-[44px] items-center gap-1 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground md:inline-flex md:min-h-0 md:py-0"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
-              {state.step > 1 ? "Back" : "Home"}
+              {backGoesHome ? "Home" : "Back"}
             </button>
             {showStepper && (
               <>
@@ -467,6 +598,7 @@ export function StudioAlpha() {
                 <div className="hidden flex-1 md:block">
                   <AlphaProgressIndicator
                     step={alphaStep}
+                    visibleSteps={visibleStepsForPlan}
                     onJumpTo={(s) => {
                       // Only allow jumping to already-completed steps
                       if (s < state.step) wizard.goTo(s as 1 | 2 | 3 | 4 | 5);
@@ -495,17 +627,17 @@ export function StudioAlpha() {
               {renderStep === 1 && (
                 <AlphaStep1Format
                   wizard={wizard}
-                  onAdvance={wizard.next}
+                  onAdvance={handleAdvance}
                   onBack={handleBack}
                   mode={homeMode}
                   onModeChange={handleModeChange}
                 />
               )}
               {renderStep === 2 && (
-                <Step2Product wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
+                <Step2Product wizard={wizard} onAdvance={handleAdvance} onBack={handleBack} />
               )}
               {renderStep === 3 && (
-                <Step3Approach wizard={wizard} onAdvance={wizard.next} onBack={handleBack} />
+                <Step3Approach wizard={wizard} onAdvance={handleAdvance} onBack={handleBack} />
               )}
               {renderStep === 4 && (
                 <AlphaStep3Configure wizard={wizard} studioMode={homeMode ?? undefined} onBack={handleBack} />
@@ -580,12 +712,17 @@ export function StudioAlpha() {
                 className="inline-flex h-11 items-center gap-1 rounded-xl px-3 text-[12px] font-semibold text-foreground transition-colors hover:bg-foreground/[0.06]"
               >
                 <ChevronLeft className="h-4 w-4" />
-                {state.step > 1 ? "Back" : "Home"}
+                {backGoesHome ? "Home" : "Back"}
               </button>
 
               <div className="min-w-0 flex-1 text-center">
                 <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  Step {Math.min(renderStep, 4)} of 4
+                  {/* §5/§7 — position within THIS run's visible steps, not
+                      the raw step number: an asset flow that skips Approach
+                      reads "2 of 3" for Configure, never "4 of 4". For an
+                      Ad, visibleStepsForPlan is always [1,2,3,4], so this is
+                      byte-for-byte the old "Step {renderStep} of 4". */}
+                  Step {visibleStepPosition} of {totalVisibleSteps}
                 </p>
                 <p className="truncate text-[12px] font-semibold text-foreground">
                   {STEP_LABELS[Math.min(renderStep, 4) as 1 | 2 | 3 | 4]}

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { Image as ImageIcon, FileText, Lightbulb, Clapperboard } from "lucide-react";
 import { BulkToolbar } from "../../components/BulkToolbar";
 import { CSVExportButton } from "../../components/CSVExportButton";
 import { EmptyState } from "../../components/EmptyState";
@@ -16,6 +17,11 @@ import { useOutputCardActions } from "../useOutputCardActions";
 import { useLocalOutputs } from "../libraryActionsStore";
 import { useOutputBatchIndex } from "../useOutputBatchIndex";
 import { originKey } from "../originLabels";
+import { GENERATED_SCRIPTS, GENERATED_CONCEPTS, GENERATED_STORYBOARDS } from "./generatedAssetPool";
+import { ScriptsGeneratedTab } from "./ScriptsGeneratedTab";
+import { ConceptsGeneratedTab } from "./ConceptsGeneratedTab";
+import { StoryboardsGeneratedTab } from "./StoryboardsGeneratedTab";
+import { LibraryAssetTabBar, type LibraryAssetTab } from "./LibraryAssetTabBar";
 
 type Props = {
   /** Legacy prop — brand NAME (Canvas/Command/Modular pass this). */
@@ -34,7 +40,88 @@ type Props = {
 };
 
 /**
- * GeneratedOutputsTab — the body of the Library page.
+ * GeneratedOutputsTab — the Library body's Ads view, PLUS the tab bar that
+ * switches it against the new Script / Concept / Storyboard views.
+ *
+ * Why the tab-switching lives in this exact file: every one of the four
+ * Library shell variants (`StudioLibrary` / `CanvasLibrary` /
+ * `CommandLibrary` / `ModularLibrary`, under `src/genie6/variants/*`, owned
+ * by other agents) renders `<GeneratedOutputsTab />` with no props, directly
+ * below their own `<LibraryTopBar />`, inside their own scroll container.
+ * This agent owns `Library.tsx` and everything under `library/tabs/` —
+ * nothing in `variants/*`. Rather than ask four sibling files to grow a tab
+ * bar (or fork four copies of one), the exported `GeneratedOutputsTab`
+ * symbol itself becomes "the Library tab area": it keeps its original
+ * zero-prop contract so none of the four variants need to change a line,
+ * and the actual Ads rendering moves, verbatim, into the private
+ * `AdsGeneratedTab` below. Ads stays the default landing tab, exactly as
+ * before.
+ *
+ * `?libraryTab=` (default "ads", omitted from the URL like every other
+ * default-valued Library param) picks the active tab — scripts / concepts /
+ * storyboards render `ConceptsGeneratedTab` / `ScriptsGeneratedTab` /
+ * `StoryboardsGeneratedTab`.
+ *
+ * Known limitation from the ownership split above: `<LibraryTopBar />`'s
+ * Masonry/By-angle/By-batch view toggle and day-range select are Ads-only
+ * concepts, but that bar is not owned here, so it stays visible (inert) on
+ * the other three tabs rather than being hidden. Cosmetic, not a data bug —
+ * flagged rather than silently left to look intentional.
+ */
+export function GeneratedOutputsTab(props: Props) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("libraryTab");
+  const tab: LibraryAssetTab =
+    rawTab === "scripts" || rawTab === "concepts" || rawTab === "storyboards" ? rawTab : "ads";
+
+  const setTab = useCallback(
+    (next: LibraryAssetTab) => {
+      setSearchParams(
+        (prev) => {
+          const sp = new URLSearchParams(prev);
+          if (next === "ads") sp.delete("libraryTab");
+          else sp.set("libraryTab", next);
+          return sp;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const adsCount = useLocalOutputs().length + sampleOutputs.length;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <LibraryAssetTabBar
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          { key: "ads", label: "Ads", Icon: ImageIcon, count: adsCount },
+          { key: "scripts", label: "Scripts", Icon: FileText, count: GENERATED_SCRIPTS.length },
+          { key: "concepts", label: "Concepts", Icon: Lightbulb, count: GENERATED_CONCEPTS.length },
+          { key: "storyboards", label: "Storyboards", Icon: Clapperboard, count: GENERATED_STORYBOARDS.length },
+        ]}
+      />
+
+      {tab === "ads" ? (
+        <AdsGeneratedTab {...props} />
+      ) : tab === "scripts" ? (
+        <ScriptsGeneratedTab />
+      ) : tab === "concepts" ? (
+        <ConceptsGeneratedTab />
+      ) : (
+        <StoryboardsGeneratedTab />
+      )}
+    </div>
+  );
+}
+
+/**
+ * AdsGeneratedTab — the Library's original (and still default) body:
+ * generated ad outputs. Unchanged from the pre-tabs `GeneratedOutputsTab`
+ * other than the rename — see the module-level comment above for why it
+ * moved here instead of the export staying a single flat component.
  *
  * A-12.197 (Library Figma final):
  *  - The view toggle (Masonry / Grouped) lives ONLY in `<LibraryTopBar />`
@@ -54,7 +141,7 @@ type Props = {
  * groupings. All three share ONE action-wiring seam (`useOutputCardActions`)
  * so "same wording, same behaviour, same result" (§21.2) is structural.
  */
-export function GeneratedOutputsTab({
+function AdsGeneratedTab({
   brandFilter,
   perfFilter,
   search,

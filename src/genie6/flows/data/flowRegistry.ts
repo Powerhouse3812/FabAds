@@ -14,8 +14,37 @@
  * The 7 live modules carry real action lists; the 4 coming-soon modules carry
  * an empty one — there is nothing to wire yet, and an empty list is honest
  * about that instead of guessing.
+ *
+ * ASSETS TOO, NOT ONLY ADS (2026-09-08) — five actions now carry a formal
+ * `source` (use-script/use-concept/use-framework/use-angle/use-hook) and can
+ * each produce more than the Ad they always could. Which targets any of them
+ * can actually reach is computed by `targetsForSource()` below, straight off
+ * `isValidSourceForTarget`/`VALID_SOURCES_BY_TARGET` (useWizard.ts, read-only)
+ * — there is no second copy of that matrix here. Every other action keeps
+ * `source: "none"` and `targets: ["ad"]`: they attach a REFERENCE (a whole
+ * winning ad, a trend, a landing page…), not angle/hook/concept/framework/
+ * script content, so "Ad, from anything" is the only pair that ever applied.
  */
 import type { FlowAction, FlowActionId, FlowModule, FlowModuleKey } from "../flowTypes";
+import { isValidSourceForTarget, type GenerationSource, type GenerationTarget } from "../../studio-v4/state/useWizard";
+
+/** Every target the wizard knows about — the universe `targetsForSource`
+ *  filters down from. Keep in sync with `GenerationTarget` (useWizard.ts). */
+const ALL_TARGETS: GenerationTarget[] = ["ad", "script", "concept", "storyboard"];
+
+/**
+ * Which targets a given `GenerationSource` can actually produce, per
+ * `isValidSourceForTarget` — checked both as a plain pair AND as a variation,
+ * so "concept" correctly appears for `source: "concept"` (the concept ←
+ * concept variation is the only way that pair is valid at all). "none" always
+ * resolves to `["ad"]`, matching every reference-attaching action.
+ */
+function targetsForSource(source: GenerationSource): GenerationTarget[] {
+  if (source === "none") return ["ad"];
+  return ALL_TARGETS.filter(
+    (t) => isValidSourceForTarget(t, source) || isValidSourceForTarget(t, source, true),
+  );
+}
 
 /**
  * Action ids classified "asks nothing" (Rule 1 — variation family) vs "asks
@@ -44,6 +73,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "One video ad, same visuals, a new script.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: true,
   },
   "vary-concept": {
@@ -55,6 +86,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "One video ad, same script, new visuals.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: true,
   },
   "vary-whole-video": {
@@ -66,6 +99,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "One video ad, new script and new visuals — a full remake.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: true,
   },
   "generate-variation": {
@@ -77,6 +112,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "One new ad from this one, same core idea, fresh execution.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
   "refresh-fatigued": {
@@ -88,43 +125,85 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "One refreshed version of this ad, same offer, new creative.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
 
-  // ── "Use X" family — Rule 2, always asks for the entity, lands on Step 2 ──
+  // ── "Use X" family — Rule 2. On an Ad, always asks for the entity, lands
+  // on Step 2. On an asset target (Script/Concept/Storyboard) the entity is
+  // optional/Auto and Step 3 trims to whatever the source doesn't already
+  // carry — see `resolveGenerationSteps` (useWizard.ts). `targets` below is
+  // what actually offers the choice; nothing here hardcodes which one wins.
   "use-script": {
     id: "use-script",
     label: "Use script",
-    desc: "Carry this script into a new ad. You'll pick who it's for.",
+    desc: "Carry this script into a new generation. You'll pick what to make and who it's for.",
     icon: "FileText",
     asksNothing: false,
     entityTab: "product",
     preselectEntity: false,
-    produces: "A new ad built from this script. You'll pick who it's for next.",
+    // Script can't reach Script (nothing to add) or Storyboard (not a
+    // confirmed pair) — only Ad and Concept. targetsForSource("script")
+    // derives exactly that from the contract, so this list stays correct if
+    // the contract ever changes rather than silently drifting.
+    produces: "An ad, or a free concept — built from this script. You'll pick what to generate next.",
+    producesByTarget: {
+      // Explicit "ad" line so the BANNER (which always shows a resolved
+      // target, never "or") reads as a single crisp sentence instead of the
+      // generic multi-option line above, which is for the action card
+      // BEFORE a target is chosen (FlowModuleDetail).
+      ad: "A new ad built from this script. You'll pick who it's for next.",
+      concept: "A new concept, drawn from this script — free. You'll pick who it's for next.",
+    },
+    source: "script",
+    targets: targetsForSource("script"),
     requiresAnalysis: true,
   },
   "use-concept": {
     id: "use-concept",
     label: "Use concept",
-    desc: "Carry this concept into a new ad. You'll pick who it's for.",
+    desc: "Carry this concept into a new generation. You'll pick what to make and who it's for.",
     icon: "Lightbulb",
     asksNothing: false,
     entityTab: "product",
     preselectEntity: false,
-    produces: "A new ad built from this concept. You'll pick who it's for next.",
+    produces:
+      "An ad — or a free script, storyboard, or another concept variation — built from this concept. You'll pick what to generate next.",
+    producesByTarget: {
+      ad: "A new ad built from this concept. You'll pick who it's for next.",
+      script: "A new script, written from this concept — free. You'll pick who it's for next.",
+      // The only concept ← concept pair (isValidSourceForTarget's variation
+      // branch) — resolveFlowContext sets isVariation for this one, so it
+      // asks nothing and lands straight on the last step, same as any other
+      // variation. Worded to say so, not as a generic "who's it for" line.
+      concept: "A new variation of this concept — free. Same core idea, a fresh take. Nothing else to fill in.",
+      storyboard: "A new storyboard, built from this concept — free, video format only. You'll pick who it's for next.",
+    },
+    source: "concept",
+    targets: targetsForSource("concept"),
     requiresAnalysis: true,
   },
   "use-framework": {
     id: "use-framework",
     label: "Use framework",
-    desc: "Carry this framework's structure into a new ad. You'll pick who it's for.",
+    desc: "Carry this framework's structure into a new generation. You'll pick what to make and who it's for.",
     icon: "LayoutGrid",
     asksNothing: false,
     // Frameworks are reusable structure, not a single-product asset — brand
     // is the more common starting tab, though the user can switch tabs freely.
     entityTab: "brand",
     preselectEntity: false,
-    produces: "A new ad built on this framework. You'll pick who it's for next.",
+    produces:
+      "An ad — or a free script, concept, or storyboard — built on this framework's structure. You'll pick what to generate next.",
+    producesByTarget: {
+      ad: "A new ad built on this framework. You'll pick who it's for next.",
+      script: "A new script, structured on this framework — free. You'll pick who it's for next.",
+      concept: "A new concept, structured on this framework — free. You'll pick who it's for next.",
+      storyboard: "A new storyboard, structured on this framework — free, video format only. You'll pick who it's for next.",
+    },
+    source: "framework",
+    targets: targetsForSource("framework"),
     requiresAnalysis: true,
   },
   "use-storyboard": {
@@ -135,7 +214,51 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     asksNothing: false,
     entityTab: "product",
     preselectEntity: false,
+    // Storyboard is never a GenerationSource (useWizard.ts) — it's a target
+    // only, so this stays Ad-only exactly like it was before this change.
     produces: "A new ad built from this storyboard. You'll pick who it's for next.",
+    source: "none",
+    targets: ["ad"],
+    requiresAnalysis: true,
+  },
+  "use-angle": {
+    id: "use-angle",
+    label: "Use angle",
+    desc: "Carry this angle into a new generation. You'll pick what to make and who it's for.",
+    icon: "Target",
+    asksNothing: false,
+    entityTab: "product",
+    preselectEntity: false,
+    produces:
+      "An ad — or a free script, concept, or storyboard — built around this angle. You'll pick what to generate next.",
+    producesByTarget: {
+      ad: "A new ad built on this angle. You'll pick who it's for next.",
+      script: "A new script, written around this angle — free. You'll pick who it's for next.",
+      concept: "A new concept, built around this angle — free. You'll pick who it's for next.",
+      storyboard: "A new storyboard, built around this angle — free, video format only. You'll pick who it's for next.",
+    },
+    source: "angle",
+    targets: targetsForSource("angle"),
+    requiresAnalysis: true,
+  },
+  "use-hook": {
+    id: "use-hook",
+    label: "Use hook",
+    desc: "Carry this hook into a new generation. You'll pick what to make and who it's for.",
+    icon: "Zap",
+    asksNothing: false,
+    entityTab: "product",
+    preselectEntity: false,
+    produces:
+      "An ad — or a free script, concept, or storyboard — opening with this hook. You'll pick what to generate next.",
+    producesByTarget: {
+      ad: "A new ad built on this hook. You'll pick who it's for next.",
+      script: "A new script, opening with this hook — free. You'll pick who it's for next.",
+      concept: "A new concept, opening with this hook — free. You'll pick who it's for next.",
+      storyboard: "A new storyboard, opening with this hook — free, video format only. You'll pick who it's for next.",
+    },
+    source: "hook",
+    targets: targetsForSource("hook"),
     requiresAnalysis: true,
   },
 
@@ -149,6 +272,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "brand",
     preselectEntity: false,
     produces: "A new ad, using this winner as your reference — not a copy.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
   "top-performer-as-reference": {
@@ -160,6 +285,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "A new ad, using this top performer as your reference — not a copy.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
   "reference-for-new-ad": {
@@ -171,6 +298,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "A new ad, using this as your reference — not a copy.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
 
@@ -184,6 +313,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "One new ad built around this trend's angle.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
   "script-from-trend": {
@@ -194,7 +325,14 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     asksNothing: false,
     entityTab: "product",
     preselectEntity: false,
+    // NOTE (out of this task's scope): this action's name/copy already say
+    // "script", but it predates the target/source contract and isn't one of
+    // the five confirmed source actions this change adds — left as `targets:
+    // ["ad"]` (unchanged) rather than reclassified as a Script target, which
+    // would be a separate, unreviewed change. Flagged in the build report.
     produces: "One new script, written around this trend.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
 
@@ -208,6 +346,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: true,
     produces: "One new ad, pre-filled from this landing page — check the extraction before you generate.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
   },
 
@@ -224,6 +364,8 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     entityTab: "product",
     preselectEntity: false,
     produces: "Opens this asset in Other Apps — no ad is generated here.",
+    source: "none",
+    targets: ["ad"],
     requiresAnalysis: false,
     toOtherApps: true,
   },
@@ -248,6 +390,11 @@ export const FLOW_MODULES: FlowModule[] = [
       "use-concept",
       "use-framework",
       "use-storyboard",
+      // 2026-09-08 — the asset-flow vocabulary addition; same reasoning as
+      // video-sage below (these ARE the Video Sage seven, plus generate-
+      // variation/winner-as-reference/generate-against-trend on top).
+      "use-angle",
+      "use-hook",
       "vary-script",
       "vary-concept",
       "vary-whole-video",
@@ -267,7 +414,7 @@ export const FLOW_MODULES: FlowModule[] = [
   {
     key: "video-sage",
     label: "Video Sage",
-    desc: "Analysed videos — scripts, concepts, frameworks and storyboards ready to reuse.",
+    desc: "Analysed videos — scripts, concepts, frameworks, angles, hooks and storyboards ready to reuse.",
     icon: "Video",
     state: "live",
     modulePath: "/iq/video-sage",
@@ -276,6 +423,11 @@ export const FLOW_MODULES: FlowModule[] = [
       "use-concept",
       "use-framework",
       "use-storyboard",
+      // 2026-09-08 — Angle and Hook join the Video Sage vocabulary alongside
+      // Script/Concept/Framework/Storyboard, per the owner's asset-flow
+      // ruling. Same source (an analysed video), same "use X" shape.
+      "use-angle",
+      "use-hook",
       "vary-script",
       "vary-concept",
       "vary-whole-video",
@@ -296,6 +448,10 @@ export const FLOW_MODULES: FlowModule[] = [
       "use-concept",
       "use-framework",
       "use-storyboard",
+      // 2026-09-08 — Angle and Hook join Reports' "use X" vocabulary too,
+      // same reasoning as industry-insights/video-sage above.
+      "use-angle",
+      "use-hook",
       // §7.3 — "Reports carries all Video Sage actions after analysis."
       // §7.1 defines the Video Sage vocabulary as seven actions total (the
       // four use-* above plus these three) — Industry Insights and Creative
@@ -353,6 +509,10 @@ export const FLOW_MODULES: FlowModule[] = [
       "use-concept",
       "use-framework",
       "use-storyboard",
+      // 2026-09-08 — same asset-flow addition as the other three "use X"
+      // modules above.
+      "use-angle",
+      "use-hook",
       "reference-for-new-ad",
       "send-to-other-apps",
     ],

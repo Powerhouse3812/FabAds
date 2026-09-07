@@ -2,7 +2,7 @@ import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
-import type { Format, UseWizardReturn } from "../state/useWizard";
+import { type Format, type UseWizardReturn } from "../state/useWizard";
 import { MODES, MODE_SCHEME, type AlphaMode } from "../data/modes";
 
 /**
@@ -36,6 +36,13 @@ import { MODES, MODE_SCHEME, type AlphaMode } from "../data/modes";
  * tab (Brand/Product/Category) is the only ad-type picker in Genie. Mode
  * stays the coarser "what kind of creative journey" choice from Studio Home
  * (see data/modes.ts for the §22-item-2 reconciliation note).
+ *
+ * CORRECTION (2026-09-08, product owner) — the asset-generation region (Script
+ * / Concept / Storyboard) that briefly lived on this screen has MOVED to
+ * Studio home (`StudioHome.tsx`, below the seven mode cards) — the owner's
+ * "step 1" meant Studio's home screen, not this Mode & Format step. This
+ * screen is restored to its original Mode + Format proportions; it carries
+ * no asset-generation UI of any kind.
  */
 
 interface Step1Props {
@@ -221,7 +228,7 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack, mode, onModeChange
                 }}
                 className={cn(
                   "v3-glass-card group relative flex min-h-[180px] cursor-pointer flex-col items-center gap-3 overflow-hidden rounded-3xl p-4 transition-all duration-300 ease-out",
-                  "md:min-h-[300px] md:gap-5 md:p-8",
+                  "md:min-h-[300px] md:gap-4 md:p-6",
                   selected
                     ? "ring-2 ring-primary/30 shadow-[0_8px_32px_rgba(195,235,66,0.15)]"
                     : "shadow-[0_8px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 hover:border-foreground/30 hover:shadow-[0_16px_48px_rgba(0,0,0,0.08)]",

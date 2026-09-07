@@ -72,6 +72,39 @@ let state: TrendActionsState = {
 // re-clicking the same choice doesn't re-toast identical feedback.
 const relevanceById = new Map<string, RelevanceValue>();
 
+/**
+ * Maps a resolved flow's `landingStep` to the `/iq/genie6/studio-alpha/:step`
+ * route slug. Source of truth for the slugs themselves is StudioAlpha.tsx's
+ * own `STEP_TO_SLUG` (READ ONLY, not duplicated here — only the routing
+ * decision is).
+ *
+ * `landingStep` used to be a literal `asksNothing ? 4 : 2` — this file's old
+ * `ctx?.landingStep === 4 ? "configure" : "product"` ternary baked that in.
+ * It's now derived from the generation step plan and can legitimately be 1
+ * (an Ad always starts at Mode & Format), so the two-value ternary silently
+ * skipped that step for every non-variation flow. This function is the fix:
+ * 1 -> format, 4 -> configure (§7 Rule 1, variation asks nothing — unchanged),
+ * anything else (2, or an unrecognized value / ctx resolving to null) ->
+ * product, the entity-pick step — a safe landing rather than guessing wrong.
+ *
+ * Ideal home: this is identical in SendToGenieMenu.tsx, FlowModuleDetail.tsx
+ * and RecentlyFetchedCard.tsx. Its natural shared home is next to
+ * `flowSearchParams` in `@/genie6/flows/flowTypes` (or beside
+ * `resolveFlowContext` in `@/genie6/flows/data/resolveFlowContext`) — both
+ * outside this task's four owned files, so it's duplicated here rather than
+ * reached into.
+ */
+function landingStepToSlug(landingStep: number | undefined): "format" | "product" | "configure" {
+  switch (landingStep) {
+    case 1:
+      return "format";
+    case 4:
+      return "configure";
+    default:
+      return "product";
+  }
+}
+
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -266,7 +299,7 @@ export function TrendActionBar(props: { item: TrendItem; variant: "card" | "stor
     // path landed on Studio HOME (mode picker) whenever the ref couldn't be
     // resolved — the user saw ?src=trends in the address bar and nothing else.
     const ctx = resolveFlowContext(sp);
-    const target = ctx?.landingStep === 4 ? "configure" : "product";
+    const target = landingStepToSlug(ctx?.landingStep);
     navigate(`/iq/genie6/studio-alpha/${target}?${sp.toString()}`);
   };
 

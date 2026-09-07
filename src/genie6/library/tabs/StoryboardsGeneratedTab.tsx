@@ -1,35 +1,42 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, Search } from "lucide-react";
-import { toast } from "sonner";
+import { Clapperboard, Search } from "lucide-react";
 import { EmptyState } from "../../components/EmptyState";
 import {
-  GENERATED_SCRIPTS,
+  GENERATED_STORYBOARDS,
   partialBatchIds,
   poolBrandOptions,
 } from "./generatedAssetPool";
 import { GeneratedAssetCard } from "./GeneratedAssetCard";
-import { saveGeneratedScript, useSavedScriptCatalogueId } from "./generatedAssetsStore";
 
 /**
- * ScriptsGeneratedTab — Scripts Genie has generated, not yet saved to
- * Catalogue. Owner's spec: "Showing generated scripts... but they'll
- * saved to catalogue only for now" — this tab is a browse + save queue,
- * never a second script store (`generatedAssetsStore.ts` only remembers
- * "already saved this session"; the real record lives in Catalogue's
- * `scripts` type the moment Save fires).
+ * StoryboardsGeneratedTab — Storyboards Genie has generated, not yet saved
+ * anywhere. Same grammar as `ScriptsGeneratedTab` / `ConceptsGeneratedTab`,
+ * with one deliberate difference: Storyboard has no Catalogue home.
+ *
+ * Genie 2.0 spec §10 lists the Catalogue's Creative asset types as exactly
+ * Avatars · Voices · Scripts · Concepts · Hooks · CTAs · Frameworks —
+ * Storyboard isn't one of them, and `src/catalogue/assetTypes.ts`'s
+ * `CatalogueType` union (owned elsewhere, read-only from here) has no
+ * `"storyboards"` member. So this tab passes `canSaveToCatalogue={false}`
+ * and no `onSave` — `GeneratedAssetCard` renders an honest "Library only —
+ * no Catalogue home yet" state instead of a button that would either no-op
+ * or (worse) silently save a storyboard under the wrong asset type. If a
+ * `storyboards` Catalogue type is added later, wiring a real save here is a
+ * small follow-up (mirror `saveGeneratedConcept` in `generatedAssetsStore.ts`
+ * and flip this flag) — not a redesign.
  */
-export function ScriptsGeneratedTab() {
+export function StoryboardsGeneratedTab() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const search = searchParams.get("scriptsQ") ?? "";
-  const brandFilter = searchParams.get("scriptsBrand") ?? "all";
+  const search = searchParams.get("storyboardsQ") ?? "";
+  const brandFilter = searchParams.get("storyboardsBrand") ?? "all";
 
   const setQuery = (v: string) =>
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        if (v) sp.set("scriptsQ", v);
-        else sp.delete("scriptsQ");
+        if (v) sp.set("storyboardsQ", v);
+        else sp.delete("storyboardsQ");
         return sp;
       },
       { replace: true },
@@ -38,22 +45,28 @@ export function ScriptsGeneratedTab() {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        if (v !== "all") sp.set("scriptsBrand", v);
-        else sp.delete("scriptsBrand");
+        if (v !== "all") sp.set("storyboardsBrand", v);
+        else sp.delete("storyboardsBrand");
         return sp;
       },
       { replace: true },
     );
 
-  const brandOptions = useMemo(() => poolBrandOptions(GENERATED_SCRIPTS), []);
-  const partialBatches = useMemo(() => partialBatchIds(GENERATED_SCRIPTS), []);
+  const brandOptions = useMemo(() => poolBrandOptions(GENERATED_STORYBOARDS), []);
+  const partialBatches = useMemo(() => partialBatchIds(GENERATED_STORYBOARDS), []);
 
   const filtered = useMemo(() => {
-    return GENERATED_SCRIPTS.filter((s) => {
+    return GENERATED_STORYBOARDS.filter((s) => {
       if (brandFilter !== "all" && s.brandId !== brandFilter) return false;
       if (search) {
         const q = search.toLowerCase();
-        const haystack = [s.title, s.body, s.brandName, s.productName, ...s.tags]
+        const haystack = [
+          s.title,
+          s.brandName,
+          s.productName,
+          ...s.tags,
+          ...s.scenes.map((scene) => scene.description),
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -68,8 +81,8 @@ export function ScriptsGeneratedTab() {
     setSearchParams(
       (prev) => {
         const sp = new URLSearchParams(prev);
-        sp.delete("scriptsQ");
-        sp.delete("scriptsBrand");
+        sp.delete("storyboardsQ");
+        sp.delete("storyboardsBrand");
         return sp;
       },
       { replace: true },
@@ -85,15 +98,15 @@ export function ScriptsGeneratedTab() {
             type="search"
             value={search}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search scripts..."
-            aria-label="Search generated scripts"
+            placeholder="Search storyboards..."
+            aria-label="Search generated storyboards"
             className="h-8 w-full rounded-g6-base border border-g6-border-secondary bg-g6-bg-container pl-8 pr-3 font-g6-sans text-g6-sm text-g6-text placeholder:text-g6-text-tertiary focus:border-g6-primary-border focus:outline-none focus:shadow-g6-input-active"
           />
         </div>
         <select
           value={brandFilter}
           onChange={(e) => setBrand(e.target.value)}
-          aria-label="Filter scripts by brand"
+          aria-label="Filter storyboards by brand"
           className="h-8 rounded-g6-base border border-g6-border-secondary bg-g6-bg-container px-2.5 font-g6-sans text-g6-sm text-g6-text focus:border-g6-primary-border focus:outline-none"
         >
           <option value="all">All brands</option>
@@ -107,11 +120,11 @@ export function ScriptsGeneratedTab() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="No scripts match your filters"
+          title="No storyboards match your filters"
           description={
             search
               ? `Nothing matches "${search}". Clear filters to see everything Genie's generated.`
-              : "Try a different brand, or clear the filter to see every generated script."
+              : "Try a different brand, or clear the filter to see every generated storyboard."
           }
           primaryAction={
             filtersActive ? (
@@ -128,46 +141,48 @@ export function ScriptsGeneratedTab() {
       ) : (
         <>
           <div className="font-g6-sans text-g6-sm text-g6-text-secondary">
-            <span className="font-g6-mono text-g6-text">{filtered.length}</span> scripts
+            <span className="font-g6-mono text-g6-text">{filtered.length}</span> storyboards
           </div>
-          <ScriptGrid items={filtered} partialBatches={partialBatches} />
+          <StoryboardGrid items={filtered} partialBatches={partialBatches} />
         </>
       )}
     </div>
   );
 }
 
-function ScriptGrid({
+function StoryboardGrid({
   items,
   partialBatches,
 }: {
-  items: typeof GENERATED_SCRIPTS;
+  items: typeof GENERATED_STORYBOARDS;
   partialBatches: Set<string>;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((s) => (
-        <ScriptCard key={s.id} item={s} isPartialBatch={partialBatches.has(s.batchId)} />
+        <StoryboardCard key={s.id} item={s} isPartialBatch={partialBatches.has(s.batchId)} />
       ))}
     </div>
   );
 }
 
-function ScriptCard({
+function StoryboardCard({
   item,
   isPartialBatch,
 }: {
-  item: (typeof GENERATED_SCRIPTS)[number];
+  item: (typeof GENERATED_STORYBOARDS)[number];
   isPartialBatch: boolean;
 }) {
-  const savedCatalogueId = useSavedScriptCatalogueId(item.id);
+  const firstScene = item.scenes[0];
+  const totalSec = item.scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
 
   return (
     <GeneratedAssetCard
-      icon={<FileText className="h-4 w-4" aria-hidden />}
+      icon={<Clapperboard className="h-4 w-4" aria-hidden />}
+      thumbnail={item.thumbnail}
       title={item.title}
-      subtitle={`${item.brandName}${item.productName ? ` · ${item.productName}` : ""} · ${item.framework} · ${item.durationSec}s`}
-      bodyPreview={item.body}
+      subtitle={`${item.brandName}${item.productName ? ` · ${item.productName}` : ""} · ${item.scenes.length} scenes · ${item.formatLabel} · ${totalSec}s`}
+      bodyPreview={firstScene ? `Scene 1 — ${firstScene.shot}: ${firstScene.description}` : undefined}
       tags={item.tags}
       batchId={item.batchId}
       batchLabel={item.batchLabel}
@@ -176,12 +191,8 @@ function ScriptCard({
       generatedAt={item.generatedAt}
       status={item.status}
       batchIsPartial={isPartialBatch}
-      savedCatalogueId={savedCatalogueId}
-      catalogueType="scripts"
-      onSave={() => {
-        saveGeneratedScript(item);
-        toast.success(`"${item.title}" saved to Catalogue`);
-      }}
+      catalogueType="storyboards"
+      canSaveToCatalogue={false}
     />
   );
 }
