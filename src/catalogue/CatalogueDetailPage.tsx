@@ -27,6 +27,7 @@ import {
   UserRound,
   Mic,
   Volume2,
+  Video,
   Wand2,
   X,
   type LucideIcon,
@@ -89,6 +90,11 @@ import { ProvenanceBadge, CreditsPill, UnknownAssetType, SessionScopeNote } from
 import { AssetDetailActions } from "./AssetDetailActions";
 import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFromAsset";
 import { useInGenieUrl } from "./genieHandoff";
+// READ-ONLY — owned by the Editor agent (Genie 2.0 §14/§21.2). Frameworks
+// are a real Catalogue object precisely so "replace this section from a
+// saved framework" is possible (§10) — the ordered section list is what
+// this detail page renders as the framework's substance.
+import { frameworkDuration, type Framework } from "@/genie6/editor/frameworks";
 
 // Note: KB block (KnowledgeBaseSection) only renders inside the brand /
 // product / category branches below. The other types (angles / hooks /
@@ -507,11 +513,21 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   const def = getAssetType(type)!;
   const genericSource: Record<string, { id: string }[]> = {
     scripts, ctas, templates,
+    // Frameworks resolve through the registry — NOT a raw `FRAMEWORKS`
+    // import — the same seed + session-added + session-duplicated merge
+    // `CatalogueListPage.tsx` / `CatalogueFinder.tsx` already use via
+    // `def.resolve()`. Without this, every framework 404s here: seeded
+    // ones (e.g. `fw-pas`) aren't in any array this file imports directly,
+    // and a framework saved from Video Sage's "Save framework to
+    // Catalogue" action (`addAsset("frameworks", …)`) only ever lands in
+    // the write-store's `added` map, which only `resolve()` reads.
+    frameworks: getAssetType("frameworks")!.resolve(),
   };
   const item = genericSource[type]?.find((it) => it.id === id);
   if (!item) return <NotFound type={type} navigate={navigate} />;
   const card = def.toCard(item);
   const genieHref = useInGenieUrl(type, id);
+  const framework = type === "frameworks" ? (item as unknown as Framework) : undefined;
   return (
     <Shell
       type={type}
@@ -533,14 +549,18 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           ))}
         </div>
       )}
-      {/* `card.usageCount` is a deterministic per-id hash (assetTypes.ts),
-          not a real count — "logged uses" (not "runs") so it doesn't read
-          as the same figure as the tracked panel below. */}
-      <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
-        <span>{card.usageCount} logged uses</span>
-        <span aria-hidden>·</span>
-        <span>Last used {card.lastUsedLabel}</span>
-      </div>
+      {framework ? (
+        <FrameworkStructure framework={framework} />
+      ) : (
+        /* `card.usageCount` is a deterministic per-id hash (assetTypes.ts),
+           not a real count — "logged uses" (not "runs") so it doesn't read
+           as the same figure as the tracked panel below. */
+        <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
+          <span>{card.usageCount} logged uses</span>
+          <span aria-hidden>·</span>
+          <span>Last used {card.lastUsedLabel}</span>
+        </div>
+      )}
       <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
       <GenerationsFromAsset
         {...deriveGenieMatchCriteria(type, item)}
@@ -548,6 +568,104 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
         useInGenieHref={genieHref}
       />
     </Shell>
+  );
+}
+
+/**
+ * Framework detail body — §10's reason Frameworks are Catalogue objects at
+ * all: "which is what makes 'replace this section from a saved framework'
+ * possible." So the ordered, named section list — each with its time range
+ * — IS the substance of the asset; everything else (fullName, description)
+ * already surfaces through the shared card grammar above (tags row / Shell
+ * subtitle) exactly like every other generic type, per Maalik's framing:
+ * "nothing but the structure of script — kab kya section aayega."
+ *
+ * Framework carries no real `lastUsedAt` (unlike scripts/ctas/templates,
+ * which do) — `card.lastUsedLabel` for this type is a hash-of-id fallback
+ * computed in assetTypes.ts's `deterministicLastUsed`, not a tracked fact.
+ * Reusing the shared usage line here would show a real-looking-but-invented
+ * date, so this renders its own line: the real `usageCount` field, and an
+ * explicit "not tracked" for recency instead of a fabricated one.
+ *
+ * Framework is analyse-only (§15) — this adds no generate affordance of
+ * its own; "Use in Genie" below is the same shared, spec-mandated action
+ * (§10 "actions on every asset") every other type already gets.
+ */
+function FrameworkStructure({ framework: fw }: { framework: Framework }) {
+  const sections = fw.sections ?? [];
+  const totalSec = frameworkDuration(fw);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground tabular-nums">
+        <span>{fw.usageCount} logged uses</span>
+        <span aria-hidden>·</span>
+        <span className="normal-case italic tracking-normal">Last used — not tracked for frameworks</span>
+      </div>
+
+      {fw.sourceVideoId && (
+        <Section title="Derived from">
+          <Link
+            to={`/iq/video-sage/${fw.sourceVideoId}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+          >
+            <Video className="h-3.5 w-3.5 text-primary-text" />
+            <span className="font-medium text-foreground">Video Sage analysis</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{fw.sourceVideoId}</span>
+          </Link>
+        </Section>
+      )}
+
+      <Section
+        title={
+          sections.length > 0
+            ? `Structure · ${sections.length} section${sections.length === 1 ? "" : "s"} · ${totalSec}s total`
+            : "Structure"
+        }
+      >
+        {sections.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+            No sections yet — frameworks are captured from Video Sage's analysis (or added already
+            carrying sections), not authored section-by-section here.
+          </p>
+        ) : (
+          <>
+            {fw.mediaKind === "image-sequence" && (
+              <p className="mb-2 text-[11px] italic text-muted-foreground">
+                Image-led structure — each range is how long that frame holds the screen in an
+                exported sequence, not a video timecode.
+              </p>
+            )}
+            <ol className="space-y-1.5">
+              {sections.map((s, i) => (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 rounded-lg border border-border/60 bg-background px-3 py-2"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[10px] font-semibold tabular-nums text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-mono text-sm font-medium tabular-nums text-foreground">
+                      {s.name}
+                    </p>
+                    {s.note && (
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">{s.note}</p>
+                    )}
+                  </div>
+                  <span className="shrink-0 rounded-full bg-muted-foreground/10 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                    {s.roll === "a-roll" ? "A-Roll" : "B-Roll"}
+                  </span>
+                  <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                    {s.startSec}s–{s.endSec}s
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+      </Section>
+    </>
   );
 }
 
