@@ -31,7 +31,7 @@ import type { OutputData } from "../../types/output";
 import type { UseWizardReturn, WizardState } from "../state/useWizard";
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import { getBrand, getProduct, getCategory } from "@/genie6/mocks";
-import { concepts as conceptCatalog } from "@/mocks/shared";
+import { getConceptById } from "../data/concepts";
 import { computeBreakdown } from "@/genie6/lib/credits";
 import {
   batchStatus,
@@ -76,7 +76,7 @@ function isProductShootRun(state: WizardState): boolean {
 function resolveConceptLabels(state: WizardState, isProductShoot: boolean): string[] {
   if (isProductShoot) return [];
   return state.selectedConceptIds
-    .map((id) => conceptCatalog.find((c) => c.id === id)?.name)
+    .map((id) => getConceptById(id)?.name)
     .filter((n): n is string => Boolean(n));
 }
 

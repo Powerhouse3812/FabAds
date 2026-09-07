@@ -40,6 +40,25 @@ export interface OutputCardProps extends OutputData {
   onClick?: () => void;
   onKanbanMove?: (col: KanbanColumn) => void;
 
+  /**
+   * §11 — "Every asset shows which module it came from." `OutputData` has no
+   * module field of its own (only the batch's `RunOrigin` does — see
+   * `src/genie6/library/originLabels.ts`'s `originLabel()`), so a caller with
+   * batch/origin context passes the resolved label through here (e.g.
+   * `originLabel(batch.origin)` → "Studio" / "Video Sage" / "Avatar Shots").
+   * Renders as a small mono badge next to the brand name, in EVERY view this
+   * card supports (grid, compact/By-angle, kanban) — this used to render only
+   * on the terminal batch-group header, so switching to Masonry or By-angle
+   * silently dropped it.
+   *
+   * Pass the literal string `"Not tracked"` for an item that genuinely
+   * predates batch-level origin tracking — that is the one honest way to
+   * show "we don't know", never a guessed module name. Leave the prop
+   * `undefined` (not `"Not tracked"`) only when the caller itself has no
+   * batch/origin context to join against yet; the card renders no badge at
+   * all in that case rather than fabricate one.
+   */
+  moduleLabel?: string;
   /** Reflects the Library's bookmark toggle (libraryActionsStore) — fills
    *  the footer Save icon so the action reads as a real, remembered state
    *  instead of a fire-and-forget button. */
@@ -91,6 +110,13 @@ export interface OutputCardProps extends OutputData {
  * (QualityScoreChip + ModeChip) — all removed. The thumbnail is now
  * clean per the final Figma. ModeBadge / QualityScoreChip helpers are
  * preserved on disk for PreviewPane reuse.
+ *
+ * ADDED post-lock (Genie 2.0 §11): an optional module-attribution badge in
+ * the brand row (`moduleLabel` prop) — "Studio" / "Video Sage" / "Avatar
+ * Shots" / etc, or "Not tracked" for pre-tracking items. This used to render
+ * ONLY on the Library's terminal batch-group header, so it silently
+ * disappeared in Masonry / By-angle / Kanban. It's off by default (no badge
+ * when the prop is omitted) so it never invents a source.
  */
 export function OutputCard({
   thumbnail,
@@ -112,6 +138,7 @@ export function OutputCard({
   onEllipsisAction,
   onSelect,
   onClick,
+  moduleLabel,
   bookmarked = false,
   disabledEllipsisActions,
 }: OutputCardProps) {
@@ -173,7 +200,7 @@ export function OutputCard({
       {isSizeCompact ? (
         /* Compact: single 92px block combining brand + headline */
         <div className="flex h-[92px] flex-col gap-1 px-3 pt-2">
-          <BrandRow brand={brand} />
+          <BrandRow brand={brand} moduleLabel={moduleLabel} />
           <h3 className="line-clamp-2 font-g6-sans text-[12px] leading-[20px] text-g6-text">
             {headlineText ?? "Untitled"}
           </h3>
@@ -181,7 +208,7 @@ export function OutputCard({
       ) : (
         <>
           <div className="h-10 px-3 pt-2">
-            <BrandRow brand={brand} />
+            <BrandRow brand={brand} moduleLabel={moduleLabel} />
           </div>
           <h3 className="line-clamp-2 px-3 pb-3 pt-1 font-g6-sans text-[12px] leading-[20px] text-g6-text">
             {headlineText ?? "Untitled"}
@@ -316,7 +343,14 @@ export function OutputCard({
 
 /* ── Internal pieces ──────────────────────────────────────────────── */
 
-function BrandRow({ brand }: { brand?: { name?: string; logo?: string } }) {
+function BrandRow({
+  brand,
+  moduleLabel,
+}: {
+  brand?: { name?: string; logo?: string };
+  /** §11 module attribution — see `OutputCardProps.moduleLabel` doc comment. */
+  moduleLabel?: string;
+}) {
   const initial = brand?.name?.trim()?.[0]?.toUpperCase() ?? "—";
   return (
     <div className="flex min-w-0 items-center gap-1.5">
@@ -333,9 +367,17 @@ function BrandRow({ brand }: { brand?: { name?: string; logo?: string } }) {
           </div>
         )}
       </div>
-      <span className="min-w-0 truncate font-g6-sans text-[12px] font-semibold leading-[22px] text-g6-text">
+      <span className="min-w-0 flex-1 truncate font-g6-sans text-[12px] font-semibold leading-[22px] text-g6-text">
         {brand?.name?.trim() || "Unattributed"}
       </span>
+      {moduleLabel && (
+        <span
+          className="shrink-0 rounded-full border border-g6-border-secondary px-1.5 py-0.5 font-g6-mono text-[9px] uppercase leading-none tracking-wide text-g6-text-tertiary"
+          title={`Source module: ${moduleLabel}`}
+        >
+          {moduleLabel}
+        </span>
+      )}
     </div>
   );
 }

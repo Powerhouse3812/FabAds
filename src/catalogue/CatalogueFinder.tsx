@@ -11,6 +11,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   brands, categories, products, audiences,
   angles, hooks, concepts, avatars, voices,
   scripts, ctas, templates, references,
@@ -64,6 +71,20 @@ type AnyEntity =
   | Angle | Hook | Concept | Avatar | Voice
   | ScriptAsset | CtaAsset | TemplateAsset | ReferenceAsset;
 
+/** §10 "Search, sorting and filters across Brands → Products / Categories.
+ *  With ten asset types in here, navigation depends on it." — no
+ *  user-facing sort existed anywhere in the module; this is pane-1's.
+ *  "Default" preserves the registry's existing resolve() order (unsorted)
+ *  so picking no option changes nothing about today's behaviour. */
+type SortKey = "default" | "name-asc" | "name-desc" | "recent" | "usage";
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "default", label: "Default order" },
+  { value: "name-asc", label: "Name (A–Z)" },
+  { value: "name-desc", label: "Name (Z–A)" },
+  { value: "recent", label: "Last used" },
+  { value: "usage", label: "Most used" },
+];
+
 /**
  * CatalogueFinder — 3-pane drill-down (Genie WorkspaceMasterDetail pattern).
  *
@@ -92,6 +113,21 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         const sp = new URLSearchParams(prev);
         if (value) sp.set("q", value);
         else sp.delete("q");
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+  // §10 sorting — URL-backed via ?sort= for the same reason ?q= is: a
+  // hard refresh or a captured link should reproduce exactly what was on
+  // screen, not silently reset to unsorted.
+  const sort = (searchParams.get("sort") as SortKey | null) ?? "default";
+  const setSort = (value: SortKey) => {
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        if (value !== "default") sp.set("sort", value);
+        else sp.delete("sort");
         return sp;
       },
       { replace: true },
@@ -169,17 +205,37 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
   const items = useMemo<AnyEntity[]>(() => {
     const base = def.resolve() as AnyEntity[];
     const q = query.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter((it) => {
-      const card = def.toCard(it);
-      return (
-        card.name.toLowerCase().includes(q) ||
-        (card.subtitle?.toLowerCase().includes(q) ?? false) ||
-        card.tags.some((t) => t.toLowerCase().includes(q))
-      );
+    const filtered = !q
+      ? base
+      : base.filter((it) => {
+          const card = def.toCard(it);
+          return (
+            card.name.toLowerCase().includes(q) ||
+            (card.subtitle?.toLowerCase().includes(q) ?? false) ||
+            card.tags.some((t) => t.toLowerCase().includes(q))
+          );
+        });
+    if (sort === "default") return filtered;
+    // Sort off the same card grammar every type already produces — no
+    // per-type sort comparator needed, same reasoning as toCard() itself.
+    return [...filtered].sort((a, b) => {
+      const cardA = def.toCard(a);
+      const cardB = def.toCard(b);
+      switch (sort) {
+        case "name-asc":
+          return cardA.name.localeCompare(cardB.name);
+        case "name-desc":
+          return cardB.name.localeCompare(cardA.name);
+        case "recent":
+          return cardB.lastUsedAt.localeCompare(cardA.lastUsedAt);
+        case "usage":
+          return cardB.usageCount - cardA.usageCount;
+        default:
+          return 0;
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [def, query, writes]);
+  }, [def, query, writes, sort]);
 
   // A deleted (or searched-away) selection must not keep rendering its
   // detail pane — after "Delete Notion" the left list dropped the row while
@@ -258,12 +314,40 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
   // type where multi-select changes what Generate DOES, so it states the
   // outcome before the user commits, and its bulk "Use in Genie" carries
   // all N ids via `?products=` (see genieHandoff.ts's report note).
+  //
+  // Categories: §10 "Bulk product selection applies to Category Ad and
+  // Product Ad" — but Studio's URL sync (genieHandoff.ts, read-only for
+  // this surface) only understands ONE bulk param, `?bulkProducts=`
+  // (product ids), not a bulk-category equivalent. So selecting N
+  // categories resolves every product across those categories and hands
+  // THAT off as one ad — same "N things become ONE ad" promise, just
+  // resolved down to the product ids Studio actually reads.
+  const categoryBulkProductIds =
+    type === "categories"
+      ? products.filter((p) => p.categoryId && bulkIds.includes(p.categoryId)).map((p) => p.id)
+      : [];
   const bulkProductNotice =
     type === "products" && bulkCount >= 2
       ? `${bulkCount} products${brandNameForProducts(bulkIds) ? ` from ${brandNameForProducts(bulkIds)}` : ""} will become ONE ad, not ${bulkCount} separate ads.`
-      : undefined;
+      : type === "categories" && bulkCount >= 2
+        ? categoryBulkProductIds.length > 0
+          ? `${bulkCount} categories (${categoryBulkProductIds.length} products) will become ONE ad, not ${bulkCount} separate ads.`
+          : `${bulkCount} categories selected — none have products yet, so there's nothing to hand off to Genie.`
+        : undefined;
   const handleBulkUseInGenie =
-    type === "products" ? () => navigate(bulkUseInGenieUrl(bulkIds)) : undefined;
+    type === "products"
+      ? () => navigate(bulkUseInGenieUrl(bulkIds))
+      : type === "categories"
+        ? () => {
+            if (categoryBulkProductIds.length === 0) {
+              toast.info("No products to hand off", {
+                description: "The selected categories don't have any products yet.",
+              });
+              return;
+            }
+            navigate(bulkUseInGenieUrl(categoryBulkProductIds));
+          }
+        : undefined;
 
   const handleSelectSection = (s: string) => {
     setSection(s);
@@ -319,7 +403,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
       <div className="flex-1 flex min-h-0">
         {/* PANE 1 — entity list */}
         <aside className="w-[260px] flex-shrink-0 border-r border-border flex flex-col">
-          <div className="px-3 py-2 border-b border-border shrink-0">
+          <div className="px-3 py-2 border-b border-border shrink-0 space-y-1.5">
             <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <input
@@ -330,6 +414,18 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
                 className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none w-full"
               />
             </div>
+            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+              <SelectTrigger className="h-7 w-full text-[11px] text-muted-foreground" aria-label="Sort">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex-1 overflow-y-auto py-1">
             {isLoading ? (
@@ -434,10 +530,57 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         />
       )}
       {type === "products" && (
-        <AddProductModal open={addOpen} onOpenChange={setAddOpen} />
+        <AddProductModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          // Same bug as AddBrandModal (QA-confirmed): onCreated was never
+          // passed here, so the modal toasted "Product created" and the
+          // row never appeared. Build a complete Product record so
+          // ProductDetail/toCard (thumbnail, landingPages, campaignUrls,
+          // variants…) never hit an undefined field.
+          onCreated={(p) => {
+            const brand = brands.find((b) => b.id === p.brandId);
+            const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            const id = `product-${slug}-${Date.now().toString(36)}`;
+            addAsset("products", {
+              id,
+              brandId: p.brandId,
+              categoryId: brand?.categoryIds?.[0],
+              name: p.name,
+              price: p.price,
+              thumbnail: brand?.logo,
+              benefits: p.benefits,
+              promo: undefined,
+              landingPages: [],
+              campaignUrls: [],
+              generatedCount: 0,
+              variants: [],
+            });
+            navigate(`/catalogue/products/${id}`);
+          }}
+        />
       )}
       {type === "categories" && (
-        <AddCategoryModal open={addOpen} onOpenChange={setAddOpen} />
+        <AddCategoryModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          // Same bug — onCreated was never passed, so a new category
+          // vanished after the toast. Build a complete Category record.
+          onCreated={(c) => {
+            const slug = c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            const id = `category-${slug}-${Date.now().toString(36)}`;
+            addAsset("categories", {
+              id,
+              name: c.name,
+              similarCategoryIds: [],
+              referenceUrls: [],
+              instruction: c.instruction,
+              winnerCount: 0,
+              feedbackCount: 0,
+            });
+            navigate(`/catalogue/categories/${id}`);
+          }}
+        />
       )}
       {!isRouteOwned && def.addForm && (
         <AssetFormModal

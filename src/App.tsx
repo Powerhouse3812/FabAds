@@ -337,8 +337,6 @@ const App = () => (
                 <Route path="catalogue/frameworks/:id" element={<CatalogueFinder type="frameworks" />} />
                 <Route path="catalogue/templates" element={<CatalogueFinder type="templates" />} />
                 <Route path="catalogue/templates/:id" element={<CatalogueFinder type="templates" />} />
-                <Route path="catalogue/references" element={<CatalogueFinder type="references" />} />
-                <Route path="catalogue/references/:id" element={<CatalogueFinder type="references" />} />
 
                 {/* Backward-compat redirects: old /grid URLs → bare URLs */}
                 <Route path="catalogue/categories/grid" element={<Navigate to="/catalogue/categories" replace />} />
@@ -370,8 +368,6 @@ const App = () => (
                 <Route path="catalogue/frameworks/grid/:id" element={<CatalogueDetailPage type="frameworks" />} />
                 <Route path="catalogue/templates/grid" element={<CatalogueListPage type="templates" />} />
                 <Route path="catalogue/templates/grid/:id" element={<CatalogueDetailPage type="templates" />} />
-                <Route path="catalogue/references/grid" element={<CatalogueListPage type="references" />} />
-                <Route path="catalogue/references/grid/:id" element={<CatalogueDetailPage type="references" />} />
 
                 {/* Automation — canvas workflow builder + reporting-automation list */}
                 {automationsRoutes}

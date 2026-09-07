@@ -52,6 +52,14 @@ import type { OutputData } from "../types/output";
 import { angles } from "../mocks";
 import { MODEL_CREDIT_MULTIPLIER, MODEL_LABEL, MODEL_PRICING } from "../studio-v4/data/modelPricing";
 import { computeBreakdown, type CreditLine } from "./credits";
+// ONE stage vocabulary for image/video renders (audit item 3) — the same
+// function Step5ResultsQueue.tsx already calls for every LIVE Studio batch.
+// Importing it here (rather than keeping a second, independently-authored
+// STAGE_SETS.image/video) is what makes a Studio-started batch and a
+// store-seeded batch read identically when they sit side by side in the same
+// Library list. No cycle: batchDisplay.ts imports only from genieRunTypes.ts,
+// useWizard.ts and RetryModelPicker.tsx, none of which import this file.
+import { stagesForFormat } from "../studio-v4/components/queue/batchDisplay";
 
 /* ─────────────────────────────── public API types ─────────────────────────────── */
 
@@ -262,7 +270,9 @@ const BATCH_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 — 
 
 /** §10 — Batch ID = Job ID, one identifier, e.g. "BATCH-8F2K41". Collision
  *  checked against every id ever issued (not just committed ones — seeding
- *  mints several ids before the first commit lands). */
+ *  mints several ids before the first commit lands). Used for batches that
+ *  are genuinely NEW (a real `startBatch()` call) — see `seededBatchId()`
+ *  below for the historical/seeded case, which must NOT use fresh randomness. */
 export function newBatchId(): string {
   let id: string;
   do {
@@ -272,6 +282,48 @@ export function newBatchId(): string {
     }
     id = `BATCH-${suffix}`;
   } while (issuedBatchIds.has(id));
+  issuedBatchIds.add(id);
+  return id;
+}
+
+/**
+ * DEFECT FIX (audit item 1): seeded/historical batches used to call
+ * `newBatchId()` too, which mints from `Math.random()` — so the SAME seeded
+ * batch (identical brand, items, everything) showed a different id on every
+ * page load ("BATCH-X6DCDG", then "BATCH-C68TWS", then "BATCH-D58T9S"), right
+ * next to a copy-to-clipboard button that copies an id dead by the next
+ * reload. §10 calls Batch ID "the one identifier" — it has to survive a
+ * reload to mean anything.
+ *
+ * This derives the id deterministically from a SEED KEY built from stable
+ * data — the chunk's own `sampleOutputs` ids (`byId(...)` in `seedStore()`
+ * below), which never change across reloads because `sampleOutputs` itself is
+ * a read-only, never-forked reference (15+ importers depend on it). Same
+ * inputs in, same 6-char suffix out, every time — via a plain FNV-1a-style
+ * string hash with a per-character mixing round (a single hash reduction
+ * would bias later characters toward whichever alphabet index the shrinking
+ * hash lands on first).
+ *
+ * Real, freshly-STARTED batches (`startBatch()`, incl. the one genuinely-live
+ * seeded batch at the bottom of `seedStore()`) keep calling `newBatchId()` —
+ * only the seeded/historical ones need to be stable across reloads.
+ */
+export function seededBatchId(seedKey: string): string {
+  let h = 0x811c9dc5 >>> 0; // FNV-1a offset basis
+  for (let i = 0; i < seedKey.length; i++) {
+    h ^= seedKey.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0; // FNV-1a prime
+  }
+  let suffix = "";
+  for (let i = 0; i < 6; i++) {
+    // Re-mix per character so no single hash value degenerates into a run of
+    // identical characters as it's repeatedly reduced mod alphabet length.
+    h = Math.imul(h ^ (h >>> 15), 0x2545f491) >>> 0;
+    suffix += BATCH_ID_ALPHABET[h % BATCH_ID_ALPHABET.length];
+  }
+  const id = `BATCH-${suffix}`;
+  // Register so a later newBatchId() (a real new batch) can never collide
+  // with an id a seeded batch already claimed.
   issuedBatchIds.add(id);
   return id;
 }
@@ -804,16 +856,32 @@ function seedCredits(
   };
 }
 
+/**
+ * DEFECT FIX (audit item 3): image/video used to carry a SECOND,
+ * independently-authored stage vocabulary here ("Brief / Draft / Render /
+ * Polish" for image, a differently-worded 5-stage set for video) while
+ * Step5ResultsQueue.tsx's LIVE batches already call `stagesForFormat()`
+ * (batchDisplay.ts) for the exact same two media types — so a Studio-started
+ * batch and a seeded batch sitting in the SAME Library list named the SAME
+ * kind of render differently. §16/§18: "ONE progress pattern... two systems
+ * must not exist." `stagesFor()` below now calls `stagesForFormat()` directly
+ * for image/video, so there is exactly one exported vocabulary for those two
+ * media types, read by both paths.
+ *
+ * `"text-only"` and `"app"` keep their own names — neither has a live-batch
+ * counterpart in `stagesForFormat()` (it only covers `Format = "image" |
+ * "video"`), so there's no vocabulary to collide with.
+ */
 const STAGE_SETS: Record<string, string[]> = {
-  image: ["Brief", "Draft", "Render", "Polish"],
-  video: ["Script", "Storyboard", "Render", "Sound mix", "Finalize"],
   "text-only": ["Draft", "Refine", "Finalize"],
   app: ["Queue", "Process", "Finalize"],
 };
 
 function stagesFor(origin: RunOrigin, chunk: OutputData[]): string[] {
   if (origin.kind === "app") return STAGE_SETS.app;
-  return STAGE_SETS[chunk[0]?.mediaType ?? "image"] ?? STAGE_SETS.image;
+  const mediaType = chunk[0]?.mediaType ?? "image";
+  if (mediaType === "text-only") return STAGE_SETS["text-only"];
+  return stagesForFormat(mediaType === "video" ? "video" : "image");
 }
 
 function batchLabel(chunk: OutputData[]): string {
@@ -822,6 +890,49 @@ function batchLabel(chunk: OutputData[]): string {
   const subject = [first.brand?.name, first.product?.name].filter(Boolean).join(" ");
   const approach = MODE_LABELS[first.mode];
   return subject ? `${subject} · ${approach}` : approach;
+}
+
+/**
+ * DEFECT FIX (audit item 2): `config.approach` used to be
+ * `MODE_LABELS[first.mode]` — i.e. an AD-TYPE label ("Brand Ad", "Product
+ * Ad") written into the field the Results/Library UI renders as "Approach".
+ * §2 names three DIFFERENT terms: Mode (what's being made — `OutputData.mode`
+ * / `MODE_LABELS`, e.g. "Brand Ad"), Ad type (who it's for, decided on the
+ * Step-2 tab — brand/product/category), and Approach (HOW Genie builds it, a
+ * Step-3 wizard choice: `useWizard.ts`'s `Mode` type / `Step3Approach`'s
+ * `APPROACHES_BY_FORMAT` — `scratch | create-variations | ugc-video |
+ * image-to-video | broll | bg-remover | resize`). `batchDisplay.ts`'s
+ * `APPROACH_LABELS` is keyed on exactly that vocabulary, so THAT is the one
+ * `config.approach` must speak — never the mode label.
+ *
+ * `sampleOutputs` (types/output.ts's `OutputData`) carries no approach id of
+ * its own — only `mode: ModeId` — so this derives the closest honest approach
+ * from `mode` + `mediaType`:
+ *   - "ugc-video" mode        → "ugc-video" approach (same id, direct match)
+ *   - "forge" mode ("Variants") → "create-variations"
+ *   - "image-to-ad" mode      → "image-to-video" when the render IS video
+ *                               (the only format `image-to-video` is offered
+ *                               for per APPROACHES_BY_FORMAT); otherwise
+ *                               "create-variations" (closest image-only
+ *                               analogue — deriving a new ad from an image)
+ *   - "brand-ad" / "product-ad" / "affiliate-ad" → "scratch" (a fresh
+ *                               generation, no variation lineage)
+ * App-origin batches (translate-videos, avatar-shots, …) never went through
+ * Step3Approach at all — Other Apps are a separate axis (§8) — so they carry
+ * no approach; `batchConfigChips()`/`approachLabel()` (batchDisplay.ts)
+ * already omit the chip for an undefined/unrecognised value rather than
+ * printing a wrong one.
+ */
+function approachFor(origin: RunOrigin, chunk: OutputData[]): string | undefined {
+  if (origin.kind === "app") return undefined;
+  const first = chunk[0];
+  if (!first) return undefined;
+  if (first.mode === "ugc-video") return "ugc-video";
+  if (first.mode === "forge") return "create-variations";
+  if (first.mode === "image-to-ad") {
+    return first.mediaType === "video" ? "image-to-video" : "create-variations";
+  }
+  return "scratch";
 }
 
 /**
@@ -837,6 +948,7 @@ function batchLabel(chunk: OutputData[]): string {
  * `seedCredits()`/`computeBreakdown()` priced against — so it takes the same
  * `modelId` the credit calc used instead, closing both gaps in one fix. */
 function configFor(
+  origin: RunOrigin,
   chunk: OutputData[],
   languageCode: string,
   aspectRatio: string,
@@ -848,7 +960,7 @@ function configFor(
   return {
     format:
       first.format ?? (first.mediaType === "video" ? "Video" : first.mediaType === "text-only" ? "Adcopy" : "Image"),
-    approach: MODE_LABELS[first.mode],
+    approach: approachFor(origin, chunk),
     model: modelId,
     angle: angleLabel,
     language: languageCode,
@@ -935,7 +1047,10 @@ function buildResolvedBatch(params: {
   failing: Map<number, FailureReason>;
 }): RunBatch {
   const { chunk, origin, provenance, createdBy, createdAt, languageCode, aspectRatio, modelId, failing } = params;
-  const batchId = newBatchId();
+  // Deterministic — see `seededBatchId()`'s doc comment (audit item 1). Keyed
+  // off the chunk's own stable sampleOutputs ids so the SAME seeded batch
+  // gets the SAME id on every reload.
+  const batchId = seededBatchId(chunk.map((o) => o.id).join("|"));
   const stages = stagesFor(origin, chunk);
   const { perItem, rate } = seedCredits(origin, chunk, modelId);
   const items = chunk.map((out, idx) => {
@@ -966,7 +1081,7 @@ function buildResolvedBatch(params: {
     // same function or it quotes a different, inflated number for the same
     // shape — the exact class of drift defect 1 was about.
     credits: chargedTotal(items),
-    config: configFor(chunk, languageCode, aspectRatio, modelId),
+    config: configFor(origin, chunk, languageCode, aspectRatio, modelId),
   };
 }
 
@@ -981,7 +1096,7 @@ function buildCancelledBatch(params: {
   modelId: string;
 }): RunBatch {
   const { chunk, origin, provenance, createdBy, createdAt, languageCode, aspectRatio, modelId } = params;
-  const batchId = newBatchId();
+  const batchId = seededBatchId(chunk.map((o) => o.id).join("|"));
   const stages = stagesFor(origin, chunk);
   const { perItem, rate } = seedCredits(origin, chunk, modelId);
   const items = chunk.map((out, idx) => makeCancelledItem(batchId, idx, out, stages.length, perItem[idx] ?? rate));
@@ -996,7 +1111,7 @@ function buildCancelledBatch(params: {
     stages,
     items,
     credits: 0, // cancelled work is never charged
-    config: configFor(chunk, languageCode, aspectRatio, modelId),
+    config: configFor(origin, chunk, languageCode, aspectRatio, modelId),
   };
 }
 
@@ -1222,7 +1337,7 @@ function seedStore(): void {
     count: liveChunk.length,
     creditsPerItem: liveCredits.rate,
     creditsTotal: liveCredits.total, // exact quoted figure — never re-rounded, same as a real Studio run
-    config: configFor(liveChunk, "en-IN", "4:5", liveModelId),
+    config: configFor(liveOrigin, liveChunk, "en-IN", "4:5", liveModelId),
     itemSeed: (i) => {
       const out = liveChunk[i];
       return out ? { title: out.headline || `Output ${i + 1}`, summary: out.body || undefined, tags: out.angleTags } : {};

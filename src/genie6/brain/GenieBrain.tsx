@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   BookOpen,
@@ -20,7 +21,6 @@ import {
   hooks as ALL_HOOKS,
   concepts as ALL_CONCEPTS,
   audiences as ALL_AUDIENCES,
-  WINNER_ADS,
   REFERENCE_URLS,
   KB_INSTRUCTIONS,
   KB_CONCEPTS,
@@ -33,6 +33,11 @@ import {
   type ReferenceUrl,
   type WinnerAd,
 } from "@/mocks/shared";
+// Live Winner Ads (seed rows + session-saved, minus dismissed) — replaces a
+// static `WINNER_ADS` import. Without this, `dismissItem`/`restoreItem` below
+// would mutate the saved-store but this page would keep rendering the frozen
+// seed array, so "Remove" would silently do nothing.
+import { useAllWinnerAds, dismissItem, restoreItem } from "@/genie6/concepts/saved-store";
 // Frameworks (§11 "system-provided set ... frameworks") — owned by a parallel
 // agent (src/genie6/editor/frameworks.ts). Coded against the documented
 // signature per the shared build brief; if this file doesn't exist yet when
@@ -61,26 +66,42 @@ import { AssetCard } from "./AssetCard";
 import { AvatarVoicePicker } from "./AvatarVoicePicker";
 
 /**
- * GenieBrain — Genie 2.0 §11, §21.1, §21.2.
+ * GenieBrain — Genie 2.0 §12 (§11/§21.1 previously described this page; §12
+ * has since reversed the call again — see below).
  *
- * §21.1 records the reversal: the 26 Aug record called this an internal-admin
- * surface. It is now every user's own page — "It holds the system-provided
- * set drawn from the asset library: frameworks, angles, hooks, and the
- * rest." §21.2's provenance rule is this page's central honesty problem —
- * everything shown is either FabFunnel-seeded or client-created, and that
- * split is structural here (a legend + a tag on every single row), not a
- * corner badge on a few cards.
+ * §12, AUTHORITATIVE as of this revision: "Internal only — a FabFunnel admin
+ * surface, structurally separated from the client's own Assets and Settings,
+ * with no shared navigation and no shared entry point." An EARLIER revision
+ * said the opposite (every user gets their own Brain), and this page was
+ * built against that older text — so it reads, in places, as though the
+ * viewer IS the client ("your Brain", "you or your team"). That framing is
+ * gone from this file now: the page is a FabFunnel teammate's view onto one
+ * client's Knowledge Base, not the client's own page, and copy addresses the
+ * client in the third person accordingly.
  *
- * Route (owned by the wiring agent): `/iq/genie6/settings/brain`.
+ * §21.2's provenance rule is still this page's central honesty problem —
+ * everything shown is either FabFunnel-seeded or something the client added
+ * themselves, and that split is structural here (a legend + a tag on every
+ * single row), not a corner badge on a few cards.
+ *
+ * Route: `/iq/genie6/settings/brain` (owned by the wiring agent, not this
+ * file). That path sits inside the CLIENT's own Settings tree — exactly the
+ * "shared navigation"/"shared entry point" §12 now rules out for this page.
+ * This agent doesn't own routing, so it can't relocate the file; flagging it
+ * here for whoever does: the route needs to move to a FabFunnel-internal
+ * area with its own entry point, off the client's Settings path entirely.
+ * (`VoiceLibrarySettings.tsx`'s CTA linking here has already been removed —
+ * see that file — but the route itself living under `/settings/*` is still
+ * the contradiction §12 flags.)
  *
  * State coverage via URL, matching the rest of Genie 6 (`Library.tsx`
  * `?loading=1` etc.): `?state=populated|partial|zero|cap` (default
- * populated) simulates the CLIENT-CREATED layer only — Winner Ads,
- * References, and custom Instructions. The system-provided sets (Frameworks,
- * Angles, Hooks, Concepts, Audiences, the avatar/voice taxonomy) are always
- * fully present, because FabFunnel seeds them regardless of what this client
- * has done — that distinction IS the zero-data state's point: a brand-new
- * user still has a working Brain, they just haven't added anything to it.
+ * populated) simulates the CLIENT-ADDED layer only — Winner Ads, References,
+ * and custom Instructions. The system-provided sets (Frameworks, Angles,
+ * Hooks, Concepts, Audiences, the avatar/voice taxonomy) are always fully
+ * present, because FabFunnel seeds them regardless of what this client has
+ * done — that distinction IS the zero-data state's point: a brand-new client
+ * still has a working Brain, they just haven't added anything to it yet.
  */
 export function GenieBrain() {
   const [searchParams] = useSearchParams();
@@ -95,7 +116,7 @@ export function GenieBrain() {
   }, [forceLoading]);
   const loading = forceLoading || settling;
 
-  const winnerAdsAll = WINNER_ADS;
+  const winnerAdsAll = useAllWinnerAds();
   const referencesAll = REFERENCE_URLS;
   const instructionsAll = KB_INSTRUCTIONS;
 
@@ -161,6 +182,31 @@ export function GenieBrain() {
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [tone, setTone] = useState<string | null>(null);
 
+  /**
+   * Real Winner Ad removal — closes the "stuck at 50 with no way out" gap:
+   * `removeWinnerAd()` in saved-store.ts had zero callers, and this page's
+   * own delete affordance (via AssetCard's built-in Trash2 icon) was a no-op
+   * toast pointing at a Catalogue delete that doesn't exist for Winner Ads.
+   *
+   * Uses `dismissItem`/`restoreItem` rather than the hard-delete
+   * `removeWinnerAd` — see the note beside `removeWinnerAd` in saved-store.ts
+   * for why: this is the one mechanism that works uniformly on BOTH a
+   * FabFunnel seed row and a session-saved one (the majority of rows in the
+   * `?state=cap` demo are seed rows, which `removeWinnerAd` can't touch at
+   * all), and it's fully reversible, so "confirms or offers an undo" is
+   * satisfied by the undo alone — no separate confirmation dialog needed.
+   */
+  const handleRemoveWinnerAd = useCallback((ad: WinnerAd) => {
+    dismissItem(ad.id);
+    toast(`Removed "${ad.headline}"`, {
+      description: "It no longer counts toward this client's 50 Winner Ad limit.",
+      action: {
+        label: "Undo",
+        onClick: () => restoreItem(ad.id),
+      },
+    });
+  }, []);
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="g6-root relative min-h-full bg-g6-bg-base">
@@ -176,9 +222,10 @@ export function GenieBrain() {
                 <div className="flex items-start gap-3 rounded-g6-xl border border-g6-border-secondary bg-g6-bg-container px-4 py-3">
                   <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-g6-text-tertiary" />
                   <p className="text-g6-sm text-g6-text-secondary">
-                    You haven't added anything to your Brain yet — every set on this page right now is what
-                    FabFunnel gave you to start. Save a Winner Ad, link a reference, or write an instruction from
-                    Catalogue and it shows up here as <span className="font-semibold text-g6-text">yours</span>.
+                    This client hasn't added anything to their Brain yet — every set on this page right now is
+                    what FabFunnel gave them to start. Once they save a Winner Ad, link a reference, or write an
+                    instruction from Catalogue, it shows up here as{" "}
+                    <span className="font-semibold text-g6-text">theirs</span>.
                   </p>
                 </div>
               )}
@@ -192,9 +239,9 @@ export function GenieBrain() {
               />
 
               <section className="flex flex-col gap-2">
-                <h2 className="font-g6-sans text-g6-h3 font-bold text-g6-text">Your Knowledge Base</h2>
+                <h2 className="font-g6-sans text-g6-h3 font-bold text-g6-text">This Client's Knowledge Base</h2>
                 <p className="text-g6-sm text-g6-text-secondary">
-                  What you've saved or written yourself — the client-created layer.
+                  What the client has saved or written themselves — the client-added layer.
                 </p>
                 <Accordion type="multiple" defaultValue={isEmpty ? [] : ["winner-ads"]} className="mt-2">
                   <SystemSetSection
@@ -208,14 +255,35 @@ export function GenieBrain() {
                     renderItem={(w) => {
                       const sourced = conceptsSourcedFrom.get(w.id) ?? 0;
                       return (
-                        <AssetCard
-                          preview={w.thumbnail ? { kind: "image", src: w.thumbnail } : { kind: "icon", icon: Trophy }}
-                          name={w.headline}
-                          tags={[w.entityType, w.format, w.source.replace(/-/g, " ")]}
-                          usageLabel={`${sourced} concept${sourced === 1 ? "" : "s"} sourced`}
-                          lastUsedLabel={`Added ${formatDate(w.capturedAt)}`}
-                          provenance="client-created"
-                        />
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <AssetCard
+                              preview={w.thumbnail ? { kind: "image", src: w.thumbnail } : { kind: "icon", icon: Trophy }}
+                              name={w.headline}
+                              tags={[w.entityType, w.format, w.source.replace(/-/g, " ")]}
+                              usageLabel={`${sourced} concept${sourced === 1 ? "" : "s"} sourced`}
+                              lastUsedLabel={`Added ${formatDate(w.capturedAt)}`}
+                              provenance="client-created"
+                            />
+                          </div>
+                          {/* The REAL remove control (task: the cap had no way
+                              out). Deliberately separate from AssetCard's own
+                              built-in Trash2 icon above/inside it — that one
+                              is generic to every asset type this card renders
+                              and still just toasts "Delete this in Catalogue"
+                              (out of scope here: AssetCard.tsx isn't owned by
+                              this file, and Winner Ads have no Catalogue
+                              delete to point at anyway). This button is the
+                              one that actually works. */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveWinnerAd(w)}
+                            aria-label={`Remove "${w.headline}" from this client's Winner Ads`}
+                            className="shrink-0 rounded-g6-pill border border-g6-border-secondary px-2.5 py-1 font-g6-mono text-[10px] font-semibold uppercase tracking-wider text-g6-text-tertiary transition-colors hover:border-g6-error/50 hover:text-error-text"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       );
                     }}
                   />
@@ -259,7 +327,7 @@ export function GenieBrain() {
               </section>
 
               <section className="flex flex-col gap-2">
-                <h2 className="font-g6-sans text-g6-h3 font-bold text-g6-text">What FabFunnel gave you</h2>
+                <h2 className="font-g6-sans text-g6-h3 font-bold text-g6-text">What FabFunnel Gave This Client</h2>
                 <p className="text-g6-sm text-g6-text-secondary">
                   The system-provided set drawn from the asset library — always here, browsable, reused by every
                   generation.
@@ -355,8 +423,11 @@ export function GenieBrain() {
                       Categorised by environment and personality
                     </h2>
                     <p className="mt-1 text-g6-sm text-g6-text-secondary">
-                      This is the exact picker Genie's own avatar-selection step uses — browse it here, or reach
-                      it mid-generation. Same categorisation, same component, so the two can't drift apart.
+                      Browsable here for reference. Studio's own avatar-selection step is a separate component
+                      with its own UI (region filter, curated personas) — this isn't the same picker. Both read
+                      the same <code className="font-g6-mono text-g6-xs">avatarTaxonomy.ts</code> file, though,
+                      so the environment × personality categorisation can't drift between them even where the
+                      components themselves do.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -382,8 +453,11 @@ export function GenieBrain() {
                 </div>
 
                 {/* Deliberately NOT wrapped in g6-root — AvatarVoicePicker is
-                    shadcn-token by design (Studio + Apps mount it), so it
-                    keeps its own tokens even nested inside this g6 page. */}
+                    shadcn-token by design (Genie Brain and every Other App
+                    that needs a face mount it; Studio does NOT — its own
+                    avatar step is a separate fork, AvatarVoiceRail.tsx, see
+                    AvatarVoicePicker.tsx's docblock), so it keeps its own
+                    tokens even nested inside this g6 page. */}
                 <div className="rounded-g6-xl bg-g6-bg-base p-4">
                   <AvatarVoicePicker
                     avatarId={avatarId}
@@ -435,12 +509,14 @@ function formatDate(d: Date): string {
 function BrainHeader({ generationsRun }: { generationsRun: number | null }) {
   return (
     <header className="flex flex-col gap-2">
-      <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">Genie Brain</p>
+      <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">Genie Brain · Internal</p>
       <h1 className="font-g6-sans text-g6-h1 font-black tracking-[-0.02em] text-g6-text">
-        What Genie knows, on your behalf
+        What Genie draws on for this client
       </h1>
       <p className="max-w-2xl text-g6-base text-g6-text-secondary">
-        Every set below is either something FabFunnel gave you to start, or something you or your team added.
+        Every set below is either something FabFunnel seeded for this client, or something the client (or their
+        team) added themselves. This is a FabFunnel-internal view — the client doesn't see this page, and it
+        isn't linked from their Settings or Assets.
         {generationsRun !== null && (
           <>
             {" "}
@@ -460,11 +536,11 @@ function ProvenanceLegend() {
       <p className="font-g6-mono text-g6-xs uppercase tracking-wider text-g6-text-tertiary">Reading this page</p>
       <span className="inline-flex items-center gap-1.5 text-g6-sm text-g6-text">
         <span className="h-2 w-2 rounded-full bg-g6-text-tertiary" />
-        FabFunnel-seeded — Genie started you with this
+        FabFunnel-seeded — Genie started this client with this
       </span>
       <span className="inline-flex items-center gap-1.5 text-g6-sm text-g6-text">
         <span className="h-2 w-2 rounded-full bg-g6-primary" />
-        Yours — you or your team added this
+        Client-added — the client (or their team) added this
       </span>
     </div>
   );
@@ -512,8 +588,8 @@ function KnowledgeBaseCapacityPanel({
             <div className="mt-3 flex items-start gap-2 rounded-g6-lg border border-g6-error/30 bg-g6-error/10 px-3 py-2">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-error-text" />
               <p className="text-g6-xs text-g6-text">
-                You're at the 50 Winner Ad limit. Remove one before Genie can save another — nothing gets silently
-                dropped to make room.
+                This client is at the 50 Winner Ad limit. Remove one below before Genie can save another for
+                them — nothing gets silently dropped to make room.
               </p>
             </div>
           ) : (

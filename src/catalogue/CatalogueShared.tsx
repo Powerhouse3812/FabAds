@@ -74,11 +74,20 @@ export function UnknownAssetType({ type }: { type: string }) {
 /** §9 "Manually add or upload — the user is never dependent on fetched
  *  data alone" is honest only if the user also knows it won't survive a
  *  reload. Same disclosure pattern as `ad-entity-write-store.ts`'s Reports
- *  session-changes note. */
+ *  session-changes note.
+ *
+ *  §10 is explicit that Catalogue data is shared agency-wide — a brand,
+ *  product or category one teammate adds is visible to the whole agency
+ *  and to Admin. That's the real (target) model; this build is a mock
+ *  prototype with no backend, so nothing actually persists or syncs
+ *  between users yet. The copy below says both things instead of only the
+ *  second, so it reads as "this demo's limitation" rather than a denial of
+ *  the sharing model itself. */
 export function SessionScopeNote({ className }: { className?: string }) {
   return (
     <p className={cn("text-[11px] text-muted-foreground", className)}>
-      Changes here are local to this session and reset on reload.
+      Catalogue data is shared agency-wide — in this demo, though, changes you make here are local
+      to your session and reset on reload.
     </p>
   );
 }

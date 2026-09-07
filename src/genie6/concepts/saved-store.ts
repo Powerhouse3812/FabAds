@@ -183,8 +183,21 @@ export function removeInstruction(id: string) {
   emit();
 }
 
-/** Same shape for winners + concepts so the saved-store carries the
- *  full delete API surface, not just instructions. */
+/**
+ * Same shape for winners + concepts so the saved-store carries the full
+ * delete API surface, not just instructions.
+ *
+ * NOTE for callers: this only strips a SESSION-SAVED winner ad — it filters
+ * `state.winners`, which never contains the FabFunnel seed rows from
+ * `WINNER_ADS` (those aren't in this array at all). Called on a seed row's
+ * id, it silently no-ops. It's also a hard delete: nothing here restores the
+ * derived concept it also removes. GenieBrain's interactive "Remove" control
+ * (the fix for the 50-cap having no way out) deliberately does NOT call this
+ * — it uses `dismissItem`/`restoreItem` instead, which is the one mechanism
+ * that works uniformly on both seed and session rows and is fully reversible
+ * via `restoreItem`. This function is left available for a genuine permanent
+ * delete flow (e.g. an admin "purge" action) should one get built later.
+ */
 export function removeWinnerAd(id: string) {
   state = {
     ...state,

@@ -4,7 +4,7 @@ import {
   History, Target, Map, Settings,
   Film, Search, Globe,
   Home, Library as LibraryIcon, FolderTree,
-  Bookmark, Copy, Tag, Building2, Package, Boxes,
+  Bookmark, Copy, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
   Sparkles, Receipt,
@@ -15,6 +15,11 @@ import {
   // Workflow is already spoken for by the Automations module.
   GitMerge, LayoutGrid,
 } from "lucide-react";
+// Catalogue sub-nav is derived from the asset-type registry so the two can
+// never drift (Maalik's ruling: "keep all assets in sub nav itself" — no
+// separate All-assets landing screen; §10's two groups, Business + Creative,
+// become the two sub-nav sections below).
+import { groupedAssetTypes } from "@/catalogue/assetTypes";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -83,7 +88,10 @@ export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
  *                          New-Gen CTA when active. Genie variant toggle now
  *                          lives as a small icon next to the Genie label, not
  *                          as a pill in sub-menu.)
- *    Catalogue           (Category / Brands / Product)
+ *    Catalogue           (Business assets: Brands / Products / Categories —
+ *                          Creative assets: Avatars / Voices / Scripts /
+ *                          Concepts / Hooks / CTAs / Frameworks / Angles /
+ *                          Templates / Audiences. Genie 2.0 §10, ruling below.)
  *    Creative Library
  *
  *  TOOLS                 — top-level modules, NOT children of a "Tools" parent
@@ -245,20 +253,22 @@ export const MODULES: ModuleDef[] = [
   },
   {
     key: "catalogue", label: "Catalogue", icon: Boxes,
-    subItems: [
-      // A-12.38: reduced to 3 — Brands / Product / Category. Audiences /
-      // Angles / Hooks / Concepts / Avatars / Voices removed from sub-nav per
-      // Maalik. Routes + data files preserved (may be re-surfaced later).
-      // Genie 2.0 §9 — Catalogue now holds 14 asset types across two groups
-      // (Business + Creative). Listing all 14 here would be a wall (Miller's
-      // 7±2), and the A-12.38 cut to three was the right call for the day-to-day
-      // path — so the grouped picker at /catalogue is the way into the other
-      // eleven, and the three commercial types keep their direct entries.
-      { label: "All assets", path: "/catalogue", icon: Boxes },
-      { label: "Brands", path: "/catalogue/brands", icon: Building2 },
-      { label: "Product", path: "/catalogue/products", icon: Package },
-      { label: "Category", path: "/catalogue/categories", icon: Tag },
-    ],
+    // Maalik's ruling (Genie 2.0 §10 catalogue-nav pass): the grouped
+    // /catalogue landing grid was "a extra screen" — kill it, and put the
+    // asset types straight in the sub-nav instead, so a user on
+    // /catalogue/hooks can reach /catalogue/ctas without backing out to a
+    // landing page first. Sectioned exactly as §10 groups them (Business /
+    // Creative), derived from `groupedAssetTypes()` so a 15th type or a
+    // removed one (References, dropped per this same ruling) never has to
+    // be hand-synced here — it just shows up or disappears on its own.
+    sections: groupedAssetTypes().map((g) => ({
+      sectionLabel: g.label,
+      items: g.types.map((def) => ({
+        label: def.label,
+        path: `/catalogue/${def.id}`,
+        icon: def.icon,
+      })),
+    })),
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },
 

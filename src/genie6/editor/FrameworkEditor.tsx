@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Clapperboard, Film, RefreshCw, Repeat2 } from "lucide-react";
+import { Clapperboard, Film, RefreshCw, Repeat, Repeat2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { formatCredits, creditsLabel } from "../lib/credits";
 import type { Provenance } from "../lib/genieRunTypes";
 import { StageProgress, FailureNotice } from "../progress";
@@ -70,6 +79,8 @@ export function FrameworkEditor({ output, framework, onSectionChange, className 
   const [selectedId, setSelectedId] = useState(sections[0]?.id);
   const [playhead, setPlayhead] = useState(0);
   const [swapOpen, setSwapOpen] = useState(false);
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [regenInstructions, setRegenInstructions] = useState("");
   const [regenBatchId, setRegenBatchId] = useState<string | null>(null);
 
   const selected = sections.find((s) => s.id === selectedId) ?? sections[0];
@@ -105,6 +116,12 @@ export function FrameworkEditor({ output, framework, onSectionChange, className 
     select(sections[next].id, next);
   };
 
+  // §15 fix (item 2) — this used to fire startBatch() straight off the
+  // button click, so the MORE granular action (one section) had no
+  // instructions field while the whole-video regenerate did. Now it opens
+  // the same shape of dialog as VideoEditor's "Regenerate whole video":
+  // instructions textarea (optional) → Regenerate, with the section's own
+  // cost stated on the button per §15/design-system credit rules.
   const startRegenerate = () => {
     if (!selected) return;
     const batchId = startBatch({
@@ -113,6 +130,7 @@ export function FrameworkEditor({ output, framework, onSectionChange, className 
       stages: REGEN_STAGES,
       count: 1,
       creditsPerItem: regenCost(selected),
+      ...(regenInstructions.trim() ? { config: { promptSnippet: regenInstructions.trim() } } : {}),
     });
     setRegenBatchId(batchId);
   };
@@ -137,6 +155,8 @@ export function FrameworkEditor({ output, framework, onSectionChange, className 
         note: undefined,
       });
       setRegenBatchId(null);
+      setRegenOpen(false);
+      setRegenInstructions("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regenItem?.status]);
@@ -290,40 +310,21 @@ export function FrameworkEditor({ output, framework, onSectionChange, className 
             </div>
           </div>
 
-          {regenBatchId && regenItem ? (
-            regenItem.status === "failed" ? (
-              <FailureNotice
-                reason={regenItem.failure ?? "render-error"}
-                onRetry={(scope) => {
-                  retry(regenBatchId, scope, { itemId: regenItem.id });
-                }}
-                retryCredits={{ "this-item": regenItem.credits, "different-model": regenItem.credits }}
-              />
-            ) : (
-              <div className="rounded-xl border border-border bg-muted/30 p-3">
-                <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  {regenBatch?.batchId}
-                </p>
-                <StageProgress
-                  stages={REGEN_STAGES}
-                  stageIndex={regenItem.stageIndex}
-                  progress={regenItem.progress}
-                  etaSeconds={regenItem.etaSeconds}
-                />
-              </div>
-            )
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" className="rounded-full" onClick={() => setSwapOpen(true)}>
-                <Repeat2 className="h-3.5 w-3.5" aria-hidden />
-                Swap from Catalogue
-              </Button>
-              <Button type="button" variant="outline" className="rounded-full" onClick={startRegenerate}>
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                Regenerate this section ({creditsLabel(regenCost(selected))})
-              </Button>
-            </div>
-          )}
+          {/* §15 fix (item 2) — regenerate no longer fires straight off this
+              button; it opens the instructions dialog below, matching
+              VideoEditor's "Regenerate whole video" shape exactly. Reopening
+              while a batch is tracked shows that batch's progress/failure,
+              same as the whole-video dialog does. */}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" className="rounded-full" onClick={() => setSwapOpen(true)}>
+              <Repeat2 className="h-3.5 w-3.5" aria-hidden />
+              Swap from Catalogue
+            </Button>
+            <Button type="button" variant="outline" className="rounded-full" onClick={() => setRegenOpen(true)}>
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              Regenerate this section ({creditsLabel(regenCost(selected))})
+            </Button>
+          </div>
         </div>
       )}
 
@@ -334,6 +335,74 @@ export function FrameworkEditor({ output, framework, onSectionChange, className 
           sectionName={selected.name}
           onPick={handleSwap}
         />
+      )}
+
+      {/* Regenerate this section — same shape as VideoEditor's whole-video
+          dialog: optional instructions textarea, then Regenerate; while
+          tracked, shows StageProgress or FailureNotice in place of the
+          textarea; closing just stops LOCAL tracking (the batch itself
+          already lives in the shared run store per the ONE-progress rule). */}
+      {selected && (
+        <Dialog
+          open={regenOpen}
+          onOpenChange={(next) => {
+            setRegenOpen(next);
+            if (!next) setRegenBatchId(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Regenerate {selected.name}</DialogTitle>
+              <DialogDescription>
+                Add instructions (optional), or leave blank to regenerate this section with the current settings.
+              </DialogDescription>
+            </DialogHeader>
+
+            {regenBatchId && regenItem ? (
+              regenItem.status === "failed" ? (
+                <FailureNotice
+                  reason={regenItem.failure ?? "render-error"}
+                  onRetry={(scope) => {
+                    retry(regenBatchId, scope, { itemId: regenItem.id });
+                  }}
+                  retryCredits={{ "this-item": regenItem.credits, "different-model": regenItem.credits }}
+                />
+              ) : (
+                <div className="rounded-xl border border-border bg-muted/30 p-3">
+                  <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                    {regenBatch?.batchId}
+                  </p>
+                  <StageProgress
+                    stages={REGEN_STAGES}
+                    stageIndex={regenItem.stageIndex}
+                    progress={regenItem.progress}
+                    etaSeconds={regenItem.etaSeconds}
+                  />
+                </div>
+              )
+            ) : (
+              <Textarea
+                value={regenInstructions}
+                onChange={(e) => setRegenInstructions(e.target.value)}
+                rows={4}
+                placeholder="e.g. Make this beat punchier, keep the same product shot"
+                aria-label="Regeneration instructions"
+              />
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" className="rounded-full" onClick={() => setRegenOpen(false)}>
+                Cancel
+              </Button>
+              {!regenBatchId && (
+                <Button type="button" className="gap-1.5 rounded-full" onClick={startRegenerate}>
+                  <Repeat className="h-3.5 w-3.5" aria-hidden />
+                  Regenerate ({creditsLabel(regenCost(selected))})
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -40,6 +40,7 @@ import { startBatch, useBatch } from "../lib/genieRunStore";
 import { StageProgress, FailureNotice } from "../progress";
 import { resolveEditorFramework } from "./outputFramework";
 import type { Framework, FrameworkSection } from "./frameworks";
+import type { OutputData } from "../types/output";
 import { FrameworkEditor } from "./FrameworkEditor";
 import { TimelineEditor } from "./TimelineEditor";
 
@@ -72,6 +73,43 @@ const VARIATION_ACTIONS: { id: FlowActionId; label: string }[] = [
   { id: "vary-concept", label: "Vary concept" },
   { id: "vary-whole-video", label: "Vary whole video" },
 ];
+
+/** No real duration ships on `OutputData` — this matches the shortest
+ *  full-length templates in frameworks.ts (HSO totals 32s) rather than
+ *  inventing an unrelated number. */
+const WHOLE_VIDEO_FALLBACK_SECS = 30;
+
+/**
+ * §15 fix (item 1) — "no structure detected" used to be a full dead end:
+ * `TimelineEditor` has no entry point other than a `Framework`, so a video
+ * that failed structure-detection had literally nothing to open. The one
+ * real thing every such output DOES have is its own thumbnail — so this
+ * builds a single "Whole video" clip from it and hands that to Timeline as
+ * a normal (if minimal) Framework instance. Timeline doesn't care that the
+ * section count is 1; trim/replace/reorder-of-one/music all work exactly
+ * as they do on a real breakdown. This is display-only scaffolding (never
+ * written back to sampleOutputs, never presented as a detected structure —
+ * see the on-screen note this pairs with).
+ */
+function buildWholeVideoFallback(output: OutputData): Framework {
+  return {
+    id: `no-framework--${output.id}`,
+    name: "Whole video",
+    provenance: "client-created",
+    usageCount: 0,
+    sections: [
+      {
+        id: `${output.id}-whole`,
+        name: "Whole video",
+        startSec: 0,
+        endSec: WHOLE_VIDEO_FALLBACK_SECS,
+        roll: "a-roll",
+        thumbnail: output.thumbnail,
+        note: "No structure detected — edited as one whole-video clip.",
+      },
+    ],
+  };
+}
 
 function EditorShell({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col gap-5 px-6 py-8">{children}</div>;
@@ -144,8 +182,10 @@ export function VideoEditor() {
 
   const [framework, setFramework] = useState<Framework | null>(null);
   useEffect(() => {
-    setFramework(availability.kind === "ready" ? availability.framework : null);
-  }, [availability.kind === "ready" ? availability.framework.id : availability.kind]);
+    if (availability.kind === "ready") setFramework(availability.framework);
+    else if (availability.kind === "no-framework") setFramework(buildWholeVideoFallback(availability.output));
+    else setFramework(null);
+  }, [availability]);
 
   const [scriptOpen, setScriptOpen] = useState(false);
   const [scriptDraft, setScriptDraft] = useState("");
@@ -226,17 +266,12 @@ export function VideoEditor() {
     );
   }
 
-  if (availability.kind === "no-framework") {
-    return (
-      <EditorDeadEnd
-        icon={Clapperboard}
-        title="No structure detected on this video"
-        detail="Genie couldn't identify a Hook / Problem / Solution / CTA breakdown for this generation, so there's nothing to edit section-by-section. Try Timeline-only tools from the Library, or regenerate this ad to get a structured version."
-      />
-    );
-  }
-
   if (!output || !framework) return <LoadingSkeleton />;
+
+  // "ready" gets both views; "no-framework" (§15 item 1) gets Timeline only,
+  // seeded by buildWholeVideoFallback above — see the note rendered below
+  // for why there's no Framework tab to switch to.
+  const hasFramework = availability.kind === "ready";
 
   return (
     <EditorShell>
@@ -277,35 +312,49 @@ export function VideoEditor() {
         </div>
       </div>
 
-      {/* View switch — framework default, in the URL */}
-      <div className="flex items-center gap-1 self-start rounded-full border border-border bg-muted/40 p-0.5">
-        <button
-          type="button"
-          aria-pressed={view === "framework"}
-          onClick={() => setView("framework")}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
-            view === "framework" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-          )}
-        >
-          <LayoutPanelLeft className="h-3.5 w-3.5" aria-hidden />
-          Framework
-        </button>
-        <button
-          type="button"
-          aria-pressed={view === "timeline"}
-          onClick={() => setView("timeline")}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
-            view === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-          )}
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
-          Timeline
-        </button>
-      </div>
+      {hasFramework ? (
+        /* View switch — framework default, in the URL */
+        <div className="flex items-center gap-1 self-start rounded-full border border-border bg-muted/40 p-0.5">
+          <button
+            type="button"
+            aria-pressed={view === "framework"}
+            onClick={() => setView("framework")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+              view === "framework" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+            )}
+          >
+            <LayoutPanelLeft className="h-3.5 w-3.5" aria-hidden />
+            Framework
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "timeline"}
+            onClick={() => setView("timeline")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+              view === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Timeline
+          </button>
+        </div>
+      ) : (
+        /* §15 item 1 — no Hook/Problem/Solution/CTA structure was detected,
+           so there's no second view to switch to; say so plainly instead of
+           silently hiding the switcher. */
+        <div className="flex items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/30 p-3">
+          <Clapperboard className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <p className="text-[12px] text-muted-foreground">
+            No Hook / Problem / Solution / CTA structure detected on this video, so there's nothing to break into
+            sections — editing it as one whole-video clip in Timeline instead. Swap in footage below, or use
+            &ldquo;Regenerate whole video&rdquo; above for a structured pass.
+          </p>
+        </div>
+      )}
 
-      {view === "framework" ? (
+      {hasFramework && view === "framework" ? (
         <FrameworkEditor
           output={output}
           framework={framework}
@@ -320,7 +369,9 @@ export function VideoEditor() {
       ) : (
         // Timeline seeds from the SAME framework instance but edits it as an
         // independent local model (see TimelineEditor's file header) — it
-        // remounts (and re-seeds) each time the view switches to it.
+        // remounts (and re-seeds) each time the view switches to it (or, for
+        // a no-framework output, is the only view — framework.id already
+        // carries the `no-framework--` prefix so this key changes too).
         <TimelineEditor key={`${framework.id}`} output={output} framework={framework} />
       )}
 

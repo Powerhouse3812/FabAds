@@ -18,13 +18,16 @@
  *   Business assets  — Brands · Products · Categories
  *   Creative assets  — Avatars · Voices · Scripts · Concepts · Hooks ·
  *                       CTAs · Frameworks · Angles · Templates ·
- *                       Audiences · References (winner ads)
+ *                       Audiences
  *
- * (Angle, Template, Audience and Reference/Winner-ads are the §21.2
- * carry-over additions to the §9 list — Angle and Audience already
- * existed as entities before this file; Template and Reference are new.)
+ * (Angle, Template and Audience are the §21.2 carry-over additions to the
+ * §9 list — Angle and Audience already existed as entities before this
+ * file; Template is new. A "References" / winner-ads type shipped
+ * initially alongside these but was removed per Maalik's ruling — Genie
+ * 2.0 §10 names ten types and the owner wants exactly the other 13 kept,
+ * with References dropped.)
  *
- * All 14 ship in V1. Avatar *presets* ship in V1; avatar *creation* is V2
+ * All 13 ship in V1. Avatar *presets* ship in V1; avatar *creation* is V2
  * — so `avatars` is the one Creative type with no `addForm` below, which
  * is what removes the "create avatar" affordance from the generic
  * add/upload modal (§9 / §13).
@@ -44,7 +47,6 @@ import {
   MousePointerClick,
   GitBranch,
   LayoutTemplate,
-  Trophy,
 } from "lucide-react";
 import type { Provenance } from "@/genie6/lib/genieRunTypes";
 import {
@@ -60,7 +62,6 @@ import {
   scripts,
   ctas,
   templates,
-  references,
 } from "@/mocks/shared";
 import type {
   Brand,
@@ -76,7 +77,6 @@ import type {
 import type { ScriptAsset } from "@/mocks/shared/scripts";
 import type { CtaAsset } from "@/mocks/shared/ctas";
 import type { TemplateAsset } from "@/mocks/shared/templates";
-import type { ReferenceAsset } from "@/mocks/shared/references";
 // Owned by the Editor agent (Genie 2.0 §14 / §21.2 "Framework has to
 // become a real object"). Coded against the documented signature —
 // this file may not exist yet while the Editor agent is still building
@@ -106,8 +106,7 @@ export type CatalogueType =
   | "frameworks"
   | "angles"
   | "templates"
-  | "audiences"
-  | "references";
+  | "audiences";
 
 export const ASSET_GROUP_LABELS: Record<AssetGroup, string> = {
   business: "Business assets",
@@ -132,7 +131,6 @@ export const ASSET_TYPE_ORDER: CatalogueType[] = [
   "angles",
   "templates",
   "audiences",
-  "references",
 ];
 
 /* ─────────────────────────────── card grammar ─────────────────────────────── */
@@ -691,43 +689,6 @@ const templatesType: AssetTypeDef<TemplateAsset> = {
   }),
 };
 
-const referencesType: AssetTypeDef<ReferenceAsset> = {
-  id: "references",
-  label: "References",
-  singular: "Reference",
-  icon: Trophy,
-  description: "Winner ads and saved reference creative — proof of what's worked, pulled up as inspiration for the next generation.",
-  group: "creative",
-  resolve: makeResolver("references", references, (r, name) => ({ ...r, headline: name })),
-  getId: (r) => r.id,
-  getName: (r) => r.headline,
-  withName: (r, name) => ({ ...r, headline: name }),
-  toCard: (r) =>
-    buildCard("references", r.id, r.headline, {
-      subtitle: r.description,
-      thumbnail: r.thumbnail,
-      tags: r.tags,
-      usageCount: r.usageCount,
-      lastUsedAt: r.lastUsedAt,
-      item: r,
-    }),
-  addForm: { nameLabel: "Reference headline", bodyLabel: "Note / URL", bodyPlaceholder: "Paste a URL or add a short note about why this is a good reference" },
-  buildAdded: (input) => ({
-    id: genId("reference"),
-    headline: input.name,
-    entityType: "brand",
-    entityId: brands[0]?.id ?? "",
-    thumbnail: undefined,
-    format: "image",
-    source: "uploaded",
-    description: input.body?.trim(),
-    tags: input.tags,
-    usageCount: 0,
-    lastUsedAt: todayIso(),
-    provenance: "client-created",
-  }),
-};
-
 /* ─────────────────────────────── the registry ─────────────────────────────── */
 
 export const ASSET_TYPES: Record<CatalogueType, AssetTypeDef> = {
@@ -744,7 +705,6 @@ export const ASSET_TYPES: Record<CatalogueType, AssetTypeDef> = {
   ctas: ctasType,
   frameworks: frameworksType,
   templates: templatesType,
-  references: referencesType,
 };
 
 /**
