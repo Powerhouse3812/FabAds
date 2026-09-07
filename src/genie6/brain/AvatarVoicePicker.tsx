@@ -31,10 +31,19 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
  * AvatarVoicePicker — Genie 2.0 §11 / §13.
  *
  * ONE step: avatar, voice and tone are decided together (§13 upgrade 4) using
- * the SAME environment × personality taxonomy `GenieBrain` browses (§11 — "the
- * two must not diverge"). Genie Brain, Studio, and every Other App that needs
- * a face (Avatar Shots, PPT/PDF to Video, Product Placement, Face Swap) mount
- * this ONE implementation — nobody re-forks it.
+ * the SAME environment × personality taxonomy `avatarTaxonomy.ts` defines
+ * (§11 — "the two must not diverge"). Genie Brain and every Other App that
+ * needs a face (Avatar Shots, PPT/PDF to Video, Product Placement, Face
+ * Swap) mount this ONE implementation.
+ *
+ * Studio does NOT. Studio's own avatar-selection step is a separate
+ * component — `studio-v4/components/AvatarVoiceRail.tsx` — with its own UI
+ * (Presets/Browse/Manual modes, a region filter, curated personas like "The
+ * Insider"). It imports `avatarTaxonomy.ts` too, so the environment ×
+ * personality groupings can't drift between the two pickers, but it is a
+ * real fork of the component, not this implementation reused. Don't claim
+ * otherwise in copy shown to users (GenieBrain.tsx got this wrong once —
+ * see its git history) — the taxonomy is shared, the component is not.
  *
  * Standalone-safe: `brandId` is optional and additive to the locked contract
  * (every REQUIRED prop below matches the contract exactly). Omit it — as the

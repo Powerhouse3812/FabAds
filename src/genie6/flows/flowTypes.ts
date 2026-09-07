@@ -126,6 +126,13 @@ export interface FlowSourceRef {
   competitorOwned?: boolean;
   /** Detected entity in OUR catalogue — what Step 2 highlights. */
   detectedEntity?: { kind: EntityKind; id: string; name: string };
+  /**
+   * Provenance line, e.g. "Pinned from Industry Insights" — display only,
+   * never changes highlight/competitorOwned. Distinct from `competitorOwned`
+   * (§7.2): a Creative Library asset pinned from a competitor ad is still
+   * the USER's own catalogue brand, just worth labelling where it came from.
+   */
+  sourceNote?: string;
   /** Whether the source ad has been analysed (gates the Video Sage actions). */
   analysed?: boolean;
   /** Format of the source creative — drives the static-only banner note. */

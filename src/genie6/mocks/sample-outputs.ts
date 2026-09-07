@@ -274,12 +274,18 @@ sampleOutputs.forEach((out, idx) => {
     {
       id: `${out.id}-forge`,
       icon: "sparkles",
-      title: `Forge 10 more in ${angleLabel}`,
+      // Defect audit #3: label used to hardcode "10" and ctaHref used
+      // `?mode=` — a param useStudioAlphaUrlSync/StudioAlpha never read, so
+      // the click silently dropped all context and landed on Studio Home.
+      // The stepper owns the count (never a literal in copy), and the URL
+      // now only carries params Studio actually parses: `format` (derived
+      // from mediaType) + `angle` (useUrlSync.ts reads it into angleId).
+      title: `Forge more in ${angleLabel}`,
       sub: q >= 85
         ? `${angleLabel} is your strongest angle this week — riding the win`
         : `${angleLabel} is trending in your category — worth doubling up`,
       ctaLabel: "Run",
-      ctaHref: `/iq/genie6/studio-alpha?mode=${out.mode}&angle=${angleLabel}`,
+      ctaHref: `/iq/genie6/studio-alpha?format=${out.mediaType === "video" ? "video" : "image"}&angle=${encodeURIComponent(angleLabel)}`,
     },
     {
       id: `${out.id}-ab`,

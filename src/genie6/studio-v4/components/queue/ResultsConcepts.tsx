@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bookmark, Download, FolderPlus, MoreHorizontal, Rocket } from "lucide-react";
 import { OutputCardHybrid } from "../OutputCardHybrid";
 import { SectionHeader } from "../SectionHeader";
 import { RunItemTile } from "@/genie6/progress";
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
+import { varyActionUrl } from "@/genie6/library/outputActions";
 import type { EllipsisAction, OutputData } from "../../../types/output";
 import {
   batchStatus,
@@ -57,6 +59,7 @@ export function ResultsConcepts({
   // manage state locally.
   const [internalSelected, setInternalSelected] = useState<Set<string>>(new Set());
   const selected = controlledSelected ?? internalSelected;
+  const navigate = useNavigate();
 
   const status = batchStatus(batch);
   const conceptGroups = useMemo(() => groupItemsByConcept(batch.items), [batch.items]);
@@ -138,9 +141,29 @@ export function ResultsConcepts({
                       onSave={() => console.log("[queue] save", item.id)}
                       onLaunch={() => console.log("[queue] launch", item.id)}
                       onDownload={() => console.log("[queue] download", item.id)}
-                      onAction={(a: EllipsisAction) =>
-                        console.log("[queue] action", a, item.id)
-                      }
+                      // Defect audit #1: this used to be a bare console.log,
+                      // a second "variation menu" (the OutputCardHybrid
+                      // ellipsis) that looked wired but did nothing next to
+                      // its own "Variation actions" dropdown. Wire the three
+                      // named actions through the SAME outputActions.ts
+                      // helper the Library card overflow uses so they
+                      // produce identical URLs — same wording, same
+                      // behaviour, same result (§21.2) — no third menu.
+                      onAction={(a: EllipsisAction) => {
+                        switch (a) {
+                          case "varyScript":
+                            navigate(varyActionUrl(output, "vary-script"));
+                            return;
+                          case "varyConcept":
+                            navigate(varyActionUrl(output, "vary-concept"));
+                            return;
+                          case "varyWholeVideo":
+                            navigate(varyActionUrl(output, "vary-whole-video"));
+                            return;
+                          default:
+                            return;
+                        }
+                      }}
                     />
                   ) : (
                     <RunItemTile

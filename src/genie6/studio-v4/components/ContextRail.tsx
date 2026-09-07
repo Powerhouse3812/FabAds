@@ -49,8 +49,96 @@ function modeLabel(m: AlphaMode | undefined): string | null {
     "product-ad": "Product Ad",
     social: "Social",
     "performance-ad": "Performance Ad",
+    affiliate: "Affiliate",
+    "custom-manual": "Custom / Manual",
   };
   return map[m] ?? null;
+}
+
+/* ── Ad type (Step-2 tab), independent of Mode ───────────────────────────
+ * §5: "The tab the user picks is what determines the ad type. There is no
+ * separate ad-type screen anywhere in Genie." `studioMode` is the flow the
+ * user launched from Studio home — it is NOT wired to the URL, so a
+ * deep-linked or flow-borne run defaults to it and can go stale relative to
+ * whichever Step-2 tab the user is actually sitting on. The ad-type chip
+ * must therefore read the raw entity ids, not the Mode.
+ * Category wins over a hero product picked inside it — §4: "a picked
+ * product becomes the hero of the ad" — the ad stays a Category Ad. */
+type AdTypeKey = "brand-ad" | "product-ad" | "performance-ad";
+const AD_TYPE_LABEL: Record<AdTypeKey, string> = {
+  "brand-ad": "Brand Ad",
+  "product-ad": "Product Ad",
+  "performance-ad": "Category Ad",
+};
+
+function deriveAdType(state: {
+  categoryId: string | null;
+  productId: string | null;
+  brandId: string | null;
+}): AdTypeKey | null {
+  if (state.categoryId) return "performance-ad";
+  if (state.productId) return "product-ad";
+  if (state.brandId) return "brand-ad";
+  return null;
+}
+
+/* ── Mode-aware readiness gate ────────────────────────────────────────────
+ * §4's table is per-ad-type/Mode, not a single blanket rule:
+ *   Brand Ad          → requires Brand alone
+ *   Product Ad        → requires Product (or, per §21.2's third route, a
+ *                        brand + one uploaded image standing in for it)
+ *   Category (Perf.)  → requires Category; a hero product is optional
+ *   Product Shoot     → requires a Product, or a Category(/product) — a
+ *                        brand alone is NOT enough, brand details travel
+ *                        with the product. This was the named defect: the
+ *                        old mode-blind gate let Product Shoot read READY
+ *                        on a brand alone.
+ * Social / Affiliate / Custom-Manual / no Mode yet fall back to the
+ * original permissive check (no §4 row names them). */
+function computeHasRequiredEntity(
+  mode: AlphaMode | undefined,
+  opts: {
+    hasCategory: boolean;
+    hasSelectedProduct: boolean;
+    hasBrand: boolean;
+    hasUploadedImage: boolean;
+  },
+): boolean {
+  const { hasCategory, hasSelectedProduct, hasBrand, hasUploadedImage } = opts;
+  switch (mode) {
+    case "brand-ad":
+      return hasBrand;
+    case "product-ad":
+      return hasSelectedProduct || (hasBrand && hasUploadedImage);
+    case "performance-ad":
+      return hasCategory;
+    case "product-shoot":
+      return hasSelectedProduct || hasCategory;
+    default:
+      return (
+        hasCategory ||
+        hasSelectedProduct ||
+        (hasBrand && hasUploadedImage) ||
+        (hasBrand && !hasSelectedProduct && !hasCategory)
+      );
+  }
+}
+
+/** Pending-state copy for the readiness caption, matched to what §4 actually
+ *  requires for the active Mode (rather than one generic message for all). */
+function missingEntityCaption(mode: AlphaMode | undefined): string {
+  switch (mode) {
+    case "brand-ad":
+      return "PICK A BRAND";
+    case "product-ad":
+      return "PICK A PRODUCT";
+    case "performance-ad":
+      return "PICK A CATEGORY";
+    case "product-shoot":
+      return "PICK A PRODUCT OR CATEGORY";
+    default:
+      return "PICK A BRAND, PRODUCT OR CATEGORY";
+  }
 }
 
 /* ── Smart Summary Card (Variant 4) ──────────────────────────────────────
@@ -114,25 +202,28 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
   const formatText =
     state.format === "image" ? "Image" : state.format === "video" ? "Video" : null;
   const modeText = modeLabel(studioMode);
+  // §5's ad type is the Step-2 tab, not the Mode — see deriveAdType above.
+  const adTypeKey = deriveAdType(state);
+  const adTypeLabel = adTypeKey ? AD_TYPE_LABEL[adTypeKey] : null;
+  const isAngleAuto = !state.angleId;
   const angleText = state.angleId
     ? (ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId)
     : null;
 
-  // §4 + §21.2 — the required entity depends on which tab produced the pick:
-  //   Category (Performance) Ad → category (product optional, becomes hero)
-  //   Product Ad                → a catalogue product, OR (§21.2's third
-  //                                route) a brand + one uploaded image
-  //   Brand Ad                  → brand alone
-  // THIS IS THE ONE READINESS GATE — don't add a second one beside it. It
-  // used to hard-require `selectedProduct`, which incorrectly blocked
-  // "Ready to generate" for Brand Ads, Category Ads, and Product Shoot's
-  // upload-image route.
-  const hasRequiredEntity =
-    !!category ||
-    !!selectedProduct ||
-    (!!brand && hasUploadedImage) ||
-    (!!brand && !selectedProduct && !category);
-  const complete = hasRequiredEntity && !!state.format && !!state.angleId;
+  // §4 — THIS IS THE ONE READINESS GATE, keyed off the active Mode — don't
+  // add a second one beside it. It used to be mode-blind (a flat OR across
+  // category/product/brand) which let e.g. Product Shoot read "Ready to
+  // generate" on a brand alone; computeHasRequiredEntity applies §4's
+  // per-Mode row instead.
+  const hasRequiredEntity = computeHasRequiredEntity(studioMode, {
+    hasCategory: !!category,
+    hasSelectedProduct: !!selectedProduct,
+    hasBrand: !!brand,
+    hasUploadedImage,
+  });
+  // §5 — Angle defaults to "Auto", a real answer, not a blank: Auto must
+  // satisfy readiness on its own, so it's not part of this check.
+  const complete = hasRequiredEntity && !!state.format;
 
   // Resolve readiness caption. Tone is orange when pending, neutral when ready.
   let readinessCaption: string;
@@ -141,13 +232,10 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
     readinessCaption = "READY TO GENERATE";
     readinessTone = "ready";
   } else if (!hasRequiredEntity) {
-    readinessCaption = "PICK A BRAND, PRODUCT OR CATEGORY";
+    readinessCaption = missingEntityCaption(studioMode);
     readinessTone = "pending";
   } else if (!state.format) {
     readinessCaption = "PICK A FORMAT";
-    readinessTone = "pending";
-  } else if (!state.angleId) {
-    readinessCaption = "PICK AN ANGLE";
     readinessTone = "pending";
   } else {
     readinessCaption = "ADD MORE CONTEXT TO IMPROVE OUTPUT";
@@ -274,9 +362,19 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
           {titleText}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <Chip filled={!!modeText}>{modeText ?? "Mode pending"}</Chip>
+          {/* §5 — ad type comes from the Step-2 tab, never from Mode; shown
+              first since it's what the readiness gate actually keys off. */}
+          <Chip filled={!!adTypeLabel} accent={!!adTypeLabel}>
+            {adTypeLabel ?? "Ad type pending"}
+          </Chip>
+          {/* Mode is explicitly labelled so it can never be misread as the
+              ad type (that was the defect: an unlabelled Mode chip reading
+              "Product Ad" while the user sat on the Category tab). */}
+          <Chip filled={!!modeText}>{modeText ? `Mode: ${modeText}` : "Mode pending"}</Chip>
           <Chip filled={!!formatText}>{formatText ?? "Format pending"}</Chip>
-          <Chip filled={!!angleText} accent>
+          {/* Angle always carries a real value — explicit pick, or the
+              Auto default — so this chip is always filled, never dashed. */}
+          <Chip filled accent>
             {angleText ?? "Angle: Auto"}
           </Chip>
           {/* §9 — bulk product selection outcome, closing the loop back to
@@ -371,6 +469,15 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
               winnersCount={winners.length}
               refs={refs}
             />
+
+            {/* ── Angle ──────────────────────────────────────
+                §5's Overview panel order puts Angle LAST, after Knowledge
+                Base — it used to be the first thing shown (a hero-card
+                chip only) with no detail block at all. Auto is a real,
+                populated state here (§5: Concept/Script/Style/Angle default
+                to "Auto"), so this never renders as an empty/dashed card
+                the way Brand/Product do before anything is picked. */}
+            <AngleDetailCard isAuto={isAngleAuto} label={angleText} />
           </div>
         )}
       </div>
@@ -766,6 +873,42 @@ function KbGlance({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── More Details · Angle ──────────────────────────────── */
+
+function AngleDetailCard({
+  isAuto,
+  label,
+}: {
+  /** Auto is a real, valid answer (§5) — this block never reads as an
+   *  empty/dashed placeholder the way an un-picked Brand/Product does. */
+  isAuto: boolean;
+  label: string | null;
+}) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
+      <div className="mb-1 flex items-center justify-between">
+        <BlockLabel>Angle</BlockLabel>
+        <span
+          className={cn(
+            "inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider",
+            isAuto
+              ? "border border-border/50 bg-card text-muted-foreground"
+              : "border border-primary/30 bg-primary/15 text-primary",
+          )}
+        >
+          {isAuto ? "Auto" : "Set"}
+        </span>
+      </div>
+      <p className="text-[11px] font-medium text-foreground">{label ?? "Auto"}</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">
+        {isAuto
+          ? "Genie picks the strongest angle for this ad — pick one on Configure to lock it in."
+          : "Locked in for this generation — change it any time on Configure."}
+      </p>
     </div>
   );
 }

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Zap, X } from "lucide-react";
+import { Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlan } from "@/contexts/PlanContext";
 import {
@@ -11,54 +10,17 @@ import {
 } from "@/genie6/lib/credits";
 
 /**
- * GenieCreditsAddonCard — footer-pinned add-on prompt for the Genie
- * sub-nav. Promotes a one-time credit top-up for AI-plan users who
- * are running low.
+ * GenieCreditsAddonCard — footer-pinned usage meter for the Genie sub-nav.
+ * Shows credits-used balance on all plans via a RADIAL USAGE METER: an SVG
+ * donut ring (real stroke-dasharray math, lime arc on a currentColor track)
+ * with the mono count in the center. A muted sub-line states credits left.
  *
- * Redesigned around a RADIAL USAGE METER: an SVG donut ring (real
- * stroke-dasharray math, lime arc on a currentColor track) is the hero,
- * showing cycle usage at a glance, with the big mono count in the center.
- * A muted sub-line states credits left, and a lime CTA chip drives the
- * top-up. Mock numbers mirror the dashboard CreditUsageCard (1218 / 1500).
- *
- * Gating: AI plan only (Growth users have higher credit allocations
- * and don't need the top-up upsell).
+ * Genie 2.0 §3 & §16: the balance sits at the bottom of the Genie sub-nav,
+ * visible on all plans (Genie 2.0 explicitly states "Credits balance sits at
+ * the bottom of this sub-nav"). The upsell CTA ("Buy 100 credits · ₹1,999")
+ * is gated to AI-plan users, but the balance meter itself is not.
  */
 
-const STORAGE_KEY = "genie6:genie:credits-addon-dismissed";
-
-function useDismissed(): [boolean, () => void] {
-  const [dismissed, setDismissed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem(STORAGE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY && event.newValue === "1") {
-        setDismissed(true);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  const dismiss = useCallback(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // Silent fail.
-    }
-    setDismissed(true);
-  }, []);
-
-  return [dismissed, dismiss];
-}
 
 // Mock cycle figures — mirror the dashboard CreditUsageCard so the
 // upsell surfaces cannot contradict each other.
@@ -85,9 +47,8 @@ const RING_OFFSET = RING_CIRCUMFERENCE * (1 - USED / LIMIT);
 export function GenieCreditsAddonCard() {
   const { plan } = usePlan();
   const navigate = useNavigate();
-  const [dismissed, dismiss] = useDismissed();
 
-  if (plan !== "ai" || dismissed) return null;
+  // Balance always renders on all plans; upsell CTA gated to AI plan only.
 
   // Arc tone: lime <85%, amber 85–99%, red at the cap. 81% stays lime.
   const arcToneClass =
@@ -101,27 +62,11 @@ export function GenieCreditsAddonCard() {
     <div className="shrink-0 px-2 py-2">
       <div
         className={cn(
-          "group relative flex flex-col items-center gap-2 rounded-md px-2.5 pb-2.5 pt-2",
+          "flex flex-col items-center gap-2 rounded-md px-2.5 pb-2.5 pt-2",
           "border border-foreground/[0.06] bg-foreground/[0.03]",
           "transition-[transform,border-color,background-color] duration-200 ease-out",
-          "hover:-translate-y-[1px] hover:border-primary/30 hover:bg-foreground/[0.045]",
-          "focus-within:border-primary/40",
         )}
       >
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Dismiss credits add-on prompt"
-          title="Dismiss"
-          className={cn(
-            "absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full",
-            "text-foreground/45 opacity-0 transition-opacity duration-150",
-            "group-hover:opacity-60 hover:!opacity-100 focus-visible:opacity-100",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
-          )}
-        >
-          <X className="h-3 w-3" strokeWidth={2.25} />
-        </button>
 
         {/* Eyebrow */}
         <div className="flex w-full items-center gap-1.5 pr-5">
@@ -197,25 +142,27 @@ export function GenieCreditsAddonCard() {
           {REMAINING} credits left this cycle.
         </p>
 
-        {/* CTA */}
-        <button
-          type="button"
-          onClick={() => navigate("/plans-v2?addon=credits")}
-          className={cn(
-            "mt-0.5 inline-flex w-full items-center justify-center gap-1 rounded-sm px-2 py-[5px]",
-            "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
-            "transition-colors duration-150 hover:bg-primary/90",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-          )}
-        >
-          <span>Buy 100 credits · ₹1,999</span>
-          <span
-            aria-hidden
-            className="inline-block transition-transform duration-150 group-hover:translate-x-[1px]"
+        {/* CTA — upsell gated to AI plan only */}
+        {plan === "ai" && (
+          <button
+            type="button"
+            onClick={() => navigate("/plans-v2?addon=credits")}
+            className={cn(
+              "mt-0.5 inline-flex w-full items-center justify-center gap-1 rounded-sm px-2 py-[5px]",
+              "bg-primary text-[11px] font-medium tracking-tight text-primary-foreground",
+              "transition-colors duration-150 hover:bg-primary/90",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/60 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+            )}
           >
-            →
-          </span>
-        </button>
+            <span>Buy 100 credits · ₹1,999</span>
+            <span
+              aria-hidden
+              className="inline-block transition-transform duration-150 hover:translate-x-[1px]"
+            >
+              →
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

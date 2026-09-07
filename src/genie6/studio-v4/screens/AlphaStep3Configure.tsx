@@ -21,6 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { sampleOutputs } from "../../mocks/sample-outputs";
+import { VIDEO_QUALITY_TIERS } from "../state/useWizard";
 import type {
   AttachSource,
   AttachedRef,
@@ -33,10 +34,10 @@ import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import {
   PromptReferenceBar,
+  RatioShapeOption,
   type ChipKind,
   ANGLE_CHIP_LABEL,
   RATIOS,
-  RatioShapeOption,
 } from "../components/PromptReferenceBar";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
@@ -134,6 +135,28 @@ const ANGLE_IDS: string[] = [
   "demo",
   "educational",
 ];
+
+/**
+ * DEFECT FIX (adversarial review) — §7.4 trend-angle → catalogue angle id.
+ * A trend's angle arrives as a free-text sentence ("Delayed product reveal —
+ * lead with the athlete or action, reveal the product only at the end."),
+ * never a catalogue id. This used to get written straight into `angleId`,
+ * which then rendered through `ANGLE_CHIP_LABEL[angleId] ?? angleId` — an
+ * 89-char sentence in a one-word chip slot, and it renders through that same
+ * fallback in FOUR places (the angle grid tiles, the collapsed summary row,
+ * MasterPromptCard's "Overview", and KbInstructionRail's targetAngleLabel).
+ * Match the sentence against the known ids/labels first; only a genuine hit
+ * is chip-safe. No match → return null and let the caller carry the raw text
+ * in a text slot instead (see `angleDescription` on WizardState).
+ */
+function matchTrendAngleId(trendAngle: string): string | null {
+  const hay = trendAngle.toLowerCase();
+  for (const id of ANGLE_IDS) {
+    const label = (ANGLE_CHIP_LABEL[id] ?? id).toLowerCase();
+    if (hay.includes(id) || hay.includes(label)) return id;
+  }
+  return null;
+}
 
 interface AlphaStep3Props {
   wizard: UseWizardReturn;
@@ -284,11 +307,23 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   // manual pick. A ref (not state) so flipping it never triggers a re-render.
   //
   // §4/§6 "a flow-supplied angle lands in it, exactly as today": seeded TRUE
-  // when angleId is already non-null at first mount (from flowInitialPatch's
-  // URL-restore, or Rule 1's variation pre-fill) — otherwise the mode-based
-  // auto-fill effect below would overwrite that angle on this very mount,
+  // when angleId OR selectedConceptIds is already non-empty at first mount
+  // (from flowInitialPatch's URL-restore, a `?concepts=` hand-off from
+  // /iq/genie6/concepts, Rule 1's variation pre-fill, or any pick made on an
+  // earlier step of this same wizard instance) — otherwise the mode-based
+  // auto-fill effect below would overwrite that pick on this very mount,
   // since it only checks THIS ref and starts unaware anything was pre-filled.
-  const userEditedRef = useRef(wizard.state.angleId !== null);
+  //
+  // DEFECT FIX (adversarial review) — §13 "multi-select concepts": a
+  // concepts-only hand-off carries `?concepts=` but never `?angle=`, so
+  // angleId alone was false here even though selectedConceptIds already held
+  // the user's N picks. That let the auto-fill effect below fire and stomp
+  // the multi-select with `autoFillForApproach("scratch", …)`'s `[]` (or, if
+  // an approach had since been picked, that approach's single default
+  // concept) — N concepts silently collapsing to 0 or 1 before Generate.
+  const userEditedRef = useRef(
+    wizard.state.angleId !== null || wizard.state.selectedConceptIds.length > 0,
+  );
 
   // Click trending → toggle into selectedConceptIds via synthetic prefix
   // (so it doesn't collide with library concept IDs).
@@ -344,7 +379,19 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   useEffect(() => {
     if (userEditedRef.current) return;
     const { angleId, conceptIds } = autoFillForApproach(mode, approachSubType);
-    wizard.patch({ angleId, selectedConceptIds: conceptIds });
+    // DEFECT FIX (adversarial review) — belt-and-braces on top of the
+    // userEditedRef guard above: only ever WRITE a field that is currently
+    // empty. Never blindly `patch({ angleId, selectedConceptIds: conceptIds })`
+    // — that overwrites a genuine selection with this approach's `null`/`[]`
+    // default the instant mode/approachSubType next changes.
+    const fillPatch: Partial<WizardState> = {};
+    if (wizard.state.angleId === null && angleId !== null) {
+      fillPatch.angleId = angleId;
+    }
+    if (wizard.state.selectedConceptIds.length === 0 && conceptIds.length > 0) {
+      fillPatch.selectedConceptIds = conceptIds;
+    }
+    if (Object.keys(fillPatch).length > 0) wizard.patch(fillPatch);
     // wizard.patch is stable (useCallback); intentionally excluded so this
     // re-runs only on mode / approachSubType change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -365,7 +412,16 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
     const patch: Partial<WizardState> = {};
     if (flowCtx.ref.trendAngle && !wizard.state.angleId) {
-      patch.angleId = flowCtx.ref.trendAngle;
+      // DEFECT FIX (adversarial review) — a trend's angle is a free-text
+      // sentence, never a catalogue id. Try to resolve it to a real
+      // ANGLE_IDS entry first (chip-safe); only a genuine miss falls back to
+      // angleDescription, a text slot, never the angleId chip slot itself.
+      const matchedAngleId = matchTrendAngleId(flowCtx.ref.trendAngle);
+      if (matchedAngleId) {
+        patch.angleId = matchedAngleId;
+      } else {
+        patch.angleDescription = flowCtx.ref.trendAngle;
+      }
       userEditedRef.current = true; // protect from a later mode change re-auto-filling
     }
     const refId = `flow-${flowCtx.ref.id}`;
@@ -392,9 +448,17 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   const [picksExpanded, setPicksExpanded] = useAccordionUrl("picks", false);
 
   // Resolved labels for the collapsed summary row.
+  // DEFECT FIX (adversarial review) — when a trend's angle sentence didn't
+  // match a catalogue id, angleId stays null and the full text lives in
+  // angleDescription instead (a text slot, rendered separately below — see
+  // the p.mt-0.5 right after this summary line). "From trend" is the chip
+  // label so the summary row still reads as "something is set" rather than
+  // falsely showing "None".
   const angleLabel = wizard.state.angleId
     ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
-    : null;
+    : wizard.state.angleDescription
+      ? "From trend"
+      : null;
   // Concept summary — first selected concept's display name. trend:* ids are
   // sample-output picks (no concepts.ts entry); fall back to a generic label.
   const firstConceptId = wizard.state.selectedConceptIds[0] ?? null;
@@ -438,8 +502,17 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
           {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip.
               §7.3/§7.4: adapted to the flow source (Reports' ad performance,
-              Trends' hook) when one exists; angle-aware fallback otherwise. */}
-          {wizard.state.prompt.trim().length === 0 && (
+              Trends' hook) when one exists; angle-aware fallback otherwise.
+
+              DEFECT FIX (adversarial review) — this used to gate on an empty
+              prompt only. flowInitialPatch() (resolveFlowContext.ts)
+              pre-fills the prompt for every variation action AND all three
+              Trends actions, so for exactly the flows §8.3/§8.4 wrote this
+              rail for, the prompt is never empty on arrival and the rail
+              could never render. A flow context now forces the rail open
+              regardless of prompt content; plain Studio (no flow) keeps the
+              original empty-prompt-only behaviour. */}
+          {(flowCtx !== null || wizard.state.prompt.trim().length === 0) && (
             <PromptSuggestions
               angleId={wizard.state.angleId}
               flowSuggestions={flowCtx ? flowAdaptedSuggestions(flowCtx) : null}
@@ -464,8 +537,24 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             }
           />
 
-          {/* Script + Master-prompt cards removed (Maalik 06-06) — prompt bar
-              + auto-filled Angle/Concept below are the focus. */}
+          {/* DEFECT FIX (adversarial review) — ScriptCard was fully built
+              (own comment: "Surfaces the script prominently on Configure")
+              but had zero JSX call sites; the Maalik 06-06 note above it said
+              it was intentionally removed. §6 requires the script to be
+              produced and SHOWN before the ad is generated — reinstated here,
+              between the prompt bar and Angle/Concept. Reads wizard.state.
+              script directly, so it works whether a script has already
+              arrived (another agent is wiring ScriptRail/useWizard to
+              auto-generate one) or hasn't yet (shows the Auto explainer) —
+              same `script`/`onSave` contract the "script" rail picker below
+              already uses, just also surfaced inline. */}
+          <ScriptCard
+            script={wizard.state.script}
+            onOpenRail={() => setRailMode("script")}
+          />
+
+          {/* Master-prompt card stays unwired (Maalik 06-06) — out of this
+              audit's 4 defects; not reinstated here. */}
 
           {/* Angles + Concepts — combined glass card. A-12.9 (Maalik MOM 06-05):
               STARTS COLLAPSED because angle + concept are auto-filled from the
@@ -547,6 +636,15 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                       </span>
                     )}
                   </p>
+                  {/* DEFECT FIX (adversarial review) — a trend's angle that
+                      didn't resolve to a catalogue id shows here, in a text
+                      slot sized for a sentence, instead of being crammed
+                      into the one-word Angle chip above. */}
+                  {wizard.state.angleDescription && (
+                    <p className="mt-0.5 line-clamp-2 text-[11px] italic text-muted-foreground">
+                      {wizard.state.angleDescription}
+                    </p>
+                  )}
                 </div>
                 <span className="ml-auto inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary md:min-h-0">
                   <Pencil className="h-3 w-3" />
@@ -1641,7 +1739,9 @@ function MasterPromptCard({ wizard }: { wizard: UseWizardReturn }) {
       `Angle: ${
         state.angleId
           ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-          : "Auto"
+          : state.angleDescription
+            ? state.angleDescription
+            : "Auto"
       }`,
     );
 
@@ -1669,6 +1769,7 @@ function MasterPromptCard({ wizard }: { wizard: UseWizardReturn }) {
     state.mode,
     state.approachSubType,
     state.angleId,
+    state.angleDescription,
     state.selectedConceptIds,
     state.script,
     state.prompt,

@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
-import { Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Sparkles, LayoutGrid, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../components/SectionHeader";
 import { MODES, MODE_SCHEME as SCHEME, type AlphaMode } from "../data/modes";
+import { GENIE_APPS, APP_PATH } from "@/genie6/apps/data/appRegistry";
+import { resolveIcon } from "@/genie6/apps/lib/icons";
 
 // Re-exported so existing consumers (`ContextRail`, `MobileContextRailSheet`,
 // `AlphaStep3Configure` all import `type { AlphaMode } from "../screens/StudioHome"`)
@@ -14,107 +16,23 @@ interface StudioHomeProps {
   onStart: (mode: AlphaMode) => void;
 }
 
-type HistoryStatus = "draft" | "completed";
-
-interface HistoryItem {
-  id: string;
-  status: HistoryStatus;
-  title: string;
-  brand: string;
-  mode: string;
-  format: "Image" | "Video";
-  ago: string;
-  /** Drafts only — % of fields filled */
-  completion?: number;
-  /** Completeds only — number of variants generated */
-  outputCount?: number;
-}
-
-const HISTORY: HistoryItem[] = [
-  {
-    id: "h-c1",
-    status: "completed",
-    title: "Mamaearth · Vit C Serum",
-    brand: "Mamaearth",
-    mode: "Product Ad",
-    format: "Image",
-    ago: "2h ago",
-    outputCount: 12,
-  },
-  {
-    id: "h-d1",
-    status: "draft",
-    title: "Noise · ColorFit Pro 5",
-    brand: "Noise",
-    mode: "Product Ad",
-    format: "Video",
-    ago: "1h ago",
-    completion: 60,
-  },
-  {
-    id: "h-c2",
-    status: "completed",
-    title: "Boat · Airdopes 161 Pro",
-    brand: "Boat",
-    mode: "Product Ad",
-    format: "Video",
-    ago: "Yesterday",
-    outputCount: 8,
-  },
-  {
-    id: "h-d2",
-    status: "draft",
-    title: "Sleepyhead · Original Mattress",
-    brand: "Sleepyhead",
-    mode: "Performance Ad",
-    format: "Image",
-    ago: "Yesterday",
-    completion: 40,
-  },
-  {
-    id: "h-c3",
-    status: "completed",
-    title: "Plum · Niacinamide Serum",
-    brand: "Plum",
-    mode: "Brand Ad",
-    format: "Image",
-    ago: "2 days ago",
-    outputCount: 16,
-  },
-  {
-    id: "h-d3",
-    status: "draft",
-    title: "WOW · Apple Cider Shampoo",
-    brand: "WOW",
-    mode: "Product Ad",
-    format: "Image",
-    ago: "3 days ago",
-    completion: 20,
-  },
-];
+/** Only the live apps surface here — §5 "Other tools/apps at the bottom of
+ *  the page, replacing History" is explicit about findability, not a count. */
+const LIVE_APPS = GENIE_APPS.filter((a) => a.state === "live");
 
 /**
- * StudioHome (A-12.9 hero pass) — pre-wizard entry screen for Studio Alpha.
+ * StudioHome (A-12.9 hero pass, §5 apps-strip pass) — pre-wizard entry
+ * screen for Studio Alpha.
  *
- * The mode picker + format toggle + Start CTA is the page's HERO section
- * — wrapped in an elevated card with the eyebrow/title above. Recent
- * generations + Drafts strips below are visually de-emphasized (smaller
- * headings, more muted) since they're secondary entry points.
+ * The mode picker is the page's HERO section — wrapped in an elevated card
+ * with the eyebrow/title above.
  *
- * Drafts don't have generated thumbnails (they haven't been generated
- * yet) — they're rendered as filled-form-data cards showing brand,
- * mode, format, completion progress, and edit timestamp.
+ * History and recent generations are OUT of Studio entirely (§5 — they live
+ * only in Library). In their place: an Other Apps strip reading the real
+ * `GENIE_APPS` registry, so the tools that got buried inside Performance Ad
+ * in the demo ("create variation") are findable from Home instead.
  */
-type FilterValue = "all" | "draft" | "completed";
-
 export function StudioHome({ onStart }: StudioHomeProps) {
-  const [filter, setFilter] = useState<FilterValue>("all");
-
-  const filteredHistory = useMemo(
-    () => (filter === "all" ? HISTORY : HISTORY.filter((h) => h.status === filter)),
-    [filter],
-  );
-
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 pt-14 pb-12">
       {/* ─── HERO ─── mode picker + format + Start CTA, elevated card */}
@@ -130,13 +48,13 @@ export function StudioHome({ onStart }: StudioHomeProps) {
             What are you creating today?
           </h1>
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
-            Pick a mode and format. Studio fills in everything else.
+            Pick a mode. Studio fills in everything else.
           </p>
         </div>
 
         {/* Hero card — elevated glass chassis containing mode + format + start */}
         <div className="v3-glass rounded-2xl p-8 shadow-md">
-          {/* Mode picker — 5-card grid (3+2 on desktop) */}
+          {/* Mode picker — 7-card grid (3+3+1 on desktop) */}
           <div className="mb-6">
             <SectionHeader title="Mode" />
             <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
@@ -145,7 +63,9 @@ export function StudioHome({ onStart }: StudioHomeProps) {
                   <button
                     type="button"
                     disabled={!m.available}
+                    aria-disabled={!m.available}
                     onClick={() => m.available && onStart(m.id)}
+                    title={m.available ? undefined : `${m.title} — coming soon`}
                     className={cn(
                       "relative flex h-full w-full flex-col items-start gap-1 rounded-xl border bg-background p-3 text-left transition-all",
                       m.available
@@ -156,6 +76,11 @@ export function StudioHome({ onStart }: StudioHomeProps) {
                     {m.tag && (
                       <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-primary">
                         {m.tag}
+                      </span>
+                    )}
+                    {!m.available && !m.tag && (
+                      <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Soon
                       </span>
                     )}
                     <span
@@ -182,136 +107,47 @@ export function StudioHome({ onStart }: StudioHomeProps) {
         </div>
       </section>
 
-      {/* ─── HISTORY ─── Config-only cards with status tags + filter pills */}
+      {/* ─── OTHER APPS ─── replaces History (§5). Reads the real GENIE_APPS
+          registry so tools like "create variation" don't get buried inside
+          a mode again — they're findable from Home. */}
       <section className="space-y-3">
         <SectionHeader
-          title="History"
-          icon={Clock}
+          title="Other Apps"
+          icon={LayoutGrid}
           trailing={
-            <div className="flex items-center gap-2">
-              {/* Filter pills */}
-              <div className="inline-flex rounded-full border border-border/60 bg-background/40 p-0.5">
-                {(["all", "draft", "completed"] as const).map((f) => {
-                  const active = filter === f;
-                  const label = f === "all" ? "Both" : f === "draft" ? "Draft" : "Completed";
-                  return (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setFilter(f)}
-                      className={cn(
-                        "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors",
-                        active
-                          ? "bg-foreground/[0.08] text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                className="text-[10px] font-medium text-muted-foreground hover:text-foreground"
-              >
-                View all →
-              </button>
-            </div>
+            <Link
+              to="/iq/genie6/apps"
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              View all
+              <ArrowRight className="h-3 w-3" />
+            </Link>
           }
         />
-        {filteredHistory.length === 0 ? (
-          <p className="py-6 text-center text-[12px] text-muted-foreground">
-            No {filter === "all" ? "" : filter} history yet
-          </p>
-        ) : (
-          <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
-            {filteredHistory.map((item) => (
-              <HistoryCard key={item.id} item={item} />
-            ))}
-          </ul>
-        )}
+        <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+          {LIVE_APPS.map((app) => {
+            const Icon = resolveIcon(app.icon);
+            return (
+              <li key={app.key} className="snap-start shrink-0 w-[200px]">
+                <Link
+                  to={APP_PATH(app.key)}
+                  className="v3-glass-card group flex h-full w-full flex-col gap-2 rounded-xl p-3 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary-text">
+                    <Icon className="h-4 w-4" strokeWidth={2} />
+                  </span>
+                  <p className="line-clamp-1 text-[12px] font-semibold leading-tight text-foreground">
+                    {app.name}
+                  </p>
+                  <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                    {app.tagline}
+                  </p>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </section>
     </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────── *
- *  HistoryCard — unified config-only snapshot.
- *  No thumbnail. Status tag (Draft/Completed) differentiates.
- *  Drafts: completion bar. Completeds: output count.
- * ────────────────────────────────────────────────────────── */
-function HistoryCard({ item }: { item: HistoryItem }) {
-  const isCompleted = item.status === "completed";
-  return (
-    <li className="snap-start shrink-0 w-[200px]">
-      <button
-        type="button"
-        className={cn(
-          "group flex h-full w-full flex-col gap-2 rounded-xl p-3 text-left transition-all",
-          isCompleted
-            ? "v3-glass-card hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
-            : "v3-glass-card border-dashed opacity-90 hover:border-foreground/20",
-        )}
-      >
-        {/* Status tag + time */}
-        <div className="flex items-center gap-1.5">
-          {isCompleted ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
-              <CheckCircle2 className="h-2.5 w-2.5" />
-              Completed
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-              Draft
-            </span>
-          )}
-          <span className="ml-auto font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
-            {item.ago}
-          </span>
-        </div>
-
-        {/* Title */}
-        <p className="line-clamp-2 text-[12px] font-semibold leading-tight text-foreground">
-          {item.title}
-        </p>
-
-        {/* Config chips */}
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
-            {item.brand}
-          </span>
-          <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
-            {item.mode}
-          </span>
-          <span className="inline-flex items-center rounded-full bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-foreground">
-            {item.format}
-          </span>
-        </div>
-
-        {/* Stats footer — drafts: completion %, completeds: output count */}
-        <div className="mt-auto space-y-0.5">
-          {isCompleted ? (
-            <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-              <span>Outputs</span>
-              <span className="font-bold text-foreground">{item.outputCount}</span>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                <span>Filled</span>
-                <span>{item.completion}%</span>
-              </div>
-              <div className="h-1 overflow-hidden rounded-full bg-muted/60">
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${item.completion}%` }}
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </button>
-    </li>
   );
 }

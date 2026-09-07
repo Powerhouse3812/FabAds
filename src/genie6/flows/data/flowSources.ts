@@ -50,9 +50,11 @@ import { getDataset, type ReportEntity } from "@/lib/reports-dummy-data";
 import { getTrendById } from "@/insights-trends/mocks/trendsData";
 import { LIBRARY_ADGROUPS, LIBRARY_MEDIA } from "@/mocks/shared/library-items";
 import { getDashboardVariantData } from "@/dashboard-variants/variantData";
-import { getBrand } from "@/mocks/shared/brands";
-import { getProduct } from "@/mocks/shared/products";
+import { brands, getBrand } from "@/mocks/shared/brands";
+import { getProduct, productsForBrand } from "@/mocks/shared/products";
 import { getCategory } from "@/mocks/shared/categories";
+import { sampleOutputs } from "../../mocks/sample-outputs";
+import type { OutputData } from "../../types/output";
 
 /**
  * The user's own default brand (§7.2, §7.5) — Mamaearth is FabAds' primary
@@ -189,8 +191,14 @@ const REPORT_ACCOUNT_NAMES = ["Acme Corp US", "Acme Corp EU", "BrandX Global", "
 const REPORT_ENTITY_BY_POSITION = ["plum", "boat", "mamaearth", "minimalist", "sleepyhead", "wow-skin-science"];
 
 function reportAccountName(entityId: string): string {
-  const a = Number(entityId.split("_")[1]);
-  return REPORT_ACCOUNT_NAMES[a] ?? "Reports account";
+  return REPORT_ACCOUNT_NAMES[reportAccountOf(entityId)] ?? "Reports account";
+}
+
+/** The real account index straight from the id's own `ad_{account}_...` —
+ *  the same parse `reportAccountName` uses, so a pick's label always matches
+ *  its real underlying entity instead of a fabricated position-based one. */
+function reportAccountOf(entityId: string): number {
+  return Number(entityId.split("_")[1]);
 }
 
 /** Deterministic, non-round "days running" — ReportEntity carries no date
@@ -218,12 +226,33 @@ function pickReportAds(all: ReportAd[], pred: (e: ReportAd) => boolean, count: n
 function reportsRefs(): FlowSourceRef[] {
   const allAds = getDataset(0).filter((e): e is ReportAd => e.level === "ad" && !!e.creative);
   const used = new Set<string>();
-  const picks: ReportAd[] = [
-    ...pickReportAds(allAds, (e) => e.creative.adType === "Carousel", 1, used),
-    ...pickReportAds(allAds, (e) => e.creative.adType === "Flexible", 1, used),
-    ...pickReportAds(allAds, (e) => !!e.sourceAdName, 1, used),
-    ...pickReportAds(allAds, (e) => e.creative.adType === "Static", 3, used),
+  // One pick per shape, each AIMED at a different account (0..4, wrapping
+  // back to 0 for the 6th slot) — getDataset(0) generates account 0's whole
+  // subtree before account 1's ever starts, so picking greedily in array
+  // order (as this used to) put all 6 picks in account 0 and the module
+  // showed "Acme Corp US" six times over. Falls back to any account when
+  // the targeted one doesn't happen to carry that shape (e.g. no Carousel
+  // ad in account 3) — real accounts are seeded-random, not guaranteed to
+  // cover every shape.
+  const shapes: ((e: ReportAd) => boolean)[] = [
+    (e) => e.creative.adType === "Carousel",
+    (e) => e.creative.adType === "Flexible",
+    (e) => !!e.sourceAdName,
+    (e) => e.creative.adType === "Static",
+    (e) => e.creative.adType === "Static",
+    (e) => e.creative.adType === "Static",
   ];
+  const picks: ReportAd[] = [];
+  shapes.forEach((shape, i) => {
+    const wantAccount = i % REPORT_ACCOUNT_NAMES.length;
+    const [onAccount] = pickReportAds(allAds, (e) => shape(e) && reportAccountOf(e.id) === wantAccount, 1, used);
+    if (onAccount) {
+      picks.push(onAccount);
+      return;
+    }
+    const [anyAccount] = pickReportAds(allAds, shape, 1, used);
+    if (anyAccount) picks.push(anyAccount);
+  });
   // Safety net: only matters if the seeded tree ever comes back unusually
   // small. Pads to 6 from whatever's left, so the module never drops below
   // the min-5 bar even in that edge case.
@@ -234,8 +263,20 @@ function reportsRefs(): FlowSourceRef[] {
 
 function reportRef(e: ReportAd, i: number): FlowSourceRef {
   const catalogueBrandId = REPORT_ENTITY_BY_POSITION[i % REPORT_ENTITY_BY_POSITION.length];
+  // A video creative is never "static output only" — `adType` (Static /
+  // Flexible / Carousel) is generated independently of the creative's real
+  // media type in reports-dummy-data.ts, so a Flexible/Carousel-tagged ad
+  // whose actual asset is a video (e.g. a "Video — Founder Story"
+  // sourceAdName pick) must still resolve to "video", never inherit the
+  // carousel/flexible static-only caveat that belongs to an actual static.
   const sourceFormat: FlowSourceRef["sourceFormat"] =
-    e.creative.adType === "Carousel" ? "carousel" : e.creative.adType === "Flexible" ? "flexible" : e.creative.type;
+    e.creative.type === "video"
+      ? "video"
+      : e.creative.adType === "Carousel"
+        ? "carousel"
+        : e.creative.adType === "Flexible"
+          ? "flexible"
+          : e.creative.type;
   return {
     id: e.id,
     module: "reports" as FlowModuleKey,
@@ -320,8 +361,20 @@ type TrendMeta = (typeof TREND_META)[string];
 type Trend = NonNullable<ReturnType<typeof getTrendById>>;
 
 function trendRef(t: Trend, meta: TrendMeta | undefined): FlowSourceRef {
+  // Every trend gets a truthful format — Rule 1 says a variation asks
+  // nothing, and an unset sourceFormat left Configure's format unset too,
+  // which reads as the flow asking something after all ("Pick a format to
+  // generate", disabled Generate). Meta trends read their own creative
+  // format; TikTok is always video; everything else in this catalogue
+  // (news / research report / Google Trends) is a text or search signal
+  // with no source video, so the ad it inspires is a static image — never a
+  // silent default, always reasoned from what `t.type` actually is.
   const sourceFormat: FlowSourceRef["sourceFormat"] =
-    t.type === "meta" ? (t.format?.toLowerCase().includes("video") ? "video" : "image") : t.type === "tiktok" ? "video" : undefined;
+    t.type === "meta"
+      ? (t.format?.toLowerCase().includes("video") ? "video" : "image")
+      : t.type === "tiktok"
+        ? "video"
+        : "image";
   return {
     id: t.id,
     module: "trends" as FlowModuleKey,
@@ -521,6 +574,11 @@ function creativeLibraryRef(adg: (typeof LIBRARY_ADGROUPS)[number], i: number): 
     thumbnail: media?.url,
     sourceBrandName: adg.page_name,
     detectedEntity: catalogueBrandId ? brandEntity(catalogueBrandId) : undefined,
+    // Provenance only — §7.2's competitor rule does NOT apply here (this ref
+    // is the USER's own catalogue brand, pinned from a competitor ad they
+    // saved). Owner's call: surface where it came from, don't touch the
+    // highlight/competitorOwned machinery that rule owns.
+    sourceNote: adg.source === "pinned-insights" ? "Pinned from Industry Insights" : undefined,
     analysed: i % 2 === 0,
     sourceFormat,
     metrics: [
@@ -601,9 +659,73 @@ function dashboardRefs(): FlowSourceRef[] {
       detectedEntity,
       competitorOwned: p.competitor || undefined,
       analysed: p.from === "recentWork" ? true : undefined,
-      sourceFormat: p.from === "recentWork" ? (item.sub.toLowerCase().includes("video") ? "video" : "image") : undefined,
+      // Every pick needs a truthful format, not just recentWork — an unset
+      // sourceFormat left Configure's format unset, which reads as the flow
+      // asking something (disabled "Pick a format to generate"), exactly
+      // what Rule 1 forbids for the variation family this feeds. None of
+      // VariantListItem's fields carry a dedicated format, so the sub line
+      // is the one honest signal available for all three buckets
+      // (recentlyFetched / newAdsFetched / recentWork alike) — same
+      // video-keyword check this file already trusted for recentWork,
+      // simply no longer gated to that one bucket.
+      sourceFormat: item.sub.toLowerCase().includes("video") ? "video" : "image",
     };
   }).filter((r): r is FlowSourceRef => !!r);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Genie's own outputs — sampleOutputs (src/genie6/mocks/sample-outputs.ts,
+// `var_*` ids). The Library card overflow's three Vary actions
+// (outputActions.ts's studioFlowUrl) and the Video Editor's three Vary
+// buttons (VideoEditor.tsx) both build a ref straight off an output id under
+// module "creative-library" — Genie's own past generations get the same
+// flow-grade banner + pre-fill as an external Creative Library ad. Not part
+// of FLOW_SOURCES (that array is the curated Other-Flows BROWSING surface);
+// resolved lazily below instead, same treatment as an Insights/Reports/
+// Library row this file doesn't happen to carry.
+// READ-ONLY — never fork or mutate `sampleOutputs`; 15+ other modules hold
+// its exact reference (see that file's own header).
+// ─────────────────────────────────────────────────────────────────────────
+
+function sampleOutputRef(out: OutputData): FlowSourceRef {
+  const brandName = out.brand?.name;
+  const brandMatch = brandName ? brands.find((b) => b.name.toLowerCase() === brandName.toLowerCase()) : undefined;
+  const productName = out.product?.name;
+  const productMatch =
+    brandMatch && productName
+      ? productsForBrand(brandMatch.id).find((p) => p.name.toLowerCase() === productName.toLowerCase())
+      : undefined;
+  const detectedEntity = productMatch
+    ? productEntity(productMatch.id)
+    : brandMatch
+      ? brandEntity(brandMatch.id)
+      : undefined;
+  // Honest per-output format, read straight off mediaType — an output is
+  // either a video or an image. The handful of text-only outputs (the
+  // image-to-ad copy-only rows, plus the deliberate var_zerocase edge case)
+  // have no visual to vary at all, so sourceFormat is left unset for them
+  // rather than forced into either bucket.
+  const sourceFormat: FlowSourceRef["sourceFormat"] =
+    out.mediaType === "video" ? "video" : out.mediaType === "image" ? "image" : undefined;
+  return {
+    id: out.id,
+    module: "creative-library" as FlowModuleKey,
+    title: out.headline || out.product?.name || out.brand?.name || "Untitled generation",
+    subtitle: [out.brand?.name, out.product?.name, out.format ?? out.mediaType].filter(Boolean).join(" · "),
+    thumbnail: out.thumbnail,
+    sourceBrandName: out.brand?.name || "Your generation",
+    detectedEntity,
+    // These are the user's own past generations, already produced by Genie
+    // — there is nothing left to "analyse" the way Video Sage means it.
+    analysed: true,
+    sourceFormat,
+    metrics: out.qualityScore !== undefined ? [{ label: "Quality score", value: String(out.qualityScore) }] : [],
+  };
+}
+
+function resolveSampleOutputSource(id: string): FlowSourceRef | undefined {
+  const out = sampleOutputs.find((o) => o.id === id);
+  return out ? sampleOutputRef(out) : undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -631,12 +753,16 @@ export function getFlowSource(id: string): FlowSourceRef | undefined {
 
 /**
  * Module-side entry points (Insights cards, Trends bars, Reports rows,
- * Creative Library tiles) pass the id of WHATEVER row the user clicked — 800
- * Insights ads, ~29 trends, hundreds of report ads. FLOW_SOURCES above is the
- * curated Other Flows browsing surface, not a mirror of those modules, so a
- * ref it doesn't carry is built on demand from the module's own live data
- * with the SAME builders. Before this, "Send to Genie" on 794 of 800 Insights
- * ads resolved to null and opened a bare, unbannered Studio.
+ * Creative Library tiles, and Genie's own Library/Editor Vary actions) pass
+ * the id of WHATEVER row the user clicked — 800 Insights ads, ~29 trends,
+ * hundreds of report ads, 60+ of Genie's own outputs. FLOW_SOURCES above is
+ * the curated Other Flows browsing surface, not a mirror of those modules,
+ * so a ref it doesn't carry is built on demand from the module's own live
+ * data with the SAME builders. Before this, "Send to Genie" on 794 of 800
+ * Insights ads resolved to null and opened a bare, unbannered Studio — and
+ * separately, EVERY `var_*` output id (Library card overflow's three Vary
+ * actions, the Video Editor's three Vary buttons) resolved to null the same
+ * way, because sampleOutputs wasn't in this chain at all.
  */
 const lazyCache = new Map<string, FlowSourceRef | undefined>();
 function resolveLazySource(id: string): FlowSourceRef | undefined {
@@ -644,6 +770,7 @@ function resolveLazySource(id: string): FlowSourceRef | undefined {
   let ref: FlowSourceRef | undefined;
   const ad = DUMMY_ADS.find((a) => a.id === id || a.adId === id);
   if (ad) ref = insightsRef(ad);
+  if (!ref) ref = resolveSampleOutputSource(id);
   if (!ref) {
     const t = getTrendById(id);
     if (t) ref = trendRef(t, TREND_META[id]);

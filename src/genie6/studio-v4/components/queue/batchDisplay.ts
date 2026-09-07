@@ -22,9 +22,21 @@ const APPROACH_LABELS: Record<string, string> = {
   resize: "Resize",
 };
 
+/**
+ * DEFECT FIX (audit item 1): this used to fall back to the raw `approach`
+ * string (`APPROACH_LABELS[approach] ?? approach`) whenever the value wasn't
+ * one of the 7 real approach ids — which is exactly what let a wrongly-typed
+ * ad-type label (e.g. "Brand Ad", written into `config.approach` by a bug in
+ * genieRunStore.ts's `configFor()`) pass straight through and render as if
+ * it were a legitimate approach chip. The root cause is fixed at the source
+ * (genieRunStore.ts now writes a REAL approach id), but this function stays
+ * honest independently: an unrecognised value returns `undefined` so the
+ * caller omits the chip/row instead of showing something that was never a
+ * real approach.
+ */
 export function approachLabel(approach: string | undefined): string | undefined {
   if (!approach) return undefined;
-  return APPROACH_LABELS[approach] ?? approach;
+  return APPROACH_LABELS[approach];
 }
 
 export function modelLabel(modelId: string | undefined): string | undefined {
@@ -93,7 +105,22 @@ export function buildCreditLines(
   });
 }
 
-/** Stage names for StageProgress/BatchProgressHeader — §18 stage-wise, no fixed ETA. */
+/**
+ * Stage names for StageProgress/BatchProgressHeader — §18 stage-wise, no
+ * fixed ETA.
+ *
+ * DEFECT FIX (audit item 2): this is now the ONE stage vocabulary for image
+ * and video renders, full stop. genieRunStore.ts's seeded (historical)
+ * batches used to quote their OWN independent set — "Brief / Draft / Render
+ * / Polish" for image, a differently-worded 5-stage set for video — so a
+ * Studio-started batch and a seeded batch sitting in the SAME Library list
+ * named the SAME kind of render differently. That breaches §18's "ONE
+ * progress pattern" invariant. genieRunStore.ts's `stagesFor()` now calls
+ * this function directly for image/video instead of keeping a second,
+ * independently-authored set — see its own comment for the two categories
+ * (Other-App jobs, text-only ad copy) that have no live-batch counterpart to
+ * collide with and so keep their own stage names.
+ */
 export function stagesForFormat(format: WizardState["format"]): string[] {
   return format === "video"
     ? ["Queued", "Scripting", "Rendering", "Encoding", "Finalizing"]

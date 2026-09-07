@@ -343,9 +343,11 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           (flowCtx.highlight?.kind ?? flowCtx.action.entityTab)
         : wizard.state.productId
           ? "product"
-          : wizard.state.categoryId
-            ? "category"
-            : "brand";
+          : wizard.state.bulkProductIds.length > 0
+            ? "product"
+            : wizard.state.categoryId
+              ? "category"
+              : "brand";
   const setTab = (next: Tab) => {
     setSearchParams(
       (prev) => {
@@ -597,6 +599,16 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     [],
   );
 
+  /** Compute brand count per industry (derived from real data, never hardcoded) */
+  const industryCountMap = useMemo(() => {
+    const counts = new Map<string, number>();
+    industries.forEach((ind) => {
+      const count = ALL_BRANDS.filter((b) => b.category === ind).length;
+      counts.set(ind, count);
+    });
+    return counts;
+  }, [industries]);
+
   const filteredIndustryList = useMemo(() => {
     const term = industrySearch.trim().toLowerCase();
     if (!term) return industries;
@@ -659,17 +671,19 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     // that tab clears it too, same as the XOR clearing below, so a stale
     // set can't silently re-attach if the user comes back later.
     if (t === "brand") {
-      // Picking the brand tab clears product + category
+      // Picking the brand tab clears product + category + bulk (bulk belongs to product)
       if (wizard.state.productId || wizard.state.categoryId || wizard.state.bulkProductIds.length) {
         wizard.patch({ productId: null, categoryId: null, bulkProductIds: [] });
       }
     }
     if (t === "product") {
-      if (wizard.state.brandId || wizard.state.categoryId || wizard.state.bulkProductIds.length) {
-        wizard.patch({ brandId: null, categoryId: null, bulkProductIds: [] });
+      // Picking the product tab clears brand + category; preserves bulk (it belongs to product)
+      if (wizard.state.brandId || wizard.state.categoryId) {
+        wizard.patch({ brandId: null, categoryId: null });
       }
     }
     if (t === "category") {
+      // Picking the category tab clears brand + product + bulk (bulk belongs to product)
       if (wizard.state.brandId || wizard.state.productId || wizard.state.bulkProductIds.length) {
         wizard.patch({ brandId: null, productId: null, bulkProductIds: [] });
       }
@@ -810,6 +824,11 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
                 <span className="font-medium max-w-[120px] truncate">
                   {industryFilter ?? "All industries"}
                 </span>
+                {industryFilter && (
+                  <span className="font-mono text-[10px] text-foreground/60">
+                    {industryCountMap.get(industryFilter) ?? 0}
+                  </span>
+                )}
                 <ChevronDown className="h-3 w-3" />
               </button>
             </PopoverTrigger>
@@ -848,6 +867,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
                 </button>
                 {filteredIndustryList.map((i) => {
                   const active = industryFilter === i;
+                  const count = industryCountMap.get(i) ?? 0;
                   return (
                     <button
                       key={i}
@@ -865,6 +885,9 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
                     >
                       <Factory className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="flex-1 truncate font-medium">{i}</span>
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
+                        {count}
+                      </span>
                       {active && <Check className="h-3.5 w-3.5 text-primary" />}
                     </button>
                   );

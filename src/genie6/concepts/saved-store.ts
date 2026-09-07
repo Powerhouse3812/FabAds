@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type {
   WinnerAd,
   KbConcept,
@@ -8,6 +8,11 @@ import type {
   Product,
   BrandId,
 } from "@/mocks/shared";
+// Seed Winner Ads — value import (not just the type above). The cap and the
+// live counter both have to count these alongside session-saved ones, or
+// "8 / 50" on GenieBrain and the cap actually blocking at 50 would disagree
+// with each other, which is the exact defect this file exists to close.
+import { WINNER_ADS } from "@/mocks/shared";
 
 /**
  * saved-store — global app store for items the user creates / saves
@@ -64,13 +69,44 @@ function getSnapshot(): SavedStore {
   return state;
 }
 
+/**
+ * The real ceiling on Winner Ads is an account-wide total — FabFunnel's 8
+ * seed rows (`WINNER_ADS`) PLUS whatever's been saved this session, minus
+ * anything dismissed. This is the ONE place that total is computed: both
+ * the cap check in `addWinnerAd` and the live "N / 50" counter GenieBrain
+ * renders (via `useAllWinnerAds`) call this, so they can't disagree.
+ */
+function computeActiveWinnerAds(winners: WinnerAd[], dismissedIds: string[]): WinnerAd[] {
+  const dismissed = new Set(dismissedIds);
+  const sessionIds = new Set(winners.map((w) => w.id));
+  const seedActive = WINNER_ADS.filter((w) => !dismissed.has(w.id) && !sessionIds.has(w.id));
+  const sessionActive = winners.filter((w) => !dismissed.has(w.id));
+  return [...seedActive, ...sessionActive];
+}
+
+/** Hard ceiling on total Winner Ads (seed + session, minus removed). Shown
+ *  in GenieBrain's capacity panel and enforced by `addWinnerAd` below — one
+ *  constant, not a display-only number copy-pasted at the call site. */
+export const WINNER_ADS_CAP = 50;
+
 /* ─── Mutations ─────────────────────────────────────────── */
+
+export type AddWinnerAdResult = { ok: true } | { ok: false; reason: "cap"; cap: number };
 
 /**
  * Save a winner ad. Auto-derives a paired concept (Maalik's 1:1 rule).
  * The derived concept references the winner ad via winnerAdId.
+ *
+ * Enforces `WINNER_ADS_CAP`: rejects (returns `{ ok: false, reason: "cap" }`)
+ * once the account is at 50 active Winner Ads instead of appending past the
+ * limit. Callers must surface this to the user (e.g. "You're at the 50
+ * Winner Ad limit — remove one first") rather than assume the save always
+ * succeeds.
  */
-export function addWinnerAd(ad: WinnerAd) {
+export function addWinnerAd(ad: WinnerAd): AddWinnerAdResult {
+  if (computeActiveWinnerAds(state.winners, state.dismissedIds).length >= WINNER_ADS_CAP) {
+    return { ok: false, reason: "cap", cap: WINNER_ADS_CAP };
+  }
   const concept: KbConcept = {
     id: `kc-from-${ad.id}`,
     entityType: ad.entityType,
@@ -90,6 +126,7 @@ export function addWinnerAd(ad: WinnerAd) {
     concepts: [...state.concepts, concept],
   };
   emit();
+  return { ok: true };
 }
 
 /** Save a standalone concept (e.g. from Industry Insights or manual add). */
@@ -179,6 +216,18 @@ export function resetSavedStore() {
 
 export function useSavedStore(): SavedStore {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/**
+ * Every Winner Ad the account actually has, live: FabFunnel's seed rows
+ * plus session-saved ones, minus anything removed via `dismissItem`. This
+ * is what GenieBrain's "N / 50" counter reads — it moves on both add
+ * (`addWinnerAd`) and remove (`dismissItem`/`restoreItem`) because it's
+ * derived from the store, not a static mock array.
+ */
+export function useAllWinnerAds(): WinnerAd[] {
+  const { winners, dismissedIds } = useSavedStore();
+  return useMemo(() => computeActiveWinnerAds(winners, dismissedIds), [winners, dismissedIds]);
 }
 
 export function useSavedWinnersForEntity(

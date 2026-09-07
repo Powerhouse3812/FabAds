@@ -96,6 +96,18 @@ function readUrlIntoState(
   // A-12.52 (Maalik): ?demo=1 seeds a full sample-result shape — 4 concept
   // rows × 4 variations = 16 outputs. Used to deliver shareable sample-result
   // URLs for HTML.to.design captures + design reviews.
+  //
+  // §5 audit note (2026-09-07): §5 says never hardcode output count,
+  // including at entry points that name one — the stepper owns `count`.
+  // This hardcoded 4 is a deliberate, scoped exception: ?demo=1 is not a
+  // real generation, it fabricates an entire synthetic FINISHED batch
+  // (selectedConceptIds/credits/angleId/format all hardcoded together right
+  // below) for headless design-capture tooling, gated behind an exact
+  // string match no in-app control ever sets for /studio-alpha, and it runs
+  // through NO stepper-driven path — isDemoMode below skips generation
+  // entirely and renders the fixed sample directly. It cannot be reached,
+  // partially overridden (`?demo=1&count=10` still yields 4 — this is a
+  // fixture, not a param), or bled into by a normal user-facing run.
   if (searchParams.get("demo") === "1") {
     // These were ["c-hero", "c-lifestyle", "c-social-proof", "c-unboxing"] —
     // none of which exist in data/concepts.ts's CONCEPTS. The sample-result
@@ -218,7 +230,22 @@ export function StudioAlpha() {
   // segment yet (e.g. /studio-alpha?src=trends&ref=...&act=...) — phase must
   // start "wizard" for that case too, not just when a :step segment exists.
   const [phase, setPhase] = useState<AlphaPhase>(() => (params.step || flowCtx ? "wizard" : "home"));
-  const [homeMode, setHomeMode] = useState<AlphaMode | null>("product-ad");
+  // A-12.49 defect fix (Maalik audit, 2026-09-07): this used to default to
+  // "product-ad" for EVERY wizard entry that skips Studio Home's picker —
+  // every deep link and every flow-borne run arriving via ?src/?ref/?act.
+  // Mode is deliberately NOT part of §5's URL state (format · product ·
+  // approach · ratio · count · model · kb), so it can never be recovered
+  // from the URL — the old default silently pretended a real choice had
+  // been made. Null means "genuinely unchosen." Every consumer below
+  // already tolerates that: AlphaStep1Format's `mode` prop is typed
+  // `AlphaMode | null` (its `mode === m.id` selection check just leaves no
+  // card highlighted — an accurate reflection of "nothing picked yet"),
+  // and ContextRail / AlphaStep3Configure / MobileContextRailSheet all take
+  // `studioMode?: AlphaMode` fed via `homeMode ?? undefined` — undefined
+  // there hits computeHasRequiredEntity's permissive default branch instead
+  // of over-constraining on a stale mode. §5: the Step-2 tab decides ad
+  // type, not Mode — this file must not infer one from the other.
+  const [homeMode, setHomeMode] = useState<AlphaMode | null>(null);
 
   // A-12.48 (Maalik): derive the render step DIRECTLY from URL on every render
   // (not just from `state.step`). This guarantees first-paint correctness when
@@ -366,7 +393,10 @@ export function StudioAlpha() {
 
   const exitToHome = () => {
     wizard.reset();
-    setHomeMode("product-ad");
+    // Same reasoning as the useState default above: Home is where Mode gets
+    // (re)chosen next via startWizard, so there is no "current" mode to
+    // preserve here. Null, not a hardcoded fallback.
+    setHomeMode(null);
     setPhase("home");
     navigate("/iq/genie6/studio-alpha", { replace: false });
   };

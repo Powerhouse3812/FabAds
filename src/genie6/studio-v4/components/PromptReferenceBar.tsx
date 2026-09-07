@@ -61,7 +61,17 @@ import type {
   AttachSource,
   AttachedRef,
   WizardState,
+  Format,
 } from "../state/useWizard";
+// Item #2 (model filtering) — `AlphaMode` (the ad-type/mode picked on Studio
+// Home / Step 1, e.g. "performance-ad") lives in data/modes.ts, a shared data
+// file, not inside either of the two files this task is fenced off from
+// (ScriptRail.tsx / useWizard.ts / AlphaStep3Configure.tsx). It is threaded
+// through as an OPTIONAL prop below — when the owner of AlphaStep3Configure
+// wires `studioMode` through, the performance-marketing model filter turns
+// on automatically; until then, filtering still runs off format + attached
+// references, which are always available on `wizard.state`.
+import type { AlphaMode } from "../data/modes";
 
 /**
  * PromptReferenceBar — Step 4 prompt + reference dock.
@@ -95,6 +105,12 @@ interface PromptReferenceBarProps {
   /** Optional slot rendered in the footer row, just before the Generate button.
    *  Used by Studio Alpha to inject the Generation-settings popover trigger. */
   footerExtras?: React.ReactNode;
+  /** §5 "Model list is filtered by context" — the ad-type mode picked on
+   *  Studio Home / Step 1 (e.g. "performance-ad"). Optional: not wired from
+   *  every call site yet. When present, it hides quick-draft models for a
+   *  performance-marketing job; when absent, filtering still runs off
+   *  format + attached references. */
+  studioMode?: AlphaMode;
 }
 
 // A-12.73: emoji map → lucide icon map. DS §7 #10 (no emojis in product UI).
@@ -111,13 +127,125 @@ const SOURCE_ICON: Record<AttachSource, React.ElementType> = {
   template: LayoutTemplate,
 };
 
-const MODELS: { id: string; Icon: React.ElementType; name: string; hint?: string }[] = [
-  { id: "genie-1.0", Icon: Sparkles, name: "Genie 1.0", hint: "Fast" },
-  { id: "genie-2.0-pro", Icon: Rocket, name: "Genie 2.0 Pro", hint: "Higher quality" },
-  { id: "genie-flash", Icon: Zap, name: "Genie Flash", hint: "Ultra-fast" },
-  { id: "genie-video", Icon: Video, name: "Genie Video" },
-  { id: "genie-labs", Icon: FlaskConical, name: "Genie Labs", hint: "Experimental" },
+/**
+ * Item #2 — "Model list is filtered by context, not merely annotated ...
+ * What's missing is removal: hide short-duration models for performance
+ * marketing, and shortlist models by reference-video length. A user should
+ * not be offered a model that cannot serve the job in front of them." (§5)
+ *
+ * `hint` (Fast / Higher quality / …) is the existing Figma-sourced
+ * description — untouched, that part was never the defect. The three new
+ * fields below are what the filter in `getAvailableModels()` reads:
+ *   - `formats`      — which output formats this model can serve at all.
+ *     Genie Video is video-only; offering it for an Image job is exactly
+ *     the "cannot serve the job" case §5 calls out.
+ *   - `maxRefDurationSec` — longest reference video this model can drive a
+ *     generation from. `undefined` = uncapped. AttachedRef (useWizard.ts,
+ *     out of scope for this file) does not carry a real duration field yet,
+ *     so there is no real number to read per-reference. Rather than invent
+ *     one, any attached reference on a video job is conservatively treated
+ *     as "could be a full-length ad" (see ASSUMED_REFERENCE_DURATION_SEC)
+ *     and compared against this cap — a model capped to short clips is
+ *     never offered a reference it can't actually use.
+ *   - `quickDraftOnly` — tuned for fast/cheap short-form drafts, not
+ *     production-grade output. Hidden when the job is a performance-ad
+ *     (ROAS-driven, "tested angles" per §5's Studio-mode roster) — that
+ *     signal comes from the optional `studioMode` prop; see the prop doc.
+ */
+interface ModelOption {
+  id: string;
+  Icon: React.ElementType;
+  name: string;
+  hint?: string;
+  formats: Format[];
+  maxRefDurationSec?: number;
+  quickDraftOnly?: boolean;
+}
+
+const MODELS: ModelOption[] = [
+  {
+    id: "genie-1.0",
+    Icon: Sparkles,
+    name: "Genie 1.0",
+    hint: "Fast",
+    formats: ["image", "video"],
+    maxRefDurationSec: 60,
+  },
+  {
+    id: "genie-2.0-pro",
+    Icon: Rocket,
+    name: "Genie 2.0 Pro",
+    hint: "Higher quality",
+    formats: ["image", "video"],
+  },
+  {
+    id: "genie-flash",
+    Icon: Zap,
+    name: "Genie Flash",
+    hint: "Ultra-fast",
+    formats: ["image", "video"],
+    maxRefDurationSec: 15,
+    quickDraftOnly: true,
+  },
+  {
+    id: "genie-video",
+    Icon: Video,
+    name: "Genie Video",
+    formats: ["video"],
+  },
+  {
+    id: "genie-labs",
+    Icon: FlaskConical,
+    name: "Genie Labs",
+    hint: "Experimental",
+    formats: ["image", "video"],
+    maxRefDurationSec: 20,
+    quickDraftOnly: true,
+  },
 ];
+
+/** Stand-in reference length used until AttachedRef carries a real duration
+ *  — see the `maxRefDurationSec` doc above. 30s is a typical short-ad length,
+ *  chosen so the filter errs toward NOT hiding a model that could actually
+ *  serve a short reference, while still catching models capped well below
+ *  it (Flash at 15s, Labs at 20s). */
+const ASSUMED_REFERENCE_DURATION_SEC = 30;
+
+/**
+ * Real filtering (not annotation) off state the component already has:
+ * format, attached references, and — when the caller wires it — the
+ * performance-marketing signal. "If filtering would empty the list, fall
+ * back to showing all and say why in a hint rather than presenting an empty
+ * picker" (task spec) — `hint` carries that explanation when it happens.
+ */
+function getAvailableModels(
+  state: Pick<WizardState, "format" | "attachedReferences">,
+  studioMode?: AlphaMode,
+): { models: ModelOption[]; hint: string | null } {
+  const hasVideoReference =
+    state.format === "video" && state.attachedReferences.length > 0;
+  const isPerformanceJob = studioMode === "performance-ad";
+
+  const filtered = MODELS.filter((m) => {
+    if (state.format && !m.formats.includes(state.format)) return false;
+    if (
+      hasVideoReference &&
+      m.maxRefDurationSec !== undefined &&
+      m.maxRefDurationSec < ASSUMED_REFERENCE_DURATION_SEC
+    )
+      return false;
+    if (isPerformanceJob && m.quickDraftOnly) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    return {
+      models: MODELS,
+      hint: "Showing every model — none fully match this job, so nothing was hidden.",
+    };
+  }
+  return { models: filtered, hint: null };
+}
 
 export const RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 export type AspectRatio = (typeof RATIOS)[number];
@@ -151,6 +279,7 @@ export function PromptReferenceBar({
   onChipOpen,
   hideLayoutToggle = false,
   footerExtras,
+  studioMode,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -241,15 +370,24 @@ export function PromptReferenceBar({
   const showInlineSend = hideLayoutToggle || state.ctaLayout === "inline";
   const isUgcMode = state.mode === "ugc-video" || state.angleId === "ugc-style";
 
-  // §21.2 "Script becomes a gated pre-step" — script-led = the same
-  // definition PromptReferenceBar already uses to decide Avatar vs Style
+  // §6 "Script as a pre-step" — "From there they can edit it, or go straight
+  // to generate ... A review opportunity, not a hard gate." script-led = the
+  // same definition PromptReferenceBar already uses to decide Avatar vs Style
   // (isUgcMode: mode === "ugc-video" OR angleId === "ugc-style"). Script and
   // avatar/voice are coupled features in this file, so reusing isUgcMode
   // rather than inventing a second, narrower check keeps them consistent —
   // a manually-set UGC angle on another approach gets the same Avatar/Voice
-  // AND the same script gate. A non-script approach is never gated.
+  // AND the same script nudge. A non-script approach never shows it.
+  //
+  // Item #1 defect: this used to also feed `generateDisabled` below, which
+  // made it a HARD gate from a cold start — the only escape ("Skip review
+  // from now on") lives inside the script rail's review phase, reachable
+  // only after script text already exists, so Generate was simply disabled
+  // with no way past it. `scriptNeedsReview` now only flags the Script chip
+  // (still visible, still one click to the rail) — it no longer disables
+  // anything.
   const isScriptLed = isUgcMode;
-  const scriptGateOpen =
+  const scriptNeedsReview =
     isScriptLed && !state.scriptApproved && !state.skipScriptReview;
 
   // §21.2 "Credits need a breakdown" — the SAME buildCreditLines() the wizard
@@ -260,14 +398,30 @@ export function PromptReferenceBar({
   const overBudget = exceedsBalance(creditBreakdown.total);
   const shortfall = overBudget ? creditBreakdown.total - CREDITS_REMAINING : 0;
 
-  // §6 Rule 3 — "Generate stays disabled until every required field is
+  // §7 Rule 3 — "Generate stays disabled until every required field is
   // filled." A flow that carries no source format (Dashboard's fetched-ad
   // rows) or a hand-edited URL can land here with the Overview reading
   // "PICK A FORMAT" while this button stayed live and started a batch with
   // format undefined. Same for the entity (§4: every ad type needs one).
+  // Script approval is deliberately NOT in this list — §6 says a review
+  // opportunity, not a required field.
   const missingFormat = !state.format;
   const missingEntity =
     !state.brandId && !state.productId && !state.categoryId && !state.uploadedProductImage;
+
+  // Defect audit #4 — the placeholder below promises "⌘+Enter to generate"
+  // but nothing implemented it. `generateDisabled` mirrors the Generate
+  // button's own `disabled` expression verbatim so the shortcut can never
+  // fire a batch the button itself would refuse — same gate, same reasons.
+  const generateDisabled =
+    !state.prompt.trim() || overBudget || missingFormat || missingEntity;
+
+  // Item #2 — real model filtering off format + attached references (and,
+  // once wired by the caller, `studioMode`). See getAvailableModels() above.
+  const { models: availableModels, hint: modelFilterHint } = useMemo(
+    () => getAvailableModels(state, studioMode),
+    [state.format, state.attachedReferences, studioMode],
+  );
 
   // Concept · Angle compound value
   const conceptAngleValue =
@@ -318,21 +472,32 @@ export function PromptReferenceBar({
               <RefChip
                 label="Script"
                 value={
-                  scriptGateOpen
-                    ? "Needs approval"
+                  scriptNeedsReview
+                    ? "Review"
                     : state.script
                       ? "Custom"
                       : "Auto"
                 }
-                emphasize={scriptGateOpen}
+                emphasize={scriptNeedsReview}
                 onClick={() => onChipOpen("script")}
               />
               {isUgcMode ? (
-                <RefChip
-                  label="Avatar"
-                  value={avatarVoiceValue}
-                  onClick={() => onChipOpen("avatar-voice")}
-                />
+                <>
+                  <RefChip
+                    label="Avatar"
+                    value={avatarVoiceValue}
+                    onClick={() => onChipOpen("avatar-voice")}
+                  />
+                  {/* Item #3 — §5/§14: "the constraint between the two
+                      pickers must be visible, not discovered." A hover-only
+                      title doesn't satisfy that, so this is rendered text,
+                      always on when the Avatar chip is. Avatar rail itself
+                      is owned elsewhere — this is the copy on the control
+                      surface owned by this file. */}
+                  <span className="inline-flex items-center whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                    Voice follows avatar
+                  </span>
+                </>
               ) : (
                 <RefChip
                   label="Style"
@@ -507,6 +672,17 @@ export function PromptReferenceBar({
             <textarea
               value={state.prompt}
               onChange={(e) => wizard.set("prompt", e.target.value)}
+              onKeyDown={(e) => {
+                // ⌘+Enter (Ctrl+Enter on Windows/Linux) — same Generate path
+                // as the button (`wizard.goTo(5)`), gated by the exact same
+                // disabled condition so a missing prompt, unapproved script,
+                // missing format/entity, or an over-budget total can't be
+                // bypassed by the shortcut.
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  if (!generateDisabled) wizard.goTo(5);
+                }
+              }}
               rows={2}
               placeholder="Describe the script, visual angle, hook… or tap a TRY prompt above to start.  ⌘+Enter to generate."
               className="block w-full flex-1 resize-none bg-transparent px-1 pt-1.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
@@ -532,9 +708,16 @@ export function PromptReferenceBar({
                 <div className="mb-2 px-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Model
                 </div>
+                {/* Item #2 — only shown when filtering emptied the list and
+                    fell back to showing everything (getAvailableModels). */}
+                {modelFilterHint && (
+                  <p className="mb-2 px-0.5 font-mono text-[11px] text-muted-foreground">
+                    {modelFilterHint}
+                  </p>
+                )}
                 {/* Visual card grid — autoplay-loop preview + name/hint + icon badge */}
                 <div className="grid grid-cols-2 gap-2">
-                  {MODELS.map((m) => {
+                  {availableModels.map((m) => {
                     const active = state.modelId === m.id;
                     const v = getModelVisual(m.id);
                     return (
@@ -621,26 +804,33 @@ export function PromptReferenceBar({
 
             {/* Generate — credits inline in label, gated + breakdown (§21.2) */}
             {showInlineSend && (
-              <div className="ml-auto flex items-center gap-1">
+              <div className="ml-auto flex items-center gap-2">
+                {/* Item #4 — §5 "'AI can make mistakes' disclaimer in the
+                    flow." Quiet and factual: a Mono caption next to Generate,
+                    not a banner. No copyright/platform-policy wording — that
+                    is legal's call, not design's, per the same spec line. */}
+                <span className="hidden shrink-0 whitespace-nowrap font-mono text-[10px] text-muted-foreground/60 sm:inline">
+                  AI can make mistakes.
+                </span>
                 <CreditBreakdownInfo breakdown={creditBreakdown} />
                 <button
                   type="button"
                   onClick={() => wizard.goTo(5)}
                   disabled={
-                    !state.prompt.trim() || scriptGateOpen || overBudget || missingFormat || missingEntity
+                    !state.prompt.trim() || overBudget || missingFormat || missingEntity
                   }
                   title={
                     missingFormat
                       ? "Pick a format (Image or Video) on step 1 to generate"
                       : missingEntity
                         ? "Pick the brand, product or category this ad is for (step 2) to generate"
-                        : scriptGateOpen
-                      ? "Approve the script (or skip review) to generate — see the Script chip above"
-                      : overBudget
+                        : overBudget
                         ? `Short ${formatCredits(shortfall)} credits — top up, or lower Outputs/Concepts`
                         : !state.prompt.trim()
                           ? "Describe what you want, or tap a suggestion above"
-                          : undefined
+                          : scriptNeedsReview
+                            ? "Script is ready to review (see the Script chip above) — or generate now, it's not required"
+                            : undefined
                   }
                   className={cn(
                     "inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-5 text-[12px] font-bold text-primary-foreground transition-all",
@@ -651,15 +841,15 @@ export function PromptReferenceBar({
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   {/* A disabled button that doesn't say why is a dead end. The
-                      script gate and the budget shortfall already explain
-                      themselves; the empty prompt did not — it just greyed out,
-                      which reads as broken rather than as "your turn". */}
+                      budget shortfall already explains itself; the empty
+                      prompt did not — it just greyed out, which reads as
+                      broken rather than as "your turn". Script review is
+                      intentionally NOT one of these reasons (§6) — it never
+                      disables Generate, so it never appears in this ladder. */}
                   {missingFormat ? (
                     "Pick a format to generate"
                   ) : missingEntity ? (
                     "Pick who it's for to generate"
-                  ) : scriptGateOpen ? (
-                    "Approve script to generate"
                   ) : !state.prompt.trim() ? (
                     "Describe your ad to generate"
                   ) : overBudget ? (
@@ -929,11 +1119,31 @@ function NumberStepper({
  *  is kept as a self-contained trigger+popover for a future standalone use;
  *  both now share the same option row.
  * ────────────────────────────────────────────────────────── */
+/**
+ * Item #5 defect — the previous literal table had 9:16 at w/h = 0.600 and
+ * 16:9 at 1.833 instead of the true 0.5625 / 1.778, and 4:5 (w:16) vs 9:16
+ * (w:12) differed by only 4px inside a 24px well — not visibly distinct
+ * shapes. Computed from the real ratio below instead of hand-typed numbers,
+ * so this class of arithmetic slip can't recur; RATIO_WELL_PX also grew
+ * (24 → 28) to give the three portrait/square ratios (24 / 19 / 14px wide)
+ * real separation instead of a few px.
+ */
+const RATIO_MAX_DIM = 24; // longer side of the inner shape
+export const RATIO_WELL_PX = 28; // outer swatch box — RATIO_MAX_DIM + margin
+
+function computeRatioShape(ratio: (typeof RATIOS)[number]): { w: number; h: number } {
+  const [wPart, hPart] = ratio.split(":").map(Number);
+  const trueRatio = wPart / hPart; // width ÷ height
+  return trueRatio >= 1
+    ? { w: RATIO_MAX_DIM, h: Math.round(RATIO_MAX_DIM / trueRatio) }
+    : { w: Math.round(RATIO_MAX_DIM * trueRatio), h: RATIO_MAX_DIM };
+}
+
 export const RATIO_PREVIEW: Record<typeof RATIOS[number], { w: number; h: number; hint: string }> = {
-  "1:1": { w: 18, h: 18, hint: "Square" },
-  "4:5": { w: 16, h: 20, hint: "Portrait" },
-  "9:16": { w: 12, h: 20, hint: "Story / Reel" },
-  "16:9": { w: 22, h: 12, hint: "Landscape" },
+  "1:1": { ...computeRatioShape("1:1"), hint: "Square" },
+  "4:5": { ...computeRatioShape("4:5"), hint: "Portrait" },
+  "9:16": { ...computeRatioShape("9:16"), hint: "Story / Reel" },
+  "16:9": { ...computeRatioShape("16:9"), hint: "Landscape" },
 };
 
 /** One selectable row: proportioned shape swatch + ratio + its use. */
@@ -963,7 +1173,7 @@ export function RatioShapeOption({
           "inline-flex shrink-0 items-center justify-center rounded-sm border",
           active ? "border-primary bg-primary/10" : "border-foreground/40",
         )}
-        style={{ width: "24px", height: "24px" }}
+        style={{ width: `${RATIO_WELL_PX}px`, height: `${RATIO_WELL_PX}px` }}
       >
         <span
           aria-hidden

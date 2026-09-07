@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { SendToGenieMenu } from "@/genie6/flows/SendToGenieMenu";
 
 /**
  * NewlyFetchedAdsCard — compact, brand-grouped list of fresh competitor
@@ -11,6 +13,18 @@ import { cn } from "@/lib/utils";
  * Each row: brand monogram + name + source tag + new-ad count. Header
  * carries the total fetched today + a link to the feed. No big thumbnails
  * — the count is the signal at this density.
+ *
+ * Genie 2.0 §7.7 — Dashboard surfaces the actions of the modules whose data
+ * it shows. Each row's wand trigger mounts the existing SendToGenieMenu
+ * (never a second menu) with module="dashboard" and this row's `dash-*` ref
+ * id — the exact ids flowSources.ts's dashboardRefs() builds from
+ * DASHBOARD_PICKS (`dash-${item.id}-f` for the recentlyFetched picks). boAt
+ * and Noise are COMPETITOR rows (their refs carry `competitorOwned: true`),
+ * so this only ever passes the row's id through — SendToGenieMenu resolves
+ * the highlight itself and always lands on the user's own default brand,
+ * never the rival's (§7.2). The row's own Link still owns primary
+ * navigation to the feed; the wand is a secondary, icon-only affordance
+ * (labelled via aria-label, same convention as VideoCard.tsx's kebab).
  */
 
 type SourceType = "brand" | "competitor" | "category";

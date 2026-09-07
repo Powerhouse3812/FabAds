@@ -50,7 +50,7 @@ export function QueueHeader({
               Results queue
             </h1>
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              You can Edit, Save and Regeneration, etc.
+              Edit, save, launch, or download any output — right from its card.
             </p>
             {showVariantToggle && (
               <div className="mt-2">
@@ -99,7 +99,7 @@ export function QueueHeader({
           Results queue
         </h1>
         <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-          You can Edit, Save and Regeneration, and many more actions
+          Edit, save, launch, or download any output — vary the script, concept, or whole video without starting over.
         </p>
       </div>
 

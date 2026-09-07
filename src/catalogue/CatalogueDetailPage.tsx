@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -27,6 +28,7 @@ import {
   Mic,
   Volume2,
   Wand2,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -79,7 +81,7 @@ import {
   useSavedWinnersForEntity,
 } from "@/genie6/concepts/saved-store";
 import { getAssetType, type CatalogueType, type AssetTypeDef } from "./assetTypes";
-import { ProvenanceBadge, CreditsPill, UnknownAssetType } from "./CatalogueShared";
+import { ProvenanceBadge, CreditsPill, UnknownAssetType, SessionScopeNote } from "./CatalogueShared";
 import { AssetDetailActions } from "./AssetDetailActions";
 import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFromAsset";
 import { useInGenieUrl } from "./genieHandoff";
@@ -531,7 +533,16 @@ function Shell({
               {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
             </div>
           </div>
-          {headerRight}
+          {/* §15 — credits balance now also shows in Catalogue, not just the
+              Genie sub-nav. Lives here (not per-caller) so every Shell-based
+              detail page (Angles/Hooks/Concepts/Avatars/Voices/Audiences/
+              Scripts/CTAs/Frameworks/Templates/References) gets it in one
+              edit, matching CatalogueFinder / CatalogueListPage's header
+              placement. */}
+          <div className="flex items-center gap-2 shrink-0">
+            <CreditsPill />
+            {headerRight}
+          </div>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto space-y-5">{children}</div>
@@ -1439,16 +1450,23 @@ export function BrandDetail({
           : "v3-page-mesh mx-auto max-w-6xl px-6 pt-6 pb-10",
       )}
     >
-      {/* ── Top action: ← Back (hidden when embedded inside Finder) ── */}
+      {/* ── Top action: ← Back (hidden when embedded inside Finder) + credits
+           balance — §15 "Balance shows in the Genie sub-nav, and now also
+           in Catalogue and Studio." Catalogue home already shows it; this
+           closes the gap on the brand detail surface (the reachable
+           `/catalogue/brands/:id` route CatalogueFinder hands off to). ── */}
       {!embedded && (
-        <button
-          type="button"
-          onClick={() => navigate("/catalogue/brands")}
-          className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to Brands
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/catalogue/brands")}
+            className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to Brands
+          </button>
+          <CreditsPill />
+        </div>
       )}
 
       {/* ── Hero header ── */}
@@ -1511,7 +1529,7 @@ export function BrandDetail({
             forceOpen
           />
         )}
-        {tab === "winners" && <WinnersPanel brandId={brand.id} />}
+        {tab === "winners" && <WinnersPanel brandId={brand.id} brandName={brand.name} />}
         {tab === "library" && <LibraryPanel brandName={brand.name} />}
         {tab === "activity" && <ActivityPanel brandId={brand.id} />}
         {tab === "products" && <ProductsPanel brand={brand} products={linkedProducts} />}
@@ -1722,10 +1740,18 @@ function GuidelinesCard({
   );
 }
 
-function WinnersPanel({ brandId }: { brandId: string }) {
+function WinnersPanel({ brandId, brandName }: { brandId: string; brandName: string }) {
   const seedWinners = getWinnerAdsForEntity("brand", brandId);
   const savedWinners = useSavedWinnersForEntity("brand", brandId);
   const winners = [...seedWinners, ...savedWinners];
+  // A-12.54 left `setCreateKind("winner-ad")` uncalled anywhere in the file
+  // — the Winner Ads tab had its own "Add winner ad" button wired to a dev
+  // `alert()` stub instead of the real KbCreateModal. Local open/close state
+  // here (not the KB tab's URL-backed `create` param — Winners and KB are
+  // separate tabs, never both mounted at once, so there's nothing to share).
+  // The 50-max cap is enforced by `saved-store.ts`'s `addWinnerAd` — this
+  // component only opens the modal and forwards whatever it returns.
+  const [addOpen, setAddOpen] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -1737,7 +1763,7 @@ function WinnersPanel({ brandId }: { brandId: string }) {
         />
         <button
           type="button"
-          onClick={() => alert("Add winner ad — wire to KbCreateModal next")}
+          onClick={() => setAddOpen(true)}
           className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:text-primary-text"
         >
           <Plus className="h-3 w-3" />
@@ -1757,6 +1783,20 @@ function WinnersPanel({ brandId }: { brandId: string }) {
             <WinnerAdCard key={w.id} ad={w} />
           ))}
         </div>
+      )}
+
+      {addOpen && (
+        <KbCreateModal
+          kind="winner-ad"
+          entityType="brand"
+          entityId={brandId}
+          entityName={brandName}
+          onSave={(saved) => {
+            if (saved.kind === "winner-ad") savedAddWinnerAd(saved.item);
+            setAddOpen(false);
+          }}
+          onClose={() => setAddOpen(false)}
+        />
       )}
     </div>
   );
@@ -2044,16 +2084,20 @@ export function ProductDetail({
           : "v3-page-mesh mx-auto max-w-6xl px-6 pt-6 pb-10",
       )}
     >
-      {/* ── Top action: ← Back (hidden when embedded) ── */}
+      {/* ── Top action: ← Back (hidden when embedded) + credits balance —
+           see BrandDetail's identical insertion for why. ── */}
       {!embedded && (
-        <button
-          type="button"
-          onClick={() => navigate("/catalogue/products")}
-          className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to Products
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/catalogue/products")}
+            className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to Products
+          </button>
+          <CreditsPill />
+        </div>
       )}
 
       {/* ── Hero header ── */}
@@ -2747,15 +2791,20 @@ export function CategoryDetail({
           : "v3-page-mesh mx-auto max-w-6xl px-6 pt-6 pb-10",
       )}
     >
+      {/* ── ← Back + credits balance — see BrandDetail's identical insertion
+           for why. ── */}
       {!embedded && (
-        <button
-          type="button"
-          onClick={() => navigate("/catalogue/categories")}
-          className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to Categories
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/catalogue/categories")}
+            className="inline-flex w-max items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to Categories
+          </button>
+          <CreditsPill />
+        </div>
       )}
 
       <CategoryHero

@@ -160,6 +160,7 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack, mode, onModeChange
                 <button
                   type="button"
                   disabled={!m.available}
+                  aria-disabled={!m.available}
                   aria-pressed={selected}
                   onClick={() => m.available && onModeChange(m.id)}
                   title={m.available ? m.title : `${m.title} — coming soon`}

@@ -130,7 +130,11 @@ export function GenieBrain() {
       instructions: instructionsAll,
       winnerAdsCountOverride: null as number | null,
     };
-  }, [brainState]);
+    // winnerAdsAll is now LIVE (useAllWinnerAds, off the saved-store) rather
+    // than a static import — it must be a dep, or add/remove would update
+    // the store but this memo would keep returning a stale slice/list from
+    // whenever brainState last changed.
+  }, [brainState, winnerAdsAll, referencesAll, instructionsAll]);
 
   const winnerAdsCount = winnerAdsCountOverride ?? winnerAds.length;
   const instructionsCustomCount = instructions.filter((i) => i.source !== "default").length;

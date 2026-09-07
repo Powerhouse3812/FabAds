@@ -241,15 +241,6 @@ export const MODULES: ModuleDef[] = [
       { label: "Concepts",    path: "/iq/genie6/concepts",         icon: Lightbulb },
       { label: "Library",     path: "/iq/genie6/library",          icon: LibraryIcon },
       { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
-      // Deprioritized — legacy studios + Assets below divider
-      { label: "Studio",      path: "/iq/genie6/generate",         icon: Wand2, deprioritized: true },
-      { label: "Old Studio",  path: "/iq/genie6/generate-legacy",  icon: Wand2, deprioritized: true },
-      { label: "Studio",      path: "/iq/genie6/studio",           icon: Wand2, badge: "Beta", deprioritized: true },
-      { label: "Studio v3",   path: "/iq/genie6/generate-v3",      icon: Wand2, deprioritized: true },
-      // A-12.38: Assets moved from primary to deprioritized — Workspace/Assets
-      // is no longer the day-to-day path; Concepts + Catalogue cover that need.
-      { label: "Assets",      path: "/iq/genie6/workspace",        icon: FolderTree, deprioritized: true },
-      { label: "Genie 5",     path: "/iq/genie5",                  icon: Wand2, deprioritized: true },
     ],
   },
   {

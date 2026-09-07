@@ -1,12 +1,17 @@
 import type { AnalyticsSnapshot } from "../types/entities";
+import { CREDITS_USED, CREDITS_LIMIT } from "../lib/credits";
 
 /**
  * Default analytics for the populated Home dashboard. Numbers are deliberately
  * non-round (1,284 not 1,000; 47.3% not 50%; ₹2,499 not ₹2,500).
+ *
+ * Genie 2.0 §15: credit balance reads src/genie6/lib/credits.ts (one source of
+ * truth) so the dashboard, sub-nav, Catalogue, and Studio all show identical
+ * balances — never a walkthrough with two different numbers on two screens.
  */
 export const analyticsAgency: AnalyticsSnapshot = {
   generationsThisMonth: { count: 1284, deltaPct: 18 },
-  creditsUsed: { used: 12450, limit: 50000 },
+  creditsUsed: { used: CREDITS_USED, limit: CREDITS_LIMIT },
   topPerformer: {
     outputId: "var_4a2k7q9",
     brand: "Mamaearth",
@@ -29,7 +34,7 @@ export const analyticsAgency: AnalyticsSnapshot = {
 
 export const analyticsSolo: AnalyticsSnapshot = {
   generationsThisMonth: { count: 184, deltaPct: 42 },
-  creditsUsed: { used: 738, limit: 1500 },
+  creditsUsed: { used: CREDITS_USED, limit: CREDITS_LIMIT },
   topPerformer: {
     outputId: "var_v4i2t7n",
     brand: "Mamaearth",

@@ -79,6 +79,24 @@ export const FAILURE_COPY: Record<FailureReason, { title: string; detail: string
 /** Retry granularity (§21.3). Button copy must state the credit consequence. */
 export type RetryScope = "this-item" | "all-failed" | "whole-batch" | "different-model";
 
+/**
+ * DEFECT FIX (audit item 5): `retry()` used to return `void`, so a caller had
+ * no way to tell "this scope matched nothing" from "retry actually started" —
+ * e.g. `retry(batchId, "all-failed")` on a CANCELLED batch matches zero items
+ * (cancelled items aren't `"failed"`) and silently no-ops, while a caller that
+ * assumes success still toasts a credit charge for a retry that never
+ * happened. `retry()` now returns this so a caller can branch on the real
+ * outcome instead of guessing. Additive — every existing call site ignores
+ * the return value today, so this is not a breaking change.
+ */
+export interface RetryResult {
+  /** How many items were actually put back into "running". 0 means the call
+   *  was a no-op — the caller must not toast a credit charge for it. */
+  retriedCount: number;
+  /** False only when `batchId` didn't match any known batch. */
+  batchFound: boolean;
+}
+
 export interface RunItem {
   id: string;
   status: RunItemStatus;

@@ -53,13 +53,26 @@ export function AssetFormModal({
   const [tags, setTags] = useState(initialTags.join(", "));
   const [body, setBody] = useState("");
 
+  // DEFECT FIX (audited): both add-mode callers omit `initialTags`, so the
+  // `initialTags = []` default parameter above constructs a BRAND NEW array
+  // on every render of the caller. With `initialTags` in this effect's deps,
+  // that fresh `[]` !== the previous fresh `[]` by reference, so the effect
+  // re-fired on every keystroke and reset `name` back to "" — the "Add"
+  // button for 10 of 11 Creative types (everything except Avatars, which has
+  // no addForm) stayed permanently disabled. Depending on `open` ALONE is
+  // correct: the effect only needs to reset the form at the moment the
+  // dialog transitions to open, not on every parent re-render while it's
+  // already open. Edit mode was unaffected only because its parent (a
+  // stable list row) doesn't re-render on every keystroke — a difference in
+  // caller behaviour, not in this effect, which is why it slipped through.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (open) {
       setName(initialName);
       setTags(initialTags.join(", "));
       setBody("");
     }
-  }, [open, initialName, initialTags]);
+  }, [open]);
 
   const nameLabel = addForm?.nameLabel ?? `${singular} name`;
   const trimmedName = name.trim();
@@ -85,11 +98,16 @@ export function AssetFormModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>{mode === "add" ? `Add ${singular.toLowerCase()}` : `Edit ${singular.toLowerCase()}`}</DialogTitle>
+          {/* DEFECT FIX (audited): `singular.toLowerCase()` produced "Add
+              cta" for the one acronym type in the registry. Every
+              `AssetTypeDef.singular` is already authored in the correct
+              case ("CTA", "Audience", "Angle", …) — use it verbatim instead
+              of forcing a case transform that only some labels tolerate. */}
+          <DialogTitle>{mode === "add" ? `Add ${singular}` : `Edit ${singular}`}</DialogTitle>
           <DialogDescription>
             {mode === "add"
-              ? `Appends a new ${singular.toLowerCase()} to the catalogue immediately below.`
-              : `Rename this ${singular.toLowerCase()} or update its tags.`}
+              ? `Appends a new ${singular} to the catalogue immediately below.`
+              : `Rename this ${singular} or update its tags.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -131,7 +149,7 @@ export function AssetFormModal({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {mode === "add" ? `Add ${singular.toLowerCase()}` : "Save"}
+            {mode === "add" ? `Add ${singular}` : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

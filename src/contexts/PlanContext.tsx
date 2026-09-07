@@ -67,7 +67,8 @@ function writePlanToSession(next: Plan): void {
  *   2. sessionStorage `fabads:plan` — survives navigation that drops the
  *      URL param (the cause of the original bug: `navigate("/launch")` was
  *      wiping `?plan=full` because it didn't carry the search string)
- *   3. "ai" default — fresh tabs/sessions land on AI per Maalik's intent
+ *   3. "full" default — fresh tabs/sessions land on Growth (full plan) unless
+ *      overridden by sessionStorage or URL params
  *
  * `setPlan` writes BOTH sessionStorage AND the URL. The URL keeps the
  * existing shareable / back-button-aware behavior; sessionStorage prevents
@@ -75,9 +76,8 @@ function writePlanToSession(next: Plan): void {
  * mount back into sessionStorage, so deep-links via `?plan=full` hydrate
  * the session correctly even without a subsequent setPlan call.
  *
- * Use sessionStorage (not localStorage) because Maalik wants AI to be the
- * default surface for new tabs/sessions; only intra-session navigation
- * should preserve the toggle.
+ * Use sessionStorage (not localStorage) for intra-session persistence;
+ * the default "full" plan applies to fresh tabs/sessions.
  */
 export function PlanProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();

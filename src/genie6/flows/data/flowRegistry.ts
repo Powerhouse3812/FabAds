@@ -296,6 +296,14 @@ export const FLOW_MODULES: FlowModule[] = [
       "use-concept",
       "use-framework",
       "use-storyboard",
+      // §7.3 — "Reports carries all Video Sage actions after analysis."
+      // §7.1 defines the Video Sage vocabulary as seven actions total (the
+      // four use-* above plus these three) — Industry Insights and Creative
+      // Library both already carry all seven; Reports was missing these
+      // three.
+      "vary-script",
+      "vary-concept",
+      "vary-whole-video",
       "top-performer-as-reference",
       "refresh-fatigued",
       // §6 Rule 6 — see the note on industry-insights above.

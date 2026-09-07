@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Bookmark,
@@ -19,10 +19,11 @@ interface ScriptRailProps {
   onSave: (script: string) => void;
   onClose: () => void;
   /**
-   * §21.2 "Script becomes a gated pre-step" — true only for script-led
-   * approaches (decided by the caller). When true, saving a script from any
-   * tab moves into a review→approve phase instead of closing immediately;
-   * when false, Save behaves exactly as it always has (save + close).
+   * §21.2 / §6 "Script becomes a gated pre-step" — true only for script-led
+   * approaches (decided by the caller via `isScriptLedState`, useWizard.ts —
+   * UGC Video, or Product Shoot). When true, saving a script from any tab
+   * moves into a review→approve phase instead of closing immediately; when
+   * false, Save behaves exactly as it always has (save + close).
    */
   gated: boolean;
   scriptApproved: boolean;
@@ -32,9 +33,34 @@ interface ScriptRailProps {
    *  this wizard never re-enter the review phase. */
   onSkipReview: () => void;
   /** Seeds the AI tab's prompt when a gated approach opens this rail with no
-   *  script yet — one click turns "Auto" into a reviewable draft instead of
-   *  leaving the gate with nothing to actually approve. */
+   *  script yet. Rarely needed now that useWizard's background effect
+   *  auto-fills `script` before the rail is ever opened (§6) — kept as a
+   *  fallback for the case there isn't enough entity context yet. */
   promptSeed?: string;
+  /**
+   * §6 — true while useWizard's background effect is producing the script
+   * (an ~800ms simulated generation, same feel as this rail's own manual AI
+   * tab). Drives the waiting/shimmer view below so opening the rail before
+   * the script exists yet is never a dead end — the user can wait, write it
+   * themselves, or skip review, right away.
+   */
+  scriptGenerating?: boolean;
+  /**
+   * §6 "Product Shoot has this too" — swaps "script" language for "what's
+   * about to be made" language (Product Shoot's sub-step is a shot plan, not
+   * dialogue). Plumbing (save / approve / skip / regenerate) is identical.
+   */
+  isProductShoot?: boolean;
+  /** Provenance of `currentScript` — purely cosmetic here (a small "auto" vs
+   *  "your edit" caption), the actual logic lives in useWizard.ts. */
+  scriptOrigin?: "auto" | "user" | null;
+  /**
+   * Optional — requests a fresh auto-generated script/plan for the CURRENT
+   * inputs, discarding whatever text is showing now. Typically wired to
+   * `wizard.patch(scriptResetPatch())` (useWizard.ts). Hidden when omitted,
+   * so this rail still works unchanged against a caller that hasn't wired it.
+   */
+  onRegenerate?: () => void;
 }
 
 type Tab = "enter" | "upload" | "ai";
@@ -128,19 +154,48 @@ export function ScriptRail({
   onApprove,
   onSkipReview,
   promptSeed,
+  scriptGenerating = false,
+  isProductShoot = false,
+  scriptOrigin = null,
+  onRegenerate,
 }: ScriptRailProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const hasScript = !!currentScript && currentScript.trim().length > 0;
 
   // §21.2 — reopening a gated rail that already has an unapproved script
   // should show the REVIEW screen directly (that's the point of the gate),
   // not restart composing. Fresh/ungated opens start in compose, unchanged.
-  const startsInReview =
-    gated &&
-    !skipScriptReview &&
-    !scriptApproved &&
-    !!currentScript &&
-    currentScript.trim().length > 0;
+  const startsInReview = gated && !skipScriptReview && !scriptApproved && hasScript;
   const [phase, setPhase] = useState<Phase>(startsInReview ? "review" : "compose");
+
+  // §6 — the rail can be opened WHILE useWizard's background effect is still
+  // writing the first script (no script yet, `scriptGenerating` true). Rather
+  // than a dead compose tab, show a real waiting view — with the escape
+  // hatches (write it myself / skip review) visible immediately, so the rail
+  // never traps the user even before there's anything to review.
+  const [bypassWaiting, setBypassWaiting] = useState(false);
+  const showWaiting = gated && !hasScript && scriptGenerating && !bypassWaiting;
+
+  // The moment the background fill lands (hasScript flips true) while the
+  // waiting view was showing, jump straight to review — that's the whole
+  // point of §6 ("arrives generated... from there they can edit it, or go
+  // straight to generate"). Never fires once the user chose "write it myself"
+  // (bypassWaiting) — they're mid-composing, an auto-fill landing behind
+  // their back shouldn't yank them anywhere.
+  useEffect(() => {
+    if (
+      gated &&
+      !bypassWaiting &&
+      hasScript &&
+      !skipScriptReview &&
+      !scriptApproved &&
+      phase !== "review"
+    ) {
+      setPhase("review");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasScript]);
 
   /* ── URL → initial state ── */
   const initialTab: Tab = useMemo(() => {
@@ -321,17 +376,33 @@ export function ScriptRail({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const noun = isProductShoot ? "shot plan" : "script";
+  const headerKicker = showWaiting
+    ? "Before you generate"
+    : phase === "review"
+      ? "Before you generate"
+      : "Prompt";
+  const headerTitle = showWaiting
+    ? isProductShoot
+      ? "Planning the shoot"
+      : "Writing your script"
+    : phase === "review"
+      ? isProductShoot
+        ? "Review the shot plan"
+        : "Review your script"
+      : isProductShoot
+        ? "Shot plan"
+        : "Script";
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between border-b border-border/40 px-3 py-2.5">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {phase === "review" ? "Before you generate" : "Prompt"}
+            {headerKicker}
           </p>
-          <h3 className="text-sm font-semibold text-foreground">
-            {phase === "review" ? "Review your script" : "Script"}
-          </h3>
+          <h3 className="text-sm font-semibold text-foreground">{headerTitle}</h3>
         </div>
         <button
           type="button"
@@ -343,17 +414,34 @@ export function ScriptRail({
         </button>
       </header>
 
-      {phase === "review" ? (
-        /* §21.2 "Script becomes a gated pre-step": generate → review → edit
-           → approve → then generate the ad. At 30-40 minutes per video, an
-           unseen auto-script is an expensive mistake — so Approve is the
-           only way past the gate besides the explicit Skip escape. */
+      {showWaiting ? (
+        /* §6 — the script/plan hasn't landed yet (useWizard's background
+           effect is still producing it). Real dimension-matched shimmer, not
+           a spinner — and BOTH escapes ("write it myself" / "skip review")
+           are already reachable here, not only once text exists. */
+        <ScriptRailWaiting
+          isProductShoot={isProductShoot}
+          onWriteMyself={() => setBypassWaiting(true)}
+        />
+      ) : phase === "review" ? (
+        /* §6 "Script as a pre-step": arrives generated → review → edit OR
+           approve straight through. At 30-40 minutes per video (or a full
+           re-shoot for Product Shoot), an unseen script/plan is an expensive
+           mistake — Approve is the fast path, Edit the other, and the
+           persistent "skip review" footer below is the explicit escape. */
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1">
-            <Sparkles className="h-3 w-3 text-primary" />
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-primary">
-              Review before generating
-            </span>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1">
+              <Sparkles className="h-3 w-3 text-primary" />
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-primary">
+                Review before generating
+              </span>
+            </div>
+            {scriptOrigin && (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {scriptOrigin === "user" ? "Edited by you" : "Auto-written"}
+              </span>
+            )}
           </div>
           <div className="rounded-xl border border-border/40 bg-card p-3">
             <pre className="max-h-[260px] overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed text-foreground">
@@ -361,8 +449,9 @@ export function ScriptRail({
             </pre>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-            At 30–40 minutes per video, an unseen auto-script is an expensive
-            mistake. Approve it to generate, or edit it first.
+            {isProductShoot
+              ? "An unreviewed shot plan risks a full re-shoot. Approve it to generate, or edit it first."
+              : "At 30–40 minutes per video, an unseen auto-script is an expensive mistake. Approve it to generate, or edit it first."}
           </p>
           <div className="mt-4 flex items-center gap-2">
             <button
@@ -374,7 +463,7 @@ export function ScriptRail({
               className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
             >
               <Check className="h-3 w-3" />
-              Approve script
+              {isProductShoot ? "Approve plan" : "Approve script"}
             </button>
             <button
               type="button"
@@ -382,19 +471,20 @@ export function ScriptRail({
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30"
             >
               <Pencil className="h-3 w-3" />
-              Edit script
+              {isProductShoot ? "Edit plan" : "Edit script"}
             </button>
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                title={`Regenerate this ${noun} from the current brand, product, angle and concept`}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Regenerate
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              onSkipReview();
-              onClose();
-            }}
-            className="mt-3 inline-flex items-center text-[11px] font-medium text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
-          >
-            Skip review from now on — generate without approving
-          </button>
         </div>
       ) : (
         <>
@@ -421,7 +511,11 @@ export function ScriptRail({
               <div>
                 <textarea
                   rows={10}
-                  placeholder="Paste or type your script here…"
+                  placeholder={
+                    isProductShoot
+                      ? "Describe the shots you want — e.g. hero shot, detail macro, lifestyle insert…"
+                      : "Paste or type your script here…"
+                  }
                   value={enteredText}
                   onChange={(e) => setEnteredText(e.target.value)}
                   className="w-full rounded-xl border border-border/40 bg-card p-3 text-sm leading-relaxed outline-none focus:border-foreground/20"
@@ -436,7 +530,7 @@ export function ScriptRail({
                     disabled={!enteredText.trim()}
                     className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Use this script
+                    {isProductShoot ? "Use this plan" : "Use this script"}
                   </button>
                 </div>
               </div>
@@ -485,7 +579,7 @@ export function ScriptRail({
                         onClick={() => commitScript(uploadedText)}
                         className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
                       >
-                        Use this script
+                        {isProductShoot ? "Use this plan" : "Use this script"}
                       </button>
                     </div>
                   </div>
@@ -499,7 +593,11 @@ export function ScriptRail({
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="What kind of script? E.g. '15-second UGC for a hair serum, problem-solution'"
+                    placeholder={
+                      isProductShoot
+                        ? "What's the shoot? E.g. 'Hero + macro shots for a hair serum, clean studio look'"
+                        : "What kind of script? E.g. '15-second UGC for a hair serum, problem-solution'"
+                    }
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     onKeyDown={(e) => {
@@ -523,8 +621,9 @@ export function ScriptRail({
                 {/* Generated output cards */}
                 {generations.length === 0 && !generating && (
                   <p className="py-12 text-center text-[12px] text-muted-foreground">
-                    AI will write scripts based on your prompt. Each output you can copy,
-                    regenerate, save, or use.
+                    {isProductShoot
+                      ? "AI will draft a shot plan based on your prompt. Each output you can copy, regenerate, save, or use."
+                      : "AI will write scripts based on your prompt. Each output you can copy, regenerate, save, or use."}
                   </p>
                 )}
 
@@ -536,7 +635,7 @@ export function ScriptRail({
                     <div className="mb-2 flex items-center gap-1.5">
                       <Sparkles className="h-3 w-3 text-primary" />
                       <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Script · v{idx + 1}
+                        {isProductShoot ? "Plan" : "Script"} · v{idx + 1}
                       </span>
                     </div>
                     <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-foreground">
@@ -620,6 +719,102 @@ export function ScriptRail({
           </div>
         </>
       )}
+
+      {/*
+       * §6 "A review opportunity, not a hard gate" — the persistent escape.
+       * Previously this only rendered inside the review phase, reachable
+       * only once the user had already produced script text themselves. It
+       * now lives OUTSIDE the phase branches so it's visible no matter which
+       * one is showing — waiting, review, or compose (e.g. after "Edit
+       * script" / "Write it myself") — the rail can never strand the user
+       * without this escape in view.
+       */}
+      {gated && (
+        <footer className="shrink-0 border-t border-border/40 px-4 py-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              onSkipReview();
+              onClose();
+            }}
+            className="inline-flex items-center text-[11px] font-medium text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
+          >
+            Skip review from now on — generate without approving
+          </button>
+        </footer>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  ScriptRailWaiting — shown while useWizard's background effect is still
+ *  producing the script/plan (§6). A real shimmer skeleton sized to match
+ *  the review layout's dimensions (Fabfunnel DS: 2.4s shimmer, lime
+ *  mid-band, never a spinner or bare "Loading…"), plus both escapes
+ *  ("write it myself" / handled by the persistent skip footer) visible
+ *  immediately — the rail is never a dead end while text is in flight.
+ * ────────────────────────────────────────────────────────── */
+function ScriptRailWaiting({
+  isProductShoot,
+  onWriteMyself,
+}: {
+  isProductShoot: boolean;
+  onWriteMyself: () => void;
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1">
+        <Sparkles className="h-3 w-3 text-primary animate-pulse" />
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-primary">
+          {isProductShoot ? "Planning the shots" : "Writing the script"}
+        </span>
+      </div>
+
+      {/* Skeleton — matches the review card's real dimensions (rounded-xl
+          card, ~260px max body) so it reads as "this is loading", not a
+          generic placeholder. */}
+      <div className="rounded-xl border border-border/40 bg-card p-3">
+        <div className="space-y-2.5">
+          <ShimmerLine className="h-3 w-5/6" />
+          <ShimmerLine className="h-3 w-full" />
+          <ShimmerLine className="h-3 w-2/3" />
+          <div className="h-2" />
+          <ShimmerLine className="h-3 w-4/5" />
+          <ShimmerLine className="h-3 w-3/5" />
+        </div>
+      </div>
+
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        {isProductShoot
+          ? "Genie is putting together what's about to be made — brand, product, angle, and concept all feed into it."
+          : "Genie is writing this from your brand, product, angle, and concept — takes a moment."}
+      </p>
+
+      <button
+        type="button"
+        onClick={onWriteMyself}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30"
+      >
+        <Pencil className="h-3 w-3" />
+        Write it myself instead
+      </button>
+    </div>
+  );
+}
+
+/** One shimmer line — lime mid-band sweeping over a neutral track, 2.4s
+ *  linear infinite (`v3-shimmer`, tailwind.config.ts), same recipe used by
+ *  the queue progress bar's ShimmerOverlay and the generate-v3 lab's
+ *  lime-sheen underline. `bg-muted` sets the resting/track color so the
+ *  block reads correctly even between shimmer sweeps. */
+function ShimmerLine({ className }: { className?: string }) {
+  return (
+    <div className={cn("relative overflow-hidden rounded-md bg-muted", className)}>
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/60 to-transparent bg-[length:200%_100%] animate-v3-shimmer"
+      />
     </div>
   );
 }
