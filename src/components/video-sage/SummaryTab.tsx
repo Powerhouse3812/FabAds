@@ -1,11 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Bookmark } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import SaveFrameworkButton from "./SaveFrameworkDialog";
+import type { VideoSageVideo } from "@/hooks/use-video-sage";
 import type { VideoSageAnalysis } from "@/lib/video-sage-dummy-data";
 
 interface Props {
   analysis: VideoSageAnalysis;
+  video: Pick<VideoSageVideo, "id" | "title">;
 }
 
 const FIELD_LABELS = [
@@ -15,7 +16,7 @@ const FIELD_LABELS = [
   { key: "by" as const, label: "By", subtitle: "Mechanism" },
 ];
 
-export default function SummaryTab({ analysis }: Props) {
+export default function SummaryTab({ analysis, video }: Props) {
   const { summary, framework, metadata } = analysis;
 
   return (
@@ -47,10 +48,7 @@ export default function SummaryTab({ analysis }: Props) {
               {framework.name} <span className="font-normal text-muted-foreground">— {framework.fullName}</span>
             </p>
           </div>
-          <Button variant={framework.saved ? "default" : "outline"} size="sm" className="gap-1.5">
-            <Bookmark className="w-3.5 h-3.5" />
-            {framework.saved ? "Saved" : "Save"}
-          </Button>
+          <SaveFrameworkButton analysis={analysis} video={video} variant="compact" />
         </CardContent>
       </Card>
 

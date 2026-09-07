@@ -45,17 +45,24 @@ export type Mode =
 export type GenerationTarget = "ad" | "script" | "concept" | "storyboard";
 
 /**
- * The five things a generation can ARRIVE carrying (owner's ruling,
+ * The six things a generation can ARRIVE carrying (owner's ruling,
  * verbatim):
- *  - "angle"     → carries an angle only.
- *  - "hook"      → carries neither an angle nor a concept.
- *  - "concept"   → carries a concept AND its angle.
- *  - "framework" → carries STRUCTURE ONLY — section order (hook > discovery
- *                  > CTA > before/after > CTA, etc.) — never an angle or a
- *                  concept.
- *  - "script"    → carries the script text.
- *  - "none"      → no incoming source — today's plain "from scratch" case,
- *                  and every existing Ad flow's default.
+ *  - "angle"      → carries an angle only.
+ *  - "hook"       → carries neither an angle nor a concept.
+ *  - "concept"    → carries a concept AND its angle.
+ *  - "framework"  → carries STRUCTURE ONLY — section order (hook > discovery
+ *                   > CTA > before/after > CTA, etc.) — never an angle or a
+ *                   concept.
+ *  - "script"     → carries the script text.
+ *  - "storyboard" → NEW (2026-09-08, product owner, verbatim): "Storyboard se
+ *                   bhi build ho skta hai, same as a script. Storyboard is
+ *                   nothing but a script with visuals." Carries exactly what
+ *                   "script" carries — see `SOURCE_CARRIES` and
+ *                   `VALID_SOURCES_BY_TARGET` below, which give it the
+ *                   identical shape rather than a parallel copy that could
+ *                   drift.
+ *  - "none"       → no incoming source — today's plain "from scratch" case,
+ *                   and every existing Ad flow's default.
  */
 export type GenerationSource =
   | "none"
@@ -63,7 +70,8 @@ export type GenerationSource =
   | "hook"
   | "concept"
   | "framework"
-  | "script";
+  | "script"
+  | "storyboard";
 
 /**
  * Step 3's vocabulary correction (owner, verbatim): "Approach is nothing but
@@ -464,30 +472,56 @@ const SOURCE_CARRIES: Record<GenerationSource, { angle: boolean; concept: boolea
   // never supplies an angle or a concept, so it satisfies nothing here.
   framework: { angle: false, concept: false },
   script: { angle: false, concept: false },
+  // Storyboard = script + visuals (owner's ruling) — carries exactly what
+  // script carries: neither an angle nor a concept value on its own.
+  storyboard: { angle: false, concept: false },
 };
 
 /** Confirmed source → target pairs (owner, verbatim). Used only to flag an
  *  unsupported combination — `resolveGenerationSteps` still returns a plan
  *  for an "invalid" pair rather than throwing (same spirit as
- *  `resolveFlowContext` degrading instead of throwing on a bad URL). */
+ *  `resolveFlowContext` degrading instead of throwing on a bad URL).
+ *
+ *  WIDENED (2026-09-08, product owner, verbatim): "Storyboard is nothing but
+ *  a script with visuals" — so "storyboard" (source) now reaches ALL FOUR
+ *  targets — Ad, Script, Concept AND Storyboard — not just Ad and Concept. It
+ *  carries the script (Script is derivable by dropping the visuals) and it
+ *  can seed a fresh storyboard, but that last one ONLY as a variation — same
+ *  shape as concept ← concept below. So "storyboard" is deliberately ABSENT
+ *  from the "storyboard" target's own list here; that self-pair is handled
+ *  exclusively by `isValidSourceForTarget`'s `isVariation` branch, never as a
+ *  plain pair. `targetsForSource("storyboard")` (flowRegistry.ts) checks both
+ *  the plain list AND the variation branch, so it still comes out to all four
+ *  targets without this list lying about the plain (non-variation) case. */
 const VALID_SOURCES_BY_TARGET: Record<GenerationTarget, GenerationSource[]> = {
-  ad: ["none", "angle", "hook", "concept", "framework", "script"],
-  script: ["none", "angle", "hook", "concept", "framework"],
-  concept: ["none", "angle", "hook", "framework", "script"],
+  ad: ["none", "angle", "hook", "concept", "framework", "script", "storyboard"],
+  script: ["none", "angle", "hook", "concept", "framework", "storyboard"],
+  concept: ["none", "angle", "hook", "framework", "script", "storyboard"],
   storyboard: ["none", "angle", "hook", "concept", "framework"],
 };
 
 /**
  * Is this (target, source) pair one the owner actually confirmed? A concept
- * can also come from another concept, but ONLY as a variation (pass
- * `isVariation: true`) — as a non-variation pair it isn't on the list.
+ * can also come from another concept, and — same reasoning, same shape — a
+ * storyboard can come from another storyboard, but EITHER ONLY as a
+ * variation (pass `isVariation: true`); as a non-variation pair neither
+ * self-pair is on the list above. Following the concept precedent for
+ * storyboard→storyboard means it never asks anything and always lands on the
+ * last step (§7 Rule 1), and it stays gated by `isStoryboardOfferable` /
+ * `resolveGenerationSteps`'s `formatValid` just like every other storyboard
+ * target — so it's still unavailable on an image format even as a variation.
  */
 export function isValidSourceForTarget(
   target: GenerationTarget,
   source: GenerationSource,
   isVariation = false,
 ): boolean {
-  if (isVariation) return target === "concept" && source === "concept";
+  if (isVariation) {
+    return (
+      (target === "concept" && source === "concept") ||
+      (target === "storyboard" && source === "storyboard")
+    );
+  }
   return VALID_SOURCES_BY_TARGET[target].includes(source);
 }
 

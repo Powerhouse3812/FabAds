@@ -1,16 +1,19 @@
-import { Copy, Download, RefreshCw, Bookmark } from "lucide-react";
+import { Copy, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import FrameworkTimeline from "./FrameworkTimeline";
+import SaveFrameworkButton from "./SaveFrameworkDialog";
 import type { VideoSageAnalysis } from "@/lib/video-sage-dummy-data";
+import type { VideoSageVideo } from "@/hooks/use-video-sage";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
   analysis: VideoSageAnalysis;
+  video: Pick<VideoSageVideo, "id" | "title">;
 }
 
-export default function FrameworkTab({ analysis }: Props) {
+export default function FrameworkTab({ analysis, video }: Props) {
   const { framework, storyboard } = analysis;
 
   const copyBlock = (text: string) => {
@@ -29,10 +32,7 @@ export default function FrameworkTab({ analysis }: Props) {
               Framework: {framework.name} ({framework.fullName})
             </p>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Bookmark className="w-3.5 h-3.5" />
-            Save framework
-          </Button>
+          <SaveFrameworkButton analysis={analysis} video={video} variant="full" />
         </CardContent>
       </Card>
 

@@ -92,10 +92,10 @@ export default function VideoSageDetail({ video, onBack }: Props) {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="summary" className="mt-4">
-                <SummaryTab analysis={analysis} />
+                <SummaryTab analysis={analysis} video={video} />
               </TabsContent>
               <TabsContent value="framework" className="mt-4">
-                <FrameworkTab analysis={analysis} />
+                <FrameworkTab analysis={analysis} video={video} />
               </TabsContent>
               <TabsContent value="storyboard" className="mt-4">
                 <StoryboardTab analysis={analysis} />

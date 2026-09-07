@@ -15,15 +15,22 @@
  * an empty one — there is nothing to wire yet, and an empty list is honest
  * about that instead of guessing.
  *
- * ASSETS TOO, NOT ONLY ADS (2026-09-08) — five actions now carry a formal
- * `source` (use-script/use-concept/use-framework/use-angle/use-hook) and can
- * each produce more than the Ad they always could. Which targets any of them
- * can actually reach is computed by `targetsForSource()` below, straight off
+ * ASSETS TOO, NOT ONLY ADS (2026-09-08) — six actions now carry a formal
+ * `source` (use-script/use-concept/use-framework/use-angle/use-hook/
+ * use-storyboard) and can each produce more than the Ad they always could.
+ * use-storyboard is the SAME action §8.1 already shipped (Video Sage's
+ * "Use storyboard") — extended in place to carry `source: "storyboard"`
+ * instead of `"none"`, per the owner's later ruling that a storyboard is
+ * "nothing but a script with visuals" and so behaves exactly like
+ * use-script (same target set: Ad, Concept). No second storyboard action
+ * was added. Which targets any of these six can actually reach is computed
+ * by `targetsForSource()` below, straight off
  * `isValidSourceForTarget`/`VALID_SOURCES_BY_TARGET` (useWizard.ts, read-only)
  * — there is no second copy of that matrix here. Every other action keeps
  * `source: "none"` and `targets: ["ad"]`: they attach a REFERENCE (a whole
  * winning ad, a trend, a landing page…), not angle/hook/concept/framework/
- * script content, so "Ad, from anything" is the only pair that ever applied.
+ * script/storyboard content, so "Ad, from anything" is the only pair that
+ * ever applied.
  */
 import type { FlowAction, FlowActionId, FlowModule, FlowModuleKey } from "../flowTypes";
 import { isValidSourceForTarget, type GenerationSource, type GenerationTarget } from "../../studio-v4/state/useWizard";
@@ -209,16 +216,30 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
   "use-storyboard": {
     id: "use-storyboard",
     label: "Use storyboard",
-    desc: "Carry this storyboard's scenes into a new ad. You'll pick who it's for.",
+    desc: "Carry this storyboard's scenes into a new generation. You'll pick what to make and who it's for.",
     icon: "Clapperboard",
     asksNothing: false,
     entityTab: "product",
     preselectEntity: false,
-    // Storyboard is never a GenerationSource (useWizard.ts) — it's a target
-    // only, so this stays Ad-only exactly like it was before this change.
-    produces: "A new ad built from this storyboard. You'll pick who it's for next.",
-    source: "none",
-    targets: ["ad"],
+    // NEW (2026-09-08, product owner, verbatim): "Storyboard se bhi build ho
+    // skta hai, same as a script. Storyboard is nothing but a script with
+    // visuals." So Storyboard is now a formal GenerationSource that behaves
+    // EXACTLY like Script-as-a-source — same target set (Ad, Concept), same
+    // SOURCE_CARRIES (neither angle nor concept), both computed off the
+    // identical contract via `targetsForSource()`. This is the SAME action
+    // this module already offered (source: "none" / targets: ["ad"]),
+    // extended in place rather than added as a second "storyboard-source"
+    // action — it's already reachable on the exact same 4 modules
+    // (Industry Insights, Video Sage, Reports, Creative Library) that carry
+    // use-script/use-concept/use-framework/use-angle/use-hook, so no module's
+    // action list needed to change.
+    produces: "An ad, or a free concept — built from this storyboard. You'll pick what to generate next.",
+    producesByTarget: {
+      ad: "A new ad built from this storyboard. You'll pick who it's for next.",
+      concept: "A new concept, drawn from this storyboard — free. You'll pick who it's for next.",
+    },
+    source: "storyboard",
+    targets: targetsForSource("storyboard"),
     requiresAnalysis: true,
   },
   "use-angle": {
