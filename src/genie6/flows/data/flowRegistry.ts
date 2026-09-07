@@ -21,10 +21,12 @@
  * use-storyboard is the SAME action §8.1 already shipped (Video Sage's
  * "Use storyboard") — extended in place to carry `source: "storyboard"`
  * instead of `"none"`, per the owner's later ruling that a storyboard is
- * "nothing but a script with visuals" and so behaves exactly like
- * use-script (same target set: Ad, Concept). No second storyboard action
- * was added. Which targets any of these six can actually reach is computed
- * by `targetsForSource()` below, straight off
+ * "nothing but a script with visuals." WIDENED same day: its target set is
+ * now all four — Ad, Script, Concept AND Storyboard (that last one valid
+ * only as a variation, same precedent as concept ← concept) — not just Ad
+ * and Concept. No second storyboard action was added. Which targets any of
+ * these six can actually reach is computed by `targetsForSource()` below,
+ * straight off
  * `isValidSourceForTarget`/`VALID_SOURCES_BY_TARGET` (useWizard.ts, read-only)
  * — there is no second copy of that matrix here. Every other action keeps
  * `source: "none"` and `targets: ["ad"]`: they attach a REFERENCE (a whole
@@ -223,20 +225,40 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     preselectEntity: false,
     // NEW (2026-09-08, product owner, verbatim): "Storyboard se bhi build ho
     // skta hai, same as a script. Storyboard is nothing but a script with
-    // visuals." So Storyboard is now a formal GenerationSource that behaves
-    // EXACTLY like Script-as-a-source — same target set (Ad, Concept), same
-    // SOURCE_CARRIES (neither angle nor concept), both computed off the
-    // identical contract via `targetsForSource()`. This is the SAME action
-    // this module already offered (source: "none" / targets: ["ad"]),
-    // extended in place rather than added as a second "storyboard-source"
-    // action — it's already reachable on the exact same 4 modules
-    // (Industry Insights, Video Sage, Reports, Creative Library) that carry
-    // use-script/use-concept/use-framework/use-angle/use-hook, so no module's
-    // action list needed to change.
-    produces: "An ad, or a free concept — built from this storyboard. You'll pick what to generate next.",
+    // visuals." So Storyboard is a formal GenerationSource, computed off the
+    // exact same `isValidSourceForTarget`/`VALID_SOURCES_BY_TARGET` contract
+    // as every other source (useWizard.ts) — no second copy of the matrix
+    // lives here. This is the SAME action this module already offered
+    // (source: "none" / targets: ["ad"]), extended in place rather than
+    // added as a second "storyboard-source" action — it's already reachable
+    // on the exact same 4 modules (Industry Insights, Video Sage, Reports,
+    // Creative Library) that carry use-script/use-concept/use-framework/
+    // use-angle/use-hook, so no module's action list needed to change.
+    //
+    // WIDENED (2026-09-08, same day, owner's follow-up ruling): the target
+    // set is now ALL FOUR — Ad, Script, Concept AND Storyboard — not just Ad
+    // and Concept. Reasoning, verbatim: a storyboard "carries the script"
+    // (so Script is derivable from it by dropping the visuals) and "it can
+    // seed a fresh storyboard as a variation." That last one is the ONE
+    // exception below: storyboard ← storyboard is valid ONLY as a variation
+    // (isValidSourceForTarget's `isVariation` branch — same precedent as
+    // concept ← concept), so it asks nothing and lands straight on the last
+    // step (§7 Rule 1) whenever `resolveFlowContext` resolves this action
+    // with `target: "storyboard"`. `targetsForSource("storyboard")` below
+    // already accounts for that branch, so this list is still fully derived,
+    // never hand-typed.
+    produces:
+      "An ad, or a free script, concept, or another storyboard variation — built from this storyboard. You'll pick what to generate next.",
     producesByTarget: {
       ad: "A new ad built from this storyboard. You'll pick who it's for next.",
+      script: "A new script, drawn from this storyboard — free. You'll pick who it's for next.",
       concept: "A new concept, drawn from this storyboard — free. You'll pick who it's for next.",
+      // The only storyboard ← storyboard pair (isValidSourceForTarget's
+      // variation branch) — asks nothing and lands straight on the last
+      // step, same as concept's own self-variation line above it in
+      // "use-concept". Video-format-only, same as every storyboard target
+      // (isStoryboardOfferable / resolveGenerationSteps's `formatValid`).
+      storyboard: "A new variation of this storyboard, video format only — free. Same scenes, a fresh take. Nothing else to fill in.",
     },
     source: "storyboard",
     targets: targetsForSource("storyboard"),

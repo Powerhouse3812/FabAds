@@ -57,10 +57,14 @@ export type GenerationTarget = "ad" | "script" | "concept" | "storyboard";
  *  - "storyboard" → NEW (2026-09-08, product owner, verbatim): "Storyboard se
  *                   bhi build ho skta hai, same as a script. Storyboard is
  *                   nothing but a script with visuals." Carries exactly what
- *                   "script" carries — see `SOURCE_CARRIES` and
- *                   `VALID_SOURCES_BY_TARGET` below, which give it the
- *                   identical shape rather than a parallel copy that could
- *                   drift.
+ *                   "script" carries — see `SOURCE_CARRIES` below, which
+ *                   gives it the identical CARRY shape rather than a
+ *                   parallel copy that could drift. Its TARGET reach is
+ *                   wider than script's, though (owner's same-day follow-up):
+ *                   it can also reach the "script" target (dropping the
+ *                   visuals) and its own "storyboard" target, the latter
+ *                   ONLY as a variation — see `VALID_SOURCES_BY_TARGET` and
+ *                   `isValidSourceForTarget` below for exactly which.
  *  - "none"       → no incoming source — today's plain "from scratch" case,
  *                   and every existing Ad flow's default.
  */

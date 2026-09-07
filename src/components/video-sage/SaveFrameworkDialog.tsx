@@ -107,7 +107,7 @@ export function buildFrameworkFromAnalysis(
 
   return {
     id: `framework-vs-${video.id}-${Date.now().toString(36)}`,
-    name: framework.name,
+    name,
     fullName: framework.fullName,
     description: `Detected on "${video.title}" — Video Sage analysis.`,
     provenance: "client-created",
