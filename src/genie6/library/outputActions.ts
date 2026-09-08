@@ -4,7 +4,7 @@
  * hook (`useOutputCardActions.tsx`) stays a thin adapter over this.
  */
 import type { FlowActionId } from "../flows/flowTypes";
-import { flowSearchParams } from "../flows/flowTypes";
+import { flowSearchParams, FLOW_PARAM_TWEAK } from "../flows/flowTypes";
 import type { RunOrigin } from "../lib/genieRunTypes";
 import { startBatch } from "../lib/genieRunStore";
 import { getWinnerAdsForEntity } from "@/mocks/shared/winnerAds";
@@ -48,9 +48,20 @@ const ASKS_NOTHING = new Set<FlowActionId>([
   "refresh-fatigued",
 ]);
 
-function studioFlowUrl(output: OutputData, action: FlowActionId): string {
+function studioFlowUrl(
+  output: OutputData,
+  action: FlowActionId,
+  opts?: { tweak?: boolean },
+): string {
   const sp = flowSearchParams("creative-library", output.id, action);
-  const slug = ASKS_NOTHING.has(action) ? "configure" : "product";
+  // §7 — "Customize first" turns a Rule-1 action back into one that stops at
+  // Step 2. It has to override the slug too, not just carry the param: the
+  // slug in the path wins over the resolved landingStep (see above), so
+  // leaving it as "configure" would land the user exactly where the fork
+  // exists to avoid.
+  const tweak = !!opts?.tweak;
+  if (tweak) sp.set(FLOW_PARAM_TWEAK, "1");
+  const slug = ASKS_NOTHING.has(action) && !tweak ? "configure" : "product";
   return `${STUDIO_BASE}/${slug}?${sp.toString()}`;
 }
 
@@ -114,8 +125,9 @@ export function varyActionUrl(
     FlowActionId,
     "vary-script" | "vary-concept" | "vary-whole-video" | "generate-variation"
   >,
+  opts?: { tweak?: boolean },
 ): string {
-  return studioFlowUrl(output, action);
+  return studioFlowUrl(output, action, opts);
 }
 
 export function referenceForNewAdUrl(output: OutputData): string {

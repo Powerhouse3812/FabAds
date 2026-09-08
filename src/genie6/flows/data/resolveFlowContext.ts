@@ -27,7 +27,13 @@
  * (`use-concept`) has `asksNothing: false`.
  */
 import type { FlowActionId, FlowContext, FlowModuleKey, FlowSourceRef } from "../flowTypes";
-import { FLOW_PARAM_ACT, FLOW_PARAM_REF, FLOW_PARAM_SRC, FLOW_PARAM_TARGET } from "../flowTypes";
+import {
+  FLOW_PARAM_ACT,
+  FLOW_PARAM_REF,
+  FLOW_PARAM_SRC,
+  FLOW_PARAM_TARGET,
+  FLOW_PARAM_TWEAK,
+} from "../flowTypes";
 import { FLOW_ACTIONS, getFlowModule } from "./flowRegistry";
 import { DEFAULT_BRAND_ID, DEFAULT_BRAND_NAME, getFlowSource } from "./flowSources";
 import type { Format, GenerationTarget, WizardState } from "../../studio-v4/state/useWizard";
@@ -190,6 +196,17 @@ export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partia
     generationSource: ctx.source,
     isVariation: ctx.isVariation,
   };
+
+  // §7 — the variation fork's "Customize first" branch. Still a variation, so
+  // `isVariation` above stays true and the prompt carry-over further down is
+  // untouched; `variationTweak` is what stops `resolveGenerationSteps` from
+  // collapsing the wizard to Configure, and Step 2 is where there is actually
+  // something to change. Gated on the variation family so a stray `?tweak=1`
+  // on any other action is inert rather than quietly re-routing it.
+  if (sp?.get(FLOW_PARAM_TWEAK) === "1" && VARIATION_ACTION_IDS.has(action.id)) {
+    patch.variationTweak = true;
+    patch.step = 2;
+  }
 
   // Format — Carousel/Flexible aren't real Studio formats (Format is
   // image|video only); both fold to "image", which is also exactly what

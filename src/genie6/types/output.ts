@@ -39,6 +39,15 @@ export type EllipsisAction =
    * where the stepper owns the count and computeBreakdown() owns the price.
    */
   | "forgeMore"
+  /**
+   * §7 — the variation fork's second branch. Same action, same lineage, same
+   * credits as `forgeMore`; the only difference is that the wizard keeps its
+   * steps and stops at Step 2 so the user can change something before
+   * generating. Deliberately a sibling row rather than a confirmation dialog
+   * on `forgeMore`: the fast path must stay one click, since that is what
+   * "Generate variation" is trained to do everywhere else.
+   */
+  | "forgeMoreTweak"
   | "addFeedback"
   | "addToFolder"
   | "saveAsConcept"

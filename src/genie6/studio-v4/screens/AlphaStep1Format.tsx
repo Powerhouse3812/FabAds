@@ -2,7 +2,11 @@ import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
-import { type Format, type UseWizardReturn } from "../state/useWizard";
+import {
+  resolveGenerationStepsForState,
+  type Format,
+  type UseWizardReturn,
+} from "../state/useWizard";
 
 /**
  * AlphaStep1Format — Step 1: Mode + Format, ONE screen (§21.2).
@@ -134,6 +138,13 @@ function VideoPreview({ selected }: { selected: boolean }) {
 }
 
 export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
+  // Was hardcoded "Step 1 of 4", which was already wrong for any run that
+  // skips a step (an asset flow carrying angle+concept shows three) and became
+  // visibly wrong once step 0 could precede Format. Position and total both
+  // come off this run's own plan now.
+  const plan = resolveGenerationStepsForState(wizard.state);
+  const formatStepPosition = plan.visibleSteps.indexOf(1) + 1;
+  const formatStepTotal = plan.visibleSteps.length;
   return (
     // Mobile: fills the step viewport (min-h-full) and centers so the two
     // cards read as one screen; `md:` restores the original top-aligned,
@@ -150,7 +161,7 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
       <div className="flex flex-col gap-2">
         <HeroHeader title="What are you creating?" onBack={onBack} />
         <p className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Step 1 of 4 · How your creative will appear
+          Step {formatStepPosition} of {formatStepTotal} · How your creative will appear
         </p>
       </div>
 

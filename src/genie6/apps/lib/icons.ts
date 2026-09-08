@@ -6,7 +6,7 @@
  * imports. This is the one place that turns that string into an actual lucide
  * component.
  *
- * The curated map below is the exact 15 icon names `appRegistry.ts` uses
+ * The curated map below is the exact 22 icon names `appRegistry.ts` uses
  * today (checked against it directly) plus a couple of generic fallbacks.
  * Anything outside that list still resolves via a namespace lookup against
  * the real `lucide-react` export table, so a future registry edit that picks
@@ -31,6 +31,15 @@ import {
   MousePointerClick,
   Mic,
   Webcam,
+  Captions,
+  Tags,
+  Wand2,
+  GalleryThumbnails,
+  // Coming soon — folded in from the sidebar TOOLS group (BG Remover,
+  // Resize Image, Object Remover). See appRegistry.ts's header for why.
+  Eraser,
+  Scaling,
+  ImageMinus,
   type LucideIcon as LucideIconType,
 } from "lucide-react";
 
@@ -55,6 +64,14 @@ const ICONS: Record<string, IconComponent> = {
   MousePointerClick,
   Mic,
   Webcam,
+  Captions,
+  Tags,
+  Wand2,
+  GalleryThumbnails,
+  // Coming soon — folded in from the sidebar TOOLS group
+  Eraser,
+  Scaling,
+  ImageMinus,
 };
 
 const FALLBACK: IconComponent = Sparkles;

@@ -56,9 +56,16 @@ export const APPROACH_SUBTYPES: Record<Mode, ApproachSubType[]> = {
     { id: "full-ai",   label: "Full AI",       desc: "Fully animate the scene.", autoAngleId: "hero", conceptIds: ["c-hero-pack"] },
   ],
   "broll": [],
+  // No sub-types yet — same as B-Roll. The obvious candidates (feature tour /
+  // before-after / close-up) are guesses until asked for; an empty list just
+  // means the step doesn't offer a second question.
+  "product-demo": [],
   "bg-remover": [],
   "resize": [],
   "scratch": [],
+  // No sub-types on purpose — picking a sub-type would be the user deciding,
+  // which is the one thing Auto exists not to ask.
+  "auto": [],
 };
 
 /** Does this approach have sub-types to choose from? */
@@ -112,9 +119,15 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
     "create-variations": { angleId: "hero", conceptIds: ["c-hero-pack"] },
     "image-to-video":   { angleId: "hero", conceptIds: ["c-hero-pack"] },
     "broll":            { angleId: "lifestyle", conceptIds: [] },
+    // A demo teaches how the thing works, so it defaults to the educational
+    // angle and the detail-macro concept rather than a hero composition.
+    "product-demo":     { angleId: "educational", conceptIds: ["c-detail-macro"] },
     "bg-remover":       { angleId: "hero", conceptIds: [] },
     "resize":           { angleId: null, conceptIds: [] },
     "scratch":          { angleId: null, conceptIds: [] },
+    // null angle renders as "Angle: Auto" in the rail — which is exactly what
+    // this approach promises, so it needs no special-casing downstream.
+    "auto":             { angleId: null, conceptIds: [] },
   };
   return DEFAULTS[mode] ?? { angleId: null, conceptIds: [] };
 }
@@ -132,7 +145,14 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
  *   - UGC Video and B-Roll are inherently motion       → video
  *   - Create Variations iterates an existing creative
  *     of either kind                                    → both
- *   - From scratch is the format-agnostic catch-all      → both
+ *   - Auto lets Genie choose, so it is format-agnostic   → both
+ *
+ * "From scratch" USED to be that catch-all. Maalik retired it from both lists
+ * on 2026-09-09 and put Auto last in its place: scratch asked the user to
+ * drive everything, which the "Build custom" tab and the Custom Mode on Studio
+ * home both already offer, whereas nothing offered "just decide for me". The
+ * `scratch` Mode itself is deliberately still defined — `generate-from-url`
+ * sets it, and genieRunStore falls back to it — it is only unofferable here.
  *
  * Note this is a FILTER, not a deletion. All seven approaches from §5 stay in
  * Step3Approach's ALL_MODES (§1: "The 7 Studio approaches already exist and
@@ -147,6 +167,6 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
  * format that genuinely resolves to one.
  */
 export const APPROACHES_BY_FORMAT: Record<Format, Mode[]> = {
-  image: ["create-variations", "bg-remover", "resize", "scratch"],
-  video: ["ugc-video", "broll", "image-to-video", "create-variations", "scratch"],
+  image: ["create-variations", "bg-remover", "resize", "auto"],
+  video: ["ugc-video", "broll", "image-to-video", "create-variations", "product-demo", "auto"],
 };

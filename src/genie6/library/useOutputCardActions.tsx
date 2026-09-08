@@ -129,6 +129,11 @@ export function useOutputCardActions(): UseOutputCardActionsResult {
             // batch priced at a flat 4/item — §5 forbids both halves.
             navigate(varyActionUrl(output, "generate-variation"));
             return;
+          case "forgeMoreTweak":
+            // Same hand-off, `tweak` set — the wizard keeps its steps and
+            // stops at Step 2 instead of collapsing to Configure.
+            navigate(varyActionUrl(output, "generate-variation", { tweak: true }));
+            return;
           case "regenerate":
             regenerateOne(output, 1);
             return;

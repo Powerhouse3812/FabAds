@@ -4,7 +4,7 @@ import { resolveIcon } from "../lib/icons";
 import type { GenieApp } from "../appTypes";
 
 /**
- * Real coming-soon page for the 8 apps with no internal screen (§8). A
+ * Real coming-soon page for the 15 apps with no internal screen (§8). A
  * direct URL to one of these must render this, never a crash or a blank —
  * so `AppScreen` routes here whenever `app.state === "coming-soon"`.
  */

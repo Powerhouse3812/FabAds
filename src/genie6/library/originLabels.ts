@@ -48,6 +48,13 @@ export const APP_KEY_LABELS: Record<AppKey, string> = {
   "interactive-video": "Interactive Video",
   "video-podcast": "Video Podcast",
   "live-avatar": "LiveAvatar",
+  "add-video-captions": "Add Video Captions",
+  "change-metadata": "Change Metadata",
+  "prompt-generator": "Prompt Generator",
+  "thumbnail-maker": "Thumbnail Maker",
+  "bg-remover": "BG Remover",
+  "resize-image": "Resize Image",
+  "object-remover": "Object Remover",
 };
 
 /** A stable, unique string key for a `RunOrigin` — used as the `?module=` filter value. */

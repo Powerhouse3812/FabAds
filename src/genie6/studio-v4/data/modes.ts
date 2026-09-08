@@ -1,8 +1,11 @@
 import {
   Camera,
+  Clapperboard,
   Megaphone,
+  Mic,
   ShoppingBag,
   Smartphone,
+  SlidersHorizontal,
   TrendingUp,
 } from "lucide-react";
 
@@ -24,13 +27,54 @@ import {
  * Studio entirely — both had sat `available: false` with no shipped date,
  * unlike Product Shoot/Social below which flip straight to live. Product
  * Shoot and Social enabled the same day.
+ *
+ * Superseded in part (2026-09-09): the roster grew to EIGHT — Podcast (§9,
+ * speaker count is what makes it a Mode), Animated AI (Social's shape in
+ * animation) and Custom, which he asked back in as the 8th, this time live
+ * rather than the `available: false` stub that got dropped. Affiliate stays
+ * gone.
  */
 export type AlphaMode =
   | "product-shoot"
   | "brand-ad"
   | "product-ad"
   | "social"
-  | "performance-ad";
+  | "animated-ai"
+  | "performance-ad"
+  | "podcast"
+  | "custom";
+
+/** The three things a generation can be scoped to. */
+export type EntityKind = "brand" | "product" | "category";
+
+/**
+ * Per-Mode Step-2 rules (Maalik, 2026-09-09, verbatim intent):
+ *   Brand Ad       → brand mandatory
+ *   Product Ad     → product mandatory
+ *   Product Shoot  → product mandatory, MULTI-select
+ *   Performance Ad → category mandatory, product optional
+ *   Social         → all three optional, "one or nothing"
+ *   Animated AI    → same as Social
+ * The complaint that produced this: the same three-tab segmented picker was
+ * shown for every Mode, so a Brand Ad offered a Category tab that its own
+ * flow has no use for, and nothing was ever actually mandatory.
+ *
+ * NOTE `also`: Performance Ad (category + optional product) and Product Shoot
+ * (several products at once) are both impossible under the Step-2 XOR
+ * invariant that `brandId`/`productId`/`categoryId` currently encode — see
+ * useWizard.ts. `kinds` and `required` are honest here; the picker is what has
+ * to catch up, and multi-select needs a state shape XOR can't express.
+ */
+export interface ModeEntityRule {
+  /** Tabs this Mode offers, in display order. */
+  kinds: EntityKind[];
+  /** Must be picked before the user can continue. null = all optional. */
+  required: EntityKind | null;
+  /** Any `kinds` beyond `required` that are offered but never blocking. */
+  also?: EntityKind[];
+  /** `required` accepts more than one selection (Product Shoot only today). */
+  multi?: boolean;
+}
 
 export interface ModeOption {
   id: AlphaMode;
@@ -40,6 +84,10 @@ export interface ModeOption {
   available: boolean;
   /** Optional badge label shown top-right of the card (e.g. "Affiliate"). */
   tag?: string;
+  /** Which Brand/Product/Category the Step-2 picker offers for this Mode, and
+   *  which of them the user MUST pick. Absent = the old behaviour (all three
+   *  tabs, the target's own `entityRequired` decides). */
+  entity?: ModeEntityRule;
   /** Per-mode tonal SCHEME key (same palette as Step 3 Approach). */
   tone: "rose" | "fuchsia" | "lime" | "indigo" | "amber" | "sky" | "slate";
 }
@@ -84,6 +132,8 @@ export const MODES: ModeOption[] = [
     desc: "Studio-quality product photography. Hero shots, detail macros, bundles.",
     available: true,
     tone: "rose",
+    // Several products in one shoot (bundles, ranges) — the only multi today.
+    entity: { kinds: ["product"], required: "product", multi: true },
   },
   {
     id: "brand-ad",
@@ -92,6 +142,7 @@ export const MODES: ModeOption[] = [
     desc: "Top-of-funnel awareness. Tone, story, brand positioning.",
     available: true,
     tone: "fuchsia",
+    entity: { kinds: ["brand"], required: "brand" },
   },
   {
     id: "product-ad",
@@ -100,14 +151,7 @@ export const MODES: ModeOption[] = [
     desc: "Conversion-driven product creative with offer + CTA.",
     available: true,
     tone: "lime",
-  },
-  {
-    id: "social",
-    Icon: Smartphone,
-    title: "Social",
-    desc: "Organic content for feed, Stories, Reels, and carousels.",
-    available: true,
-    tone: "indigo",
+    entity: { kinds: ["product"], required: "product" },
   },
   {
     id: "performance-ad",
@@ -123,5 +167,68 @@ export const MODES: ModeOption[] = [
     tag: "+ Category",
     available: true,
     tone: "amber",
+    // Category is the mandatory scope; a product may narrow it but never
+    // replaces it — the one Mode that needs TWO entities set at once.
+    entity: { kinds: ["category", "product"], required: "category", also: ["product"] },
+  },
+  {
+    id: "animated-ai",
+    Icon: Clapperboard,
+    title: "Animated AI",
+    // Maalik (2026-09-08): "same as Social, but with animated video rather
+    // than reality type" — the reference case is the "main Hulk hoon re" reel
+    // format, which brands, influencers AND performance advertisers all built
+    // creative on. So this is trend-led animated video that must be able to
+    // come out as a real Ad, not just organic content. Sits next to Social
+    // because it shares Social's shape; entity stays optional for the same
+    // reason (a trend format usually isn't brand-tied at the point of pick).
+    desc: "Trend-led animated video. Stylised characters, not live-action.",
+    available: true,
+    // Shares Social's tint deliberately — it IS Social's shape, in animation.
+    tone: "indigo",
+    entity: { kinds: ["brand", "product", "category"], required: null },
+  },
+  {
+    id: "social",
+    Icon: Smartphone,
+    title: "Social",
+    desc: "Organic content for feed, Stories, Reels, and carousels.",
+    available: true,
+    tone: "indigo",
+    // "One or nothing" — Social is the case that must be able to proceed with
+    // no entity at all, which is why `required` is null rather than absent.
+    entity: { kinds: ["brand", "product", "category"], required: null },
+  },
+  {
+    id: "podcast",
+    Icon: Mic,
+    title: "Podcast",
+    // Maalik (2026-09-08): Podcast is its own Mode, not a generation target —
+    // what forces that is the speaker count, which no other Mode has: 0, 1, 2,
+    // or more, with no upper bound. Entity stays optional here (see
+    // `entityOptional`) because he expects most podcast content to be
+    // editorial rather than tied to a Brand/Product/Category.
+    desc: "Conversational audio-led creative. Solo, co-hosted, or no speaker.",
+    // Maalik (2026-09-09): "podcast abhi coming soon daal do." The speaker
+    // count and its Configure field are built and working behind this flag —
+    // flipping `available` back to true is all that ships it.
+    available: false,
+    tone: "sky",
+    entity: { kinds: ["brand", "product", "category"], required: null },
+  },
+  {
+    id: "custom",
+    Icon: SlidersHorizontal,
+    // Maalik (2026-09-09): Custom is back, explicitly in 8th position. It was
+    // dropped on 2026-09-08 (see the header note above) while it sat
+    // `available: false` with no shipped date — it returns as a live Mode, and
+    // last, because it is the fallback for work none of the seven named
+    // journeys describes. Entity optional: a one-off by definition may have no
+    // Brand/Product/Category behind it.
+    title: "Custom",
+    desc: "No preset journey. You set format, angle and concept yourself.",
+    available: true,
+    tone: "slate",
+    entity: { kinds: ["brand", "product", "category"], required: null },
   },
 ];

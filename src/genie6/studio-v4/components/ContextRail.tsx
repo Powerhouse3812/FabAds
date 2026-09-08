@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveUploadedImage } from "@/genie6/lib/uploaded-image-store";
+import { isEntityOptionalMode } from "../state/useWizard";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
+import { MODES } from "../data/modes";
 import {
   brands as ALL_BRANDS,
   products as ALL_PRODUCTS,
@@ -62,25 +64,21 @@ interface ContextRailProps {
   flowCtx?: FlowContext | null;
 }
 
+/** Reads the title straight off the MODES roster rather than keeping a second
+ *  copy of it — the hand-maintained map this replaced had already gone stale
+ *  (it was missing entries by the time Podcast and Animated AI were added). */
 function modeLabel(m: AlphaMode | undefined): string | null {
   if (!m) return null;
-  const map: Record<AlphaMode, string> = {
-    "product-shoot": "Product Shoot",
-    "brand-ad": "Brand Ad",
-    "product-ad": "Product Ad",
-    social: "Social",
-    "performance-ad": "Performance Ad",
-  };
-  return map[m] ?? null;
+  return MODES.find((mode) => mode.id === m)?.title ?? null;
 }
 
 /* ── Ad type (Step-2 tab), independent of Mode ───────────────────────────
  * §5: "The tab the user picks is what determines the ad type. There is no
  * separate ad-type screen anywhere in Genie." `studioMode` is the flow the
- * user launched from Studio home — it is NOT wired to the URL, so a
- * deep-linked or flow-borne run defaults to it and can go stale relative to
- * whichever Step-2 tab the user is actually sitting on. The ad-type chip
- * must therefore read the raw entity ids, not the Mode.
+ * user launched from Studio home. It IS wired to the URL now (`?studioMode`,
+ * added 2026-09-09 — this comment used to say the opposite), but it can still
+ * go stale relative to whichever Step-2 tab the user is actually sitting on,
+ * so the ad-type chip must read the raw entity ids, not the Mode.
  * Category wins over a hero product picked inside it — §4: "a picked
  * product becomes the hero of the ad" — the ad stays a Category Ad. */
 type AdTypeKey = "brand-ad" | "product-ad" | "performance-ad";
@@ -124,6 +122,14 @@ function computeHasRequiredEntity(
   },
 ): boolean {
   const { hasCategory, hasSelectedProduct, hasBrand, hasUploadedImage } = opts;
+  // §10a — a Mode whose entity rule makes all three optional (Social, Animated
+  // AI, Custom, Podcast) is READY with nothing picked. Maalik's words were
+  // "either user can pick one or nothing from these 3", so the permissive
+  // default below still demanded *something* and rendered "PICK A BRAND,
+  // PRODUCT OR CATEGORY" — a nag for a requirement that doesn't exist, and the
+  // exact "reads as unfinished rather than deliberate" problem step 0 exists
+  // to remove.
+  if (isEntityOptionalMode(mode ?? null)) return true;
   switch (mode) {
     case "brand-ad":
       return hasBrand;
@@ -208,12 +214,20 @@ export function ContextRail({
       : undefined) ||
     null;
 
+  // Precedence: the category the user EXPLICITLY picked wins over the one
+  // inferred from the hero product. Under the old Step-2 XOR only one of the
+  // two could ever be set, so the order didn't matter; Performance Ad now
+  // legitimately holds a category AND a product at once (modes.ts `also`), and
+  // with the product first the rail reported the product's own category —
+  // "Hair Care" for a shampoo picked inside a Skin Care ad — contradicting the
+  // mandatory pick it was made under. Same precedence as
+  // `buildScriptContext` in useWizard.ts, which already had it this way round.
   const category =
-    (selectedProduct?.categoryId &&
-      ALL_CATEGORIES.find((c) => c.id === selectedProduct.categoryId)) ||
     (state.categoryId
       ? ALL_CATEGORIES.find((c) => c.id === state.categoryId)
       : undefined) ||
+    (selectedProduct?.categoryId &&
+      ALL_CATEGORIES.find((c) => c.id === selectedProduct.categoryId)) ||
     null;
 
   const hasUploadedImage = !!state.uploadedProductImage;

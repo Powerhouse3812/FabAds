@@ -98,6 +98,44 @@ with-entity vs. custom/no-entity toggle, ahead of the target-specific flow.
 Placement not yet finalized — see "Entity-toggle placement" below; asked for
 confirmation before wiring, to avoid guessing wrong on where it inserts.
 
+## 7a. Variation fork — BUILT 2026-09-09, and the shape changed
+
+Built, but **not** as the interstitial fork §7 below proposed. A precedent scan
+(Midjourney's Vary vs. Remix, Linear's single quick-create, Figma's
+zero-confirmation detach, GitHub/Vercel split buttons) came back consistently
+against putting a modal on the fast path: "Generate variation" is trained by
+every comparable tool to fire immediately, and Hick's Law is not the real cost
+here — the modal interruption is. NN/g also rules out the obvious mitigation, a
+"don't ask again" checkbox, for anything that spends credits.
+
+So the fork is **two sibling rows in the menu it was already triggered from**,
+not a new decision surface:
+- "Forge more like this" — unchanged, fires immediately, lands on Configure.
+- "Forge more — adjust first…" — same action, same lineage, same credits; the
+  wizard keeps all four steps and stops at Step 2. The trailing ellipsis is
+  what distinguishes them.
+
+Mechanically it is `?tweak=1` (`FLOW_PARAM_TWEAK`), URL-borne like every other
+piece of flow context so it survives a refresh and a shared link.
+`variationTweak` on `WizardState` is the ONE documented opt-out of Rule 1 in
+`resolveGenerationSteps`.
+
+**A real defect surfaced while verifying this.** `creative-library`'s
+`actions` list in `flowRegistry.ts` did not include `"generate-variation"`,
+even though the Library's own ellipsis fires exactly that action.
+`resolveFlowContext` rejects any action a module doesn't list, so **every
+Library variation resolved to a null flow context**: no banner, no brand
+carried over, no prompt carried over, and `isVariation` never set. It only
+looked right because `outputActions.ts` hardcodes the `configure` slug — the
+Rule-1 landing was the URL, not the rule. One-line fix; verified before/after
+in the browser (the banner, Mamaearth, and a 4/3/2 Knowledge Base all appear
+now where it previously showed "No brand / No product" and 0/0/0).
+
+**Known nit, not yet fixed:** on the `tweak` path Step 2 shows the suggestion
+band reading "not selected yet" while the carried-over brand is in fact already
+selected. The band's copy needs to account for an entity that arrived with the
+flow.
+
 ## 7. Variation fork placement (Q4, confirmed build-now)
 
 "Generate variation" is a single, well-established action id
@@ -149,11 +187,98 @@ an existing one:
 - Approach/Concept still applies to Podcast the same as every other target/
   mode (per his original note, "Podcast — as an approach and concept").
 
-**Not yet built** — logged here as a confirmed decision; Claude should ask
-before adding the actual Mode card + avatar-count field, since this is new
-scope, not a copy-edit.
+**BUILT 2026-09-09, then gated.** The Mode card and the speaker-count field
+both exist: `modes.ts` carries a `podcast` entry and
+`studio-v4/components/PodcastSpeakersField.tsx` renders a 0-to-unbounded
+stepper in Configure (gated on `studioMode === "podcast"`), with a per-speaker
+avatar+voice picker reusing `brain/AvatarVoicePicker`. Per-speaker picks are
+component-local state, deliberately NOT on `WizardState` — nothing downstream
+consumes them yet.
+
+Then Maalik's later call the same day: "podcast abhi coming soon daal do" — so
+the card ships `available: false`. Flipping that one flag back to `true` is the
+whole of shipping it; nothing else is stubbed.
+
+## 10a. Per-Mode entity rules — RESOLVED 2026-09-09, now code
+
+Maalik, verbatim: "Currently in every mode this B/P/C picker comes with
+segmented button. But the correct flow is, it is mandatory to pick brands in
+brand Ad or pick product in Product Ad or product shoot (multi select
+products), and category in performance with product optional. And in social
+they all are optional, either user can pick one or nothing from these 3. Same
+goes for animated."
+
+This supersedes the thin, admittedly-unreconciled table in §10 below. It now
+lives as DATA on each `ModeOption.entity` (`ModeEntityRule` in `modes.ts`), not
+as prose:
+
+| Mode | Tabs offered | Mandatory | Notes |
+|---|---|---|---|
+| Brand Ad | Brand only | Brand | |
+| Product Ad | Product only | Product | |
+| Product Shoot | Product only | Product | **multi-select** |
+| Performance Ad | Category + Product | Category | product optional, both set at once |
+| Social | all three | none | "one or nothing" |
+| Animated AI | all three | none | same shape as Social |
+| Custom | all three | none | |
+| Podcast | all three | none | card is `available: false` for now |
+
+**This forced the Step-2 XOR invariant to be relaxed** — and that is the one
+consequence to keep in mind when reading older comments. `brandId` /
+`productId` / `categoryId` used to be a strict XOR (picking one cleared the
+other two, re-implemented by hand in each of Step2Product's three handlers).
+Two of the rules above are impossible under it: Performance Ad needs a category
+AND a product simultaneously, and Product Shoot needs several products. So:
+
+- The invariant is now **"only the kinds the active Mode offers may be set"**.
+  XOR still holds for every Mode that names no coexisting kinds — Social's "one
+  or nothing" behaves exactly as before.
+- `entitySelectionPatch()` (useWizard.ts) is now the ONE place that decides
+  what a selection clears. Don't hand-roll the clearing again.
+- `productIds: string[]` was added for the multi case. `productId` stays the
+  PRIMARY product and is always `productIds[0]` when the set is non-empty, so
+  the rail, Configure and the credit formula keep reading one product and never
+  see an empty one on a multi-select shoot.
+- `isEntityRuleSatisfied()` is what gates Continue.
+- `?studioMode` and `?scope` are now URL-synced, and this is load-bearing:
+  `studioMode` had never been in the URL, so before this every per-Mode rule
+  (which tabs, what's mandatory, multi-select, whether step 0 is offered)
+  silently reverted to the no-rule default on a refresh or a shared link.
+  `?products` carries the multi-select for the same reason.
+- `switchTab` was clearing entities too, not just the pick handlers — it wiped
+  Performance Ad's category on the walk to the Product tab, before any product
+  was chosen. All 10 write sites now go through `entitySelectionPatch`.
+
+## 11a. Approaches — 6 for video, "Auto" replaces "From scratch" (2026-09-09)
+
+Maalik: "Add 1 more approach to increase the count to 6. And remove from
+scratch, instead Add auto. and keep it last 6th in order."
+
+Video now offers, in render order: UGC Video · Create Variations · Image to
+Video · B-Roll · **Product Demo** (new) · **Auto** (last).
+
+- **Auto** — "Genie picks the approach from your brief and the entity." It
+  takes the format-agnostic catch-all slot `scratch` held, in BOTH formats, and
+  is `INITIAL_STATE.mode`, so it is the default selection.
+- **`scratch` is retired, NOT deleted.** It is still set programmatically by
+  the `generate-from-url` flow and by genieRunStore's mode fallback; it is only
+  absent from `APPROACHES_BY_FORMAT`. Its "you drive everything" job is now
+  covered twice — the "Build custom" tab on this very step, and the Custom Mode
+  on Studio home — which is what freed the slot.
+- **Product Demo** — product-in-use footage with NO creator on camera. That
+  clause is what separates it from UGC Video (creator-led, script-first) and
+  B-Roll (cutaway meant to sit under primary content). Video-only, no
+  sub-types yet, defaults to the educational angle + detail-macro concept.
+- Note the `Mode` label map is duplicated in THREE places (useWizard's
+  `MODE_LABEL`, AlphaStep3Configure's local `MODE_LABEL`, batchDisplay's
+  `APPROACH_LABELS`) and only the first is type-checked — the other two are
+  `Record<string, string>`, so a new approach silently renders blank there.
+  All three were updated; consolidating them is its own cleanup.
 
 ## 10. Per-Mode required/optional (from his notes + modes.ts)
+
+**SUPERSEDED by §10a above** — kept only because the Product Shoot
+`category: "asset"` observation in it is still unreconciled.
 
 | Mode | Entity (B/P/C) | Notes |
 |---|---|---|
@@ -173,24 +298,27 @@ Flag if more per-Mode detail is needed than this.
 
 Not part of the generation-target logic above, but you asked for this list
 specifically saved too. Cross-checked against the live `GENIE_APPS` registry
-(`apps/data/appRegistry.ts`, 7 live + 8 coming-soon) and other places the app
-already has similar capability:
+(`apps/data/appRegistry.ts`, now 7 live + 15 coming-soon as of 2026-09-09) and
+other places the app already has similar capability:
 
 **Already live, matches an existing app:** Video translator (Translate
 Videos), Video/Image upscale (Upscale Video — registry has no separate
 still-image upscaler), Speech cleanup (Speech Cleanup), PDF/PPT to video
 (PPT/PDF to Video).
 
-**Already exists, but under a DIFFERENT system than Other Apps — flagging so
-a duplicate doesn't get built:**
-- Remove image bg → already `bg-remover`, a TOOLS-group sidebar module
-  (`src/components/sidebar/modules.ts`), currently "Soon."
-- Image resizer → already `"resize"`, one of Step3Approach's Approach ids
-  (`studio-v4/data/approach-subtypes.ts`), not an Other App.
-- Swap avatar → close to the live `avatar-shots` app (Avatar Shots), but
-  "swap" reads like changing which preset avatar is used rather than
-  casting one onto footage — **unclear if this is the same feature or a
-  distinct one, asking rather than assuming.**
+**Was under a DIFFERENT system than Other Apps — RESOLVED 2026-09-09 by
+Maalik's "one home" call (see §11b):**
+- Remove image bg → was `bg-remover`, a TOOLS-group sidebar module. Now an
+  Other App; **removed from the sidebar group**, route kept alive.
+- Object remover → same treatment, same reasoning (identical class of one-shot
+  stub). Inferred extension — Maalik named only BG Remover.
+- Image resizer → added as the `resize-image` app. The `"resize"` Approach id
+  in `studio-v4/data/approach-subtypes.ts` **stays** — it does a related but
+  different job inside a generation flow, so this is not a duplicate.
+- Swap avatar → **NOT added.** The live `face-swap` app already does exactly
+  this ("swap an avatar's face onto any video"), which is the distinction
+  between "swap" and Avatar Shots' presenter-casting. A new entry would have
+  been a near-duplicate.
 
 **Coming-soon already, name overlap worth flagging:** "Video Podcast" is
 already a coming-soon app in the registry. §9's Podcast is a Studio **Mode**
@@ -198,8 +326,12 @@ already a coming-soon app in the registry. §9's Podcast is a Studio **Mode**
 shared name is worth double-checking isn't meant to be the same feature
 before both get built independently.
 
-**Genuinely new, no existing match found:** Add video caption, Change
-metadata, Prompt generator/Refine, Thumbnail maker.
+**Genuinely new — SHIPPED 2026-09-08/09 as coming-soon registry entries:**
+Add video caption (`add-video-captions`), Change metadata (`change-metadata`),
+Prompt generator/Refine (`prompt-generator`), Thumbnail maker
+(`thumbnail-maker`). Stub cards only — no fields, cost or screen yet, same as
+every other coming-soon app. Built in a parallel session and adopted here by
+patch rather than rebuilt.
 
 **Unclear, need your read:**
 - "Animated AI" — no existing match, and the phrase alone isn't enough to
@@ -212,29 +344,85 @@ metadata, Prompt generator/Refine, Thumbnail maker.
 - "Storyboard" listed here — this is a generation target (§1), not an Other
   App; assuming it's listed for cross-reference, not as its own app.
 
-**Not yet added to `appRegistry.ts`** — this section only captures/reconciles
-your list; none of these have been built as new registry entries yet.
+**Added to `appRegistry.ts`:** the 4 "genuinely new" entries above, plus
+`bg-remover`, `resize-image` and `object-remover` from the one-home merge — 7
+new entries in total. Everything else in this section is reconciliation only:
+the already-live matches, the name-overlap flag, and the "unclear" list below
+were NOT built.
+
+## 11b. Other Apps has ONE home (2026-09-09)
+
+Maalik: "Remove other apps from sub nav — keeping only on studio, below modes.
+and merge them together." So:
+- Other Apps is **gone from Genie's sidebar sub-nav**. The `/iq/genie6/apps`
+  route stays alive (this repo's convention for retired nav entries).
+- It renders only as the "Other Apps" section on Studio home, below the Mode
+  cards, showing the **full roster** — live first, coming-soon badged — with
+  the "View all" link removed. A subset there would have left the rest
+  reachable by URL only, now that the sub-nav entry is gone.
+- One-shot tools were pulled OUT of the sidebar TOOLS group into the registry,
+  so a utility lives in exactly one place. Video Sage and Copilot stay in the
+  sidebar — they are full modules, not one-shot tools.
 
 ---
 
 ## Still open
 
-1. **Entity-toggle exact placement (§8).** Maalik has a specific answer in
-   mind, not yet stated.
-2. **Podcast** (§9) — confirmed as a new Mode, not yet built; waiting on
-   go-ahead to add the card.
-3. **Product Shoot's `category: "asset"` vs §1's Ad-target row (§10)** — a
+1. **Product Shoot's `category: "asset"` vs §1's Ad-target row (§10)** — a
    real code detail (StudioAlpha.tsx) not yet reconciled against the target
-   table above it.
-4. **"Animated AI" (§11)** — no existing match, too little to scope from the
-   name alone.
-5. **"Swap avatar" vs. the live Avatar Shots app (§11)** — same feature or
-   different?
-6. **"URL to Ad" vs. the existing Campaign-URLs flow action (§11)** — same
-   feature or a genuinely separate new app?
-7. **"Video Podcast" (existing coming-soon app) vs. Podcast (§9, new Mode)
-   (§11)** — same underlying idea surfacing in two different systems, or two
-   unrelated things that happen to share a name?
+   table above it. Untouched by the 2026-09-09 work.
+2. **"URL to Ad" vs. the existing Campaign-URLs flow action (§11)** — same
+   feature or a genuinely separate new app? Still unanswered.
+3. **"Video Podcast" (existing coming-soon app) vs. Podcast (§9, the Mode)** —
+   still two systems carrying one name. Less urgent now that the Podcast Mode
+   ships `available: false`, but it will bite whenever that flag flips.
+4. ~~**Step 0 is built but not yet wired.**~~ **WIRED 2026-09-09** — for the
+   four entity-optional Modes ONLY (Social, Animated AI, Custom, Podcast), per
+   Maalik's call, since the four that mandate an entity have no legal "custom"
+   answer. Slug `/scope`, `StepNumber` widened to `0|1|2|3|4`, and choosing
+   "Custom" removes Step 2 entirely. Three latent zero-falsy bugs had to be
+   fixed to get there — `SLUG_TO_STEP[x] &&`, `params.step && …` and
+   `if (!patch.step)` all silently discarded a legal step 0 — plus the
+   step-plan `useMemo` was missing `studioMode`/`entityMode` from its deps, so
+   the plan went stale and the skipped-step redirect bounced past step 0.
+   Historical note on the original blocker, kept because the shape still
+   applies to any future step insertion: `screens/Step0Entity.tsx` exists to
+   the confirmed placement (immediately after the Mode pick), with the
+   suggestion band as highlight-only and no "remember my choice". It is NOT
+   in the step machine yet: `StepNumber` is a closed `1|2|3|4` union and both
+   `startWizard` and `startAssetWizard` hardcode `step: 1`, so wiring it means
+   widening those types, adding the step to `resolveGenerationSteps`, a
+   `renderStep` branch, and the slug map. Also worth re-reading §10a first —
+   now that each Mode declares its own mandatory entity, step zero's
+   with-entity-vs-custom question is genuinely redundant for the five Modes
+   that mandate one, and only earns its place on Social / Animated AI /
+   Custom / Podcast.
+5. ~~**Multi-select UI for Product Shoot.**~~ **DONE 2026-09-09** — reused the
+   existing `bulkMode` UI (square badges, Hero pill on the primary, outcome
+   bar) rather than building a second multi-select, forking only the state so
+   it writes `productIds`, which is the field `isEntityRuleSatisfied` gates on.
+   Survives a refresh via `?products`.
+
+### Resolved 2026-09-09
+- §8 entity-toggle placement: **step zero, straight after the Mode pick.**
+- §9 Podcast: built, then gated to coming-soon.
+- §11 "Animated AI": **it is a Mode, not an app** — "same as Social, but
+  animated video rather than reality type", the "main Hulk hoon re" reel format
+  that brands, influencers and performance advertisers all built creative on.
+  Built as the 5th Mode card, entity-optional like Social.
+- §11 "Retouch": dead. "Retouch is nothing."
+- §11 "Swap avatar": **already covered by the live `face-swap` app** ("swap an
+  avatar's face onto any video") — deliberately not duplicated.
+- §11 "Remove image bg" / "Image resizer": both now Other Apps
+  (`bg-remover`, `resize-image`), and `bg-remover` + `object-remover` were
+  REMOVED from the sidebar TOOLS group — Other Apps is the single home for
+  one-shot tools now. Routes kept alive. The Step-3 `"resize"` Approach stays
+  where it is; it does a different job inside a generation.
+- Other Apps left the Genie sub-nav entirely and lives only on Studio home,
+  below the Modes, now showing the FULL roster (live first, coming-soon badged)
+  with no "View all" link.
+- Custom is back as the 8th Mode, live this time rather than the
+  `available: false` stub that was dropped on 2026-09-08.
 
 Also flagging, not from a question but from reading the photos: two lines
 under "with Hook" (page 7298) are scribbled out illegibly — assuming

@@ -38,7 +38,15 @@ import { registerUploadedImage, resolveUploadedImage } from "@/genie6/lib/upload
 import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import { UrlFetchModal } from "../components/UrlFetchModal";
-import type { UseWizardReturn } from "../state/useWizard";
+import {
+  modeEntityRule,
+  entitySelectionPatch,
+  toggleProductPatch,
+  isEntityRuleSatisfied,
+  resolveGenerationStepsForState,
+  type UseWizardReturn,
+  type WizardState,
+} from "../state/useWizard";
 // Genie 2.0 §6 Rule 4 — Step 2 IS the ad-type screen for every module that
 // redirects into Genie. `resolveFlowContext` turns the ?src/?ref/?act URL
 // params (owned by the Flows Data agent, src/genie6/flows/data/) into the
@@ -54,6 +62,47 @@ interface Step2Props {
 }
 
 type Tab = "brand" | "product" | "category";
+
+/**
+ * Icon + label + count per tab kind, keyed identically to modes.ts's
+ * `EntityKind` so a Mode's `entity.kinds` (§4) can drive which segmented
+ * tabs render, and in what order, instead of three hand-written JSX blocks
+ * that always rendered Brand/Product/Category in that fixed sequence.
+ */
+const TAB_META: Record<Tab, { icon: React.ElementType; label: string; count: number }> = {
+  brand: { icon: Building2, label: "Brand", count: ALL_BRANDS.length },
+  product: { icon: Package, label: "Product", count: ALL_PRODUCTS.length },
+  category: { icon: FolderOpen, label: "Category", count: ALL_CATEGORIES.length },
+};
+
+/**
+ * The multi-product outcome sentence — stated in words BEFORE the user
+ * commits, so nobody discovers "one ad, not N ads" after being charged for
+ * it. Two Modes reach this bar and they mean different things, which is why
+ * `shoot` is a parameter rather than two copies of the same bar:
+ *  - `shoot` (a Mode whose rule declares `multi`, i.e. Product Shoot) — the
+ *    set IS the brief: several products, one session.
+ *  - everything else (§9's manual "Select multiple") — co-stars inside ONE ad.
+ * `blocked` is the single "can continue" answer, passed in rather than
+ * re-derived, so this line can never claim a pick is optional while the
+ * Continue next to it is disabled.
+ */
+function multiOutcomeLine(count: number, shoot: boolean, blocked: boolean): string {
+  if (count === 0) {
+    if (!blocked) return "Nothing picked — that's fine, or select a few to run together.";
+    return shoot
+      ? "Pick the products for this shoot — at least one."
+      : "Select products to feature — they'll all be in ONE ad, not separate ads.";
+  }
+  if (count === 1) {
+    return shoot
+      ? "1 product in the shoot — add more, or shoot just this one."
+      : "1 product selected — the hero. Pick more, or continue with just this one.";
+  }
+  return shoot
+    ? `${count} products in one shoot — one brief, one session.`
+    : `One ad featuring all ${count} products — not ${count} separate ads.`;
+}
 
 /* ────────────────────────────────────────────────────────── *
  *  Image helpers — curated Unsplash photos for products and
@@ -318,6 +367,97 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   // Tab switching uses replace:true → no history clutter.
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // ── §4 — per-Mode Step-2 rule ────────────────────────────────────────
+  // Product owner's complaint this fixes: every Mode rendered the same
+  // three-tab Brand/Product/Category picker, offering tabs a Mode has no
+  // use for, and nothing was ever actually mandatory. `modeEntityRule`
+  // (useWizard.ts, read-only — backed by the data in modes.ts, also
+  // read-only) is the ONE source for which tabs a Mode offers and which one
+  // blocks Continue; never re-derive this from mode ids here. `rule` is
+  // null only when there's no Mode in play yet (an asset-only Script/
+  // Concept/Storyboard run, or a raw deep link with no Mode chosen) — every
+  // fallback below keeps that case byte-for-byte identical to this screen's
+  // original behaviour: all three tabs, nothing offered as skippable.
+  const rule = modeEntityRule(wizard.state.studioMode);
+  const availableKinds: Tab[] = rule?.kinds ?? ["brand", "product", "category"];
+  const defaultTab: Tab = rule?.required ?? availableKinds[0];
+  // Social / Animated AI / Custom (and Podcast, once shipped) — the one
+  // Mode shape where Continue must work with nothing picked at all ("pick
+  // one or nothing," verbatim).
+  /** §4 — the Mode's required kind accepts SEVERAL picks (Product Shoot
+   *  only today: bundles, ranges). Drives the Product tab into the
+   *  multi-select path below. */
+  const multiProducts = !!rule?.multi;
+
+  /** Is ANYTHING picked at all? Feeds the no-Mode fallback below, and keeps
+   *  the pass-through Continue's wording honest — "without picking" is a lie
+   *  once a coexisting kind (Performance Ad's category) is already set. */
+  const anyEntityPicked = !!(
+    wizard.state.brandId ||
+    wizard.state.productId ||
+    wizard.state.categoryId
+  );
+
+  /**
+   * THE definition of "can continue" on this screen — one expression, read
+   * by every Continue affordance here (the multi-select bar, the Category
+   * branch, the pass-through button on each tab). It replaced a
+   * `categoryRequired` / `productRequired` pair that each fed a different
+   * button, which is how "required" and "what the button does" could drift.
+   *
+   * `isEntityRuleSatisfied` (useWizard.ts) is the authority whenever a Mode
+   * is in play: a Mode that requires nothing is satisfied with nothing
+   * picked (Social's "one or nothing"), Brand Ad needs its brand, a `multi`
+   * Mode needs at least one product.
+   *
+   * With NO Mode (`rule === null` — an asset-only Script/Concept/Storyboard
+   * run, or a raw deep link into this step) the step plan answers instead,
+   * for the same reason every other screen defers to it: an Ad still
+   * requires an entity ("Ads always start from step 1"), every asset target
+   * treats it as optional. Reading `plan.entityRequired` rather than
+   * assuming either way is what keeps a Mode-less Ad deep link from becoming
+   * skippable.
+   *
+   * The one thing neither can see is §21.2's documented no-catalogue route:
+   * brand + ONE uploaded image satisfies Step 2 on its own, with no product
+   * id to check. OR-ed in here so it's still answered in one place.
+   */
+  const canContinue =
+    (rule
+      ? isEntityRuleSatisfied(rule, wizard.state)
+      : !resolveGenerationStepsForState(wizard.state).entityRequired || anyEntityPicked) ||
+    !!(wizard.state.brandId && wizard.state.uploadedProductImage);
+
+  /** " · required" / " · optional" suffix for a tab's own "Pick a …"
+   *  heading — "" when there's no Mode rule at all, so the no-Mode edge
+   *  case keeps its original, unqualified heading text. */
+  const entitySuffix = (kind: Tab): string =>
+    rule ? (rule.required === kind ? " · required" : " · optional") : "";
+
+  /**
+   * THE only place a Step-2 selection is written. `entitySelectionPatch`
+   * (useWizard.ts) owns what a pick CLEARS: kinds the Mode lets coexist
+   * survive — Performance Ad holds a category AND a product — while every
+   * other Mode still clears, so Social's XOR is unchanged. This screen used
+   * to hand-write `{ brandId: id, productId: null, categoryId: null }` in
+   * each handler, which is how the XOR got baked in three separate times and
+   * made Performance Ad's category+product impossible. Nothing in this file
+   * may null a sibling entity field by hand again.
+   *
+   * `bulkProductIds` (§9's co-star set) is the one field the helper doesn't
+   * know about: it belongs to `productId`, so it's dropped exactly when
+   * product is dropped, and kept whenever product survives.
+   */
+  const pickEntity = (kind: Tab, id: string | null, extra?: Partial<WizardState>) => {
+    const patch = entitySelectionPatch(rule, kind, id);
+    const dropsProduct = "productId" in patch && patch.productId === null;
+    wizard.patch({
+      ...patch,
+      ...(dropsProduct ? { bulkProductIds: [] } : {}),
+      ...(extra ?? {}),
+    });
+  };
+
   // ── §6 Rule 4 — flow context resolution ─────────────────────────────
   // When a module redirects into Genie, ?src/?ref/?act resolve to a
   // FlowContext. It decides which tab opens (`action.entityTab`) and what
@@ -331,23 +471,28 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   );
 
   const urlTab = searchParams.get("step-tab");
-  const tab: Tab =
-    urlTab === "product" || urlTab === "category" || urlTab === "brand"
-      ? urlTab
-      : flowCtx
-        ? // Open the tab the highlight lives on. For a competitor-owned or
-          // undetected source the highlight is forced to the user's own BRAND
-          // while the action's default tab is often "product" — opening the
-          // product tab made §7.2's one visible safeguard (own brand
-          // highlighted at the top of the picker) render nowhere.
-          (flowCtx.highlight?.kind ?? flowCtx.action.entityTab)
-        : wizard.state.productId
+  const requestedTab: Tab | null =
+    urlTab === "product" || urlTab === "category" || urlTab === "brand" ? urlTab : null;
+  const heuristicTab: Tab =
+    requestedTab ??
+    (flowCtx
+      ? // Open the tab the highlight lives on. For a competitor-owned or
+        // undetected source the highlight is forced to the user's own BRAND
+        // while the action's default tab is often "product" — opening the
+        // product tab made §7.2's one visible safeguard (own brand
+        // highlighted at the top of the picker) render nowhere.
+        (flowCtx.highlight?.kind ?? flowCtx.action.entityTab)
+      : wizard.state.productId
+        ? "product"
+        : wizard.state.bulkProductIds.length > 0
           ? "product"
-          : wizard.state.bulkProductIds.length > 0
-            ? "product"
-            : wizard.state.categoryId
-              ? "category"
-              : "brand";
+          : wizard.state.categoryId
+            ? "category"
+            : defaultTab);
+  // §4 — never land on (or honor a stale URL/flow hint pointing at) a tab
+  // this Mode doesn't offer, e.g. a Product Ad run with an old
+  // `?step-tab=category` link sitting in browser history.
+  const tab: Tab = availableKinds.includes(heuristicTab) ? heuristicTab : defaultTab;
   const setTab = (next: Tab) => {
     setSearchParams(
       (prev) => {
@@ -401,10 +546,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     if (!flowCtx?.preselect || !flowCtx.highlight) return;
     if (preselectedForRef.current === flowCtx.ref.id) return;
     preselectedForRef.current = flowCtx.ref.id;
-    const { kind, id } = flowCtx.highlight;
-    if (kind === "product") wizard.patch({ productId: id, brandId: null, categoryId: null });
-    else if (kind === "brand") wizard.patch({ brandId: id, productId: null, categoryId: null });
-    else wizard.patch({ categoryId: id, productId: null, brandId: null });
+    pickEntity(flowCtx.highlight.kind, flowCtx.highlight.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowCtx?.ref.id, flowCtx?.preselect, flowCtx?.highlight?.id, flowCtx?.highlight?.kind]);
 
@@ -414,12 +556,19 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   // the user actually chooses).
   const acceptHighlight = () => {
     if (!flowCtx?.highlight) return;
-    const { kind, id } = flowCtx.highlight;
-    if (kind === "brand") wizard.patch({ brandId: id, productId: null, categoryId: null });
-    else if (kind === "product") wizard.patch({ productId: id, brandId: null, categoryId: null });
-    else wizard.patch({ categoryId: id, productId: null, brandId: null });
+    pickEntity(flowCtx.highlight.kind, flowCtx.highlight.id);
     onAdvance();
   };
+
+  /** Whatever is currently selected for a given kind — used to keep the
+   *  suggestion band's copy honest (see `FlowHighlightBand`) and to label
+   *  each tab's pass-through Continue for what is actually true. */
+  const selectedIdForKind = (kind: Tab): string | null =>
+    kind === "brand"
+      ? wizard.state.brandId
+      : kind === "product"
+        ? wizard.state.productId
+        : wizard.state.categoryId;
 
   /** Renders the flow band for a given tab — the amber "Suggested" band
    *  for the highlight-only case, or the neutral "pre-filled" note for the
@@ -430,7 +579,11 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     return flowCtx.preselect ? (
       <FlowPreselectNote ctx={flowCtx} />
     ) : (
-      <FlowHighlightBand ctx={flowCtx} onAccept={acceptHighlight} />
+      <FlowHighlightBand
+        ctx={flowCtx}
+        onAccept={acceptHighlight}
+        selectedId={selectedIdForKind(t)}
+      />
     );
   };
 
@@ -439,17 +592,41 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
   // in EITHER the Product tab or the Category tab's refine section writes
   // the same two wizard fields, so the outcome — one ad containing all of
   // them — is identical regardless of which tab built it.
+  //
+  // §4 multi RESOLVED — Product Shoot's `multi: true` (modes.ts) now runs
+  // through this SAME mechanism rather than a parallel one: the grid's
+  // multiSelect rendering, the square check badges, the Hero pill and the
+  // outcome bar are all reused verbatim. Only the state differs, and it has
+  // to: a `multi` Mode's set IS its required entity, so it lives in
+  // `productIds` (the field `isEntityRuleSatisfied` gates on, kept
+  // productId-first by `toggleProductPatch`), while §9's manual co-star set
+  // stays in `bulkProductIds`. The two are never both in play — `multi` is
+  // declared by the Mode, `bulkMode` is chosen by the user on a Mode that
+  // declares nothing.
   const [bulkMode, setBulkMode] = useState(() => wizard.state.bulkProductIds.length > 0);
+  /** Multi-select is FORCED for a `multi` Mode — it isn't a user preference
+   *  there, it's what the Mode means, so the "Select multiple" toggle is not
+   *  offered (a control with only one legal state is noise). */
+  const multiSelectActive = multiProducts || bulkMode;
   const bulkSelectedIds = useMemo(
     () =>
-      new Set(
-        [wizard.state.productId, ...wizard.state.bulkProductIds].filter(
-          (x): x is string => !!x,
-        ),
-      ),
-    [wizard.state.productId, wizard.state.bulkProductIds],
+      multiProducts
+        ? new Set(wizard.state.productIds)
+        : new Set(
+            [wizard.state.productId, ...wizard.state.bulkProductIds].filter(
+              (x): x is string => !!x,
+            ),
+          ),
+    [multiProducts, wizard.state.productIds, wizard.state.productId, wizard.state.bulkProductIds],
   );
   const toggleBulkProduct = (id: string) => {
+    // `multi` Mode — one helper owns the whole toggle, including keeping
+    // `productId` on the first of the set so the rail, Configure and the
+    // credit formula never see an empty product on a multi-product shoot.
+    if (multiProducts) {
+      wizard.patch(toggleProductPatch(wizard.state.productIds, id));
+      return;
+    }
     const hero = wizard.state.productId;
     const bulk = wizard.state.bulkProductIds;
     if (hero === id) {
@@ -467,6 +644,11 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     }
     wizard.patch({ bulkProductIds: [...bulk, id] });
   };
+  /** Explicit way out of a multi-selection without clicking every card
+   *  again. Deselecting product is just a pick of nothing, so it goes
+   *  through the same writer — which keeps `productIds` and `productId`
+   *  emptying together instead of drifting at zero. */
+  const clearMultiSelection = () => pickEntity("product", null, { bulkProductIds: [] });
 
   // ── §21.2 — Product Shoot's third route: Brand → skip product →
   // upload image. Lets a brand whose product isn't in the Catalogue yet
@@ -518,11 +700,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     // mirrors this field straight into `?productImage=`, and a base64 image
     // in a query string blows past URL length limits. Register it and keep
     // only the short token.
-    wizard.patch({
-      brandId: uploadBrandId,
-      productId: null,
-      categoryId: null,
-      bulkProductIds: [],
+    pickEntity("brand", uploadBrandId, {
       uploadedProductImage: registerUploadedImage(uploadPreview),
     });
     setUploadOpen(false);
@@ -544,11 +722,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
       const sampleBrand =
         ALL_BRANDS[Math.floor(Math.random() * Math.min(20, ALL_BRANDS.length))];
       if (!sampleBrand) return;
-      wizard.patch({
-        brandId: sampleBrand.id,
-        productId: null,
-        categoryId: null,
-      });
+      pickEntity("brand", sampleBrand.id);
       toast.success(`Found brand: ${sampleBrand.name}`);
       onAdvance();
       return;
@@ -661,68 +835,58 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
     ? ALL_BRANDS.find((b) => b.id === brandFilter)
     : null;
 
-  // Switch tab — clear other tabs' selections to enforce XOR across
-  // brand / product / category.
+  // Switch tab — same ONE decider as a pick. Re-applying the destination
+  // kind's OWN current value drops whatever can't coexist with it and keeps
+  // whatever can, so Performance Ad's category survives the walk over to the
+  // Product tab (under the old per-tab clearing it did not, which killed
+  // category+product before the user ever picked a product). A `multi` Mode
+  // offers a single kind, so there is no tab bar and this never runs for one.
   const switchTab = (t: Tab) => {
     if (t === tab) return;
     setTab(t);
     setSearch("");
-    // §9 — a bulk co-star set belongs to whichever tab built it; leaving
-    // that tab clears it too, same as the XOR clearing below, so a stale
-    // set can't silently re-attach if the user comes back later.
-    if (t === "brand") {
-      // Picking the brand tab clears product + category + bulk (bulk belongs to product)
-      if (wizard.state.productId || wizard.state.categoryId || wizard.state.bulkProductIds.length) {
-        wizard.patch({ productId: null, categoryId: null, bulkProductIds: [] });
-      }
-    }
-    if (t === "product") {
-      // Picking the product tab clears brand + category; preserves bulk (it belongs to product)
-      if (wizard.state.brandId || wizard.state.categoryId) {
-        wizard.patch({ brandId: null, categoryId: null });
-      }
-    }
-    if (t === "category") {
-      // Picking the category tab clears brand + product + bulk (bulk belongs to product)
-      if (wizard.state.brandId || wizard.state.productId || wizard.state.bulkProductIds.length) {
-        wizard.patch({ brandId: null, productId: null, bulkProductIds: [] });
-      }
-    }
+    pickEntity(t, selectedIdForKind(t));
   };
+
+  /** Label for the pass-through Continue rendered on the current tab. It is
+   *  gated by `canContinue` (the single answer), so this only has to say
+   *  WHAT is being skipped — never whether skipping is allowed. */
+  const passThroughLabel = selectedIdForKind(tab)
+    ? "Continue"
+    : anyEntityPicked
+      ? `Continue without a ${TAB_META[tab].label.toLowerCase()}`
+      : "Continue without picking";
 
   return (
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 px-6 pt-8 pb-6">
       <HeroHeader title="What are you creating for?" onBack={onBack} />
 
-      {/* Tab toggle — Brand vs Product vs Category */}
-      <div className="flex justify-center">
-        <div
-          role="tablist"
-          className="inline-flex max-w-full snap-x overflow-x-auto rounded-xl border border-border bg-muted/40 p-1 shadow-sm [scrollbar-width:none] md:snap-none md:overflow-x-visible [&::-webkit-scrollbar]:hidden"
-        >
-          <TabBtn
-            active={tab === "brand"}
-            onClick={() => switchTab("brand")}
-            icon={Building2}
-            label="Brand"
-            count={ALL_BRANDS.length}
-          />
-          <TabBtn
-            active={tab === "product"}
-            onClick={() => switchTab("product")}
-            icon={Package}
-            label="Product"
-            count={ALL_PRODUCTS.length}
-          />
-          <TabBtn
-            active={tab === "category"}
-            onClick={() => switchTab("category")}
-            icon={FolderOpen}
-            label="Category"
-            count={ALL_CATEGORIES.length}
-          />
+      {/* Tab toggle — Brand vs Product vs Category, gated to what this Mode
+          actually offers (§4). A single-kind Mode (Brand Ad, Product Ad,
+          Product Shoot) renders NO segmented control at all — a one-item
+          tablist is a control with no choice in it; the "Pick a …" heading
+          in the panel below does that job instead. Order follows
+          `rule.kinds` verbatim (e.g. Performance Ad: Category before
+          Product). */}
+      {availableKinds.length > 1 && (
+        <div className="flex justify-center">
+          <div
+            role="tablist"
+            className="inline-flex max-w-full snap-x overflow-x-auto rounded-xl border border-border bg-muted/40 p-1 shadow-sm [scrollbar-width:none] md:snap-none md:overflow-x-visible [&::-webkit-scrollbar]:hidden"
+          >
+            {availableKinds.map((kind) => (
+              <TabBtn
+                key={kind}
+                active={tab === kind}
+                onClick={() => switchTab(kind)}
+                icon={TAB_META[kind].icon}
+                label={TAB_META[kind].label}
+                count={TAB_META[kind].count}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Toolbar — search + (Product-only) brand filter + fetch URL */}
       <div className="flex flex-wrap items-center gap-2">
@@ -990,25 +1154,29 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
             {/* §9 — bulk product selection toggle. Off = the fast single-pick
                 path (click a card → advance), unchanged from before. On =
                 clicking accumulates a set instead of advancing; the outcome
-                bar below states in words what will be produced. */}
-            <button
-              type="button"
-              onClick={() => setBulkMode((v) => !v)}
-              aria-pressed={bulkMode}
-              className={cn(
-                "shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-xs font-medium transition-colors",
-                bulkMode
-                  ? "border-primary/40 bg-primary/5 text-foreground"
-                  : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-              )}
-            >
-              {bulkMode ? (
-                <CheckSquare className="h-3.5 w-3.5" />
-              ) : (
-                <Square className="h-3.5 w-3.5" />
-              )}
-              Select multiple
-            </button>
+                bar below states in words what will be produced. Not offered
+                on a `multi` Mode (§4) — multi-select isn't optional there,
+                so a toggle that can only be on would be dead chrome. */}
+            {!multiProducts && (
+              <button
+                type="button"
+                onClick={() => setBulkMode((v) => !v)}
+                aria-pressed={bulkMode}
+                className={cn(
+                  "shrink-0 inline-flex h-9 items-center gap-1.5 rounded-lg border bg-card px-3 text-xs font-medium transition-colors",
+                  bulkMode
+                    ? "border-primary/40 bg-primary/5 text-foreground"
+                    : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                )}
+              >
+                {bulkMode ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                Select multiple
+              </button>
+            )}
 
             {/* §21.2 — Product Shoot's third route: Brand → skip product →
                 upload image. For a brand whose product isn't in the
@@ -1195,7 +1363,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
       {tab === "brand" ? (
         <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/40 bg-card/40 p-3">
           <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Pick a brand
+            Pick a brand{entitySuffix("brand")}
           </p>
           {flowBandForTab("brand")}
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
@@ -1203,21 +1371,34 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
               brands={filteredBrands}
               selectedId={wizard.state.brandId}
               onPick={(id) => {
-                wizard.patch({
-                  brandId: id,
-                  productId: null,
-                  categoryId: null,
-                });
+                pickEntity("brand", id);
                 onAdvance();
               }}
               search={search}
             />
           </div>
+          {/* §4 — the pass-through. Gated on `canContinue`, the same answer
+              the Category branch's button and the multi-select bar use, so
+              it can never appear next to an unmet requirement: Social /
+              Animated AI / Custom get it with nothing picked ("one or
+              nothing"), Brand Ad only once a brand is actually set. */}
+          {canContinue && (
+            <div className="shrink-0 flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={onAdvance}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-5 py-2.5 text-[13px] font-bold text-foreground shadow-sm transition-colors hover:border-foreground/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {passThroughLabel}
+                <span aria-hidden>→</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : tab === "product" ? (
         <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border/40 bg-card/40 p-3">
           <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Pick a product
+            Pick a product{entitySuffix("product")}
           </p>
           {flowBandForTab("product")}
 
@@ -1268,24 +1449,41 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
             </div>
           )}
 
-          {/* §9 — bulk outcome, stated in words BEFORE the user commits. */}
-          {bulkMode && (
+          {/* §9 / §4 — multi-select outcome, stated in words BEFORE the user
+              commits, with the running count and the only way forward from
+              this path (cards accumulate here, they never auto-advance). */}
+          {multiSelectActive && (
             <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
               <Users className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <p className="min-w-0 flex-1 text-[11px] font-medium text-foreground">
-                {bulkSelectedIds.size === 0
-                  ? "Select products to feature — they'll all be in ONE ad, not separate ads."
-                  : bulkSelectedIds.size === 1
-                    ? "1 product selected — the hero. Pick more, or continue with just this one."
-                    : `One ad featuring all ${bulkSelectedIds.size} products — not ${bulkSelectedIds.size} separate ads.`}
+              {/* `min-w-[12rem]` is load-bearing: with a count chip, Clear and
+                  Continue all sitting on this row, a plain `flex-1` let the
+                  sentence collapse to a one-word-per-line column inside the
+                  narrow studio pane. A floor makes the wrapping row push the
+                  controls to a second line instead of crushing the copy. */}
+              <p className="min-w-[12rem] flex-1 text-[11px] font-medium text-foreground">
+                {multiOutcomeLine(bulkSelectedIds.size, multiProducts, !canContinue)}
               </p>
+              {bulkSelectedIds.size > 0 && (
+                <>
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                    {bulkSelectedIds.size} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearMultiSelection}
+                    className="shrink-0 rounded-full px-2 py-1 font-mono text-[10px] text-muted-foreground transition-colors hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    Clear
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={onAdvance}
-                disabled={bulkSelectedIds.size === 0}
+                disabled={!canContinue}
                 className={cn(
                   "shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                  bulkSelectedIds.size === 0
+                  !canContinue
                     ? "cursor-not-allowed bg-muted text-muted-foreground"
                     : "bg-primary text-primary-foreground hover:opacity-90",
                 )}
@@ -1299,25 +1497,45 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
             <ProductGrid
               products={filteredProducts}
               selectedId={wizard.state.productId}
-              multiSelect={bulkMode}
+              multiSelect={multiSelectActive}
               selectedIds={bulkSelectedIds}
               heroId={wizard.state.productId}
               onPick={(id) => {
-                if (bulkMode) {
+                if (multiSelectActive) {
                   toggleBulkProduct(id);
                   return;
                 }
-                wizard.patch({
-                  productId: id,
-                  categoryId: null,
-                  brandId: null,
-                  bulkProductIds: [],
-                });
+                // RESOLVED — for Performance Ad (`kinds: [category, product]`,
+                // category required, product in `also`) this now KEEPS the
+                // category: `entitySelectionPatch` is the one decider and it
+                // preserves coexisting kinds. `bulkProductIds` is reset
+                // because a single pick replaces the co-star set, not
+                // because product has a sibling to clear.
+                pickEntity("product", id, { bulkProductIds: [] });
                 onAdvance();
               }}
               search={search}
             />
           </div>
+          {/* §4 — the pass-through, same `canContinue` gate as every other
+              Continue here: "one or nothing" Modes get it with nothing
+              picked, and Performance Ad gets it once its category is set
+              (product is optional there — before this, that tab had no way
+              forward at all). Multi-select already has its own Continue in
+              the bar above, so this only renders for the single-pick path —
+              two competing continue actions on one tab is just noise. */}
+          {canContinue && !multiSelectActive && (
+            <div className="shrink-0 flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={onAdvance}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-5 py-2.5 text-[13px] font-bold text-foreground shadow-sm transition-colors hover:border-foreground/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {passThroughLabel}
+                <span aria-hidden>→</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         /* A-12.66 (Maalik): no page scroll. Category branch fills the
@@ -1328,14 +1546,10 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
         <CategoryBranch
           categories={filteredCategories}
           selectedCategoryId={wizard.state.categoryId}
-          onPickCategory={(id) =>
-            wizard.patch({
-              categoryId: id,
-              productId: null,
-              brandId: null,
-              bulkProductIds: [],
-            })
-          }
+          // Performance Ad keeps a product picked here (category + product
+          // coexist); every other Mode still clears it — `pickEntity` is the
+          // one decider, this call site no longer names siblings at all.
+          onPickCategory={(id) => pickEntity("category", id)}
           search={search}
           products={categoryProducts}
           selectedProductIds={bulkSelectedIds}
@@ -1355,6 +1569,8 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
             )
           }
           highlightBand={flowBandForTab("category")}
+          canContinue={canContinue}
+          categorySuffix={entitySuffix("category")}
         />
       )}
 
@@ -1363,7 +1579,7 @@ export function Step2Product({ wizard, onAdvance, onBack }: Step2Props) {
           product={fetchedProduct}
           brand={ALL_BRANDS.find((b) => b.id === fetchedProduct.brandId)}
           onSave={(productId) => {
-            wizard.patch({ productId, categoryId: null, brandId: null });
+            pickEntity("product", productId, { bulkProductIds: [] });
             setShowFetchModal(false);
             setFetchedProduct(null);
             onAdvance();
@@ -1926,6 +2142,17 @@ interface CategoryBranchProps {
   /** §6 Rule 4 flow band (suggested / pre-filled), rendered pinned at the
    *  top of the category picker. `null` outside a flow redirect. */
   highlightBand?: React.ReactNode;
+  /** §4 — the screen's single "can continue" answer
+   *  (`isEntityRuleSatisfied`, computed once in Step2Product). False blocks
+   *  the button: Performance Ad until a category is picked. True for Social
+   *  / Animated AI / Custom with nothing picked ("all optional"). Passed in
+   *  rather than re-derived here so the button and the sentence above it can
+   *  never disagree about what is required. */
+  canContinue: boolean;
+  /** " · required" / " · optional" / "" for the "Pick a category" heading —
+   *  precomputed by the caller so this component doesn't need to know
+   *  whether a Mode rule exists at all, only what to render. */
+  categorySuffix: string;
 }
 
 function CategoryBranch({
@@ -1941,10 +2168,12 @@ function CategoryBranch({
   refineOpen,
   onRefineToggle,
   highlightBand,
+  canContinue,
+  categorySuffix,
 }: CategoryBranchProps) {
   const selectedCategoryName =
     categories.find((c) => c.id === selectedCategoryId)?.name ?? null;
-  const continueDisabled = !selectedCategoryId;
+  const continueDisabled = !canContinue;
   const bulkCount = selectedProductIds.size;
 
   return (
@@ -1957,7 +2186,7 @@ function CategoryBranch({
         )}
       >
         <p className="mb-2 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Pick a category
+          Pick a category{categorySuffix}
         </p>
         {highlightBand}
         <div className="min-h-0 flex-1 overflow-y-auto pr-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5">
@@ -2101,7 +2330,9 @@ function CategoryBranch({
             ? bulkCount > 1
               ? `Continue — ${bulkCount} products, one ad`
               : `Continue with ${selectedCategoryName}`
-            : "Pick a category to continue"}
+            : canContinue
+              ? "Continue without picking"
+              : "Pick a category to continue"}
           {!continueDisabled && <span aria-hidden>→</span>}
         </button>
       </div>
@@ -2141,18 +2372,35 @@ function resolveHighlightDisplay(
  *
  * This is deliberately styled NOTHING like the grid's "selected" treatment
  * (primary ring + circle check) — amber "Suggested" tag + an explicit
- * "Use this" button, so it reads as a proposal, not a commitment. Nothing
- * is written to wizard state until that button is clicked (Rule 3).
+ * "Use this" button, so it reads as a proposal, not a commitment. This
+ * component never writes anything: `onAccept` is the only path to state, and
+ * it fires on a click. That is load-bearing — a sibling surface (Industry
+ * Insights, §7.2) suggests a COMPETITOR-owned reference, and auto-selecting
+ * from a band would be telling the user to advertise for a rival.
+ *
+ * DEFECT FIX — the band used to assert "not selected yet" unconditionally,
+ * including on the one path where the entity ARRIVES selected: a Rule-1
+ * "asks nothing" hand-off seeds the highlight into wizard state
+ * (`resolveFlowContext`'s applyHighlight), and `?tweak=1` then stops the
+ * wizard here — so a Library "Forge more — adjust first…" landed on a band
+ * claiming nothing was chosen, 40px above that same brand's card wearing a
+ * selected ring and a check. `selectedId` is what wizard state actually
+ * holds for this kind; when it matches, the band says so. Neither the
+ * band's appearance nor the never-auto-select rule changes — only the words.
  */
 function FlowHighlightBand({
   ctx,
   onAccept,
+  selectedId,
 }: {
   ctx: FlowContext;
   onAccept: () => void;
+  /** What wizard state currently holds for the highlight's kind, or null. */
+  selectedId?: string | null;
 }) {
   if (!ctx.highlight) return null;
   const display = resolveHighlightDisplay(ctx.highlight);
+  const alreadySelected = !!selectedId && selectedId === ctx.highlight.id;
   // §7.2 — competitorOwned is module metadata used ONLY for this explanatory
   // note. It never changes what gets highlighted — that is, and must stay,
   // ctx.highlight alone (see the big comment on flowCtx above).
@@ -2179,8 +2427,8 @@ function FlowHighlightBand({
             <span className="inline-flex items-center rounded-full bg-warning-text/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-warning-text">
               Suggested
             </span>
-            <span className="truncate text-[10px] text-warning-text">
-              not selected yet
+            <span className="truncate font-mono text-[10px] text-warning-text">
+              {alreadySelected ? "carried over · already set" : "not selected yet"}
             </span>
           </div>
           <p className="mt-0.5 truncate text-[13px] font-semibold text-foreground">
@@ -2200,7 +2448,10 @@ function FlowHighlightBand({
           onClick={onAccept}
           className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          Use this
+          {/* Same action either way — it commits the highlight and moves on.
+              Only the label follows reality: "Use this" over an unselected
+              suggestion, "Keep it" once it's already what's set. */}
+          {alreadySelected ? "Keep it" : "Use this"}
         </button>
       </div>
     </div>

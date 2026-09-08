@@ -1,7 +1,10 @@
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 
-export type AlphaStep = 1 | 2 | 3 | 4;
+/** 0 = the entity-scope ask, offered only by Modes whose entity is optional.
+ *  It is absent from `ALL_STEPS` on purpose: that default is for callers who
+ *  pass no `visibleSteps` (the legacy V4 shell), which never reaches step 0. */
+export type AlphaStep = 0 | 1 | 2 | 3 | 4;
 
 interface AlphaProgressIndicatorProps {
   step: AlphaStep;
@@ -24,6 +27,7 @@ interface AlphaProgressIndicatorProps {
 
 // Mode removed from Step 1 2026-09-08 (Maalik) — back to "Format" alone.
 const STEP_LABEL: Record<AlphaStep, string> = {
+  0: "Scope",
   1: "Format",
   2: "Product",
   3: "Approach",

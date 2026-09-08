@@ -16,7 +16,7 @@ function tabLabel(v: "all" | AppCategory): string {
 }
 
 /**
- * OtherApps — the Other Apps grid (§8). 15 single-purpose tools, 7 of them
+ * OtherApps — the Other Apps grid (§8). 22 single-purpose tools, 7 of them
  * live. Live cards carry weight (bigger, cost stated, richer copy) — the
  * grid is deliberately asymmetric, never a repeating row of 3 equal cards.
  */

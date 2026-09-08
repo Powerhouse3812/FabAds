@@ -5,15 +5,15 @@ import {
   Film, Search, Globe,
   Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Boxes,
-  Workflow, Eraser, Scissors,
+  Workflow,
   Lightbulb,
   Sparkles, Receipt,
   Compass, Eye, Layers, Rss, TrendingUp,
   Plus,
-  // Genie 2.0: Other Flows + Other Apps sub-nav entries. GitMerge reads as
-  // "many sources converge here", which is exactly what Other Flows is;
-  // Workflow is already spoken for by the Automations module.
-  GitMerge, LayoutGrid,
+  // Genie 2.0: Other Flows sub-nav entry. GitMerge reads as "many sources
+  // converge here", which is exactly what Other Flows is; Workflow is
+  // already spoken for by the Automations module.
+  GitMerge,
 } from "lucide-react";
 // Catalogue sub-nav is derived from the asset-type registry so the two can
 // never drift (Maalik's ruling: "keep all assets in sub nav itself" — no
@@ -98,8 +98,14 @@ export type ModuleGroup = "RUN" | "CREATE" | "TOOLS";
  *                          (visually independent — no shared border/grouping)
  *    Video Sage
  *    Copilot
- *    BG Remover          (Soon)
- *    Object Remover      (Soon)
+ *
+ *  BG Remover and Object Remover moved OUT of TOOLS (2026-09-09): Other Apps
+ *  is now the single home for every one-shot utility tool, so both live on
+ *  as "coming soon" entries in src/genie6/apps/data/appRegistry.ts instead of
+ *  as their own sidebar modules. Their /tools/bg-remover and /tools/obj-remover
+ *  routes stay registered in App.tsx for old links — only the nav surface
+ *  moved, same "keep the route, drop the nav entry" treatment as every other
+ *  retired nav item in this file's history.
  *
  * (A-4 had AUTOMATE as a separate group with Automation alone. Killed in A-5
  * — single-module groups read as layout glitches; Automation is operational.)
@@ -228,13 +234,16 @@ export const MODULES: ModuleDef[] = [
       // matches the new /studio Product-first flow's primacy.
       // Genie 2.0 §3's locked order was Overview · Studio · Other Flows ·
       // Other Apps · Concepts · Library · Settings. Maalik has since pulled
-      // both Overview and Settings off this list (nothing real behind
-      // either yet) — routes still exist at /iq/genie6 (bare) and
-      // /iq/genie6/settings for the many places elsewhere in the app that
-      // deep-link straight there (mobile tab bar, tour, onboarding CTAs,
-      // etc.), same "kept, no nav surface" treatment as Genie 2/3/4/5.
-      // "Other Flows" and "Other Apps" sit between Studio and Concepts, which is
-      // the spec's stated position.
+      // Overview, Other Apps and Settings off this list. Overview/Settings:
+      // nothing real behind either yet — routes still exist at /iq/genie6
+      // (bare) and /iq/genie6/settings for the many places elsewhere in the
+      // app that deep-link straight there (mobile tab bar, tour, onboarding
+      // CTAs, etc.), same "kept, no nav surface" treatment as Genie 2/3/4/5.
+      // Other Apps: still a real, live grid (route kept for old links) —
+      // its only nav-level home now is the "OTHER APPS" section on Studio's
+      // own home screen, below the Mode cards, not a row in this sub-nav.
+      // "Other Flows" sits between Studio and Concepts, which is the spec's
+      // stated position.
       // A-12.17: Studio Alpha is primary. Studio v3 + Beta deprioritized below Old Studio.
       // Genie 2.0: relabelled "Studio Alpha" → "Studio" per §3's locked list. The
       // path stays /studio-alpha — every deep link, every ?src/?ref/?act flow URL
@@ -243,9 +252,14 @@ export const MODULES: ModuleDef[] = [
       // Genie 2.0 §7 — Other Flows: the surface that turns Genie from a place you
       // go to into a place other modules feed into. Lists the 11 source modules.
       { label: "Other Flows", path: "/iq/genie6/flows",            icon: GitMerge },
-      // Genie 2.0 §8 — Other Apps: 15 single-purpose tools, 7 live. "Apps" and
-      // "Tools" are the same thing (§2 vocabulary) — never two concepts.
-      { label: "Other Apps",  path: "/iq/genie6/apps",             icon: LayoutGrid },
+      // Genie 2.0 §8 — Other Apps: removed from this sub-nav per Maalik's
+      // call ("remove other apps from sub nav — keeping only on studio,
+      // below modes"). It already renders as a section on Studio's home
+      // screen below the Mode cards (studio-v4/screens/StudioHome.tsx),
+      // which is now its only nav-level home. Route (/iq/genie6/apps,
+      // /iq/genie6/apps/:appKey) and page are kept alive for old bookmarks
+      // and in-app hand-offs (Library, Creative Library "Send to Other
+      // Apps", Other Flows) that still navigate straight there.
       // A-12.38: Concepts library promoted to primary. Aggregates catalogue +
       // KB-attached + user-saved concepts into one searchable feed.
       { label: "Concepts",    path: "/iq/genie6/concepts",         icon: Lightbulb },
@@ -293,8 +307,12 @@ export const MODULES: ModuleDef[] = [
   // outside the app shell; the page shows a "Back to dashboard" chip so
   // reviewers can return without logging out (demo auto-login stays active).
   { key: "auth-screens", label: "Auth", icon: Shield, path: "/auth", badge: "New" },
-  { key: "bg-remover", label: "BG Remover", icon: Eraser, path: "/tools/bg-remover", comingSoon: true },
-  { key: "obj-remover", label: "Object Remover", icon: Scissors, path: "/tools/obj-remover", comingSoon: true },
+  // bg-remover and obj-remover modules removed 2026-09-09 — see the TOOLS
+  // comment block above. Routes (/tools/bg-remover, /tools/obj-remover) and
+  // MobileRoutePolicy entries for them are untouched and still resolve;
+  // they simply have no nav entry pointing at them anymore. Both tools now
+  // live as "coming soon" entries in src/genie6/apps/data/appRegistry.ts
+  // (keys "bg-remover" and "object-remover").
   // Brand Book is intentionally NOT in the nav rail. The slideshow itself
   // (/brand-book/:slug) still works for direct URL access — see
   // brandBookRoutes in App.tsx. Removed from the rail per Maalik —
@@ -336,8 +354,6 @@ export const MODULE_GROUPS: Record<string, ModuleGroup> = {
   // TOOLS (each tool is its own module)
   "video-sage": "TOOLS",
   copilot: "TOOLS",
-  "bg-remover": "TOOLS",
-  "obj-remover": "TOOLS",
   "auth-screens": "TOOLS",
 };
 

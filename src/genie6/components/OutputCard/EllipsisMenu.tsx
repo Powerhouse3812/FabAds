@@ -28,6 +28,10 @@ const ITEMS: Array<{ action: EllipsisAction; label: string; group?: number }> = 
   { action: "edit", label: "Edit", group: 1 },
   { action: "regenerate", label: "Regenerate", group: 1 },
   { action: "forgeMore", label: "Forge more like this", group: 1 },
+  // §7 — sits directly under its own fast path on purpose, so the pair reads
+  // as one action with two speeds. The trailing ellipsis is what distinguishes
+  // them: the row above fires immediately, this one opens the wizard first.
+  { action: "forgeMoreTweak", label: "Forge more — adjust first…", group: 1 },
   { action: "varyScript", label: "Vary script", group: 1 },
   { action: "varyConcept", label: "Vary concept", group: 1 },
   { action: "varyWholeVideo", label: "Vary whole video", group: 1 },

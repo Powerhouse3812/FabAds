@@ -43,11 +43,17 @@ export function StudioV4() {
   // Results Queue surface to avoid double headers / footers.
   const onResultsQueue = state.step === 5;
 
+  // Step 0 (entity scope) belongs to StudioAlpha only — it is entered from
+  // that shell's Mode picker, which this older V4 shell doesn't have, so
+  // `state.step` is never 0 here. Narrowed at the boundary rather than
+  // widening ProgressIndicator/WizardNav for a step they can't render.
+  const navStep = (state.step === 0 ? 1 : state.step) as 1 | 2 | 3 | 4 | 5;
+
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background text-foreground">
       {!onResultsQueue && (
         <ProgressIndicator
-          step={state.step}
+          step={navStep}
           ctaLayout={state.ctaLayout}
           onJumpTo={wizard.goTo}
         />
@@ -71,7 +77,7 @@ export function StudioV4() {
 
       {!onResultsQueue && (
         <WizardNav
-          step={state.step}
+          step={navStep}
           ctaLayout={state.ctaLayout}
           count={state.count}
           credits={state.credits}

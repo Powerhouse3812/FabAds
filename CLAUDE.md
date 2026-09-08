@@ -201,6 +201,34 @@ update `VARIANT_META` for the picker.
 
 ---
 
+## Worktree gotchas
+
+Maalik runs many Claude Code sessions in parallel, each in its own git
+worktree under `.claude/worktrees/*`. Two consequences:
+
+- **`.env` is gitignored, so a fresh worktree boots without it.** Symptom:
+  the dev server starts cleanly but the app renders a blank page with
+  `Uncaught Error: supabaseUrl is required` in the console. Not a code bug —
+  copy `.env` from the main checkout (`/Users/powerhouse/Downloads/FabAds/.env`)
+  into the new worktree, then restart the dev server (Vite doesn't hot-reload
+  env changes).
+- **Nothing syncs between worktrees automatically.** Each is an isolated
+  checkout on its own branch — an edit in one lives only there until it's
+  committed, pushed, and merged to `main`; another session only sees it after
+  an explicit `git fetch` + merge/rebase onto `origin/main`. Before starting
+  open-ended "continue Genie" style work with no specific task, check for
+  in-flight collisions first: peer sessions (`ListAgents` / list_sessions) and
+  `git status`/`git diff --stat` across sibling worktrees. Pick a slice no
+  live peer session is currently editing, and fast-forward onto
+  `origin/main` before committing if it has moved.
+- **When a peer session has already built the thing, PORT it, don't rebuild.**
+  `git -C <their-worktree> diff -- <paths> > /tmp/p && git apply --check /tmp/p
+  && git apply /tmp/p`. Two branches creating the same entries by hand is
+  guaranteed conflict plus duplicated effort. Port their docs edits too, or
+  the surviving branch ships stale claims about work that did land.
+
+---
+
 ## Sync discipline
 
 When a change ships, propagate it across:
@@ -280,7 +308,33 @@ Concepts · Library · Settings.
   Only Campaign URLs pre-selects — the single documented exception.
 - **Rule 1 / Rule 2.** A variation asks nothing → lands on Configure. A "use X"
   always asks who it's for → lands on Step 2, *even when the source already
-  carries the entity*.
+  carries the entity*. Rule 1 has exactly ONE opt-out: `variationTweak`
+  (`?tweak=1`), set when the user picks "Forge more — adjust first…" — then the
+  wizard keeps all four steps and stops at Step 2. Adding a second opt-out
+  means the fast path stops being predictable; don't.
+- **A module must LIST every action it fires.** `resolveFlowContext` returns
+  null for any action missing from the module's `actions` array in
+  `flowRegistry.ts`, which silently kills the banner, the entity carry-over,
+  the prompt carry-over and `isVariation` — while still *looking* right if the
+  caller hardcodes a step slug. That exact bug shipped for `creative-library` +
+  `generate-variation` (fixed 2026-09-09). When you add an action to a module's
+  UI, add it to the registry in the same change.
+- **Per-Mode entity rules are DATA, not conditionals.** `ModeOption.entity`
+  (`ModeEntityRule` in `studio-v4/data/modes.ts`) declares which of
+  Brand/Product/Category a Mode offers and which is mandatory. Read it via
+  `modeEntityRule()`; never re-derive from a `studioMode === "…"` check.
+- **The Step-2 XOR is Mode-scoped, not absolute (since 2026-09-09).**
+  `brandId`/`productId`/`categoryId` used to clear each other unconditionally;
+  that made Performance Ad (category + optional product) and Product Shoot
+  (several products) impossible. `entitySelectionPatch()` in useWizard.ts is
+  now the ONE place that decides what a selection clears — Step2Product must
+  not hand-roll the clearing again, which is how three copies of the old rule
+  came to exist. `productId` remains the primary product and always equals
+  `productIds[0]` when the set is non-empty.
+- **Other Apps has ONE home:** Studio home, below the Modes, showing the full
+  roster. It is deliberately NOT in the Genie sub-nav, and one-shot tools
+  (bg-remover, object-remover) were moved out of the sidebar TOOLS group into
+  it. Routes for anything pulled from nav stay alive.
 - **ONE progress + failure pattern** (`src/genie6/progress/`, §18): stage-wise
   with an *updating* estimate, never a fixed countdown; a failure STAYS in the
   list with a Retry that states its credit cost, never a toast. Studio, Flows

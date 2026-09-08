@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeft, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { AlphaProgressIndicator, type AlphaStep } from "./components/AlphaProgressIndicator";
+import { Step0Entity } from "./screens/Step0Entity";
 import { AlphaStep1Format } from "./screens/AlphaStep1Format";
 import { Step2Product } from "./screens/Step2Product";
 import { Step3Approach } from "./screens/Step3Approach";
@@ -12,7 +13,8 @@ import { AlphaStep3Configure } from "./screens/AlphaStep3Configure";
 // legacy Step5Results stays on disk in case the concept-rows-only layout
 // needs to be revived as a fallback.
 import { Step5ResultsQueue } from "./screens/Step5ResultsQueue";
-import { StudioHome, type AlphaMode } from "./screens/StudioHome";
+import { StudioHome } from "./screens/StudioHome";
+import { MODES, type AlphaMode } from "./data/modes";
 import { ContextRail } from "./components/ContextRail";
 import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
 import { useStudioLayoutVariant } from "./state/useStudioLayoutVariant";
@@ -24,6 +26,7 @@ import {
   type Mode,
   type StepNumber,
   type GenerationTarget,
+  isEntityOptionalMode,
   resolveGenerationStepsForState,
 } from "./state/useWizard";
 import { useStudioAlphaUrlSync } from "./state/useUrlSync";
@@ -51,8 +54,12 @@ function readUrlIntoState(
   flowCtx: FlowContext | null,
 ): Partial<WizardState> {
   const patch: Partial<WizardState> = {};
-  if (pathStep && SLUG_TO_STEP[pathStep]) {
-    patch.step = SLUG_TO_STEP[pathStep];
+  // `!== undefined`, NOT a truthiness check — step 0 (the entity-scope ask) is
+  // a legal step and `0` is falsy, so `&& SLUG_TO_STEP[pathStep]` silently
+  // dropped every /scope URL back to the default step.
+  const slugStep = pathStep ? SLUG_TO_STEP[pathStep] : undefined;
+  if (slugStep !== undefined) {
+    patch.step = slugStep;
     patch.category = "ad";
   }
   const format = searchParams.get("format");
@@ -96,6 +103,32 @@ function readUrlIntoState(
   if (bulkProducts) patch.bulkProductIds = bulkProducts.split(",").filter(Boolean);
   const productImage = searchParams.get("productImage");
   if (productImage) patch.uploadedProductImage = productImage;
+  // §10a — the Mode, step 0's answer, and Product Shoot's multi-select must
+  // land at CONSTRUCTION, not one effect tick later, for the same reason as
+  // every other param above. Without them: `plan` computed step 0 as "skipped"
+  // on the first render (studioMode still null), so the skipped-step guard
+  // bounced a refresh/shared link on /scope straight to /format; and
+  // `homeMode`'s useState initializer — which reads `state.studioMode` exactly
+  // once — was stuck at null, so the rail read "Mode pending" for the rest of
+  // the run. Validated the same way as useUrlSync.ts's mount read, never cast.
+  const studioMode = searchParams.get("studioMode");
+  if (studioMode && MODES.some((m) => m.id === studioMode)) {
+    patch.studioMode = studioMode as AlphaMode;
+  }
+  const scope = searchParams.get("scope");
+  if (scope === "entity" || scope === "custom") patch.entityMode = scope;
+  const products = searchParams.get("products");
+  if (products) {
+    const ids = products.split(",").filter(Boolean);
+    if (ids.length > 0) {
+      patch.productIds = ids;
+      // Invariant (useWizard.ts): `productId` is always `productIds[0]` while
+      // the set is non-empty. ?product normally carries it, but a hand-edited
+      // or truncated link may not — keep them in step here rather than letting
+      // the rail / Configure / the credit formula read an empty product.
+      if (!patch.productId) patch.productId = ids[0];
+    }
+  }
   // §12 — a concept hand-off must land on the FIRST paint, same reasoning as
   // every other param read here. Unknown ids are dropped (see useUrlSync).
   const conceptsParam = searchParams.get("concepts");
@@ -151,7 +184,8 @@ function readUrlIntoState(
     // to Configure because landingStep (4) overwrote the path's step (5).
     const { step: landingStep, ...flowPatch } = flowInitialPatch(flowCtx, searchParams);
     Object.assign(patch, flowPatch);
-    if (!patch.step) patch.step = landingStep;
+    // `=== undefined`, not `!patch.step` — step 0 is a legal step and falsy.
+    if (patch.step === undefined) patch.step = landingStep;
     // §5/§7 (2026-09-08) — flows now produce Script/Concept/Storyboard too,
     // not only Ads. `category` must follow the resolved target (mirrors
     // startWizard's `mode === "product-shoot" ? "asset" : "ad"` derivation),
@@ -164,6 +198,7 @@ function readUrlIntoState(
 type AlphaPhase = "home" | "wizard";
 
 const STEP_TO_SLUG: Record<number, string> = {
+  0: "scope",
   1: "format",
   2: "product",
   3: "approach",
@@ -171,7 +206,8 @@ const STEP_TO_SLUG: Record<number, string> = {
   5: "results",
 };
 
-const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
+const SLUG_TO_STEP: Record<string, 0 | 1 | 2 | 3 | 4 | 5> = {
+  scope: 0,
   format: 1,
   product: 2,
   approach: 3,
@@ -187,7 +223,8 @@ const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
  * `plan.visibleSteps.length` (always 4 for an Ad; fewer for an asset flow
  * that skips a step), not a hardcoded 4.
  */
-const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
+const STEP_LABELS: Record<0 | 1 | 2 | 3 | 4 | 5, string> = {
+  0: "Scope",
   // Mode removed from this step 2026-09-08 (Maalik) — label is Format only now.
   1: "Format",
   2: "Product",
@@ -297,9 +334,22 @@ export function StudioAlpha() {
   // Defaults to target "ad" / source "none", which resolves to the full,
   // unchanged `visibleSteps: [1, 2, 3, 4]` — so an Ad run reads this plan
   // and gets the exact same steps it always did.
+  // Every input `resolveGenerationStepsForState` reads must be a dep here, or
+  // the plan silently goes stale and the "redirect off a skipped step" effect
+  // below acts on the previous run's shape. `studioMode` and `entityMode` were
+  // missing: step 0 was computed as skipped for a Mode that does offer it, so
+  // picking Social bounced straight past the scope ask to Format.
   const plan = useMemo(
     () => resolveGenerationStepsForState(state),
-    [state.generationTarget, state.generationSource, state.isVariation, state.format],
+    [
+      state.generationTarget,
+      state.generationSource,
+      state.isVariation,
+      state.format,
+      state.studioMode,
+      state.entityMode,
+      state.variationTweak,
+    ],
   );
   // A flow can land the wizard on step 2 or 4 via a URL with NO :step path
   // segment yet (e.g. /studio-alpha?src=trends&ref=...&act=...) — phase must
@@ -320,7 +370,10 @@ export function StudioAlpha() {
   // there hits computeHasRequiredEntity's permissive default branch instead
   // of over-constraining on a stale mode. §5: the Step-2 tab decides ad
   // type, not Mode — this file must not infer one from the other.
-  const [homeMode, setHomeMode] = useState<AlphaMode | null>(null);
+  // Seeded from the restored wizard state, NOT hardcoded null: `?studioMode`
+  // is URL-synced now, so on a refresh or a shared link the Mode is already
+  // known and the rail/step-0 title would otherwise read as "nothing picked".
+  const [homeMode, setHomeMode] = useState<AlphaMode | null>(() => state.studioMode);
 
   // A-12.48 (Maalik): derive the render step DIRECTLY from URL on every render
   // (not just from `state.step`). This guarantees first-paint correctness when
@@ -330,10 +383,9 @@ export function StudioAlpha() {
   // below (so other consumers like AlphaProgressIndicator + ContextRail stay
   // consistent on second paint), but the active step component is picked from
   // the URL-derived step right from render 0.
-  const urlStep =
-    params.step && SLUG_TO_STEP[params.step]
-      ? SLUG_TO_STEP[params.step]
-      : null;
+  // Same falsy-zero trap as `readUrlIntoState` — step 0 is legal, so this has
+  // to test for undefined rather than truthiness.
+  const urlStep = params.step ? (SLUG_TO_STEP[params.step] ?? null) : null;
   const renderStep =
     phase === "wizard" ? (urlStep ?? state.step) : state.step;
 
@@ -408,7 +460,12 @@ export function StudioAlpha() {
       return;
     }
     const targetStep = SLUG_TO_STEP[params.step];
-    if (!targetStep) {
+    // `=== undefined`, NOT `!targetStep` — the same falsy-zero trap as
+    // `readUrlIntoState` and `urlStep` above. With the truthiness test, a
+    // browser Back/Forward onto /scope bailed out here without syncing
+    // `state.step`, leaving it on the step the user came FROM: the next
+    // selection then advanced from THAT number and skipped Format entirely.
+    if (targetStep === undefined) {
       urlSyncedRef.current = true;
       return;
     }
@@ -458,7 +515,7 @@ export function StudioAlpha() {
   // "skipped" for target "ad", so this effect never fires for one.
   useEffect(() => {
     if (phase !== "wizard") return;
-    if (state.step < 1 || state.step > 4) return;
+    if (state.step < 0 || state.step > 4) return;
     const entry = plan.steps.find((s) => s.step === state.step);
     if (entry?.status === "skipped") {
       wizard.goTo(nearestVisibleLanding(state.step as StepNumber, plan.visibleSteps));
@@ -469,13 +526,24 @@ export function StudioAlpha() {
   const startWizard = (mode: AlphaMode) => {
     setHomeMode(mode);
     const category = mode === "product-shoot" ? "asset" : "ad";
+    // Step 0 (entity scope) is offered only by the Modes whose entity rule
+    // makes all three of Brand/Product/Category optional — Social, Animated
+    // AI, Custom, Podcast. The four that mandate an entity go straight to
+    // Format, since "custom, no entity" isn't a legal answer for them.
+    const offersScope = isEntityOptionalMode(mode);
     // §6 "Script as a pre-step" — studioMode must land in wizard state, not
     // only in this component's local homeMode, or Product Shoot's script
     // sub-step (isScriptLedState / isProductShootState, useWizard.ts) can
     // never fire: it reads state.studioMode exclusively.
-    wizard.patch({ category, step: 1, studioMode: mode });
+    wizard.patch({
+      category,
+      step: offersScope ? 0 : 1,
+      studioMode: mode,
+      // Fresh run — never inherit the previous Mode's scope answer.
+      entityMode: null,
+    });
     setPhase("wizard");
-    navigate("/iq/genie6/studio-alpha/format", { replace: false });
+    navigate(`/iq/genie6/studio-alpha/${offersScope ? "scope" : "format"}`, { replace: false });
   };
 
   // §5/§7 asset-generation entry point (2026-09-08) — StudioHome's "Or
@@ -641,6 +709,25 @@ export function StudioAlpha() {
                     flowCtx={flowCtx}
                   />
                 </div>
+              )}
+              {renderStep === 0 && (
+                <Step0Entity
+                  value={state.entityMode}
+                  modeTitle={MODES.find((m) => m.id === homeMode)?.title ?? "This generation"}
+                  // Highlight-only, never selected — and only when a flow
+                  // hand-off actually carried an entity in. A fresh Studio run
+                  // has nothing to suggest, which is the zero-data case.
+                  suggested={
+                    flowCtx?.highlight
+                      ? { kind: flowCtx.highlight.kind, name: flowCtx.highlight.name }
+                      : null
+                  }
+                  onChoose={(v) => {
+                    wizard.patch({ entityMode: v });
+                    handleAdvance();
+                  }}
+                  onBack={handleBack}
+                />
               )}
               {renderStep === 1 && (
                 <AlphaStep1Format
