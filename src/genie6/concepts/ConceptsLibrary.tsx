@@ -331,7 +331,7 @@ export function ConceptsLibrary() {
       ) : isFilteredEmpty ? (
         <FilteredEmptyState onClear={clearAll} />
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {filtered.map((item) => (
             <li key={item.id}>
               <ConceptCard
@@ -406,7 +406,7 @@ function FilteredEmptyState({ onClear }: { onClear: () => void }) {
 
 function LoadingGrid() {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
       {Array.from({ length: 12 }).map((_, i) => (
         <li key={i} className="flex flex-col overflow-hidden rounded-xl border border-border/40">
           <div className="aspect-[4/3] w-full animate-pulse bg-muted" />

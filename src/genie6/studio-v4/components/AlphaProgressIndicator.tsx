@@ -22,11 +22,9 @@ interface AlphaProgressIndicatorProps {
   onJumpTo?: (step: AlphaStep) => void;
 }
 
-// §21.2: Mode + Format merged onto one screen (was "Format" alone) — the
-// label says so, and it's why Mode is no longer a Home-only, invisible
-// "step zero": it's right here, in the breadcrumb, changeable via Back.
+// Mode removed from Step 1 2026-09-08 (Maalik) — back to "Format" alone.
 const STEP_LABEL: Record<AlphaStep, string> = {
-  1: "Mode & Format",
+  1: "Format",
   2: "Product",
   3: "Approach",
   4: "Configure",

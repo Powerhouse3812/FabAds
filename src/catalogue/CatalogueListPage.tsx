@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,6 +55,13 @@ import { AddCategoryModal } from "./AddCategoryModal";
 export function CatalogueListPage({ type }: { type: string }) {
   const def = getAssetType(type);
   const navigate = useNavigate();
+  // The 10 Creative types are mounted twice — under /catalogue (legacy
+  // redirects) and under /iq/genie6/assets (their real home now). Deriving
+  // the base from the current path, rather than a prop every call site would
+  // need to pass, means this component doesn't care which nav it's reached
+  // from — Brand/Product/Category still resolve to /catalogue as before.
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
   const [searchParams] = useSearchParams();
   const isLoading = searchParams.get("loading") === "1";
 
@@ -87,7 +94,7 @@ export function CatalogueListPage({ type }: { type: string }) {
   const isBusinessAddFlow = type === "brands" || type === "products" || type === "categories";
   const canAdd = isBusinessAddFlow || !!def.addForm;
 
-  const onCardClick = (id: string) => navigate(`/catalogue/${type}/${id}`);
+  const onCardClick = (id: string) => navigate(`${basePath}/${type}/${id}`);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {

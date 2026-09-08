@@ -56,6 +56,7 @@ import { TemplateRail } from "../components/TemplateRail";
 import { StyleBrandRail } from "../components/StyleBrandRail";
 import { InstructionsPickerModal } from "../components/InstructionsPickerModal";
 import type { AlphaMode } from "./StudioHome";
+import { useStudioLayoutVariant } from "../state/useStudioLayoutVariant";
 
 export type RailMode =
   | null
@@ -235,6 +236,24 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   // counts as script-led — including Product Shoot, which the old local
   // two-clause check here could never recognize.
   const isScriptLed = isScriptLedState(wizard.state);
+
+  // Dev-only 2nd layout (Maalik, 2026-09-08) — see useStudioLayoutVariant.ts.
+  // Linear: Overview (incl. Angle+Concept, now editable) renders ABOVE this
+  // component in StudioAlpha.tsx, so the combined Angles+Concepts card below
+  // doesn't render here at all; Script moves to sit right after HeroHeader;
+  // Prompt (suggestions + bar) moves to last.
+  const { variant: layoutVariant } = useStudioLayoutVariant();
+
+  // Script provenance (Maalik, 2026-09-08): the CONTENT needs no new
+  // plumbing — when generationSource is "script"/"storyboard", wizard.state
+  // .script already arrived pre-filled from whatever hand-off set that
+  // source. This is only the missing LABEL, so ScriptCard can say "same
+  // script" instead of looking indistinguishable from Auto/user-written.
+  // Applies in both layout variants — a real gap, not linear-only.
+  const scriptCarriedFrom =
+    wizard.state.generationSource === "script" || wizard.state.generationSource === "storyboard"
+      ? (flowCtx?.module.label ?? "source")
+      : null;
 
   // Trending concepts — top 16 sample outputs by qualityScore desc.
   // Pool is bigger so the horizontal-scroll strip has substance.
@@ -492,6 +511,60 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     return brand?.name ?? null;
   }, [wizard.state.productId, wizard.state.brandId]);
 
+  // Rail: right after the prompt bar, same position as always. Linear:
+  // right after HeroHeader (Overview is now above/outside this component),
+  // with Prompt moved to last — see the two render slots below. Defined
+  // once so neither position duplicates the actual JSX.
+  const scriptCardEl = (
+    <ScriptCard
+      script={wizard.state.script}
+      onOpenRail={() => setRailMode("script")}
+      carriedFrom={scriptCarriedFrom}
+    />
+  );
+
+  const promptSectionEl = (
+    <>
+      {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip.
+          §7.3/§7.4: adapted to the flow source (Reports' ad performance,
+          Trends' hook) when one exists; angle-aware fallback otherwise.
+
+          DEFECT FIX (adversarial review) — this used to gate on an empty
+          prompt only. flowInitialPatch() (resolveFlowContext.ts)
+          pre-fills the prompt for every variation action AND all three
+          Trends actions, so for exactly the flows §8.3/§8.4 wrote this
+          rail for, the prompt is never empty on arrival and the rail
+          could never render. A flow context now forces the rail open
+          regardless of prompt content; plain Studio (no flow) keeps the
+          original empty-prompt-only behaviour. */}
+      {(flowCtx !== null || wizard.state.prompt.trim().length === 0) && (
+        <PromptSuggestions
+          angleId={wizard.state.angleId}
+          flowSuggestions={flowCtx ? flowAdaptedSuggestions(flowCtx) : null}
+          onPick={(p) => wizard.set("prompt", p)}
+        />
+      )}
+
+      {/* Prompt bar — Layout A (inline Send) always.
+          footerExtras injects the Generation-settings popover trigger
+          between the aspect-ratio picker and the Generate button. */}
+      <PromptReferenceBar
+        wizard={wizard}
+        onAttachPickerOpen={handleAttachPickerOpen}
+        onChipOpen={handleChipOpen}
+        hideLayoutToggle
+        studioMode={wizard.state.studioMode ?? undefined}
+        footerExtras={
+          <GenerationSettingsButton
+            wizard={wizard}
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+          />
+        }
+      />
+    </>
+  );
+
   return (
     <>
       {/* Form content — centered single column. ContextRail lives in the global shell.
@@ -502,59 +575,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
       <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto px-4 pt-6 pb-6 md:gap-6 md:px-6 md:pt-8 md:pb-10">
         <HeroHeader title="Configure" onBack={onBack} />
 
-          {/* AI prompt suggestions — ABOVE the prompt bar, sleek single-line strip.
-              §7.3/§7.4: adapted to the flow source (Reports' ad performance,
-              Trends' hook) when one exists; angle-aware fallback otherwise.
+          {/* Linear layout variant (Maalik, 2026-09-08): Script sits right
+              after the header — Overview (with Angle+Concept) is now above/
+              outside this component, and Prompt moves to last. Rail variant:
+              unchanged, Script stays between the prompt bar and Angle/Concept
+              (below). DEFECT FIX (adversarial review) — ScriptCard was fully
+              built (own comment: "Surfaces the script prominently on
+              Configure") but had zero JSX call sites; the Maalik 06-06 note
+              above it said it was intentionally removed. §6 requires the
+              script to be produced and SHOWN before the ad is generated. */}
+          {layoutVariant === "linear" && scriptCardEl}
 
-              DEFECT FIX (adversarial review) — this used to gate on an empty
-              prompt only. flowInitialPatch() (resolveFlowContext.ts)
-              pre-fills the prompt for every variation action AND all three
-              Trends actions, so for exactly the flows §8.3/§8.4 wrote this
-              rail for, the prompt is never empty on arrival and the rail
-              could never render. A flow context now forces the rail open
-              regardless of prompt content; plain Studio (no flow) keeps the
-              original empty-prompt-only behaviour. */}
-          {(flowCtx !== null || wizard.state.prompt.trim().length === 0) && (
-            <PromptSuggestions
-              angleId={wizard.state.angleId}
-              flowSuggestions={flowCtx ? flowAdaptedSuggestions(flowCtx) : null}
-              onPick={(p) => wizard.set("prompt", p)}
-            />
-          )}
+          {layoutVariant === "rail" && promptSectionEl}
 
-          {/* Prompt bar — Layout A (inline Send) always.
-              footerExtras injects the Generation-settings popover trigger
-              between the aspect-ratio picker and the Generate button. */}
-          <PromptReferenceBar
-            wizard={wizard}
-            onAttachPickerOpen={handleAttachPickerOpen}
-            onChipOpen={handleChipOpen}
-            hideLayoutToggle
-            studioMode={wizard.state.studioMode ?? undefined}
-            footerExtras={
-              <GenerationSettingsButton
-                wizard={wizard}
-                open={settingsOpen}
-                onOpenChange={setSettingsOpen}
-              />
-            }
-          />
-
-          {/* DEFECT FIX (adversarial review) — ScriptCard was fully built
-              (own comment: "Surfaces the script prominently on Configure")
-              but had zero JSX call sites; the Maalik 06-06 note above it said
-              it was intentionally removed. §6 requires the script to be
-              produced and SHOWN before the ad is generated — reinstated here,
-              between the prompt bar and Angle/Concept. Reads wizard.state.
-              script directly, so it works whether a script has already
-              arrived (another agent is wiring ScriptRail/useWizard to
-              auto-generate one) or hasn't yet (shows the Auto explainer) —
-              same `script`/`onSave` contract the "script" rail picker below
-              already uses, just also surfaced inline. */}
-          <ScriptCard
-            script={wizard.state.script}
-            onOpenRail={() => setRailMode("script")}
-          />
+          {layoutVariant === "rail" && scriptCardEl}
 
           {/* Master-prompt card stays unwired (Maalik 06-06) — out of this
               audit's 4 defects; not reinstated here. */}
@@ -565,7 +599,13 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               "Angle: X · Concept: Y" + Auto badge + Edit). Expanding reveals the
               full VISUAL angle tiles + VISUAL concept tiles. When expanded the
               card claims flex-1 min-h-0 so the Concepts grid is the only internal
-              scroll surface; collapsed it's just a short auto-height row. */}
+              scroll surface; collapsed it's just a short auto-height row.
+
+              Linear layout variant (Maalik, 2026-09-08): this card doesn't
+              render at all — Angle+Concept editing moved into the relocated,
+              editable Overview above (ContextRail's angleEditable prop,
+              StudioAlpha.tsx). Rail variant: byte-identical to before. */}
+          {layoutVariant === "rail" && (
           <div
             className={cn(
               "v3-glass-card flex flex-col overflow-hidden rounded-2xl",
@@ -946,6 +986,12 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               </>
             )}
           </div>
+          )}
+
+          {/* Linear layout variant: Prompt (suggestions + bar) moves to
+              LAST — deliberately, since it's the final action in the
+              hierarchy (Maalik, 2026-09-08). */}
+          {layoutVariant === "linear" && promptSectionEl}
       </div>
 
       {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
@@ -1642,9 +1688,17 @@ function GenerationSettingsButton({
 function ScriptCard({
   script,
   onOpenRail,
+  carriedFrom,
 }: {
   script: string | null;
   onOpenRail: () => void;
+  /** Maalik (2026-09-08): "jab use script karke aayega, to script auto add
+   *  ho jayegi, because aaya hi us se hai" — the CONTENT needs no new
+   *  plumbing (it's already in `script` the moment this mounts), only the
+   *  label so the user knows it's the SAME script they arrived with, not a
+   *  fresh Auto draft. A module label (e.g. "Video Sage"), or undefined/null
+   *  when the script was typed/edited in this session instead. */
+  carriedFrom?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasScript = script !== null && script.trim().length > 0;
@@ -1660,6 +1714,14 @@ function ScriptCard({
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
             <Sparkles className="h-2.5 w-2.5" />
             Auto
+          </span>
+        )}
+        {hasScript && carriedFrom && (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary"
+            title={`This is the same script that arrived from ${carriedFrom} — not a fresh Auto draft.`}
+          >
+            Same script · {carriedFrom}
           </span>
         )}
         <button

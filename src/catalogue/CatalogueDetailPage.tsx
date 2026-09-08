@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation, Link } from "react-router-dom";
 import {
   ArrowLeft,
   BookOpen,
@@ -690,10 +690,18 @@ function Shell({
   headerRight?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // The 10 Creative types are mounted twice — under /catalogue (legacy
+  // redirects) and under /iq/genie6/assets (their real home now). Deriving
+  // the base from the current path means Shell doesn't need a prop threaded
+  // through every one of its ~10 call sites; Brand/Product/Category detail
+  // pages don't use Shell, so they're unaffected either way.
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
+
   return (
     <div className="v3-page-mesh flex h-full flex-col p-6">
       <div className="mb-5">
-        <Link to={`/catalogue/${type}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
+        <Link to={`${basePath}/${type}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-3">
           <ArrowLeft className="h-3 w-3" /> Back to {type}
         </Link>
         <div className="flex items-center justify-between gap-3">
@@ -881,11 +889,15 @@ function CategoryBusinessAssetStrip({ category }: { category: Category }) {
 }
 
 function NotFound({ type, navigate }: { type: CatalogueType; navigate: (to: string) => void }) {
+  // See the basePath note on Shell above — same reasoning, applies here too
+  // since NotFound is reachable for every type, not just the Creative ones.
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
   return (
     <div className="flex h-full flex-col items-center justify-center p-6">
       <p className="text-foreground font-medium">Entity not found</p>
       <p className="text-sm text-muted-foreground mt-1">No {type.slice(0, -1)} matches that id.</p>
-      <button type="button" onClick={() => navigate(`/catalogue/${type}`)} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground">
+      <button type="button" onClick={() => navigate(`${basePath}/${type}`)} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Back to {type}
       </button>
     </div>

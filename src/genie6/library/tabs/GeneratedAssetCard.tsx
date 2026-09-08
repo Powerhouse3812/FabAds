@@ -200,13 +200,13 @@ export function GeneratedAssetCard({
       ) : savedCatalogueId ? (
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1 font-g6-sans text-g6-xs font-semibold text-success-text">
-            <Check className="h-3.5 w-3.5" /> Saved to Catalogue
+            <Check className="h-3.5 w-3.5" /> Saved to Assets
           </span>
           <Link
-            to={`/catalogue/${catalogueType}/${savedCatalogueId}`}
+            to={`/iq/genie6/assets/${catalogueType}/${savedCatalogueId}`}
             className="font-g6-mono text-[11px] text-primary-text underline-offset-2 hover:underline"
           >
-            View in Catalogue
+            View in Assets
           </Link>
         </div>
       ) : (
@@ -215,7 +215,7 @@ export function GeneratedAssetCard({
           onClick={onSave}
           className="inline-flex h-8 items-center justify-center rounded-g6-pill bg-g6-primary px-4 font-g6-sans text-g6-xs font-semibold text-g6-text-on-accent transition-transform hover:-translate-y-0.5"
         >
-          Save to Catalogue
+          Save to Assets
         </button>
       )}
     </div>

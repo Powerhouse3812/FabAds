@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import { HeroHeader } from "../components/HeroHeader";
 import { SectionHeader } from "../components/SectionHeader";
 import { type Format, type UseWizardReturn } from "../state/useWizard";
-import { MODES, MODE_SCHEME, type AlphaMode } from "../data/modes";
 
 /**
  * AlphaStep1Format — Step 1: Mode + Format, ONE screen (§21.2).
@@ -43,17 +42,18 @@ import { MODES, MODE_SCHEME, type AlphaMode } from "../data/modes";
  * "step 1" meant Studio's home screen, not this Mode & Format step. This
  * screen is restored to its original Mode + Format proportions; it carries
  * no asset-generation UI of any kind.
+ *
+ * CORRECTION (2026-09-08, later same day, Maalik) — Mode removed from this
+ * screen entirely: it's still chosen on Studio Home before entering the
+ * wizard, but no longer re-editable once you're on Step 1. `mode`/
+ * `onModeChange` dropped from this component's props; StudioAlpha.tsx no
+ * longer passes them.
  */
 
 interface Step1Props {
   wizard: UseWizardReturn;
   onAdvance: () => void;
   onBack?: () => void;
-  /** Current Mode (from StudioAlpha's homeMode) — shown selected in the row. */
-  mode: AlphaMode | null;
-  /** Changing Mode here does NOT advance — it's a parallel selection, not a
-   *  "next" action. Only Format advances (unchanged click-to-advance rule). */
-  onModeChange: (mode: AlphaMode) => void;
 }
 
 interface FormatOption {
@@ -66,13 +66,13 @@ interface FormatOption {
 const FORMAT_OPTIONS: FormatOption[] = [
   {
     id: "image",
-    title: "Image",
+    title: "Image Ad",
     desc: "Static ad creatives — hero shots, carousels, story frames.",
     pills: ["Static", "Carousel", "Story"],
   },
   {
     id: "video",
-    title: "Video",
+    title: "Video Ad",
     desc: "Motion creatives — UGC, reels, product demos.",
     pills: ["UGC", "Reel", "Demo"],
   },
@@ -133,7 +133,7 @@ function VideoPreview({ selected }: { selected: boolean }) {
   );
 }
 
-export function AlphaStep1Format({ wizard, onAdvance, onBack, mode, onModeChange }: Step1Props) {
+export function AlphaStep1Format({ wizard, onAdvance, onBack }: Step1Props) {
   return (
     // Mobile: fills the step viewport (min-h-full) and centers so the two
     // cards read as one screen; `md:` restores the original top-aligned,
@@ -150,65 +150,9 @@ export function AlphaStep1Format({ wizard, onAdvance, onBack, mode, onModeChange
       <div className="flex flex-col gap-2">
         <HeroHeader title="What are you creating?" onBack={onBack} />
         <p className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Step 1 of 4 · Mode + how your creative will appear
+          Step 1 of 4 · How your creative will appear
         </p>
       </div>
-
-      {/* Mode row — compact, so Format keeps its visual weight below.
-          Reachable here (not just on Studio Home) so Back from Step 2 can
-          change Mode without exiting the wizard (§21.2). */}
-      <section className="flex flex-col gap-2">
-        <SectionHeader title="Mode" size="compact" />
-        <ul className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] sm:flex-wrap sm:overflow-visible">
-          {MODES.map((m) => {
-            const selected = mode === m.id;
-            return (
-              <li key={m.id} className="shrink-0">
-                <button
-                  type="button"
-                  disabled={!m.available}
-                  aria-disabled={!m.available}
-                  aria-pressed={selected}
-                  onClick={() => m.available && onModeChange(m.id)}
-                  title={m.available ? m.title : `${m.title} — coming soon`}
-                  className={cn(
-                    "flex items-center gap-2 rounded-full border px-3 py-2 text-left transition-all",
-                    !m.available && "cursor-not-allowed opacity-50",
-                    m.available && selected
-                      ? "border-primary/40 bg-primary/10 shadow-sm"
-                      : m.available
-                        ? "border-border bg-background hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm"
-                        : "border-border bg-background",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                      selected ? MODE_SCHEME[m.tone].bgSel : MODE_SCHEME[m.tone].bg,
-                      selected ? MODE_SCHEME[m.tone].textSel : MODE_SCHEME[m.tone].text,
-                    )}
-                  >
-                    <m.Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                  </span>
-                  <span className="whitespace-nowrap text-[12px] font-semibold text-foreground">
-                    {m.title}
-                  </span>
-                  {m.tag && (
-                    <span className="rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-primary">
-                      {m.tag}
-                    </span>
-                  )}
-                  {!m.available && (
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground">
-                      Soon
-                    </span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
 
       <section className="flex flex-col gap-2">
         <SectionHeader title="Format" size="compact" />
