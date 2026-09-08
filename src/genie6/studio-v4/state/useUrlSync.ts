@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DEFAULT_LANGUAGE } from "../../lib/languages";
 import { isKnownConceptId } from "../data/concepts";
+import { MODES, type AlphaMode } from "../data/modes";
 import type { UseWizardReturn, WizardState, Mode, Format } from "./useWizard";
 
 /**
@@ -26,6 +27,16 @@ import type { UseWizardReturn, WizardState, Mode, Format } from "./useWizard";
  *                 §5 "Language selector added to Configure"). Only encoded
  *                 when it isn't DEFAULT_LANGUAGE ("en-IN"), same discipline as
  *                 ?resolution.
+ *   ?studioMode   the Studio-home Mode (brand-ad / social / product-shoot / …).
+ *                 Added 2026-09-09 and load-bearing: it decides which Step-2
+ *                 tabs appear, which entity is MANDATORY, whether products are
+ *                 multi-select, and whether step 0 is offered at all (§10a).
+ *                 Before this it lived only in memory, so a refresh silently
+ *                 dropped every per-Mode rule back to the no-rule default.
+ *   ?scope        entity | custom — step 0's answer (§8). "custom" is what
+ *                 removes Step 2, so it has to survive a refresh too.
+ *   ?products     comma-separated productIds — Product Shoot's multi-select
+ *                 (§10a), written only when it holds more than one
  *   ?bulkProducts comma-separated productIds (§9 bulk product selection for
  *                 Category Ad / Product Ad — state.bulkProductIds). Only
  *                 encoded when non-empty. NOTE for the Step-2 agent: this is
@@ -105,6 +116,24 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
     if (bulkProducts) {
       patches.bulkProductIds = bulkProducts.split(",").filter(Boolean);
     }
+    // The Mode, and step 0's answer. Validated against the roster / the two
+    // legal values rather than cast, so a hand-edited URL degrades to "no Mode
+    // picked" instead of poisoning `modeEntityRule`.
+    const studioMode = searchParams.get("studioMode");
+    if (studioMode && MODES.some((m) => m.id === studioMode)) {
+      patches.studioMode = studioMode as AlphaMode;
+    }
+    const scope = searchParams.get("scope");
+    if (scope === "entity" || scope === "custom") patches.entityMode = scope;
+    // Product Shoot's multi-select (§10a `entity.multi`). Separate from
+    // ?bulkProducts — that is the bulk-generation list, this is the set of
+    // products in ONE shoot, and it is what `isEntityRuleSatisfied` gates on.
+    // Without it here a multi-selection died on refresh, which this app's
+    // URL-borne state discipline doesn't allow.
+    const products = searchParams.get("products");
+    if (products) {
+      patches.productIds = products.split(",").filter(Boolean);
+    }
     const productImage = searchParams.get("productImage");
     if (productImage) patches.uploadedProductImage = productImage;
     const conceptsParam = searchParams.get("concepts");
@@ -158,6 +187,13 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
         // §9 bulk product selection — comma-joined, only when non-empty.
         if (state.bulkProductIds.length > 0) next.set("bulkProducts", state.bulkProductIds.join(","));
         else next.delete("bulkProducts");
+        setOrDelete("studioMode", state.studioMode);
+        setOrDelete("scope", state.entityMode);
+        // §10a Product Shoot multi-select. Only written when it holds MORE than
+        // one — a single product is already fully described by ?product, so a
+        // one-product shoot doesn't grow the URL with a redundant param.
+        if (state.productIds.length > 1) next.set("products", state.productIds.join(","));
+        else next.delete("products");
         // §21.2 Product Shoot — brand + one uploaded image, no product id.
         setOrDelete("productImage", state.uploadedProductImage);
         // §12 — concepts ride the URL so a multi-concept batch is linkable and
@@ -173,7 +209,10 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
     state.format,
     state.brandId,
     state.productId,
+    state.productIds,
     state.categoryId,
+    state.studioMode,
+    state.entityMode,
     state.mode,
     state.angleId,
     state.aspectRatio,

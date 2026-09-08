@@ -1,11 +1,32 @@
 /**
  * Other Apps — the registry (Genie 2.0 §8).
  *
- * 15 apps, one array. 7 are live and fully declared (sections, cost, zero
- * state, stages); 8 stay "Coming soon" — a card only, no internal screen.
+ * 22 apps, one array. 7 are live and fully declared (sections, cost, zero
+ * state, stages); 15 stay "Coming soon" — a card only, no internal screen.
+ * 4 of the coming-soon entries (Add Video Captions, Change Metadata,
+ * Prompt Generator, Thumbnail Maker) came from Maalik's own additions list —
+ * reconciled against the existing 15 in GENERATION_TARGETS.md §11 as
+ * genuinely new, no existing match.
+ *
+ * 3 more coming-soon entries (BG Remover, Resize Image, Object Remover)
+ * arrived later, via a separate decision: Other Apps becomes the single home
+ * for every one-shot utility tool. BG Remover and Resize Image were the two
+ * items from Maalik's original list that this file used to say "already
+ * exist under a different system, not added here" (see the removed line
+ * this replaces) — that older system (a "Soon" sidebar module for BG
+ * Remover, the "resize" Step-3 Approach id for Resize Image) still exists
+ * underneath for BG Remover's case; only its sidebar presence moved. Object
+ * Remover was never named on Maalik's list but was the identical class of
+ * one-shot sidebar stub as BG Remover, so it moved for the same reason. The
+ * third item on his list, "Swap avatar", is NOT a new entry — it's already
+ * the live `face-swap` app below (casting a different face onto existing
+ * footage is exactly what Face Swap does; avatar-shots is presenter casting,
+ * a different job). All three new entries are pure "Soon" cards — no
+ * sections/cost/zeroState/stages — because there is no real build behind any
+ * of them yet, same as every other coming-soon entry here.
  * AppRunner (owned by the Apps UI agent) reads a live app's `sections` and
  * renders the shared 750px setup-column anatomy from them; nothing here
- * hand-builds a screen, so a 16th app is a registry entry, not a new file.
+ * hand-builds a screen, so a 23rd app is a registry entry, not a new file.
  *
  * RULES BAKED INTO THIS DATA (§8 "Rules that override the file")
  *  - Second inputs always come from a picker, never a second upload box.
@@ -587,6 +608,77 @@ export const GENIE_APPS: GenieApp[] = [
     subtitle: "Stream a responsive AI avatar into live sessions instead of a pre-rendered clip.",
     category: "live-avatar",
     icon: "Webcam",
+    state: "coming-soon",
+  },
+
+  // ──────────────────────────── Coming soon — added from Maalik's list, §11 ──
+  {
+    key: "add-video-captions",
+    name: "Add Video Captions",
+    tagline: "Auto-caption any video, styled and burned in.",
+    subtitle: "Genie transcribes the audio and adds synced, on-brand captions — no editor or manual timing required.",
+    category: "enhance",
+    icon: "Captions",
+    state: "coming-soon",
+  },
+  {
+    key: "change-metadata",
+    name: "Change Metadata",
+    tagline: "Refresh a file's metadata without touching the creative.",
+    subtitle: "Reset the file metadata on a video or image before you re-upload it — the creative itself never changes.",
+    category: "enhance",
+    icon: "Tags",
+    state: "coming-soon",
+  },
+  {
+    key: "prompt-generator",
+    name: "Prompt Generator",
+    tagline: "Turn a rough idea into a sharp prompt, then refine it.",
+    subtitle: "Describe what you want — Genie turns it into a sharper prompt, then refines it from your feedback.",
+    category: "create",
+    icon: "Wand2",
+    state: "coming-soon",
+  },
+  {
+    key: "thumbnail-maker",
+    name: "Thumbnail Maker",
+    tagline: "Generate a scroll-stopping thumbnail for any video.",
+    subtitle: "Pick a frame or describe a cover, and Genie composes a platform-sized thumbnail to match.",
+    category: "create",
+    icon: "GalleryThumbnails",
+    state: "coming-soon",
+  },
+
+  // ──────────── Coming soon — folded in from the sidebar TOOLS group ──
+  // See the file header for the full "single home for one-shot tools"
+  // reasoning. All three stay pure cards, same as every other coming-soon
+  // entry above — no sections/cost/zeroState/stages invented for any of
+  // them.
+  {
+    key: "bg-remover",
+    name: "BG Remover",
+    tagline: "Remove the background from any product or ad image.",
+    subtitle: "Upload an image and get a clean cutout back, ready to drop onto any scene or backdrop.",
+    category: "enhance",
+    icon: "Eraser",
+    state: "coming-soon",
+  },
+  {
+    key: "resize-image",
+    name: "Resize Image",
+    tagline: "Reformat one image into every platform aspect ratio.",
+    subtitle: "Upload an image once and get it resized to the aspect ratios your placements need — no manual cropping.",
+    category: "enhance",
+    icon: "Scaling",
+    state: "coming-soon",
+  },
+  {
+    key: "object-remover",
+    name: "Object Remover",
+    tagline: "Erase unwanted objects from any ad creative.",
+    subtitle: "Mark what shouldn't be in the shot and Genie removes it, filling the background back in automatically.",
+    category: "enhance",
+    icon: "ImageMinus",
     state: "coming-soon",
   },
 ];

@@ -292,6 +292,19 @@ export const FLOW_PARAM_ACT = "act";
  */
 export const FLOW_PARAM_TARGET = "tgt";
 
+/**
+ * §7 — the variation fork. A variation asks nothing by default (Rule 1) and
+ * lands on Configure. When the user deliberately picks "Customize first", the
+ * SAME action carries `tweak=1`: it is still a variation (lineage, credits and
+ * the carried-over prompt are unchanged), but the wizard keeps all its steps
+ * and stops at Step 2 so there is something to adjust.
+ *
+ * URL-borne, like every other piece of flow context, because the fork has to
+ * survive a hard refresh and a shared link — a store-backed flag dies on both.
+ * Absent (the overwhelmingly common case) = today's behaviour, untouched.
+ */
+export const FLOW_PARAM_TWEAK = "tweak";
+
 /** Builds the query string that hands a flow to Studio. `target` is optional
  *  — omit it to let `resolveFlowContext` default to the action's primary
  *  target (see `FLOW_PARAM_TARGET` above). */

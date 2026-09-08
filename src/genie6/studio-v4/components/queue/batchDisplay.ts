@@ -13,6 +13,8 @@ import { RETRY_MODEL_OPTIONS } from "./RetryModelPicker";
  */
 
 const APPROACH_LABELS: Record<string, string> = {
+  auto: "Auto",
+  "product-demo": "Product Demo",
   scratch: "From scratch",
   "create-variations": "Create Variations",
   "ugc-video": "UGC Video",

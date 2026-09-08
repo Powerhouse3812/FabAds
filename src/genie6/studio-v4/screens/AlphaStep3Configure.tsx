@@ -45,6 +45,7 @@ import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
 import { ConceptAngleRail } from "../components/ConceptAngleRail";
 import { PreviewVideo } from "../components/PreviewVideo";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
+import { PodcastSpeakersField } from "../components/PodcastSpeakersField";
 import { ScriptRail } from "../components/ScriptRail";
 import { KbInstructionRail } from "../components/KbInstructionRail";
 import { LibraryColumnDrawer } from "../components/LibraryColumnDrawer";
@@ -574,6 +575,19 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
           becomes the only internal scroll surface — page never scrolls. */}
       <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto px-4 pt-6 pb-6 md:gap-6 md:px-6 md:pt-8 md:pb-10">
         <HeroHeader title="Configure" onBack={onBack} />
+
+          {/* Podcast Mode only (§9, Maalik 2026-09-08) — the speaker-count
+              field is the one dimension unique to this Mode, so it renders
+              here unconditionally of layoutVariant, right under the header.
+              Every other Mode: studioMode !== "podcast", so this branch
+              renders nothing and nothing else on this screen changes. Reads
+              wizard.state.studioMode rather than the studioMode prop above
+              (still unused, still `_studioMode`) — that's the field the
+              surrounding code already trusts, e.g. PromptReferenceBar below
+              is fed `studioMode={wizard.state.studioMode ?? undefined}`. */}
+          {wizard.state.studioMode === "podcast" && (
+            <PodcastSpeakersField wizard={wizard} />
+          )}
 
           {/* Linear layout variant (Maalik, 2026-09-08): Script sits right
               after the header — Overview (with Angle+Concept) is now above/
@@ -1784,6 +1798,8 @@ function ScriptCard({
  * map exists for Mode, so it's defined locally (this file owns it).
  * ───────────────────────────────────────────────────────────────────────── */
 const MODE_LABEL: Record<string, string> = {
+  auto: "Auto",
+  "product-demo": "Product demo",
   scratch: "From scratch",
   "create-variations": "Create variations",
   "ugc-video": "UGC Video",

@@ -548,6 +548,14 @@ export const FLOW_MODULES: FlowModule[] = [
       "vary-script",
       "vary-concept",
       "vary-whole-video",
+      // 2026-09-09 — was MISSING while the Library's own ellipsis fired it
+      // (`useOutputCardActions`'s forgeMore → `varyActionUrl(output,
+      // "generate-variation")`). `resolveFlowContext` rejects any action a
+      // module doesn't list, so that hand-off resolved to null: no banner, no
+      // brand carried over, no prompt carried over, and `isVariation` never
+      // set. It only LOOKED correct because outputActions.ts hardcodes the
+      // "configure" slug — the Rule-1 landing was the URL, not the rule.
+      "generate-variation",
       "use-script",
       "use-concept",
       "use-framework",

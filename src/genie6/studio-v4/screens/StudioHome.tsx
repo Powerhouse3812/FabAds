@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Sparkles, LayoutGrid, ArrowRight, FileText, Lightbulb, Clapperboard } from "lucide-react";
+import { Sparkles, LayoutGrid, FileText, Lightbulb, Clapperboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../components/SectionHeader";
 import { MODES, MODE_SCHEME as SCHEME, type AlphaMode } from "../data/modes";
@@ -43,7 +43,15 @@ interface StudioHomeProps {
 
 /** Only the live apps surface here — §5 "Other tools/apps at the bottom of
  *  the page, replacing History" is explicit about findability, not a count. */
-const LIVE_APPS = GENIE_APPS.filter((a) => a.state === "live");
+/** Every app, live ones first. Maalik (2026-09-09): show ALL Other Apps on
+ *  Studio and drop the "View all" link — with Other Apps gone from the
+ *  sub-nav, a subset here would have left the rest reachable only by URL.
+ *  Coming-soon entries still render, badged, rather than being hidden: a tool
+ *  the user can see is coming reads better than one that silently isn't there. */
+const ALL_APPS = [
+  ...GENIE_APPS.filter((a) => a.state === "live"),
+  ...GENIE_APPS.filter((a) => a.state === "coming-soon"),
+];
 
 interface AssetOption {
   id: Exclude<GenerationTarget, "ad">;
@@ -150,11 +158,13 @@ export function StudioHome({ onStart, onGenerateAsset }: StudioHomeProps) {
             Storyboard, same card type, same grid, after a divider — no
             longer a separate compact bar below the card. */}
         <div className="v3-glass rounded-2xl p-5 shadow-md">
-          {/* Mode picker — 5 cards, one row on desktop (was 4+1 wrapping to a
-              lonely second row now that Affiliate/Custom-Manual are gone). */}
+          {/* Mode picker — 8 cards (Podcast, Animated AI and Custom joined).
+              4-col lands a clean 4+4, which is why the single row of 5 this
+              replaced had to go: nothing between 5 and 8 columns holds the
+              roster without the lonely trailing row. */}
           <div>
             <SectionHeader title="Mode" size="compact" />
-            <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
               {MODES.map((m) => (
                 <li key={m.id}>
                   <button
@@ -251,30 +261,28 @@ export function StudioHome({ onStart, onGenerateAsset }: StudioHomeProps) {
           that scrolls, so it can fill whatever vertical space Mode doesn't
           use instead of leaving it blank, without Mode moving. */}
       <section className="flex min-h-0 flex-1 flex-col gap-2">
-        <SectionHeader
-          title="Other Apps"
-          icon={LayoutGrid}
-          size="compact"
-          trailing={
-            <Link
-              to="/iq/genie6/apps"
-              className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground"
-            >
-              View all
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          }
-        />
+        <SectionHeader title="Other Apps" icon={LayoutGrid} size="compact" />
         <ul className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto pb-1 sm:grid-cols-4">
-          {LIVE_APPS.map((app) => {
+          {ALL_APPS.map((app) => {
             const Icon = resolveIcon(app.icon);
+            const soon = app.state === "coming-soon";
             return (
               <li key={app.key}>
                 <Link
                   to={APP_PATH(app.key)}
-                  className="v3-glass-card group flex h-full w-full flex-col gap-1.5 rounded-xl p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
+                  className="v3-glass-card group relative flex h-full w-full flex-col gap-1.5 rounded-xl p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary-text">
+                  {soon && (
+                    <span className="absolute right-2 top-2 inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Soon
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg",
+                      soon ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary-text",
+                    )}
+                  >
                     <Icon className="h-4 w-4" strokeWidth={2} />
                   </span>
                   <p className="line-clamp-1 text-[12px] font-semibold leading-tight text-foreground">

@@ -9,7 +9,7 @@ import type { KbInstruction } from "../data/kbInstructions";
  * one of the 7 wizard `Mode` approaches below. Only the TYPE is imported here
  * (erased at build time) — modes.ts is another agent's file, read-only here.
  */
-import type { AlphaMode } from "../data/modes";
+import { MODES, type AlphaMode, type EntityKind, type ModeEntityRule } from "../data/modes";
 // Read-only data modules — used to derive realistic script text from the
 // ids already sitting in WizardState (brand/product/category/concept/angle
 // names) instead of a generic template. None of these import back from this
@@ -25,13 +25,29 @@ export type Format = "image" | "video";
 export type VideoResolution = "720p" | "1080p" | "4K";
 
 export type Mode =
+  /**
+   * RETIRED from the Approach grid 2026-09-09 (Maalik) in favour of "auto" —
+   * but NOT deleted. It is still set programmatically (the `generate-from-url`
+   * flow in resolveFlowContext.ts, and genieRunStore's mode fallback), and
+   * the manual-control capability it stood for now has two better homes: the
+   * "Build custom" tab on this very step, and the Custom Mode on Studio home.
+   * See APPROACHES_BY_FORMAT — it is simply no longer offerable.
+   */
   | "scratch"
   | "create-variations"
   | "ugc-video"
   | "image-to-video"
   | "broll"
+  /** Maalik (2026-09-09) — the 6th video approach. Product-in-use footage with
+   *  NO creator on camera, which is what separates it from `ugc-video` (always
+   *  creator-led, script-first) and from `broll` (cutaway meant to sit UNDER
+   *  primary content rather than be the ad). */
+  | "product-demo"
   | "bg-remover"
-  | "resize";
+  | "resize"
+  /** Genie chooses the approach. The format-agnostic catch-all that "scratch"
+   *  used to be, and the default selection on first render. */
+  | "auto";
 
 /**
  * NEW (2026-09-08, product owner) — Genie generates more than Ads now:
@@ -141,25 +157,55 @@ export interface UploadedFile {
 }
 
 export interface WizardState {
-  step: 1 | 2 | 3 | 4 | 5;
+  step: 0 | 1 | 2 | 3 | 4 | 5;
+  /**
+   * Step 0's answer. "entity" = scoped to a Brand/Product/Category the user
+   * will pick at Step 2; "custom" = a deliberate one-off with no entity, which
+   * SKIPS Step 2 entirely. null = not asked (every Mode that mandates an
+   * entity) or not yet answered. Revisitable — nothing here is a one-way door.
+   */
+  entityMode: "entity" | "custom" | null;
   category: Category | null;
   format: Format | null;
-  /** Step 2 selection — XOR across brand / product / category. User picks
-   *  EITHER a brand, a product, or a category — never more than one.
-   *  Picking one clears the other two. */
+  /**
+   * Step 2 selection. Was a strict XOR across brand / product / category
+   * (picking one cleared the other two). RELAXED 2026-09-09 (Maalik) to "only
+   * the kinds the active Mode offers may be set", because two of his per-Mode
+   * rules are impossible under XOR: Performance Ad needs a category AND an
+   * optional product at once, and Product Shoot needs several products.
+   *
+   * XOR still holds for every Mode that doesn't declare coexisting kinds —
+   * Social's "one or nothing" is unchanged. `entitySelectionPatch()` below is
+   * the ONE place that decides what a selection clears; don't hand-roll it.
+   */
   brandId: string | null;
+  /** The PRIMARY product. Kept as a single id because the rail, Configure and
+   *  the credit formula all read it; when `productIds` is non-empty this is
+   *  always `productIds[0]`, so those readers never see an empty product on a
+   *  multi-select shoot. */
   productId: string | null;
+  /** Product Shoot's multi-select (bundles, ranges). Empty for every
+   *  single-product Mode — read `productId` unless you specifically need the
+   *  whole set. */
+  productIds: string[];
   categoryId: string | null;
   mode: Mode;
   /**
    * §6 — the Studio-home `AlphaMode` (Product Shoot / Brand Ad / Product Ad /
-   * Social / Performance Ad / Affiliate / Custom-Manual, from data/modes.ts),
-   * kept alongside `mode` (the approach) so Product Shoot can be distinguished
-   * from the 7 approaches for the script-generation sub-step. null until the
-   * caller (StudioAlpha's home-mode picker) starts writing into it — reads
-   * that find it null just behave as "not Product Shoot", same as today.
+   * Social / Performance Ad / Podcast, from data/modes.ts), kept alongside
+   * `mode` (the approach) so Product Shoot can be distinguished from the 7
+   * approaches for the script-generation sub-step. null until the caller
+   * (StudioAlpha's home-mode picker) starts writing into it — reads that find
+   * it null just behave as "not Product Shoot", same as today.
    */
   studioMode: AlphaMode | null;
+  /**
+   * §9 — Podcast's speaker count, the one dimension no other Mode has: 0 (no
+   * avatar at all), 1 (solo host), 2 (co-hosted), or more — the owner was
+   * explicit that above 2 is possible, so there is no upper bound here. Only
+   * read when `studioMode === "podcast"`; every other Mode ignores it.
+   */
+  podcastSpeakers: number;
   /** Sub-type within the chosen approach (e.g. UGC Video → tutorial / unboxing
    *  / talking-head). null = approach has no sub-type or none picked yet. */
   approachSubType: string | null;
@@ -186,6 +232,15 @@ export interface WizardState {
    * action (mirrors Other-Flows' `FlowAction.asksNothing`). Default false.
    */
   isVariation: boolean;
+  /**
+   * §7 — the variation fork. `isVariation` alone means Rule 1: ask nothing,
+   * land on Configure. This flag is the deliberate opt-out the user picks via
+   * "Customize first": it stays a variation in every other respect (lineage,
+   * credits, the carried-over prompt) but the wizard keeps all its steps so
+   * there is something to adjust. Carried in the URL as `?tweak=1` so it
+   * survives a refresh and a shared link. Default false = Rule 1, unchanged.
+   */
+  variationTweak: boolean;
   /**
    * Step 3's two routes to satisfying "approach" (= angle + concept): one of
    * the seven existing presets (`mode`), or picking angle + concept directly
@@ -298,13 +353,19 @@ export const INITIAL_STATE: WizardState = {
   format: null,
   brandId: null,
   productId: null,
+  productIds: [],
   categoryId: null,
-  mode: "scratch",
+  // "auto" inherits the slot "scratch" held: valid for both formats, so
+  // Step3Approach's keep-mode-visible effect is a no-op on first mount.
+  mode: "auto",
   studioMode: null,
+  podcastSpeakers: 1,
   approachSubType: null,
   generationTarget: "ad",
   generationSource: "none",
   isVariation: false,
+  variationTweak: false,
+  entityMode: null,
   approachRoute: null,
   modelId: "genie-1.0",
   angleId: null,
@@ -537,7 +598,15 @@ export function isStoryboardOfferable(format: Format | null): boolean {
   return format !== "image";
 }
 
-export type StepNumber = 1 | 2 | 3 | 4;
+/**
+ * Step 0 is the entity-scope ask ("tied to a Brand/Product/Category, or custom
+ * with none?"). It is offered ONLY by Modes whose entity rule makes all three
+ * optional — Social, Animated AI, Custom, Podcast. The four Modes that MANDATE
+ * an entity (Brand Ad, Product Ad, Product Shoot, Performance Ad) skip it,
+ * because for them "custom, no entity" is not a legal answer and a one-option
+ * screen is a step with no decision in it.
+ */
+export type StepNumber = 0 | 1 | 2 | 3 | 4;
 export type StepStatus = "required" | "optional" | "skipped";
 
 export interface StepPlanEntry {
@@ -563,7 +632,8 @@ export interface GenerationStepPlan {
   /** Convenience — the step numbers a caller must actually render, in
    *  order. Prefer this over filtering `steps` yourself. */
   visibleSteps: StepNumber[];
-  /** Step 2 — true only for Ad. Every asset target's entity is optional. */
+  /** Step 2 — true for Ad, EXCEPT under an `entityOptional` Mode (§9). Every
+   *  asset target's entity is optional regardless. */
   entityRequired: boolean;
   /** Echoes `TARGET_SPECS[target].videoOnly` for convenience. */
   videoOnly: boolean;
@@ -580,9 +650,13 @@ export interface GenerationStepPlan {
  *  1. A variation (`isVariation: true`) asks nothing and lands straight on
  *     step 4 (§7 Rule 1) — this is checked FIRST because it beats even
  *     Ad's own rule below, matching the Other-Flows "vary-*" actions
- *     elsewhere (`flowTypes.ts`'s `landingStep: 4`).
+ *     elsewhere (`flowTypes.ts`'s `landingStep: 4`). Its only opt-out is
+ *     `variationTweak` (the user chose "Customize first"), which drops
+ *     through to the normal derivation instead.
  *  2. Ad always gets the full, unchanged wizard ("Ads always start from
- *     step 1") — no source ever trims a step for an Ad.
+ *     step 1") — no source ever trims a step for an Ad. An `entityOptional`
+ *     Mode (§9) still gets all four steps; it only downgrades step 2 from
+ *     required to optional, so the shape of the wizard never changes.
  * Everything else derives step 2 (optional, never blocking, for every asset
  * target) and step 3 (the target's angle/concept need, minus whatever the
  * source already carries).
@@ -590,19 +664,37 @@ export interface GenerationStepPlan {
 export function resolveGenerationSteps(
   target: GenerationTarget,
   source: GenerationSource,
-  opts?: { isVariation?: boolean; format?: Format | null },
+  opts?: {
+    isVariation?: boolean;
+    format?: Format | null;
+    entityOptional?: boolean;
+    variationTweak?: boolean;
+    offersEntityStep?: boolean;
+    entityMode?: "entity" | "custom" | null;
+  },
 ): GenerationStepPlan {
   const isVariation = !!opts?.isVariation;
   const format = opts?.format ?? null;
+  const entityOptional = !!opts?.entityOptional;
+  const variationTweak = !!opts?.variationTweak;
+  // A variation already carries its entity, so step 0 is never offered on one
+  // no matter which Mode it came from.
+  const offersEntityStep = !!opts?.offersEntityStep && !isVariation;
+  const entityMode = opts?.entityMode ?? null;
   const spec = TARGET_SPECS[target];
   const formatValid = !spec.videoOnly || format == null || format === "video";
 
-  if (isVariation) {
+  // §7 — `variationTweak` is the ONE documented opt-out of Rule 1: the user
+  // explicitly asked to adjust something first, so the collapse below is
+  // skipped and the plan derives normally. It stays a variation in every other
+  // respect; only the step plan differs.
+  if (isVariation && !variationTweak) {
     return {
       target,
       source,
       isVariation,
       steps: [
+        { step: 0, status: "skipped" },
         { step: 1, status: "skipped" },
         { step: 2, status: "skipped" },
         { step: 3, status: "skipped" },
@@ -616,18 +708,34 @@ export function resolveGenerationSteps(
   }
 
   if (target === "ad") {
+    // §9 — a Mode can exempt itself from Ad's entity requirement via
+    // `entityOptional` in modes.ts (Podcast and Animated AI, both trend- or
+    // editorial-led, where the owner expects most runs not to be brand-tied).
+    // Step 2 stays VISIBLE either way, so "Ads always start from step 1" and
+    // keep all four steps holds unchanged — the exemption only decides whether
+    // an entity BLOCKS the user, never whether they're offered one.
+    // Declaring "custom, no entity" at step 0 REMOVES Step 2 — honouring that
+    // answer is the only reason step 0 earns its place. Guarded on
+    // `entityOptional` so a Mode that mandates an entity can never reach here
+    // with a stale "custom" left on state.
+    const entityDeclined = entityOptional && entityMode === "custom";
+    const steps: StepPlanEntry[] = [
+      { step: 0, status: offersEntityStep ? "required" : "skipped" },
+      { step: 1, status: "required" },
+      {
+        step: 2,
+        status: entityDeclined ? "skipped" : entityOptional ? "optional" : "required",
+      },
+      { step: 3, status: "required", needsAngle: true, needsConcept: true },
+      { step: 4, status: "required" },
+    ];
     return {
       target,
       source,
       isVariation,
-      steps: [
-        { step: 1, status: "required" },
-        { step: 2, status: "required" },
-        { step: 3, status: "required", needsAngle: true, needsConcept: true },
-        { step: 4, status: "required" },
-      ],
-      visibleSteps: [1, 2, 3, 4],
-      entityRequired: true,
+      steps,
+      visibleSteps: steps.filter((s) => s.status !== "skipped").map((s) => s.step),
+      entityRequired: !entityOptional,
       videoOnly: false,
       formatValid: true,
     };
@@ -643,6 +751,8 @@ export function resolveGenerationSteps(
     source,
     isVariation,
     steps: [
+      // Asset runs carry no Mode, so step 0 is never theirs to offer.
+      { step: 0, status: "skipped" },
       { step: 1, status: "required" },
       { step: 2, status: "optional" },
       step3Required
@@ -665,7 +775,96 @@ export function resolveGenerationStepsForState(state: WizardState): GenerationSt
   return resolveGenerationSteps(state.generationTarget, state.generationSource, {
     isVariation: state.isVariation,
     format: state.format,
+    entityOptional: isEntityOptionalMode(state.studioMode),
+    variationTweak: state.variationTweak,
+    offersEntityStep: isEntityOptionalMode(state.studioMode),
+    entityMode: state.entityMode,
   });
+}
+
+/** The active Mode's Step-2 rule (which of Brand/Product/Category it offers
+ *  and which is mandatory), or null for a Mode that declares none — in which
+ *  case the target's own `entityRequired` stands, exactly as before. */
+export function modeEntityRule(mode: AlphaMode | null): ModeEntityRule | null {
+  return MODES.find((m) => m.id === mode)?.entity ?? null;
+}
+
+const ALL_ENTITY_KINDS: EntityKind[] = ["brand", "product", "category"];
+
+/** The kinds a Mode lets stand TOGETHER — its required kind plus whatever
+ *  `also` names (only Performance Ad today: category + optional product).
+ *  Empty when the Mode requires nothing, which is what keeps Social's "one or
+ *  nothing" a strict XOR. */
+function coexistingKinds(rule: ModeEntityRule | null): EntityKind[] {
+  return rule?.required ? [rule.required, ...(rule.also ?? [])] : [];
+}
+
+/**
+ * THE one place that decides what a Step-2 selection clears. Pass the active
+ * Mode's rule, the kind the user just picked and the id (null to deselect);
+ * apply the returned patch with `wizard.patch()`.
+ *
+ * Replaces the clear-the-other-two logic that used to be hand-written in each
+ * of Step2Product's three handlers — which is how the strict XOR got baked in
+ * three separate times and made Performance Ad's category+product impossible.
+ */
+export function entitySelectionPatch(
+  rule: ModeEntityRule | null,
+  kind: EntityKind,
+  id: string | null,
+): Partial<WizardState> {
+  const coexist = coexistingKinds(rule);
+  const survives = coexist.includes(kind) ? coexist : [kind];
+  const patch: Partial<WizardState> = {};
+
+  for (const k of ALL_ENTITY_KINDS) {
+    const keep = k === kind || survives.includes(k);
+    if (k === kind) {
+      if (k === "brand") patch.brandId = id;
+      if (k === "category") patch.categoryId = id;
+      if (k === "product") {
+        patch.productId = id;
+        patch.productIds = id ? [id] : [];
+      }
+      continue;
+    }
+    if (keep) continue;
+    if (k === "brand") patch.brandId = null;
+    if (k === "category") patch.categoryId = null;
+    if (k === "product") {
+      patch.productId = null;
+      patch.productIds = [];
+    }
+  }
+  return patch;
+}
+
+/**
+ * Product Shoot's multi-select — toggles one product in/out of the set and
+ * keeps `productId` pointing at the first of them, so every single-product
+ * reader (rail, Configure, credits) still resolves to a real product.
+ */
+export function toggleProductPatch(current: string[], id: string): Partial<WizardState> {
+  const next = current.includes(id) ? current.filter((p) => p !== id) : [...current, id];
+  return { productIds: next, productId: next[0] ?? null };
+}
+
+/** Has the user satisfied the active Mode's mandatory entity? Modes that
+ *  require nothing are always satisfied — including with nothing picked. */
+export function isEntityRuleSatisfied(rule: ModeEntityRule | null, state: WizardState): boolean {
+  if (!rule?.required) return true;
+  if (rule.required === "brand") return !!state.brandId;
+  if (rule.required === "category") return !!state.categoryId;
+  return rule.multi ? state.productIds.length > 0 : !!state.productId;
+}
+
+/** Does the active Studio Mode waive Ad's entity requirement? True only when
+ *  the Mode declares a rule AND that rule makes every entity optional (Social,
+ *  Animated AI, Custom). Read off the MODES roster rather than listing mode
+ *  ids here, so a new Mode is a data change in modes.ts and nothing else. */
+export function isEntityOptionalMode(mode: AlphaMode | null): boolean {
+  const rule = modeEntityRule(mode);
+  return !!rule && rule.required === null;
 }
 
 /**
@@ -700,6 +899,8 @@ export const FREE_GENERATION_LABEL = "Free";
  *  imported to avoid a real runtime cycle (see the file that DOES export one,
  *  `components/queue/batchDisplay.ts`, which imports FROM this file). */
 const MODE_LABEL: Record<Mode, string> = {
+  auto: "Auto",
+  "product-demo": "Product Demo",
   scratch: "From scratch",
   "create-variations": "Create variations",
   "ugc-video": "UGC Video",

@@ -1,7 +1,12 @@
 /**
  * Other Apps — contract types (Genie 2.0 §8).
  *
- * 15 apps. 7 live with full flows, 8 "Coming soon" cards only.
+ * 22 apps. 7 live with full flows, 15 "Coming soon" cards only. 4 of those
+ * (Add Video Captions, Change Metadata, Prompt Generator, Thumbnail Maker)
+ * came from Maalik's own additions list, reconciled in GENERATION_TARGETS.md
+ * §11 as genuinely new with no existing match. 3 more (BG Remover, Resize
+ * Image, Object Remover) arrived later via the "one home for every one-shot
+ * tool" consolidation — see the AppKey union below for the full story.
  *
  * WHY THE APPS ARE DECLARATIVE, NOT 7 HAND-WRITTEN SCREENS
  * §8 fixes ONE screen anatomy for every app: a 750px centred setup column,
@@ -38,7 +43,29 @@ export type AppKey =
   | "generate-images"
   | "interactive-video"
   | "video-podcast"
-  | "live-avatar";
+  | "live-avatar"
+  // Coming soon — added from Maalik's list, §11
+  | "add-video-captions"
+  | "change-metadata"
+  | "prompt-generator"
+  | "thumbnail-maker"
+  // Coming soon — folded in from the sidebar TOOLS group (2026-09-09).
+  // Maalik's call: Other Apps is now the single home for every one-shot
+  // utility tool. BG Remover and Resize Image were the two items on his
+  // list that already existed elsewhere under a different system (a "Soon"
+  // sidebar module, and the "resize" Step-3 Approach id respectively) —
+  // both are still just "Soon" stubs, so state stays "coming-soon" here
+  // too; nothing about their underlying build status changed. Object
+  // Remover was NOT on his list by name, but it was the identical class of
+  // one-shot sidebar stub as BG Remover, so it moved for the same reason
+  // rather than being left behind to recreate the two-systems split this
+  // consolidation exists to kill. The third item on his list, "Swap
+  // avatar", is NOT a new entry — it's already the live `face-swap` app
+  // above (casting a different face onto existing footage is exactly what
+  // Face Swap does).
+  | "bg-remover"
+  | "resize-image"
+  | "object-remover";
 
 /** Filter tabs on the Other Apps grid. */
 export type AppCategory = "create" | "enhance" | "edit" | "live-avatar";

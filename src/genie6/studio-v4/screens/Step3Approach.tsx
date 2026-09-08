@@ -6,6 +6,7 @@ import {
   Lock,
   Maximize2,
   Mic,
+  Package,
   Repeat,
   Scissors,
   Sparkles,
@@ -116,6 +117,16 @@ const ALL_MODES: ApproachMode[] = [
     desc: "Cutaway footage to layer with primary content.",
   },
   {
+    id: "product-demo",
+    Icon: Package,
+    title: "Product Demo",
+    // The desc has to earn its place against its two neighbours: UGC Video is
+    // creator-led and script-first, B-Roll is footage meant to sit UNDER
+    // something else. "No creator on camera" is the line that separates this
+    // from both, so it stays in the copy rather than the code comment.
+    desc: "Product in use — features and angles, no creator on camera.",
+  },
+  {
     id: "bg-remover",
     Icon: Scissors,
     title: "BG Remover",
@@ -132,6 +143,18 @@ const ALL_MODES: ApproachMode[] = [
     Icon: Wand2,
     title: "From scratch",
     desc: "Full flow — prompt, references, angle, model, output count.",
+  },
+  // Maalik (2026-09-09): replaces "From scratch" in the grid and stays LAST.
+  // The two are near-opposites — scratch meant "you drive everything", Auto
+  // means "Genie decides" — and scratch's job is now covered twice over by
+  // the "Build custom" tab on this step and the Custom Mode on Studio home,
+  // which is what freed the slot. Kept last because it is the fallback you
+  // reach for after reading the named approaches, not ahead of them.
+  {
+    id: "auto",
+    Icon: Sparkles,
+    title: "Auto",
+    desc: "Genie picks the approach from your brief and the entity.",
   },
 ];
 
@@ -590,17 +613,38 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
   const isSingleApproach = visibleModes.length === 1;
 
   // Keep `mode` inside the currently-visible set. Covers first mount (mode
-  // defaults to "scratch", which is valid for both formats, so this is a
-  // no-op) AND the case where the user picks an approach for Video, goes Back
-  // to Step 1, switches Format to Image, and returns here — "scratch" is the
-  // only survivor, so the stale video-only mode gets corrected instead of
-  // silently pointing at a card that no longer renders. Never auto-advances.
+  // defaults to "auto", which is valid for both formats, so this is a no-op)
+  // AND the case where the user picks an approach for Video, goes Back to Step
+  // 1, switches Format to Image, and returns here — "auto" and Create
+  // Variations are the survivors, so a stale video-only mode gets corrected
+  // instead of silently pointing at a card that no longer renders. It also
+  // catches a run still carrying the retired "scratch" mode. Never
+  // auto-advances.
   useEffect(() => {
     if (visibleModes.length > 0 && !visibleModes.some((m) => m.id === wizard.state.mode)) {
-      wizard.set("mode", visibleModes[0].id);
+      // Prefer "auto" over the first card. The commonest way to land here is a
+      // run still carrying the retired "scratch" (the `generate-from-url` flow
+      // sets it, so does genieRunStore's fallback) — correcting that to
+      // whatever happens to sit first, today Create Variations, silently tells
+      // the user to iterate an existing creative when they asked for a fresh
+      // one. "Genie decides" is the honest substitute for "no preset".
+      const fallback = visibleModes.find((m) => m.id === "auto") ?? visibleModes[0];
+      wizard.set("mode", fallback.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wizard.state.format]);
+    // NO dep array on purpose — this enforces an INVARIANT ("mode is always
+    // one of the cards on screen"), and a dep list could not see the case that
+    // broke it: on a deep link carrying a now-unofferable approach
+    // (`?approach=scratch` — which generate-from-url and genieRunStore's
+    // fallback both still set) this effect corrected the mode on mount, and
+    // then useUrlSync's mount effect — a PARENT effect, so it runs AFTER this
+    // child one, in the same flush — patched the retired value straight back.
+    // The corrected value therefore never reached a render, so neither
+    // `format` nor `mode` ever looked changed and the fix never re-fired:
+    // Step 3 settled with NO card selected and `state.mode` still "scratch",
+    // which then reads out as "From scratch" on Configure and in the batch
+    // label. Re-checking every render is self-terminating (the condition goes
+    // false the moment mode is valid) and the check is one array scan.
+  });
 
   // Bring the revealed sub-type section into view once it mounts.
   useEffect(() => {
