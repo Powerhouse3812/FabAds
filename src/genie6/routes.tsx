@@ -38,6 +38,10 @@ import { ConceptsLibrary } from "./concepts/ConceptsLibrary";
 import { AnglePlaybookPreview } from "./concepts/AnglePlaybookPreview";
 import { GenerateConceptsPage } from "./concepts/GenerateConceptsPage";
 import { OutputDetailPreview } from "./library/OutputDetailPreview";
+import { GenieAssetsHome } from "./assets/GenieAssetsHome";
+import { CatalogueFinder } from "@/catalogue/CatalogueFinder";
+import { CatalogueListPage } from "@/catalogue/CatalogueListPage";
+import { CatalogueDetailPage } from "@/catalogue/CatalogueDetailPage";
 /* ── Genie 2.0 (§7 · §8 · §11 · §14) ── */
 import { OtherFlows } from "./flows/OtherFlows";
 import { FlowModuleDetail } from "./flows/FlowModuleDetail";
@@ -100,7 +104,60 @@ export const genie6Routes = (
     <Route path="library/:assetType" element={<Library />} />
     <Route path="library/:assetType/:assetId" element={<Library />} />
 
-    {/* Assets (URL still /workspace for routing — user-facing label is "Assets") */}
+    {/* Assets — the 10 Creative asset types (Maalik: "bring all assets from
+        catalogue to Genie... Catalogue is only Brand/Product/Category now").
+        Reuses the same generic Catalogue components (assetTypes.ts registry
+        + CatalogueFinder/List/DetailPage) at their new home rather than
+        forking them — see the basePath note in each for why that's safe.
+        NOT the same thing as the legacy /workspace routes just below, whose
+        own "Assets" label predates this and is now stale — /workspace has
+        had no nav entry since Genie 2.0 §3 locked the sub-nav, kept only so
+        old bookmarks resolve. */}
+    <Route path="assets" element={<GenieAssetsHome />} />
+    <Route path="assets/avatars" element={<CatalogueFinder type="avatars" />} />
+    <Route path="assets/avatars/:id" element={<CatalogueFinder type="avatars" />} />
+    <Route path="assets/avatars/grid" element={<CatalogueListPage type="avatars" />} />
+    <Route path="assets/avatars/grid/:id" element={<CatalogueDetailPage type="avatars" />} />
+    <Route path="assets/voices" element={<CatalogueFinder type="voices" />} />
+    <Route path="assets/voices/:id" element={<CatalogueFinder type="voices" />} />
+    <Route path="assets/voices/grid" element={<CatalogueListPage type="voices" />} />
+    <Route path="assets/voices/grid/:id" element={<CatalogueDetailPage type="voices" />} />
+    <Route path="assets/scripts" element={<CatalogueFinder type="scripts" />} />
+    <Route path="assets/scripts/:id" element={<CatalogueFinder type="scripts" />} />
+    <Route path="assets/scripts/grid" element={<CatalogueListPage type="scripts" />} />
+    <Route path="assets/scripts/grid/:id" element={<CatalogueDetailPage type="scripts" />} />
+    <Route path="assets/concepts" element={<CatalogueFinder type="concepts" />} />
+    <Route path="assets/concepts/:id" element={<CatalogueFinder type="concepts" />} />
+    <Route path="assets/concepts/grid" element={<CatalogueListPage type="concepts" />} />
+    <Route path="assets/concepts/grid/:id" element={<CatalogueDetailPage type="concepts" />} />
+    <Route path="assets/hooks" element={<CatalogueFinder type="hooks" />} />
+    <Route path="assets/hooks/:id" element={<CatalogueFinder type="hooks" />} />
+    <Route path="assets/hooks/grid" element={<CatalogueListPage type="hooks" />} />
+    <Route path="assets/hooks/grid/:id" element={<CatalogueDetailPage type="hooks" />} />
+    <Route path="assets/ctas" element={<CatalogueFinder type="ctas" />} />
+    <Route path="assets/ctas/:id" element={<CatalogueFinder type="ctas" />} />
+    <Route path="assets/ctas/grid" element={<CatalogueListPage type="ctas" />} />
+    <Route path="assets/ctas/grid/:id" element={<CatalogueDetailPage type="ctas" />} />
+    <Route path="assets/frameworks" element={<CatalogueFinder type="frameworks" />} />
+    <Route path="assets/frameworks/:id" element={<CatalogueFinder type="frameworks" />} />
+    <Route path="assets/frameworks/grid" element={<CatalogueListPage type="frameworks" />} />
+    <Route path="assets/frameworks/grid/:id" element={<CatalogueDetailPage type="frameworks" />} />
+    <Route path="assets/angles" element={<CatalogueFinder type="angles" />} />
+    <Route path="assets/angles/:id" element={<CatalogueFinder type="angles" />} />
+    <Route path="assets/angles/grid" element={<CatalogueListPage type="angles" />} />
+    <Route path="assets/angles/grid/:id" element={<CatalogueDetailPage type="angles" />} />
+    <Route path="assets/templates" element={<CatalogueFinder type="templates" />} />
+    <Route path="assets/templates/:id" element={<CatalogueFinder type="templates" />} />
+    <Route path="assets/templates/grid" element={<CatalogueListPage type="templates" />} />
+    <Route path="assets/templates/grid/:id" element={<CatalogueDetailPage type="templates" />} />
+    <Route path="assets/audiences" element={<CatalogueFinder type="audiences" />} />
+    <Route path="assets/audiences/:id" element={<CatalogueFinder type="audiences" />} />
+    <Route path="assets/audiences/grid" element={<CatalogueListPage type="audiences" />} />
+    <Route path="assets/audiences/grid/:id" element={<CatalogueDetailPage type="audiences" />} />
+
+    {/* Legacy /workspace — predates the assetTypes.ts registry consolidation.
+        No nav entry since Genie 2.0 §3 locked the sub-nav; kept only so old
+        bookmarks resolve. Not to be confused with the "Assets" sub-nav above. */}
     <Route path="workspace" element={<WorkspaceIndex />} />
     <Route path="workspace/brands" element={<WorkspaceView key="ws-brands" />} />
     <Route path="workspace/brands/:brandId" element={<WorkspaceView key="ws-brand-detail" />} />

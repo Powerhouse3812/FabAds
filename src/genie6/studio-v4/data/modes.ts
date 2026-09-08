@@ -1,9 +1,7 @@
 import {
   Camera,
-  Link2,
   Megaphone,
   ShoppingBag,
-  Sliders,
   Smartphone,
   TrendingUp,
 } from "lucide-react";
@@ -17,22 +15,22 @@ import {
  * now: the pre-wizard StudioHome landing page, and the in-wizard step where
  * the user can change it without exiting to Home.
  *
- * §4 — Mode vs ad type is RESOLVED, not open. Studio home carries all
- * **seven** modes: Product Shoot · Brand Ad · Product Ad · Social ·
- * Performance Ad · Affiliate · Custom / Manual — "a future doc may name only
- * three modes; treat that as an example, not a scope cut — all seven stay."
- * Mode stays a coarse, separate "creative journey" selector; §4/§5 are
- * unambiguous that the Step-2 tab (Brand/Product/Category) is the ONLY
- * ad-type picker in Genie. Nothing here decides ad type.
+ * §4 — Mode vs ad type is RESOLVED, not open. Mode stays a coarse, separate
+ * "creative journey" selector; §4/§5 are unambiguous that the Step-2 tab
+ * (Brand/Product/Category) is the ONLY ad-type picker in Genie. Nothing here
+ * decides ad type.
+ *
+ * Maalik's call (2026-09-08): Affiliate and Custom/Manual dropped from
+ * Studio entirely — both had sat `available: false` with no shipped date,
+ * unlike Product Shoot/Social below which flip straight to live. Product
+ * Shoot and Social enabled the same day.
  */
 export type AlphaMode =
   | "product-shoot"
   | "brand-ad"
   | "product-ad"
   | "social"
-  | "performance-ad"
-  | "affiliate"
-  | "custom-manual";
+  | "performance-ad";
 
 export interface ModeOption {
   id: AlphaMode;
@@ -84,7 +82,7 @@ export const MODES: ModeOption[] = [
     Icon: Camera,
     title: "Product Shoot",
     desc: "Studio-quality product photography. Hero shots, detail macros, bundles.",
-    available: false,
+    available: true,
     tone: "rose",
   },
   {
@@ -108,31 +106,22 @@ export const MODES: ModeOption[] = [
     Icon: Smartphone,
     title: "Social",
     desc: "Organic content for feed, Stories, Reels, and carousels.",
-    available: false,
+    available: true,
     tone: "indigo",
   },
   {
     id: "performance-ad",
     Icon: TrendingUp,
     title: "Performance Ad",
-    desc: "ROAS-driven format. Tested angles, urgency, social proof.",
+    // Maalik (2026-09-08): "Category me hi category Ads bnti hai" — a
+    // Category-level ad (rather than one scoped to a single Brand/Product)
+    // runs through Performance Ad specifically, not a mode of its own. Led
+    // with it so it survives the card's line-clamp-1 even if "Tested
+    // angles..." gets truncated; the tag badge is a second, guaranteed-
+    // visible confirmation.
+    desc: "Category-wide, ROAS-driven. Tested angles, urgency, social proof.",
+    tag: "+ Category",
     available: true,
     tone: "amber",
-  },
-  {
-    id: "affiliate",
-    Icon: Link2,
-    title: "Affiliate",
-    desc: "Creator + partner-driven promo. Tracked links, code call-outs.",
-    available: false,
-    tone: "sky",
-  },
-  {
-    id: "custom-manual",
-    Icon: Sliders,
-    title: "Custom / Manual",
-    desc: "Full manual control. Skip the presets, build it field by field.",
-    available: false,
-    tone: "slate",
   },
 ];

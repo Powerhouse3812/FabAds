@@ -15,6 +15,8 @@ import { Step5ResultsQueue } from "./screens/Step5ResultsQueue";
 import { StudioHome, type AlphaMode } from "./screens/StudioHome";
 import { ContextRail } from "./components/ContextRail";
 import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
+import { useStudioLayoutVariant } from "./state/useStudioLayoutVariant";
+import { StudioLayoutToggle } from "./components/StudioLayoutToggle";
 import {
   useWizard,
   type WizardState,
@@ -186,8 +188,8 @@ const SLUG_TO_STEP: Record<string, 1 | 2 | 3 | 4 | 5> = {
  * that skips a step), not a hardcoded 4.
  */
 const STEP_LABELS: Record<1 | 2 | 3 | 4 | 5, string> = {
-  // §21.2 — Mode + Format merged onto one screen; label reflects both now.
-  1: "Mode & Format",
+  // Mode removed from this step 2026-09-08 (Maalik) — label is Format only now.
+  1: "Format",
   2: "Product",
   3: "Approach",
   4: "Configure",
@@ -275,6 +277,8 @@ export function StudioAlpha() {
   // by construction-time hydration below, the phase/step sync effect, and the
   // FlowBanner render. `null` when Studio is running standalone (no ?src).
   const flowCtx = useMemo(() => resolveFlowContext(searchParams), [searchParams]);
+  // Dev-only 2nd layout (Maalik, 2026-09-08) — see useStudioLayoutVariant.ts.
+  const { variant: layoutVariant } = useStudioLayoutVariant();
   // A-12.49 (Maalik): hydrate wizard.state directly from the URL at construction
   // so deep links and hard refresh land on the correct step + selections
   // BEFORE first paint. Previously this happened via useEffect, which left
@@ -489,17 +493,9 @@ export function StudioAlpha() {
     navigate("/iq/genie6/studio-alpha/format", { replace: false });
   };
 
-  // §21.2 — Mode is now ALSO changeable from inside the wizard (merged onto
-  // Step 1 alongside Format, see AlphaStep1Format), not only from Home. This
-  // is the in-wizard equivalent of startWizard's category derivation, without
-  // resetting phase/step/navigating — the user stays exactly where they are.
-  const handleModeChange = (mode: AlphaMode) => {
-    setHomeMode(mode);
-    const category = mode === "product-shoot" ? "asset" : "ad";
-    const patch: Partial<WizardState> = { studioMode: mode };
-    if (state.category !== category) patch.category = category;
-    wizard.patch(patch);
-  };
+  // §21.2's "Mode also changeable from inside the wizard" (handleModeChange,
+  // merged onto Step 1 alongside Format) was retired 2026-09-08 — Maalik
+  // removed Mode from AlphaStep1Format entirely, so this had no caller left.
 
   const exitToHome = () => {
     wizard.reset();
@@ -568,13 +564,17 @@ export function StudioAlpha() {
     // shell actually gives us.
     <div className="v3-page-mesh flex h-full flex-col overflow-hidden bg-background text-foreground md:h-[100dvh]">
       {phase === "home" && (
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        // No overflow-y-auto here (unlike the wizard's <main> below) — Mode
+        // stays fixed, and StudioHome scrolls only its own Other Apps region
+        // internally so Mode never moves off-screen with it.
+        <main className="min-h-0 flex-1 overflow-hidden">
           <StudioHome onStart={startWizard} onGenerateAsset={startAssetWizard} />
         </main>
       )}
 
       {phase === "wizard" && (
         <>
+          <StudioLayoutToggle />
           {/* Topbar: ← Back + progress stepper (hidden on Results) */}
           <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur md:px-6">
             {/* md:-only. On a phone this sat 54px below the shell's own Back
@@ -618,19 +618,35 @@ export function StudioAlpha() {
               its own exit from ctx.module.modulePath. Lives entirely off the
               URL (?src/?ref/?act) per flowTypes.ts's header comment, so it
               survives step navigation and a hard refresh for free. */}
-          {flowCtx && <FlowBanner ctx={flowCtx} className="shrink-0" />}
+          {/* Linear variant folds this into the top of Overview instead
+              (Maalik, 2026-09-08) — see the inline ContextRail below. */}
+          {layoutVariant === "rail" && flowCtx && (
+            <FlowBanner ctx={flowCtx} className="shrink-0" />
+          )}
 
-          {/* Wizard body — flex layout: main content + collapsible rail */}
+          {/* Wizard body. Rail variant: flex layout, main content + a
+              collapsible right rail (unchanged). Linear variant: no
+              separate rail — ContextRail renders inline at the top of
+              <main>, above whichever step is showing. */}
           <div className="relative flex min-h-0 flex-1">
             {/* Main step content — scrollable */}
             <main className="min-h-0 flex-1 overflow-y-auto">
+              {layoutVariant === "linear" && renderStep !== 5 && (
+                <div className="px-4 pt-4 md:px-6 md:pt-6">
+                  <ContextRail
+                    wizard={wizard}
+                    studioMode={homeMode ?? undefined}
+                    layout="inline"
+                    angleEditable={renderStep === 4}
+                    flowCtx={flowCtx}
+                  />
+                </div>
+              )}
               {renderStep === 1 && (
                 <AlphaStep1Format
                   wizard={wizard}
                   onAdvance={handleAdvance}
                   onBack={handleBack}
-                  mode={homeMode}
-                  onModeChange={handleModeChange}
                 />
               )}
               {renderStep === 2 && (
@@ -656,17 +672,18 @@ export function StudioAlpha() {
               )}
             </main>
 
-            {/* Global ContextRail — visible across wizard steps 1-4 ONLY.
-                Hidden on step 5 (Results Queue) per Maalik A-12.183: the
-                queue surface owns its own chrome (queue list on left in V3,
-                strip on top in V1/V2) and the context rail collides with
+            {/* Global ContextRail — visible across wizard steps 1-4 ONLY,
+                RAIL VARIANT ONLY (Linear renders it inline inside <main>
+                above). Hidden on step 5 (Results Queue) per Maalik A-12.183:
+                the queue surface owns its own chrome (queue list on left in
+                V3, strip on top in V1/V2) and the context rail collides with
                 that, eating horizontal space the results grid needs. The
                 expander button is also suppressed so the user can't pop
                 the rail back open mid-triage.
 
                 If the user navigates back to steps 1-4, the rail honors
                 their last open/closed preference from ?rail= URL state. */}
-            {renderStep !== 5 && railOpen && (
+            {layoutVariant === "rail" && renderStep !== 5 && railOpen && (
               <aside className="hidden shrink-0 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
                 <div className="flex-1 overflow-y-auto p-3">
                   <ContextRail
@@ -681,8 +698,9 @@ export function StudioAlpha() {
                 closed. md+ only: below the breakpoint the inline aside is
                 `hidden`, so flipping ?rail= there would do nothing visible.
                 The mobile footer's "Context" button is the phone affordance
-                and it is always present (see below). */}
-            {renderStep !== 5 && !railOpen && (
+                and it is always present (see below). Rail variant only —
+                Linear has no rail to reopen. */}
+            {layoutVariant === "rail" && renderStep !== 5 && !railOpen && (
               <button
                 type="button"
                 onClick={() => setRailOpen(true)}

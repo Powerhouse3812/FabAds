@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   BookOpen,
@@ -29,16 +30,36 @@ import {
 } from "@/mocks/shared";
 import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 import { SectionHeader } from "./SectionHeader";
+import { ConceptAngleRail } from "./ConceptAngleRail";
 import {
   useSavedWinnersForEntity,
   useSavedConceptsForEntity,
   useSavedInstructionsForEntity,
 } from "@/genie6/concepts/saved-store";
+import { FlowBanner } from "@/genie6/flows/FlowBanner";
+import type { FlowContext } from "@/genie6/flows/flowTypes";
 
 interface ContextRailProps {
   wizard: UseWizardReturn;
   studioMode?: AlphaMode;
   onCollapse?: () => void;
+  /** Default "rail" — the narrow 300px right-side column (unchanged
+   *  behavior). "inline" is the Linear layout variant (Maalik, 2026-09-08):
+   *  rendered full-width at the top of the main column instead. Only
+   *  changes the outer width constraint here — internal content is the
+   *  same either way. */
+  layout?: "rail" | "inline";
+  /** Only passed `true` from AlphaStep3Configure in the Linear variant —
+   *  every other call site omits it, so Angle stays exactly as read-only as
+   *  before. When true, the Angle block becomes a button that opens the
+   *  same ConceptAngleRail picker Configure already uses, writing straight
+   *  to wizard.state via the `wizard` prop this component already holds. */
+  angleEditable?: boolean;
+  /** Linear-variant only: when the wizard was entered via a flow hand-off,
+   *  render FlowBanner as the first element of Overview instead of as a
+   *  separate strip above the whole wizard (StudioAlpha.tsx owns that
+   *  choice — it stops rendering FlowBanner itself when this is passed). */
+  flowCtx?: FlowContext | null;
 }
 
 function modeLabel(m: AlphaMode | undefined): string | null {
@@ -49,8 +70,6 @@ function modeLabel(m: AlphaMode | undefined): string | null {
     "product-ad": "Product Ad",
     social: "Social",
     "performance-ad": "Performance Ad",
-    affiliate: "Affiliate",
-    "custom-manual": "Custom / Manual",
   };
   return map[m] ?? null;
 }
@@ -149,8 +168,16 @@ function missingEntityCaption(mode: AlphaMode | undefined): string {
  * read at a glance. Quick actions row of 3 KB tiles. Below-fold accordion
  * for full Brand / Product / Related / KB detail.
  * ──────────────────────────────────────────────────────────────────────── */
-export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps) {
+export function ContextRail({
+  wizard,
+  studioMode,
+  onCollapse,
+  layout = "rail",
+  angleEditable = false,
+  flowCtx = null,
+}: ContextRailProps) {
   const { state } = wizard;
+  const [angleRailOpen, setAngleRailOpen] = useState(false);
   // A-12.51 (Maalik): "More details" accordion state is URL-backed via
   // ?more=closed (default = open). Mirrors the ?rail=closed pattern so a
   // hard refresh / HTML.to.design capture restores the exact accordion
@@ -296,7 +323,20 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
   const titleText = `${brand?.name ?? "No brand"} / ${productName ?? "No product"}`;
 
   return (
-    <div className="v3-glass space-y-4 rounded-3xl p-4">
+    <div
+      className={cn(
+        "v3-glass space-y-4 rounded-3xl p-4",
+        // Linear variant: full-width at the top of the main column instead
+        // of a narrow 300px rail — capped to the same max-w-2xl the rest of
+        // Configure's main column uses, so Overview doesn't stretch to some
+        // arbitrary full-bleed width on a wide viewport.
+        layout === "inline" && "mx-auto w-full max-w-2xl",
+      )}
+    >
+      {/* Flow-origin context — Linear variant only. Rail variant keeps this
+          as StudioAlpha.tsx's own separate FlowBanner above the wizard. */}
+      {layout === "inline" && flowCtx && <FlowBanner ctx={flowCtx} />}
+
       {/* Header */}
       <SectionHeader
         title="Overview"
@@ -477,10 +517,33 @@ export function ContextRail({ wizard, studioMode, onCollapse }: ContextRailProps
                 populated state here (§5: Concept/Script/Style/Angle default
                 to "Auto"), so this never renders as an empty/dashed card
                 the way Brand/Product do before anything is picked. */}
-            <AngleDetailCard isAuto={isAngleAuto} label={angleText} />
+            <AngleDetailCard
+              isAuto={isAngleAuto}
+              label={angleText}
+              onClick={angleEditable ? () => setAngleRailOpen(true) : undefined}
+            />
           </div>
         )}
       </div>
+
+      {/* Linear-variant Angle+Concept picker — same ConceptAngleRail
+          Configure's PromptReferenceBar chip already opens, reused
+          standalone here (it's a plain controlled component, no dependency
+          on Configure's own `railMode` state). Writes straight to
+          wizard.state via the `wizard` prop this component already holds. */}
+      {angleEditable && angleRailOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
+            <ConceptAngleRail
+              selectedAngleId={state.angleId}
+              selectedConceptIds={state.selectedConceptIds}
+              onAngleChange={(id) => wizard.set("angleId", id)}
+              onConceptsChange={(ids) => wizard.set("selectedConceptIds", ids)}
+              onClose={() => setAngleRailOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -882,16 +945,21 @@ function KbGlance({
 function AngleDetailCard({
   isAuto,
   label,
+  onClick,
 }: {
   /** Auto is a real, valid answer (§5) — this block never reads as an
    *  empty/dashed placeholder the way an un-picked Brand/Product does. */
   isAuto: boolean;
   label: string | null;
+  /** Linear variant only (`angleEditable`) — turns this card into a picker
+   *  trigger instead of a read-only summary. Undefined everywhere else,
+   *  so Rail-variant / steps 1-3 render byte-identical to before. */
+  onClick?: () => void;
 }) {
-  return (
-    <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
+  const body = (
+    <>
       <div className="mb-1 flex items-center justify-between">
-        <BlockLabel>Angle</BlockLabel>
+        <BlockLabel>Angle + Concept</BlockLabel>
         <span
           className={cn(
             "inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider",
@@ -905,10 +973,31 @@ function AngleDetailCard({
       </div>
       <p className="text-[11px] font-medium text-foreground">{label ?? "Auto"}</p>
       <p className="mt-0.5 text-[10px] text-muted-foreground">
-        {isAuto
-          ? "Genie picks the strongest angle for this ad — pick one on Configure to lock it in."
-          : "Locked in for this generation — change it any time on Configure."}
+        {onClick
+          ? isAuto
+            ? "Genie picks the strongest angle for this ad — tap to choose your own."
+            : "Tap to change the angle or concept."
+          : isAuto
+            ? "Genie picks the strongest angle for this ad — pick one on Configure to lock it in."
+            : "Locked in for this generation — change it any time on Configure."}
       </p>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full rounded-xl border border-border/50 bg-background/40 p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+      >
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
+      {body}
     </div>
   );
 }

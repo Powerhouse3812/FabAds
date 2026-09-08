@@ -286,19 +286,12 @@ const App = () => (
                 <Route path="settings" element={<WorkspaceSettings />} />
                 <Route path="dashboard" element={<Dashboard />} />
 
-                {/* Catalogue — new FabAds-wide module.
-                    Genie 2.0 §9 + §21.1: the Catalogue is now the home for EVERY
-                    input asset, not just the commercial ones. §21.1 records the
-                    reversal of the 26 Aug "keep Asset Library and Catalogue
-                    separate" call — they are merged, under two groups:
-                      Business assets — Brands · Products · Categories
-                      Creative assets — Avatars · Voices · Scripts · Concepts ·
-                                        Hooks · CTAs · Frameworks
-                                        (+ §21.2's Angles · Templates ·
-                                         Audiences · References/Winner ads)
-                    The index is now the grouped picker rather than a redirect
-                    into Categories — with 14 types, dropping the user into one
-                    of them hides the other thirteen. */}
+                {/* Catalogue — Business assets only (Maalik: "Catalogue me only
+                    Brand/Product/Category hai for now"). The 10 Creative types
+                    that used to live here (Avatars/Voices/Scripts/Concepts/
+                    Hooks/CTAs/Frameworks/Angles/Templates/Audiences) moved to
+                    Genie's "Assets" sub-nav — see src/genie6/routes.tsx and
+                    the redirect block below for old /catalogue/* bookmarks. */}
                 <Route path="catalogue" element={<CatalogueHome />} />
                 {/* A-12.42 (Maalik, refined): Finder layout PRESERVED for brand/product/
                     category LISTING. On brand click → full-screen 6-tab Brand Detail page
@@ -310,33 +303,22 @@ const App = () => (
                 <Route path="catalogue/brands/:id" element={<CatalogueDetailPage type="brands" />} />
                 <Route path="catalogue/products" element={<CatalogueFinder type="products" />} />
                 <Route path="catalogue/products/:id" element={<CatalogueFinder type="products" />} />
-                {/* Iter-6 A-10: Audiences / Angles / Hooks / Concepts / Avatars / Voices —
-                    deprioritized entities, still on the Finder UI. */}
-                <Route path="catalogue/audiences" element={<CatalogueFinder type="audiences" />} />
-                <Route path="catalogue/audiences/:id" element={<CatalogueFinder type="audiences" />} />
-                <Route path="catalogue/angles" element={<CatalogueFinder type="angles" />} />
-                <Route path="catalogue/angles/:id" element={<CatalogueFinder type="angles" />} />
-                <Route path="catalogue/hooks" element={<CatalogueFinder type="hooks" />} />
-                <Route path="catalogue/hooks/:id" element={<CatalogueFinder type="hooks" />} />
-                <Route path="catalogue/concepts" element={<CatalogueFinder type="concepts" />} />
-                <Route path="catalogue/concepts/:id" element={<CatalogueFinder type="concepts" />} />
-                <Route path="catalogue/avatars" element={<CatalogueFinder type="avatars" />} />
-                <Route path="catalogue/avatars/:id" element={<CatalogueFinder type="avatars" />} />
-                <Route path="catalogue/voices" element={<CatalogueFinder type="voices" />} />
-                <Route path="catalogue/voices/:id" element={<CatalogueFinder type="voices" />} />
-                {/* Genie 2.0 §9 — the five new Creative asset types. Frameworks
-                    are served from src/genie6/editor/frameworks.ts (a storyboard
-                    IS a framework with per-section visuals, §21.2), References
-                    adapt the existing WINNER_ADS rather than forking new winner
-                    data. */}
-                <Route path="catalogue/scripts" element={<CatalogueFinder type="scripts" />} />
-                <Route path="catalogue/scripts/:id" element={<CatalogueFinder type="scripts" />} />
-                <Route path="catalogue/ctas" element={<CatalogueFinder type="ctas" />} />
-                <Route path="catalogue/ctas/:id" element={<CatalogueFinder type="ctas" />} />
-                <Route path="catalogue/frameworks" element={<CatalogueFinder type="frameworks" />} />
-                <Route path="catalogue/frameworks/:id" element={<CatalogueFinder type="frameworks" />} />
-                <Route path="catalogue/templates" element={<CatalogueFinder type="templates" />} />
-                <Route path="catalogue/templates/:id" element={<CatalogueFinder type="templates" />} />
+
+                {/* The 10 Creative types moved to Genie's Assets sub-nav (see
+                    src/genie6/routes.tsx) — a splat route per type so every old
+                    /catalogue/{type}, /catalogue/{type}/:id, /catalogue/{type}/grid
+                    and /catalogue/{type}/grid/:id bookmark forwards there instead
+                    of 404ing, rather than 4 explicit redirects per type. */}
+                <Route path="catalogue/audiences/*" element={<Navigate to="/iq/genie6/assets/audiences" replace />} />
+                <Route path="catalogue/angles/*" element={<Navigate to="/iq/genie6/assets/angles" replace />} />
+                <Route path="catalogue/hooks/*" element={<Navigate to="/iq/genie6/assets/hooks" replace />} />
+                <Route path="catalogue/concepts/*" element={<Navigate to="/iq/genie6/assets/concepts" replace />} />
+                <Route path="catalogue/avatars/*" element={<Navigate to="/iq/genie6/assets/avatars" replace />} />
+                <Route path="catalogue/voices/*" element={<Navigate to="/iq/genie6/assets/voices" replace />} />
+                <Route path="catalogue/scripts/*" element={<Navigate to="/iq/genie6/assets/scripts" replace />} />
+                <Route path="catalogue/ctas/*" element={<Navigate to="/iq/genie6/assets/ctas" replace />} />
+                <Route path="catalogue/frameworks/*" element={<Navigate to="/iq/genie6/assets/frameworks" replace />} />
+                <Route path="catalogue/templates/*" element={<Navigate to="/iq/genie6/assets/templates" replace />} />
 
                 {/* Backward-compat redirects: old /grid URLs → bare URLs */}
                 <Route path="catalogue/categories/grid" element={<Navigate to="/catalogue/categories" replace />} />
@@ -345,30 +327,6 @@ const App = () => (
                 <Route path="catalogue/brands/grid/:id" element={<CatalogueDetailPage type="brands" />} />
                 <Route path="catalogue/products/grid" element={<Navigate to="/catalogue/products" replace />} />
                 <Route path="catalogue/products/grid/:id" element={<CatalogueDetailPage type="products" />} />
-                {/* Legacy grid views for deprioritized entities — kept as fallback */}
-                <Route path="catalogue/audiences/grid" element={<CatalogueListPage type="audiences" />} />
-                <Route path="catalogue/angles/grid" element={<CatalogueListPage type="angles" />} />
-                <Route path="catalogue/hooks/grid" element={<CatalogueListPage type="hooks" />} />
-                <Route path="catalogue/concepts/grid" element={<CatalogueListPage type="concepts" />} />
-                <Route path="catalogue/avatars/grid" element={<CatalogueListPage type="avatars" />} />
-                <Route path="catalogue/voices/grid" element={<CatalogueListPage type="voices" />} />
-                <Route path="catalogue/audiences/grid/:id" element={<CatalogueDetailPage type="audiences" />} />
-                <Route path="catalogue/angles/grid/:id" element={<CatalogueDetailPage type="angles" />} />
-                <Route path="catalogue/hooks/grid/:id" element={<CatalogueDetailPage type="hooks" />} />
-                <Route path="catalogue/concepts/grid/:id" element={<CatalogueDetailPage type="concepts" />} />
-                <Route path="catalogue/avatars/grid/:id" element={<CatalogueDetailPage type="avatars" />} />
-                <Route path="catalogue/voices/grid/:id" element={<CatalogueDetailPage type="voices" />} />
-                {/* Grid fallbacks for the five new Creative types, mirroring the
-                    six above so every asset type has the same two surfaces. */}
-                <Route path="catalogue/scripts/grid" element={<CatalogueListPage type="scripts" />} />
-                <Route path="catalogue/scripts/grid/:id" element={<CatalogueDetailPage type="scripts" />} />
-                <Route path="catalogue/ctas/grid" element={<CatalogueListPage type="ctas" />} />
-                <Route path="catalogue/ctas/grid/:id" element={<CatalogueDetailPage type="ctas" />} />
-                <Route path="catalogue/frameworks/grid" element={<CatalogueListPage type="frameworks" />} />
-                <Route path="catalogue/frameworks/grid/:id" element={<CatalogueDetailPage type="frameworks" />} />
-                <Route path="catalogue/templates/grid" element={<CatalogueListPage type="templates" />} />
-                <Route path="catalogue/templates/grid/:id" element={<CatalogueDetailPage type="templates" />} />
-
                 {/* Automation — canvas workflow builder + reporting-automation list */}
                 {automationsRoutes}
 

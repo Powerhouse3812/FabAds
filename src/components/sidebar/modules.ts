@@ -3,7 +3,7 @@ import {
   Wand2, Zap, Video, MessageSquare,
   History, Target, Map, Settings,
   Film, Search, Globe,
-  Home, Library as LibraryIcon, FolderTree,
+  Library as LibraryIcon, FolderTree,
   Bookmark, Copy, Boxes,
   Workflow, Eraser, Scissors,
   Lightbulb,
@@ -226,13 +226,15 @@ export const MODULES: ModuleDef[] = [
       //     pill Studio = a Genie internal layout variant.
       // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
       // matches the new /studio Product-first flow's primacy.
-      // Genie 2.0 §3 — the sub-nav IA is now LOCKED to:
-      //   Overview · Studio · Other Flows · Other Apps · Concepts · Library · Settings
+      // Genie 2.0 §3's locked order was Overview · Studio · Other Flows ·
+      // Other Apps · Concepts · Library · Settings. Maalik has since pulled
+      // both Overview and Settings off this list (nothing real behind
+      // either yet) — routes still exist at /iq/genie6 (bare) and
+      // /iq/genie6/settings for the many places elsewhere in the app that
+      // deep-link straight there (mobile tab bar, tour, onboarding CTAs,
+      // etc.), same "kept, no nav surface" treatment as Genie 2/3/4/5.
       // "Other Flows" and "Other Apps" sit between Studio and Concepts, which is
-      // the spec's stated position. The six greyed legacy entries below the
-      // divider are the ones §3 says to "ignore entirely" — they stay only so
-      // old bookmarks resolve.
-      { label: "Overview",    path: "/iq/genie6",                  icon: Home },
+      // the spec's stated position.
       // A-12.17: Studio Alpha is primary. Studio v3 + Beta deprioritized below Old Studio.
       // Genie 2.0: relabelled "Studio Alpha" → "Studio" per §3's locked list. The
       // path stays /studio-alpha — every deep link, every ?src/?ref/?act flow URL
@@ -248,27 +250,38 @@ export const MODULES: ModuleDef[] = [
       // KB-attached + user-saved concepts into one searchable feed.
       { label: "Concepts",    path: "/iq/genie6/concepts",         icon: Lightbulb },
       { label: "Library",     path: "/iq/genie6/library",          icon: LibraryIcon },
-      { label: "Settings",    path: "/iq/genie6/settings",         icon: Settings },
+      // Maalik's ruling: "bring all assets from catalogue to Genie... in a
+      // sub menu of Assets." The 10 Creative types (everything except
+      // Brand/Product/Category, which stay in Catalogue below) — nested
+      // 2nd-level sub-items, same pattern the IQ → Genie 5.0 group already
+      // uses. Derived from `groupedAssetTypes()`'s "creative" group so a
+      // 11th type never has to be hand-synced here.
+      {
+        label: "Assets", path: "/iq/genie6/assets", icon: Boxes,
+        subItems: groupedAssetTypes()
+          .find((g) => g.group === "creative")!
+          .types.map((def) => ({
+            label: def.label,
+            path: `/iq/genie6/assets/${def.id}`,
+            icon: def.icon,
+          })),
+      },
     ],
   },
   {
     key: "catalogue", label: "Catalogue", icon: Boxes,
-    // Maalik's ruling (Genie 2.0 §10 catalogue-nav pass): the grouped
-    // /catalogue landing grid was "a extra screen" — kill it, and put the
-    // asset types straight in the sub-nav instead, so a user on
-    // /catalogue/hooks can reach /catalogue/ctas without backing out to a
-    // landing page first. Sectioned exactly as §10 groups them (Business /
-    // Creative), derived from `groupedAssetTypes()` so a 15th type or a
-    // removed one (References, dropped per this same ruling) never has to
-    // be hand-synced here — it just shows up or disappears on its own.
-    sections: groupedAssetTypes().map((g) => ({
-      sectionLabel: g.label,
-      items: g.types.map((def) => ({
+    // Maalik's ruling: "Catalogue me only Brand/Product/Category hai for
+    // now" — the 10 Creative types moved to Genie's Assets sub-nav above.
+    // Flat (not `sections`) now that only one group is left: a single
+    // section label over the whole list would be a lonely-group repeat of
+    // the anti-pattern already retired elsewhere (see CLAUDE.md).
+    subItems: groupedAssetTypes()
+      .find((g) => g.group === "business")!
+      .types.map((def) => ({
         label: def.label,
         path: `/catalogue/${def.id}`,
         icon: def.icon,
       })),
-    })),
   },
   { key: "creative-library", label: "Creative Library", icon: ImageIcon, path: "/iq/creative-library" },
 
