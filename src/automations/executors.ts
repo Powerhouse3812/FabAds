@@ -309,19 +309,43 @@ const addToFolder: NodeExecutor = ({ items, data }) => {
  * records up BY creative id, so one keyed to a variation is simply never
  * rendered.
  *
- * OPEN PRODUCT QUESTION (for the meeting, not resolved here): Neeraj's ask was
- * "sync to meta hme FOLDER k against dena chiye". This still models sync as a
- * creative->account pair, inherited from v3's per-creative upload and its
- * `pairKey` guard. A true folder->account sync would key records on
- * `folder::account` and take its target from the nearest upstream
- * `addToFolder`. The chain demonstrates the intent either way; the record
- * granularity is the part still to decide.
+ * MODE-AWARE as of Maalik's ruling 2026-08-13, which closed the open question
+ * this comment used to record (Neeraj: "sync to meta hme FOLDER k against dena
+ * chiye" vs. the creative->account pairs the first build shipped). Both are
+ * real jobs, so both ship:
+ *   - "creatives" is the ORIGINAL behaviour, byte for byte: the creatives this
+ *     run matched, pushed to the chosen accounts, no folder in the picture.
+ *   - "folder" tags the configured folder onto each record as provenance
+ *     (`folderId`/`folderName`) while still pushing only the payload standing
+ *     at this step — the run has no other honest inventory of the folder's
+ *     contents, since `addToFolder` is simulated and writes no membership. The
+ *     log line says so too: it leads with what was actually queued (the
+ *     creative–account uploads) and names the folder as an aside, never as
+ *     the subject of "queued" — that verb belongs to the uploads that
+ *     happened, not to a folder this run never inventoried.
+ * The RECORD KEY did not change: it is still `creative::account`, because an
+ * asset exists once per ad library and the folder is provenance rather than a
+ * destination. The full argument, and the first-writer-wins consequence for
+ * records already in localStorage, is in `sync/syncModel.ts`'s header.
  *
  * TERMINAL: an upload ends a chain (`CONNECTION_RULES.syncFolderToAccounts` is
  * empty), so output is always [].
  */
 const syncFolderToAccounts: NodeExecutor = ({ items, data, ctx }) => {
   if (data.kind !== "syncFolderToAccounts") return { output: [], detail: "" };
+
+  // A graph saved before the ruling has NO `mode` field at all, and the
+  // sanitiser may hand back an unrecognised string from hand-edited storage.
+  // Both read as "folder": it is `defaultDataForKind`'s default, Neeraj's
+  // stated position, and — because folder mode additionally requires a folder
+  // — the reading that makes an under-configured node visibly unfinished
+  // rather than quietly firing a different job than the label claims.
+  const folderMode = data.mode !== "creatives";
+
+  // Never the raw folderId — an id in a sentence where a name belongs reads
+  // like a bug even when the push succeeded. Same fallback phrase as
+  // `addToFolder`, which fabricates no name either.
+  const folderLabel = data.folderName?.trim() ? `"${data.folderName}"` : "the selected folder";
 
   const { generated } = splitByOrigin(items);
   // Named, not excluded — see the header. Kept in the detail so a reader can
@@ -345,33 +369,78 @@ const syncFolderToAccounts: NodeExecutor = ({ items, data, ctx }) => {
     return { output: [], detail: joinClauses(["no ad account selected — nothing was queued", generatedNote]) };
   }
 
-  const syncIds = items.map((i) => i.id);
-  if (syncIds.length === 0) {
-    return { output: [], detail: `nothing reached this step — nothing to sync to ${accountLabel}` };
+  // Folder mode with no folder is already a config issue, so `runEngine` skips
+  // the step before it reaches this executor. The refusal is repeated here
+  // anyway: without it the step would fall through to wording that names "the
+  // selected folder" when no folder was ever selected.
+  if (folderMode && !data.folderId) {
+    return { output: [], detail: joinClauses(["no folder chosen — nothing was pushed", generatedNote]) };
   }
 
-  const { queued, skipped } = enqueueSyncMany(syncIds, data.accountIds, {
-    ruleId: ctx.workflowId,
-    ruleName: ctx.workflowName,
-  });
-
-  // v3's rule, kept verbatim: `queued === 0 && skipped > 0` is NOT a success.
-  // Reporting one would imply an upload happened when nothing was queued.
-  if (queued === 0 && skipped > 0) {
+  const syncIds = items.map((i) => i.id);
+  if (syncIds.length === 0) {
     return {
       output: [],
-      detail: joinClauses([`every creative was already synced to ${accountLabel}`, generatedNote]),
+      detail: folderMode
+        ? `nothing reached this step — nothing to push from ${folderLabel} to ${accountLabel}`
+        : `nothing reached this step — nothing to sync to ${accountLabel}`,
     };
   }
 
-  const skippedNote =
-    skipped > 0 ? `${count(skipped, "pair")} already synced and skipped` : "";
+  // The folder pair is threaded through in FOLDER MODE ONLY. In "creatives"
+  // mode there is genuinely no folder in the job, and stamping the node's
+  // leftover `folderId` onto those records would attribute the upload to a
+  // folder this run never pushed.
+  const { queued, skipped } = enqueueSyncMany(syncIds, data.accountIds, {
+    ruleId: ctx.workflowId,
+    ruleName: ctx.workflowName,
+    ...(folderMode ? { folderId: data.folderId, folderName: data.folderName } : {}),
+  });
+
+  // v3's rule, kept verbatim: `queued === 0 && skipped > 0` is NOT a success.
+  // Reporting one would imply an upload happened when nothing was queued. This
+  // is also the provenance Maalik asked the run log to keep — so it stays, and
+  // it says it in the language of whichever job actually ran. A folder push
+  // that Meta already has must not report itself as a pile of skipped pairs.
+  if (queued === 0 && skipped > 0) {
+    return {
+      output: [],
+      detail: joinClauses([
+        // Mode-correct but scoped to what this run actually touched — every
+        // creative THIS RUN tried to push (from the folder, in folder mode)
+        // was already a synced/queued/running pair, not "the folder in full"
+        // (this run has no inventory of the folder beyond its own payload).
+        folderMode
+          ? `every creative this run pushed from ${folderLabel} was already synced to ${accountLabel}`
+          : `every creative was already synced to ${accountLabel}`,
+        generatedNote,
+      ]),
+    };
+  }
+
+  // `queued`/`skipped` count creative×account combinations in BOTH modes — the
+  // ruling changed the granularity of the JOB, not of the record (see the
+  // header). Folder mode still LEADS WITH THE PAIR COUNT — what the run
+  // actually did — and carries the folder as the aside, never the reverse:
+  // "queued <folder> for sync" would claim the whole folder moved, which this
+  // run cannot honestly say (it has no inventory of the folder's contents,
+  // only of the payload standing at this step — see the header).
+  if (folderMode) {
+    return {
+      output: [],
+      detail: joinClauses([
+        `queued ${count(queued, "creative–account upload")} for sync to ${accountLabel}, tagged as part of ${folderLabel}`,
+        skipped > 0 ? `${skipped} already synced and skipped` : "",
+        generatedNote,
+      ]),
+    };
+  }
 
   return {
     output: [],
     detail: joinClauses([
       `queued ${count(queued, "creative–account pair")} for sync to ${accountLabel}`,
-      skippedNote,
+      skipped > 0 ? `${count(skipped, "pair")} already synced and skipped` : "",
       generatedNote,
     ]),
   };

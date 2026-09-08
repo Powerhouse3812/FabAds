@@ -8,6 +8,7 @@
  */
 import { useSyncExternalStore } from "react";
 import {
+  SYNC_GRANULARITIES,
   WORKFLOW_NODE_KINDS,
   WORKFLOW_STATUS_TAGS,
   defaultDataForKind,
@@ -17,9 +18,10 @@ import {
   type WorkflowNodeData,
   type WorkflowNodeKind,
   type WorkflowStatusTag,
+  type SyncGranularity,
 } from "@/automations/model";
 import { WORKFLOW_TEMPLATES } from "@/automations/templates";
-import { sanitizeSchedule, type WorkflowCondition } from "@/workflows/core";
+import { sanitizeSchedule, type WorkflowCondition, type WorkflowSchedule } from "@/workflows/core";
 import { ACCOUNT_BY_ID } from "@/data/accounts";
 
 const KEY = "workflows-graphs";
@@ -107,7 +109,28 @@ function sanitizeNodeData(kind: WorkflowNodeKind, rawData: unknown): WorkflowNod
       // nodeConfigIssue() already reports "Choose at least one ad account"
       // honestly rather than this sanitiser silently deleting the node out
       // from under the canvas.
-      return { kind: "syncFolderToAccounts", accountIds };
+      // `mode` coerces rather than dropping the node, but the fallback is NOT
+      // the model's `defaultDataForKind` default. Two different questions:
+      //   - New node the user just dropped -> "folder" (Neeraj's position; the
+      //     launch-ready path). That's `defaultDataForKind`'s job.
+      //   - Payload persisted BEFORE the granularity choice existed -> it must
+      //     keep doing what it did yesterday. Pre-ruling nodes pushed
+      //     creative->account pairs, which `executors.ts` documents as
+      //     "creatives" mode byte for byte, and they carry no folder at all.
+      // Defaulting those to "folder" changed their job silently AND
+      // manufactured a blocker (`nodeConfigIssue` demands a folderId in folder
+      // mode), so an untouched graph reopened refusing to arm. Adversarial
+      // review confirmed this on a pre-batch profile: the flagship template
+      // rendered a red "1 BLOCKER". Hence: honour a persisted folder if one is
+      // there, otherwise preserve the old behaviour.
+      const folderId = typeof data.folderId === "string" ? data.folderId : undefined;
+      const folderName = typeof data.folderName === "string" ? data.folderName : undefined;
+      const mode = (SYNC_GRANULARITIES as readonly string[]).includes(data.mode as string)
+        ? (data.mode as SyncGranularity)
+        : folderId
+          ? "folder"
+          : "creatives";
+      return { kind: "syncFolderToAccounts", accountIds, mode, folderId, folderName };
     }
 
     case "note": {
@@ -399,6 +422,35 @@ export function updateWorkflowGraph(
 ): void {
   graphs = graphs.map((g) => (g.id === id ? { ...g, ...patch, updatedAt: new Date().toISOString() } : g));
   persist();
+}
+
+/**
+ * Arms or disarms auto-run for one workflow — the switch the auto-runner
+ * (`@/automations/autoRunner`) reads first in its eligibility pass.
+ *
+ * A named wrapper over `updateWorkflowGraph`, NOT a second write path. There is
+ * exactly one place in this file that assigns `graphs` and calls `persist()`
+ * for a patch; a second copy would be a second chance to forget the emit and
+ * leave the canvas showing stale state. The name earns its keep at the call
+ * site: `setWorkflowEnabled(id, true)` says what a `{ enabled: true }` patch
+ * only implies.
+ */
+export function setWorkflowEnabled(id: string, enabled: boolean): void {
+  updateWorkflowGraph(id, { enabled });
+}
+
+/**
+ * Sets the date range that gates auto-run. Sanitised HERE as well as on read:
+ * `sanitizeSchedule` already runs when localStorage is parsed, but a half-typed
+ * date written now would sit in the in-memory store — and in front of the user
+ * via `describeSchedule` — until the next reload cleaned it up. Cheap, and it
+ * keeps `isWithinSchedule`'s guarantees true for the current session too.
+ *
+ * The shape stays date-range-only (see `schedule.ts`'s header) — do not widen
+ * it here by accepting extra fields a caller happens to pass.
+ */
+export function setWorkflowSchedule(id: string, schedule: WorkflowSchedule): void {
+  updateWorkflowGraph(id, { schedule: sanitizeSchedule(schedule) });
 }
 
 export function deleteWorkflow(id: string): void {

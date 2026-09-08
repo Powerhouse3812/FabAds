@@ -63,6 +63,27 @@ export const STATUS_TAG_LABELS: Record<WorkflowStatusTag, string> = {
 export const SOURCE_MODULES = ["creative-report"] as const;
 export type SourceModule = (typeof SOURCE_MODULES)[number];
 
+/**
+ * What a sync step pushes. See the `syncFolderToAccounts` node data for the
+ * decision history — both granularities are first-class as of 2026-08-13.
+ */
+export const SYNC_GRANULARITIES = ["folder", "creatives"] as const;
+export type SyncGranularity = (typeof SYNC_GRANULARITIES)[number];
+
+export const SYNC_GRANULARITY_META: Record<
+  SyncGranularity,
+  { label: string; blurb: string }
+> = {
+  folder: {
+    label: "Whole folder",
+    blurb: "Push a launch-ready folder to the ad account as one unit",
+  },
+  creatives: {
+    label: "Matched creatives",
+    blurb: "Push only the creatives this run matched, without a folder",
+  },
+};
+
 export type WorkflowNodeKind =
   | "source"
   | "condition"
@@ -94,8 +115,30 @@ export type WorkflowNodeData =
    *  AddToFolderAction: the runner ticks off a module-level clock with no
    *  React/Supabase in scope, so it can never re-fetch `cl_folders` live. */
   | { kind: "addToFolder"; folderId: string; folderName: string }
-  /** Meta ad-account libraries. Re-validated against ACCOUNT_BY_ID on load. */
-  | { kind: "syncFolderToAccounts"; accountIds: string[] }
+  /**
+   * Meta ad-account libraries. `accountIds` re-validated against ACCOUNT_BY_ID
+   * on load.
+   *
+   * `mode` settles the open product call from the Aug-3 thread (Neeraj: "sync
+   * folders ke against hona chahiye, ad accounts ke nahi") against what the
+   * first build shipped (creative -> account pairs). Maalik's ruling
+   * 2026-08-13: support BOTH, in one node, because they are different jobs —
+   * "folder" pushes a launch-ready folder as a unit, "creatives" pushes just
+   * the creatives this run matched. One node with a mode beats two node kinds:
+   * the grammar, the executor and the config panel all stay single-copy.
+   *
+   * `folderId`/`folderName` are only meaningful in "folder" mode, and are a
+   * denormalised snapshot for the same reason `addToFolder` denormalises —
+   * the runner ticks off a module-level clock with no React/Supabase in scope
+   * and can never re-fetch `cl_folders` live.
+   */
+  | {
+      kind: "syncFolderToAccounts";
+      accountIds: string[];
+      mode: SyncGranularity;
+      folderId?: string;
+      folderName?: string;
+    }
   /** On-canvas sticky. Never executes, never connects. */
   | { kind: "note"; text: string };
 
@@ -126,11 +169,28 @@ export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdgeModel[];
   /**
-   * Reserved for unattended auto-run. The prototype ships MANUAL RUN ONLY, so
-   * the UI renders this as an explicit "auto-run coming soon" state rather
-   * than a switch that silently does nothing — the same principle v3's
-   * BoardsPanel established (an enabled switch that does nothing "would make
-   * that switch a lie").
+   * Armed for unattended auto-run. LIVE as of 2026-08-13 — `autoRunner.ts`
+   * re-checks armed graphs about every 10 seconds and starts at most one run a
+   * minute, so this is no longer the "coming soon" placeholder it shipped as.
+   *
+   * The clock is in-page, so an armed workflow does nothing while the tab is
+   * closed, and every surface that shows this must say so — `enabled` alone
+   * would read as a server-side promise the prototype cannot keep. That is v3's
+   * BoardsPanel principle applied to auto-run: a switch that silently does
+   * nothing "would make that switch a lie".
+   *
+   * Arming is gated on the graph having no blockers (`hasBlockers` in
+   * `recommendations.ts`). Every surface that offers the switch — the builder
+   * and the Automation Center list — refuses to turn it ON while blockers
+   * exist, and the runner's eligibility pass reads the same function, so no two
+   * of them can give different answers about one workflow. Turning it OFF is
+   * always allowed everywhere; a user must never be trapped with a workflow
+   * armed.
+   *
+   * Note this flag is stored INTENT, not the live verdict. An armed workflow
+   * that is outside its date range is a legitimate disagreement between
+   * `enabled` and `describeAutoRunState(...).armed` — one the UI must explain,
+   * never paper over by binding the switch to the derived verdict.
    */
   enabled: boolean;
   schedule?: WorkflowSchedule;
@@ -139,7 +199,12 @@ export interface WorkflowGraph {
    * automation — recommendations, like add naming conditions if you run
    * multiple niches"). Graph-level PROSE metadata, not executable nodes —
    * keeping advice out of the node union means the run engine has no no-op
-   * kinds to skip. Rendered as a strip above the canvas.
+   * kinds to skip.
+   *
+   * This is the HAND-AUTHORED half, per template. The DERIVED half — advice
+   * computed from the graph the user actually built — lives in
+   * `recommendations.ts` and is deliberately not stored: a cached verdict can
+   * disagree with the graph it describes.
    */
   recommendations: string[];
   /** true => "FabFunnel benchmark" badge (the pre-seeded templates). */
@@ -191,7 +256,7 @@ export const NODE_KIND_META: Record<WorkflowNodeKind, NodeKindMeta> = {
   },
   syncFolderToAccounts: {
     label: "Sync to ad account",
-    blurb: "Upload the folder to a Meta ad library",
+    blurb: "Upload a folder — or just this run's matches — to a Meta ad library",
     family: "action",
   },
   note: {
@@ -218,7 +283,9 @@ export function defaultDataForKind(kind: WorkflowNodeKind): WorkflowNodeData {
     case "addToFolder":
       return { kind: "addToFolder", folderId: "", folderName: "" };
     case "syncFolderToAccounts":
-      return { kind: "syncFolderToAccounts", accountIds: [] };
+      // Folder-first default: Neeraj's stated position, and the safer of the
+      // two — a folder sync is the launch-ready path.
+      return { kind: "syncFolderToAccounts", accountIds: [], mode: "folder" };
     case "note":
       return { kind: "note", text: "" };
   }
@@ -237,7 +304,12 @@ export function nodeConfigIssue(data: WorkflowNodeData): string | null {
     case "addToFolder":
       return data.folderId ? null : "Choose a folder";
     case "syncFolderToAccounts":
-      return data.accountIds.length > 0 ? null : "Choose at least one ad account";
+      if (data.accountIds.length === 0) return "Choose at least one ad account";
+      // Folder mode without a folder would silently fall back to "whatever the
+      // chain happened to file", which is exactly the kind of quiet guess this
+      // function exists to prevent.
+      if (data.mode === "folder" && !data.folderId) return "Choose the folder to push";
+      return null;
     case "generateVariation":
       return data.count > 0 ? null : "Set how many variations";
     case "note":
@@ -376,10 +448,13 @@ export function describeNode(data: WorkflowNodeData): string {
       return data.count === 1 ? "1 variation each" : `${data.count} variations each`;
     case "addToFolder":
       return `Into "${data.folderName || data.folderId}"`;
-    case "syncFolderToAccounts":
-      return data.accountIds.length === 1
-        ? "1 ad account"
-        : `${data.accountIds.length} ad accounts`;
+    case "syncFolderToAccounts": {
+      const target =
+        data.accountIds.length === 1 ? "1 ad account" : `${data.accountIds.length} ad accounts`;
+      return data.mode === "folder"
+        ? `"${data.folderName || data.folderId}" → ${target}`
+        : `Matched creatives → ${target}`;
+    }
     case "note":
       return data.text;
   }

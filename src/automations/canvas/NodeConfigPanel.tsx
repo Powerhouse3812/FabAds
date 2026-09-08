@@ -35,6 +35,9 @@
  *   - `markStatus` writes a simulated tag, not a report bucket
  *     (`SIMULATED_STATUS_NOTE`).
  *   - `generateVariation` and `syncFolderToAccounts` are simulated actions.
+ *   - `syncFolderToAccounts` asks for a folder ONLY in folder mode, because
+ *     that is the only mode where the answer changes what runs. Every mode
+ *     edit preserves the rest of the node's config — see the block itself.
  * No number shown here is estimated — the match count comes from the same
  * `evaluateRule` the run engine calls.
  */
@@ -69,8 +72,11 @@ import { cn } from "@/lib/utils";
 import {
   NODE_KIND_META,
   STATUS_TAG_LABELS,
+  SYNC_GRANULARITIES,
+  SYNC_GRANULARITY_META,
   WORKFLOW_STATUS_TAGS,
   nodeConfigIssue,
+  type SyncGranularity,
   type WorkflowNode,
   type WorkflowNodeData,
   type WorkflowNodeKind,
@@ -100,7 +106,7 @@ import {
 } from "@/creative-report/lib/paramSchema";
 import { EMOTION_TAGS, MESSAGING_ANGLES } from "@/data/content";
 import { brands } from "@/mocks/shared/brands";
-import { useClFolders } from "@/hooks/use-cl-folders";
+import { useClFolders, type ClFolder } from "@/hooks/use-cl-folders";
 import type { WorkflowCondition } from "@/workflows/core";
 
 /* ------------------------------------------------------------------ */
@@ -214,7 +220,17 @@ const KIND_ICONS: Record<WorkflowNodeKind, LucideIcon> = {
   note: StickyNote,
 };
 
-const PANEL_CLASS = "w-80 shrink-0 overflow-y-auto border-l border-border bg-background p-4";
+/**
+ * TWO LAYOUTS, ONE CLASS STRING. From `2xl` up this is the static 320px column
+ * it has always been. Below `2xl` it is an absolute overlay on the right of the
+ * canvas, because a `shrink-0` column that wide leaves the canvas nothing at
+ * 768–1280px — `WorkflowCanvas.tsx`'s header note 3 owns that reasoning.
+ * `bg-background` is opaque already, so only the shadow is needed to read as a
+ * layer above the canvas rather than beside it.
+ */
+const PANEL_CLASS =
+  "w-80 shrink-0 overflow-y-auto border-l border-border bg-background p-4 " +
+  "absolute inset-y-0 right-0 z-20 shadow-lg 2xl:static 2xl:z-auto 2xl:shadow-none";
 
 /** A short, always-visible caveat. Muted rather than alarming — these state a
  *  boundary of the prototype, they are not errors the user can fix. */
@@ -224,6 +240,95 @@ function Caveat({ children }: { children: React.ReactNode }) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Label className="text-[12px] font-medium text-foreground">{children}</Label>;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Folder control (shared by two node kinds)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The Creative Library folder picker, used by both node kinds that need one:
+ * `addToFolder` (which folder to file into) and a FOLDER-MODE
+ * `syncFolderToAccounts` (which folder to push). One copy on purpose — the
+ * fiddly part is the four distinct placeholder states, the disabled rule, and
+ * the "that folder is gone" warning, and two drifting copies of that is how one
+ * node ends up silently clearing a folder while the other reports it.
+ *
+ * PRESENTATIONAL. It takes the folder query's states as props instead of
+ * calling `useClFolders()` itself, so the panel keeps one query per render and
+ * a hook order that can't change with the selection.
+ *
+ * `onPick` hands back BOTH id and name: the name is snapshotted onto the node
+ * because the run engine has no Supabase client in scope and can never
+ * re-resolve an id — the same denormalisation `SyncRecord.ruleName` uses.
+ */
+function FolderSelect({
+  folderId,
+  folderName,
+  folders,
+  loading,
+  error,
+  ariaLabel,
+  onPick,
+}: {
+  folderId: string;
+  folderName: string;
+  folders: ClFolder[];
+  loading: boolean;
+  error: boolean;
+  ariaLabel: string;
+  onPick: (folderId: string, folderName: string) => void;
+}) {
+  const isEmpty = !loading && !error && folders.length === 0;
+  const placeholder = loading
+    ? "Loading folders…"
+    : error
+      ? "Couldn't load folders"
+      : isEmpty
+        ? "No folders yet"
+        : "Choose a folder";
+  // A stored folder that no longer exists is REPORTED, not silently cleared:
+  // repairing the graph from an effect would write to the canvas just because
+  // the user clicked this node.
+  const missing = !loading && !error && !!folderId && !folders.some((f) => f.id === folderId);
+
+  return (
+    <>
+      <Select
+        // A value outside the option list would leave the trigger blank, so
+        // fall back to "" and let the placeholder speak (plus the warning
+        // below, which names the folder that went missing).
+        value={folders.some((f) => f.id === folderId) ? folderId : ""}
+        onValueChange={(v) => onPick(v, folders.find((f) => f.id === v)?.name ?? "")}
+        disabled={loading || error || isEmpty}
+      >
+        <SelectTrigger className="h-8 text-[13px]" aria-label={ariaLabel}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {folders.map((folder) => (
+            <SelectItem key={folder.id} value={folder.id}>
+              {folder.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {error && (
+        <p className="text-[11px] leading-relaxed text-destructive">
+          Couldn&apos;t load Creative Library folders. Try again in a moment.
+        </p>
+      )}
+      {isEmpty && <Caveat>No folders yet — create one in Creative Library first.</Caveat>}
+      {missing && (
+        <p className="text-[12px] leading-relaxed text-warning-text">
+          {folderName
+            ? `"${folderName}" isn't in Creative Library any more.`
+            : "The folder this step points at isn't in Creative Library any more."}{" "}
+          Pick another one.
+        </p>
+      )}
+    </>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -344,10 +449,14 @@ export function NodeConfigPanel({
   node,
   onChange,
   onDelete,
+  onClose,
 }: {
   node: WorkflowNode | null;
   onChange: (nodeId: string, data: WorkflowNodeData) => void;
   onDelete: (nodeId: string) => void;
+  /** Clears the selection. Only rendered below `2xl`, where this panel floats
+   *  over the canvas and would otherwise have no way back to it. */
+  onClose?: () => void;
 }) {
   // Hooks run before any early return, unconditionally — the panel must not
   // change its hook order when the selection moves between kinds or to null.
@@ -379,7 +488,12 @@ export function NodeConfigPanel({
 
   if (!node) {
     return (
-      <aside className={cn(PANEL_CLASS, "flex items-center justify-center")}>
+      // `hidden 2xl:flex`: with nothing selected there is nothing to configure,
+      // and below `2xl` this panel is an overlay — floating "Select a step to
+      // configure it." over the canvas would cover the very steps it asks the
+      // user to select. The wide layout keeps it: there the column's space is
+      // reserved either way, and an empty column with no explanation is worse.
+      <aside className={cn(PANEL_CLASS, "hidden items-center justify-center 2xl:flex")}>
         <p className="max-w-[15rem] text-center text-[13px] leading-relaxed text-muted-foreground">
           Select a step to configure it.
         </p>
@@ -430,17 +544,11 @@ export function NodeConfigPanel({
 
   const incompleteRanges = conditions.filter(isIncompleteRange).length;
 
-  /* ---- folder state: four distinct placeholders, exactly like RuleBuilder ---- */
-
-  const foldersEmpty = !foldersLoading && !foldersError && folderList.length === 0;
-  const folderPickerDisabled = foldersLoading || foldersError || foldersEmpty;
-  const folderPlaceholder = foldersLoading
-    ? "Loading folders…"
-    : foldersError
-      ? "Couldn't load folders"
-      : foldersEmpty
-        ? "No folders yet"
-        : "Choose a folder";
+  /* ---- folder state lives in `FolderSelect` ----
+     Its four distinct placeholders (loading / error / empty / ready), the
+     disabled rule and the went-missing warning are all derived from the three
+     props it takes, so both node kinds that pick a folder get identical
+     behaviour without this component tracking it twice. */
 
   return (
     <aside className={cn(PANEL_CLASS, "space-y-4")}>
@@ -469,6 +577,23 @@ export function NodeConfigPanel({
           }
         >
           <Trash2 className="h-4 w-4" />
+        </Button>
+        {/* Below `2xl` this panel floats over the canvas, so it needs a way back
+            to it that isn't "click the pane you can't see". Deliberately NOT an
+            outside-click dismiss (this repo's overlays never do that) and
+            deliberately absent from the wide layout, where the panel is a
+            column that closing would leave as a hole. It clears the selection
+            rather than hiding the panel, so the canvas and the panel keep
+            agreeing about what is selected. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-muted-foreground 2xl:hidden"
+          onClick={onClose}
+          aria-label="Close the step settings"
+          title="Close the step settings"
+        >
+          <X className="h-4 w-4" />
         </Button>
       </div>
 
@@ -684,57 +809,17 @@ export function NodeConfigPanel({
       {data.kind === "addToFolder" && (
         <div className="space-y-2">
           <SectionLabel>Creative Library folder</SectionLabel>
-          <Select
-            // A value outside the option list would leave the trigger blank, so
-            // fall back to "" and let the placeholder speak (plus the warning
-            // below, which names the folder that went missing).
-            value={folderList.some((f) => f.id === data.folderId) ? data.folderId : ""}
-            onValueChange={(v) => {
-              const folder = folderList.find((f) => f.id === v);
-              // Store the NAME alongside the id: the run engine has no
-              // Supabase in scope and can never re-resolve it, so this
-              // snapshot is what the run log and node summary read.
-              onChange(node.id, {
-                kind: "addToFolder",
-                folderId: v,
-                folderName: folder?.name ?? "",
-              });
-            }}
-            disabled={folderPickerDisabled}
-          >
-            <SelectTrigger className="h-8 text-[13px]" aria-label="Folder">
-              <SelectValue placeholder={folderPlaceholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {folderList.map((folder) => (
-                <SelectItem key={folder.id} value={folder.id}>
-                  {folder.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {foldersError && (
-            <p className="text-[11px] leading-relaxed text-destructive">
-              Couldn&apos;t load Creative Library folders. Try again in a moment.
-            </p>
-          )}
-          {foldersEmpty && (
-            <Caveat>No folders yet — create one in Creative Library first.</Caveat>
-          )}
-          {/* A stored folder that no longer exists is reported, not silently
-              cleared: repairing the graph from an effect would write to the
-              canvas just because the user clicked this node. */}
-          {!foldersLoading &&
-            !foldersError &&
-            !!data.folderId &&
-            !folderList.some((f) => f.id === data.folderId) && (
-              <p className="text-[12px] leading-relaxed text-warning-text">
-                {data.folderName
-                  ? `"${data.folderName}" isn't in Creative Library any more.`
-                  : "The folder this step points at isn't in Creative Library any more."}{" "}
-                Pick another one.
-              </p>
-            )}
+          <FolderSelect
+            folderId={data.folderId}
+            folderName={data.folderName}
+            folders={folderList}
+            loading={foldersLoading}
+            error={foldersError}
+            ariaLabel="Folder"
+            onPick={(folderId, folderName) =>
+              onChange(node.id, { kind: "addToFolder", folderId, folderName })
+            }
+          />
           <Caveat>
             The list is your real Creative Library folders, but filing into one is simulated — no
             folder membership is written. The name is snapshotted when you pick it, so a later
@@ -745,18 +830,85 @@ export function NodeConfigPanel({
 
       {/* ---------------- syncFolderToAccounts ---------------- */}
       {data.kind === "syncFolderToAccounts" && (
-        <div className="space-y-2">
-          <SectionLabel>Ad account libraries</SectionLabel>
-          <AccountPicker
-            selected={data.accountIds}
-            onChange={(ids) =>
-              onChange(node.id, { kind: "syncFolderToAccounts", accountIds: ids })
-            }
-          />
-          <Caveat>
-            The upload is simulated — the run records what it would send to each Meta library, but
-            nothing is pushed to Meta.
-          </Caveat>
+        <div className="space-y-4">
+          {/* WHAT to push comes before WHERE, because the answer decides
+              whether the folder question below is asked at all. */}
+          <div className="space-y-2">
+            <SectionLabel>What to push</SectionLabel>
+            <Select
+              // Every write here SPREADS the existing data. The accounts the
+              // user already picked are unrelated to the granularity, and a
+              // panel that silently emptied them on a mode flip would punish
+              // the user for exploring the very choice this control exists to
+              // offer. `folderId` survives too, so flipping to matched
+              // creatives and back restores the folder rather than making them
+              // hunt for it again — the executor ignores it in creatives mode
+              // (see executors.ts), so a stale value can't leak into a push.
+              value={data.mode === "creatives" ? "creatives" : "folder"}
+              onValueChange={(v) =>
+                onChange(node.id, { ...data, mode: v as SyncGranularity })
+              }
+            >
+              <SelectTrigger className="h-8 text-[13px]" aria-label="What to push">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SYNC_GRANULARITIES.map((granularity) => (
+                  <SelectItem key={granularity} value={granularity}>
+                    {SYNC_GRANULARITY_META[granularity].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* The blurb comes from the shared meta, not re-worded here, so the
+                palette, the node card and this panel describe the two modes in
+                the same words. */}
+            <Caveat>
+              {SYNC_GRANULARITY_META[data.mode === "creatives" ? "creatives" : "folder"].blurb}.
+            </Caveat>
+          </div>
+
+          {/* Folder mode only. In creatives mode there is no folder in the job,
+              so asking for one would imply it changes something. */}
+          {data.mode !== "creatives" && (
+            <div className="space-y-2">
+              <SectionLabel>Folder to push</SectionLabel>
+              <FolderSelect
+                folderId={data.folderId ?? ""}
+                folderName={data.folderName ?? ""}
+                folders={folderList}
+                loading={foldersLoading}
+                error={foldersError}
+                ariaLabel="Folder to push"
+                onPick={(folderId, folderName) =>
+                  onChange(node.id, { ...data, folderId, folderName })
+                }
+              />
+              <Caveat>
+                Pick the folder this step hands to Meta. It doesn&apos;t have to be the folder an
+                earlier step files into — but if it isn&apos;t, this step pushes whatever is in the
+                folder you name here.
+              </Caveat>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <SectionLabel>Ad account libraries</SectionLabel>
+            <AccountPicker
+              selected={data.accountIds}
+              onChange={(ids) => onChange(node.id, { ...data, accountIds: ids })}
+            />
+            <Caveat>
+              The upload is simulated — the run records what it would send to each Meta library, but
+              nothing is pushed to Meta.
+            </Caveat>
+            {/* Stated once, here, because it is the one place a user could
+                reasonably expect a second push to happen. */}
+            <Caveat>
+              A creative already synced to one of these accounts is skipped rather than uploaded
+              twice, whichever folder it arrived in — the run log names how many were skipped.
+            </Caveat>
+          </div>
         </div>
       )}
 

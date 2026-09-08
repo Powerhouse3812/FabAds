@@ -19,11 +19,40 @@
  *     every row and a status line that says nothing fires. Their toggle
  *     persists in previewStore and arms nothing — the store's header is
  *     explicit that no runner exists behind them.
- *   - Canvas workflows render NO switch. `WorkflowGraph.enabled` is reserved
- *     for unattended auto-run that this prototype does not ship (model.ts:128),
- *     so a working-looking switch would be a lie; the row states "Manual only"
- *     instead. Deliberately not describeSchedule() either — with no schedule it
- *     returns "Any time", which reads as armed (same call AutomationsHome:222).
+ *   - Canvas workflows are LIVE as of 2026-08-13 (`model.ts:172`,
+ *     `autoRunner.ts`). `describeAutoRunState(graph, now)` — the auto-runner's
+ *     own eligibility function — is the single source of truth for both the
+ *     status line and the toggle here; this file never re-derives
+ *     enabled/schedule/blocker logic, so it can never disagree with
+ *     `WorkflowsScreen` or `BuilderScreen` about the same graph. The switch
+ *     mirrors `BuilderScreen`'s `canEnable` gate: turning auto-run OFF is
+ *     always allowed, turning it ON is refused while
+ *     `hasBlockers(analyseWorkflow(graph))` — but as of the two-surfaces
+ *     finding below, refused no longer means HIDDEN.
+ *
+ *   TWO REASONS A ROW CAN'T BE TOGGLED, kept distinct (audit finding,
+ *   2026-08-13): this screen used to collapse them into one `canToggle`
+ *   boolean, which made a blocked canvas workflow render exactly like a
+ *   preview row with nothing behind it at all — same bare spacer, no
+ *   disclosure. `WorkflowsScreen` (`disabled={!g.enabled && counts.blocker >
+ *   0}`) and `BuilderScreen` both render a visible-but-disabled switch plus a
+ *   reason for a blocked workflow; only this screen made the control vanish.
+ *   A control that silently disappears teaches the user nothing, while a
+ *   disabled control with a reason explains itself — so canvas-workflow rows
+ *   now always render a switch (`canToggle: true`, unconditionally) and carry
+ *   a separate `toggleDisabledReason` (below, a local extension of
+ *   `CenterRow` — `center/model.ts` is not owned by this file, so the
+ *   distinction lives here rather than as a new field on the shared type):
+ *     1. nothing to toggle here (preview rows — no live store exists behind
+ *        them at all) → `canToggle: true` still, same as today, a real
+ *        working toggle into `previewStore` per that store's own contract
+ *        ("preview rows may also toggle... but stay labeled preview",
+ *        `model.ts:108-109`) — untouched by this pass.
+ *     2. toggleable in principle, refused right now (`!g.enabled &&
+ *        hasBlockers(...)`) → switch renders, `disabled`, `toggleDisabledReason`
+ *        set to the auto-runner's own reason string. Never true for a preview
+ *        row: a disabled switch reads as "this would work if you fixed
+ *        something", which is false for a row with no runner behind it at all.
  *   - Creative Report rules are the one genuinely live toggle here: the switch
  *     writes to the same rulesStore the report itself reads, so a flip here
  *     shows up there. Their status line mirrors ReportingAutomationsTab's
@@ -35,8 +64,10 @@ import { ArrowUpRight, Info } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { describeSchedule, scheduleState } from "@/workflows/core";
-import { useWorkflowGraphs } from "@/automations/graphStore";
+import { setWorkflowEnabled, useWorkflowGraphs } from "@/automations/graphStore";
 import { NODE_KIND_META, type WorkflowGraph } from "@/automations/model";
+import { describeAutoRunState } from "@/automations/autoRunner";
+import { analyseWorkflow, hasBlockers } from "@/automations/recommendations";
 import {
   setRuleEnabled,
   useAutomationRules,
@@ -122,12 +153,49 @@ type FilterKey = (typeof FILTERS)[number]["key"];
  *  (model.ts requires ids unique across modules), so the raw store id is kept
  *  here rather than recovered by string surgery at click time. */
 interface ToggleTarget {
-  store: "rules" | "preview";
+  store: "rules" | "preview" | "workflows";
   rawId: string;
 }
 
 const RULE_ID_PREFIX = "creative-report-";
 const WORKFLOW_ID_PREFIX = "workflows-";
+
+/** Local extension of `CenterRow` — carries WHY a row's switch is present but
+ *  disabled. Lives here rather than on `center/model.ts`'s shared type
+ *  (owned by another file) because no other reader of `CenterRow` needs it:
+ *  `WorkflowsScreen`/`BuilderScreen` compute their own reason straight off
+ *  the graph they already have in hand. Only this consolidated list renders
+ *  a canvas workflow next to rows from other adapters and needs a field to
+ *  carry that reason alongside the row itself.
+ *  Undefined everywhere except a blocked-and-off canvas workflow — in
+ *  particular always undefined on preview rows, which must never render a
+ *  DISABLED switch (that implies "fix one thing and it works", false for a
+ *  row with no runner behind it) or on rule rows (creative-report toggles
+ *  are never refused). */
+interface CenterRowView extends CenterRow {
+  toggleDisabledReason?: string;
+  /** Genuinely-running verdict, workflow rows only — `describeAutoRunState(g,
+   *  now).armed`, carried through rather than re-derived (see file header:
+   *  this screen never re-implements the auto-runner's eligibility rule).
+   *  Undefined for rule/preview rows, which have no separate armed concept —
+   *  their "on" is just `enabled`. Exists so the stats strip (below) can tell
+   *  "switched on" from "actually running": a workflow can be `enabled: true`
+   *  from before a later edit introduced a blocker, and the switch stays ON
+   *  while the auto-runner has already stopped counting it. */
+  armed?: boolean;
+  /** Short single-line form of `statusLine` for the one case that is long by
+   *  design and also the COMMON case — an armed, clean workflow's sentence
+   *  (166 chars) exists to be read in full on hover/the builder, not to set
+   *  every row's height in this dense cross-module list. Mirrors
+   *  `WorkflowsScreen`'s "Armed · <schedule> · only while FabAds is open" —
+   *  same clause, same reasoning: the in-page-clock disclosure is the one
+   *  part of the long sentence that must survive, and this is it. Undefined
+   *  for every other status (off, blocked, outside-window, rule rows,
+   *  preview rows) — those render `statusLine` verbatim, wrapped instead of
+   *  truncated, because none of them has one dominant common case to compact
+   *  and all of them are the honest tail the audit finding was about. */
+  compactStatusLine?: string;
+}
 
 /* ------------------------------------------------------------------ */
 
@@ -142,25 +210,55 @@ export function OverviewScreen() {
   const now = new Date();
 
   /* --- Adapter 1: canvas workflows -------------------------------- */
-  const workflowRows = useMemo<CenterRow[]>(
+  // `describeAutoRunState`/`hasBlockers` are the auto-runner's and builder's
+  // own verdict functions, called here verbatim and never re-implemented —
+  // this list must not disagree with WorkflowsScreen or BuilderScreen about
+  // the same graph (that exact disagreement was the shipped bug).
+  const workflowRows = useMemo<CenterRowView[]>(
     () =>
-      graphs.map((g) => ({
-        id: `${WORKFLOW_ID_PREFIX}${g.id}`,
-        module: "workflows" as const,
-        kind: "workflow" as const,
-        name: g.name,
-        summary: chainSummary(g),
-        // Nothing auto-fires in this module. See the header note on why this
-        // is not describeSchedule().
-        statusLine: "Manual only",
-        enabled: g.enabled,
-        // The graph `enabled` flag drives no runner, so no switch is offered.
-        canToggle: false,
-        preview: false,
-        href: CENTER_MODULE_META.workflows.href,
-        lastRunAt: g.lastRunAt,
-      })),
-    [graphs],
+      graphs.map((g) => {
+        const autoState = describeAutoRunState(g, now);
+        // Mirrors BuilderScreen's `canEnable`: turning auto-run OFF is always
+        // reachable, turning it ON is refused while blocked — a blocked graph
+        // was never armed, so there is no "already on" case to grandfather.
+        const blocked = !g.enabled && hasBlockers(analyseWorkflow(g));
+        return {
+          id: `${WORKFLOW_ID_PREFIX}${g.id}`,
+          module: "workflows" as const,
+          kind: "workflow" as const,
+          name: g.name,
+          summary: chainSummary(g),
+          // Verbatim from the single source of truth — armed, blocked, off,
+          // or outside its date range, this is that function's own sentence.
+          // Full text, kept even for the armed case (compactStatusLine below
+          // covers the display) so `title` always carries the honest reason.
+          statusLine: autoState.reason,
+          enabled: g.enabled,
+          // The stats strip's "on" count needs the auto-runner's own verdict,
+          // not the raw switch — see the field's doc comment above.
+          armed: autoState.armed,
+          // Armed-and-clean is the one status with a single dominant shape
+          // (166 chars, same sentence on every armed graph bar the schedule
+          // clause) and the common case in a healthy demo account, so it gets
+          // a compact one-liner instead of setting this row's height off a
+          // sentence built to be read in full elsewhere. Every other status
+          // (off, blocked, outside-window) keeps `compactStatusLine`
+          // undefined and falls through to rendering `statusLine` wrapped.
+          compactStatusLine: autoState.armed
+            ? `Armed · ${describeSchedule(g.schedule)} · only while FabAds is open`
+            : undefined,
+          // Always rendered now — see the file header's "two reasons" note.
+          // A canvas workflow always has something behind it in principle
+          // (unlike a preview row), so refusal is expressed as `disabled`,
+          // never as hiding the control outright.
+          canToggle: true,
+          toggleDisabledReason: blocked ? autoState.reason : undefined,
+          preview: false,
+          href: CENTER_MODULE_META.workflows.href,
+          lastRunAt: g.lastRunAt,
+        };
+      }),
+    [graphs, now],
   );
 
   /* --- Adapter 2: Creative Report v3 rules ------------------------- */
@@ -205,7 +303,7 @@ export function OverviewScreen() {
     [preview],
   );
 
-  const allRows = useMemo<CenterRow[]>(
+  const allRows = useMemo<CenterRowView[]>(
     () => [...workflowRows, ...ruleRows, ...previewRows],
     [workflowRows, ruleRows, previewRows],
   );
@@ -214,14 +312,26 @@ export function OverviewScreen() {
     const map = new Map<string, ToggleTarget>();
     for (const r of rules) map.set(`${RULE_ID_PREFIX}${r.id}`, { store: "rules", rawId: r.id });
     for (const a of preview.automations) map.set(a.id, { store: "preview", rawId: a.id });
+    for (const g of graphs) map.set(`${WORKFLOW_ID_PREFIX}${g.id}`, { store: "workflows", rawId: g.id });
     return map;
-  }, [rules, preview]);
+  }, [rules, preview, graphs]);
 
   const handleToggle = (rowId: string, next: boolean) => {
     const target = toggleIndex.get(rowId);
     if (!target) return;
-    if (target.store === "rules") setRuleEnabled(target.rawId, next);
-    else setPreviewEnabled(target.rawId, next);
+    if (target.store === "rules") {
+      setRuleEnabled(target.rawId, next);
+    } else if (target.store === "preview") {
+      setPreviewEnabled(target.rawId, next);
+    } else {
+      // Belt-and-suspenders, same guard BuilderScreen keeps alongside its own
+      // `disabled` switch: the row already renders this control disabled for
+      // a blocked+off graph (so onCheckedChange shouldn't fire at all), but
+      // never let a stray event arm one anyway.
+      const graph = graphs.find((g) => g.id === target.rawId);
+      if (next && graph && hasBlockers(analyseWorkflow(graph))) return;
+      setWorkflowEnabled(target.rawId, next);
+    }
   };
 
   /** Per-module counts for the stats strip — computed off the UNFILTERED rows
@@ -234,11 +344,19 @@ export function OverviewScreen() {
         return {
           key,
           total: rows.length,
-          // Only rows with a REAL toggle count as "on". Workflow rows carry an
-          // inert `enabled` the runner ignores — counting it would make the
-          // strip claim armed automations the rows below explicitly disclaim
-          // (monitor finding 2026-08-12).
-          on: rows.filter((r) => r.canToggle && r.enabled).length,
+          // "On" means genuinely running, not merely switched on — a
+          // corrected reading of the same "only rows with a REAL toggle
+          // count" intent this comment used to state. For workflow rows,
+          // `r.armed` (carried straight from `describeAutoRunState`, never
+          // re-derived here) is that verdict, and it can disagree with
+          // `r.enabled`: a graph switched on before a later edit introduced a
+          // blocker keeps `enabled: true` while the auto-runner has already
+          // stopped counting it — the case the old comment missed, since it
+          // reasoned only about the blocked-AND-off half (where `enabled` is
+          // indeed already false) and not the blocked-AND-on half. Rule and
+          // preview rows have no separate armed concept, so `r.armed` is
+          // undefined for them and this falls back to `r.enabled`, unchanged.
+          on: rows.filter((r) => r.canToggle && (r.armed ?? r.enabled)).length,
           preview: CENTER_MODULE_META[key].preview,
         };
       }).filter((s) => s.total > 0),
@@ -403,7 +521,7 @@ function ModuleGroup({
   label: string;
   href: string;
   Icon: (typeof CENTER_MODULE_META)[CenterModuleKey]["icon"];
-  rows: CenterRow[];
+  rows: CenterRowView[];
   onToggle: (rowId: string, next: boolean) => void;
 }) {
   return (
@@ -433,7 +551,7 @@ function CenterRowItem({
   row,
   onToggle,
 }: {
-  row: CenterRow;
+  row: CenterRowView;
   onToggle: (rowId: string, next: boolean) => void;
 }) {
   const lastRun = fmtLastRun(row.lastRunAt);
@@ -468,10 +586,37 @@ function CenterRowItem({
       </div>
 
       {/* Always rendered, never hidden at narrow widths: on a row with no
-          switch this line is the ONLY thing stating whether it runs. */}
-      <div className="max-w-[7rem] shrink-0 text-right sm:max-w-[13rem]">
-        <p className="truncate font-mono text-[11px] text-muted-foreground" title={row.statusLine}>
-          {row.statusLine}
+          switch this line is the ONLY thing stating whether it runs.
+          F3: `truncate` at the old 13rem clipped every canvas-workflow
+          reason to ~31 characters — off (61 chars), blocked (~115, loses the
+          "Press Run" clause), armed (166, loses the in-page-clock
+          disclosure entirely) all rendered honest text nowhere but `title`.
+          Same doctrine `WorkflowsScreen` states: "a hover-only disclosure is
+          no disclosure — it is absent from every screenshot", and
+          "`truncate` would cut off exactly the part that has to survive."
+          Fix, without making every row in this cross-module list tall for
+          one module's long strings: the armed case (the single dominant
+          shape, and the longest string) gets a short compact line from the
+          adapter (`compactStatusLine`, matching WorkflowsScreen's own
+          "Armed · <schedule> · only while FabAds is open"). NEITHER case
+          gets `truncate`, though — measured in-browser, even the compact
+          46-char armed line clips at this column's width (`scrollWidth` 290
+          vs `clientWidth` 240px), losing the tail of "only while FabAds is
+          open", the exact clause this fix exists to keep on screen. So both
+          the compact and full forms wrap instead: `whitespace-normal`, no
+          `truncate` at all, same as `WorkflowsScreen`'s own reason column
+          (which never truncates this text either — it wraps). Every status
+          renders `statusLine` (or the compact form) verbatim, so the tail
+          survives without hover. Widened to 15rem (matching
+          `WorkflowsScreen`'s own reason column) so the honest text needs
+          fewer wrapped lines; only a row whose reason is genuinely long
+          grows past one line, not the whole list. */}
+      <div className="max-w-[7rem] shrink-0 text-right sm:max-w-[15rem]">
+        <p
+          className="whitespace-normal font-mono text-[11px] leading-tight text-muted-foreground"
+          title={row.statusLine}
+        >
+          {row.compactStatusLine ?? row.statusLine}
         </p>
         {lastRun && (
           <p className="truncate font-mono text-[10px] text-muted-foreground">{lastRun}</p>
@@ -481,12 +626,30 @@ function CenterRowItem({
       {row.canToggle ? (
         <Switch
           checked={row.enabled}
+          // The one place this row differs from every other toggle here: a
+          // blocked-and-off canvas workflow renders disabled rather than
+          // vanishing (see file header). `title` carries the same reason
+          // string `describeAutoRunState` already put in the status line —
+          // never a second, possibly-drifting explanation.
+          disabled={!!row.toggleDisabledReason}
           onCheckedChange={(v) => onToggle(row.id, v)}
-          aria-label={row.enabled ? `Disable ${row.name}` : `Enable ${row.name}`}
+          aria-label={
+            row.toggleDisabledReason
+              ? `${row.name} — ${row.toggleDisabledReason}`
+              : row.enabled
+                ? `Disable ${row.name}`
+                : `Enable ${row.name}`
+          }
+          title={row.toggleDisabledReason}
         />
       ) : (
         // Keeps the switch column aligned without rendering a control that
-        // would do nothing. The status line carries this row's state.
+        // would do nothing. The status line carries this row's state. As of
+        // this pass no adapter here actually produces canToggle: false — a
+        // blocked canvas workflow now renders disabled instead (above) and
+        // preview rows have always had a real toggle into previewStore — but
+        // the fallback stays for whatever a future adapter with genuinely
+        // nothing to toggle needs.
         <span className="block h-5 w-9 shrink-0" aria-hidden="true" />
       )}
     </li>

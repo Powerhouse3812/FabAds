@@ -19,7 +19,14 @@
  * the `addToFolder` node is where a user picks a real folder; until they do,
  * `nodeConfigIssue` has no opinion here (folderId is non-empty, so the node
  * reads as configured) — that's an accepted seam of shipping example data,
- * not a bug.
+ * not a bug. The same seam now applies to a folder-mode
+ * `syncFolderToAccounts` node, which carries its own folder snapshot.
+ *
+ * SYNC GRANULARITY (Maalik's ruling 2026-08-13): every sync node states its
+ * `mode` explicitly rather than leaning on `defaultDataForKind`'s default.
+ * A seed workflow is read as documentation of the pattern, so the granularity
+ * has to be a visible authoring choice per template — chosen to match that
+ * template's story, and justified where it is set.
  */
 import type { WorkflowGraph } from "@/automations/model";
 
@@ -69,16 +76,34 @@ const SCALE_WINNERS: WorkflowGraph = {
       kind: "syncFolderToAccounts",
       position: { x: 1080, y: 180 },
       // Real ids from src/data/accounts.ts — the 3 "meta" platform accounts.
+      //
+      // mode: "folder" — this chain exists to FILL a folder (n4 files every
+      // new variation into "Winners") and then hand that folder to Meta as one
+      // launch-ready unit. That is Neeraj's folder-first case verbatim, and it
+      // is the whole point of putting an `addToFolder` step immediately
+      // upstream: syncing "matched creatives" here would push the winners the
+      // condition found and quietly ignore the folder the previous step just
+      // built. The folder snapshot mirrors n4's so the two steps can't
+      // disagree about which folder the workflow is about.
       data: {
         kind: "syncFolderToAccounts",
         accountIds: ["acc-amalfa-meta", "acc-glowkart", "acc-peaksupps"],
+        mode: "folder",
+        folderId: "tpl-folder-winners",
+        folderName: "Winners",
       },
     },
     {
       id: "wf-tpl-scale-winners-n6",
       kind: "note",
       position: { x: 330, y: 360 },
-      data: { kind: "note", text: "Sync runs against the folder, not individual ad accounts." },
+      // Reworded with the granularity ruling: "sync is against folders, not ad
+      // accounts" was true of the only mode that existed, and would now read as
+      // a claim that the creatives mode doesn't exist.
+      data: {
+        kind: "note",
+        text: "This chain pushes the whole Winners folder. Switch the sync step to \"Matched creatives\" to push only what this run matched instead.",
+      },
     },
   ],
   edges: [
@@ -100,6 +125,10 @@ const SCALE_WINNERS: WorkflowGraph = {
 /* ------------------------------------------------------------------ */
 /*  Template 2 — Retire underperformers                                */
 /* ------------------------------------------------------------------ */
+
+/* NO SYNC STEP, so no granularity to choose: retiring a loser is the opposite
+ * of pushing it to an ad library. The chain deliberately ends at a status tag
+ * and hands the pause decision back to a human (see its recommendation). */
 
 const RETIRE_LOSERS: WorkflowGraph = {
   id: "wf-tpl-retire-losers",
@@ -146,6 +175,14 @@ const RETIRE_LOSERS: WorkflowGraph = {
 /* ------------------------------------------------------------------ */
 /*  Template 3 — Refresh fatiguing creatives                           */
 /* ------------------------------------------------------------------ */
+
+/* NO SYNC STEP, again on purpose — and this one is the case FOR having a
+ * granularity choice rather than against it. The chain stops at a "Refresh
+ * queue" folder because fresh cuts of a fatiguing creative are meant to be
+ * reviewed before they reach an ad account. A user who trusts the signal adds a
+ * sync step themselves; folder mode is the natural continuation (the folder is
+ * right there), and the panel lets them pick creatives mode if they'd rather
+ * push only this run's cuts and leave the queue's backlog alone. */
 
 const FATIGUE_REFRESH: WorkflowGraph = {
   id: "wf-tpl-fatigue-refresh",
