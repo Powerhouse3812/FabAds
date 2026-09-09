@@ -104,7 +104,10 @@ export function AnalysisOverview({ analysis, className }: AnalysisOverviewProps)
     >
       <header className="flex items-start justify-between gap-6 border-b border-g6-border-secondary px-4 py-3">
         <div className="min-w-0">
-          <p className="font-g6-mono text-[9px] uppercase tracking-[0.12em] text-g6-text-tertiary">
+          {/* The panel's own name carries the accent — its twin
+              (AssetAnalysisOverview) spends that accent on its kind pill
+              instead, so each header earns exactly one. */}
+          <p className="font-g6-mono text-[9px] uppercase tracking-[0.12em] text-g6-primary-active">
             What we found in this ad
           </p>
           <p className="mt-1 text-[10.5px] leading-snug text-g6-text-secondary">
@@ -113,14 +116,23 @@ export function AnalysisOverview({ analysis, className }: AnalysisOverviewProps)
           </p>
         </div>
         <p className="shrink-0 font-g6-mono text-[9px] uppercase tracking-[0.12em] text-g6-text-tertiary">
-          {storedCount} stored · {detectedCount} detected · {notFoundCount} N/F
+          {/* Only the STORED tally is accented: those are the facts read straight
+              off the ad. "detected" stays neutral here because the Detected chip
+              owns that colour, and N/F must never look significant. */}
+          <span className="text-g6-primary-active">{storedCount} stored</span> ·{" "}
+          {detectedCount} detected · {notFoundCount} N/F
         </p>
       </header>
 
       <div className="space-y-3 px-4 py-3">
         {/* Rows 1-3 */}
         <div className="grid grid-cols-3 gap-6">
-          <Field label="Type" field={typeField} />
+          {/* Type is the headline answer to the panel's own question, so it is
+              the one value row that carries the accent. Deliberately NOT the
+              entity row: on a competitor-owned source that name is a rival's
+              (§7.2), and accenting it would read as "this is who we're making
+              it for". */}
+          <Field label="Type" field={typeField} accent />
           <Field label={entityLabel} field={analysis.entityName} />
           {hasPair ? (
             <Field label="Angle + Concept" field={pairField} hasDetailSlot />
@@ -192,6 +204,7 @@ function Field({
   field,
   mono,
   hasDetailSlot,
+  accent,
 }: {
   label: string;
   field: AnalysedField;
@@ -199,6 +212,8 @@ function Field({
   mono?: boolean;
   /** Reserve the second line so slotted rows stay aligned across the grid. */
   hasDetailSlot?: boolean;
+  /** The row that answers the panel's question. Never on an empty value. */
+  accent?: boolean;
 }) {
   const empty = isEmpty(field);
   const value = empty ? "N/F" : String(field.value);
@@ -224,6 +239,8 @@ function Field({
           "truncate text-[12px] leading-tight text-g6-text",
           empty && "font-g6-mono uppercase tracking-[0.04em] text-g6-text-tertiary",
           mono && !empty && "font-g6-mono uppercase tracking-[0.04em]",
+          /* N/F stays neutral — an accent there would imply a finding. */
+          accent && !empty && "font-medium text-g6-primary-active",
         )}
       >
         {value}

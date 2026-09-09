@@ -192,6 +192,7 @@ export function ElementEditor({
   };
 
   const allIndexes = Array.from({ length: count }, (_, i) => i);
+  const changedCount = allIndexes.filter((i) => (byIndex[i] ?? seed) !== seed).length;
 
   return (
     <div className={cn("flex flex-col gap-4 text-g6-text", className)}>
@@ -266,7 +267,17 @@ export function ElementEditor({
                   className="mt-0.5 border-g6-border text-g6-primary focus-visible:ring-g6-primary data-[state=checked]:border-g6-primary"
                 />
                 <label htmlFor={id} className={cn("min-w-0", !disabled && "cursor-pointer")}>
-                  <span className="block text-sm font-medium leading-tight">
+                  <span
+                    className={cn(
+                      "block text-sm font-medium leading-tight",
+                      /* Pre-manual the whole option card turns lime, so the
+                         label doesn't need it. Once the question collapses to
+                         the compact "Applies to" row that card is gone and the
+                         radio dot was the ONLY mark of the committed choice —
+                         this is what makes the chosen scope visibly chosen. */
+                      inManualMode && scope === s && "text-g6-primary-active",
+                    )}
+                  >
                     {SCOPE_COPY[s].label}
                   </span>
                   {!inManualMode ? (
@@ -447,7 +458,9 @@ export function ElementEditor({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 gap-1 px-2 text-xs text-g6-text-secondary hover:bg-g6-bg-muted hover:text-g6-text"
+                      /* An action that writes to all N variations, not a
+                         secondary utility — it reads as active, not grey. */
+                      className="h-6 gap-1 px-2 text-xs text-g6-primary-active hover:bg-g6-primary-bg hover:text-g6-primary-active"
                       onClick={() => {
                         const value = byIndex[active] ?? seed;
                         allIndexes.forEach((i) => {
@@ -468,10 +481,16 @@ export function ElementEditor({
                   rows={4}
                   className="resize-y border-g6-border bg-g6-bg-container text-sm text-g6-text placeholder:text-g6-text-tertiary focus-visible:ring-g6-primary"
                 />
-                <p className="flex items-center gap-1 text-xs text-g6-text-tertiary">
+                <p
+                  className={cn(
+                    "flex items-center gap-1 text-xs",
+                    /* Real work already done reads as active; "0 of N" is not a
+                       finding, so it stays quiet. */
+                    changedCount > 0 ? "text-g6-primary-active" : "text-g6-text-tertiary",
+                  )}
+                >
                   <Pencil className="h-3 w-3" aria-hidden />
-                  {allIndexes.filter((i) => (byIndex[i] ?? seed) !== seed).length} of {count}{" "}
-                  changed from the detection.
+                  {changedCount} of {count} changed from the detection.
                 </p>
               </div>
             </div>

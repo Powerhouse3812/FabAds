@@ -178,10 +178,16 @@ export function EntityControl({
       <div className="flex flex-col gap-3 px-4 py-3">
         {/* ------------------------------------------------ what is attached */}
         {isAuto ? (
-          <p className="rounded-g6-base bg-g6-bg-muted px-3 py-2 text-g6-sm leading-snug text-g6-text-secondary">
+          /* Auto is a FINAL answer, not an unfilled field. The soft lime surface
+             plus the accented clause say so; the chip above still distinguishes
+             Auto (outline) from Set (filled), so this doesn't blur the two. */
+          <p className="rounded-g6-base bg-g6-primary-bg px-3 py-2 text-g6-sm leading-snug text-g6-text-secondary">
             Nothing attached — generation will infer the brand, product or category
-            from the source. That is a complete answer; you only need to attach one
-            to override it.
+            from the source.{" "}
+            <span className="font-medium text-g6-primary-active">
+              That is a complete answer
+            </span>
+            ; you only need to attach one to override it.
           </p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -448,7 +454,9 @@ function AttachedRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-g6-base border border-g6-primary-border bg-g6-primary-bg/40 px-3 py-2">
+    /* Full lime tint, not the 40% wash it had: "attached" is the state this
+       whole control exists to make unmistakable at a glance. */
+    <div className="flex items-center gap-2.5 rounded-g6-base border border-g6-primary-border bg-g6-primary-bg px-3 py-2">
       <Icon className="h-3.5 w-3.5 shrink-0 text-g6-primary" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="font-g6-mono text-[9px] uppercase tracking-[0.12em] text-g6-text-tertiary">

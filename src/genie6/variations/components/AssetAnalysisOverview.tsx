@@ -165,7 +165,11 @@ export function AssetAnalysisOverview({ analysis, className }: AssetAnalysisOver
           </p>
         </div>
         <p className="shrink-0 font-g6-mono text-[9px] uppercase tracking-[0.12em] text-g6-text-tertiary">
-          {storedCount} stored · {detectedCount} detected · {notFoundCount} N/F
+          {/* Only the STORED tally is accented: those are the facts read straight
+              off the asset. "detected" stays neutral because the Detected chip
+              owns that colour, and N/F must never look significant. */}
+          <span className="text-g6-primary-active">{storedCount} stored</span> ·{" "}
+          {detectedCount} detected · {notFoundCount} N/F
         </p>
       </header>
 
@@ -174,7 +178,16 @@ export function AssetAnalysisOverview({ analysis, className }: AssetAnalysisOver
       <div className="space-y-3 px-4 py-3">
         <div className="grid grid-cols-3 gap-x-6 gap-y-3">
           {compact.map((r) => (
-            <Field key={r.key} label={r.label} field={r.field} mono={r.mono} />
+            <Field
+              key={r.key}
+              label={r.label}
+              field={r.field}
+              mono={r.mono}
+              /* Type is the headline answer to the panel's question, so it is
+                 the one accented value row. Deliberately NOT the entity row:
+                 on a competitor-owned source that name is a rival's (§7.2). */
+              accent={r.key === "type"}
+            />
           ))}
         </div>
 
@@ -366,8 +379,15 @@ function Band({
       <div className="min-w-0">
         <p
           className={cn(
+            /* Both non-warning tones accent the TITLE: this band states what the
+               run will produce, which is the single most consequential fact on
+               the screen, and at rest it was indistinguishable from body copy.
+               The surface still separates them — lime tint when visuals are
+               present, muted when they aren't — so accenting both titles marks
+               the band as a consequence without claiming "no visuals" is good.
+               The warning tone keeps `warning-text` untouched. */
             "text-[11px] font-semibold leading-4",
-            tone === "warning" ? "text-warning-text" : "text-g6-text",
+            tone === "warning" ? "text-warning-text" : "text-g6-primary-active",
           )}
         >
           {title}
@@ -390,6 +410,7 @@ function Field({
   field,
   mono,
   hasDetailSlot,
+  accent,
 }: {
   label: string;
   field: AnalysedField;
@@ -397,6 +418,8 @@ function Field({
   mono?: boolean;
   /** Reserve the second line so slotted rows stay aligned. */
   hasDetailSlot?: boolean;
+  /** The row that answers the panel's question. Never on an empty value. */
+  accent?: boolean;
 }) {
   const empty = isEmpty(field);
   const value = empty ? "N/F" : String(field.value);
@@ -422,6 +445,8 @@ function Field({
           "truncate text-[12px] leading-tight text-g6-text",
           empty && "font-g6-mono uppercase tracking-[0.04em] text-g6-text-tertiary",
           mono && !empty && "font-g6-mono uppercase tracking-[0.04em]",
+          /* N/F stays neutral — an accent there would imply a finding. */
+          accent && !empty && "font-medium text-g6-primary-active",
         )}
       >
         {value}

@@ -1036,10 +1036,18 @@ export function SourcePicker({ picked, onPick, onClear, className }: SourcePicke
               }}
               className={cn(
                 "flex min-h-[139px] flex-col items-center justify-center gap-3 rounded-[12px] border-2 border-dashed px-4 py-4 transition-colors",
-                dragOver ? "border-g6-primary-border bg-g6-primary-bg" : "border-g6-border",
+                // A fully neutral dashed box reads DISABLED. At rest the dash
+                // carries the accent; a drag deepens the same hue and fills
+                // the tint, so both states are one gesture rather than a
+                // colour arriving from nowhere.
+                // NOT `border-g6-primary-border/40`: every g6 colour is a bare
+                // `var(--g6-color-*)` holding a hex, so Tailwind's opacity
+                // modifier compiles to `rgb(var(--…) / .4)` — invalid, dropped,
+                // and the border silently falls back to the neutral default.
+                dragOver ? "border-g6-primary-border bg-g6-primary-bg" : "border-g6-primary",
               )}
             >
-              <Upload className="h-6 w-6 shrink-0 text-g6-text-tertiary" aria-hidden="true" />
+              <Upload className="h-6 w-6 shrink-0 text-g6-primary" aria-hidden="true" />
               <p className="text-center font-g6-sans text-[13px] leading-5 text-g6-text">
                 Vary one whole ad — or one script, concept or storyboard
               </p>
@@ -1277,7 +1285,11 @@ function ChipRow({
       <p
         className={cn(
           "font-g6-mono text-[9px] font-bold uppercase tracking-wider",
-          active ? "text-g6-primary" : "text-g6-text-secondary",
+          // The two families ARE the screen's distinction, so the labels are
+          // accented at rest too — the dark accent (legible at 9px on light)
+          // when idle, the bright one when that family is the open row, so
+          // "which row am I in" survives without the labels going grey.
+          active ? "text-g6-primary" : "text-g6-primary-active",
         )}
       >
         {label}
@@ -1333,13 +1345,19 @@ function SourceChip({
         "inline-flex items-center gap-1 rounded-g6-pill border py-1 pl-[9px] pr-2.5 font-g6-sans text-[11px] leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g6-primary-border",
         active
           ? "border-g6-primary-border bg-g6-primary-bg text-g6-primary"
-          : "border-g6-border-secondary bg-g6-bg-container text-g6-text-secondary hover:border-g6-primary-border hover:text-g6-text",
+          : // Hover tints toward the SAME accent the chip already carries at
+            // rest, so opening one doesn't feel like a colour arriving.
+            "border-g6-border-secondary bg-g6-bg-container text-g6-text-secondary hover:border-g6-primary-border hover:bg-g6-primary-bg hover:text-g6-text",
       )}
     >
-      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      {/* Icon + count carry the accent, the LABEL stays neutral — 13 chips of
+          identical lime text would be a wall, but a lime glyph plus a lime
+          number per chip is scannable and keeps the row one set. The count
+          takes the darker accent: it is text at 11px, the icon is not. */}
+      <Icon className="h-3.5 w-3.5 shrink-0 text-g6-primary" aria-hidden="true" />
       {label}
       {count > 0 && (
-        <span className="font-g6-mono tabular-nums text-g6-text-tertiary">{count}</span>
+        <span className="font-g6-mono tabular-nums text-g6-primary-active">{count}</span>
       )}
     </button>
   );

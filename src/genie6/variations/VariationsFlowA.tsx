@@ -251,9 +251,15 @@ function Stage({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
+        {/* Accent AT REST, not on selection: the numbers are the only thing
+            carrying the order on a screen that shows all six stages at once,
+            so they are the one element that must read as the spine before the
+            user has picked anything. `primary-active` and not `primary` —
+            #8FB821 on white is ~2.3:1 and vanishes at 10px; the dark lime is
+            the token meant for accent AS TEXT. */}
         <span
           aria-hidden
-          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-g6-pill border border-g6-border bg-g6-bg-muted font-g6-mono text-[10px] font-bold tabular-nums text-g6-text-secondary"
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-g6-pill border border-g6-primary-border bg-g6-primary-bg font-g6-mono text-[10px] font-bold tabular-nums text-g6-primary-active"
         >
           {n}
         </span>
@@ -529,7 +535,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                     },
                   ].map((s) => (
                     <li key={s.n} className="flex flex-col gap-1">
-                      <span className="font-g6-mono text-[10px] font-bold tabular-nums text-g6-primary">
+                      <span className="font-g6-mono text-[10px] font-bold tabular-nums text-g6-primary-active">
                         {s.n}
                       </span>
                       <span className="text-g6-sm font-semibold leading-tight text-g6-text">
@@ -678,7 +684,12 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                         <span
                           className={cn(
                             "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-g6-sm",
-                            on && !isEntity ? "bg-g6-primary/15" : "bg-g6-bg-muted",
+                            // NOT `bg-g6-primary/15`: every g6 colour is a bare
+                            // `var(--g6-color-*)` holding a hex, so Tailwind's
+                            // opacity modifier compiles to an invalid
+                            // `rgb(var(--…) / .15)` and the fill silently
+                            // vanishes. `primary-bg` IS the soft tint token.
+                            on && !isEntity ? "bg-g6-primary-bg" : "bg-g6-bg-muted",
                           )}
                         >
                           <def.Icon
@@ -704,7 +715,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                             {rec.reason}
                           </span>
                           {makesStoryboards ? (
-                            <span className="mt-1.5 block text-[11px] font-semibold leading-4 text-g6-primary">
+                            <span className="mt-1.5 block text-[11px] font-semibold leading-4 text-g6-primary-active">
                               Turns the run&apos;s output into {plural("storyboard", count)}.
                             </span>
                           ) : null}
@@ -775,7 +786,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                             {detected}
                           </span>
                           {status ? (
-                            <span className="mt-1 block truncate font-g6-mono text-[9px] font-bold uppercase tracking-wider text-g6-primary">
+                            <span className="mt-1 block truncate font-g6-mono text-[9px] font-bold uppercase tracking-wider text-g6-primary-active">
                               {status}
                             </span>
                           ) : null}
@@ -845,7 +856,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                               {detected}
                             </span>
                             {status ? (
-                              <span className="mt-1 block truncate font-g6-mono text-[9px] font-bold uppercase tracking-wider text-g6-primary">
+                              <span className="mt-1 block truncate font-g6-mono text-[9px] font-bold uppercase tracking-wider text-g6-primary-active">
                                 {status}
                               </span>
                             ) : null}
@@ -893,8 +904,10 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
             <>
               <div className="flex flex-col gap-1">
                 {/* An asset run is named by what it PRODUCES, because that is
-                    the thing the visuals decision changes. */}
-                <p className="text-g6-base font-semibold leading-tight text-g6-text">
+                    the thing the visuals decision changes. Accented because it
+                    is the rail's answer — the two lines under it (which source,
+                    which origin) are provenance and stay neutral. */}
+                <p className="text-g6-base font-semibold leading-tight text-g6-primary-active">
                   {flow.outputKind
                     ? `${count} ${plural(flow.outputKind, count)}`
                     : count === 1
@@ -1001,7 +1014,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                     <p className="flex items-start gap-1.5 rounded-g6-base border border-g6-primary-border bg-g6-primary-bg px-2.5 py-2 text-[11px] leading-4 text-g6-text">
                       <Gift className="mt-px h-3 w-3 shrink-0 text-g6-primary" aria-hidden />
                       <span>
-                        <span className="font-semibold">Free.</span> Varying an asset
+                        <span className="font-semibold text-g6-primary-active">Free.</span> Varying an asset
                         doesn&apos;t use credits — however many you ask for, and whatever
                         you change.
                       </span>
@@ -1036,7 +1049,10 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                              text-COLOR, and the conditional colour below then wins
                              and deletes it — the total silently renders at 16px. */
                           "font-g6-mono text-[14px] leading-[22px] font-semibold tabular-nums",
-                          credits.overdrawn ? "text-warning-text" : "text-g6-text",
+                          /* The charged total is the fact the user buys on, so
+                             it carries the accent — until it can't be afforded,
+                             where warning-text still wins. */
+                          credits.overdrawn ? "text-warning-text" : "text-g6-primary-active",
                         )}
                       >
                         {creditsLabel(credits.total)}
@@ -1056,7 +1072,12 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
               type="button"
               onClick={flow.generate}
               disabled={!flow.canGenerate || !countAnswered}
-              className="h-10 w-full gap-1.5 bg-g6-primary text-g6-sm font-semibold text-g6-text-on-accent hover:bg-g6-primary-hover focus-visible:ring-g6-primary-border"
+              /* `enabled:` and not a flat shadow: the lime ring is what makes
+                 this read as THE primary action once the run is buyable, and
+                 putting it on a disabled button would promise an action that
+                 isn't there. The disabled skin (lime at opacity-50) is left
+                 exactly as it was. */
+              className="h-10 w-full gap-1.5 bg-g6-primary text-g6-sm font-semibold text-g6-text-on-accent enabled:shadow-g6-primary-btn hover:bg-g6-primary-hover focus-visible:ring-g6-primary-border"
             >
               <Wand2 className="h-3.5 w-3.5" aria-hidden />
               {picked && countAnswered
