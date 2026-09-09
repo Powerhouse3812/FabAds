@@ -233,12 +233,21 @@ export const MODULES: ModuleDef[] = [
       // Iter-6 A-10.3: Studio promoted to 2nd (was 4th) per Maalik —
       // matches the new /studio Product-first flow's primacy.
       // Genie 2.0 §3's locked order was Overview · Studio · Other Flows ·
-      // Other Apps · Concepts · Library · Settings. Maalik has since pulled
-      // Overview, Other Apps and Settings off this list. Overview/Settings:
-      // nothing real behind either yet — routes still exist at /iq/genie6
-      // (bare) and /iq/genie6/settings for the many places elsewhere in the
-      // app that deep-link straight there (mobile tab bar, tour, onboarding
-      // CTAs, etc.), same "kept, no nav surface" treatment as Genie 2/3/4/5.
+      // Other Apps · Concepts · Library · Settings. Maalik pulled Overview,
+      // Other Apps and Settings off this list, then (2026-09-09) reinstated
+      // Overview per his ruling: "overview ka comeback kr skte hai. but
+      // coming soon daal do usme, abhi nahi kr rhe uspe kaam" — bring it
+      // back, first per §3's locked order, badged "Soon" (the same `badge`
+      // field Auto Launch uses in the Launches module below) because the
+      // real Overview screen (variants/studio/StudioHome.tsx) is unwired
+      // mock data and explicitly not being worked on right now. Its path is
+      // a dedicated /iq/genie6/overview placeholder (ShellPage, comingSoon)
+      // rather than the bare /iq/genie6 route, so clicking it never exposes
+      // that mock page as if it were finished. Settings stays off this
+      // list — its route still exists at /iq/genie6/settings, same
+      // "kept, no nav surface" treatment as Genie 2/3/4/5. The bare
+      // /iq/genie6 route also stays as-is (still the mobile Home tab / tour
+      // / onboarding deep-link target) and is untouched by the above.
       // Other Apps: still a real, live grid (route kept for old links) —
       // its only nav-level home now is the "OTHER APPS" section on Studio's
       // own home screen, below the Mode cards, not a row in this sub-nav.
@@ -248,6 +257,7 @@ export const MODULES: ModuleDef[] = [
       // Genie 2.0: relabelled "Studio Alpha" → "Studio" per §3's locked list. The
       // path stays /studio-alpha — every deep link, every ?src/?ref/?act flow URL
       // and every design-capture URL in circulation points at it.
+      { label: "Overview",    path: "/iq/genie6/overview",         icon: LayoutDashboard, badge: "Soon" },
       { label: "Studio",      path: "/iq/genie6/studio-alpha",     icon: Wand2 },
       // Genie 2.0 §7 — Other Flows: the surface that turns Genie from a place you
       // go to into a place other modules feed into. Lists the 11 source modules.

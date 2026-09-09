@@ -3,7 +3,31 @@ import { useSearchParams } from "react-router-dom";
 import { DEFAULT_LANGUAGE } from "../../lib/languages";
 import { isKnownConceptId } from "../data/concepts";
 import { MODES, type AlphaMode } from "../data/modes";
-import type { UseWizardReturn, WizardState, Mode, Format } from "./useWizard";
+// The param name is NOT retyped here. `?tgt` was introduced by the flows
+// layer (2026-09-08) and is already read by `resolveFlowContext`; importing
+// the constant is what guarantees the Home-entered path and the flow-entered
+// path can never end up with two differently-spelled params for one piece of
+// state. flowTypes.ts is a runtime leaf (its only import of useWizard is
+// `import type`), so there is no cycle.
+import { FLOW_PARAM_TARGET } from "../../flows/flowTypes";
+import type { UseWizardReturn, WizardState, Mode, Format, GenerationTarget } from "./useWizard";
+
+/**
+ * Runtime guard for the `GenerationTarget` union (useWizard.ts). Exists
+ * because that file exports the TYPE but no runtime roster (`TARGET_SPECS`
+ * is module-private), and both URL readers — this hook's mount read and
+ * StudioAlpha's `readUrlIntoState` — must validate identically. One guard,
+ * imported by both, rather than two hand-kept literal lists that can drift
+ * the day a fifth target lands.
+ *
+ * Validate, never cast: an unrecognised `?tgt` is IGNORED so the run falls
+ * back to `INITIAL_STATE`'s "ad" instead of writing a phantom target into
+ * state, where `resolveGenerationSteps` would index `TARGET_SPECS` with it
+ * and hand every step a `undefined` plan.
+ */
+export function isGenerationTarget(value: string | null | undefined): value is GenerationTarget {
+  return value === "ad" || value === "script" || value === "concept" || value === "storyboard";
+}
 
 /**
  * useStudioAlphaUrlSync — bidirectional sync between wizard state and URL
@@ -33,6 +57,23 @@ import type { UseWizardReturn, WizardState, Mode, Format } from "./useWizard";
  *                 multi-select, and whether step 0 is offered at all (§10a).
  *                 Before this it lived only in memory, so a refresh silently
  *                 dropped every per-Mode rule back to the no-rule default.
+ *   ?tgt          the generation TARGET — ad | script | concept | storyboard
+ *                 (state.generationTarget). Added here 2026-09-09; the param
+ *                 itself is OLDER — it was minted by the flows layer as
+ *                 `FLOW_PARAM_TARGET` (flows/flowTypes.ts) and read by
+ *                 `resolveFlowContext`, which is exactly why a Home-entered
+ *                 asset run must reuse it rather than invent a second name.
+ *                 Only encoded when it isn't the "ad" default, same
+ *                 discipline as ?resolution / ?lang: "ad" is what
+ *                 INITIAL_STATE holds and what every flow action's
+ *                 `targets[0]` resolves to, so an Ad URL stays exactly as
+ *                 short as it is today AND deleting the param round-trips to
+ *                 the same target on the flow path too.
+ *                 Before this, a Script/Concept/Storyboard run started from
+ *                 Studio home (`startAssetWizard`) silently became an Ad on
+ *                 refresh — same defect class as the ?studioMode omission
+ *                 below. Flow-entered runs were never affected: their target
+ *                 arrives through `flowInitialPatch`.
  *   ?scope        entity | custom — step 0's answer (§8). "custom" is what
  *                 removes Step 2, so it has to survive a refresh too.
  *   ?products     comma-separated productIds — Product Shoot's multi-select
@@ -123,6 +164,12 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
     if (studioMode && MODES.some((m) => m.id === studioMode)) {
       patches.studioMode = studioMode as AlphaMode;
     }
+    // The generation target. Validated through `isGenerationTarget` rather
+    // than cast, same reasoning as the Mode directly above: a hand-edited
+    // ?tgt=poster degrades to the "ad" default instead of poisoning
+    // `resolveGenerationStepsForState`'s TARGET_SPECS lookup.
+    const target = searchParams.get(FLOW_PARAM_TARGET);
+    if (isGenerationTarget(target)) patches.generationTarget = target;
     const scope = searchParams.get("scope");
     if (scope === "entity" || scope === "custom") patches.entityMode = scope;
     // Product Shoot's multi-select (§10a `entity.multi`). Separate from
@@ -188,6 +235,16 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
         if (state.bulkProductIds.length > 0) next.set("bulkProducts", state.bulkProductIds.join(","));
         else next.delete("bulkProducts");
         setOrDelete("studioMode", state.studioMode);
+        // The generation target — only written when it ISN'T "ad", the
+        // INITIAL_STATE default, so a plain Ad URL doesn't grow a param that
+        // says nothing. Safe for the flow path too: every FlowAction's
+        // `targets[0]` is "ad" (`targetsForSource` filters ALL_TARGETS, whose
+        // first entry is "ad", and the "ad" target accepts EVERY source), so
+        // an absent ?tgt resolves back to "ad" in `resolveFlowContext` —
+        // deleting it round-trips to the identical target rather than
+        // silently re-defaulting a flow to something else.
+        if (state.generationTarget !== "ad") next.set(FLOW_PARAM_TARGET, state.generationTarget);
+        else next.delete(FLOW_PARAM_TARGET);
         setOrDelete("scope", state.entityMode);
         // §10a Product Shoot multi-select. Only written when it holds MORE than
         // one — a single product is already fully described by ?product, so a
@@ -212,6 +269,9 @@ export function useStudioAlphaUrlSync(wizard: UseWizardReturn) {
     state.productIds,
     state.categoryId,
     state.studioMode,
+    // Without this dep the write above never re-runs on a target change, so
+    // ?tgt would only ever be written when some OTHER field happened to move.
+    state.generationTarget,
     state.entityMode,
     state.mode,
     state.angleId,
