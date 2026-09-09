@@ -19,10 +19,10 @@ import type {
 /**
  * useVariationsFlow — the single spine both UI versions run on.
  *
- * Version A (one inline screen) and Version B (2-3 steps) differ ONLY in
- * layout and disclosure. Every rule — what the analysis says, which actions
- * get recommended, what a scope means, what the run costs, what Generate
- * fires — lives here or in `data/`, so the two versions cannot drift apart.
+ * Every rule — what the analysis says, which actions get recommended, what a
+ * scope means, what the run costs, what Generate fires — lives here or in
+ * `data/`, never in the screen. That split is why the flow could be built as
+ * two competing UI versions at once, and it stays worth keeping.
  *
  * Deliberately NOT built on useWizard: that hook's step machine is a closed
  * 0-5 union whose steps are semantically hardcoded (1=Format, 2=Entity,

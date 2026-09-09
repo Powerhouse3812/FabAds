@@ -12,8 +12,8 @@ import type { PickedSource, UploadedAdStub } from "../types";
 /**
  * SourcePicker — Step 1 of Generate Variations: pick ONE whole ad.
  *
- * Renders INLINE, never as its own modal — Version A (one screen) and
- * Version B (sequential steps) each own their framing, so this component
+ * Renders INLINE, never as its own modal — the screen owns its framing,
+ * so this component
  * makes no assumptions about the box it sits in beyond `className`.
  *
  * The pool is three universes under one grammar:
@@ -203,8 +203,8 @@ export function SourcePicker({ picked, onPick, onClear, className }: SourcePicke
   useEffect(
     () => () => {
       // Revoke every object URL this component minted EXCEPT the one the
-      // caller is still holding — Version B carries the pick to the next step
-      // and revoking it there would blank the preview it just showed.
+      // caller is still holding — the pick outlives this component, and
+      // revoking it would blank the preview the flow is still showing.
       uploadsRef.current.forEach((u) => {
         if (u.previewUrl && `upload:${u.id}` !== pickedKeyRef.current) URL.revokeObjectURL(u.previewUrl);
       });

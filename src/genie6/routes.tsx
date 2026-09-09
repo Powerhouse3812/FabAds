@@ -236,8 +236,7 @@ export const genie6Routes = (
     {/* Generate Variations — the Mode card that replaced "Custom". Its own
         route rather than a wizard step: the wizard's step machine is a closed
         0-5 union with semantically fixed steps (1=Format, 2=Entity,
-        3=Approach, 4=Configure), none of which this flow asks. `?ui=a|b`
-        picks between the two UI versions. */}
+        3=Approach, 4=Configure), none of which this flow asks. */}
     <Route path="variations" element={<GenerateVariations />} />
 
     {/* A-12.38: Concepts library — full-page browse of catalogue + KB +

@@ -21,8 +21,8 @@ import type {
  * never appear on the frictionless quick-action path, which is why this
  * component is the only place it lives.
  *
- * Layout-agnostic on purpose: Version A wraps it in a popover/drawer, Version B
- * renders it inside a step. It paints no outer surface and owns no width.
+ * Layout-agnostic on purpose — the screen wraps it in a drawer. It paints no
+ * outer surface and owns no width.
  */
 
 interface ElementEditorProps {

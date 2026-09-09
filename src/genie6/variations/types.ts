@@ -14,9 +14,9 @@ import type { OutputData } from "../types/output";
  *      scope selector and then exposes that element's prompt as text
  *   6. Generate fires the run store directly and lands on the results queue
  *
- * Two UI versions render this identical logic — A (one inline screen) and
- * B (2-3 sequential steps) — selected by `?ui=a|b`. Neither owns any rule:
- * everything decidable lives in `data/` so the versions cannot disagree.
+ * Built as two competing UI versions; the inline one won (Maalik, 2026-09-09)
+ * and the stepped one is gone. The screen still owns no rule — everything
+ * decidable lives in `data/` and the state spine.
  *
  * PART 2 (asset variations) IS NOT IN SCOPE and nothing here anticipates it.
  */
@@ -167,8 +167,6 @@ export interface VariationEdit {
 }
 
 /* --------------------------------------------------------------- ui state */
-
-export type VariationsUiVersion = "a" | "b";
 
 export interface VariationsFlowState {
   /** null until the picker resolves — gates everything downstream. */
