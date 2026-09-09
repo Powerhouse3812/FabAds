@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Clapperboard, Search } from "lucide-react";
+import { toast } from "sonner";
 import { EmptyState } from "../../components/EmptyState";
 import {
   GENERATED_STORYBOARDS,
@@ -8,23 +9,25 @@ import {
   poolBrandOptions,
 } from "./generatedAssetPool";
 import { GeneratedAssetCard } from "./GeneratedAssetCard";
+import { GeneratedTabZeroState } from "./GeneratedTabZeroState";
+import {
+  saveGeneratedStoryboard,
+  useSavedStoryboardCatalogueId,
+} from "./generatedAssetsStore";
 
 /**
  * StoryboardsGeneratedTab — Storyboards Genie has generated, not yet saved
- * anywhere. Same grammar as `ScriptsGeneratedTab` / `ConceptsGeneratedTab`,
- * with one deliberate difference: Storyboard has no Catalogue home.
+ * to Assets. Same grammar as `ScriptsGeneratedTab` / `ConceptsGeneratedTab`,
+ * and — since 2026-09-09 — the same real save path too.
  *
- * Genie 2.0 spec §10 lists the Catalogue's Creative asset types as exactly
- * Avatars · Voices · Scripts · Concepts · Hooks · CTAs · Frameworks —
- * Storyboard isn't one of them, and `src/catalogue/assetTypes.ts`'s
- * `CatalogueType` union (owned elsewhere, read-only from here) has no
- * `"storyboards"` member. So this tab passes `canSaveToCatalogue={false}`
- * and no `onSave` — `GeneratedAssetCard` renders an honest "Library only —
- * no Catalogue home yet" state instead of a button that would either no-op
- * or (worse) silently save a storyboard under the wrong asset type. If a
- * `storyboards` Catalogue type is added later, wiring a real save here is a
- * small follow-up (mirror `saveGeneratedConcept` in `generatedAssetsStore.ts`
- * and flip this flag) — not a redesign.
+ * This tab used to pass `canSaveToCatalogue={false}` because
+ * `src/catalogue/assetTypes.ts`'s `CatalogueType` union had no
+ * `"storyboards"` member, so a Save button would have had nowhere honest to
+ * write. That member now exists, with its own registry entry, seed set
+ * (`src/mocks/shared/storyboards.ts`) and route
+ * (`/iq/genie6/assets/storyboards`) — so the dead end is gone and Save
+ * writes through `saveGeneratedStoryboard`, scene-for-scene, exactly the way
+ * Scripts and Concepts already do.
  */
 export function StoryboardsGeneratedTab() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -88,6 +91,21 @@ export function StoryboardsGeneratedTab() {
       { replace: true },
     );
   };
+
+  // Zero-data — the pool itself is empty, so no filter change can bring
+  // anything back. Search + brand filter are suppressed with it: a filter
+  // over nothing is chrome that implies data is being hidden.
+  if (GENERATED_STORYBOARDS.length === 0) {
+    return (
+      <GeneratedTabZeroState
+        noun="storyboards"
+        description="A storyboard is the scene-by-scene shot plan behind a video ad — shot, description and duration per beat."
+        assetsPath="/iq/genie6/assets/storyboards"
+        assetsLabel="Saved storyboards"
+        Icon={Clapperboard}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -175,6 +193,7 @@ function StoryboardCard({
 }) {
   const firstScene = item.scenes[0];
   const totalSec = item.scenes.reduce((sum, scene) => sum + scene.durationSec, 0);
+  const savedCatalogueId = useSavedStoryboardCatalogueId(item.id);
 
   return (
     <GeneratedAssetCard
@@ -191,8 +210,12 @@ function StoryboardCard({
       generatedAt={item.generatedAt}
       status={item.status}
       batchIsPartial={isPartialBatch}
+      savedCatalogueId={savedCatalogueId}
       catalogueType="storyboards"
-      canSaveToCatalogue={false}
+      onSave={() => {
+        saveGeneratedStoryboard(item);
+        toast.success(`"${item.title}" saved to Assets`);
+      }}
     />
   );
 }

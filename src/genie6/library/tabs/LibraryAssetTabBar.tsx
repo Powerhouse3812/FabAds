@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type LibraryAssetTab = "ads" | "scripts" | "concepts" | "storyboards";
+export type LibraryAssetTab = "ads" | "scripts" | "concepts" | "storyboards" | "hooks";
 
 export interface LibraryAssetTabDef {
   key: LibraryAssetTab;

@@ -198,12 +198,29 @@ export interface FlowSourceRef {
   sourceNote?: string;
   /** Whether the source ad has been analysed (gates the Video Sage actions). */
   analysed?: boolean;
+  /**
+   * Why this row can't be picked for an analysis-gated action, when the
+   * generic "needs analysis" sentence would be untrue. Trends has no analysis
+   * step at all — a hookless trend is unpickable for `use-hook` because the
+   * feed never carried a hook, not because the user skipped a step.
+   */
+  blockedReason?: string;
   /** Format of the source creative — drives the static-only banner note. */
   sourceFormat?: "image" | "video" | "carousel" | "flexible";
   /** Extra evidence chips, e.g. "ROAS 4.2×" / "Spend ₹2.4L" / "+186% in 14d". */
   metrics?: { label: string; value: string }[];
   /** Trends only — the angle this trend fills in (§7.4). */
   trendAngle?: string;
+  /**
+   * The literal hook LINE this source quotes — the opening sentence, not a
+   * paraphrase. Distinct from `trendAngle`, which is the strategic angle and
+   * on Trends deliberately falls back to headline/excerpt when there is no
+   * hook; this field is only ever set when a real hook exists. It is what
+   * `use-hook` carries into the wizard (`flowInitialPatch`), so an absent
+   * value means the action must not be offered — which is exactly what
+   * `analysed`/`blockedReason` already encode for a hookless trend.
+   */
+  hook?: string;
   /** Campaign URLs only — the visible, editable extraction (§7.5). */
   extraction?: CampaignUrlExtraction;
 }

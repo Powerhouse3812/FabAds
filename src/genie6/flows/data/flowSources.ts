@@ -388,6 +388,22 @@ function trendRef(t: Trend, meta: TrendMeta | undefined): FlowSourceRef {
     sourceBrandName: t.advertiser ?? t.creator ?? t.source ?? "Industry signal",
     sourceFormat,
     trendAngle: meta?.angle ?? t.hook ?? t.headline ?? t.excerpt,
+    // Owner (2026-09-09): "we get trending angles and trending ads and
+    // trending hooks" — so `use-hook` is offered on Trends. It is
+    // `requiresAnalysis`, and this is the flag that gates it, but only SOME
+    // trends carry a real hook line: `trendAngle` above falls back to
+    // headline/excerpt precisely because `t.hook` is often absent. Claiming
+    // all ~29 rows have one would offer a hook we'd then have to invent, so
+    // this is truthful per row. Gating is per-ACTION (FlowModuleDetail's
+    // `isUnpickable`), so a hookless trend still offers every other action.
+    analysed: Boolean(t.hook),
+    blockedReason: t.hook ? undefined : "No hook line on this trend — pick one that quotes a hook",
+    // The hook LINE itself, not just the boolean above. `trendAngle` can't
+    // stand in for it: `meta?.angle` wins there for every curated trend, so
+    // the two are different strings on exactly the rows `use-hook` is offered
+    // on. `flowInitialPatch` reads this to seed the prompt — without it the
+    // action carried nothing and was indistinguishable from "use the angle".
+    hook: t.hook,
     metrics: meta?.metrics ?? [],
   };
 }

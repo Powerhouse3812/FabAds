@@ -60,6 +60,11 @@ export const APPROACH_SUBTYPES: Record<Mode, ApproachSubType[]> = {
   // before-after / close-up) are guesses until asked for; an empty list just
   // means the step doesn't offer a second question.
   "product-demo": [],
+  // No sub-types on purpose. The obvious candidates (kitchen / outdoor /
+  // desk …) are just SETTINGS, and the setting is what the brief and the
+  // entity already say — asking again would be asking the user to repeat
+  // themselves.
+  "lifestyle-scene": [],
   "bg-remover": [],
   "resize": [],
   "scratch": [],
@@ -122,6 +127,14 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
     // A demo teaches how the thing works, so it defaults to the educational
     // angle and the detail-macro concept rather than a hero composition.
     "product-demo":     { angleId: "educational", conceptIds: ["c-detail-macro"] },
+    // The angle IS the approach's name here, and "Morning Ritual" is the one
+    // Studio concept whose own desc reads "product in a daily routine" — the
+    // exact thing this approach produces. Both ids are real: `lifestyle` is in
+    // ANGLE_CHIP_LABEL, `c-morning-ritual` is in CONCEPTS.
+    "lifestyle-scene":  { angleId: "lifestyle", conceptIds: ["c-morning-ritual"] },
+    // Unofferable, but `generate-from-url` and historical runs can still carry
+    // the id into autoFillForApproach — keep the default rather than fall
+    // through to the blank one.
     "bg-remover":       { angleId: "hero", conceptIds: [] },
     "resize":           { angleId: null, conceptIds: [] },
     "scratch":          { angleId: null, conceptIds: [] },
@@ -154,19 +167,32 @@ export function autoFillForApproach(mode: Mode, subTypeId: string | null): AutoF
  * `scratch` Mode itself is deliberately still defined — `generate-from-url`
  * sets it, and genieRunStore falls back to it — it is only unofferable here.
  *
- * Note this is a FILTER, not a deletion. All seven approaches from §5 stay in
+ * Note this is a FILTER, not a deletion. Approaches stay defined in
  * Step3Approach's ALL_MODES (§1: "The 7 Studio approaches already exist and
  * work — do not rebuild them"); this record only decides which are offerable
  * for the format in hand. Deleting the four that §8 classifies as apps/tools
- * was tried and reverted: none of them is among §8's locked 15 apps, so the
+ * was tried and reverted: none of them was among §8's locked 15 apps, so the
  * Other Apps hand-off had nowhere to land, and Format=Image was left with a
  * single offered approach — a step that asks a question with one answer.
+ *
+ * BG REMOVER, 2026-09-09 (Maalik: "bg remover ko approach se htake, apps me hi
+ * rakho, approach me new approach add krdo koi"). This is the ONE case where
+ * that hand-off is real, and it is real because the app landed first: BG
+ * Remover is now a fully-declared LIVE entry in `apps/data/appRegistry.ts`
+ * (sections, cost, zeroState, stages), not the "Soon" card it was. So the
+ * capability has a home before the approach lost one — the precise mistake the
+ * reverted pass made. Its `Mode` id survives in useWizard.ts for historical
+ * runs; it is simply no longer offerable here.
+ *
+ * `lifestyle-scene` takes the freed image slot, so Image still offers four and
+ * Video is untouched at six. It is image-only for the same reason `broll` is
+ * video-only: a staged product still IS the deliverable, not a frame of one.
  *
  * Both lists stay ≥2 entries deep, so neither format ever renders a one-card
  * grid. Step3Approach's SingleApproachCard remains as the guard for a future
  * format that genuinely resolves to one.
  */
 export const APPROACHES_BY_FORMAT: Record<Format, Mode[]> = {
-  image: ["create-variations", "bg-remover", "resize", "auto"],
+  image: ["create-variations", "lifestyle-scene", "resize", "auto"],
   video: ["ugc-video", "broll", "image-to-video", "create-variations", "product-demo", "auto"],
 };

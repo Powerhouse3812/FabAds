@@ -35,14 +35,18 @@ import { sampleOutputs } from "../../mocks/sample-outputs";
  * zero-data (design system §3) without inventing a parallel demo-flag
  * mechanism.
  *
- * Storyboards are deliberately NOT wired to a "Save to Catalogue" that
- * writes anywhere real: Genie 2.0 spec §10 lists the Catalogue's Creative
- * asset types as exactly Avatars · Voices · Scripts · Concepts · Hooks ·
- * CTAs · Frameworks — Storyboard is not one of them, and
- * `src/catalogue/assetTypes.ts`'s `CatalogueType` union (READ ONLY from
- * here) has no `"storyboards"` member. Faking a save for a type Catalogue
- * has no home for would be a Save button that lies — see
- * `GeneratedAssetCard`'s `canSaveToCatalogue` flag.
+ * All three types now save for real. Storyboards was the late one: until
+ * 2026-09-09 `src/catalogue/assetTypes.ts`'s `CatalogueType` union had no
+ * `"storyboards"` member, so its cards rendered an honest "no Catalogue home
+ * yet" dead end rather than a Save button that would have mis-saved under
+ * the wrong type. That member, its seed set (`src/mocks/shared/storyboards.ts`)
+ * and its route now exist, and `saveGeneratedStoryboard` writes through the
+ * same `addAsset` seam as Scripts and Concepts.
+ *
+ * There is no hooks pool here on purpose. A hook is not one of the four
+ * generation targets — the Library's Hooks tab is a projection of the AD
+ * pool (`OutputData.headline`), not a fifth draft array. See
+ * `HooksGeneratedTab.tsx`.
  */
 
 export type GeneratedAssetStatus = "done" | "failed";

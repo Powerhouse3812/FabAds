@@ -31,6 +31,7 @@ import {
   ThumbsUp,
   Wand2,
   X,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -205,11 +206,19 @@ export function useTrendActions(): {
 
 // ---------------------------------------------------------------------------
 // Genie actions — Other Flows §7.4. FLOW_MODULES["trends"].actions in
-// flowRegistry.ts (READ ONLY — owned by the flow-data agent) names exactly
-// three ids for this module, with no per-source distinction:
+// flowRegistry.ts (READ ONLY — owned by the flow-data agent) names FOUR ids
+// for this module (it named three until 2026-09-09), with no per-source
+// distinction:
 //   1. generate an ad against a trending hook or angle -> "generate-against-trend"
-//   2. generate a script from a trend                 -> "script-from-trend"
-//   3. variation off the trend's winner ads            -> "generate-variation"
+//   2. use this trend's angle                          -> "script-from-trend"
+//   3. use this trend's hook line                      -> "use-hook"
+//   4. variation off the trend's winner ads            -> "generate-variation"
+//
+// This list must stay in step with that one: an id here that the module
+// doesn't list makes `resolveFlowContext` reject the button's own URL and
+// hand the user a bare, unbannered wizard; an id there that's missing here is
+// an action that only exists in the Other Flows hub and never on the feed
+// people actually read — which is exactly how `use-hook` shipped invisible.
 //
 // Labels are read straight off FLOW_ACTIONS (the same lookup the persistent
 // flow banner uses via resolveFlowContext -> ctx.action.label) so a button's
@@ -228,6 +237,12 @@ interface GenieAction {
   label: string;
   icon: LucideIcon;
   actionId: FlowActionId;
+  /**
+   * Per-trend availability. Omitted = always offered (the three actions every
+   * row can back with its own data). `use-hook` is the first action gated on
+   * what a specific row carries — see the note under GENIE_ACTIONS.
+   */
+  isAvailable?: (item: TrendItem) => boolean;
 }
 
 const GENIE_ACTIONS: GenieAction[] = [
@@ -242,11 +257,45 @@ const GENIE_ACTIONS: GenieAction[] = [
     actionId: "script-from-trend",
   },
   {
+    label: FLOW_ACTIONS["use-hook"].label,
+    icon: Zap,
+    actionId: "use-hook",
+    isAvailable: (item) => Boolean(item.hook),
+  },
+  {
     label: FLOW_ACTIONS["generate-variation"].label,
     icon: Wand2,
     actionId: "generate-variation",
   },
 ];
+
+/**
+ * HIDDEN, NOT DISABLED, on a hookless trend — deliberate, and the two reasons
+ * are different in kind:
+ *
+ * 1. A disabled control is a promise that something will enable it. "Needs
+ *    analysis" (SendToGenieMenu, FlowModuleDetail) is honest that way — the
+ *    user can go analyse the ad. Trends has NO analysis step; `blockedReason`
+ *    exists precisely because the generic sentence would be a lie here. A
+ *    hookless trend can never grow a hook, so a permanently dead control
+ *    teaches nothing and costs a slot in a nine-button row.
+ * 2. This component has no blocked affordance to reuse. Its card variant is
+ *    icon-only, and a natively-`disabled` button leaves the tab order, taking
+ *    the tooltip that would carry `blockedReason` with it — the reason would
+ *    be unreachable by keyboard and unannounced by a screen reader, which is
+ *    worse than not offering the action at all.
+ *
+ * Hiding is also self-explaining here: TrendCard renders the hook line as the
+ * card's own quote (`getHookLine`), so "Use hook" appears exactly on the rows
+ * where the user can already see the hook it would carry.
+ *
+ * The gate is `Boolean(item.hook)` — the same boolean `trendRef()` turns into
+ * `analysed`, which is now what `resolveFlowContext` gates `requiresAnalysis`
+ * actions on. So the button renders if and only if the URL it builds resolves.
+ */
+function availableGenieActions(item: TrendItem): GenieAction[] {
+  return GENIE_ACTIONS.filter((a) => !a.isAvailable || a.isAvailable(item));
+}
 
 // ---------------------------------------------------------------------------
 // Action bar
@@ -283,7 +332,7 @@ export function TrendActionBar(props: { item: TrendItem; variant: "card" | "stor
 
   const isSaved = saved.has(item.id);
   const isWatched = watched.has(item.id);
-  const genieActions = GENIE_ACTIONS;
+  const genieActions = availableGenieActions(item);
 
   /**
    * §7.4 — "Both" travel to Genie: the trend fills the angle, and its

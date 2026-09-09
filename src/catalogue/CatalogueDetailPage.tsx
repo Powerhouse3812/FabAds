@@ -57,7 +57,7 @@ import {
   type KbConcept,
   type ReferenceUrl,
 } from "@/mocks/shared";
-import type { Audience, Avatar, Brand, Category, Product } from "@/genie6/types/entities";
+import type { Audience, Avatar, Brand, Category, Concept, Hook, Product } from "@/genie6/types/entities";
 import { sampleOutputs } from "@/genie6/mocks/sample-outputs";
 import {
   ACTIVITY_LOG,
@@ -95,11 +95,13 @@ import { useInGenieUrl } from "./genieHandoff";
 // saved framework" is possible (§10) — the ordered section list is what
 // this detail page renders as the framework's substance.
 import { frameworkDuration, type Framework } from "@/genie6/editor/frameworks";
+import type { StoryboardAsset } from "@/mocks/shared/storyboards";
 
 // Note: KB block (KnowledgeBaseSection) only renders inside the brand /
 // product / category branches below. The other types (angles / hooks /
-// concepts / avatars / voices / scripts / ctas / frameworks / templates /
-// references) never reach it — they return their own Shell instead.
+// concepts / avatars / voices / scripts / ctas / frameworks / storyboards /
+// templates / references) never reach it — they return their own Shell
+// instead.
 //
 // `CatalogueType` now comes from `assetTypes.ts`'s registry (single source
 // of truth — see that file's header comment for why) instead of being
@@ -253,7 +255,9 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   }
 
   if (type === "hooks") {
-    const hook = hooks.find((h) => h.id === id);
+    // Registry, not the raw seed array — a hook saved from the Library's
+    // Hooks tab lives only in the write-store until `resolve()` merges it.
+    const hook = (getAssetType("hooks")!.resolve() as Hook[]).find((h) => h.id === id);
     if (!hook) return <NotFound type={type} navigate={navigate} />;
     const brand = hook.brandId ? brands.find((b) => b.id === hook.brandId) : undefined;
     const angle = hook.angleId ? angles.find((a) => a.id === hook.angleId) : undefined;
@@ -320,7 +324,8 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
   }
 
   if (type === "concepts") {
-    const concept = concepts.find((c) => c.id === id);
+    // Registry, not the raw seed array — same reason as hooks above.
+    const concept = (getAssetType("concepts")!.resolve() as Concept[]).find((c) => c.id === id);
     if (!concept) return <NotFound type={type} navigate={navigate} />;
     const brand = brands.find((b) => b.id === concept.brandId);
     // Look up the linked angle by label match (concept stores angle by string label,
@@ -504,30 +509,33 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
     );
   }
 
-  // Scripts / CTAs / Frameworks / Templates — §21.2 additions. No
-  // relational data model to cross-link, so a generic Shell body (same
-  // fields the asset-card grammar shows) rather than four bespoke ones.
-  // (A fifth type, "References", shipped briefly alongside these and was
-  // removed per Maalik's ruling — 13 types now, not 14 — so it's gone from
-  // this source map too.)
+  // Scripts / CTAs / Frameworks / Templates / Storyboards — §21.2-and-later
+  // additions. No relational data model to cross-link, so a generic Shell
+  // body (same fields the asset-card grammar shows) rather than five
+  // bespoke ones. (A sixth type, "References", shipped briefly alongside
+  // these and was removed per Maalik's ruling — 14 types now, not 15 — so
+  // it's gone from this source map too.)
   const def = getAssetType(type)!;
-  const genericSource: Record<string, { id: string }[]> = {
-    scripts, ctas, templates,
-    // Frameworks resolve through the registry — NOT a raw `FRAMEWORKS`
-    // import — the same seed + session-added + session-duplicated merge
-    // `CatalogueListPage.tsx` / `CatalogueFinder.tsx` already use via
-    // `def.resolve()`. Without this, every framework 404s here: seeded
-    // ones (e.g. `fw-pas`) aren't in any array this file imports directly,
-    // and a framework saved from Video Sage's "Save framework to
-    // Catalogue" action (`addAsset("frameworks", …)`) only ever lands in
-    // the write-store's `added` map, which only `resolve()` reads.
-    frameworks: getAssetType("frameworks")!.resolve(),
-  };
-  const item = genericSource[type]?.find((it) => it.id === id);
+  // EVERY type resolves through the registry — never a raw array import. The
+  // per-type source map this replaced listed `scripts, ctas, templates` as raw
+  // imports, so anything SAVED in-session 404'd here even though it appeared
+  // fine in the list and finder: a raw array holds only the seed rows, while
+  // `resolve()` is the seed + session-added + session-duplicated merge that
+  // `CatalogueListPage` and `CatalogueFinder` already use. That is exactly the
+  // path a Library "Save to Assets" takes (`addAsset(…)` writes into the
+  // write-store's `added` map, which only `resolve()` reads). Resolving off
+  // `def` also means a 15th asset type cannot be forgotten here.
+  const item = (def.resolve() as { id: string }[]).find((it) => it.id === id);
   if (!item) return <NotFound type={type} navigate={navigate} />;
   const card = def.toCard(item);
   const genieHref = useInGenieUrl(type, id);
   const framework = type === "frameworks" ? (item as unknown as Framework) : undefined;
+  // Storyboards is Frameworks' shape-twin — its ordered scene list IS the
+  // asset, exactly as a framework's section list is. Unlike Framework though,
+  // a storyboard carries a REAL `lastUsedAt`, so it keeps the shared usage
+  // line below and appends its scenes rather than replacing the line the way
+  // `FrameworkStructure` has to.
+  const storyboard = type === "storyboards" ? (item as unknown as StoryboardAsset) : undefined;
   return (
     <Shell
       type={type}
@@ -561,6 +569,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
           <span>Last used {card.lastUsedLabel}</span>
         </div>
       )}
+      {storyboard && <StoryboardScenes storyboard={storyboard} />}
       <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
       <GenerationsFromAsset
         {...deriveGenieMatchCriteria(type, item)}
@@ -591,7 +600,7 @@ export function CatalogueDetailPage({ type }: { type: CatalogueType }) {
  * its own; "Use in Genie" below is the same shared, spec-mandated action
  * (§10 "actions on every asset") every other type already gets.
  */
-function FrameworkStructure({ framework: fw }: { framework: Framework }) {
+export function FrameworkStructure({ framework: fw }: { framework: Framework }) {
   const sections = fw.sections ?? [];
   const totalSec = frameworkDuration(fw);
 
@@ -666,6 +675,75 @@ function FrameworkStructure({ framework: fw }: { framework: Framework }) {
         )}
       </Section>
     </>
+  );
+}
+
+/**
+ * Storyboard scene list — the storyboard equivalent of `FrameworkStructure`
+ * above, and deliberately the same visual grammar (numbered disc · mono
+ * primary line · muted secondary line · right-aligned mono duration inside a
+ * `Section`), because the two types are the same shape: an ordered breakdown
+ * that IS the asset. Both detail surfaces render this one component rather
+ * than each growing its own scene list — the Finder's generic overview
+ * imports it, so the two can't drift.
+ *
+ * Scenes are the substance, so unlike a framework's `note` the description is
+ * NOT clamped — it wraps. Rows are `items-start` for that reason, keeping the
+ * scene number and duration pinned to the first line however long a
+ * description (or a 60+ char shot label) runs.
+ *
+ * Exported for `CatalogueFinder`'s `GenericAssetSectionView`.
+ */
+export function StoryboardScenes({ storyboard: sb }: { storyboard: StoryboardAsset }) {
+  const scenes = sb.scenes ?? [];
+  const totalSec = scenes.reduce((sum, s) => sum + (s.durationSec || 0), 0);
+
+  return (
+    <Section
+      title={
+        scenes.length > 0
+          ? `Scenes · ${scenes.length} scene${scenes.length === 1 ? "" : "s"}${totalSec > 0 ? ` · ${totalSec}s total` : ""}`
+          : "Scenes"
+      }
+    >
+      {scenes.length === 0 ? (
+        /* Zero-data. A storyboard cannot be authored scene-by-scene here (see
+           the `storyboardsType` note in assetTypes.ts), so this state is only
+           reachable for edge data — say why rather than showing a bare "0". */
+        <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+          No scenes on this storyboard — storyboards arrive scene-by-scene from a Genie generation
+          saved out of the Library, not authored beat-by-beat here.
+        </p>
+      ) : (
+        <ol className="space-y-1.5">
+          {scenes.map((s, i) => (
+            <li
+              key={`${s.sceneNumber}-${i}`}
+              className="flex items-start gap-3 rounded-lg border border-border/60 bg-background px-3 py-2"
+            >
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[10px] font-semibold tabular-nums text-muted-foreground">
+                {s.sceneNumber || i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="break-words font-mono text-sm font-medium text-foreground">
+                  {s.shot || "Shot not specified"}
+                </p>
+                {s.description && (
+                  <p className="mt-0.5 break-words text-[11px] leading-relaxed text-muted-foreground">
+                    {s.description}
+                  </p>
+                )}
+              </div>
+              {/* Partial data: a scene with no duration says so instead of
+                  claiming a confident "0s". */}
+              <span className="mt-0.5 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                {s.durationSec > 0 ? `${s.durationSec}s` : "—"}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </Section>
   );
 }
 
@@ -888,17 +966,31 @@ function CategoryBusinessAssetStrip({ category }: { category: Category }) {
   );
 }
 
-function NotFound({ type, navigate }: { type: CatalogueType; navigate: (to: string) => void }) {
+/**
+ * The ONE not-found surface for an unresolvable entity id. Exported because
+ * `CatalogueFinder` renders it too: its `:id` routes used to fall back to
+ * `firstIdForType(type)`, so a stale deep link (a session-saved asset opened
+ * after a reload, when the in-memory write store is empty again) silently
+ * rendered the FIRST seed row of that type — real name, real tags, real
+ * metrics — under a URL naming a since-vanished id. The grid route was
+ * already honest here; a second not-found grammar would have been the wrong
+ * fix, so both surfaces share this one.
+ */
+export function NotFound({ type, navigate }: { type: CatalogueType; navigate: (to: string) => void }) {
   // See the basePath note on Shell above — same reasoning, applies here too
   // since NotFound is reachable for every type, not just the Creative ones.
   const location = useLocation();
   const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
+  // Registry labels, not `type.slice(0, -1)` — that produced "No categorie
+  // matches that id", and the Finder (which owns the /categories/:id route)
+  // is now a caller.
+  const def = getAssetType(type);
   return (
     <div className="flex h-full flex-col items-center justify-center p-6">
       <p className="text-foreground font-medium">Entity not found</p>
-      <p className="text-sm text-muted-foreground mt-1">No {type.slice(0, -1)} matches that id.</p>
-      <button type="button" onClick={() => navigate(`${basePath}/${type}`)} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground">
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to {type}
+      <p className="text-sm text-muted-foreground mt-1">No {def?.singular ?? type} matches that id.</p>
+      <button type="button" onClick={() => navigate(`${basePath}/${type}`)} className="fab-focus mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground">
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to {def?.label ?? type}
       </button>
     </div>
   );

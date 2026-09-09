@@ -151,6 +151,14 @@ export function previewCost(app: GenieApp, values: AppFieldValues): AppCostPrevi
       lines.push({ label: pluralise(count, "scene"), factor: count, op: "multiply" });
       break;
     }
+    // Same arithmetic as "shot"/"scene" — an app with no `count` stepper floors
+    // to 1, which is exactly right for a one-image-in / one-image-out utility.
+    // It exists so the breakdown reads "1 image" rather than "1 shot".
+    case "image": {
+      const count = Math.max(Number(values.count ?? 1) || 1, 1);
+      lines.push({ label: pluralise(count, "image"), factor: count, op: "multiply" });
+      break;
+    }
   }
 
   const { total } = computeBreakdown(lines);

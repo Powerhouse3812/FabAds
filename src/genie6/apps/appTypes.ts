@@ -1,7 +1,8 @@
 /**
  * Other Apps — contract types (Genie 2.0 §8).
  *
- * 22 apps. 7 live with full flows, 15 "Coming soon" cards only. 4 of those
+ * 22 apps. 8 live with full flows, 14 "Coming soon" cards only (BG Remover
+ * went live 2026-09-09 when it moved out of Studio's Approach grid). 4 of those
  * (Add Video Captions, Change Metadata, Prompt Generator, Thumbnail Maker)
  * came from Maalik's own additions list, reconciled in GENERATION_TARGETS.md
  * §11 as genuinely new with no existing match. 3 more (BG Remover, Resize
@@ -174,14 +175,21 @@ export interface AppSection {
 
 /**
  * Unit cost. Every app states its unit (§15): per language per minute, per
- * shot, per slide, per minute, per scene.
+ * shot, per slide, per minute, per scene, per image.
+ *
+ * "image" was added with BG Remover (2026-09-09). The still-image utilities
+ * (BG Remover, and Resize Image / Object Remover behind it) have no duration
+ * and no page count, so none of the pre-existing units describes them: "shot"
+ * and "scene" would price them correctly — both floor to 1 without a `count`
+ * field — but the breakdown line would read "1 shot" for a background cutout.
+ * The multiplier logic is identical to "shot"; only the noun differs.
  */
 export interface AppCost {
   rate: number;
   /** Rendered verbatim, e.g. "6 credits / language / minute". */
   unitLabel: string;
   /** Which field values multiply the rate — used by the live cost preview. */
-  unit: "language-minute" | "shot" | "slide" | "minute" | "scene";
+  unit: "language-minute" | "shot" | "slide" | "minute" | "scene" | "image";
 }
 
 export interface GenieApp {

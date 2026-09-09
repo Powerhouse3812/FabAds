@@ -9,7 +9,7 @@ import { useBatches } from "@/genie6/lib/genieRunStore";
 import { batchStatus, batchDoneCount, type RunBatch } from "@/genie6/lib/genieRunTypes";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { brands, angles } from "@/mocks/shared";
-import type { CatalogueType } from "./assetTypes";
+import { getAssetType, type CatalogueType } from "./assetTypes";
 
 /**
  * Best-effort join key for `GenerationsFromAsset` — `RunBatch.config` only
@@ -36,31 +36,43 @@ export interface GenieMatchCriteria {
   productName?: string;
   angleLabel?: string;
   tracked: boolean;
+  /**
+   * Singular type label for the "not tracked" copy, e.g. "Storyboard".
+   * Part of the CRITERIA rather than a hand-passed prop on purpose: every
+   * call site already spreads this object, so the label can no longer be
+   * forgotten. It was optional-with-a-default before, and all 11 call sites
+   * in `CatalogueFinder` omitted it — users read "Not tracked for asset
+   * assets yet". Derived from the same registry the type itself comes from,
+   * so it can't drift from `AssetTypeDef.singular` either.
+   */
+  assetLabel: string;
 }
 
 export function deriveGenieMatchCriteria(
   type: CatalogueType,
   item: any,
 ): GenieMatchCriteria {
-  if (type === "brands") return { brandName: item?.name, tracked: true };
+  const assetLabel = getAssetType(type)?.singular ?? "saved";
+  if (type === "brands") return { brandName: item?.name, tracked: true, assetLabel };
   if (type === "products") {
     const brand = brands.find((b) => b.id === item?.brandId);
-    return { brandName: brand?.name, productName: item?.name, tracked: true };
+    return { brandName: brand?.name, productName: item?.name, tracked: true, assetLabel };
   }
-  if (type === "angles") return { angleLabel: item?.label, tracked: true };
+  if (type === "angles") return { angleLabel: item?.label, tracked: true, assetLabel };
   if (type === "hooks") {
     const brand = item?.brandId ? brands.find((b) => b.id === item.brandId) : undefined;
     const angle = item?.angleId ? angles.find((a) => a.id === item.angleId) : undefined;
-    return { brandName: brand?.name, angleLabel: angle?.label, tracked: true };
+    return { brandName: brand?.name, angleLabel: angle?.label, tracked: true, assetLabel };
   }
   if (type === "concepts") {
     const brand = brands.find((b) => b.id === item?.brandId);
-    return { brandName: brand?.name, angleLabel: item?.angle, tracked: true };
+    return { brandName: brand?.name, angleLabel: item?.angle, tracked: true, assetLabel };
   }
-  // Categories / Avatars / Voices / Frameworks / Templates: no criterion.
-  // Audiences / Scripts / CTAs: brand-only would over-match every batch for
-  // the brand, which is worse than an honest zero — see the docblock above.
-  return { tracked: false };
+  // Categories / Avatars / Voices / Frameworks / Templates / Storyboards: no
+  // criterion. Audiences / Scripts / CTAs: brand-only would over-match every
+  // batch for the brand, which is worse than an honest zero — see the
+  // docblock above.
+  return { tracked: false, assetLabel };
 }
 
 /**
@@ -76,9 +88,6 @@ export function deriveGenieMatchCriteria(
 interface GenerationsFromAssetProps extends GenieMatchCriteria {
   useInGenieHref: string;
   className?: string;
-  /** Singular label for copy, e.g. "audience" / "template". Defaults to
-   *  "asset" for callers that don't have one handy. */
-  assetLabel?: string;
 }
 
 export function GenerationsFromAsset({
@@ -88,7 +97,11 @@ export function GenerationsFromAsset({
   tracked,
   useInGenieHref,
   className,
-  assetLabel = "asset",
+  // REQUIRED — no default. A default is what let "Not tracked for asset
+  // assets yet" ship: an omitted label read as valid copy instead of failing
+  // the build. It now arrives with the criteria (see `GenieMatchCriteria`),
+  // and omitting it is a type error.
+  assetLabel,
 }: GenerationsFromAssetProps) {
   const batches = useBatches();
 

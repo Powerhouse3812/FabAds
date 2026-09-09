@@ -141,7 +141,13 @@ export function SendToGenieMenu({
                 <span className="flex-1 truncate">{action.label}</span>
                 {blocked && (
                   <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-                    needs analysis
+                    {/* The ref's own reason wins over the generic caption.
+                        "needs analysis" is true for Video Sage and Insights,
+                        but Trends has no analysis step at all — a hookless
+                        trend is blocked because the feed never carried a
+                        hook, and telling the user to go analyse it would
+                        send them looking for a control that doesn't exist. */}
+                    {ref?.blockedReason ?? "needs analysis"}
                   </span>
                 )}
               </DropdownMenuItem>

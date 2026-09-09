@@ -7,8 +7,13 @@ import { formatRelativeTime } from "../relativeTime";
 
 /**
  * GeneratedAssetCard — shared card grammar for the Library's Scripts /
- * Concepts tabs (§21.2 "one asset-card grammar", adapted for read-mostly
- * DRAFT items rather than already-catalogued ones).
+ * Concepts / Storyboards tabs (§21.2 "one asset-card grammar", adapted for
+ * read-mostly DRAFT items rather than already-catalogued ones).
+ *
+ * NOT used by the Hooks tab: this card truncates its title to one line,
+ * which is right when the title is a document NAME and destructive when the
+ * title IS the content. See `HooksGeneratedTab.tsx` for that card and why it
+ * also drops the "Free" pill below.
  *
  * Neither existing asset-card implementation fit as-is: `catalogue/
  * AssetCard.tsx` is a CRUD grid card (edit/duplicate/archive/delete —
@@ -47,19 +52,9 @@ export interface GeneratedAssetCardProps {
   /** True when this item's batch also contains at least one failed item —
    *  the batch-level "Partial" signal (same vocabulary as `BatchStatus`). */
   batchIsPartial: boolean;
-  /** Present once this draft has been saved — id in the real Catalogue. */
+  /** Present once this draft has been saved — id in the real Assets registry. */
   savedCatalogueId?: string;
   catalogueType: "scripts" | "concepts" | "storyboards";
-  /**
-   * Default true. Set false when this `catalogueType` has no real Catalogue
-   * destination to save into — Storyboards (Genie 2.0 §10 lists exactly
-   * Avatars/Voices/Scripts/Concepts/Hooks/CTAs/Frameworks as Catalogue
-   * Creative types; `src/catalogue/assetTypes.ts`'s `CatalogueType` union has
-   * no `"storyboards"` member). When false, `onSave` is never called and the
-   * card shows an honest "no Catalogue home yet" state instead of a button
-   * that would either no-op or silently mis-save under the wrong type.
-   */
-  canSaveToCatalogue?: boolean;
   onSave?: () => void;
 }
 
@@ -79,7 +74,6 @@ export function GeneratedAssetCard({
   batchIsPartial,
   savedCatalogueId,
   catalogueType,
-  canSaveToCatalogue = true,
   onSave,
 }: GeneratedAssetCardProps) {
   const [copied, setCopied] = useState(false);
@@ -184,18 +178,6 @@ export function GeneratedAssetCard({
           >
             <RefreshCw className="h-3 w-3" /> Retry
           </button>
-        </div>
-      ) : !canSaveToCatalogue ? (
-        // Honest dead-end, not a fake save: this type has no real Catalogue
-        // destination yet (see `canSaveToCatalogue` doc above). A disabled
-        // look + explanatory copy, never a button that appears to work.
-        <div
-          className="flex items-center justify-between gap-2 rounded-g6-lg border border-dashed border-g6-border-secondary bg-g6-bg-spotlight/60 px-3 py-2"
-          title="Storyboard isn't a Catalogue asset type yet — this stays in Library only"
-        >
-          <span className="font-g6-mono text-[11px] text-g6-text-tertiary">
-            Library only — no Catalogue home yet
-          </span>
         </div>
       ) : savedCatalogueId ? (
         <div className="flex items-center justify-between">

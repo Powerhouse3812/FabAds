@@ -431,6 +431,16 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     if (flowSeededRef.current) return;
     flowSeededRef.current = true;
     if (!flowCtx || flowCtx.module.key !== "trends") return;
+    // Gated on the ACTION, not just the module. "Use hook" is a trends action
+    // too, and it carries the hook in `prompt` on purpose — seeding the
+    // trend's angle underneath it would answer a question that flow
+    // deliberately leaves open (a hook satisfies neither angle nor concept,
+    // per SOURCE_CARRIES), so the user would silently lose the angle choice
+    // the step is about to ask them for.
+    const seedsTrendAngle =
+      flowCtx.action.id === "generate-against-trend" ||
+      flowCtx.action.id === "script-from-trend";
+    if (!seedsTrendAngle) return;
 
     const patch: Partial<WizardState> = {};
     if (flowCtx.ref.trendAngle && !wizard.state.angleId) {
@@ -1800,11 +1810,15 @@ function ScriptCard({
 const MODE_LABEL: Record<string, string> = {
   auto: "Auto",
   "product-demo": "Product demo",
+  "lifestyle-scene": "Lifestyle scene",
   scratch: "From scratch",
   "create-variations": "Create variations",
   "ugc-video": "UGC Video",
   "image-to-video": "Image to video",
   broll: "B-roll",
+  // No longer offerable on Step 3 (BG Remover is an Other App now) — the label
+  // stays because historical runs still reach this map, and `Record<string, …>`
+  // means TypeScript would not have caught its removal either way.
   "bg-remover": "Background remover",
   resize: "Resize",
 };

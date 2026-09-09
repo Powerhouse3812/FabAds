@@ -151,10 +151,13 @@ const THEME_BY_ID: Record<string, Theme> = {
   "c-morning-ritual": "lifestyle", "c-fest-scene": "lifestyle",
   "c-ugc-creator": "talking-head", "c-flash-sale": "product-closeup", "c-bogo": "product-closeup",
   "c-launch-tease": "hero-cinematic",
-  // Approach modes (7) — scratch/resize are utility, kept neutral (abstract)
+  // Approach modes — scratch/resize/auto are utility, kept neutral (abstract).
+  // "bg-remover" is no longer offered on Step 3 (it is an Other App now) but
+  // keeps its theme so historical runs still preview in-character.
   scratch: "abstract", "create-variations": "product-closeup", "ugc-video": "talking-head",
   "image-to-video": "product-closeup", broll: "lifestyle", "bg-remover": "product-closeup",
-  resize: "abstract",
+  resize: "abstract", "lifestyle-scene": "lifestyle", "product-demo": "tutorial",
+  auto: "abstract",
   // Approach sub-types (the ones not already keyed above)
   "talking-head": "talking-head", tutorial: "tutorial", reaction: "talking-head",
   "day-in-life": "lifestyle", "whole-ad": "hero-cinematic", "media-only": "lifestyle",

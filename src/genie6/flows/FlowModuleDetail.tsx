@@ -171,7 +171,10 @@ export function FlowModuleDetail() {
 
   function isUnpickable(ref: FlowSourceRef): { blocked: boolean; reason?: string } {
     if (selectedAction?.requiresAnalysis && !ref.analysed) {
-      return { blocked: true, reason: `Needs analysis in ${module!.label} before this action` };
+      return {
+        blocked: true,
+        reason: ref.blockedReason ?? `Needs analysis in ${module!.label} before this action`,
+      };
     }
     return { blocked: false };
   }
@@ -262,6 +265,7 @@ export function FlowModuleDetail() {
               <ActionCard
                 key={a.id}
                 action={a}
+                moduleKey={module.key}
                 selected={selectedActionId === a.id}
                 onClick={() => setSelectedActionId(a.id)}
               />
@@ -355,10 +359,14 @@ export function FlowModuleDetail() {
  * ────────────────────────────────────────────────────────── */
 function ActionCard({
   action,
+  moduleKey,
   selected,
   onClick,
 }: {
   action: FlowAction;
+  /** Needed only so the analysis badge can tell the truth per module — see
+   *  the badge below. */
+  moduleKey: FlowModuleKey;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -387,7 +395,15 @@ function ActionCard({
         {action.requiresAnalysis && (
           <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
             <ShieldCheck className="h-2.5 w-2.5" />
-            Needs analysis
+            {/* `requiresAnalysis` gates two different things. On Video Sage and
+                Insights it really is "go analyse this first", an action the
+                user can take. On Trends there is no analysis step at all — the
+                same flag means "only the rows that quote a hook", which is not
+                something they can go and fix. Telling them to analyse a trend
+                sends them looking for a control that does not exist. Per-row
+                copy already reads `ref.blockedReason`; this tile has no ref,
+                so it branches on the module instead. */}
+            {moduleKey === "trends" ? "Not on every trend" : "Needs analysis"}
           </span>
         )}
       </div>

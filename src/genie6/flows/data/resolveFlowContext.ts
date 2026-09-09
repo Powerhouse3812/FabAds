@@ -77,6 +77,18 @@ export function resolveFlowContext(sp: URLSearchParams): FlowContext | null {
   const ref = getFlowSource(refRaw);
   if (!ref || ref.module !== module.key) return null;
 
+  // Analysis gate. `requiresAnalysis` was UI-only until now — FlowModuleDetail
+  // and SendToGenieMenu grey the row out, but a hand-typed or stale URL walked
+  // straight past them and Studio rendered a banner promising content the ref
+  // does not carry (`?act=use-hook` on a trend with no hook line claimed a
+  // hook, then seeded nothing). The gate belongs HERE, next to every other
+  // "does this combination actually exist" check, so the UI block and the URL
+  // block cannot disagree. Degrades to plain Studio like every other failed
+  // lookup in this file — never throws, per the file header's invariant.
+  // `ref.blockedReason` is the human sentence for the same condition; it stays
+  // a UI concern (this function has no surface to say it on).
+  if (action.requiresAnalysis && !ref.analysed) return null;
+
   // Target — `?tgt` when it names one of THIS action's declared targets,
   // else the action's own default (its first entry, always "ad" for every
   // action whose `source` is "none"). A hand-edited `?tgt=storyboard` on an
@@ -315,6 +327,31 @@ export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partia
     // carries no attached creatives field (separate lookup needed). TODO: once
     // backend exposes related creatives or we have a data source for them,
     // populate patch.attachedReferences here with context tags per §8.2.
+  }
+
+  // "Use hook" — the one thing this action promises is that the hook LINE
+  // travels. `ctx.source` ("hook") already rode in at the top of this patch,
+  // which is what makes Step 3 say "Continuing from a hook — pick the angle
+  // and concept to build it out"; until now that sentence pointed at nothing,
+  // and the action was behaviourally identical to "use this trend's angle".
+  //
+  // WHERE IT LANDS, AND WHY NOT angleDescription: `WizardState` has no hook
+  // field, and `angleDescription` — the only other free-text slot — is wrong
+  // twice over. It renders through ANGLE slots (KnownAngleChip and Configure's
+  // angle summary/row, Step3Approach), and `SOURCE_SATISFIES.hook`
+  // (useWizard.ts) says a hook satisfies NEITHER angle nor concept, so filing
+  // it as the angle would contradict the very plan that still asks for one.
+  // `prompt` is the carrier every other flow already uses for carried context
+  // (the variation family, trends, Campaign URLs below) and Configure renders
+  // it verbatim in the prompt bar.
+  //
+  // The fallback is deliberately quote-free: modules other than Trends list
+  // `use-hook` but don't populate `ref.hook` yet, and inventing a hook line is
+  // the exact failure this defect was about.
+  if (action.id === "use-hook") {
+    patch.prompt = ref.hook
+      ? `Open with this hook: "${ref.hook}". Build the rest around it.`
+      : `Open with the hook from "${ref.title}". Build the rest around it.`;
   }
 
   // Campaign URLs — the extraction is visible and editable in its own card

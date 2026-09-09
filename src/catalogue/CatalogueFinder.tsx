@@ -31,7 +31,16 @@ import type { CtaAsset } from "@/mocks/shared/ctas";
 import type { TemplateAsset } from "@/mocks/shared/templates";
 import type { ReferenceAsset } from "@/mocks/shared/references";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
-import { BrandDetail, CategoryDetail, ProductDetail } from "./CatalogueDetailPage";
+import {
+  BrandDetail,
+  CategoryDetail,
+  ProductDetail,
+  NotFound,
+  StoryboardScenes,
+  FrameworkStructure,
+} from "./CatalogueDetailPage";
+import type { Framework } from "@/genie6/editor/frameworks";
+import type { StoryboardAsset } from "@/mocks/shared/storyboards";
 import { AddBrandModal } from "./AddBrandModal";
 import { AddProductModal } from "./AddProductModal";
 import { AddCategoryModal } from "./AddCategoryModal";
@@ -172,6 +181,11 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
 
   if (!def) return <UnknownAssetType type={type} />;
 
+  // An `:id` in the URL that resolves to NOTHING must say so — see the
+  // `routeUnresolved` bail below, which is deliberately placed after the last
+  // hook rather than here.
+  const routeUnresolved = !!routeId && !findEntityById(type, routeId);
+
   const canAdd = isRouteOwned || !!def.addForm;
 
   const handleAddClick = () => {
@@ -246,6 +260,26 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, selectedId]);
+
+  // An `:id` in the URL that resolves to NOTHING must say so. It used to fall
+  // through to `firstIdForType(type)`, rendering the FIRST seed row of the
+  // type — its real name, tags and metrics — under a URL naming a vanished
+  // id, with no error anywhere on screen. Session-saved assets live in an
+  // in-memory store that empties on reload, so any "View in Assets" link
+  // followed after a refresh hit exactly this. Same `NotFound` the `/grid/:id`
+  // route already renders, imported rather than a second grammar invented.
+  //
+  // Placed AFTER the last hook on purpose. Unlike the `!def` bail above
+  // (whose condition is fixed for the life of a mount), this one FLIPS while
+  // mounted — navigate a valid id → a bad one, or delete the asset you are
+  // looking at — and an early return above the hooks would change the hook
+  // count between renders and crash React.
+  //
+  // The guard is on `routeId` only: `/assets/<type>` with no id at all still
+  // opens on the first entity, which is the intended landing behaviour.
+  if (routeUnresolved) {
+    return <NotFound type={type} navigate={navigate} />;
+  }
 
   const handleSelectEntity = (id: string) => {
     setSelectedId(id);
@@ -1151,11 +1185,35 @@ function GenericAssetSectionView({
         </div>
       )}
 
-      <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
-        <span>{card.usageCount} runs</span>
-        <span aria-hidden>·</span>
-        <span>Last used {card.lastUsedLabel}</span>
-      </div>
+      {/* Frameworks are excluded because `FrameworkStructure` below renders
+          its OWN usage row, and the two disagreed on screen: this line said
+          "Last used 1mo ago" (a deterministic fallback) directly above
+          "Last used — not tracked for frameworks". The component's row is the
+          honest one and is what the `/grid/:id` page already shows alone, so
+          this generic row stands down for that one type rather than the two
+          contradicting each other. */}
+      {type !== "frameworks" && (
+        <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
+          <span>{card.usageCount} runs</span>
+          <span aria-hidden>·</span>
+          <span>Last used {card.lastUsedLabel}</span>
+        </div>
+      )}
+
+      {/* A storyboard's ordered scene list IS the asset — showing only tags
+          and a usage count here left its entire substance unrendered, while
+          the card grammar happily advertised "5 scenes". Same component the
+          `/grid/:id` detail page uses, so the two surfaces can't drift. */}
+      {type === "storyboards" && (
+        <StoryboardScenes storyboard={item as unknown as StoryboardAsset} />
+      )}
+
+      {/* Frameworks had the identical gap — the ordered sections ARE the
+          framework, and this surface rendered none of them while the
+          `/grid/:id` page did. Same shared component, same reason. */}
+      {type === "frameworks" && (
+        <FrameworkStructure framework={item as unknown as Framework} />
+      )}
 
       <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
 
@@ -1270,11 +1328,14 @@ function ProductSectionView({ productId, section }: { productId: string; section
     const brand = brands.find((b) => b.id === prod.brandId);
     return (
       <div className="p-6 max-w-3xl">
+        {/* The one hand-built criteria set left in this file; `assetLabel`
+            uses registry casing (`AssetTypeDef.singular`) so it matches every
+            other call site, all of which now get the label from the spread. */}
         <GenerationsFromAsset
           brandName={brand?.name}
           productName={prod.name}
           tracked
-          assetLabel="product"
+          assetLabel="Product"
           useInGenieHref={useInGenieUrl("products", prod.id)}
         />
       </div>
@@ -1439,7 +1500,14 @@ function AngleSectionView({ angleId, section }: { angleId: string; section: stri
 
 /* ─── Hook section view ───────────────────────────── */
 function HookSectionView({ hookId, section }: { hookId: string; section: string }) {
-  const hook = hooks.find((h) => h.id === hookId);
+  // `findEntityById`, not `hooks.find` — the raw seed array does not contain
+  // session-added rows, so a hook saved from Genie's Library (Hooks tab →
+  // "Save to Assets") appeared in panes 1 and 2 and then hit "Hook not found"
+  // here. `findEntityById` goes through the registry's `resolve()`, which
+  // merges the write store's added/duplicated rows (assetTypes.ts's
+  // `makeResolver`) — the same reason the Frameworks/Storyboards views
+  // already use it.
+  const hook = findEntityById<Hook>("hooks", hookId);
   if (!hook) return <Empty>Hook not found</Empty>;
   const brand = hook.brandId ? brands.find((b) => b.id === hook.brandId) : undefined;
   const angle = hook.angleId ? angles.find((a) => a.id === hook.angleId) : undefined;
@@ -1504,7 +1572,10 @@ function HookSectionView({ hookId, section }: { hookId: string; section: string 
 
 /* ─── Concept section view ───────────────────────────── */
 function ConceptSectionView({ conceptId, section }: { conceptId: string; section: string }) {
-  const concept = concepts.find((c) => c.id === conceptId);
+  // Merged lookup, not the raw seed array — see HookSectionView above. A
+  // concept saved from Genie's Library rendered "Concept not found" here
+  // while showing correctly in panes 1 and 2.
+  const concept = findEntityById<Concept>("concepts", conceptId);
   if (!concept) return <Empty>Concept not found</Empty>;
   const brand = brands.find((b) => b.id === concept.brandId);
   const angle = angles.find((a) => a.label.toLowerCase() === concept.angle.toLowerCase());

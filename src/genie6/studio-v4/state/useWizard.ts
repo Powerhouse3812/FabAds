@@ -43,6 +43,17 @@ export type Mode =
    *  creator-led, script-first) and from `broll` (cutaway meant to sit UNDER
    *  primary content rather than be the ad). */
   | "product-demo"
+  /** Maalik (2026-09-09) — the image approach that took BG Remover's slot.
+   *  A NEW still of the product staged in a real environment. That "new" is
+   *  what separates it from `create-variations` (re-cuts a creative that
+   *  already exists); the still-image output is what separates it from
+   *  `product-demo` (video, feature-by-feature, no creator). */
+  | "lifestyle-scene"
+  /** Retired from the Step-3 grid on 2026-09-09 and rehomed as the LIVE
+   *  `bg-remover` entry in `apps/data/appRegistry.ts` — Maalik: "bg remover ko
+   *  approach se htake, apps me hi rakho". Kept in the union (not deleted)
+   *  because historical runs still carry the id and every label map below
+   *  still has to render it. See APPROACHES_BY_FORMAT — no longer offerable. */
   | "bg-remover"
   | "resize"
   /** Genie chooses the approach. The format-agnostic catch-all that "scratch"
@@ -901,11 +912,14 @@ export const FREE_GENERATION_LABEL = "Free";
 const MODE_LABEL: Record<Mode, string> = {
   auto: "Auto",
   "product-demo": "Product Demo",
+  "lifestyle-scene": "Lifestyle Scene",
   scratch: "From scratch",
   "create-variations": "Create variations",
   "ugc-video": "UGC Video",
   "image-to-video": "Image to video",
   broll: "B-roll",
+  // Unofferable since 2026-09-09 (now an Other App), but historical runs still
+  // carry the id — the label has to stay or those runs render a raw slug.
   "bg-remover": "Background remover",
   resize: "Resize",
 };

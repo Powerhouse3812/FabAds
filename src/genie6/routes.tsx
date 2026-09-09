@@ -79,7 +79,7 @@ export const genie6Routes = (
     <Route path="flows" element={<OtherFlows />} />
     <Route path="flows/:moduleKey" element={<FlowModuleDetail />} />
 
-    {/* §8 — Other Apps. 15 apps, 7 live. One screen anatomy driven from
+    {/* §8 — Other Apps. 22 apps, 8 live. One screen anatomy driven from
         apps/data/appRegistry.ts, so a new app is a registry entry rather than
         a new file. All output lands in the central Library (§8), never a
         per-app store. */}
@@ -142,6 +142,12 @@ export const genie6Routes = (
     <Route path="assets/frameworks/:id" element={<CatalogueFinder type="frameworks" />} />
     <Route path="assets/frameworks/grid" element={<CatalogueListPage type="frameworks" />} />
     <Route path="assets/frameworks/grid/:id" element={<CatalogueDetailPage type="frameworks" />} />
+    {/* Storyboards — joined the registry 2026-09-09 (was generated-only,
+        with no Catalogue home; see assetTypes.ts's header note). */}
+    <Route path="assets/storyboards" element={<CatalogueFinder type="storyboards" />} />
+    <Route path="assets/storyboards/:id" element={<CatalogueFinder type="storyboards" />} />
+    <Route path="assets/storyboards/grid" element={<CatalogueListPage type="storyboards" />} />
+    <Route path="assets/storyboards/grid/:id" element={<CatalogueDetailPage type="storyboards" />} />
     <Route path="assets/angles" element={<CatalogueFinder type="angles" />} />
     <Route path="assets/angles/:id" element={<CatalogueFinder type="angles" />} />
     <Route path="assets/angles/grid" element={<CatalogueListPage type="angles" />} />
