@@ -33,6 +33,23 @@
  * winning ad, a trend, a landing page…), not angle/hook/concept/framework/
  * script/storyboard content, so "Ad, from anything" is the only pair that
  * ever applied.
+ *
+ * TRENDS RECONCILED (2026-09-09) — `script-from-trend` is now the SEVENTH
+ * source-carrying action (`source: "angle"`), not a reference-attaching one.
+ * It contradicted itself: its name and copy promised a Script while its
+ * `targets: ["ad"]` built an Ad. See its entry for the full reasoning and for
+ * why the id survives rather than being folded into `use-angle`.
+ *
+ * FRAMEWORK IS NEVER A TARGET (owner, verbatim): "Framework abhi bi generate
+ * nahi denge… only save from video sage hi hai abhi bi." A Framework is a
+ * SOURCE you build from and a thing you SAVE out of Video Sage — never
+ * something Genie generates. This file cannot violate that even by accident:
+ * `GenerationTarget` (useWizard.ts) has no "framework" member, so "framework"
+ * can never enter `ALL_TARGETS` and `targetsForSource()` can never return it.
+ * `use-framework` is correspondingly a source-only action — it READS a
+ * framework and produces Ad/Script/Concept/Storyboard. Do not add a
+ * "generate-framework" action here; the fix would have to start in the
+ * wizard's target union, and the owner has ruled against it.
  */
 import type { FlowAction, FlowActionId, FlowModule, FlowModuleKey } from "../flowTypes";
 import { isValidSourceForTarget, type GenerationSource, type GenerationTarget } from "../../studio-v4/state/useWizard";
@@ -362,20 +379,64 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
   },
   "script-from-trend": {
     id: "script-from-trend",
-    label: "Generate a script from this trend",
-    desc: "Write a new script around this trend.",
-    icon: "FileText",
+    // RECONCILED (2026-09-09, owner, verbatim): "Script from trend ka matlab
+    // tha, we get trending angles and trending ads and trending hooks, and
+    // other assets in news, and we are giving options from there. but let's
+    // focus on genie, ki Trend se bhi chise aa skti hai."
+    //
+    // So this was never "one action that writes a script". A trend SURFACES a
+    // trending ANGLE, and the user builds whatever they want from it — the
+    // same asset-reuse vocabulary every other live source module already
+    // offers. This entry is therefore Trends' "use the trending angle"
+    // action, not a Script generator.
+    //
+    // WHY IT WASN'T REPLACED BY `use-angle`: the id is load-bearing.
+    // `FlowActionId` (flowTypes.ts) is a closed union and
+    // `insights-trends/components/TrendActions.tsx`'s `GENIE_ACTIONS`
+    // hardcodes this exact id on the trend card's own button — both files are
+    // read-only from here. Deleting the id would make `resolveFlowContext`
+    // reject it (it rejects any action a module doesn't list), and that button
+    // would silently produce a null context: no banner, no angle, no prompt.
+    // That is precisely the dead-flow bug the Creative Library note further
+    // down records. So the id stays and the MEANING is corrected in place.
+    // TrendActions reads `FLOW_ACTIONS[...].label` rather than its own string,
+    // so the button relabels itself from this one edit.
+    //
+    // WHY IT ISN'T A DUPLICATE OF `use-angle`: only `trends` lists this id, so
+    // there is no cross-module drift for the house rule to police, and
+    // `use-angle` cannot be listed here anyway — it is `requiresAnalysis:
+    // true` and no trend ref carries `analysed`, so every row would render
+    // blocked ("Needs analysis in Trends"). A trend PUBLISHES its angle; there
+    // is no analysis step in Trends to gate on, hence `requiresAnalysis:
+    // false` here.
+    label: "Use this trend's angle",
+    desc: "Carry this trend's angle into a new generation. You'll pick what to make and who it's for.",
+    icon: "Target",
     asksNothing: false,
     entityTab: "product",
     preselectEntity: false,
-    // NOTE (out of this task's scope): this action's name/copy already say
-    // "script", but it predates the target/source contract and isn't one of
-    // the five confirmed source actions this change adds — left as `targets:
-    // ["ad"]` (unchanged) rather than reclassified as a Script target, which
-    // would be a separate, unreviewed change. Flagged in the build report.
-    produces: "One new script, written around this trend.",
-    source: "none",
-    targets: ["ad"],
+    // The old entry said "script" in its name and copy while carrying
+    // `targets: ["ad"]` — the banner promised a script and the wizard built an
+    // ad. `source: "angle"` is what the flow was ALREADY doing: since §8.4,
+    // `flowInitialPatch` seeds `patch.angleDescription = ref.trendAngle` for
+    // this exact action id, and every trend ref carries a `trendAngle`
+    // (flowSources.ts `trendRef`). Declaring it makes the contract match the
+    // behaviour, and `targetsForSource("angle")` then derives all four targets
+    // off `VALID_SOURCES_BY_TARGET` — so Script, the thing the old name
+    // promised and never delivered, is genuinely reachable now. Still derived,
+    // never hand-typed. Default target stays "ad" (first entry), so the trend
+    // card's existing one-click hand-off lands exactly where it always did.
+    produces:
+      "An ad — or a free script, concept, or storyboard — built around this trend's angle. You'll pick what to generate next.",
+    producesByTarget: {
+      ad: "A new ad built around this trend's angle. You'll pick who it's for next.",
+      script: "A new script, written around this trend's angle — free. You'll pick who it's for next.",
+      concept: "A new concept, built around this trend's angle — free. You'll pick who it's for next.",
+      storyboard:
+        "A new storyboard, built around this trend's angle — free, video format only. You'll pick who it's for next.",
+    },
+    source: "angle",
+    targets: targetsForSource("angle"),
     requiresAnalysis: false,
   },
 
@@ -523,7 +584,38 @@ export const FLOW_MODULES: FlowModule[] = [
     // Configure's suggestions rail") is a Configure-step behaviour, not a
     // card action, so it isn't an entry here. See flowSources.ts's file
     // header for the same note.
-    actions: ["generate-against-trend", "script-from-trend", "generate-variation"],
+    //
+    // 2026-09-09 — the three ids are unchanged (all three are hardcoded in
+    // `insights-trends/components/TrendActions.tsx`'s `GENIE_ACTIONS`;
+    // dropping any of them would make `resolveFlowContext` reject that
+    // button's URL and hand the user a bare wizard), but `script-from-trend`
+    // now MEANS "use this trend's angle" — see its FLOW_ACTIONS entry. That
+    // is the owner's actual intent: Trends is a source that surfaces trending
+    // assets, and the angle is the one this feed genuinely carries on every
+    // row (`FlowSourceRef.trendAngle`).
+    //
+    // `use-hook` IS now listed (2026-09-09) — the owner named trending hooks
+    // explicitly. It is `requiresAnalysis: true`, and `trendRef()` now sets
+    // `analysed: Boolean(t.hook)` rather than a blanket true, because only
+    // some trends quote a real hook line (`trendAngle` falls back to
+    // headline/excerpt for the rest). Gating is per-ACTION, so a hookless
+    // trend still offers everything else, and it carries its own
+    // `blockedReason` so the row does not claim the user skipped an
+    // "analysis" step that Trends does not have.
+    //
+    // WHAT IS DELIBERATELY NOT LISTED, AND WHY:
+    //  · `use-script` / `use-concept` / `use-storyboard` / `use-framework` — a
+    //    trends feed carries a headline, an excerpt, an angle and sometimes a
+    //    hook line. It does not carry an analysed script, a saved concept, a
+    //    shot list or a detected framework. Declaring them would be padding a
+    //    list with things the data cannot back (and they are all
+    //    `requiresAnalysis: true`, so they would be blocked anyway).
+    //  · `reference-for-new-ad` — tempting for "trending ads", but
+    //    `flowInitialPatch` attaches it as `source: "library"` and seeds
+    //    neither the trend's angle nor its prompt, so a trend picked this way
+    //    arrives mislabelled and without its own context. `generate-variation`
+    //    already covers remixing a trending ad. Left out until it is wired.
+    actions: ["generate-against-trend", "script-from-trend", "use-hook", "generate-variation"],
   },
   {
     key: "campaign-urls",

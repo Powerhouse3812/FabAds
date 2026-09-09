@@ -15,11 +15,16 @@ import { RETRY_MODEL_OPTIONS } from "./RetryModelPicker";
 const APPROACH_LABELS: Record<string, string> = {
   auto: "Auto",
   "product-demo": "Product Demo",
+  "lifestyle-scene": "Lifestyle Scene",
   scratch: "From scratch",
   "create-variations": "Create Variations",
   "ugc-video": "UGC Video",
   "image-to-video": "Image to Video",
   broll: "B-Roll",
+  // Retired from the Step-3 grid on 2026-09-09 (BG Remover is an Other App
+  // now). The label MUST stay: `approachLabel()` below returns undefined for
+  // an unknown id ON PURPOSE, so dropping this key would silently delete the
+  // approach chip from every historical batch that carries it.
   "bg-remover": "BG Remover",
   resize: "Resize",
 };

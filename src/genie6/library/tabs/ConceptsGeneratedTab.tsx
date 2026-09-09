@@ -9,6 +9,7 @@ import {
   poolBrandOptions,
 } from "./generatedAssetPool";
 import { GeneratedAssetCard } from "./GeneratedAssetCard";
+import { GeneratedTabZeroState } from "./GeneratedTabZeroState";
 import { saveGeneratedConcept, useSavedConceptCatalogueId } from "./generatedAssetsStore";
 
 /**
@@ -77,6 +78,21 @@ export function ConceptsGeneratedTab() {
       { replace: true },
     );
   };
+
+  // Zero-data — the pool itself is empty, so no filter change can bring
+  // anything back. Search + brand filter are suppressed with it: a filter
+  // over nothing is chrome that implies data is being hidden.
+  if (GENERATED_CONCEPTS.length === 0) {
+    return (
+      <GeneratedTabZeroState
+        noun="concepts"
+        description="A concept is the angle, hook and tone an ad runs on — the idea, before any pixels exist."
+        assetsPath="/iq/genie6/assets/concepts"
+        assetsLabel="Saved concepts"
+        Icon={Lightbulb}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -183,7 +199,7 @@ function ConceptCard({
       catalogueType="concepts"
       onSave={() => {
         saveGeneratedConcept(item);
-        toast.success(`"${item.name}" saved to Catalogue`);
+        toast.success(`"${item.name}" saved to Assets`);
       }}
     />
   );

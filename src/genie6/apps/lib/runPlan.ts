@@ -127,6 +127,12 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
       summary = "Background noise removed, voice levelled.";
       break;
     }
+    case "bg-remover": {
+      const imageTitle = mediaTitle(mediaValue);
+      title = imageTitle;
+      summary = "Background removed, subject cut out.";
+      break;
+    }
     default: {
       title = app.name;
       summary = `${app.name} output.`;

@@ -17,8 +17,8 @@
  *
  *   Business assets  — Brands · Products · Categories
  *   Creative assets  — Avatars · Voices · Scripts · Concepts · Hooks ·
- *                       CTAs · Frameworks · Angles · Templates ·
- *                       Audiences
+ *                       CTAs · Frameworks · Storyboards · Angles ·
+ *                       Templates · Audiences
  *
  * (Angle, Template and Audience are the §21.2 carry-over additions to the
  * §9 list — Angle and Audience already existed as entities before this
@@ -27,7 +27,16 @@
  * 2.0 §10 names ten types and the owner wants exactly the other 13 kept,
  * with References dropped.)
  *
- * All 13 ship in V1. Avatar *presets* ship in V1; avatar *creation* is V2
+ * Storyboards joined 2026-09-09: a storyboard could already be GENERATED
+ * (Genie's Library), but `CatalogueType` had no `"storyboards"` member, so
+ * the Library's Save action was a dead end (`canSaveToCatalogue={false}`
+ * in `StoryboardsGeneratedTab.tsx`). Maalik's ruling — "Storyboard is an
+ * asset like other, so if doesn't have one, then add one... bs user ko
+ * genie me dikhado" — makes it a first-class Creative type, closest in
+ * shape to Scripts (brand/product-linked, reviewed) and Frameworks
+ * (ordered breakdown, here scenes instead of named sections).
+ *
+ * All 14 ship in V1. Avatar *presets* ship in V1; avatar *creation* is V2
  * — so `avatars` is the one Creative type with no `addForm` below, which
  * is what removes the "create avatar" affordance from the generic
  * add/upload modal (§9 / §13).
@@ -47,6 +56,7 @@ import {
   MousePointerClick,
   GitBranch,
   LayoutTemplate,
+  Clapperboard,
 } from "lucide-react";
 import type { Provenance } from "@/genie6/lib/genieRunTypes";
 import {
@@ -62,6 +72,7 @@ import {
   scripts,
   ctas,
   templates,
+  storyboards,
 } from "@/mocks/shared";
 import type {
   Brand,
@@ -77,6 +88,7 @@ import type {
 import type { ScriptAsset } from "@/mocks/shared/scripts";
 import type { CtaAsset } from "@/mocks/shared/ctas";
 import type { TemplateAsset } from "@/mocks/shared/templates";
+import type { StoryboardAsset } from "@/mocks/shared/storyboards";
 // Owned by the Editor agent (Genie 2.0 §14 / §21.2 "Framework has to
 // become a real object"). Coded against the documented signature —
 // this file may not exist yet while the Editor agent is still building
@@ -104,6 +116,7 @@ export type CatalogueType =
   | "hooks"
   | "ctas"
   | "frameworks"
+  | "storyboards"
   | "angles"
   | "templates"
   | "audiences";
@@ -128,6 +141,7 @@ export const ASSET_TYPE_ORDER: CatalogueType[] = [
   "hooks",
   "ctas",
   "frameworks",
+  "storyboards",
   "angles",
   "templates",
   "audiences",
@@ -212,13 +226,27 @@ function deterministicLastUsed(id: string, maxDaysAgo = 75): string {
   return d.toISOString().slice(0, 10);
 }
 
-function todayIso(): string {
+/**
+ * Exported so the Library's save paths date a freshly-saved asset against the
+ * SAME frozen clock the catalogue renders relative to. They previously used a
+ * real `new Date()`, so on any machine whose date isn't 2026-09-06 a
+ * just-saved row rendered as stale (or dated in the future) the moment it
+ * appeared. Every date in this prototype is relative to `NOW`, not to today.
+ */
+export function todayIso(): string {
   return NOW.toISOString().slice(0, 10);
 }
 
 export function formatLastUsed(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
-  const days = Math.round((NOW.getTime() - d.getTime()) / 86_400_000);
+  // FLOOR, not round. `NOW` is frozen at NOON but an ISO date parses to
+  // MIDNIGHT, so the gap is always n + 0.5 days — and `Math.round` rounds a
+  // half UP, which made every label one day too old: an asset saved seconds
+  // ago (`todayIso()`) came out as "Yesterday", yesterday's as "2d ago". Floor
+  // discards the constant half-day and yields the true elapsed day count. It
+  // also absorbs a DST shift (n + 0.5 ± 1h still floors to n), which round
+  // would flip at the boundary.
+  const days = Math.floor((NOW.getTime() - d.getTime()) / 86_400_000);
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days}d ago`;
@@ -643,15 +671,48 @@ const frameworksType: AssetTypeDef<Framework> = {
       lastUsedAt: deterministicLastUsed(f.id),
       item: f,
     }),
-  addForm: { nameLabel: "Framework name" },
-  buildAdded: (input) =>
-    ({
-      id: genId("framework"),
-      name: input.name,
-      sections: [],
-      provenance: "client-created",
-      usageCount: 0,
-    }) as unknown as Framework,
+  // No `addForm` / `buildAdded` — deliberate. Owner ruling 2026-09-09: "Framework
+  // abhi bi generate nahi denge… only save from video sage hi hai abhi bi." A
+  // Framework is never a GenerationTarget AND is not hand-created either; the
+  // single way one comes into existence is SaveFrameworkDialog in Video Sage.
+  // Declaring these two keys is what put a generic "New Framework" button on the
+  // list page, which contradicted that. Omitting them removes the button —
+  // `CatalogueListPage` already gates the affordance on `addForm` being present.
+};
+
+const storyboardsType: AssetTypeDef<StoryboardAsset> = {
+  id: "storyboards",
+  label: "Storyboards",
+  singular: "Storyboard",
+  icon: Clapperboard,
+  description: "Scene-by-scene shot plans for a video ad — shot, description and duration per beat, ready to hand to production.",
+  group: "creative",
+  resolve: makeResolver("storyboards", storyboards, (s, name) => ({ ...s, title: name })),
+  getId: (s) => s.id,
+  getName: (s) => s.title,
+  withName: (s, name) => ({ ...s, title: name }),
+  toCard: (s) => {
+    const brand = s.brandId ? brands.find((b) => b.id === s.brandId) : undefined;
+    return buildCard("storyboards", s.id, s.title, {
+      subtitle: [brand?.name, `${s.scenes.length} scenes`, s.formatLabel].filter(Boolean).join(" · "),
+      thumbnail: s.thumbnail,
+      tags: s.tags,
+      usageCount: s.usageCount,
+      lastUsedAt: s.lastUsedAt,
+      item: s,
+    });
+  },
+  // No `addForm` / `buildAdded` — same reasoning as `frameworksType` above,
+  // and for the same structural reason: Storyboards is Frameworks' shape-twin.
+  // The substance of both is an ORDERED BREAKDOWN (scenes here, sections
+  // there), and `AssetFormModal` can only ever collect a name, tags and one
+  // optional body string — it has no way to author a scene, and Edit only
+  // renames. Declaring these two keys therefore shipped a "New Storyboard"
+  // button that manufactured a permanently 0-scene asset with no path to ever
+  // add one. Omitting them removes the button — `CatalogueListPage` and
+  // `CatalogueFinder` both gate the affordance on `addForm` being present.
+  // A storyboard's only legitimate origin is Genie generating one and the user
+  // saving it out of the Library.
 };
 
 const templatesType: AssetTypeDef<TemplateAsset> = {
@@ -704,6 +765,7 @@ export const ASSET_TYPES: Record<CatalogueType, AssetTypeDef> = {
   scripts: scriptsType,
   ctas: ctasType,
   frameworks: frameworksType,
+  storyboards: storyboardsType,
   templates: templatesType,
 };
 

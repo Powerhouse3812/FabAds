@@ -49,3 +49,9 @@ export * from "./scripts";
 export * from "./ctas";
 export * from "./templates";
 export * from "./references";
+// Storyboards — 2026-09-09 follow-up: Storyboard could be GENERATED but had
+// no Catalogue/asset-type home (`CatalogueType` had no "storyboards" member),
+// leaving the Library's Save action a dead end. Closest siblings are Scripts
+// (brand/product-linked, reviewed) and Frameworks (ordered breakdown) — see
+// assetTypes.ts's registry entry.
+export * from "./storyboards";

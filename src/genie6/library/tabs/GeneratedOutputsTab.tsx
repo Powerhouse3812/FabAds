@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Image as ImageIcon, FileText, Lightbulb, Clapperboard } from "lucide-react";
+import { Image as ImageIcon, FileText, Lightbulb, Clapperboard, Quote } from "lucide-react";
 import { BulkToolbar } from "../../components/BulkToolbar";
 import { CSVExportButton } from "../../components/CSVExportButton";
 import { EmptyState } from "../../components/EmptyState";
@@ -21,6 +21,8 @@ import { GENERATED_SCRIPTS, GENERATED_CONCEPTS, GENERATED_STORYBOARDS } from "./
 import { ScriptsGeneratedTab } from "./ScriptsGeneratedTab";
 import { ConceptsGeneratedTab } from "./ConceptsGeneratedTab";
 import { StoryboardsGeneratedTab } from "./StoryboardsGeneratedTab";
+import { HooksGeneratedTab } from "./HooksGeneratedTab";
+import { useGeneratedHookLines } from "./hookLinePool";
 import { LibraryAssetTabBar, type LibraryAssetTab } from "./LibraryAssetTabBar";
 
 type Props = {
@@ -59,8 +61,15 @@ type Props = {
  *
  * `?libraryTab=` (default "ads", omitted from the URL like every other
  * default-valued Library param) picks the active tab — scripts / concepts /
- * storyboards render `ConceptsGeneratedTab` / `ScriptsGeneratedTab` /
- * `StoryboardsGeneratedTab`.
+ * storyboards / hooks render `ScriptsGeneratedTab` / `ConceptsGeneratedTab` /
+ * `StoryboardsGeneratedTab` / `HooksGeneratedTab`.
+ *
+ * Hooks is the odd one out and deliberately so: the four generation targets
+ * are ad / script / concept / storyboard, so nothing produces a standalone
+ * hook. `HooksGeneratedTab` is therefore a PROJECTION of the same ad pool
+ * this file already renders, down to the hook line each ad carries in
+ * `OutputData.headline` — see that file's header for the evidence that the
+ * field really is the hook line. It is not a fifth draft pool.
  *
  * Known limitation from the ownership split above: `<LibraryTopBar />`'s
  * Masonry/By-angle/By-batch view toggle and day-range select are Ads-only
@@ -72,7 +81,12 @@ export function GeneratedOutputsTab(props: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("libraryTab");
   const tab: LibraryAssetTab =
-    rawTab === "scripts" || rawTab === "concepts" || rawTab === "storyboards" ? rawTab : "ads";
+    rawTab === "scripts" ||
+    rawTab === "concepts" ||
+    rawTab === "storyboards" ||
+    rawTab === "hooks"
+      ? rawTab
+      : "ads";
 
   const setTab = useCallback(
     (next: LibraryAssetTab) => {
@@ -90,6 +104,10 @@ export function GeneratedOutputsTab(props: Props) {
   );
 
   const adsCount = useLocalOutputs().length + sampleOutputs.length;
+  // Hooks are a PROJECTION of the ad pool (one distinct line per ad), not a
+  // pool of their own — so the count is derived from the same hook the tab
+  // renders from, and can never drift from what the tab actually shows.
+  const hooksCount = useGeneratedHookLines().length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -101,6 +119,7 @@ export function GeneratedOutputsTab(props: Props) {
           { key: "scripts", label: "Scripts", Icon: FileText, count: GENERATED_SCRIPTS.length },
           { key: "concepts", label: "Concepts", Icon: Lightbulb, count: GENERATED_CONCEPTS.length },
           { key: "storyboards", label: "Storyboards", Icon: Clapperboard, count: GENERATED_STORYBOARDS.length },
+          { key: "hooks", label: "Hooks", Icon: Quote, count: hooksCount },
         ]}
       />
 
@@ -110,8 +129,10 @@ export function GeneratedOutputsTab(props: Props) {
         <ScriptsGeneratedTab />
       ) : tab === "concepts" ? (
         <ConceptsGeneratedTab />
-      ) : (
+      ) : tab === "storyboards" ? (
         <StoryboardsGeneratedTab />
+      ) : (
+        <HooksGeneratedTab />
       )}
     </div>
   );

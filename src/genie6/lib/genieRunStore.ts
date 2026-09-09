@@ -783,10 +783,17 @@ const ASPECT_RATIOS = ["4:5", "1:1", "9:16", "16:9"];
 
 const ANGLE_LABEL: Record<string, string> = Object.fromEntries(angles.map((a) => [a.id, a.label]));
 
-/** §8's live-app cost table, straight from the spec (appRegistry.ts doesn't
- *  exist yet — see BRIEF.md §8). Only the 7 live apps are ever used as an
- *  origin below, but keyed loosely so a future app added here doesn't need
- *  an exhaustive Record. */
+/** §8's live-app cost table. Keyed loosely (Partial) so a coming-soon app
+ *  added here doesn't need an exhaustive Record — a miss falls back to `?? 6`
+ *  below, which is a wrong-but-harmless price on SEEDED history only.
+ *
+ *  STALE-COMMENT FIX (2026-09-09): this used to say "appRegistry.ts doesn't
+ *  exist yet — see BRIEF.md §8". It does exist, and it is the source of truth
+ *  for a live app's rate (`GenieApp.cost.rate`). This table is a DUPLICATE
+ *  that only seeded historical batches read; every live run prices through
+ *  `previewCost()` instead. Keep the two in sync by hand until someone folds
+ *  this into a `getApp(key)?.cost?.rate` lookup — every entry below matches
+ *  its registry `cost.rate` today. */
 const APP_RATE: Partial<Record<AppKey, number>> = {
   "translate-videos": 6,
   "avatar-shots": 9,
@@ -795,6 +802,8 @@ const APP_RATE: Partial<Record<AppKey, number>> = {
   "product-placement": 16,
   "face-swap": 13,
   "speech-cleanup": 2,
+  // Live since 2026-09-09 — moved out of Studio's Approach grid into Apps.
+  "bg-remover": 2,
 };
 
 /**

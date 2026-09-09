@@ -1,8 +1,8 @@
 /**
  * Other Apps — the registry (Genie 2.0 §8).
  *
- * 22 apps, one array. 7 are live and fully declared (sections, cost, zero
- * state, stages); 15 stay "Coming soon" — a card only, no internal screen.
+ * 22 apps, one array. 8 are live and fully declared (sections, cost, zero
+ * state, stages); 14 stay "Coming soon" — a card only, no internal screen.
  * 4 of the coming-soon entries (Add Video Captions, Change Metadata,
  * Prompt Generator, Thumbnail Maker) came from Maalik's own additions list —
  * reconciled against the existing 15 in GENERATION_TARGETS.md §11 as
@@ -21,9 +21,11 @@
  * third item on his list, "Swap avatar", is NOT a new entry — it's already
  * the live `face-swap` app below (casting a different face onto existing
  * footage is exactly what Face Swap does; avatar-shots is presenter casting,
- * a different job). All three new entries are pure "Soon" cards — no
- * sections/cost/zeroState/stages — because there is no real build behind any
- * of them yet, same as every other coming-soon entry here.
+ * a different job). Resize Image and Object Remover are still pure "Soon"
+ * cards — no sections/cost/zeroState/stages — because there is no real build
+ * behind either yet. BG REMOVER IS NOT: it went live on 2026-09-09 when Maalik
+ * pulled it out of Studio's Step-3 Approach grid, which made this entry the
+ * only home the capability has. See its entry in the live block.
  * AppRunner (owned by the Apps UI agent) reads a live app's `sections` and
  * renders the shared 750px setup-column anatomy from them; nothing here
  * hand-builds a screen, so a 23rd app is a registry entry, not a new file.
@@ -536,6 +538,93 @@ export const GENIE_APPS: GenieApp[] = [
       "Rendering final track",
     ],
   },
+  /**
+   * BG Remover — LIVE (2026-09-09, Maalik: "bg remover ko approach se htake,
+   * apps me hi rakho").
+   *
+   * It moved OUT of Studio's Step-3 Approach grid, so this entry is where the
+   * capability now lives — which is why it is fully declared rather than the
+   * "Soon" card it was between the sidebar-TOOLS fold-in and today. The last
+   * time an approach was deleted expecting an Other Apps hand-off, the app did
+   * not exist and the capability existed nowhere; that revert is documented in
+   * approach-subtypes.ts's APPROACHES_BY_FORMAT comment. This entry lands with
+   * the removal, not after it.
+   *
+   * `unit: "image"` with no `count` stepper: one image in, one cutout out, so
+   * the multiplier floors to 1 and the quoted total is always the flat rate.
+   * See appTypes.ts's AppCost for why "shot" was not reused.
+   */
+  {
+    key: "bg-remover",
+    name: "BG Remover",
+    tagline: "Remove the background from any product or ad image.",
+    subtitle:
+      "Upload an image and get a clean cutout back, ready to drop onto any scene or backdrop.",
+    category: "enhance",
+    icon: "Eraser",
+    state: "live",
+    cost: { rate: 2, unitLabel: "2 credits / image", unit: "image" },
+    sections: [
+      {
+        title: "Source",
+        fields: [
+          {
+            kind: "media-picker",
+            id: "image",
+            label: "Image",
+            hint: "Upload an image or choose one from your Library.",
+            media: "image",
+            sources: ["library", "upload"],
+            accept: [".jpg", ".jpeg", ".png", ".webp"],
+            required: true,
+          },
+        ],
+      },
+      {
+        title: "Output",
+        fields: [
+          {
+            kind: "segmented",
+            id: "backdrop",
+            label: "What replaces the background",
+            options: [
+              { value: "transparent", label: "Transparent", desc: "PNG with an alpha channel" },
+              { value: "white", label: "Solid white" },
+              { value: "studio", label: "Studio grey" },
+            ],
+            required: true,
+          },
+          {
+            kind: "select",
+            id: "edgeHandling",
+            label: "Edge handling",
+            hint: "Hair, fur and sheer fabric need the slower pass to cut cleanly.",
+            options: [
+              { value: "standard", label: "Standard", desc: "Fastest — best on hard product edges" },
+              { value: "fine-detail", label: "Fine detail", desc: "Slower — keeps hair, fur and fabric" },
+            ],
+            required: true,
+          },
+        ],
+      },
+    ],
+    zeroState: {
+      title: "Cut a product out of its background",
+      line: "Strip the backdrop from any image and get a clean cutout you can drop onto any scene.",
+      steps: [
+        "Pick an image from your Library or upload one",
+        "Choose what replaces the background and how edges are cut",
+        "Generate — Genie returns the cutout",
+      ],
+    },
+    stages: [
+      "Reading the image",
+      "Detecting the subject",
+      "Separating foreground",
+      "Refining edges",
+      "Exporting the cutout",
+    ],
+  },
 
   // ────────────────────────────────────────────────────────── Coming soon ──
   {
@@ -651,18 +740,9 @@ export const GENIE_APPS: GenieApp[] = [
 
   // ──────────── Coming soon — folded in from the sidebar TOOLS group ──
   // See the file header for the full "single home for one-shot tools"
-  // reasoning. All three stay pure cards, same as every other coming-soon
-  // entry above — no sections/cost/zeroState/stages invented for any of
-  // them.
-  {
-    key: "bg-remover",
-    name: "BG Remover",
-    tagline: "Remove the background from any product or ad image.",
-    subtitle: "Upload an image and get a clean cutout back, ready to drop onto any scene or backdrop.",
-    category: "enhance",
-    icon: "Eraser",
-    state: "coming-soon",
-  },
+  // reasoning. Resize Image and Object Remover stay pure cards, same as every
+  // other coming-soon entry above. BG Remover does NOT — see its entry, which
+  // moved up into the live block.
   {
     key: "resize-image",
     name: "Resize Image",

@@ -8,7 +8,7 @@ import {
   Mic,
   Package,
   Repeat,
-  Scissors,
+  Sofa,
   Sparkles,
   Target,
   Video,
@@ -41,7 +41,7 @@ import { PreviewVideo as PreviewVideoBase } from "../components/PreviewVideo";
 // reused here instead of a third copy so the Custom route's angle grid can
 // never drift from what Configure/Overview show for the same id.
 import { ANGLE_CHIP_LABEL } from "../components/PromptReferenceBar";
-import { CONCEPTS, getConceptVisuals } from "../data/concepts";
+import { CONCEPTS, getConceptById, getConceptVisuals } from "../data/concepts";
 
 interface Step3Props {
   wizard: UseWizardReturn;
@@ -73,6 +73,19 @@ interface ApproachMode {
  * capabilities existed nowhere; and Format=Image collapsed to a single offered
  * approach, i.e. a step that asks a question with one answer. §8's line governs
  * how the Other Apps registry is built, not what this step offers.
+ *
+ * 2026-09-09 — BG Remover finally did move out, and the two conditions that
+ * made the earlier pass a revert are both discharged, which is the only reason
+ * it stuck this time:
+ *   1. The app EXISTS FIRST. `bg-remover` is now a fully-declared LIVE entry in
+ *      apps/data/appRegistry.ts (sections, cost, zeroState, stages) — not the
+ *      "Soon" card it had been. The capability has a home before this grid
+ *      stopped being one.
+ *   2. Format=Image did not shrink. `lifestyle-scene` took the freed slot, so
+ *      Image still offers four and Video is untouched at six.
+ * The other three (Resize, Create Variations, Image to Video) are unchanged —
+ * none of them has an app to move to, so the paragraph above still governs
+ * them. Do not delete an approach until its replacement home is live.
  *
  * A-12.71 (Maalik, MOM 06-05): the Approach step is VISUAL. Each card leads
  * with an autoplay-loop video preview (getApproachVisual) instead of just an
@@ -126,12 +139,25 @@ const ALL_MODES: ApproachMode[] = [
     // from both, so it stays in the copy rather than the code comment.
     desc: "Product in use — features and angles, no creator on camera.",
   },
+  // Maalik (2026-09-09): takes BG Remover's slot in the image list. The desc
+  // has to earn its place against the two approaches it sits nearest:
+  // "a new scene" separates it from Create Variations (which re-cuts a
+  // creative that already exists), and the still-image framing separates it
+  // from Product Demo (video, feature-by-feature). Image-only —
+  // APPROACHES_BY_FORMAT.
   {
-    id: "bg-remover",
-    Icon: Scissors,
-    title: "BG Remover",
-    desc: "Strip backgrounds from product shots.",
+    id: "lifestyle-scene",
+    Icon: Sofa,
+    title: "Lifestyle Scene",
+    desc: "Product in a real setting, in use — a new scene, not an edit.",
   },
+  // BG Remover used to sit here. It moved to Other Apps on 2026-09-09 and is a
+  // fully-declared LIVE entry in apps/data/appRegistry.ts — sections, cost,
+  // zero state, stages — NOT the "Soon" card it was. That order matters: the
+  // reverted pass described above deleted approaches into a registry that had
+  // nowhere to put them. The `bg-remover` Mode id is still defined in
+  // useWizard.ts and still labelled in every label map, because historical
+  // runs carry it.
   {
     id: "resize",
     Icon: Maximize2,
@@ -167,6 +193,136 @@ const OTHER_APPS_PATH = "/iq/genie6/apps";
  *  a duplicated literal array, so this grid can never list an id that map
  *  doesn't know how to label. */
 const ANGLE_IDS = Object.keys(ANGLE_CHIP_LABEL);
+
+/**
+ * Maalik (2026-09-09, verbatim): "approach ka UI bhi thik krna pdega, uspe
+ * angle ke tags hone chahiye, and concept ka style name wagahrah kuchh."
+ *
+ * The card showed title + desc only, so the one thing choosing an approach
+ * actually DOES — auto-fill an angle and a concept for the Configure step —
+ * was invisible until after you had committed to it. Picking blind, then
+ * discovering the angle on the next screen, is Nielsen #1 (visibility of
+ * system status) failing at the exact moment of the decision.
+ *
+ * Read off `autoFillForApproach` — the SAME single source Configure reads —
+ * rather than a second hand-written table, so a chip can never promise an
+ * angle the next step doesn't apply.
+ *
+ * That promise was NOT true when these chips first shipped, and the fix is
+ * `approachPatch` below — read it before touching either. The chip named a
+ * concept the wizard then threw away, so Configure read "CONCEPT: None"
+ * directly under a card saying "Morning Ritual".
+ */
+/**
+ * Turn an approach's auto-fill into an actual wizard patch.
+ *
+ * `autoFillForApproach` returns `{ angleId, conceptIds }`, but wizard state's
+ * field is `selectedConceptIds`. Both commit paths below used to spread the
+ * raw object straight into `wizard.patch`, and a spread is NOT
+ * excess-property-checked — so `conceptIds` was dropped in silence and NO
+ * approach has ever applied its concept, including the long-standing ones.
+ * The angle landing while the concept vanished is also what made Configure
+ * treat the run as user-edited and skip its own back-fill.
+ *
+ * Mapping it explicitly, in ONE place both paths share, is what stops this
+ * recurring — and it is why the chips above can now be trusted.
+ *
+ * WHY CONCEPTS ARE CONDITIONAL AND THE ANGLE IS NOT (read before "simplifying"):
+ * writing `selectedConceptIds` unconditionally destroys the §13 multi-concept
+ * hand-off. A user arriving from ConceptsLibrary with `?concepts=a,b,c` and
+ * then picking an approach saw three deliberate picks collapse to that
+ * approach's single default — and Configure's own `userEditedRef` guard cannot
+ * save them, because the damage happens a step earlier, here. Ironically the
+ * dropped-spread bug above was what had been hiding this.
+ *
+ * So a concept set is only ours to replace when it is EMPTY, or when it is
+ * still exactly the auto-fill of the approach that PUT it there (i.e. we put
+ * it there, and switching approach should visibly change it). Anything else
+ * came from the user or a flow, and survives.
+ *
+ * `origin` — the (mode, sub-type) pair that actually wrote the current
+ * concepts — is passed in rather than read off `state`, and that is
+ * load-bearing, not tidiness. Picking a BRANCHING approach (UGC Video /
+ * Create Variations / Image to Video) patches `mode` one click BEFORE the
+ * sub-type is chosen, so by the time `pickSubType` commits, `state.mode` is
+ * already the NEW approach: comparing against it made every incoming switch
+ * look user-owned, and Product Demo → UGC → Tutorial kept Detail Macro under
+ * a card promising UGC Creator Look — the exact lying chip this function
+ * exists to prevent.
+ *
+ * The angle is unconditional on purpose: it is single-valued, so replacing it
+ * is a swap and not data loss, and the whole point of this step — and of the
+ * chip on the card — is that the approach you pick decides the angle.
+ */
+function sameConceptSet(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
+/** The (mode, sub-type) pair whose auto-fill produced the concepts in state. */
+interface ConceptOrigin {
+  mode: Mode;
+  subTypeId: string | null;
+}
+
+function approachPatch(
+  state: WizardState,
+  origin: ConceptOrigin,
+  mode: Mode,
+  subTypeId: string | null,
+): Partial<WizardState> {
+  const { angleId, conceptIds } = autoFillForApproach(mode, subTypeId);
+  const current = state.selectedConceptIds;
+  const previousAutoFill = autoFillForApproach(origin.mode, origin.subTypeId).conceptIds;
+  const oursToReplace = current.length === 0 || sameConceptSet(current, previousAutoFill);
+  return oursToReplace ? { angleId, selectedConceptIds: conceptIds } : { angleId };
+}
+
+function approachMeta(mode: Mode): {
+  angleLabel: string;
+  conceptName: string | null;
+  varies: boolean;
+} {
+  const { angleId, conceptIds } = autoFillForApproach(mode, null);
+  const concept = conceptIds[0] ? getConceptById(conceptIds[0]) : undefined;
+  return {
+    // A null angle is not missing data — for `auto` and `resize` it MEANS
+    // Genie picks, so it says that instead of rendering an empty chip.
+    angleLabel: angleId ? ANGLE_CHIP_LABEL[angleId] ?? angleId : "Genie decides",
+    conceptName: concept?.name ?? null,
+    varies: hasSubTypes(mode),
+  };
+}
+
+/**
+ * The chip row. Deliberately ONE line that never wraps: a wrapped chip would
+ * make one grid cell taller than its neighbours, and CSS grid stretches the
+ * whole row to match. Long labels truncate instead.
+ *
+ * Approaches WITH sub-types show their approach-level DEFAULT, which the
+ * sub-type can still change — marked with a dashed border plus the `title`
+ * note below (the row's accessible description; there is no sr-only twin).
+ * Not greyed out, which would read as locked or disabled: the opposite of
+ * what is true.
+ */
+function ApproachMeta({ mode }: { mode: Mode }) {
+  const { angleLabel, conceptName, varies } = approachMeta(mode);
+  const note = varies
+    ? "Default angle and concept — choosing a style can change them."
+    : "The angle and concept this approach applies.";
+  const chip = cn(
+    "min-w-0 shrink truncate rounded border px-1.5 py-px font-mono text-[10px] leading-[15px] text-muted-foreground",
+    varies ? "border-dashed border-border" : "border-border/60 bg-muted/50",
+  );
+  return (
+    <span className="mt-1 flex items-center gap-1 overflow-hidden" title={note}>
+      <span className={chip}>{angleLabel}</span>
+      {conceptName && <span className={chip}>{conceptName}</span>}
+      {/* No sr-only twin of `note` — `title` on a span that already has text
+          content is announced as its description, so carrying both made every
+          card read the same sentence twice. */}
+    </span>
+  );
+}
 
 /** Shared autoplay-loop video preview (muted + playsInline required for
  *  autoplay). Poster covers slow loads. preload="metadata" keeps it cheap —
@@ -228,6 +384,7 @@ function SingleApproachCard({
       <div className="flex flex-1 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
         <span className="text-[14px] font-bold text-foreground">{mode.title}</span>
         <span className="text-[12px] text-muted-foreground">{mode.desc}</span>
+        <ApproachMeta mode={mode.id} />
         <span className="mt-1 text-[11px] text-muted-foreground/80">
           The only approach for this format — the full custom flow covers
           everything a still image needs. UGC Video and B-Roll are motion-only.
@@ -568,6 +725,30 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
   const [openMode, setOpenMode] = useState<Mode | null>(null);
   const subTypeRef = useRef<HTMLDivElement | null>(null);
 
+  // Which approach's auto-fill produced `state.selectedConceptIds` — see
+  // `approachPatch`. A ref, not state: it never affects a render, and it must
+  // survive the intermediate `mode` write that opening a branching approach
+  // performs. Seeded from state because a run arriving here from a URL, a
+  // flow, or Back already carries the pair that filled it.
+  const conceptOriginRef = useRef<ConceptOrigin>({
+    mode: wizard.state.mode,
+    subTypeId: wizard.state.approachSubType,
+  });
+
+  // One commit path for both routes into an approach. Updates the origin ONLY
+  // when this commit actually wrote the concepts — a set we left alone stays
+  // attributed to whoever did put it there, so it survives every later switch.
+  const commitApproach = (mode: Mode, subTypeId: string | null) => {
+    const patch = approachPatch(wizard.state, conceptOriginRef.current, mode, subTypeId);
+    if ("selectedConceptIds" in patch) conceptOriginRef.current = { mode, subTypeId };
+    wizard.patch({
+      mode,
+      approachSubType: subTypeId,
+      approachRoute: "preset",
+      ...patch,
+    });
+  };
+
   // Genie 2.0 — "the step must adapt to what's already known." The plan's
   // step-3 entry says exactly which of angle/concept remain unanswered; this
   // screen only ever READS those flags, never re-derives them (useWizard.ts,
@@ -670,12 +851,7 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
       setOpenMode(mode);
       return;
     }
-    wizard.patch({
-      mode,
-      approachSubType: null,
-      approachRoute: "preset",
-      ...autoFillForApproach(mode, null),
-    });
+    commitApproach(mode, null);
     setOpenMode(null);
     onAdvance();
   };
@@ -683,12 +859,7 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
   // Pick a sub-type within the open approach → patch mode + sub-type + auto-fill
   // (angle + concepts) in one go, then advance. Also a PRESET-route commit.
   const pickSubType = (mode: Mode, subTypeId: string) => {
-    wizard.patch({
-      mode,
-      approachSubType: subTypeId,
-      approachRoute: "preset",
-      ...autoFillForApproach(mode, subTypeId),
-    });
+    commitApproach(mode, subTypeId);
     onAdvance();
   };
 
@@ -795,6 +966,9 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
                       <span className="line-clamp-2 text-[11px] text-muted-foreground">
                         {m.desc}
                       </span>
+                      {/* What this approach will actually apply — every card
+                          gets exactly one row, so no cell outgrows its row. */}
+                      <ApproachMeta mode={m.id} />
                     </div>
                   </button>
                 );
@@ -802,25 +976,42 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
             </section>
           )}
 
-          {/* Format-aware recovery note. BG Remover / Resize are image-only and
-              Image to Video / UGC / B-Roll are video-only (APPROACHES_BY_FORMAT),
-              so the approach a user remembers may simply be behind the other
-              format. The previous note sent them to Other Apps for these — none
-              of them is among §8's 15 apps, so that link was a dead end. */}
+          {/* Format-aware recovery note. Lifestyle Scene / Resize are
+              image-only and Image to Video / UGC / B-Roll are video-only
+              (APPROACHES_BY_FORMAT), so the approach a user remembers may
+              simply be behind the other format.
+
+              BG Remover is the one that is NOT behind a format any more — it
+              left this step entirely on 2026-09-09 — so it gets its own line
+              pointing at the live app rather than a format switch that would
+              never surface it. This is the link the reverted pass could not
+              honestly offer, because back then the app did not exist. */}
           {wizard.state.format && (
-            <p className="text-center text-[11px] text-muted-foreground">
-              {wizard.state.format === "image"
-                ? "Looking for Image to Video, UGC Video or B-Roll? "
-                : "Looking for BG Remover or Resize? "}
-              <button
-                type="button"
-                onClick={() => wizard.goTo(1)}
-                className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:text-primary"
-              >
-                Switch the format on step 1
-                <ArrowRight className="h-3 w-3" />
-              </button>
-            </p>
+            <div className="flex flex-col items-center gap-1 text-center text-[11px] text-muted-foreground">
+              <p>
+                {wizard.state.format === "image"
+                  ? "Looking for Image to Video, UGC Video or B-Roll? "
+                  : "Looking for Lifestyle Scene or Resize? "}
+                <button
+                  type="button"
+                  onClick={() => wizard.goTo(1)}
+                  className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                >
+                  Switch the format on step 1
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </p>
+              <p>
+                Removing a background is its own app now —{" "}
+                <Link
+                  to={`${OTHER_APPS_PATH}/bg-remover`}
+                  className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                >
+                  open BG Remover
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </p>
+            </div>
           )}
 
           {/* Sub-type reveal — appears below the grid when a branching approach is

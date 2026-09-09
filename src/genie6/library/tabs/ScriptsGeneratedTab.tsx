@@ -9,6 +9,7 @@ import {
   poolBrandOptions,
 } from "./generatedAssetPool";
 import { GeneratedAssetCard } from "./GeneratedAssetCard";
+import { GeneratedTabZeroState } from "./GeneratedTabZeroState";
 import { saveGeneratedScript, useSavedScriptCatalogueId } from "./generatedAssetsStore";
 
 /**
@@ -75,6 +76,21 @@ export function ScriptsGeneratedTab() {
       { replace: true },
     );
   };
+
+  // Zero-data — the pool itself is empty, so no filter change can bring
+  // anything back. Search + brand filter are suppressed with it: a filter
+  // over nothing is chrome that implies data is being hidden.
+  if (GENERATED_SCRIPTS.length === 0) {
+    return (
+      <GeneratedTabZeroState
+        noun="scripts"
+        description="A script is the spoken or on-screen copy behind an ad — a framework, a duration and the words themselves."
+        assetsPath="/iq/genie6/assets/scripts"
+        assetsLabel="Saved scripts"
+        Icon={FileText}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -180,7 +196,7 @@ function ScriptCard({
       catalogueType="scripts"
       onSave={() => {
         saveGeneratedScript(item);
-        toast.success(`"${item.title}" saved to Catalogue`);
+        toast.success(`"${item.title}" saved to Assets`);
       }}
     />
   );

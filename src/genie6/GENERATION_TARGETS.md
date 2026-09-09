@@ -269,11 +269,151 @@ Video · B-Roll · **Product Demo** (new) · **Auto** (last).
   clause is what separates it from UGC Video (creator-led, script-first) and
   B-Roll (cutaway meant to sit under primary content). Video-only, no
   sub-types yet, defaults to the educational angle + detail-macro concept.
-- Note the `Mode` label map is duplicated in THREE places (useWizard's
-  `MODE_LABEL`, AlphaStep3Configure's local `MODE_LABEL`, batchDisplay's
-  `APPROACH_LABELS`) and only the first is type-checked — the other two are
-  `Record<string, string>`, so a new approach silently renders blank there.
-  All three were updated; consolidating them is its own cleanup.
+- **NINE maps are keyed by approach id, and only THREE are type-checked.** The
+  full list, established 2026-09-09: `Mode` union, `MODE_LABEL`
+  (`Record<Mode>`, checked) and `APPROACH_SUBTYPES` (`Record<Mode>`, checked)
+  — then six the compiler cannot catch: `DEFAULTS` (Partial),
+  `APPROACHES_BY_FORMAT`, `ALL_MODES`, AlphaStep3Configure's local
+  `MODE_LABEL`, `APPROACH_LABELS`, and `THEME_BY_ID` in `studio-visuals.ts`.
+  Miss one and the approach renders blank, unoffered, or with a random preview
+  clip. **Proof it bites:** `product-demo` and `auto` shipped in d83a370
+  missing from `THEME_BY_ID` and drew random videos until it was caught on
+  2026-09-09. Consolidating these is its own cleanup.
+
+## 11b. Approach + app changes — 2026-09-09 (owner)
+
+Owner: "bg remover ko approach se htake, apps me hi rakho, approach me new
+approach add krdo koi" + "approach ka UI bhi thik krna pdega, uspe angle ke
+tags hone chahiye, and concept ka style name."
+
+- **BG Remover left the Approach step and is now a LIVE Other App.** It was
+  already present in `appRegistry.ts` as a coming-soon stub, so it was
+  promoted in place — a second entry under the same key would have been
+  silently shadowed by `getApp()`'s `.find()`. Its sidebar TOOLS entry had
+  already been removed separately, so the old three-way split (approach + nav
+  module + app) is fully resolved: the registry is the single home.
+  A new `unit: "image"` was added to the cost contract so the breakdown reads
+  "1 image", not "1 shot".
+- **`genieRunStore.ts` keeps a DUPLICATE app-rate table** whose comment still
+  claimed `appRegistry.ts` "doesn't exist yet". Every new app must be priced
+  in BOTH places or its credits silently disagree. Comment corrected; the
+  duplication itself is still outstanding.
+- **Lifestyle Scene** is the replacement approach — image-only, so Image is
+  back to 4 offered and Video stays at 6. Product shown in a real setting, in
+  use; distinct from Create Variations (iterates an existing creative) and
+  Product Demo (video, no creator). Defaults to the `lifestyle` angle +
+  `c-morning-ritual`.
+- **Approach cards now show what they will actually apply** — one mono chip
+  row per card reading off `autoFillForApproach`, the same source Configure
+  reads, so the card and the next step cannot drift. `auto` and `resize` show
+  "Genie decides" rather than an empty chip. Sub-typed approaches render
+  dashed chips, because picking a style can change them — dashed, not greyed,
+  since greyed would read as locked.
+- Reported, not changed: `StudioV4.tsx`'s `canContinue` whitelist is still
+  `mode === "scratch" || "ugc-video"`, now stale for 7 of the 9 approaches.
+  Pre-existing, owner's call.
+
+## 11c. Trends is a source of trending ASSETS — 2026-09-09 (owner)
+
+Owner: "Script from trend ka matlab tha, we get trending angles and trending
+ads and trending hooks, and other assets in news… ki Trend se bhi chise aa
+skti hai."
+
+- `script-from-trend` was mis-named: it promised a Script but was hardcoded
+  `source: "none"`, `targets: ["ad"]`. It now MEANS "Use this trend's angle" —
+  `source: "angle"`, reaching all four targets — which is what the resolver
+  already did (`patch.angleDescription = ref.trendAngle`).
+- It could **not** be renamed away or deleted: `TrendActions.tsx` hardcodes
+  all three trend action ids, and `resolveFlowContext` rejects any action a
+  module doesn't list, producing a null context and a bare wizard. Same class
+  of bug as the Creative Library `generate-variation` omission (§7a).
+- **`use-hook` is now offered on Trends.** It is `requiresAnalysis`, so
+  `trendRef()` sets `analysed: Boolean(t.hook)` — NOT a blanket true, because
+  `trendAngle` falls back to headline/excerpt precisely when no hook exists.
+  Gating is per-action, so a hookless trend still offers everything else, and
+  it carries a `blockedReason` so the row doesn't claim the user skipped an
+  "analysis" step Trends does not have.
+- Deliberately NOT offered on Trends: `use-script` / `use-concept` /
+  `use-storyboard` / `use-framework` (a feed carries a headline, excerpt,
+  angle and sometimes a hook — not an analysed script, saved concept, shot
+  list or detected framework), and `reference-for-new-ad` (attaches as
+  `source: "library"` and seeds neither angle nor prompt — mislabelled and
+  half-wired).
+
+## 11d. Framework — never generated, and now never hand-created either
+
+Owner: "Framework abhi bi generate nahi denge, agar kahi bola to galti bol
+diya hoga. only save from video sage hi hai abhi bi."
+
+Audited 2026-09-09: the ruling already held everywhere that matters —
+`framework` is absent from the `GenerationTarget` union and from
+`TARGET_SPECS`, and no flow action claims to produce one. **One contradiction
+was found and fixed:** `frameworksType` declared `addForm` + `buildAdded`,
+which put a generic "New Framework" button on the Catalogue list page. Both
+keys removed, so the only path to a Framework is `SaveFrameworkDialog` in
+Video Sage. Avatars already omit those keys for the same reason, so this
+follows existing precedent rather than inventing one.
+
+## 11e. Storyboard is a first-class asset — 2026-09-09
+
+Owner: "Storyboard is an asset like other, so if doesn't have one, then add
+one… technically kahi bhi pde ho, bs user ko genie me dikhado."
+
+`CatalogueType` gained `"storyboards"` (the 14th type, in the `creative`
+group), with 9 seeded records carrying 3–5 scenes each, a registered asset
+type and routes. Genie's Assets sub-nav derives from
+`groupedAssetTypes()`, so it appeared with no nav edit. This is what unblocks
+the Library save path — previously `StoryboardsGeneratedTab` passed
+`canSaveToCatalogue={false}` purely because no such type existed, leaving a
+visible dead end.
+
+## 11f. Defects the 2026-09-09 review gate caught, and what they teach
+
+The batch failed its first adversarial gate. Every finding below is fixed; they
+are recorded because each is a REPEATABLE trap in this codebase, not a one-off.
+
+- **A spread into `wizard.patch` silently drops unknown keys.** Step 3 spread
+  `autoFillForApproach`'s `{angleId, conceptIds}` straight into the patch, but
+  the state field is `selectedConceptIds` — no excess-property check applies to
+  a spread, so **no approach had EVER applied its concept**, including
+  long-standing ones. The card chips added this batch are what finally made it
+  visible ("Morning Ritual" on the card, "CONCEPT: None" one step later). Both
+  commit paths now go through one `approachPatch` helper. **Never spread a
+  foreign-shaped object into `patch()`; map the fields.**
+- **A UI-only gate is not a gate.** `use-hook`'s analysis requirement was
+  enforced in `FlowModuleDetail` only, so a hand-typed URL sailed past it and
+  the banner claimed a hook that did not exist. `resolveFlowContext` now
+  refuses an analysis-gated action on an unanalysed ref, degrading to plain
+  Studio. **Gate in the resolver, decorate in the UI.**
+- **A second hardcoded action list.** `TrendActions.tsx` kept its own list of
+  "exactly three" trend actions, so the new fourth appeared in the Other Flows
+  hub but never on the Trends feed users actually use. Two-way hazard: an id
+  missing there is a hub-only action; an id there the module doesn't list is a
+  rejected URL and a bare wizard.
+- **A carrier field must be chosen, not assumed.** The hook rides in `prompt`,
+  NOT `angleDescription` — a hook satisfies neither angle nor concept
+  (`SOURCE_CARRIES`), so filing it as the angle would silently answer the
+  question Step 3 is about to ask. The trend-angle seed in Configure is now
+  gated on the ACTION, not just the module, for the same reason.
+- **Raw seed arrays vs `resolve()`.** `CatalogueDetailPage` looked assets up in
+  raw imported arrays, so anything saved in-session 404'd on its detail route
+  even though it appeared in the list. Every type now resolves through
+  `def.resolve()` (seed + session-added + duplicated, minus deleted).
+  **`resolve()` is the only correct read.** Seven other section views still use
+  raw `.find()` — latent only because those types have no save flow yet.
+- **`addForm` implies a creatable asset.** Storyboards declared it with
+  `scenes: []` and no field to ever enter a scene, manufacturing a permanently
+  broken asset — the exact trap `frameworksType` documents. Both now omit it.
+- **A save must respect a delete.** All four save paths returned a cached id
+  without checking the delete tombstone, so save-after-delete was a silent
+  no-op behind a success toast.
+- **The frozen clock.** `NOW` is noon and ISO dates parse at midnight, so
+  `Math.round` made a just-saved asset read "Yesterday". `Math.floor` moved 23
+  seeded labels, every one toward the truth.
+- **Structure is the substance.** A storyboard's scenes and a framework's
+  sections rendered nowhere on the finder surface while the card grammar
+  advertised "5 scenes". One shared component now serves both surfaces so they
+  cannot drift.
 
 ## 10. Per-Mode required/optional (from his notes + modes.ts)
 
@@ -298,7 +438,7 @@ Flag if more per-Mode detail is needed than this.
 
 Not part of the generation-target logic above, but you asked for this list
 specifically saved too. Cross-checked against the live `GENIE_APPS` registry
-(`apps/data/appRegistry.ts`, 7 live + 8 coming-soon) and other places the app
+(`apps/data/appRegistry.ts`, 8 live + 14 coming-soon) and other places the app
 already has similar capability:
 
 **Already live, matches an existing app:** Video translator (Translate
@@ -337,8 +477,14 @@ metadata, Prompt generator/Refine, Thumbnail maker.
 - "Storyboard" listed here — this is a generation target (§1), not an Other
   App; assuming it's listed for cross-reference, not as its own app.
 
-**Not yet added to `appRegistry.ts`** — this section only captures/reconciles
-your list; none of these have been built as new registry entries yet.
+**STALE LINE, corrected 2026-09-09.** This used to read "none of these have
+been built as new registry entries yet", and that is no longer true — it
+caused an audit to report the opposite of the code. Four of them (Add Video
+Captions, Change Metadata, Prompt Generator, Thumbnail Maker) DO exist in
+`appRegistry.ts`, as coming-soon entries; the registry now holds 22 apps, 8 of
+them live after BG Remover's promotion (§11b). The rest of this section is
+still reconciliation only. **Check `appRegistry.ts` itself, not this
+paragraph** — the registry is the source of truth for what exists.
 
 ---
 
