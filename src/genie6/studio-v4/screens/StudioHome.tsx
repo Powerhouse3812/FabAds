@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles, LayoutGrid, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../components/SectionHeader";
+import { StudioHomeDirectionToggle } from "../components/StudioHomeDirectionToggle";
+import { useStudioHomeDirection } from "../state/useStudioHomeDirection";
 import { MODES, MODE_SCHEME as SCHEME, type AlphaMode, type ModeOption } from "../data/modes";
 import { GENIE_APPS, APP_PATH } from "@/genie6/apps/data/appRegistry";
 import { resolveIcon } from "@/genie6/apps/lib/icons";
@@ -119,7 +121,10 @@ function ModeCard({
           "fab-focus relative flex h-full w-full flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition-all",
           soon
             ? cn("cursor-not-allowed", SOON_SURFACE)
-            : "border-border bg-background hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm",
+            : cn(
+                "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm",
+                SCHEME[m.tone].wash,
+              ),
         )}
       >
         {/* Corner slot: SOON wins if a Mode is ever both unavailable and
@@ -199,6 +204,7 @@ export function StudioHome({ onStart }: StudioHomeProps) {
   // data/modes.ts for why that matters.
   const nowModes = MODES.filter((m) => m.group === "now");
   const trendingModes = MODES.filter((m) => m.group === "trending");
+  const { direction, setDirection } = useStudioHomeDirection();
 
   /** THE LIBRARY POINTER (2026-09-09). Genie's nav rail lands on Studio home,
    *  and nothing on this screen said where finished work went — a returning
@@ -235,6 +241,14 @@ export function StudioHome({ onStart }: StudioHomeProps) {
       {/* ─── HERO ─── mode picker, elevated card. `shrink-0` — this section is
           FIXED (Maalik, 2026-09-08): only Other Apps below it scrolls. */}
       <section className="relative shrink-0">
+        {/* Direction toggle (Maalik, 2026-09-10) — two Studio-home layout
+            directions from the HeyGen/Worify comparison round, rebuilt in
+            our own tokens. Not dev-gated: both are live on the deployed
+            app, persisted per-browser via useStudioHomeDirection. */}
+        <div className="mb-2 flex items-center justify-end">
+          <StudioHomeDirectionToggle active={direction} onSwitch={setDirection} />
+        </div>
+
         {/* Eyebrow + title — sits ABOVE the hero card, centered for the
             home-screen entry-point feel */}
         <div className="mb-3 space-y-1 text-center">
@@ -255,58 +269,163 @@ export function StudioHome({ onStart }: StudioHomeProps) {
             (`ModeCard`), spaced by `mt-4` — no divider rule; the two
             SectionHeaders already mark the boundary. */}
         <div className="v3-glass rounded-2xl p-5 shadow-md">
-          {/* Ad grid — live ad-journeys only (`group === "now"`). 6 cards
-              today; 4-col lands 4+2 without a lonely trailing single. */}
-          <div>
-            {/* "Ad", not "Mode" — the label has to say what you walk out
-                with; `count` carries the roster size that the label can't,
-                and the hint keeps the word "mode" on screen since the
-                wizard's Step 1 and the ContextRail both call it that. Gated
-                on the roster so the label can never head an empty grid
-                (state coverage — zero-data).
-                `count`/the grid both read `nowModes`, not `MODES` — the
-                stale version of this comment (before the 3-section split)
-                had to carry a paragraph explaining why the count included
-                Podcast; Podcast is in the Trending grid now, so that
-                imprecision is gone, not just accepted. Product Shoot is
-                still `group: "now"` and still `asset` by `deriveCategory`
-                (StudioAlpha.tsx) — that half of the original imprecision is
-                unchanged, and still the owner's explicit "leave it". */}
-            {nowModes.length > 0 && (
-              <SectionHeader
-                title="Ad"
-                count={nowModes.length}
-                hint="modes — each one produces a finished ad"
-                size="compact"
-              />
-            )}
-            <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {nowModes.map((m) => (
-                <ModeCard key={m.id} mode={m} onStart={onStart} />
-              ))}
-            </ul>
-          </div>
+          {direction === "toneGrid" ? (
+            <>
+              {/* Ad grid — live ad-journeys only (`group === "now"`). 6 cards
+                  today; 4-col lands 4+2 without a lonely trailing single. */}
+              <div>
+                {/* "Ad", not "Mode" — the label has to say what you walk out
+                    with; `count` carries the roster size that the label can't,
+                    and the hint keeps the word "mode" on screen since the
+                    wizard's Step 1 and the ContextRail both call it that. Gated
+                    on the roster so the label can never head an empty grid
+                    (state coverage — zero-data).
+                    `count`/the grid both read `nowModes`, not `MODES` — the
+                    stale version of this comment (before the 3-section split)
+                    had to carry a paragraph explaining why the count included
+                    Podcast; Podcast is in the Trending grid now, so that
+                    imprecision is gone, not just accepted. Product Shoot is
+                    still `group: "now"` and still `asset` by `deriveCategory`
+                    (StudioAlpha.tsx) — that half of the original imprecision is
+                    unchanged, and still the owner's explicit "leave it". */}
+                {nowModes.length > 0 && (
+                  <SectionHeader
+                    title="Ad"
+                    count={nowModes.length}
+                    hint="modes — each one produces a finished ad"
+                    size="compact"
+                  />
+                )}
+                <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                  {nowModes.map((m) => (
+                    <ModeCard key={m.id} mode={m} onStart={onStart} />
+                  ))}
+                </ul>
+              </div>
 
-          {/* Trending grid — `group === "trending"`, open-ended by design.
-              Owner (2026-09-09): "jab jo chiz chal rhi hai, will add in
-              here." Every entry is `available: false` today (nothing here
-              is built yet), so `ModeCard` renders all four Soon — but Soon
-              is a property of `available`, not of this grid, so a trending
-              entry that ships stays here and simply stops being disabled;
-              it does not need to migrate to the Ad grid. */}
-          {trendingModes.length > 0 && (
-            <div className="mt-4">
-              <SectionHeader
-                title="Trending"
-                count={trendingModes.length}
-                hint="approaches, coming soon — new ones land here as they catch on"
-                size="compact"
-              />
-              <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-                {trendingModes.map((m) => (
-                  <ModeCard key={m.id} mode={m} onStart={onStart} />
-                ))}
-              </ul>
+              {/* Trending grid — `group === "trending"`, open-ended by design.
+                  Owner (2026-09-09): "jab jo chiz chal rhi hai, will add in
+                  here." Every entry is `available: false` today (nothing here
+                  is built yet), so `ModeCard` renders all four Soon — but Soon
+                  is a property of `available`, not of this grid, so a trending
+                  entry that ships stays here and simply stops being disabled;
+                  it does not need to migrate to the Ad grid. */}
+              {trendingModes.length > 0 && (
+                <div className="mt-4">
+                  <SectionHeader
+                    title="Trending"
+                    count={trendingModes.length}
+                    hint="approaches, coming soon — new ones land here as they catch on"
+                    size="compact"
+                  />
+                  <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {trendingModes.map((m) => (
+                      <ModeCard key={m.id} mode={m} onStart={onStart} />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            /* "Flagship Split" (Maalik, 2026-09-10) — Ad collapses into one
+               confident panel (badge + headline + a compact chip per mode,
+               each one a REAL `onStart` call, not decorative) since no
+               single mode in the roster is signalled as "the" default; a
+               generic catch-all CTA would have had to invent a favourite, so
+               there isn't one — the chips themselves are the only call to
+               action. Trending gets a dashed "nothing shipped yet" shelf;
+               the caption is data-driven off `available`, not hardcoded, so
+               it stops claiming "nothing shipped" the day one entry ships. */
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.65fr_1fr]">
+              <div className="rounded-xl border border-border bg-background p-4">
+                <span className="mb-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary-text">
+                  Start here
+                </span>
+                <h3 className="mb-1 text-[15px] font-bold leading-snug text-foreground">
+                  {nowModes.length} guided modes — Studio runs the rest
+                </h3>
+                <p className="mb-3 text-[11px] text-muted-foreground">
+                  Pick one, Studio fills in everything else.
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {nowModes.map((m) => (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        onClick={() => onStart(m.id)}
+                        className="fab-focus inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/40"
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 items-center justify-center rounded-full",
+                            SCHEME[m.tone].bg,
+                            SCHEME[m.tone].text,
+                          )}
+                        >
+                          <m.Icon className="h-3 w-3" strokeWidth={2} />
+                        </span>
+                        {m.title}
+                        {m.tag && (
+                          <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase text-primary-text">
+                            {m.tag}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {trendingModes.length > 0 && (
+                <div className="rounded-xl border-2 border-dashed border-border bg-muted/20 p-4">
+                  <p className="mb-1 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {trendingModes.every((m) => !m.available)
+                      ? "Nothing shipped here yet"
+                      : "New this week"}
+                  </p>
+                  <h4 className="mb-2.5 text-[14px] font-bold text-foreground">Trending</h4>
+                  <ul className="space-y-1.5">
+                    {trendingModes.map((m) => {
+                      const soon = !m.available;
+                      return (
+                        <li key={m.id}>
+                          <button
+                            type="button"
+                            disabled={soon}
+                            aria-disabled={soon}
+                            onClick={() => m.available && onStart(m.id)}
+                            title={m.available ? undefined : `${m.title} — coming soon`}
+                            className={cn(
+                              "fab-focus flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
+                              soon
+                                ? cn("cursor-not-allowed", SOON_SURFACE)
+                                : "border-border/70 bg-background/60 hover:border-primary/40",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                                soon ? SOON_ICON_TILE : cn(SCHEME[m.tone].bg, SCHEME[m.tone].text),
+                              )}
+                            >
+                              <m.Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                            </span>
+                            <p
+                              className={cn(
+                                "min-w-0 flex-1 truncate text-[11px] font-semibold",
+                                soon ? "text-muted-foreground" : "text-foreground",
+                              )}
+                            >
+                              {m.title}
+                            </p>
+                            {soon && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>

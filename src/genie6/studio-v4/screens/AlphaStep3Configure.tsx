@@ -29,6 +29,7 @@ import type {
   UseWizardReturn,
   WizardState,
 } from "../state/useWizard";
+import { useOverviewVariant, BAND_CONTENT_MAX_W } from "../state/useOverviewVariant";
 import { resolveFlowContext } from "../../flows/data/resolveFlowContext";
 import type { FlowContext } from "../../flows/flowTypes";
 import { HeroHeader } from "../components/HeroHeader";
@@ -191,6 +192,10 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   // Picker modal ↔ URL (?picker=concept-angle / script / etc.)
   // replace:false so browser Back closes the modal.
   const [searchParams, setSearchParams] = useSearchParams();
+  // "rail" (default, aside owns Overview) vs "band" (Overview moves to a
+  // full-width strip above the step, freeing the aside's ~300px back into
+  // this column) — same reader the shell uses, so the two can never disagree.
+  const [overviewVariant] = useOverviewVariant();
   const urlPicker = searchParams.get("picker");
   const railMode: RailMode =
     urlPicker && VALID_PICKERS.includes(urlPicker as Exclude<RailMode, null>)
@@ -516,8 +521,21 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
           A-12.67 (Maalik): h-full so the step claims viewport height; the
           combined Angles+Concepts card becomes the single flex-1 min-h-0
           region absorbing leftover height. Concepts grid's max-h scroll
-          becomes the only internal scroll surface — page never scrolls. */}
-      <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto px-4 pt-6 pb-6 md:gap-6 md:px-6 md:pt-8 md:pb-10">
+          becomes the only internal scroll surface — page never scrolls.
+          Width: "rail" (default) keeps the historical max-w-2xl. "band"
+          moves Overview out of the aside into a strip above the step, so
+          the ~300px it used to own is free — the prompt card (this
+          column's primary surface) widens into it via BAND_CONTENT_MAX_W —
+          the ONE definition of that width, shared with the band above so the
+          two align on the same edges. Other
+          children below opt back OUT of that width individually rather
+          than stretch by default — see the Podcast-speakers wrapper. */}
+      <div
+        className={cn(
+          "mx-auto flex h-full w-full flex-col gap-4 overflow-y-auto px-4 pt-6 pb-6 md:gap-6 md:px-6 md:pt-8 md:pb-10",
+          overviewVariant === "band" ? BAND_CONTENT_MAX_W : "max-w-2xl",
+        )}
+      >
         <HeroHeader title="Configure" onBack={onBack} />
 
           {/* Podcast Mode only (§9, Maalik 2026-09-08) — the speaker-count
@@ -528,9 +546,23 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               wizard.state.studioMode rather than the studioMode prop above
               (still unused, still `_studioMode`) — that's the field the
               surrounding code already trusts, e.g. PromptReferenceBar below
-              is fed `studioMode={wizard.state.studioMode ?? undefined}`. */}
+              is fed `studioMode={wizard.state.studioMode ?? undefined}`.
+
+              Width: this is a compact glass-card list of single-line rows
+              (icon + label + edit affix) — it reads as sparse/stranded
+              stretched to the wider band width, unlike the prompt card. In "band" it
+              stays pinned to the historical max-w-2xl and centers inside
+              the wider column instead of stretching with it; in "rail" the
+              extra wrapper is a no-op (parent is already max-w-2xl), so the
+              rail DOM/layout is unchanged. */}
           {wizard.state.studioMode === "podcast" && (
-            <PodcastSpeakersField wizard={wizard} />
+            overviewVariant === "band" ? (
+              <div className="mx-auto w-full max-w-2xl">
+                <PodcastSpeakersField wizard={wizard} />
+              </div>
+            ) : (
+              <PodcastSpeakersField wizard={wizard} />
+            )
           )}
 
           {/* The below-prompt-bar Script section (ScriptCard, then the

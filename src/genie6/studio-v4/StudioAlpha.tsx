@@ -17,6 +17,14 @@ import { StudioHome } from "./screens/StudioHome";
 import { MODES, type AlphaMode } from "./data/modes";
 import { ContextRail } from "./components/ContextRail";
 import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
+// Second Overview layout (2026-09-10) — a full-width band above the step
+// content, no aside. `useOverviewVariant` is the ONE URL-backed reader (also
+// consumed by AlphaStep3Configure, per its own header comment); this file
+// only decides which of the two shapes to mount. `ContextOverviewBand` is
+// owned by a parallel agent — imported by contract path + prop signature,
+// not reimplemented here.
+import { useOverviewVariant, BAND_CONTENT_MAX_W } from "./state/useOverviewVariant";
+import { ContextOverviewBand } from "./components/ContextOverviewBand";
 import {
   useWizard,
   type WizardState,
@@ -462,8 +470,16 @@ export function StudioAlpha() {
   const railOpen = searchParams.get("rail") !== "closed";
   const setRailOpen = (next: boolean) => {
     setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
+      () => {
+        // Live URL, NOT `prev` — the hazard useUrlSync.ts documents on its own
+        // state→URL effect: react-router hands the updater the searchParams of
+        // the RENDER that created `setSearchParams`, so two writers in one
+        // commit both start from the same stale copy and the last one wins.
+        // Latent until the band's "switch to rail" button began calling this
+        // in the same tick as setOverviewVariant("rail"): that call cleared
+        // ?overview, then THIS one rewrote it from a snapshot still holding
+        // overview=band — so the button appeared to do nothing at all.
+        const sp = new URLSearchParams(window.location.search);
         if (next) sp.delete("rail");
         else sp.set("rail", "closed");
         return sp;
@@ -471,6 +487,12 @@ export function StudioAlpha() {
       { replace: true },
     );
   };
+
+  // Which Overview shape to mount — "rail" (default, unchanged) or "band"
+  // (new). URL-backed via ?overview=band; see useOverviewVariant's header
+  // comment for why this is the one reader both this file and
+  // AlphaStep3Configure share.
+  const [overviewVariant, setOverviewVariant] = useOverviewVariant();
 
   // Mobile-only ContextRail tray. Below `md` the inline aside is
   // `hidden md:flex`, so the rail's real state feedback (brand / product /
@@ -593,6 +615,14 @@ export function StudioAlpha() {
   }, [phase, state.step, plan]);
 
   const startWizard = (mode: AlphaMode) => {
+    // Generate Variations is the one Mode that never enters this wizard: it
+    // starts from an ad that already exists, so Format/Entity/Approach are
+    // read off the source instead of asked. Intercepted before any state is
+    // patched, so a bounce back to Home leaves no half-started run behind.
+    if (mode === "generate-variations") {
+      navigate("/iq/genie6/variations");
+      return;
+    }
     setHomeMode(mode);
     // Same single rule the URL restore uses (`deriveCategory`), so entering a
     // Product Shoot and refreshing one cannot land on different values. This
@@ -722,6 +752,37 @@ export function StudioAlpha() {
 
       {phase === "wizard" && (
         <>
+          {/* Overview-layout dev switch (2026-09-10) — floating pill, dev-only
+              (`import.meta.env.DEV`) so production users never see the
+              indecision, same convention as Step5ResultsQueue's ?queue=
+              VariantToggle. Mounted at the exact fixed bottom-4 right-4 /
+              z-[999] slot the retired StudioLayoutToggle (Rail/Linear pill)
+              used to occupy on this surface — vacated 2026-09-09 when Linear
+              was retired, free again since. Semantic tokens only, unlike the
+              old toggle's raw bg-white/90 / dark:bg-black/80. */}
+          {/* Suppressed on step 5: neither Overview shape mounts there
+              (Step5ResultsQueue owns its chrome), so the pill would switch a
+              layout the user cannot see — and it sits exactly on top of that
+              screen's bottom PromptDock. */}
+          {import.meta.env.DEV && renderStep !== 5 && (
+            <div className="fixed bottom-4 right-4 z-[999] flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5 shadow-lg backdrop-blur">
+              {(["rail", "band"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setOverviewVariant(v)}
+                  aria-pressed={overviewVariant === v}
+                  className={
+                    overviewVariant === v
+                      ? "inline-flex items-center rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-primary-foreground shadow-sm"
+                      : "inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  }
+                >
+                  {v === "rail" ? "Rail" : "Band"}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Topbar: ← Back + progress stepper (hidden on Results) */}
           <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur md:px-6">
             {/* md:-only. On a phone this sat 54px below the shell's own Back
@@ -767,12 +828,70 @@ export function StudioAlpha() {
               survives step navigation and a hard refresh for free. */}
           {flowCtx && <FlowBanner ctx={flowCtx} className="shrink-0" />}
 
-          {/* Wizard body: main content + a collapsible right rail. The
+          {/* Wizard body: main content + one of two Overview layouts. The
               "Linear" alternative — ContextRail inline above the step, no
               aside — was retired 2026-09-09 (Maalik: "Remove linear, keep
-              only rail"), along with its toggle. Rail is now the only
-              layout, so nothing here branches on a variant. */}
-          <div className="relative flex min-h-0 flex-1">
+              only rail"), along with its toggle. "band" (added 2026-09-10)
+              is a DIFFERENT, purpose-built second layout — not a revival of
+              Linear — chosen via useOverviewVariant() (?overview=band) and
+              the dev-only pill above:
+                - "rail" (default): today's row layout, <main> + the 300px
+                  <aside> (ContextRail), unchanged below.
+                - "band": a column layout — ContextOverviewBand renders
+                  full-width above <main>, pinned (shrink-0, no overflow of
+                  its own) rather than scrolling away with the step content.
+                  Chosen deliberately over the "scrolls with content" default:
+                  the band's whole job is the same persistent at-a-glance
+                  summary the rail gives across steps 1-4, and letting it
+                  scroll out of view on a long step (e.g. Step2Product's
+                  list) would defeat that. <main> stays the only element
+                  with overflow-y-auto either way — no second scrollbar. */}
+          <div
+            className={
+              overviewVariant === "band"
+                ? "relative flex min-h-0 flex-1 flex-col"
+                : "relative flex min-h-0 flex-1"
+            }
+          >
+            {/* Band layout only — full-width overview above the step
+                content. Suppressed on step 5 for the same reason the rail
+                is: Step5ResultsQueue owns its own chrome. */}
+            {overviewVariant === "band" && renderStep !== 5 && (
+              // The border-b spans the full viewport (it's the seam between
+              // chrome and step content) but the band's CONTENT is centred to
+              // BAND_CONTENT_MAX_W — the same width the step column below uses
+              // — so the two share a left and right edge. Full-bleed content
+              // over a narrower column read as an unrelated slab and flattened
+              // the hierarchy (owner, 2026-09-10).
+              // `hidden md:block` mirrors the rail's own `hidden md:flex`.
+              // Below the breakpoint the mobile footer's "Context" button +
+              // MobileContextRailSheet are the overview affordance, and they
+              // are not variant-aware — without this gate a phone in band mode
+              // showed the band AND offered the sheet, i.e. the same summary
+              // twice, with the band's identity row truncated to "Ma…".
+              // Reachable in practice: /studio-alpha/* is on the mobile
+              // allowlist and ?overview=band is a shareable link.
+              <div className="hidden shrink-0 border-b border-border md:block">
+                <div className={`mx-auto w-full px-4 py-3 md:px-6 ${BAND_CONTENT_MAX_W}`}>
+                  <ContextOverviewBand
+                    wizard={wizard}
+                    studioMode={homeMode ?? undefined}
+                    // Must also FORCE the rail open, not just switch variant.
+                  // `railOpen` is its own persisted preference (?rail=), so
+                  // with a previously-collapsed rail this button unmounted the
+                  // band and mounted nothing — a control labelled "Switch
+                  // overview to the side rail" that left the user with no
+                  // overview at all. Clicking it is an explicit request to SEE
+                  // the rail, so overriding the stale collapse preference is
+                  // the honest reading of the intent.
+                  onSwitchToRail={() => {
+                    setOverviewVariant("rail");
+                    setRailOpen(true);
+                  }}
+                  />
+                </div>
+              </div>
+            )}
             {/* Main step content — scrollable */}
             <main className="min-h-0 flex-1 overflow-y-auto">
               {renderStep === 0 && (
@@ -833,8 +952,13 @@ export function StudioAlpha() {
                 the rail back open mid-triage.
 
                 If the user navigates back to steps 1-4, the rail honors
-                their last open/closed preference from ?rail= URL state. */}
-            {renderStep !== 5 && railOpen && (
+                their last open/closed preference from ?rail= URL state.
+
+                `overviewVariant === "rail"` gates both this and the
+                re-open button below — band mode renders neither, per
+                useOverviewVariant's contract that only one Overview shape
+                is ever mounted at a time. */}
+            {overviewVariant === "rail" && renderStep !== 5 && railOpen && (
               <aside className="hidden shrink-0 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
                 <div className="flex-1 overflow-y-auto p-3">
                   <ContextRail
@@ -850,7 +974,7 @@ export function StudioAlpha() {
                 `hidden`, so flipping ?rail= there would do nothing visible.
                 The mobile footer's "Context" button is the phone affordance
                 and it is always present (see below). */}
-            {renderStep !== 5 && !railOpen && (
+            {overviewVariant === "rail" && renderStep !== 5 && !railOpen && (
               <button
                 type="button"
                 onClick={() => setRailOpen(true)}
