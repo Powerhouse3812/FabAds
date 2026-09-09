@@ -38,14 +38,7 @@ import {
 } from "../../lib/credits";
 import { languageLabel, searchLanguages } from "../../lib/languages";
 import { MODEL_CREDIT_MULTIPLIER } from "../data/modelPricing";
-// MODE_LABEL is the approach-name map exported from useWizard.ts (2026-09-09)
-// precisely so this chip reads off it. Three local copies of these labels
-// already exist in the codebase (AlphaStep3Configure, batchDisplay, the
-// wizard's own script derivation) — a fourth is not being added here.
-import { buildCreditLines, MODE_LABEL, FREE_GENERATION_LABEL } from "../state/useWizard";
-// Sub-type ("UGC Video · Unboxing") is DATA, read through the shared getter
-// rather than re-derived from a `state.mode === "…"` conditional.
-import { getSubType } from "../data/approach-subtypes";
+import { buildCreditLines, FREE_GENERATION_LABEL } from "../state/useWizard";
 // CHANGE #3: saved reference-URLs surfaced inside the URL-attach popover.
 // Mirrors ContextRail.tsx, which imports the same helpers from "@/mocks/shared"
 // (barrel re-exports src/mocks/shared/referenceUrls.ts).
@@ -61,6 +54,12 @@ import {
 } from "@/components/ui/popover";
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
+// Owner ruling 2026-09-09/10: Concept stops being its own chip and folds into
+// Approach (ApproachChip); Script gets an additive full-width preview + Edit
+// row inside this same card, beside — not instead of — the compact chip
+// below (ScriptPreviewRow).
+import { ApproachChip } from "./ApproachChip";
+import { ScriptPreviewRow } from "./ScriptPreviewRow";
 import { getModelVisual } from "../data/studio-visuals";
 import { PreviewVideo } from "./PreviewVideo";
 import { isScriptLedState } from "../state/useWizard";
@@ -127,6 +126,13 @@ interface PromptReferenceBarProps {
    *  never passes it, so that mount keeps today's one-phase Generate with
    *  no change at its call site. */
   onGenerateScript?: () => void;
+  /** Module label when the current script text arrived verbatim from a flow
+   *  hand-off (e.g. "Video Sage") — computed in AlphaStep3Configure.tsx off
+   *  content equality against the source, not off the flow itself, so it
+   *  goes stale (null) the instant the user edits the text. Threaded through
+   *  to ScriptPreviewRow's provenance badge. Optional: only Studio Alpha's
+   *  mount computes it today. */
+  scriptCarriedFrom?: string | null;
 }
 
 // A-12.73: emoji map → lucide icon map. DS §7 #10 (no emojis in product UI).
@@ -312,6 +318,7 @@ export function PromptReferenceBar({
   footerExtras,
   studioMode,
   onGenerateScript,
+  scriptCarriedFrom,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -420,9 +427,9 @@ export function PromptReferenceBar({
   // made it a HARD gate from a cold start — the only escape ("Skip review
   // from now on") lives inside the script rail's review phase, reachable
   // only after script text already exists, so Generate was simply disabled
-  // with no way past it. `scriptNeedsReview` now only flags the Script chip
-  // (still visible, still one click to the rail) — it no longer disables
-  // anything.
+  // with no way past it. `scriptNeedsReview` now only flags the Script
+  // preview row below (still visible, still one click to the rail via its
+  // Edit button) — it no longer disables anything.
   const isScriptLed = isScriptLedState(state);
   const scriptNeedsReview =
     isScriptLed && !state.scriptApproved && !state.skipScriptReview;
@@ -479,34 +486,6 @@ export function PromptReferenceBar({
     [state.format, state.attachedReferences, studioMode],
   );
 
-  // Approach chip value (owner ruling 2026-09-09). The big Angle+Concept card
-  // is being removed from Configure, so this chip is the ONLY place Step 3's
-  // decision is stated before the edit modal opens — it therefore reports what
-  // Step 3 actually decided, not just the angle/concept fallout of it.
-  // Three branches, in priority order:
-  //   1. mode === "auto"          → "Auto"            (nothing was asked)
-  //   2. approachRoute "custom"   → "Custom · <angle> · <n concepts>"
-  //   3. a real preset approach   → "<Approach>[ · <sub-type>]"
-  // Sub-type comes from the shared `getSubType` data lookup, never a
-  // `state.mode === "…"` conditional (per-Mode rules are data, not branches).
-  const approachSubTypeLabel =
-    getSubType(state.mode, state.approachSubType)?.label ?? null;
-  const approachValue = (() => {
-    if (state.mode === "auto") return "Auto";
-    if (state.approachRoute === "custom") {
-      const angleLabel = state.angleId
-        ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-        : "Auto";
-      const n = state.selectedConceptIds.length;
-      const conceptSummary =
-        n === 0 ? "Auto" : `${n} concept${n === 1 ? "" : "s"}`;
-      return `Custom · ${angleLabel} · ${conceptSummary}`;
-    }
-    return `${MODE_LABEL[state.mode]}${
-      approachSubTypeLabel ? ` · ${approachSubTypeLabel}` : ""
-    }`;
-  })();
-
   // Avatar · Voice compound value — show the REAL selected names looked up by
   // id (null → "Auto"). Voice names are "Priya — Warm Hindi"; show the descriptor
   // after the em-dash ("Warm Hindi") so it reads distinctly from the avatar name.
@@ -544,26 +523,25 @@ export function PromptReferenceBar({
             <div className="flex flex-wrap items-center gap-1.5">
               {/* Chip-kind stays "concept-angle" deliberately — the modal it
                   opens is being swapped elsewhere; keeping the identifier put
-                  keeps this an isolated change. */}
-              <RefChip
-                label="Approach"
-                value={approachValue}
+                  keeps this an isolated change. Concept folded into Approach
+                  (owner ruling 2026-09-10) — ApproachChip renders Angle and
+                  Concept as distinct sub-tags rather than one flat string. */}
+              <ApproachChip
+                mode={state.mode}
+                approachRoute={state.approachRoute}
+                approachSubType={state.approachSubType}
+                angleId={state.angleId}
+                selectedConceptIds={state.selectedConceptIds}
                 onClick={() => onChipOpen("concept-angle")}
               />
-              <RefChip
-                label="Script"
-                value={
-                  scriptNeedsReview
-                    ? "Review"
-                    : state.script
-                      ? "Custom"
-                      : "Auto"
-                }
-                emphasize={scriptNeedsReview}
-                onClick={() => onChipOpen("script")}
-              />
-              {/* §5 locks exactly 5 chips: Concept · Script · Style · Brand
-                  Guidelines · Knowledge Base. UGC-led approaches ALSO need an
+              {/* Script chip retired (2026-09-10 UX crit): it used to assert
+                  the script's review status in different words than
+                  ScriptPreviewRow below, spatially split by unrelated chips
+                  in between — Nielsen #4 violation. The row now owns that
+                  signal alone (its `needsReview` prop below); do not
+                  reintroduce a second script-status chip here. */}
+              {/* §5's original chip count included a Script chip that no
+                  longer exists — see above. UGC-led approaches ALSO need an
                   Avatar picker (+ its "voice follows avatar" coupling) — that
                   used to render IN PLACE OF Style, silently dropping a
                   documented chip on exactly the approaches that need an
@@ -588,7 +566,11 @@ export function PromptReferenceBar({
                       always on when the Avatar chip is. Avatar rail itself
                       is owned elsewhere — this is the copy on the control
                       surface owned by this file. */}
-                  <span className="inline-flex items-center whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                  {/* Pill-ified (2026-09-10 UX crit finding #4) — every other
+                      status in this row is a pill; bare text was the one
+                      inconsistent shape. Same solid chip chassis as the rest
+                      (not dashed — this is shipped product, not a dev aid). */}
+                  <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-border/60 bg-background/50 px-2.5 font-mono text-[11px] text-muted-foreground">
                     Voice follows avatar
                   </span>
                 </>
@@ -622,6 +604,24 @@ export function PromptReferenceBar({
                 <span className="font-mono">{formatCredits(CREDITS_LIMIT)}</span>
               </span>
             </div>
+          )}
+
+          {/* Row 0.5 — Script preview + Edit, full width, living inside this
+              same card rather than as a standalone card below it. Renders
+              nothing once `state.script` is empty — the two-phase Generate
+              button above is the entry point for that state, not this row.
+              This is the ONE surface that states script status (2026-09-10
+              UX crit) — a separate "Script" chip used to assert the same
+              fact in different words, spatially split from this row by
+              unrelated chips. Do not reintroduce that chip. */}
+          {onChipOpen && (
+            <ScriptPreviewRow
+              script={state.script}
+              scriptOrigin={state.scriptOrigin}
+              carriedFrom={scriptCarriedFrom}
+              needsReview={scriptNeedsReview}
+              onEdit={() => onChipOpen("script")}
+            />
           )}
 
           {/* Row 1 — attached refs (compact). CHANGE #2: each pill is its own
@@ -916,7 +916,7 @@ export function PromptReferenceBar({
                         : !state.prompt.trim()
                           ? "Describe what you want, or tap a suggestion above"
                           : scriptNeedsReview
-                            ? "Script is ready to review (see the Script chip above) — or generate now, it's not required"
+                            ? "Script is ready to review (see the Script row above) — or generate now, it's not required"
                             : undefined
                   }
                   className={cn(

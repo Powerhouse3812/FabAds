@@ -501,6 +501,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
         onAttachPickerOpen={handleAttachPickerOpen}
         onChipOpen={handleChipOpen}
         onGenerateScript={onGenerateScript}
+        scriptCarriedFrom={scriptCarriedFrom}
         hideLayoutToggle
         studioMode={wizard.state.studioMode ?? undefined}
         footerExtras={
