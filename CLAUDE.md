@@ -243,6 +243,44 @@ Daily check-in window: 5–6 PM IST.
 
 ---
 
+## Token traps — read before writing any g6 UI
+
+Three ways to ship a surface that looks broken while type-checking clean. All
+three have already bitten this repo; the first one shipped a whole monochrome
+screen that Maalik rejected on sight (2026-09-09).
+
+1. **Accent must appear AT REST, not only in active/hover branches.** A screen
+   whose lime lives exclusively inside `isActive && …` / `hover:` renders pure
+   grey until the user touches something, which reads as dead and unfinished.
+   The root cause was a briefing one: agent prompts listed only the NEUTRAL
+   tokens (`bg-g6-bg-container`, `text-g6-text`, `border-g6-border`) as the
+   examples to follow, so ten agents dutifully built greyscale. **Any brief that
+   names the design system must name the accent tokens too**, and must ask for
+   accent in the resting state. `StudioHome.tsx` is the reference for how much.
+2. **g6 tokens do NOT accept Tailwind opacity modifiers.** Every `g6-*` colour
+   is a bare `var(--g6-color-*)` holding a hex, so `bg-g6-primary/15` compiles
+   to an invalid `rgb(var(--…) / .15)`, gets dropped, and the fill silently
+   vanishes. Use the real tint token — `g6-primary-bg` / `g6-primary-bg-hover`.
+   (~138 such usages still exist elsewhere in `src/genie6`; treat any of them
+   as a latent invisible-colour bug rather than a working style.)
+3. **`cn()` / tailwind-merge classifies `text-g6-sm` / `text-g6-xs` / `text-g6-base`
+   as text-COLOR utilities, not sizes.** So a colour class later in the same
+   `cn()` call DELETES the size. Both analysis overviews rendered every value
+   row at 16px instead of 12px for days because of this. When a `cn()` carries
+   both, write the size as an arbitrary value: `text-g6-sm` → `text-[12px]
+   leading-5`, `text-g6-xs` → `text-[11px] leading-4`, `text-g6-base` →
+   `text-[14px] leading-[22px]`. Verify with `getComputedStyle`, never by eye —
+   it type-checks and lints clean either way.
+
+The accent tokens that actually exist in `tailwind.config.ts`: `g6-primary`,
+`g6-primary-hover`, `g6-primary-active` (dark lime — the one meant for accent
+AS TEXT; plain `g6-primary` on white is ~2.3:1 and vanishes at small sizes),
+`g6-primary-bg`, `g6-primary-bg-hover`, `g6-primary-border`, plus `g6-success`
+/ `g6-warning` / `g6-error` and `shadow-g6-primary-btn`. Anything else you
+"remember" does not exist and will render as nothing.
+
+---
+
 ## Anti-patterns specific to this repo
 
 Do not regress on any of these. They have been deliberately dropped:

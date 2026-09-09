@@ -1,0 +1,504 @@
+import { useState } from "react";
+import { AlertTriangle, Check, Lock, Pencil, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import type { AnalysedField, AnyElementId, EditScope, VariationEdit } from "../types";
+
+/**
+ * ElementEditor — the MANUAL path of Generate Variations, for BOTH families.
+ *
+ * The locked disclosure order (spec §5): going manual on an element raises the
+ * scope question and NOTHING else. Only once a scope is picked does that
+ * element's underlying prompt become editable text. The scope question must
+ * never appear on the frictionless quick-action path, which is why this
+ * component is the only place it lives.
+ *
+ * Registry-agnostic: it takes the element's DEFINITION plus the two things it
+ * used to derive from an `AdAnalysis` — the `seed` prompt and the `detected`
+ * row. `promptFrom`/`field` are typed against a specific analysis, so resolving
+ * them stays with the caller and one editor serves the ad and the asset rosters
+ * alike (which is why there is no second copy of this component).
+ *
+ * Layout-agnostic on purpose — the screen wraps it in a drawer. It paints no
+ * outer surface and owns no width.
+ */
+
+/** The registry-neutral slice of `VariationElementDef` / `AssetElementDef`. */
+export interface ElementEditorDef {
+  id: AnyElementId;
+  label: string;
+  actionLabel: string;
+  desc: string;
+  Icon: React.ElementType;
+}
+
+interface ElementEditorProps {
+  def: ElementEditorDef;
+  /** N — how many variations the run will produce. */
+  count: number;
+  /** The registry's seeded prompt text, i.e. `def.promptFrom(analysis)`. */
+  seed: string;
+  /** The analysis row this element overrides, i.e. `analysis[def.field]`. */
+  detected: AnalysedField<string | number> | undefined;
+  /** undefined = not yet in manual mode, so only the scope question shows. */
+  edit: VariationEdit | undefined;
+  /** Overrides the default "Edit {label}" heading. */
+  title?: string;
+  /** Changeable but never removable, so Cancel is not a removal. */
+  mandatory?: boolean;
+  /** Why it is required. Only rendered when `mandatory`. */
+  mandatoryNote?: React.ReactNode;
+  onBeginEdit: (element: AnyElementId, scope: EditScope) => void;
+  onScopeChange: (element: AnyElementId, scope: EditScope) => void;
+  onPromptChange: (element: AnyElementId, prompt: string) => void;
+  onIndexesChange: (element: AnyElementId, indexes: number[]) => void;
+  onPromptForIndexChange: (
+    element: AnyElementId,
+    index: number,
+    prompt: string,
+  ) => void;
+  onCancel: (element: AnyElementId) => void;
+  className?: string;
+}
+
+const SCOPE_ORDER: EditScope[] = ["all", "multiple", "individual"];
+
+const SCOPE_COPY: Record<EditScope, { label: string; desc: (n: number) => string }> = {
+  all: {
+    label: "All variations",
+    desc: (n) => `One instruction, used for every one of the ${n}.`,
+  },
+  multiple: {
+    label: "Multiple variations",
+    desc: () => "One instruction, but only for the ones you pick.",
+  },
+  individual: {
+    label: "Individually",
+    desc: (n) => `A separate instruction for each of the ${n}, written one by one.`,
+  },
+};
+
+/** Multiple/Individual are meaningless when there is only one variation. */
+function scopeDisabled(scope: EditScope, count: number): boolean {
+  return count < 2 && scope !== "all";
+}
+
+/** What the analysis found for a row. Never a fabricated value. */
+function detectedText(field: AnalysedField<string | number> | undefined): string {
+  if (
+    !field ||
+    field.provenance === "not-found" ||
+    field.value === null ||
+    field.value === undefined ||
+    field.value === ""
+  ) {
+    return "N/F";
+  }
+  return String(field.value);
+}
+
+function VariationChip({
+  n,
+  selected,
+  edited,
+  onClick,
+  ariaLabel,
+  role,
+}: {
+  n: number;
+  selected: boolean;
+  edited?: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+  role?: "checkbox" | "radio";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      role={role}
+      aria-checked={selected}
+      aria-label={ariaLabel}
+      className={cn(
+        "relative h-8 min-w-8 rounded-g6-sm border px-2 text-xs font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g6-primary focus-visible:ring-offset-1",
+        selected
+          ? "border-g6-primary-border bg-g6-primary-bg text-g6-primary"
+          : "border-g6-border bg-g6-bg-container text-g6-text-secondary hover:bg-g6-bg-muted",
+      )}
+    >
+      {n}
+      {edited ? (
+        <span
+          aria-hidden
+          className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-g6-primary"
+        />
+      ) : null}
+    </button>
+  );
+}
+
+function Notice({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-warning-text">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+export function ElementEditor({
+  def,
+  count,
+  seed,
+  detected,
+  edit,
+  title,
+  mandatory = false,
+  mandatoryNote,
+  onBeginEdit,
+  onScopeChange,
+  onPromptChange,
+  onIndexesChange,
+  onPromptForIndexChange,
+  onCancel,
+  className,
+}: ElementEditorProps) {
+  const element = def.id;
+
+  // Which variation the "individually" editor pane is currently showing.
+  // Clamped on read so a shrinking N can never leave it pointing past the end.
+  const [activeRaw, setActiveRaw] = useState(0);
+  const active = Math.min(activeRaw, Math.max(0, count - 1));
+
+  const scope = edit?.scope;
+  const inManualMode = !!edit;
+  const indexes = edit?.variationIndexes ?? [];
+  const byIndex = edit?.byIndex ?? {};
+
+  const handleScopePick = (next: string) => {
+    const nextScope = next as EditScope;
+    if (inManualMode) onScopeChange(element, nextScope);
+    else onBeginEdit(element, nextScope);
+  };
+
+  const toggleIndex = (i: number) => {
+    onIndexesChange(
+      element,
+      indexes.includes(i) ? indexes.filter((x) => x !== i) : [...indexes, i].sort((a, b) => a - b),
+    );
+  };
+
+  const allIndexes = Array.from({ length: count }, (_, i) => i);
+  const changedCount = allIndexes.filter((i) => (byIndex[i] ?? seed) !== seed).length;
+
+  return (
+    <div className={cn("flex flex-col gap-4 text-g6-text", className)}>
+      {/* ------------------------------------------------------------ header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-g6-sm bg-g6-bg-muted">
+            <def.Icon className="h-4 w-4 text-g6-text-secondary" aria-hidden />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold leading-tight">
+              {title ?? `Edit ${def.label}`}
+            </h3>
+            <p className="mt-0.5 text-xs text-g6-text-secondary">{def.desc}</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => onCancel(element)}
+          className="h-7 shrink-0 gap-1 px-2 text-xs text-g6-text-secondary hover:bg-g6-bg-muted hover:text-g6-text"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+          {/* On a mandatory element, dropping the instruction is not removal —
+              what is already there stays. Say which of the two this button does. */}
+          {mandatory ? "Keep as written" : "Cancel"}
+        </Button>
+      </div>
+
+      {mandatory && mandatoryNote ? (
+        <p className="flex items-start gap-1.5 rounded-g6-base border border-g6-border bg-g6-bg-muted px-3 py-2 text-xs leading-snug text-g6-text-secondary">
+          <Lock className="mt-0.5 h-3 w-3 shrink-0 text-g6-text-tertiary" aria-hidden />
+          <span>{mandatoryNote}</span>
+        </p>
+      ) : null}
+
+      {/* -------------------------------------------------------- the scope Q */}
+      {/* Pre-manual this is the ONLY question on screen and carries its full
+          explanation. Once a scope is committed it collapses to a compact row
+          so the prompt — the thing being worked on — is the focus. */}
+      <fieldset className="min-w-0">
+        <legend className="mb-2 text-xs font-medium text-g6-text">
+          {inManualMode ? "Applies to" : `Where should this ${def.label.toLowerCase()} change apply?`}
+        </legend>
+        <RadioGroup
+          value={scope ?? ""}
+          onValueChange={handleScopePick}
+          className={cn(inManualMode ? "flex flex-wrap gap-x-5 gap-y-2" : "grid gap-2")}
+        >
+          {SCOPE_ORDER.map((s) => {
+            const disabled = scopeDisabled(s, count);
+            const id = `scope-${element}-${s}`;
+            return (
+              <div
+                key={s}
+                className={cn(
+                  "flex items-start gap-2.5",
+                  // Selected styling is driven off `scope`, not `:checked` —
+                  // Radix only emits a real input inside a <form>.
+                  !inManualMode && "rounded-g6-base border p-3",
+                  !inManualMode && scope === s
+                    ? "border-g6-primary-border bg-g6-primary-bg"
+                    : !inManualMode && "border-g6-border bg-g6-bg-container",
+                  disabled && "opacity-55",
+                )}
+              >
+                <RadioGroupItem
+                  id={id}
+                  value={s}
+                  disabled={disabled}
+                  className="mt-0.5 border-g6-border text-g6-primary focus-visible:ring-g6-primary data-[state=checked]:border-g6-primary"
+                />
+                <label htmlFor={id} className={cn("min-w-0", !disabled && "cursor-pointer")}>
+                  <span
+                    className={cn(
+                      "block text-sm font-medium leading-tight",
+                      /* Pre-manual the whole option card turns lime, so the
+                         label doesn't need it. Once the question collapses to
+                         the compact "Applies to" row that card is gone and the
+                         radio dot was the ONLY mark of the committed choice —
+                         this is what makes the chosen scope visibly chosen. */
+                      inManualMode && scope === s && "text-g6-primary-active",
+                    )}
+                  >
+                    {SCOPE_COPY[s].label}
+                  </span>
+                  {!inManualMode ? (
+                    <span className="mt-0.5 block text-xs text-g6-text-secondary">
+                      {disabled
+                        ? "Needs at least 2 variations."
+                        : SCOPE_COPY[s].desc(count)}
+                    </span>
+                  ) : null}
+                </label>
+              </div>
+            );
+          })}
+        </RadioGroup>
+
+        {count < 2 ? (
+          <p className="mt-2 text-xs text-g6-text-tertiary">
+            You asked for 1 variation, so there is nothing to split across — the
+            instruction below applies to it.
+          </p>
+        ) : null}
+      </fieldset>
+
+      {/* Nothing below the scope question until a scope exists. */}
+      {!inManualMode || !scope ? null : (
+        <div className="flex flex-col gap-3 border-t border-g6-border-secondary pt-4">
+          {/* N dropped to 1 after a per-variation scope was chosen. Say so
+              rather than quietly treating it as "all". */}
+          {count < 2 && scope !== "all" ? (
+            <div className="flex flex-col items-start gap-2 rounded-g6-base bg-g6-bg-muted p-3">
+              <Notice>
+                This edit is still set to <strong>{SCOPE_COPY[scope].label}</strong>, but
+                there is only 1 variation now.
+              </Notice>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 border-g6-border bg-g6-bg-container px-2 text-xs text-g6-text hover:bg-g6-bg-muted hover:text-g6-text"
+                onClick={() => onScopeChange(element, "all")}
+              >
+                Switch to All variations
+              </Button>
+            </div>
+          ) : null}
+
+          {/* -------------------------------------------- detected context */}
+          <div className="rounded-g6-base bg-g6-bg-muted px-3 py-2">
+            <p className="text-xs text-g6-text-secondary">
+              Detected {def.label.toLowerCase()}:{" "}
+              <span className="font-medium text-g6-text">{detectedText(detected)}</span>
+              {detected?.provenance === "detected" ? (
+                <span className="ml-1.5 text-g6-text-tertiary">(inferred)</span>
+              ) : null}
+            </p>
+            {detected?.detail ? (
+              <p className="mt-0.5 text-xs text-g6-text-tertiary">{detected.detail}</p>
+            ) : null}
+          </div>
+
+          {/* ------------------------------------------- scope: all / multiple */}
+          {scope !== "individual" ? (
+            <>
+              {scope === "multiple" ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium">
+                      Which variations? ({indexes.length} of {count})
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-g6-text-secondary hover:bg-g6-bg-muted hover:text-g6-text"
+                        onClick={() => onIndexesChange(element, allIndexes)}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-g6-text-secondary hover:bg-g6-bg-muted hover:text-g6-text"
+                        onClick={() => onIndexesChange(element, [])}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                  <div role="group" aria-label="Variations this edit applies to" className="flex flex-wrap gap-1.5">
+                    {allIndexes.map((i) => (
+                      <VariationChip
+                        key={i}
+                        n={i + 1}
+                        role="checkbox"
+                        selected={indexes.includes(i)}
+                        onClick={() => toggleIndex(i)}
+                        ariaLabel={`Variation ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                  {indexes.length === 0 ? (
+                    <Notice>
+                      Nothing selected, so this edit will not be applied to any variation.
+                      Pick at least one, or switch to All variations.
+                    </Notice>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor={`prompt-${element}`}
+                  className="text-xs font-medium text-g6-text"
+                >
+                  {def.label} instruction
+                </label>
+                <Textarea
+                  id={`prompt-${element}`}
+                  value={edit.prompt ?? ""}
+                  onChange={(e) => onPromptChange(element, e.target.value)}
+                  placeholder={seed}
+                  rows={4}
+                  className="resize-y border-g6-border bg-g6-bg-container text-sm text-g6-text placeholder:text-g6-text-tertiary focus-visible:ring-g6-primary"
+                />
+                <p className="text-xs text-g6-text-tertiary">
+                  {scope === "all"
+                    ? `Used for all ${count} variation${count === 1 ? "" : "s"}.`
+                    : indexes.length === 0
+                      ? "Used for no variations until you pick some."
+                      : `Used for variation${indexes.length === 1 ? "" : "s"} ${indexes
+                          .map((i) => i + 1)
+                          .join(", ")}.`}
+                </p>
+              </div>
+            </>
+          ) : null}
+
+          {/* ---------------------------------------------- scope: individual */}
+          {/* Master-detail, not N stacked textareas: at N=20 a stack has no
+              overview, no way to see which ones you already touched, and 20
+              scroll-heights. The chip rail is a constant-height map (dot = it
+              differs from the detection) over one editor pane. */}
+          {scope === "individual" ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium">
+                Pick a variation to write its instruction
+              </span>
+              <div
+                role="radiogroup"
+                aria-label="Variation being edited"
+                className="flex flex-wrap gap-1.5"
+              >
+                {allIndexes.map((i) => (
+                  <VariationChip
+                    key={i}
+                    n={i + 1}
+                    role="radio"
+                    selected={i === active}
+                    edited={(byIndex[i] ?? seed) !== seed}
+                    onClick={() => setActiveRaw(i)}
+                    ariaLabel={`Edit variation ${i + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-1 flex flex-col gap-1.5">
+                <div className="flex items-end justify-between gap-2">
+                  <label
+                    htmlFor={`prompt-${element}-${active}`}
+                    className="text-xs font-medium text-g6-text"
+                  >
+                    Variation {active + 1} of {count}
+                  </label>
+                  {count > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      /* An action that writes to all N variations, not a
+                         secondary utility — it reads as active, not grey. */
+                      className="h-6 gap-1 px-2 text-xs text-g6-primary-active hover:bg-g6-primary-bg hover:text-g6-primary-active"
+                      onClick={() => {
+                        const value = byIndex[active] ?? seed;
+                        allIndexes.forEach((i) => {
+                          if (i !== active) onPromptForIndexChange(element, i, value);
+                        });
+                      }}
+                    >
+                      <Check className="h-3 w-3" aria-hidden />
+                      Copy to all {count}
+                    </Button>
+                  ) : null}
+                </div>
+                <Textarea
+                  id={`prompt-${element}-${active}`}
+                  value={byIndex[active] ?? seed}
+                  onChange={(e) => onPromptForIndexChange(element, active, e.target.value)}
+                  placeholder={seed}
+                  rows={4}
+                  className="resize-y border-g6-border bg-g6-bg-container text-sm text-g6-text placeholder:text-g6-text-tertiary focus-visible:ring-g6-primary"
+                />
+                <p
+                  className={cn(
+                    "flex items-center gap-1 text-xs",
+                    /* Real work already done reads as active; "0 of N" is not a
+                       finding, so it stays quiet. */
+                    changedCount > 0 ? "text-g6-primary-active" : "text-g6-text-tertiary",
+                  )}
+                >
+                  <Pencil className="h-3 w-3" aria-hidden />
+                  {changedCount} of {count} changed from the detection.
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ElementEditor;

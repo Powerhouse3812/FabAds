@@ -607,6 +607,14 @@ export function StudioAlpha() {
   }, [phase, state.step, plan]);
 
   const startWizard = (mode: AlphaMode) => {
+    // Generate Variations is the one Mode that never enters this wizard: it
+    // starts from an ad that already exists, so Format/Entity/Approach are
+    // read off the source instead of asked. Intercepted before any state is
+    // patched, so a bounce back to Home leaves no half-started run behind.
+    if (mode === "generate-variations") {
+      navigate("/iq/genie6/variations");
+      return;
+    }
     setHomeMode(mode);
     // Same single rule the URL restore uses (`deriveCategory`), so entering a
     // Product Shoot and refreshing one cannot land on different values. This
