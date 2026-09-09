@@ -150,7 +150,15 @@ export function ContextOverviewBand({
       </div>
 
       {/* ── 2 · Stat strip ─────────────────────────────────────────────── */}
-      <div className="mt-3 flex flex-wrap overflow-hidden rounded-2xl border border-border/50 bg-card/50">
+      <div
+        /* gap-px over a border-coloured container paints the dividers, rather
+           than a per-cell `border-l ... first:border-l-0`. `first:` matches the
+           first CHILD, not the first cell of each wrapped row, so once the strip
+           wrapped (7 cells below ~1150px) row 2's leading cell drew a stray
+           hairline against the container edge and wrapped rows had no separator
+           between them at all. Gaps get both right for free. */
+        className="mt-3 flex flex-wrap gap-px overflow-hidden rounded-2xl border border-border/50 bg-border/50"
+      >
         {/* §5 — the ad type is the Step-2 tab the user is on, never the Mode.
             The hook resolves it; both surfaces read the same answer. */}
         <StatCell label="Ad type" value={s.adTypeLabel} placeholder="Pending" accent />
@@ -328,7 +336,7 @@ function StatCell({
   const pending = !value;
   const shown = value ?? placeholder ?? "—";
   return (
-    <div className="min-w-[104px] flex-1 border-l border-border/50 px-3 py-2 first:border-l-0">
+    <div className="min-w-[104px] flex-1 bg-card px-3 py-2">
       <span className="block font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </span>

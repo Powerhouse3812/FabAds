@@ -470,8 +470,16 @@ export function StudioAlpha() {
   const railOpen = searchParams.get("rail") !== "closed";
   const setRailOpen = (next: boolean) => {
     setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
+      () => {
+        // Live URL, NOT `prev` — the hazard useUrlSync.ts documents on its own
+        // state→URL effect: react-router hands the updater the searchParams of
+        // the RENDER that created `setSearchParams`, so two writers in one
+        // commit both start from the same stale copy and the last one wins.
+        // Latent until the band's "switch to rail" button began calling this
+        // in the same tick as setOverviewVariant("rail"): that call cleared
+        // ?overview, then THIS one rewrote it from a snapshot still holding
+        // overview=band — so the button appeared to do nothing at all.
+        const sp = new URLSearchParams(window.location.search);
         if (next) sp.delete("rail");
         else sp.set("rail", "closed");
         return sp;
@@ -752,7 +760,11 @@ export function StudioAlpha() {
               used to occupy on this surface — vacated 2026-09-09 when Linear
               was retired, free again since. Semantic tokens only, unlike the
               old toggle's raw bg-white/90 / dark:bg-black/80. */}
-          {import.meta.env.DEV && (
+          {/* Suppressed on step 5: neither Overview shape mounts there
+              (Step5ResultsQueue owns its chrome), so the pill would switch a
+              layout the user cannot see — and it sits exactly on top of that
+              screen's bottom PromptDock. */}
+          {import.meta.env.DEV && renderStep !== 5 && (
             <div className="fixed bottom-4 right-4 z-[999] flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5 shadow-lg backdrop-blur">
               {(["rail", "band"] as const).map((v) => (
                 <button
@@ -851,12 +863,31 @@ export function StudioAlpha() {
               // — so the two share a left and right edge. Full-bleed content
               // over a narrower column read as an unrelated slab and flattened
               // the hierarchy (owner, 2026-09-10).
-              <div className="shrink-0 border-b border-border">
+              // `hidden md:block` mirrors the rail's own `hidden md:flex`.
+              // Below the breakpoint the mobile footer's "Context" button +
+              // MobileContextRailSheet are the overview affordance, and they
+              // are not variant-aware — without this gate a phone in band mode
+              // showed the band AND offered the sheet, i.e. the same summary
+              // twice, with the band's identity row truncated to "Ma…".
+              // Reachable in practice: /studio-alpha/* is on the mobile
+              // allowlist and ?overview=band is a shareable link.
+              <div className="hidden shrink-0 border-b border-border md:block">
                 <div className={`mx-auto w-full px-4 py-3 md:px-6 ${BAND_CONTENT_MAX_W}`}>
                   <ContextOverviewBand
                     wizard={wizard}
                     studioMode={homeMode ?? undefined}
-                    onSwitchToRail={() => setOverviewVariant("rail")}
+                    // Must also FORCE the rail open, not just switch variant.
+                  // `railOpen` is its own persisted preference (?rail=), so
+                  // with a previously-collapsed rail this button unmounted the
+                  // band and mounted nothing — a control labelled "Switch
+                  // overview to the side rail" that left the user with no
+                  // overview at all. Clicking it is an explicit request to SEE
+                  // the rail, so overriding the stale collapse preference is
+                  // the honest reading of the intent.
+                  onSwitchToRail={() => {
+                    setOverviewVariant("rail");
+                    setRailOpen(true);
+                  }}
                   />
                 </div>
               </div>

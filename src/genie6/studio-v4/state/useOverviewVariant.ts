@@ -32,8 +32,19 @@ export function useOverviewVariant(): [OverviewVariant, (next: OverviewVariant) 
   const setVariant = useCallback(
     (next: OverviewVariant) => {
       setSearchParams(
-        (prev) => {
-          const sp = new URLSearchParams(prev);
+        () => {
+          // Read the LIVE URL, NOT the `prev` react-router hands in. This is
+          // the hazard useUrlSync.ts documents at its own state→URL effect:
+          // the functional updater receives the searchParams of the RENDER
+          // that created `setSearchParams`, so two writers committing in the
+          // same tick both start from the same stale copy and the last one
+          // wins. That is not theoretical here — useUrlSync's effect writes on
+          // the same commit as this call, and with `prev` it restored the
+          // variant this function had just cleared: clicking "Switch overview
+          // to the side rail" left `?overview=band` in the URL and the band on
+          // screen, i.e. the control did nothing. Reading window.location
+          // picks up whatever was actually just committed.
+          const sp = new URLSearchParams(window.location.search);
           // Default variant carries no param — keeps the common URL clean and
           // matches `setVariant` in Step5ResultsQueue.
           if (next === "rail") sp.delete(OVERVIEW_VARIANT_PARAM);
