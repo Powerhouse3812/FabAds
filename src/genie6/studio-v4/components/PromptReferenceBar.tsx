@@ -38,14 +38,7 @@ import {
 } from "../../lib/credits";
 import { languageLabel, searchLanguages } from "../../lib/languages";
 import { MODEL_CREDIT_MULTIPLIER } from "../data/modelPricing";
-// MODE_LABEL is the approach-name map exported from useWizard.ts (2026-09-09)
-// precisely so this chip reads off it. Three local copies of these labels
-// already exist in the codebase (AlphaStep3Configure, batchDisplay, the
-// wizard's own script derivation) — a fourth is not being added here.
-import { buildCreditLines, MODE_LABEL, FREE_GENERATION_LABEL } from "../state/useWizard";
-// Sub-type ("UGC Video · Unboxing") is DATA, read through the shared getter
-// rather than re-derived from a `state.mode === "…"` conditional.
-import { getSubType } from "../data/approach-subtypes";
+import { buildCreditLines, FREE_GENERATION_LABEL } from "../state/useWizard";
 // CHANGE #3: saved reference-URLs surfaced inside the URL-attach popover.
 // Mirrors ContextRail.tsx, which imports the same helpers from "@/mocks/shared"
 // (barrel re-exports src/mocks/shared/referenceUrls.ts).
@@ -61,6 +54,12 @@ import {
 } from "@/components/ui/popover";
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
+// Owner ruling 2026-09-09/10: Concept stops being its own chip and folds into
+// Approach (ApproachChip); Script gets an additive full-width preview + Edit
+// row inside this same card, beside — not instead of — the compact chip
+// below (ScriptPreviewRow).
+import { ApproachChip } from "./ApproachChip";
+import { ScriptPreviewRow } from "./ScriptPreviewRow";
 import { getModelVisual } from "../data/studio-visuals";
 import { PreviewVideo } from "./PreviewVideo";
 import { isScriptLedState } from "../state/useWizard";
@@ -127,6 +126,13 @@ interface PromptReferenceBarProps {
    *  never passes it, so that mount keeps today's one-phase Generate with
    *  no change at its call site. */
   onGenerateScript?: () => void;
+  /** Module label when the current script text arrived verbatim from a flow
+   *  hand-off (e.g. "Video Sage") — computed in AlphaStep3Configure.tsx off
+   *  content equality against the source, not off the flow itself, so it
+   *  goes stale (null) the instant the user edits the text. Threaded through
+   *  to ScriptPreviewRow's provenance badge. Optional: only Studio Alpha's
+   *  mount computes it today. */
+  scriptCarriedFrom?: string | null;
 }
 
 // A-12.73: emoji map → lucide icon map. DS §7 #10 (no emojis in product UI).
@@ -312,6 +318,7 @@ export function PromptReferenceBar({
   footerExtras,
   studioMode,
   onGenerateScript,
+  scriptCarriedFrom,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -320,6 +327,15 @@ export function PromptReferenceBar({
   const [urlInput, setUrlInput] = useState("");
   const [modelOpen, setModelOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // DEV-ONLY comparison toggle (2026-09-10 UX crit): the "Script" chip and
+  // ScriptPreviewRow below used to both assert the script's status in
+  // different words, spatially split by two unrelated chip rows — Nielsen
+  // #4 violation. V2 drops the chip and moves its "needs review" signal onto
+  // the row itself. Defaults to v2 (the fix) so the live app already shows
+  // it; v1 stays one click away for comparison. NOT wizard state on purpose
+  // — this is a throwaway comparison flag, not persisted product state.
+  // Remove this toggle (and the v1 branches it guards) once a variant wins.
+  const [scriptRowVariant, setScriptRowVariant] = useState<"v1" | "v2">("v2");
 
   const handleAttachPick = (source: AttachSource) => {
     setAttachOpen(false);
@@ -479,34 +495,6 @@ export function PromptReferenceBar({
     [state.format, state.attachedReferences, studioMode],
   );
 
-  // Approach chip value (owner ruling 2026-09-09). The big Angle+Concept card
-  // is being removed from Configure, so this chip is the ONLY place Step 3's
-  // decision is stated before the edit modal opens — it therefore reports what
-  // Step 3 actually decided, not just the angle/concept fallout of it.
-  // Three branches, in priority order:
-  //   1. mode === "auto"          → "Auto"            (nothing was asked)
-  //   2. approachRoute "custom"   → "Custom · <angle> · <n concepts>"
-  //   3. a real preset approach   → "<Approach>[ · <sub-type>]"
-  // Sub-type comes from the shared `getSubType` data lookup, never a
-  // `state.mode === "…"` conditional (per-Mode rules are data, not branches).
-  const approachSubTypeLabel =
-    getSubType(state.mode, state.approachSubType)?.label ?? null;
-  const approachValue = (() => {
-    if (state.mode === "auto") return "Auto";
-    if (state.approachRoute === "custom") {
-      const angleLabel = state.angleId
-        ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-        : "Auto";
-      const n = state.selectedConceptIds.length;
-      const conceptSummary =
-        n === 0 ? "Auto" : `${n} concept${n === 1 ? "" : "s"}`;
-      return `Custom · ${angleLabel} · ${conceptSummary}`;
-    }
-    return `${MODE_LABEL[state.mode]}${
-      approachSubTypeLabel ? ` · ${approachSubTypeLabel}` : ""
-    }`;
-  })();
-
   // Avatar · Voice compound value — show the REAL selected names looked up by
   // id (null → "Auto"). Voice names are "Priya — Warm Hindi"; show the descriptor
   // after the em-dash ("Warm Hindi") so it reads distinctly from the avatar name.
@@ -544,24 +532,35 @@ export function PromptReferenceBar({
             <div className="flex flex-wrap items-center gap-1.5">
               {/* Chip-kind stays "concept-angle" deliberately — the modal it
                   opens is being swapped elsewhere; keeping the identifier put
-                  keeps this an isolated change. */}
-              <RefChip
-                label="Approach"
-                value={approachValue}
+                  keeps this an isolated change. Concept folded into Approach
+                  (owner ruling 2026-09-10) — ApproachChip renders Angle and
+                  Concept as distinct sub-tags rather than one flat string. */}
+              <ApproachChip
+                mode={state.mode}
+                approachRoute={state.approachRoute}
+                approachSubType={state.approachSubType}
+                angleId={state.angleId}
+                selectedConceptIds={state.selectedConceptIds}
                 onClick={() => onChipOpen("concept-angle")}
               />
-              <RefChip
-                label="Script"
-                value={
-                  scriptNeedsReview
-                    ? "Review"
-                    : state.script
-                      ? "Custom"
-                      : "Auto"
-                }
-                emphasize={scriptNeedsReview}
-                onClick={() => onChipOpen("script")}
-              />
+              {/* V1 only — this chip is what the UX crit flagged as
+                  duplicating ScriptPreviewRow below in different words. V2
+                  drops it; the row carries the same "needs review" signal
+                  instead (see scriptRowVariant above). */}
+              {scriptRowVariant === "v1" && (
+                <RefChip
+                  label="Script"
+                  value={
+                    scriptNeedsReview
+                      ? "Review"
+                      : state.script
+                        ? "Custom"
+                        : "Auto"
+                  }
+                  emphasize={scriptNeedsReview}
+                  onClick={() => onChipOpen("script")}
+                />
+              )}
               {/* §5 locks exactly 5 chips: Concept · Script · Style · Brand
                   Guidelines · Knowledge Base. UGC-led approaches ALSO need an
                   Avatar picker (+ its "voice follows avatar" coupling) — that
@@ -588,9 +587,18 @@ export function PromptReferenceBar({
                       always on when the Avatar chip is. Avatar rail itself
                       is owned elsewhere — this is the copy on the control
                       surface owned by this file. */}
-                  <span className="inline-flex items-center whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                    Voice follows avatar
-                  </span>
+                  {/* V1 keeps the original bare text for a clean A/B; V2
+                      pill-ifies it so it matches the shape language of every
+                      other status in this row (crit finding #4). */}
+                  {scriptRowVariant === "v1" ? (
+                    <span className="inline-flex items-center whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                      Voice follows avatar
+                    </span>
+                  ) : (
+                    <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-dashed border-border/50 bg-background/30 px-2.5 font-mono text-[11px] text-muted-foreground">
+                      Voice follows avatar
+                    </span>
+                  )}
                 </>
               )}
               <span aria-hidden className="mx-1 h-3.5 w-px bg-border/50" />
@@ -606,6 +614,31 @@ export function PromptReferenceBar({
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
+              {/* DEV-ONLY — compares the two Script-status treatments live.
+                  Dashed border signals "not a real product control," unlike
+                  every solid-bordered chip around it. Delete this block (and
+                  scriptRowVariant above) once one variant wins. */}
+              <div
+                title="Dev: compare Script status treatments (V1 = chip + row, V2 = row only)"
+                className="inline-flex h-7 items-center gap-0.5 rounded-full border border-dashed border-muted-foreground/40 bg-background/30 p-0.5"
+              >
+                {(["v1", "v2"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setScriptRowVariant(v)}
+                    aria-pressed={scriptRowVariant === v}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase transition-colors",
+                      scriptRowVariant === v
+                        ? "bg-foreground/10 text-foreground"
+                        : "text-muted-foreground/60 hover:text-muted-foreground",
+                    )}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
               {/* §15 "credits are now also shown in Studio" — a PERSISTENT
                   balance readout, not only inside the Generate button. Static
                   display (no popover) — the button's own breakdown covers the
@@ -622,6 +655,25 @@ export function PromptReferenceBar({
                 <span className="font-mono">{formatCredits(CREDITS_LIMIT)}</span>
               </span>
             </div>
+          )}
+
+          {/* Row 0.5 — Script preview + Edit, full width, living inside this
+              same card rather than as a standalone card below it. Renders
+              nothing once `state.script` is empty — the two-phase Generate
+              button above is the entry point for that state, not this row.
+              V1 vs V2 (2026-09-10 UX crit — see scriptRowVariant above): V1
+              keeps the original split (chip owns "needs review", row stays
+              neutral); V2 removes the chip and moves that signal onto the
+              row itself, since asserting it in two places in two different
+              words is the defect being fixed, not a feature to preserve. */}
+          {onChipOpen && (
+            <ScriptPreviewRow
+              script={state.script}
+              scriptOrigin={state.scriptOrigin}
+              carriedFrom={scriptCarriedFrom}
+              needsReview={scriptRowVariant === "v2" && scriptNeedsReview}
+              onEdit={() => onChipOpen("script")}
+            />
           )}
 
           {/* Row 1 — attached refs (compact). CHANGE #2: each pill is its own
