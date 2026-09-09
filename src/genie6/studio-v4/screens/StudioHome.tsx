@@ -1,21 +1,13 @@
 import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  Sparkles,
-  LayoutGrid,
-  FileText,
-  Lightbulb,
-  Clapperboard,
-  Lock,
-} from "lucide-react";
+import { ArrowRight, Sparkles, LayoutGrid, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "../components/SectionHeader";
-import { MODES, MODE_SCHEME as SCHEME, type AlphaMode } from "../data/modes";
+import { MODES, MODE_SCHEME as SCHEME, type AlphaMode, type ModeOption } from "../data/modes";
 import { GENIE_APPS, APP_PATH } from "@/genie6/apps/data/appRegistry";
 import { resolveIcon } from "@/genie6/apps/lib/icons";
 import { useBatches } from "@/genie6/lib/genieRunStore";
 import { useDemoData } from "@/genie6/hooks/useDemoData";
-import { isStoryboardOfferable, type GenerationTarget } from "../state/useWizard";
+import type { GenerationTarget } from "../state/useWizard";
 
 // Re-exported so existing consumers (`ContextRail`, `MobileContextRailSheet`,
 // `AlphaStep3Configure` all import `type { AlphaMode } from "../screens/StudioHome"`)
@@ -26,23 +18,15 @@ export type { AlphaMode };
 interface StudioHomeProps {
   onStart: (mode: AlphaMode) => void;
   /**
-   * CORRECTION (2026-09-08, product owner) — asset generation (Script /
-   * Concept / Storyboard) lives on Studio home now, below the seven modes
-   * ("with modes above and asset generation below"); it briefly lived on
-   * AlphaStep1Format (Mode & Format) before the owner clarified their "step
-   * 1" meant this Home screen, not the wizard's first step.
-   *
-   * Fires the moment the user picks one of the three asset targets. The
-   * caller owns `generationTarget` on wizard state (this file has no wizard
-   * instance) — it must mirror `startWizard` in StudioAlpha.tsx: patch
-   * `{ generationTarget: target, category: "asset", step: 1 }` (no
-   * `studioMode` — no creative Mode was chosen) and enter the wizard exactly
-   * like `onStart` does, since every asset target's step plan
-   * (`resolveGenerationSteps`) still requires Format.
-   *
-   * Optional so this file type-checks standalone before the call site is
-   * wired — StudioAlpha.tsx is out of this file's ownership scope (cross-file
-   * wiring step, done after). WIRE THIS for the feature to actually fire.
+   * REMOVED FROM THE UI, NOT FROM THE CONTRACT (2026-09-09, owner: "Remove:
+   * script/concept/storyboard generation for now"). This screen used to
+   * render Script/Concept/Storyboard as a third card group calling this prop
+   * the moment one was picked; that group is gone. The prop stays — still
+   * mirroring `startWizard`'s shape in StudioAlpha.tsx (patch
+   * `{ generationTarget: target, category: "asset", step: 1 }`, no
+   * `studioMode`) — specifically so a future return of this capability is a
+   * UI-only change here, not a rebuild of the caller-side plumbing. Currently
+   * unused: nothing in this file calls it.
    */
   onGenerateAsset?: (target: Exclude<GenerationTarget, "ad">) => void;
 }
@@ -102,67 +86,89 @@ const SOON_BADGE =
 const TAG_BADGE =
   "absolute right-2 top-2 inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-primary-text";
 
-interface AssetOption {
-  id: Exclude<GenerationTarget, "ad">;
-  Icon: typeof FileText;
-  title: string;
-  desc: string;
+/**
+ * ModeCard — the ONE renderer both the "Ad" and "Trending" grids call
+ * (2026-09-09, when the roster split into two grids off the same array).
+ * `available` decides a card's skin — live vs. Soon — not which grid it
+ * renders in, so a Trending entry that ships can stay in Trending and read
+ * as live with zero markup changes. A second copy of this button was the
+ * exact kind of duplication that made this session's badge-grammar and
+ * focus-ring fixes have to be applied twice already; there is now nowhere
+ * for the two grids to disagree.
+ */
+function ModeCard({
+  mode: m,
+  onStart,
+}: {
+  mode: ModeOption;
+  onStart: (mode: AlphaMode) => void;
+}) {
+  const soon = !m.available;
+  return (
+    // `min-w-0` — a 60-char Mode title has to wrap inside its column, never
+    // widen it; grid items default to `min-width:auto` and would otherwise
+    // push the row wider than the 4 columns and break the grid.
+    <li className="min-w-0">
+      <button
+        type="button"
+        disabled={soon}
+        aria-disabled={soon}
+        onClick={() => m.available && onStart(m.id)}
+        title={m.available ? undefined : `${m.title} — coming soon`}
+        className={cn(
+          "fab-focus relative flex h-full w-full flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition-all",
+          soon
+            ? cn("cursor-not-allowed", SOON_SURFACE)
+            : "border-border bg-background hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm",
+        )}
+      >
+        {/* Corner slot: SOON wins if a Mode is ever both unavailable and
+            tagged (no Mode is today); the requirement tag otherwise. See the
+            CORNER BADGE comment above for why both share this slot again. */}
+        {soon ? (
+          <span className={SOON_BADGE}>
+            <Lock className="h-2.5 w-2.5" />
+            Soon
+          </span>
+        ) : (
+          m.tag && <span className={TAG_BADGE}>{m.tag}</span>
+        )}
+        <span
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
+            soon ? SOON_ICON_TILE : cn(SCHEME[m.tone].bg, SCHEME[m.tone].text),
+          )}
+        >
+          <m.Icon className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <p className="break-words text-[12px] font-bold leading-tight text-foreground">
+          {m.title}
+        </p>
+        <p className="line-clamp-1 text-[10px] text-muted-foreground lg:line-clamp-2">
+          {m.desc}
+        </p>
+      </button>
+    </li>
+  );
 }
 
-/** Script / Concept / Storyboard — the three free asset targets (§4/§5).
- *  Order fixed: the order the owner named them in.
- *
- * §3/Task-3 call: format isn't known yet on Home (it's chosen later, on the
- * wizard's Format step) — gating Storyboard here against a format that
- * doesn't exist yet would either hide it for no visible reason or show a
- * permanently-disabled card with no explanation, neither of which is
- * acceptable. `isStoryboardOfferable(null)` is the contract's own answer for
- * "format not chosen yet": true. So all three are offered, unconditionally,
- * on Home; the wizard's Format step (once format becomes known) is where
- * `resolveGenerationSteps`'s `formatValid` actually enforces video-only. */
-// Maalik's call (2026-09-08): "these are modes too" — Script/Concept/
-// Storyboard render as the exact same card as the five Ad modes above (icon
-// tile, bold title, 1-line desc), in the SAME grid, just after a divider —
-// not a separate compact bar. Each borrows one of the two `tone` schemes
-// (sky/slate) that went unused once Affiliate/Custom-Manual were dropped
-// from MODES; Storyboard reuses Product Shoot's rose since only two tones
-// were free for three cards, and it sits far enough away in the grid (last
-// card vs. first) that the repeat doesn't read as a mix-up.
-const ASSET_OPTIONS: (AssetOption & { tone: keyof typeof SCHEME })[] = [
-  {
-    id: "script",
-    Icon: FileText,
-    title: "Script",
-    desc: "Just the ad script — hook, body, CTA. No ad rendered.",
-    tone: "sky",
-  },
-  {
-    id: "concept",
-    Icon: Lightbulb,
-    title: "Concept",
-    desc: "A creative concept from an angle — no script or ad.",
-    tone: "slate",
-  },
-  {
-    id: "storyboard",
-    Icon: Clapperboard,
-    title: "Storyboard",
-    desc: "Scene-by-scene shot plan for a video ad. Video format only.",
-    tone: "rose",
-  },
-];
-
 /**
- * StudioHome (A-12.9 hero pass, §5 apps-strip pass, 2026-09-08 asset-region
+ * StudioHome (A-12.9 hero pass, §5 apps-strip pass, 2026-09-09 3-section
  * pass) — pre-wizard entry screen for Studio Alpha.
  *
- * Three regions, stacked, deliberately different visual classes so an ad, a
- * free asset and a tool never read as seventeen peer cards:
- *   1. "Ad" — the elevated hero card's first group (8-card mode grid). Ad
- *      path. UNCHANGED identity/order/availability.
- *   2. "Script · Concept · Storyboard" — the hero card's second group, the
- *      other three generation targets (§1). See `onGenerateAsset`.
- *   3. Other Apps — a horizontal-scroll strip of the real GENIE_APPS tools.
+ * THREE SECTIONS (owner, 2026-09-09, verbatim IA): "only 3 section: modes...
+ * trending approaches... Other Apps." This replaced a 2-group hero card (Ad
+ * modes + Script/Concept/Storyboard) — the asset-generation group is REMOVED
+ * (see `onGenerateAsset`'s doc comment), and the Ad grid's own roster split in
+ * two:
+ *   1. "Ad" — `MODES.filter(m => m.group === "now")`. 6 live ad-journeys.
+ *   2. "Trending" — `MODES.filter(m => m.group === "trending")`. Open-ended
+ *      by design ("jab jo chiz chal rhi hai, will add in here"); every entry
+ *      today is `available: false`, badged Soon, same card and same disabled
+ *      skin as a Soon entry in group 1 — see `renderModeCard` below, the ONE
+ *      renderer both grids call, so the two can never drift the way this
+ *      session's duplicated card markup already has once today.
+ *   3. Other Apps — a wrapping grid of the real GENIE_APPS tools.
  *
  * LABELLING (2026-09-09, product owner): §1 of GENERATION_TARGETS.md treats
  * Ad · Script · Concept · Storyboard as FOUR PEER targets, and both entry
@@ -187,16 +193,12 @@ const ASSET_OPTIONS: (AssetOption & { tone: keyof typeof SCHEME })[] = [
  * `GENIE_APPS` registry, so the tools that got buried inside Performance Ad
  * in the demo ("create variation") are findable from Home instead.
  */
-export function StudioHome({ onStart, onGenerateAsset }: StudioHomeProps) {
-  const assetOptions = ASSET_OPTIONS.filter(
-    (o) => o.id !== "storyboard" || isStoryboardOfferable(null),
-  );
-
-  /** The group label NAMES the three targets rather than reaching for a
-   *  catch-all ("Assets" / "Extras") that would read as leftovers next to
-   *  Ad. Derived from `assetOptions`, never hardcoded, so the label can't
-   *  claim a card the filter above just removed. */
-  const assetGroupLabel = assetOptions.map((o) => o.title).join(" · ");
+export function StudioHome({ onStart }: StudioHomeProps) {
+  // The two grids this screen renders, filtered off ONE array — never two
+  // hardcoded id lists. See the `group` field's own doc comment in
+  // data/modes.ts for why that matters.
+  const nowModes = MODES.filter((m) => m.group === "now");
+  const trendingModes = MODES.filter((m) => m.group === "trending");
 
   /** THE LIBRARY POINTER (2026-09-09). Genie's nav rail lands on Studio home,
    *  and nothing on this screen said where finished work went — a returning
@@ -248,151 +250,61 @@ export function StudioHome({ onStart, onGenerateAsset }: StudioHomeProps) {
           </p>
         </div>
 
-        {/* Hero card — elevated glass chassis containing the mode grid AND
-            (2026-09-08, Maalik: "these are modes too") Script/Concept/
-            Storyboard, same card type, same grid, after a divider — no
-            longer a separate compact bar below the card. */}
+        {/* Hero card — elevated glass chassis containing both mode grids
+            (2026-09-09: "Ad" + "Trending"), same card type, same button
+            (`ModeCard`), spaced by `mt-4` — no divider rule; the two
+            SectionHeaders already mark the boundary. */}
         <div className="v3-glass rounded-2xl p-5 shadow-md">
-          {/* Mode picker — 8 cards (Podcast, Animated AI and Custom joined).
-              4-col lands a clean 4+4, which is why the single row of 5 this
-              replaced had to go: nothing between 5 and 8 columns holds the
-              roster without the lonely trailing row. */}
+          {/* Ad grid — live ad-journeys only (`group === "now"`). 6 cards
+              today; 4-col lands 4+2 without a lonely trailing single. */}
           <div>
             {/* "Ad", not "Mode" — the label has to say what you walk out
-                with; `count` carries the roster size (8) that the label
-                can't, and the hint keeps the word "mode" on screen since
-                the wizard's Step 1 and the ContextRail both call it that.
-                Gated on the roster so the label can never head an empty
-                grid (state coverage — zero-data). */}
-            {/* KNOWN IMPRECISION, ACCEPTED BY THE OWNER (2026-09-09) — do not
-                "discover" this as a bug. A review pass correctly found that
-                this header over-claims on two counts:
-                  · Product Shoot, the FIRST card, is classified `asset` by
-                    `deriveCategory` (StudioAlpha.tsx) and describes itself as
-                    product photography — not an ad.
-                  · `count={MODES.length}` is 8 and includes Podcast, which is
-                    `available: false` and currently produces nothing.
-                The options offered were: move Product Shoot into the asset
-                group; soften the hint to "most" and count only the available
-                modes; or drop the count and the claim. Maalik chose to leave
-                it as-is — Product Shoot still makes creative FOR ads, Podcast
-                will ship, and the sentence's real job is getting the word
-                "Ad" onto a page where it appeared nowhere despite eight of
-                eleven cards producing one. Revisit only if he asks. */}
-            {MODES.length > 0 && (
+                with; `count` carries the roster size that the label can't,
+                and the hint keeps the word "mode" on screen since the
+                wizard's Step 1 and the ContextRail both call it that. Gated
+                on the roster so the label can never head an empty grid
+                (state coverage — zero-data).
+                `count`/the grid both read `nowModes`, not `MODES` — the
+                stale version of this comment (before the 3-section split)
+                had to carry a paragraph explaining why the count included
+                Podcast; Podcast is in the Trending grid now, so that
+                imprecision is gone, not just accepted. Product Shoot is
+                still `group: "now"` and still `asset` by `deriveCategory`
+                (StudioAlpha.tsx) — that half of the original imprecision is
+                unchanged, and still the owner's explicit "leave it". */}
+            {nowModes.length > 0 && (
               <SectionHeader
                 title="Ad"
-                count={MODES.length}
+                count={nowModes.length}
                 hint="modes — each one produces a finished ad"
                 size="compact"
               />
             )}
             <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {MODES.map((m) => {
-                const soon = !m.available;
-                return (
-                  // `min-w-0` — a 60-char Mode title has to wrap inside its
-                  // column, never widen it; grid items default to
-                  // `min-width:auto` and would otherwise push the row wider
-                  // than the 4 columns and break the grid.
-                  <li key={m.id} className="min-w-0">
-                    <button
-                      type="button"
-                      disabled={soon}
-                      aria-disabled={soon}
-                      onClick={() => m.available && onStart(m.id)}
-                      title={m.available ? undefined : `${m.title} — coming soon`}
-                      className={cn(
-                        "fab-focus relative flex h-full w-full flex-col items-start gap-1 rounded-xl border p-2.5 text-left transition-all",
-                        soon
-                          ? cn("cursor-not-allowed", SOON_SURFACE)
-                          : "border-border bg-background hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm",
-                      )}
-                    >
-                      {/* Corner slot: SOON wins if a Mode is ever both
-                          unavailable and tagged (no Mode is today); the
-                          requirement tag otherwise. See the CORNER BADGE
-                          comment above the constants for why both share this
-                          slot again. */}
-                      {soon ? (
-                        <span className={SOON_BADGE}>
-                          <Lock className="h-2.5 w-2.5" />
-                          Soon
-                        </span>
-                      ) : (
-                        m.tag && <span className={TAG_BADGE}>{m.tag}</span>
-                      )}
-                      <span
-                        className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
-                          soon
-                            ? SOON_ICON_TILE
-                            : cn(SCHEME[m.tone].bg, SCHEME[m.tone].text),
-                        )}
-                      >
-                        <m.Icon className="h-4 w-4" strokeWidth={2} />
-                      </span>
-                      <p className="break-words text-[12px] font-bold leading-tight text-foreground">
-                        {m.title}
-                      </p>
-                      <p className="line-clamp-1 text-[10px] text-muted-foreground lg:line-clamp-2">
-                        {m.desc}
-                      </p>
-                    </button>
-                  </li>
-                );
-              })}
+              {nowModes.map((m) => (
+                <ModeCard key={m.id} mode={m} onStart={onStart} />
+              ))}
             </ul>
           </div>
 
-          {/* The other three generation targets — byte-identical card markup
-              to the Ad modes above (icon tile, bold title, 1-line desc).
-              The top-right badge slot is now EMPTY here: the per-card "Free"
-              badge was removed on the owner's instruction (2026-09-09,
-              "remove free tag"). That reverses §16's per-card treatment, and
-              the reversal is total for THIS screen — free-ness is now stated
-              nowhere on Studio home, neither per-card nor as the
-              section-level caption the badge originally replaced. It
-              survives elsewhere (`library/tabs/GeneratedAssetCard.tsx`
-              still stamps its own "Free" pill). `FREE_GENERATION_LABEL` in
-              useWizard.ts is now genuinely UNRENDERED — its only other
-              renderer was the rollout experiment's frozen legacy arm, deleted
-              2026-09-09 once the owner picked a single winner. Left exported
-              rather than deleted, in case a silently free action here starts
-              reading as a missing price and this badge comes back. */}
-          {assetOptions.length > 0 && (
+          {/* Trending grid — `group === "trending"`, open-ended by design.
+              Owner (2026-09-09): "jab jo chiz chal rhi hai, will add in
+              here." Every entry is `available: false` today (nothing here
+              is built yet), so `ModeCard` renders all four Soon — but Soon
+              is a property of `available`, not of this grid, so a trending
+              entry that ships stays here and simply stops being disabled;
+              it does not need to migrate to the Ad grid. */}
+          {trendingModes.length > 0 && (
             <div className="mt-4">
               <SectionHeader
-                title={assetGroupLabel}
-                hint="generated on their own — no mode, no ad"
+                title="Trending"
+                count={trendingModes.length}
+                hint="approaches, coming soon — new ones land here as they catch on"
                 size="compact"
               />
-              <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {assetOptions.map((o) => (
-                  <li key={o.id} className="min-w-0">
-                    <button
-                      type="button"
-                      title={o.desc}
-                      onClick={() => onGenerateAsset?.(o.id)}
-                      className="fab-focus relative flex h-full w-full flex-col items-start gap-1 rounded-xl border border-border bg-background p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
-                    >
-                      <span
-                        className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
-                          SCHEME[o.tone].bg,
-                          SCHEME[o.tone].text,
-                        )}
-                      >
-                        <o.Icon className="h-4 w-4" strokeWidth={2} />
-                      </span>
-                      <p className="break-words text-[12px] font-bold leading-tight text-foreground">
-                        {o.title}
-                      </p>
-                      <p className="line-clamp-1 text-[10px] text-muted-foreground lg:line-clamp-2">
-                        {o.desc}
-                      </p>
-                    </button>
-                  </li>
+              <ul className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+                {trendingModes.map((m) => (
+                  <ModeCard key={m.id} mode={m} onStart={onStart} />
                 ))}
               </ul>
             </div>
