@@ -595,7 +595,14 @@ export function isValidSourceForTarget(
   if (isVariation) {
     return (
       (target === "concept" && source === "concept") ||
-      (target === "storyboard" && source === "storyboard")
+      (target === "storyboard" && source === "storyboard") ||
+      // script ← script (2026-09-09, product owner). The plain list still
+      // omits it for the reason stated there — a script adds nothing to a
+      // script — but Generate Variations asks a different question: N fresh
+      // takes on the SAME brief, driven by varying its angle/concept/
+      // framework. Same shape as the two self-pairs above, so it inherits
+      // Rule 1 (asks nothing) for free.
+      (target === "script" && source === "script")
     );
   }
   return VALID_SOURCES_BY_TARGET[target].includes(source);

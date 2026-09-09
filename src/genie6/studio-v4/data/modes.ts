@@ -2,12 +2,12 @@ import {
   Camera,
   Captions,
   Clapperboard,
+  CopyPlus,
   Megaphone,
   Mic,
   Repeat,
   ShoppingBag,
   Smartphone,
-  SlidersHorizontal,
   TrendingUp,
 } from "lucide-react";
 
@@ -59,7 +59,7 @@ export type AlphaMode =
   | "animated-ai"
   | "performance-ad"
   | "podcast"
-  | "custom"
+  | "generate-variations"
   | "gif-video"
   | "static-caption";
 
@@ -217,16 +217,17 @@ export const MODES: ModeOption[] = [
     entity: { kinds: ["brand", "product", "category"], required: null },
   },
   {
-    id: "custom",
-    Icon: SlidersHorizontal,
-    // Maalik (2026-09-09): Custom is back, explicitly in 8th position. It was
-    // dropped on 2026-09-08 (see the header note above) while it sat
-    // `available: false` with no shipped date — it returns as a live Mode, and
-    // last, because it is the fallback for work none of the seven named
-    // journeys describes. Entity optional: a one-off by definition may have no
-    // Brand/Product/Category behind it.
-    title: "Custom",
-    desc: "No preset journey. You set format, angle and concept yourself.",
+    id: "generate-variations",
+    Icon: CopyPlus,
+    // Maalik (2026-09-09, later the same day): "Custom" is replaced by Generate
+    // Variations, which has its own locked flow — pick a source ad, say how
+    // many, see what we detected, change elements. It is the ONLY Mode that
+    // does not enter the 4-step wizard: StudioAlpha's `startWizard` intercepts
+    // it and routes to /iq/genie6/variations. `entity` is therefore never read
+    // for this Mode (the source ad decides the entity, not a Step-2 pick) and
+    // is kept only so the card satisfies the same shape as its siblings.
+    title: "Generate Variations",
+    desc: "Start from an ad you already have. We read it, then vary what you choose.",
     available: true,
     group: "now",
     tone: "slate",
