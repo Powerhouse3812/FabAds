@@ -5,14 +5,19 @@ import {
   Check,
   Copy,
   FileText,
+  Library,
   Pencil,
   RefreshCw,
+  Search,
   Sparkles,
   Type,
   Upload,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getAssetType } from "@/catalogue/assetTypes";
+import type { ScriptAsset } from "@/mocks/shared/scripts";
+import { brands } from "@/mocks/shared/brands";
 
 interface ScriptRailProps {
   currentScript: string | null;
@@ -28,6 +33,12 @@ interface ScriptRailProps {
   gated: boolean;
   scriptApproved: boolean;
   skipScriptReview: boolean;
+  /** Module label when this text is exactly what a flow hand-off carried in
+   *  (e.g. "Video Sage") — wins over the `scriptOrigin` badge below, since
+   *  "same script from X" is more specific and more true than "Auto-written".
+   *  Was previously shown by a Configure-page card that has since been
+   *  removed; surfaced here instead so the signal isn't silently dropped. */
+  carriedFrom?: string | null;
   onApprove: () => void;
   /** Sets the persistent power-user escape — once true, future saves on
    *  this wizard never re-enter the review phase. */
@@ -63,7 +74,7 @@ interface ScriptRailProps {
   onRegenerate?: () => void;
 }
 
-type Tab = "enter" | "upload" | "ai";
+type Tab = "enter" | "upload" | "ai" | "saved";
 type Phase = "compose" | "review";
 
 interface Generation {
@@ -88,6 +99,51 @@ const MOCK_SCRIPTS = [
 ];
 
 const MAX_UPLOAD_BYTES = 50 * 1024; // 50 KB
+
+/* ── Saved tab data ──────────────────────────────────────────
+ * The "Saved" tab is NOT a fourth source of truth — it reads the exact
+ * store the "Genie Assets → Scripts" page lists, through the catalogue's
+ * own registry (`getAssetType("scripts").resolve()`), so session adds /
+ * renames / deletes made there show up here with no extra plumbing.
+ * `resolve()` is synchronous + local — there is nothing to await.
+ * ────────────────────────────────────────────────────────── */
+
+/** Reviewed, reusable scripts from the Assets library. Empty array (never a
+ *  throw) if the registry ever stops carrying the `scripts` type. */
+function resolveSavedScripts(): ScriptAsset[] {
+  const def = getAssetType("scripts");
+  if (!def) return [];
+  return def.resolve() as ScriptAsset[];
+}
+
+/** Display-only brand label. Same `brands.find` lookup the rest of genie6
+ *  uses; an unknown/absent brandId simply renders no brand chip. */
+function brandLabel(brandId: string | undefined): string | null {
+  if (!brandId) return null;
+  return brands.find((b) => b.id === brandId)?.name ?? null;
+}
+
+/** Collapse the script body to a single flowing line so `line-clamp` gives a
+ *  clean 3-line preview — a raw multi-line body clamps unpredictably. */
+function previewText(body: string): string {
+  return body.replace(/\s+/g, " ").trim();
+}
+
+/** Free-text filter across the fields a user would actually recall: title,
+ *  framework, tags, brand name. */
+function matchesQuery(s: ScriptAsset, q: string): boolean {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  const haystack = [
+    s.title,
+    s.framework,
+    brandLabel(s.brandId) ?? "",
+    ...(s.tags ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
 
 /* ── URL param keys ─────────────────────────────────────────
  * Encoded into the parent route's query string so the modal
@@ -119,11 +175,15 @@ function parseGenIndices(raw: string | null): number[] {
 /**
  * ScriptRail — modal picker for setting `wizard.state.script`.
  *
- * Three compose tabs:
+ * Four compose tabs:
  *   - Enter: paste/type a script in a textarea.
  *   - Upload: drop a .txt or .md file, preview, confirm.
  *   - AI: prompt-based generation. Each output card supports
  *         Copy / Regenerate (+ optional instructions) / Save / Use.
+ *   - Saved: pick an already-reviewed script out of the Assets library
+ *         (`getAssetType("scripts").resolve()` — the same store the
+ *         "Genie Assets → Scripts" page lists). Its "Use" goes through
+ *         `commitScript`, exactly like the other three tabs.
  *
  * §21.2 "Script becomes a gated pre-step": for a script-led approach
  * (`gated=true`), saving from ANY tab doesn't close the rail — it moves to a
@@ -151,6 +211,7 @@ export function ScriptRail({
   gated,
   scriptApproved,
   skipScriptReview,
+  carriedFrom = null,
   onApprove,
   onSkipReview,
   promptSeed,
@@ -200,7 +261,7 @@ export function ScriptRail({
   /* ── URL → initial state ── */
   const initialTab: Tab = useMemo(() => {
     const t = searchParams.get(URL_KEYS.tab);
-    if (t === "ai" || t === "upload" || t === "enter") return t;
+    if (t === "ai" || t === "upload" || t === "enter" || t === "saved") return t;
     // A gated approach with no script yet has nothing to review — default to
     // AI so one click turns "Auto" into a reviewable draft.
     return gated && !currentScript ? "ai" : "enter";
@@ -239,6 +300,12 @@ export function ScriptRail({
   // reveal + draft text. Local only (see the `instruction` field's own note).
   const [instructionOpenFor, setInstructionOpenFor] = useState<Record<string, boolean>>({});
   const [instructionDrafts, setInstructionDrafts] = useState<Record<string, string>>({});
+
+  // Saved tab — reads the Assets library once per open. `resolve()` is a
+  // synchronous local read, so there's no fetch/loading state to model; the
+  // only real state is "the library is empty", handled inside the tab.
+  const savedScripts = useMemo<ScriptAsset[]>(() => resolveSavedScripts(), []);
+  const [savedQuery, setSavedQuery] = useState("");
 
   const wordCount = useMemo(
     () => (enteredText.trim() ? enteredText.trim().split(/\s+/).length : 0),
@@ -437,10 +504,19 @@ export function ScriptRail({
                 Review before generating
               </span>
             </div>
-            {scriptOrigin && (
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {scriptOrigin === "user" ? "Edited by you" : "Auto-written"}
+            {carriedFrom ? (
+              <span
+                className="font-mono text-[10px] uppercase tracking-wider text-primary"
+                title={`Same script that arrived from ${carriedFrom} — not a fresh Auto draft.`}
+              >
+                Same script · {carriedFrom}
               </span>
+            ) : (
+              scriptOrigin && (
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {scriptOrigin === "user" ? "Edited by you" : "Auto-written"}
+                </span>
+              )
             )}
           </div>
           <div className="rounded-xl border border-border/40 bg-card p-3">
@@ -502,6 +578,13 @@ export function ScriptRail({
             </TabBtn>
             <TabBtn active={tab === "ai"} onClick={() => setTab("ai")} icon={Sparkles}>
               AI
+            </TabBtn>
+            <TabBtn
+              active={tab === "saved"}
+              onClick={() => setTab("saved")}
+              icon={Library}
+            >
+              Saved
             </TabBtn>
           </div>
 
@@ -716,6 +799,18 @@ export function ScriptRail({
                 ))}
               </div>
             )}
+
+            {tab === "saved" && (
+              <SavedScriptsTab
+                scripts={savedScripts}
+                query={savedQuery}
+                onQueryChange={setSavedQuery}
+                onUse={commitScript}
+                onWriteInstead={() => setTab("enter")}
+                onDraftWithAi={() => setTab("ai")}
+                isProductShoot={isProductShoot}
+              />
+            )}
           </div>
         </>
       )}
@@ -742,6 +837,198 @@ export function ScriptRail({
             Skip review from now on — generate without approving
           </button>
         </footer>
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────── *
+ *  SavedScriptsTab — the fourth compose tab. Picks an already-reviewed
+ *  script out of the Assets library (Genie Assets → Scripts) instead of
+ *  writing or generating a new one.
+ *
+ *  "Use" routes through the SAME `commitScript` the Enter tab's Save button
+ *  calls (passed in as `onUse`), so the §21.2 gate — save, then review or
+ *  close — behaves identically no matter which tab the script came from.
+ *  There is deliberately no second write path here.
+ *
+ *  No brand-first ordering: ScriptRail is not handed the run's brand id and
+ *  widening its prop contract for an ordering preference isn't worth it.
+ *  The filter covers brand recall instead (type "Mamaearth").
+ * ────────────────────────────────────────────────────────── */
+function SavedScriptsTab({
+  scripts,
+  query,
+  onQueryChange,
+  onUse,
+  onWriteInstead,
+  onDraftWithAi,
+  isProductShoot,
+}: {
+  scripts: ScriptAsset[];
+  query: string;
+  onQueryChange: (q: string) => void;
+  onUse: (text: string) => void;
+  onWriteInstead: () => void;
+  onDraftWithAi: () => void;
+  isProductShoot: boolean;
+}) {
+  const visible = useMemo(
+    () => scripts.filter((s) => matchesQuery(s, query)),
+    [scripts, query],
+  );
+
+  /* Zero-data — the library itself is empty. Never a bare "No scripts":
+     say what this tab is for, and point at the two tabs that can make one. */
+  if (scripts.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-8 text-center">
+        <Library className="mx-auto h-8 w-8 text-muted-foreground/50" />
+        <p className="mt-3 text-[13px] font-semibold text-foreground">
+          No saved scripts yet
+        </p>
+        <p className="mx-auto mt-1 max-w-[36ch] text-[11px] leading-relaxed text-muted-foreground">
+          Scripts you approve land in your Assets library and show up here,
+          ready to reuse on any ad without rewriting them.
+        </p>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={onWriteInstead}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          >
+            <Type className="h-3 w-3" />
+            {isProductShoot ? "Write a plan" : "Write one"}
+          </button>
+          <button
+            type="button"
+            onClick={onDraftWithAi}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          >
+            <Sparkles className="h-3 w-3" />
+            Draft with AI
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Provenance + filter. The caption names where these come from so a
+          script showing up here is never a mystery. */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Filter by title, brand, framework or tag…"
+            aria-label="Filter saved scripts"
+            className="w-full rounded-full border border-border/40 bg-background/60 py-2 pl-8 pr-3 text-sm outline-none focus:border-foreground/20"
+          />
+        </div>
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {visible.length}/{scripts.length}
+        </span>
+      </div>
+      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        From your Assets library · Scripts
+      </p>
+
+      {/* Partial — the library has scripts, this filter matches none. */}
+      {visible.length === 0 ? (
+        <div className="rounded-xl border border-border/40 bg-card p-6 text-center">
+          <p className="text-[12px] font-semibold text-foreground">
+            Nothing matches “{query.trim()}”
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            {scripts.length} saved{" "}
+            {scripts.length === 1 ? "script" : "scripts"} in the library — try a
+            brand name, a framework (PAS, AIDA, BAB, FAB) or a tag.
+          </p>
+          <button
+            type="button"
+            onClick={() => onQueryChange("")}
+            className="mt-3 inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-[11px] font-medium transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          >
+            Clear filter
+          </button>
+        </div>
+      ) : (
+        visible.map((s) => (
+          <SavedScriptRow key={s.id} script={s} onUse={() => onUse(s.body)} />
+        ))
+      )}
+    </div>
+  );
+}
+
+/** One saved script. Card chrome matches the AI tab's output cards; the body
+ *  is clamped to 3 lines so a 60-second script can't dominate the list, and
+ *  the title truncates so a 90-character one can't break the row. */
+function SavedScriptRow({
+  script,
+  onUse,
+}: {
+  script: ScriptAsset;
+  onUse: () => void;
+}) {
+  const brand = brandLabel(script.brandId);
+  // The framework already has its own badge — don't print it twice.
+  const tags = (script.tags ?? []).filter(
+    (t) => t.toLowerCase() !== script.framework.toLowerCase(),
+  );
+  const shownTags = tags.slice(0, 3);
+  const overflow = tags.length - shownTags.length;
+
+  return (
+    <div className="rounded-xl border border-border/40 bg-card p-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p
+            className="truncate text-[12px] font-semibold text-foreground"
+            title={script.title}
+          >
+            {script.title}
+          </p>
+          <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            {[brand, `${script.framework}`, `${script.durationSec}s`, `Used ${script.usageCount}×`]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onUse}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+        >
+          <Check className="h-3 w-3" />
+          Use
+        </button>
+      </div>
+
+      <p className="mt-2 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground">
+        {previewText(script.body)}
+      </p>
+
+      {shownTags.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {shownTags.map((t) => (
+            <span
+              key={t}
+              className="rounded-full bg-foreground/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+            >
+              {t}
+            </span>
+          ))}
+          {overflow > 0 && (
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+              +{overflow}
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

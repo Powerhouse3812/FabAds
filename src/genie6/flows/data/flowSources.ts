@@ -128,6 +128,14 @@ function insightsRefs(): FlowSourceRef[] {
 // OWN uploaded footage, not a competitor's, so an honest "nothing detected"
 // is the right state for most of them — same shape as Campaign URLs' "no
 // match" branch, minus the pre-select that's exclusive to §7.5).
+//
+// SCRIPTS (2026-09-09): this is the ONLY module in this file whose data
+// actually holds a script. `VideoSageAnalysis.script` is a real timed
+// dialogue table, present on every analysed row and null on the two that
+// aren't. Every other module here carries ad COPY (headline / primary text /
+// description) — see each section's own note — so `FlowSourceRef.script`
+// stays undefined there and `use-script` fails closed on those rows rather
+// than promising a script that would have to be invented.
 // ─────────────────────────────────────────────────────────────────────────
 
 const VIDEO_ENTITY: Record<string, { kind: "brand" | "product"; id: string }> = {
@@ -136,6 +144,22 @@ const VIDEO_ENTITY: Record<string, { kind: "brand" | "product"; id: string }> = 
   "demo-video-5": { kind: "brand", id: "sleepyhead" },
   "demo-video-6": { kind: "brand", id: "supertails" },
 };
+
+/**
+ * Video Sage stores its script as timed rows ({ time, visual, dialogue });
+ * `WizardState.script` (useWizard.ts, read-only here) is one plain string.
+ * Flattened into the same shape `deriveScriptText` produces for an
+ * auto-written script — \n\n-separated blocks, a label line then the line
+ * that is actually spoken — so a carried script and an auto one render
+ * identically in ScriptCard / ScriptRail and only the provenance differs,
+ * which is the whole point of carrying it.
+ */
+function formatVideoSageScript(
+  rows: { time: string; visual: string; dialogue: string }[] | undefined,
+): string | undefined {
+  if (!rows?.length) return undefined;
+  return rows.map((r) => `${r.time} · ${r.visual}\n"${r.dialogue}"`).join("\n\n");
+}
 
 function videoSageRefs(): FlowSourceRef[] {
   return getDummyVideos().map((v) => {
@@ -161,6 +185,10 @@ function videoSageRefs(): FlowSourceRef[] {
       detectedEntity,
       analysed: v.status === "analysed",
       sourceFormat: "video",
+      // The real script, straight off the analysis — `null` analysis (the
+      // still-analysing and the failed row) yields undefined, which is what
+      // makes `use-script` unavailable on exactly those two rows.
+      script: formatVideoSageScript(v.analysis?.script),
       metrics:
         v.status === "analysed"
           ? [

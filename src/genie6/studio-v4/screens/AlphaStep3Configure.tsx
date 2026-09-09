@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Braces, Check, ChevronDown, ChevronRight, Copy, FileText, Lock, MoreVertical, Pencil, Search, Sparkles, Target, X } from "lucide-react";
+import { Braces, Check, ChevronDown, ChevronRight, Copy, MoreVertical, Search, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   brands as ALL_BRANDS,
   products as ALL_PRODUCTS,
 } from "@/mocks/shared";
 import { getConceptById } from "../data/concepts";
-import {
-  getAngleVisual,
-  videoForSeed,
-  posterForSeed,
-} from "../data/studio-visuals";
-import { autoFillForApproach, getApproachLocks, getSubType } from "../data/approach-subtypes";
+import { autoFillForApproach, getSubType } from "../data/approach-subtypes";
 import {
   Popover,
   PopoverContent,
@@ -22,7 +17,12 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { sampleOutputs } from "../../mocks/sample-outputs";
 import { VIDEO_QUALITY_TIERS } from "../state/useWizard";
-import { isProductShootState, isScriptLedState, scriptResetPatch } from "../state/useWizard";
+import {
+  isProductShootState,
+  isScriptLedState,
+  scriptResetPatch,
+  deriveScriptText,
+} from "../state/useWizard";
 import type {
   AttachSource,
   AttachedRef,
@@ -42,7 +42,16 @@ import {
 } from "../components/PromptReferenceBar";
 import { RailGenerateConcepts } from "../components/RailGenerateConcepts";
 import { GenerateConceptsForm } from "@/genie6/concepts/GenerateConceptsForm";
-import { ConceptAngleRail } from "../components/ConceptAngleRail";
+// The Angle+Concept edit surface is Step 3 itself, embedded — see the
+// `railMode === "concept-angle"` block below. `ConceptAngleRail` (a separate,
+// narrower picker, no longer imported here) used to render there; that
+// surface and the standalone Angle+Concept card on this page were both
+// retired 2026-09-09 (owner: "we have to show that either user choosed which
+// approach or auto, or manual/custom... on clicking that chip edit modal
+// will open, jisme previous step wala approach wala open ho jayega") in
+// favour of reusing Step 3's own screen, prefilled, so there is exactly one
+// place that UI is built rather than two that can drift.
+import { Step3Approach } from "./Step3Approach";
 import { PreviewVideo } from "../components/PreviewVideo";
 import { AvatarVoiceRail } from "../components/AvatarVoiceRail";
 import { PodcastSpeakersField } from "../components/PodcastSpeakersField";
@@ -57,7 +66,6 @@ import { TemplateRail } from "../components/TemplateRail";
 import { StyleBrandRail } from "../components/StyleBrandRail";
 import { InstructionsPickerModal } from "../components/InstructionsPickerModal";
 import type { AlphaMode } from "./StudioHome";
-import { useStudioLayoutVariant } from "../state/useStudioLayoutVariant";
 
 export type RailMode =
   | null
@@ -238,61 +246,42 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   // two-clause check here could never recognize.
   const isScriptLed = isScriptLedState(wizard.state);
 
-  // Dev-only 2nd layout (Maalik, 2026-09-08) — see useStudioLayoutVariant.ts.
-  // Linear: Overview (incl. Angle+Concept, now editable) renders ABOVE this
-  // component in StudioAlpha.tsx, so the combined Angles+Concepts card below
-  // doesn't render here at all; Script moves to sit right after HeroHeader;
-  // Prompt (suggestions + bar) moves to last.
-  const { variant: layoutVariant } = useStudioLayoutVariant();
+  // Generate the button reads BEFORE a script exists, per the owner's ruling
+  // 2026-09-09: the SAME Generate button that makes the ad first reads
+  // "Generate script" while `state.script` is empty, drafting one (via the
+  // same `deriveScriptText` the background auto-draft effect already uses —
+  // this is that same draft, just user-triggered instead of automatic) and
+  // opening the ONE script editor (ScriptRail, `railMode === "script"`) so
+  // the draft is reviewed/edited/approved before the ad itself is made. Once
+  // a script exists — by this path, a flow carry, or the background
+  // auto-draft — the button relabels to "Generate" and does what it always
+  // did. See `PromptReferenceBar`'s `onGenerateScript` prop for the other
+  // half of this contract.
+  const onGenerateScript = () => {
+    wizard.patch({ script: deriveScriptText(wizard.state), scriptOrigin: "auto" });
+    setRailMode("script");
+  };
 
-  // Script provenance (Maalik, 2026-09-08): the CONTENT needs no new
-  // plumbing — when generationSource is "script"/"storyboard", wizard.state
-  // .script already arrived pre-filled from whatever hand-off set that
-  // source. This is only the missing LABEL, so ScriptCard can say "same
-  // script" instead of looking indistinguishable from Auto/user-written.
-  // Applies in both layout variants — a real gap, not linear-only.
+  // Script provenance. The comment this replaces asserted that "the CONTENT
+  // needs no new plumbing — script already arrived pre-filled from whatever
+  // hand-off set that source". That was FALSE: no hand-off carried script
+  // text at all, so this label printed "Same script · Video Sage" over a
+  // script `deriveScriptText()` had just written locally. Fixed 2026-09-09 —
+  // `FlowSourceRef.script` now carries the real text (Video Sage is the only
+  // module whose data actually holds one) and `flowInitialPatch` writes it.
+  //
+  // So the label is asserted off the TEXT, never off `generationSource`: it
+  // shows only while what's in state is still character-for-character what
+  // the flow handed over, and correctly disappears the moment the user edits
+  // it — at which point it is their script, not the source's.
+  const carriedScript = flowCtx?.ref.script;
   const scriptCarriedFrom =
-    wizard.state.generationSource === "script" || wizard.state.generationSource === "storyboard"
+    carriedScript && wizard.state.script === carriedScript
       ? (flowCtx?.module.label ?? "source")
       : null;
 
-  // Trending concepts — top 16 sample outputs by qualityScore desc.
-  // Pool is bigger so the horizontal-scroll strip has substance.
-  const trending = useMemo(() => {
-    const all = sampleOutputs.slice();
-    all.sort((a, b) => (b.qualityScore ?? 0) - (a.qualityScore ?? 0));
-    return all.slice(0, 16);
-  }, []);
-
-  // Concept search input — local state, filters the trending strip in-place.
-  const [conceptSearch, setConceptSearch] = useState("");
-  const filteredTrending = useMemo(() => {
-    const q = conceptSearch.trim().toLowerCase();
-    const base = !q
-      ? trending
-      : trending.filter(
-          (t) =>
-            (t.headline ?? "").toLowerCase().includes(q) ||
-            (t.brand?.name ?? "").toLowerCase().includes(q),
-        );
-
-    // A-12.57 (Maalik): when an angle is picked, re-order the strip so
-    // matching concepts move to the FRONT (preserving relative order).
-    // OutputData has no formal `angle` field — tolerant lowercase-contains
-    // match against headline / body / mode / angle (if present).
-    const angleId = wizard.state.angleId;
-    if (!angleId) return base;
-    const label = (ANGLE_CHIP_LABEL[angleId] ?? angleId).toLowerCase();
-    const id = angleId.toLowerCase();
-    const matches: typeof base = [];
-    const rest: typeof base = [];
-    for (const t of base) {
-      const hay = `${t.headline ?? ""} ${t.body ?? ""} ${t.mode ?? ""} ${(t as { angle?: string }).angle ?? ""}`.toLowerCase();
-      if (hay.includes(label) || hay.includes(id)) matches.push(t);
-      else rest.push(t);
-    }
-    return [...matches, ...rest];
-  }, [trending, conceptSearch, wizard.state.angleId]);
+  // The trending-concepts strip (search + angle-matched re-ordering) lived
+  // here only to feed this page's own Angle+Concept card, removed below.
 
   const handleAttachSave =
     (source: AttachSource) => (refs: AttachedRef[]) => {
@@ -322,7 +311,9 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     }
   };
 
-  const handleChipOpen = (chip: ChipKind) => setRailMode(chip);
+  const handleChipOpen = (chip: ChipKind) => {
+    setRailMode(chip);
+  };
 
   // A-12.9 (Maalik MOM 06-05): once the user touches angle OR concepts, stop
   // auto-filling — going back/forward through the wizard must not clobber a
@@ -362,27 +353,12 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
   const isTrendingSelected = (id: string) =>
     wizard.state.selectedConceptIds.includes(`trend:${id}`);
 
-  // A-12.9 (Maalik 06-05): per-sub-type editability locks for the auto-filled
-  // angle/concept. When locks.angle is true the angle is fixed by the approach
-  // sub-type (e.g. Unboxing → unboxing) — greyed + lock + reason, no-op setter.
-  // Concept always stays editable.
-  const locks = getApproachLocks(wizard.state.mode, wizard.state.approachSubType);
+  // The Angle+Concept editability locks (`getApproachLocks`) and the
+  // angle-toggle handler that read them (`toggleAngle`) lived here only to
+  // serve this page's own Angle+Concept card, which is removed below —
+  // `Step3Approach` (now embedded via `railMode === "concept-angle"`)
+  // computes its own locks internally, unrelated to this file.
 
-  // Click an angle chip → toggle (set null if already selected, else replace).
-  // No-op while the angle is locked: a locked angle can't be user-edited (it's
-  // already auto-filled to the sub-type's angle).
-  const toggleAngle = (angleId: string) => {
-    if (locks.angle) return;
-    userEditedRef.current = true;
-    const next = wizard.state.angleId === angleId ? null : angleId;
-    wizard.set("angleId", next);
-  };
-
-  // A-12.57 (Maalik): Angles section is single-row horizontal-scroll by
-  // default; "View more" expands to the full 2-row flex-wrap layout.
-  // URL-backed via ?angles=open (mirrors the existing accordion convention
-  // used elsewhere in this file).
-  const [anglesExpanded, setAnglesExpanded] = useAccordionUrl("angles", false);
 
   // A-12.57: Concepts strip ref + scroll-to-start on angle pick.
   // When wizard.state.angleId changes, smooth-scroll the strip back to the
@@ -474,38 +450,6 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Inline Angles+Concepts card open/closed state. STARTS COLLAPSED because the
-  // picks are auto-filled (A-12.9). URL-backed via ?picks=open so back/forward
-  // is predictable and matches the existing accordion convention in this file.
-  const [picksExpanded, setPicksExpanded] = useAccordionUrl("picks", false);
-
-  // Resolved labels for the collapsed summary row.
-  // DEFECT FIX (adversarial review) — when a trend's angle sentence didn't
-  // match a catalogue id, angleId stays null and the full text lives in
-  // angleDescription instead (a text slot, rendered separately below — see
-  // the p.mt-0.5 right after this summary line). "From trend" is the chip
-  // label so the summary row still reads as "something is set" rather than
-  // falsely showing "None".
-  const angleLabel = wizard.state.angleId
-    ? ANGLE_CHIP_LABEL[wizard.state.angleId] ?? wizard.state.angleId
-    : wizard.state.angleDescription
-      ? "From trend"
-      : null;
-  // Concept summary — first selected concept's display name. trend:* ids are
-  // sample-output picks (no concepts.ts entry); fall back to a generic label.
-  const firstConceptId = wizard.state.selectedConceptIds[0] ?? null;
-  const conceptLabel = firstConceptId
-    ? firstConceptId.startsWith("trend:")
-      ? "Trending concept"
-      : getConceptById(firstConceptId)?.name ?? firstConceptId
-    : null;
-  const extraConceptCount = Math.max(
-    0,
-    wizard.state.selectedConceptIds.length - 1,
-  );
-  const angleVisual = wizard.state.angleId
-    ? getAngleVisual(wizard.state.angleId)
-    : null;
 
   // Readable brand/product name for AvatarVoiceRail's "Suggested for [Name]"
   // banner. Product is the more specific context, so prefer its name; else fall
@@ -521,18 +465,6 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
       : undefined;
     return brand?.name ?? null;
   }, [wizard.state.productId, wizard.state.brandId]);
-
-  // Rail: right after the prompt bar, same position as always. Linear:
-  // right after HeroHeader (Overview is now above/outside this component),
-  // with Prompt moved to last — see the two render slots below. Defined
-  // once so neither position duplicates the actual JSX.
-  const scriptCardEl = (
-    <ScriptCard
-      script={wizard.state.script}
-      onOpenRail={() => setRailMode("script")}
-      carriedFrom={scriptCarriedFrom}
-    />
-  );
 
   const promptSectionEl = (
     <>
@@ -563,6 +495,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
         wizard={wizard}
         onAttachPickerOpen={handleAttachPickerOpen}
         onChipOpen={handleChipOpen}
+        onGenerateScript={onGenerateScript}
         hideLayoutToggle
         studioMode={wizard.state.studioMode ?? undefined}
         footerExtras={
@@ -588,7 +521,7 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
 
           {/* Podcast Mode only (§9, Maalik 2026-09-08) — the speaker-count
               field is the one dimension unique to this Mode, so it renders
-              here unconditionally of layoutVariant, right under the header.
+              here unconditionally, right under the header.
               Every other Mode: studioMode !== "podcast", so this branch
               renders nothing and nothing else on this screen changes. Reads
               wizard.state.studioMode rather than the studioMode prop above
@@ -599,426 +532,33 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
             <PodcastSpeakersField wizard={wizard} />
           )}
 
-          {/* Linear layout variant (Maalik, 2026-09-08): Script sits right
-              after the header — Overview (with Angle+Concept) is now above/
-              outside this component, and Prompt moves to last. Rail variant:
-              unchanged, Script stays between the prompt bar and Angle/Concept
-              (below). DEFECT FIX (adversarial review) — ScriptCard was fully
-              built (own comment: "Surfaces the script prominently on
-              Configure") but had zero JSX call sites; the Maalik 06-06 note
-              above it said it was intentionally removed. §6 requires the
-              script to be produced and SHOWN before the ad is generated. */}
-          {layoutVariant === "linear" && scriptCardEl}
-
-          {layoutVariant === "rail" && promptSectionEl}
-
-          {layoutVariant === "rail" && scriptCardEl}
+          {/* The below-prompt-bar Script section (ScriptCard, then the
+              script-picker/ comparison that briefly replaced it) was retired
+              2026-09-09 — owner: consolidate script into the prompt bar
+              itself rather than a separate section. The Script chip
+              (PromptReferenceBar) and the Generate button's "Generate
+              script" phase are now the ONLY script surface on this page;
+              both open the same ScriptRail modal (`railMode === "script"`,
+              below) that has been the one script editor since §6. */}
+          {promptSectionEl}
 
           {/* Master-prompt card stays unwired (Maalik 06-06) — out of this
               audit's 4 defects; not reinstated here. */}
 
-          {/* Angles + Concepts — combined glass card. A-12.9 (Maalik MOM 06-05):
-              STARTS COLLAPSED because angle + concept are auto-filled from the
-              chosen approach. Collapsed = a compact summary row (preview thumb +
-              "Angle: X · Concept: Y" + Auto badge + Edit). Expanding reveals the
-              full VISUAL angle tiles + VISUAL concept tiles. When expanded the
-              card claims flex-1 min-h-0 so the Concepts grid is the only internal
-              scroll surface; collapsed it's just a short auto-height row.
+          {/* The standalone Angle+Concept card that used to render here was
+              retired 2026-09-09 — owner: that decision is Step 3's, and this
+              page should trust it rather than offer a second place to change
+              it. What Step 3 decided is now surfaced by the "Approach" chip
+              on the prompt bar above (PromptReferenceBar), and clicking it
+              opens Step 3 itself, embedded, prefilled with the current pick
+              — see `railMode === "concept-angle"` below. */}
 
-              Linear layout variant (Maalik, 2026-09-08): this card doesn't
-              render at all — Angle+Concept editing moved into the relocated,
-              editable Overview above (ContextRail's angleEditable prop,
-              StudioAlpha.tsx). Rail variant: byte-identical to before. */}
-          {layoutVariant === "rail" && (
-          <div
-            className={cn(
-              "v3-glass-card flex flex-col overflow-hidden rounded-2xl",
-              "shrink-0",
-            )}
-          >
-            {/* Collapsed summary row — always rendered. Acts as the toggle. */}
-            {!picksExpanded && (
-              <button
-                type="button"
-                onClick={() => setPicksExpanded(true)}
-                className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-foreground/[0.04]"
-              >
-                {/* Preview thumbnail of the picked angle (poster still) */}
-                <span className="relative h-11 w-9 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
-                  {angleVisual?.poster ? (
-                    <img
-                      src={angleVisual.poster}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center">
-                      <Sparkles className="h-4 w-4 text-muted-foreground/50" />
-                    </span>
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <SectionHeader title="Angle · Concept" icon={Target} size="compact" />
-                    {/* When the angle is locked, swap the generic "Auto" badge
-                        for a Lock + reason chip so the lock reads at a glance.
-                        Concept stays auto/editable below. */}
-                    {locks.angle ? (
-                      <span
-                        className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-foreground/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-foreground/70"
-                        title={locks.reason ?? "Angle locked"}
-                      >
-                        <Lock className="h-2.5 w-2.5 shrink-0" />
-                        <span className="truncate normal-case tracking-normal">
-                          {locks.reason ?? "Angle locked"}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
-                        <Sparkles className="h-2.5 w-2.5" />
-                        Auto
-                      </span>
-                    )}
-                  </div>
-                  {/* 2 lines at phone widths — at 375px the Edit chip leaves
-                      ~120px for this row and a single clamped line rendered
-                      as just "Angle: …". md: restores the 1-line clamp. */}
-                  <p className="mt-0.5 line-clamp-2 text-[12px] text-foreground md:line-clamp-1">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Angle:
-                    </span>{" "}
-                    {locks.angle && (
-                      <Lock className="mr-0.5 inline-block h-2.5 w-2.5 -translate-y-px text-muted-foreground" />
-                    )}
-                    <span className="font-semibold">{angleLabel ?? "None"}</span>
-                    <span className="mx-1.5 text-muted-foreground/50">·</span>
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Concept:
-                    </span>{" "}
-                    <span className="font-semibold">{conceptLabel ?? "None"}</span>
-                    {extraConceptCount > 0 && (
-                      <span className="ml-1 font-mono text-[10px] text-muted-foreground">
-                        +{extraConceptCount}
-                      </span>
-                    )}
-                  </p>
-                  {/* DEFECT FIX (adversarial review) — a trend's angle that
-                      didn't resolve to a catalogue id shows here, in a text
-                      slot sized for a sentence, instead of being crammed
-                      into the one-word Angle chip above. */}
-                  {wizard.state.angleDescription && (
-                    <p className="mt-0.5 line-clamp-2 text-[11px] italic text-muted-foreground">
-                      {wizard.state.angleDescription}
-                    </p>
-                  )}
-                </div>
-                <span className="ml-auto inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors group-hover:border-primary/40 group-hover:text-primary md:min-h-0">
-                  <Pencil className="h-3 w-3" />
-                  {/* "Edit" alone below sm — the full label ate the summary
-                      row's width at 375px. sm+ unchanged. */}
-                  <span className="sm:hidden">Edit</span>
-                  <span className="hidden sm:inline">Edit / Change</span>
-                </span>
-              </button>
-            )}
-
-            {/* Expanded — full visual selection. Section 1: Angles VISUAL tiles. */}
-            {picksExpanded && (
-              <>
-            <div className="px-4 py-3">
-              <SectionHeader
-                title="Angles"
-                icon={Target}
-                count={ANGLE_IDS.length}
-                hint="pick one to guide style"
-                trailing={
-                  <button
-                    type="button"
-                    onClick={() => setPicksExpanded(false)}
-                    aria-label="Collapse to summary"
-                    className="ml-auto inline-flex min-h-[44px] items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground md:min-h-0"
-                  >
-                    Collapse
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                }
-              />
-              {/* Locked-angle banner — the angle is fixed by the approach
-                  sub-type; tiles below are greyed + non-interactive. */}
-              {locks.angle && (
-                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-                  <Lock className="h-3 w-3 shrink-0" />
-                  <span className="min-w-0 truncate">
-                    {locks.reason ?? "Angle is fixed"} · change the sub-type to edit
-                  </span>
-                </div>
-              )}
-              <div
-                className={cn(
-                  "mt-2 overflow-hidden transition-[max-height] duration-300 ease-out",
-                  // Collapsed height = exactly one row of tiles. With 3 cols
-                  // at 375px a 4/5 tile is ~116px tall, so the desktop 112px
-                  // clip would slice the first row; md: restores 112px.
-                  anglesExpanded
-                    ? "max-h-[400px] overflow-y-auto"
-                    : "max-h-[132px] md:max-h-[112px]",
-                  locks.angle && "pointer-events-none opacity-50",
-                )}
-              >
-                <ul
-                  className={cn(
-                    // 3-up at phone widths (4-up made each tile ~68px wide —
-                    // the label clipped to one word). sm+ unchanged.
-                    "grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6",
-                    !anglesExpanded &&
-                      "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
-                  )}
-                >
-                  {ANGLE_IDS.map((id) => {
-                    const active = wizard.state.angleId === id;
-                    const label = ANGLE_CHIP_LABEL[id] ?? id;
-                    const v = getAngleVisual(id);
-                    return (
-                      <li key={id}>
-                        <button
-                          type="button"
-                          onClick={() => toggleAngle(id)}
-                          aria-pressed={active}
-                          aria-disabled={locks.angle || undefined}
-                          className={cn(
-                            "group relative block aspect-[4/5] w-full overflow-hidden rounded-lg border text-left transition-all",
-                            active
-                              ? "border-primary/60 ring-2 ring-primary/40"
-                              : "border-border/50 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
-                          )}
-                        >
-                          <PreviewVideo src={v.video} poster={v.poster} />
-                          <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-1.5 pb-1 pt-4">
-                            <span className="line-clamp-1 text-[10px] font-semibold leading-tight text-white">
-                              {label}
-                            </span>
-                          </span>
-                          {active && locks.angle ? (
-                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-background shadow-sm">
-                              <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
-                            </span>
-                          ) : active ? (
-                            <span className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                              <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                            </span>
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-              {ANGLE_IDS.length > 12 && (
-                <button
-                  type="button"
-                  onClick={() => setAnglesExpanded(!anglesExpanded)}
-                  aria-expanded={anglesExpanded}
-                  className="mt-1.5 inline-flex min-h-[44px] items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground md:min-h-0"
-                >
-                  {anglesExpanded ? "Show fewer angles" : "Show all angles"}
-                  <ChevronDown
-                    className={cn(
-                      "h-3 w-3 transition-transform duration-300",
-                      anglesExpanded && "rotate-180",
-                    )}
-                  />
-                </button>
-              )}
-            </div>
-
-            {/* Gradient divider — parent-nav rail style */}
-            <div
-              aria-hidden
-              className="mx-3 h-px bg-[linear-gradient(90deg,transparent_0%,hsl(var(--foreground)/0.12)_50%,transparent_100%)]"
-            />
-
-            {/* Section 2: Concepts — A-12.64 (Maalik):
-                  • Collapsed by default; auto-expands when an angle is picked.
-                  • Vertical scroll inside a fixed max-height frame
-                    (not horizontal anymore).
-                  • Dim-all-when-no-match bug gone — matching concepts get a
-                    positive lime accent instead of dimming the rest.
-                  • Generate button in header → opens the AI generate
-                    rail picker (same one /iq/genie6/concepts/generate uses).
-            */}
-            {(() => {
-              const userOpenedConcepts =
-                searchParams.get("concepts-acc") === "open";
-              const conceptsOpen =
-                userOpenedConcepts || !!wizard.state.angleId;
-              const toggleConcepts = () => {
-                setSearchParams(
-                  (prev) => {
-                    const sp = new URLSearchParams(prev);
-                    if (conceptsOpen) sp.delete("concepts-acc");
-                    else sp.set("concepts-acc", "open");
-                    return sp;
-                  },
-                  { replace: true },
-                );
-              };
-              return (
-            <div className="px-4 py-3">
-              <button
-                type="button"
-                onClick={toggleConcepts}
-                aria-expanded={conceptsOpen}
-                // flex-wrap at phone widths so the Generate chip + search box
-                // drop to a second line instead of squeezing the section
-                // title; md:flex-nowrap restores the single desktop row.
-                className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap"
-              >
-                <ChevronRight
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-300",
-                    conceptsOpen && "rotate-90",
-                  )}
-                />
-                <SectionHeader
-                  title="Concepts"
-                  icon={Sparkles}
-                  count={filteredTrending.length}
-                  hint={
-                    wizard.state.angleId
-                      ? "matched to your angle"
-                      : conceptsOpen
-                        ? "pre-built starting points"
-                        : "pick an angle to expand"
-                  }
-                />
-                {conceptsOpen && (
-                  <>
-                    {/* A-12.65 (Maalik): demoted to ghost-outline so the
-                        bottom prompt-bar Generate stays the only primary
-                        CTA on this step. */}
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRailMode("ai-generate-concepts");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setRailMode("ai-generate-concepts");
-                        }
-                      }}
-                      title="Generate concepts with AI"
-                      className="ml-auto inline-flex h-11 cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-background px-3 text-[11px] font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-primary/[0.08] hover:text-primary sm:h-7 sm:px-2.5"
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      Generate
-                    </span>
-                    <div
-                      className="relative w-full sm:w-44"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        type="text"
-                        value={conceptSearch}
-                        onChange={(e) => setConceptSearch(e.target.value)}
-                        placeholder="Search concepts…"
-                        className="h-11 w-full rounded-full border border-border/60 bg-background/50 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-foreground/30 sm:h-7"
-                      />
-                    </div>
-                  </>
-                )}
-              </button>
-
-              {conceptsOpen && (
-              <ul
-                ref={conceptStripRef}
-                className="mt-2 grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pb-1 sm:grid-cols-3 lg:grid-cols-4 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-foreground/10 [&::-webkit-scrollbar]:w-1.5"
-              >
-                {filteredTrending.map((t) => {
-                  const active = isTrendingSelected(t.id);
-                  const anglePicked = !!wizard.state.angleId;
-                  // A-12.64 (Maalik): drop the universal dim. Matching concepts
-                  // get a POSITIVE lime accent ring instead of dimming the rest.
-                  let isAngleMatch = false;
-                  if (anglePicked) {
-                    const angleLabel = (
-                      ANGLE_CHIP_LABEL[wizard.state.angleId!] ??
-                      wizard.state.angleId!
-                    ).toLowerCase();
-                    const angleIdLc = wizard.state.angleId!.toLowerCase();
-                    const hay = `${t.headline ?? ""} ${t.body ?? ""} ${t.mode ?? ""} ${(t as { angle?: string }).angle ?? ""}`.toLowerCase();
-                    isAngleMatch =
-                      hay.includes(angleLabel) || hay.includes(angleIdLc);
-                  }
-                  return (
-                    <li key={t.id} className="transition-all duration-300 ease-out">
-                      <button
-                        type="button"
-                        onClick={() => toggleTrending(t.id)}
-                        className={cn(
-                          "group relative flex w-full flex-col gap-1 overflow-hidden rounded-xl border bg-card text-left transition-all",
-                          active
-                            ? "border-primary/50 ring-2 ring-primary/30"
-                            : isAngleMatch
-                              ? "border-primary/30 hover:-translate-y-0.5 hover:shadow-md"
-                              : "border-border/40 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-md",
-                        )}
-                      >
-                        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
-                          {/* A-12.9: autoplay-loop video preview (poster = the
-                              concept's existing thumbnail; deterministic video
-                              seeded by id). Replaces the old still image + the
-                              stray text-emoji fallback. */}
-                          <PreviewVideo
-                            src={videoForSeed(`concept:${t.id}`)}
-                            poster={t.thumbnail ?? posterForSeed(`concept:${t.id}`)}
-                            className="transition-transform group-hover:scale-[1.04]"
-                          />
-                          {t.brand?.name && (
-                            <span className="absolute bottom-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-foreground backdrop-blur">
-                              {t.brand.name}
-                            </span>
-                          )}
-                          {active && (
-                            <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                              <Check className="h-3 w-3" strokeWidth={3} />
-                            </span>
-                          )}
-                        </div>
-                        <p className="truncate px-2 pb-1.5 pt-0.5 text-[11px] font-semibold leading-tight text-foreground">
-                          {t.headline ?? "Concept"}
-                        </p>
-                      </button>
-                    </li>
-                  );
-                })}
-                {filteredTrending.length === 0 && (
-                  <li className="col-span-full px-2 py-6 text-center text-[11px] italic text-muted-foreground">
-                    No concepts match "{conceptSearch}"
-                  </li>
-                )}
-              </ul>
-              )}
-            </div>
-              );
-            })()}
-              </>
-            )}
-          </div>
-          )}
-
-          {/* Linear layout variant: Prompt (suggestions + bar) moves to
-              LAST — deliberately, since it's the final action in the
-              hierarchy (Maalik, 2026-09-08). */}
-          {layoutVariant === "linear" && promptSectionEl}
       </div>
 
-      {/* ── Picker modal — centered dialog over a blurred backdrop ── */}
+      {/* ── Picker modal — centered dialog over a blurred backdrop ──
+          A stale `?picker=script` (or `?picker=concept-angle`) in a
+          shared/refreshed URL lands on a working surface with its own Close,
+          never a dead shell — every branch below is safe to open directly. */}
       {railMode !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6">
           {/* Backdrop — decorative only. Does NOT dismiss on click; every
@@ -1071,14 +611,20 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
               </div>
             )}
             {railMode === "concept-angle" && (
-              <ConceptAngleRail
-                selectedAngleId={wizard.state.angleId}
-                selectedConceptIds={wizard.state.selectedConceptIds}
-                onAngleChange={(id) => wizard.set("angleId", id)}
-                onConceptsChange={(ids) =>
-                  wizard.set("selectedConceptIds", ids)
-                }
-                angleLock={{ locked: locks.angle, reason: locks.reason ?? undefined }}
+              // Step 3 itself, embedded — not a narrower picker. Prefilled
+              // with whatever the run already carries (mode/sub-type/route/
+              // angle/concepts all live on `wizard.state`, which Step3Approach
+              // reads directly), so re-opening it always shows the real
+              // current pick, never a reset one. `onAdvance` is given
+              // `handleAttachCancel` rather than a step-navigating callback —
+              // Configure stays on Step 4 the whole time; only the modal
+              // closes. Step3Approach computes its own sub-type locks
+              // internally, so no `locks`/`angleLock` prop is passed here.
+              <Step3Approach
+                wizard={wizard}
+                embedded
+                onAdvance={handleAttachCancel}
+                onBack={handleAttachCancel}
                 onClose={handleAttachCancel}
               />
             )}
@@ -1127,6 +673,11 @@ export function AlphaStep3Configure({ wizard, studioMode: _studioMode, onBack }:
                 scriptGenerating={wizard.state.scriptGenerating}
                 isProductShoot={isProductShootState(wizard.state)}
                 scriptOrigin={wizard.state.scriptOrigin}
+                // Flow-carried provenance ("Same script · Video Sage") used
+                // to render on a Configure-page card that's since been
+                // removed (see the comment above `promptSectionEl`'s render
+                // call). Surfaced here instead so the signal isn't lost.
+                carriedFrom={scriptCarriedFrom}
                 onRegenerate={() => wizard.patch(scriptResetPatch())}
                 onApprove={() => wizard.set("scriptApproved", true)}
                 onSkipReview={() => wizard.set("skipScriptReview", true)}
@@ -1698,108 +1249,6 @@ function GenerationSettingsButton({
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
- * ScriptCard — A (MOM 06-05: "script show krni hogi" / "Script showcase").
- * Surfaces the script prominently on Configure (not just the prompt-bar chip).
- *   • script set  → readable block (max ~4 lines, expand for more) + Edit.
- *   • script null → Auto explainer + a muted "preview after Generate" note +
- *                   a "Write / paste script" CTA.
- * Both CTAs open the existing ScriptRail (railMode === "script").
- * ───────────────────────────────────────────────────────────────────────── */
-function ScriptCard({
-  script,
-  onOpenRail,
-  carriedFrom,
-}: {
-  script: string | null;
-  onOpenRail: () => void;
-  /** Maalik (2026-09-08): "jab use script karke aayega, to script auto add
-   *  ho jayegi, because aaya hi us se hai" — the CONTENT needs no new
-   *  plumbing (it's already in `script` the moment this mounts), only the
-   *  label so the user knows it's the SAME script they arrived with, not a
-   *  fresh Auto draft. A module label (e.g. "Video Sage"), or undefined/null
-   *  when the script was typed/edited in this session instead. */
-  carriedFrom?: string | null;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const hasScript = script !== null && script.trim().length > 0;
-  // "Long" = worth offering an expand toggle (rough line-count heuristic).
-  const isLong =
-    hasScript && (script!.length > 220 || script!.split("\n").length > 4);
-
-  return (
-    <div className="v3-glass-card shrink-0 overflow-hidden rounded-2xl">
-      <div className="flex items-center gap-2 px-4 pt-3">
-        <SectionHeader title="Script" icon={FileText} size="compact" />
-        {!hasScript && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary">
-            <Sparkles className="h-2.5 w-2.5" />
-            Auto
-          </span>
-        )}
-        {hasScript && carriedFrom && (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary"
-            title={`This is the same script that arrived from ${carriedFrom} — not a fresh Auto draft.`}
-          >
-            Same script · {carriedFrom}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={onOpenRail}
-          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-        >
-          <Pencil className="h-3 w-3" />
-          {hasScript ? "Edit script" : "Write / paste script"}
-        </button>
-      </div>
-
-      <div className="px-4 pb-3 pt-2">
-        {hasScript ? (
-          <>
-            <p
-              className={cn(
-                "whitespace-pre-wrap text-[12px] leading-relaxed text-foreground/90",
-                !expanded && isLong && "line-clamp-4",
-                expanded && isLong && "max-h-44 overflow-y-auto pr-1",
-              )}
-            >
-              {script}
-            </p>
-            {isLong && (
-              <button
-                type="button"
-                onClick={() => setExpanded((v) => !v)}
-                aria-expanded={expanded}
-                className="mt-1.5 inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {expanded ? "Show less" : "Show full script"}
-                <ChevronDown
-                  className={cn(
-                    "h-3 w-3 transition-transform duration-300",
-                    expanded && "rotate-180",
-                  )}
-                />
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="text-[12px] leading-relaxed text-foreground/90">
-              Auto — Genie writes the script from your prompt, angle &amp;
-              product.
-            </p>
-            <p className="mt-1 text-[11px] italic text-muted-foreground">
-              Script preview appears after Generate.
-            </p>
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 

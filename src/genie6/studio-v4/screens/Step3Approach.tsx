@@ -13,6 +13,7 @@ import {
   Target,
   Video,
   Wand2,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,23 @@ interface Step3Props {
   wizard: UseWizardReturn;
   onAdvance: () => void;
   onBack?: () => void;
+  /**
+   * Render for a modal chassis instead of as the full-page step.
+   *
+   * Configure (step 4) has an "Approach" chip that reopens THIS step's content,
+   * pre-filled, without leaving Configure — so the same component has to be able
+   * to drop its page chrome (the ambient backdrop + the centered `HeroHeader`)
+   * and become a pinned-header/scrolling-body pair instead. Everything below the
+   * header — the grid, the sub-type reveal, RouteToggle, the Custom route — is
+   * the SAME expression in both modes, not a second copy, so the two can't drift.
+   *
+   * The caller owns the shell (`fixed inset-0` + backdrop + a `v3-glass`
+   * `max-h-[85dvh] overflow-hidden` plate) and passes `onAdvance={onClose}` so a
+   * commit closes the modal rather than moving the wizard off step 4.
+   */
+  embedded?: boolean;
+  /** Dismiss the embedded modal. Only read when `embedded` is true. */
+  onClose?: () => void;
 }
 
 interface ApproachMode {
@@ -719,7 +737,19 @@ function CustomApproachSection({
   );
 }
 
-export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
+export function Step3Approach({
+  wizard,
+  onAdvance,
+  onBack,
+  embedded = false,
+  onClose,
+}: Step3Props) {
+  // One dismiss path for the embedded header's X. `onBack` is the fallback
+  // because a caller that only wired the page-level back hint still gets a
+  // working close control instead of a dead button; the no-op tail keeps the
+  // control keyboard-focusable and predictable rather than conditionally absent.
+  const dismiss = onClose ?? onBack ?? (() => {});
+
   // Which approach is "open" for sub-type selection. Mirrors wizard.mode for
   // approaches that branch; null when nothing is being chosen.
   const [openMode, setOpenMode] = useState<Mode | null>(null);
@@ -867,26 +897,14 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
     ? ALL_MODES.find((m) => m.id === openMode)
     : undefined;
 
-  return (
-    <div className="relative mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
-      {/* Ambient bg — consistent with Step 1 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-      >
-        <div
-          className="absolute inset-0 text-foreground opacity-[0.05]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
-            backgroundSize: "22px 22px",
-          }}
-        />
-        <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,hsl(74_81%_59%/0.08),transparent_70%)]" />
-      </div>
-
-      <HeroHeader title="What's your approach?" onBack={onBack} />
-
+  // Everything below the header is the SAME expression in both modes — the
+  // grid, the sub-type reveal, RouteToggle, the Custom route. Only the chrome
+  // around it forks (the two returns at the bottom of this function), so the
+  // modal cannot drift from the real step by construction. A fragment adds no
+  // DOM node, so in the standalone return these stay direct children of the
+  // `gap-6` flex column exactly as before.
+  const body = (
+    <>
       {/* Genie 2.0 — "the step must adapt to what's already known." Explains,
           in plain language, why less is being asked than usual (or why there's
           no concept field for a Concept target). Absent on the ordinary full
@@ -992,9 +1010,20 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
                 {wizard.state.format === "image"
                   ? "Looking for Image to Video, UGC Video or B-Roll? "
                   : "Looking for Lifestyle Scene or Resize? "}
+                {/* The ONE place in this file that moves the wizard without
+                    going through `onAdvance` — and it is not a commit path, it
+                    is the opposite: a deliberate jump BACKWARD to step 1 to
+                    change Format. Routing it through `onAdvance` would be a
+                    lie (it advances), so it keeps `goTo(1)` and instead closes
+                    the modal in embedded mode: otherwise the wizard would
+                    silently land on step 1 underneath an open Approach modal
+                    still sitting over Configure. Non-embedded is unchanged. */}
                 <button
                   type="button"
-                  onClick={() => wizard.goTo(1)}
+                  onClick={() => {
+                    wizard.goTo(1);
+                    if (embedded) dismiss();
+                  }}
                   className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:text-primary"
                 >
                   Switch the format on step 1
@@ -1081,6 +1110,71 @@ export function Step3Approach({ wizard, onAdvance, onBack }: Step3Props) {
           onAdvance={onAdvance}
         />
       )}
+    </>
+  );
+
+  // Embedded — the caller's shell is `fixed inset-0` + backdrop + a `v3-glass`
+  // plate that is `max-h-[85dvh] overflow-hidden`, and that plate expects ITS
+  // CHILD to own the header/scroll split. Same three-part structure ScriptRail
+  // already uses inside the identical shell: `flex h-full flex-col`, a
+  // `shrink-0` header, then a `min-h-0 flex-1 overflow-y-auto` body. Without
+  // `min-h-0` the flex item refuses to shrink below its content and the plate's
+  // `overflow-hidden` clips the tail of the grid instead of scrolling it.
+  //
+  // No ambient backdrop and no HeroHeader here: both are page chrome, and the
+  // dotted field paints at `-z-10`, i.e. behind the glass plate, where it is
+  // either invisible or a smear.
+  if (embedded) {
+    return (
+      <div className="flex h-full flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Angle + concept
+            </p>
+            <h2 className="truncate text-sm font-semibold text-foreground">
+              Change approach
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Close"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Same vertical rhythm as the page column, minus its page padding. */}
+          <div className="flex flex-col gap-5 px-4 py-4">{body}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-8 pb-10">
+      {/* Ambient bg — consistent with Step 1 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      >
+        <div
+          className="absolute inset-0 text-foreground opacity-[0.05]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
+            backgroundSize: "22px 22px",
+          }}
+        />
+        <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,hsl(74_81%_59%/0.08),transparent_70%)]" />
+      </div>
+
+      <HeroHeader title="What's your approach?" onBack={onBack} />
+
+      {body}
     </div>
   );
 }
