@@ -10,11 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { FlowAction, FlowModuleKey } from "./flowTypes";
+import type { FlowAction, FlowModuleKey, FlowSourceRef } from "./flowTypes";
 import { flowSearchParams } from "./flowTypes";
 import { actionsForModule, getFlowModule } from "./data/flowRegistry";
 import { getFlowSource } from "./data/flowSources";
-import { resolveFlowContext } from "./data/resolveFlowContext";
+import { missingCarriedScriptReason, resolveFlowContext } from "./data/resolveFlowContext";
 import { resolveIcon } from "./icons";
 
 /**
@@ -47,6 +47,48 @@ function landingStepToSlug(landingStep: number | undefined): "format" | "product
     default:
       return "product";
   }
+}
+
+/**
+ * Why a blocked row shows a TAG and not its sentence (2026-09-09).
+ *
+ * The reason strings are real sentences — "No script on this one — only an
+ * analysed Video Sage video carries one" is 69 characters. Rendered inline in
+ * a `shrink-0` span next to a `truncate`d action label, the sentence took
+ * every pixel it wanted and the label gave way: the action NAME clipped while
+ * the error caption ran full width, and the menu itself (no max-width) grew
+ * past 500px at all 8 mount sites. Backwards — the label is what the user is
+ * reading the menu to find; the reason is secondary and only matters on the
+ * rows they can't pick.
+ *
+ * So: a two-word tag in the row, the full sentence on `title` (and the menu
+ * gets a max-width, so a long ACTION label truncates instead of stretching).
+ *
+ * @returns the short tag and the full sentence, in FlowModuleDetail's
+ *          `isUnpickable` precedence — analysis FIRST, script second. The two
+ *          surfaces disagreed: Video Sage's failed row is both unanalysed and
+ *          script-less, and script-first made it report "no script" when the
+ *          truth the user can act on is that the analysis failed.
+ */
+function blockedNote(
+  action: FlowAction,
+  ref: FlowSourceRef | undefined,
+  moduleLabel: string | undefined,
+): { tag: string; reason: string } | null {
+  if (action.requiresAnalysis && !ref?.analysed) {
+    return {
+      // A ref that words its own reason is NOT telling the generic analysis
+      // story — Trends has no analysis step at all, and a hookless trend is
+      // blocked because the feed never carried a hook. Tag it off what the
+      // action needed ("No hook") rather than sending the user to look for
+      // an Analyse control that does not exist.
+      tag: ref?.blockedReason ? (action.source !== "none" ? `No ${action.source}` : "Unavailable") : "Needs analysis",
+      reason: ref?.blockedReason ?? `Needs analysis in ${moduleLabel ?? "the source module"} before this action`,
+    };
+  }
+  const noScript = missingCarriedScriptReason(action, ref);
+  if (noScript) return { tag: "No script", reason: noScript };
+  return null;
 }
 
 /**
@@ -116,7 +158,11 @@ export function SendToGenieMenu({
           </button>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-60">
+      {/* max-w caps the menu so a long ACTION label truncates inside it
+          rather than widening it — without one, `min-w-60` has no upper
+          bound and the widest row dictates the whole menu. Viewport-relative
+          so it can't overflow a narrow window. */}
+      <DropdownMenuContent align={align} className="min-w-60 max-w-[min(20rem,calc(100vw-2rem))]">
         <DropdownMenuLabel className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           Send to Genie{mod ? ` · ${mod.label}` : ""}
         </DropdownMenuLabel>
@@ -128,26 +174,26 @@ export function SendToGenieMenu({
             const Icon = resolveIcon(action.icon);
             // Fail CLOSED on an unknown ref: `ref !== undefined && …` left
             // every analysis-gated action enabled for any row the source
-            // catalogue doesn't carry (~794 of 800 Insights ads).
-            const blocked = Boolean(action.requiresAnalysis) && !ref?.analysed;
+            // catalogue doesn't carry (~794 of 800 Insights ads). Both
+            // reasons, in FlowModuleDetail's order — see `blockedNote`.
+            const note = blockedNote(action, ref, mod?.label);
+            const blocked = !!note;
             return (
               <DropdownMenuItem
                 key={action.id}
                 disabled={blocked}
                 onSelect={() => !blocked && go(action)}
+                title={note?.reason}
                 className="flex items-center gap-2"
               >
                 <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{action.label}</span>
-                {blocked && (
-                  <span className="shrink-0 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-                    {/* The ref's own reason wins over the generic caption.
-                        "needs analysis" is true for Video Sage and Insights,
-                        but Trends has no analysis step at all — a hookless
-                        trend is blocked because the feed never carried a
-                        hook, and telling the user to go analyse it would
-                        send them looking for a control that doesn't exist. */}
-                    {ref?.blockedReason ?? "needs analysis"}
+                <span className="min-w-0 flex-1 truncate">{action.label}</span>
+                {note && (
+                  <span
+                    title={note.reason}
+                    className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-muted-foreground"
+                  >
+                    {note.tag}
                   </span>
                 )}
               </DropdownMenuItem>

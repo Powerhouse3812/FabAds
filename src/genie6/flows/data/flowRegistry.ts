@@ -161,6 +161,24 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
   // optional/Auto and Step 3 trims to whatever the source doesn't already
   // carry — see `resolveGenerationSteps` (useWizard.ts). `targets` below is
   // what actually offers the choice; nothing here hardcodes which one wins.
+  // WHO LISTS THIS, AND WHY ONLY VIDEO SAGE (2026-09-09).
+  // `source: "script"` promises the script text itself travels
+  // (`FlowSourceRef.script`), and `missingCarriedScriptReason` fails the
+  // action closed on any ref without one. Video Sage's analysis is the only
+  // data in flowSources.ts that holds a script — Industry Insights, Reports
+  // and Creative Library carry ad COPY (headline / primary text /
+  // description), never a script — so those three listed an action that was
+  // disabled on 100% of their rows: Reports showed "Use script" greyed out on
+  // 6 of 6. An action that can never fire is not a feature, it is a dead
+  // control, and this registry is meant to describe what a module can
+  // actually do. They are removed from all three below. Same reasoning
+  // Trends already carries verbatim in its own "WHAT IS DELIBERATELY NOT
+  // LISTED" note. Nothing outside this registry fires `use-script` — every
+  // surface (SendToGenieMenu, FlowModuleDetail) renders off `actionsForModule`
+  // — so removal cannot orphan a hardcoded caller the way the
+  // `creative-library` + `generate-variation` omission did.
+  // If one of those modules ever gains real script data, add `script` to its
+  // refs and re-list it here in the same change.
   "use-script": {
     id: "use-script",
     label: "Use script",
@@ -249,8 +267,11 @@ export const FLOW_ACTIONS: Record<FlowActionId, FlowAction> = {
     // (source: "none" / targets: ["ad"]), extended in place rather than
     // added as a second "storyboard-source" action — it's already reachable
     // on the exact same 4 modules (Industry Insights, Video Sage, Reports,
-    // Creative Library) that carry use-script/use-concept/use-framework/
-    // use-angle/use-hook, so no module's action list needed to change.
+    // Creative Library) that carry use-concept/use-framework/use-angle/
+    // use-hook, so no module's action list needed to change. (`use-script`
+    // was in that set until 2026-09-09 — it is Video Sage only now; see the
+    // note above its own entry. The other five are unaffected: their content
+    // is not gated on `FlowSourceRef.script`.)
     //
     // WIDENED (2026-09-08, same day, owner's follow-up ruling): the target
     // set is now ALL FOUR — Ad, Script, Concept AND Storyboard — not just Ad
@@ -490,7 +511,8 @@ export const FLOW_MODULES: FlowModule[] = [
     modulePath: "/insights-v2/feed",
     actions: [
       "generate-variation",
-      "use-script",
+      // No "use-script" — a competitor ad row carries copy, not a script.
+      // See the note above the `use-script` FLOW_ACTIONS entry.
       "use-concept",
       "use-framework",
       "use-storyboard",
@@ -548,7 +570,8 @@ export const FLOW_MODULES: FlowModule[] = [
     modulePath: "/reports/ads",
     actions: [
       "generate-variation",
-      "use-script",
+      // No "use-script" — a running ad row carries copy, not a script.
+      // See the note above the `use-script` FLOW_ACTIONS entry.
       "use-concept",
       "use-framework",
       "use-storyboard",
@@ -648,7 +671,8 @@ export const FLOW_MODULES: FlowModule[] = [
       // set. It only LOOKED correct because outputActions.ts hardcodes the
       // "configure" slug — the Rule-1 landing was the URL, not the rule.
       "generate-variation",
-      "use-script",
+      // No "use-script" — a saved asset row carries copy, not a script.
+      // See the note above the `use-script` FLOW_ACTIONS entry.
       "use-concept",
       "use-framework",
       "use-storyboard",

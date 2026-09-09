@@ -38,7 +38,14 @@ import {
 } from "../../lib/credits";
 import { languageLabel, searchLanguages } from "../../lib/languages";
 import { MODEL_CREDIT_MULTIPLIER } from "../data/modelPricing";
-import { buildCreditLines } from "../state/useWizard";
+// MODE_LABEL is the approach-name map exported from useWizard.ts (2026-09-09)
+// precisely so this chip reads off it. Three local copies of these labels
+// already exist in the codebase (AlphaStep3Configure, batchDisplay, the
+// wizard's own script derivation) — a fourth is not being added here.
+import { buildCreditLines, MODE_LABEL, FREE_GENERATION_LABEL } from "../state/useWizard";
+// Sub-type ("UGC Video · Unboxing") is DATA, read through the shared getter
+// rather than re-derived from a `state.mode === "…"` conditional.
+import { getSubType } from "../data/approach-subtypes";
 // CHANGE #3: saved reference-URLs surfaced inside the URL-attach popover.
 // Mirrors ContextRail.tsx, which imports the same helpers from "@/mocks/shared"
 // (barrel re-exports src/mocks/shared/referenceUrls.ts).
@@ -113,6 +120,13 @@ interface PromptReferenceBarProps {
    *  performance-marketing job; when absent, filtering still runs off
    *  format + attached references. */
   studioMode?: AlphaMode;
+  /** §6 "Script as a pre-step" — two-phase Generate. When provided AND the
+   *  wizard carries no script yet, the CTA generates the SCRIPT first
+   *  (label + click both switch) instead of firing the batch. Optional on
+   *  purpose: `screens/Step4Configure.tsx` (the dead predecessor screen)
+   *  never passes it, so that mount keeps today's one-phase Generate with
+   *  no change at its call site. */
+  onGenerateScript?: () => void;
 }
 
 // A-12.73: emoji map → lucide icon map. DS §7 #10 (no emojis in product UI).
@@ -297,6 +311,7 @@ export function PromptReferenceBar({
   hideLayoutToggle = false,
   footerExtras,
   studioMode,
+  onGenerateScript,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -438,6 +453,25 @@ export function PromptReferenceBar({
   const generateDisabled =
     !state.prompt.trim() || overBudget || missingFormat || missingEntity;
 
+  // §6 two-phase CTA. `scriptPhase` is true only when this mount was given an
+  // onGenerateScript AND no script text exists yet — so the dead
+  // screens/Step4Configure.tsx mount (which passes no handler) can never enter
+  // it and keeps today's single-phase Generate verbatim. `generateDisabled` is
+  // untouched and gates BOTH phases: a run missing a required field stays
+  // disabled whether the button reads "Generate script" or "Generate".
+  const hasScript = !!state.script?.trim();
+  const scriptPhase = !hasScript && !!onGenerateScript;
+  // One handler for the button and the ⌘+Enter shortcut, so the shortcut
+  // always does exactly what clicking would do at that moment.
+  const runGenerateAction = () => {
+    if (generateDisabled) return;
+    if (scriptPhase) {
+      onGenerateScript?.();
+      return;
+    }
+    wizard.goTo(5);
+  };
+
   // Item #2 — real model filtering off format + attached references (and,
   // once wired by the caller, `studioMode`). See getAvailableModels() above.
   const { models: availableModels, hint: modelFilterHint } = useMemo(
@@ -445,20 +479,33 @@ export function PromptReferenceBar({
     [state.format, state.attachedReferences, studioMode],
   );
 
-  // Concept · Angle compound value
-  const conceptAngleValue =
-    state.angleId || state.selectedConceptIds.length > 0
-      ? [
-          state.angleId
-            ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-            : null,
-          state.selectedConceptIds.length > 0
-            ? `${state.selectedConceptIds.length} concept${state.selectedConceptIds.length === 1 ? "" : "s"}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : "Auto";
+  // Approach chip value (owner ruling 2026-09-09). The big Angle+Concept card
+  // is being removed from Configure, so this chip is the ONLY place Step 3's
+  // decision is stated before the edit modal opens — it therefore reports what
+  // Step 3 actually decided, not just the angle/concept fallout of it.
+  // Three branches, in priority order:
+  //   1. mode === "auto"          → "Auto"            (nothing was asked)
+  //   2. approachRoute "custom"   → "Custom · <angle> · <n concepts>"
+  //   3. a real preset approach   → "<Approach>[ · <sub-type>]"
+  // Sub-type comes from the shared `getSubType` data lookup, never a
+  // `state.mode === "…"` conditional (per-Mode rules are data, not branches).
+  const approachSubTypeLabel =
+    getSubType(state.mode, state.approachSubType)?.label ?? null;
+  const approachValue = (() => {
+    if (state.mode === "auto") return "Auto";
+    if (state.approachRoute === "custom") {
+      const angleLabel = state.angleId
+        ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
+        : "Auto";
+      const n = state.selectedConceptIds.length;
+      const conceptSummary =
+        n === 0 ? "Auto" : `${n} concept${n === 1 ? "" : "s"}`;
+      return `Custom · ${angleLabel} · ${conceptSummary}`;
+    }
+    return `${MODE_LABEL[state.mode]}${
+      approachSubTypeLabel ? ` · ${approachSubTypeLabel}` : ""
+    }`;
+  })();
 
   // Avatar · Voice compound value — show the REAL selected names looked up by
   // id (null → "Auto"). Voice names are "Priya — Warm Hindi"; show the descriptor
@@ -476,19 +523,31 @@ export function PromptReferenceBar({
 
   return (
     <>
-      {/* GLASS container — uses shared .v3-glass utility (light + dark tuned) */}
+      {/* GLASS container — uses shared .v3-glass utility (light + dark tuned).
+          `shrink-0` is load-bearing, not cosmetic. Configure's column is a
+          `h-full overflow-y-auto` flex column, and this card was its only
+          shrinkable child — so adding anything tall below it did NOT scroll
+          the column, it squeezed this card instead. Measured: a 426px panel
+          took it from 257px to 61px and clipped the Generate button out of
+          sight. `getBoundingClientRect()` still reported Generate on-screen
+          (clipped, not moved), so this is invisible to a rect assertion and
+          only shows in a screenshot. With shrink-0 the column overflows and
+          scrolls the way it was always meant to. */}
       <div
         className={cn(
-          "v3-glass relative overflow-hidden rounded-3xl px-5 py-4",
+          "v3-glass relative shrink-0 overflow-hidden rounded-3xl px-5 py-4",
         )}
       >
         <div className="flex w-full flex-col gap-3">
           {/* Row 0 — Reference chips (UNIFIED pill style) */}
           {onChipOpen && (
             <div className="flex flex-wrap items-center gap-1.5">
+              {/* Chip-kind stays "concept-angle" deliberately — the modal it
+                  opens is being swapped elsewhere; keeping the identifier put
+                  keeps this an isolated change. */}
               <RefChip
-                label="Concept"
-                value={conceptAngleValue}
+                label="Approach"
+                value={approachValue}
                 onClick={() => onChipOpen("concept-angle")}
               />
               <RefChip
@@ -702,14 +761,15 @@ export function PromptReferenceBar({
               value={state.prompt}
               onChange={(e) => wizard.set("prompt", e.target.value)}
               onKeyDown={(e) => {
-                // ⌘+Enter (Ctrl+Enter on Windows/Linux) — same Generate path
-                // as the button (`wizard.goTo(5)`), gated by the exact same
-                // disabled condition so a missing prompt, unapproved script,
-                // missing format/entity, or an over-budget total can't be
-                // bypassed by the shortcut.
+                // ⌘+Enter (Ctrl+Enter on Windows/Linux) — routed through the
+                // SAME handler the button uses, so it fires whichever phase
+                // the button currently shows (script-first or the batch), and
+                // is gated by the exact same disabled condition: a missing
+                // prompt, missing format/entity or an over-budget total can't
+                // be bypassed by the shortcut.
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                   e.preventDefault();
-                  if (!generateDisabled) wizard.goTo(5);
+                  runGenerateAction();
                 }
               }}
               rows={2}
@@ -844,10 +904,8 @@ export function PromptReferenceBar({
                 <CreditBreakdownInfo breakdown={creditBreakdown} />
                 <button
                   type="button"
-                  onClick={() => wizard.goTo(5)}
-                  disabled={
-                    !state.prompt.trim() || overBudget || missingFormat || missingEntity
-                  }
+                  onClick={runGenerateAction}
+                  disabled={generateDisabled}
                   title={
                     missingFormat
                       ? "Pick a format (Image or Video) on step 1 to generate"
@@ -890,10 +948,21 @@ export function PromptReferenceBar({
                     </>
                   ) : (
                     <>
-                      Generate
+                      {/* Script generation is free, and the house rule is
+                          that a free target STATES it, rather than merely
+                          not charging for it (`FREE_GENERATION_LABEL`,
+                          useWizard.ts — "e.g. Generate script · Free instead
+                          of Generate (12 credits)"). Showing the ad's total
+                          here instead would read as "pressing this spends N
+                          credits," which is false: nothing is charged until
+                          the ad itself is generated, a separate, later click. */}
+                      {scriptPhase ? "Generate script" : "Generate"}
                       <span className="font-mono text-[10px] font-medium opacity-80">
-                        ({formatCredits(creditBreakdown.total)}{" "}
-                        {creditBreakdown.total === 1 ? "credit" : "credits"})
+                        {scriptPhase
+                          ? `· ${FREE_GENERATION_LABEL}`
+                          : `(${formatCredits(creditBreakdown.total)} ${
+                              creditBreakdown.total === 1 ? "credit" : "credits"
+                            })`}
                       </span>
                     </>
                   )}
