@@ -280,7 +280,7 @@ Video · B-Roll · **Product Demo** (new) · **Auto** (last).
   missing from `THEME_BY_ID` and drew random videos until it was caught on
   2026-09-09. Consolidating these is its own cleanup.
 
-## 11b. Approach + app changes — 2026-09-09 (owner)
+## 11c. Approach + app changes — 2026-09-09 (owner)
 
 Owner: "bg remover ko approach se htake, apps me hi rakho, approach me new
 approach add krdo koi" + "approach ka UI bhi thik krna pdega, uspe angle ke
@@ -313,7 +313,7 @@ tags hone chahiye, and concept ka style name."
   `mode === "scratch" || "ugc-video"`, now stale for 7 of the 9 approaches.
   Pre-existing, owner's call.
 
-## 11c. Trends is a source of trending ASSETS — 2026-09-09 (owner)
+## 11d. Trends is a source of trending ASSETS — 2026-09-09 (owner)
 
 Owner: "Script from trend ka matlab tha, we get trending angles and trending
 ads and trending hooks, and other assets in news… ki Trend se bhi chise aa
@@ -340,7 +340,7 @@ skti hai."
   `source: "library"` and seeds neither angle nor prompt — mislabelled and
   half-wired).
 
-## 11d. Framework — never generated, and now never hand-created either
+## 11e. Framework — never generated, and now never hand-created either
 
 Owner: "Framework abhi bi generate nahi denge, agar kahi bola to galti bol
 diya hoga. only save from video sage hi hai abhi bi."
@@ -354,7 +354,7 @@ keys removed, so the only path to a Framework is `SaveFrameworkDialog` in
 Video Sage. Avatars already omit those keys for the same reason, so this
 follows existing precedent rather than inventing one.
 
-## 11e. Storyboard is a first-class asset — 2026-09-09
+## 11f. Storyboard is a first-class asset — 2026-09-09
 
 Owner: "Storyboard is an asset like other, so if doesn't have one, then add
 one… technically kahi bhi pde ho, bs user ko genie me dikhado."
@@ -367,7 +367,7 @@ the Library save path — previously `StoryboardsGeneratedTab` passed
 `canSaveToCatalogue={false}` purely because no such type existed, leaving a
 visible dead end.
 
-## 11f. Defects the 2026-09-09 review gate caught, and what they teach
+## 11g. Defects the 2026-09-09 review gate caught, and what they teach
 
 The batch failed its first adversarial gate. Every finding below is fixed; they
 are recorded because each is a REPEATABLE trap in this codebase, not a one-off.
@@ -438,24 +438,29 @@ Flag if more per-Mode detail is needed than this.
 
 Not part of the generation-target logic above, but you asked for this list
 specifically saved too. Cross-checked against the live `GENIE_APPS` registry
-(`apps/data/appRegistry.ts`, 8 live + 14 coming-soon) and other places the app
-already has similar capability:
+(`apps/data/appRegistry.ts` — 22 entries, **8 live + 14 coming-soon** as of
+2026-09-09, counted from the file; it read 7 live until BG Remover was promoted
+from a stub the same day, see §11c) and other places the app already has
+similar capability:
 
 **Already live, matches an existing app:** Video translator (Translate
 Videos), Video/Image upscale (Upscale Video — registry has no separate
 still-image upscaler), Speech cleanup (Speech Cleanup), PDF/PPT to video
 (PPT/PDF to Video).
 
-**Already exists, but under a DIFFERENT system than Other Apps — flagging so
-a duplicate doesn't get built:**
-- Remove image bg → already `bg-remover`, a TOOLS-group sidebar module
-  (`src/components/sidebar/modules.ts`), currently "Soon."
-- Image resizer → already `"resize"`, one of Step3Approach's Approach ids
-  (`studio-v4/data/approach-subtypes.ts`), not an Other App.
-- Swap avatar → close to the live `avatar-shots` app (Avatar Shots), but
-  "swap" reads like changing which preset avatar is used rather than
-  casting one onto footage — **unclear if this is the same feature or a
-  distinct one, asking rather than assuming.**
+**Was under a DIFFERENT system than Other Apps — RESOLVED 2026-09-09 by
+Maalik's "one home" call (see §11b):**
+- Remove image bg → was `bg-remover`, a TOOLS-group sidebar module. Now an
+  Other App; **removed from the sidebar group**, route kept alive.
+- Object remover → same treatment, same reasoning (identical class of one-shot
+  stub). Inferred extension — Maalik named only BG Remover.
+- Image resizer → added as the `resize-image` app. The `"resize"` Approach id
+  in `studio-v4/data/approach-subtypes.ts` **stays** — it does a related but
+  different job inside a generation flow, so this is not a duplicate.
+- Swap avatar → **NOT added.** The live `face-swap` app already does exactly
+  this ("swap an avatar's face onto any video"), which is the distinction
+  between "swap" and Avatar Shots' presenter-casting. A new entry would have
+  been a near-duplicate.
 
 **Coming-soon already, name overlap worth flagging:** "Video Podcast" is
 already a coming-soon app in the registry. §9's Podcast is a Studio **Mode**
@@ -463,8 +468,12 @@ already a coming-soon app in the registry. §9's Podcast is a Studio **Mode**
 shared name is worth double-checking isn't meant to be the same feature
 before both get built independently.
 
-**Genuinely new, no existing match found:** Add video caption, Change
-metadata, Prompt generator/Refine, Thumbnail maker.
+**Genuinely new — SHIPPED 2026-09-08/09 as coming-soon registry entries:**
+Add video caption (`add-video-captions`), Change metadata (`change-metadata`),
+Prompt generator/Refine (`prompt-generator`), Thumbnail maker
+(`thumbnail-maker`). Stub cards only — no fields, cost or screen yet, same as
+every other coming-soon app. Built in a parallel session and adopted here by
+patch rather than rebuilt.
 
 **Unclear, need your read:**
 - "Animated AI" — no existing match, and the phrase alone isn't enough to
@@ -477,14 +486,34 @@ metadata, Prompt generator/Refine, Thumbnail maker.
 - "Storyboard" listed here — this is a generation target (§1), not an Other
   App; assuming it's listed for cross-reference, not as its own app.
 
-**STALE LINE, corrected 2026-09-09.** This used to read "none of these have
-been built as new registry entries yet", and that is no longer true — it
-caused an audit to report the opposite of the code. Four of them (Add Video
-Captions, Change Metadata, Prompt Generator, Thumbnail Maker) DO exist in
-`appRegistry.ts`, as coming-soon entries; the registry now holds 22 apps, 8 of
-them live after BG Remover's promotion (§11b). The rest of this section is
-still reconciliation only. **Check `appRegistry.ts` itself, not this
-paragraph** — the registry is the source of truth for what exists.
+**Added to `appRegistry.ts`:** the 4 "genuinely new" entries above, plus
+`bg-remover`, `resize-image` and `object-remover` from the one-home merge — 7
+new entries in total. Everything else in this section is reconciliation only:
+the already-live matches, the name-overlap flag, and the "unclear" list below
+were NOT built.
+
+## 11b. Other Apps has ONE home (2026-09-09)
+
+Maalik: "Remove other apps from sub nav — keeping only on studio, below modes.
+and merge them together." So:
+- Other Apps is **gone from Genie's sidebar sub-nav**. The `/iq/genie6/apps`
+  route stays alive (this repo's convention for retired nav entries).
+- It renders only as the "Other Apps" section on Studio home, below the Mode
+  cards, showing the **full roster** — live first, coming-soon badged — with
+  the "View all" link removed. A subset there would have left the rest
+  reachable by URL only, now that the sub-nav entry is gone.
+- One-shot tools were pulled OUT of the sidebar TOOLS group into the registry,
+  so a utility lives in exactly one place. Video Sage and Copilot stay in the
+  sidebar — they are full modules, not one-shot tools.
+
+This one-home merge is also why `bg-remover` already existed in the registry
+as a coming-soon stub when §11c came to move it out of the Approach step —
+that work PROMOTED the existing key rather than adding a second one, which
+`getApp()`'s `.find()` would have silently shadowed.
+
+**When asking "does app X exist", grep `appRegistry.ts` — never quote this
+page.** A line here claiming "none of these have been built" survived past the
+build and caused a 2026-09-09 audit to report the exact opposite of the code.
 
 ---
 

@@ -201,6 +201,34 @@ update `VARIANT_META` for the picker.
 
 ---
 
+## Worktree gotchas
+
+Maalik runs many Claude Code sessions in parallel, each in its own git
+worktree under `.claude/worktrees/*`. Two consequences:
+
+- **`.env` is gitignored, so a fresh worktree boots without it.** Symptom:
+  the dev server starts cleanly but the app renders a blank page with
+  `Uncaught Error: supabaseUrl is required` in the console. Not a code bug —
+  copy `.env` from the main checkout (`/Users/powerhouse/Downloads/FabAds/.env`)
+  into the new worktree, then restart the dev server (Vite doesn't hot-reload
+  env changes).
+- **Nothing syncs between worktrees automatically.** Each is an isolated
+  checkout on its own branch — an edit in one lives only there until it's
+  committed, pushed, and merged to `main`; another session only sees it after
+  an explicit `git fetch` + merge/rebase onto `origin/main`. Before starting
+  open-ended "continue Genie" style work with no specific task, check for
+  in-flight collisions first: peer sessions (`ListAgents` / list_sessions) and
+  `git status`/`git diff --stat` across sibling worktrees. Pick a slice no
+  live peer session is currently editing, and fast-forward onto
+  `origin/main` before committing if it has moved.
+- **When a peer session has already built the thing, PORT it, don't rebuild.**
+  `git -C <their-worktree> diff -- <paths> > /tmp/p && git apply --check /tmp/p
+  && git apply /tmp/p`. Two branches creating the same entries by hand is
+  guaranteed conflict plus duplicated effort. Port their docs edits too, or
+  the surviving branch ships stale claims about work that did land.
+
+---
+
 ## Sync discipline
 
 When a change ships, propagate it across:
