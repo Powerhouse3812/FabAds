@@ -52,6 +52,7 @@ import type { OutputData } from "../types/output";
 import { angles } from "../mocks";
 import { MODEL_CREDIT_MULTIPLIER, MODEL_LABEL, MODEL_PRICING } from "../studio-v4/data/modelPricing";
 import { computeBreakdown, type CreditLine } from "./credits";
+import type { GenerationTarget } from "../studio-v4/state/useWizard";
 // ONE stage vocabulary for image/video renders (audit item 3) — the same
 // function Step5ResultsQueue.tsx already calls for every LIVE Studio batch.
 // Importing it here (rather than keeping a second, independently-authored
@@ -68,6 +69,8 @@ export interface StartBatchInput {
   label: string;
   stages: string[];
   count: number;
+  /** What the batch produces. Omit for an ad — see `RunBatch.target`. */
+  target?: GenerationTarget;
   creditsPerItem: number;
   /**
    * The EXACT total quoted on the Generate button (computeBreakdown().total).
@@ -560,6 +563,7 @@ export function startBatch(input: StartBatchInput): string {
     label: input.label,
     stages: input.stages,
     items,
+    target: input.target,
     credits: chargedTotal(items),
     config: input.config,
   };

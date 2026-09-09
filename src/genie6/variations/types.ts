@@ -18,7 +18,9 @@ import type { OutputData } from "../types/output";
  * and the stepped one is gone. The screen still owns no rule — everything
  * decidable lives in `data/` and the state spine.
  *
- * PART 2 (asset variations) IS NOT IN SCOPE and nothing here anticipates it.
+ * PART 2 — ASSET VARIATIONS (same day, same owner) reuses every stage above.
+ * A run varies EITHER a whole ad OR an asset; the two differ only in what the
+ * analysis reports and which elements can be varied. See `AssetKind` below.
  */
 
 /* ------------------------------------------------------------------ source */
@@ -39,10 +41,13 @@ export type PickedSource =
 
 export type VariationSourceKind = PickedSource["kind"];
 
-/** Normalised, display-ready identity of the picked ad. */
+/** Every source kind, either family. `VariationSource` is shared by both. */
+export type AnySourceKind = PickedSource["kind"] | PickedAsset["kind"];
+
+/** Normalised, display-ready identity of the picked ad or asset. */
 export interface VariationSource {
-  kind: VariationSourceKind;
-  /** OutputData.id | FlowSourceRef.id | upload-local id. */
+  kind: AnySourceKind;
+  /** OutputData.id | FlowSourceRef.id | asset id | upload/paste-local id. */
   id: string;
   title: string;
   subtitle?: string;
@@ -140,7 +145,8 @@ export interface VariationElementDef {
  * analysis actually found — never a fixed set.
  */
 export interface RecommendedAction {
-  element: VariationElementId;
+  /** Either family's element — an asset run recommends "framework"/"entity". */
+  element: AnyElementId;
   /** Reuses the element's `actionLabel` unless the case wants sharper copy. */
   label: string;
   /** Why this is being suggested, grounded in the detection. One short line. */
@@ -156,7 +162,7 @@ export interface RecommendedAction {
 export type EditScope = "all" | "multiple" | "individual";
 
 export interface VariationEdit {
-  element: VariationElementId;
+  element: AnyElementId;
   scope: EditScope;
   /** "all" and "multiple" share one prompt. Unused for "individual". */
   prompt?: string;
@@ -166,15 +172,155 @@ export interface VariationEdit {
   byIndex?: Record<number, string>;
 }
 
+/* ------------------------------------------------ PART 2: asset variations */
+
+/**
+ * The three asset kinds a run can vary.
+ *
+ * Storyboard is NOT a separate journey. Maalik, 2026-09-09: "Storyboard is
+ * nothing but script with visual directions" — so a storyboard run is a
+ * script run whose visual-direction element is mandatory and pre-filled,
+ * where a script run leaves it optional. Adding visuals to a script
+ * variation is what makes the output a storyboard (`assetOutputKind`).
+ */
+export type AssetKind = "script" | "concept" | "storyboard";
+
+/** Free text the user pasted. No saved identity, so nothing to resolve. */
+export interface PastedAssetStub {
+  id: string;
+  assetKind: AssetKind;
+  title: string;
+  body: string;
+}
+
+/** An uploaded .txt/.md, read into text. Same shape once it's in memory. */
+export interface UploadedAssetStub {
+  id: string;
+  assetKind: AssetKind;
+  name: string;
+  body: string;
+}
+
+/**
+ * What the asset picker hands over. Saved and generated assets travel as
+ * (kind, id) and are resolved by `analyseAsset` — the rosters live in
+ * different modules and re-resolving in one place beats four call sites
+ * each carrying a different object shape.
+ */
+export type PickedAsset =
+  | { kind: "saved-asset"; assetKind: AssetKind; id: string }
+  | { kind: "generated-asset"; assetKind: AssetKind; id: string }
+  | { kind: "uploaded-asset"; file: UploadedAssetStub }
+  | { kind: "pasted-asset"; text: PastedAssetStub };
+
+/**
+ * A run varies EITHER a whole ad OR an asset, never both. The family is an
+ * explicit discriminant rather than two nullable fields, because two
+ * mutually-exclusive nullables is precisely the shape that produced the
+ * Step-2 XOR defects in useWizard.ts.
+ */
+export type PickedThing =
+  | { family: "ad"; ad: PickedSource }
+  | { family: "asset"; asset: PickedAsset };
+
+/** What an asset run produces. Visuals present ⇒ storyboards. */
+export type AssetOutputKind = AssetKind;
+
+/**
+ * The asset overview's rows. Reuses `AnalysedField` and `AdTypeKind` so the
+ * stored / Detected / N-F grammar is identical to the ad overview — a user
+ * who learned it once does not relearn it here.
+ *
+ * Not every row applies to every kind: `framework` and `duration` are
+ * script/storyboard only, `scenes` is storyboard only. An inapplicable row is
+ * not the same as a missing one, so those come back `not-found` with the
+ * overview deciding what to hide.
+ */
+export interface AssetAnalysis {
+  source: VariationSource;
+  assetKind: AssetKind;
+  /** True when visual directions are present — drives the output kind. */
+  hasVisuals: boolean;
+  type: AnalysedField<AdTypeKind>;
+  entityName: AnalysedField;
+  angle: AnalysedField;
+  concept: AnalysedField;
+  framework: AnalysedField;
+  visualDirection: AnalysedField;
+  language: AnalysedField;
+  duration: AnalysedField;
+  /** Storyboard only — value is the scene count, `detail` a beat summary. */
+  scenes: AnalysedField<number>;
+  /** The asset's own words. Long; the overview clamps it. */
+  body: AnalysedField;
+}
+
+/**
+ * What can be varied on an asset (Maalik, 2026-09-09): angle, concept and
+ * framework, plus visual direction — optional on a Script (adding it makes
+ * the output a Storyboard), mandatory on a Storyboard. `entity` is the fourth
+ * control rather than a read-only row: on an asset the Brand/Product/Category
+ * is optional and the user may add, remove or change it.
+ *
+ * Deliberately NOT varyable: the body itself. You change the angle, concept or
+ * framework and the new words follow from that.
+ */
+export type AssetElementId =
+  | "angle"
+  | "concept"
+  | "framework"
+  | "visual-direction"
+  | "entity";
+
+/** Either family's element id. Only one family is ever active in a run. */
+export type AnyElementId = VariationElementId | AssetElementId;
+
+/**
+ * Asset twin of `VariationElementDef`. Separate rather than shared because
+ * `promptFrom` reads a different analysis and three ids overlap by name —
+ * "angle" on an ad and "angle" on a script seed different prompts.
+ */
+export interface AssetElementDef {
+  id: AssetElementId;
+  label: string;
+  actionLabel: string;
+  desc: string;
+  Icon: React.ElementType;
+  /** Which analysis row this edits. `entity` reads `type`/`entityName`. */
+  field: keyof Omit<AssetAnalysis, "source" | "assetKind" | "hasVisuals">;
+  /** Asset kinds this element applies to. Framework skips concept. */
+  appliesTo: AssetKind[];
+  /** True where the element cannot be removed — visuals on a storyboard. */
+  mandatoryFor?: AssetKind[];
+  promptFrom: (analysis: AssetAnalysis) => string;
+}
+
+/**
+ * The entity an asset variation is for. Optional throughout — no selection
+ * means Auto, inferred from the source (`TARGET_SPECS` in useWizard.ts marks
+ * every asset target `entityRequired: false`).
+ *
+ * Category and product may be set together (the Performance-Ad shape); brand
+ * is the third, independent choice. §7.2 still binds: a competitor's brand
+ * must never be written here — it is display text on the analysis, never an id.
+ */
+export interface EntitySelection {
+  brandId?: string | null;
+  productId?: string | null;
+  categoryId?: string | null;
+}
+
 /* --------------------------------------------------------------- ui state */
 
 export interface VariationsFlowState {
-  /** null until the picker resolves — gates everything downstream. */
-  picked: PickedSource | null;
+  /** null until a picker resolves — gates everything downstream. */
+  picked: PickedThing | null;
   /** Owned by the shared stepper contract: min 1, max 20, default 4. */
   count: number;
   /** Quick actions tapped. Applied to all N, stackable, no scope question. */
-  quickActions: VariationElementId[];
+  quickActions: AnyElementId[];
   /** Manual edits, keyed by element id. */
-  edits: Partial<Record<VariationElementId, VariationEdit>>;
+  edits: Partial<Record<AnyElementId, VariationEdit>>;
+  /** Asset runs only — the entity the variations are for. Empty = Auto. */
+  entity: EntitySelection;
 }

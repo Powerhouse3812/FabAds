@@ -216,7 +216,12 @@ function Field({
            the full string stays reachable on hover. */
         title={empty ? "Not found in this ad" : value}
         className={cn(
-          "truncate text-g6-sm leading-tight text-g6-text",
+          /* `text-[12px]` and not the `text-g6-sm` token (same 12px) ON PURPOSE:
+             tailwind-merge can't tell a custom `text-g6-*` key is a size, files
+             it under text-COLOR, and the colour classes below then win and
+             delete it — the value silently renders at 16px. An arbitrary length
+             is classified correctly. */
+          "truncate text-[12px] leading-tight text-g6-text",
           empty && "font-g6-mono uppercase tracking-[0.04em] text-g6-text-tertiary",
           mono && !empty && "font-g6-mono uppercase tracking-[0.04em]",
         )}
@@ -276,7 +281,8 @@ function ProseField({
           aria-label={scroll ? label : undefined}
           title={clamp ? value : undefined}
           className={cn(
-            "min-w-0 text-g6-sm leading-snug text-g6-text",
+            /* `text-[12px]` not `text-g6-sm` — see the note in Field above. */
+            "min-w-0 text-[12px] leading-snug text-g6-text",
             scroll &&
               "max-h-32 overflow-y-auto whitespace-pre-line rounded-g6-base border border-g6-border-secondary bg-g6-bg-muted px-2.5 py-2 focus:outline-none focus-visible:ring-1 focus-visible:ring-g6-primary",
             clamp && "line-clamp-3",

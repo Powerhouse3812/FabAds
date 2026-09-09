@@ -1,19 +1,13 @@
 import { useState } from "react";
-import { AlertTriangle, Check, Pencil, X } from "lucide-react";
+import { AlertTriangle, Check, Lock, Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { getVariationElement } from "../data/variationElements";
-import type {
-  AdAnalysis,
-  EditScope,
-  VariationEdit,
-  VariationElementId,
-} from "../types";
+import type { AnalysedField, AnyElementId, EditScope, VariationEdit } from "../types";
 
 /**
- * ElementEditor — the MANUAL path of Generate Variations.
+ * ElementEditor — the MANUAL path of Generate Variations, for BOTH families.
  *
  * The locked disclosure order (spec §5): going manual on an element raises the
  * scope question and NOTHING else. Only once a scope is picked does that
@@ -21,27 +15,51 @@ import type {
  * never appear on the frictionless quick-action path, which is why this
  * component is the only place it lives.
  *
+ * Registry-agnostic: it takes the element's DEFINITION plus the two things it
+ * used to derive from an `AdAnalysis` — the `seed` prompt and the `detected`
+ * row. `promptFrom`/`field` are typed against a specific analysis, so resolving
+ * them stays with the caller and one editor serves the ad and the asset rosters
+ * alike (which is why there is no second copy of this component).
+ *
  * Layout-agnostic on purpose — the screen wraps it in a drawer. It paints no
  * outer surface and owns no width.
  */
 
+/** The registry-neutral slice of `VariationElementDef` / `AssetElementDef`. */
+export interface ElementEditorDef {
+  id: AnyElementId;
+  label: string;
+  actionLabel: string;
+  desc: string;
+  Icon: React.ElementType;
+}
+
 interface ElementEditorProps {
-  element: VariationElementId;
+  def: ElementEditorDef;
   /** N — how many variations the run will produce. */
   count: number;
-  analysis: AdAnalysis;
+  /** The registry's seeded prompt text, i.e. `def.promptFrom(analysis)`. */
+  seed: string;
+  /** The analysis row this element overrides, i.e. `analysis[def.field]`. */
+  detected: AnalysedField<string | number> | undefined;
   /** undefined = not yet in manual mode, so only the scope question shows. */
   edit: VariationEdit | undefined;
-  onBeginEdit: (element: VariationElementId, scope: EditScope) => void;
-  onScopeChange: (element: VariationElementId, scope: EditScope) => void;
-  onPromptChange: (element: VariationElementId, prompt: string) => void;
-  onIndexesChange: (element: VariationElementId, indexes: number[]) => void;
+  /** Overrides the default "Edit {label}" heading. */
+  title?: string;
+  /** Changeable but never removable, so Cancel is not a removal. */
+  mandatory?: boolean;
+  /** Why it is required. Only rendered when `mandatory`. */
+  mandatoryNote?: React.ReactNode;
+  onBeginEdit: (element: AnyElementId, scope: EditScope) => void;
+  onScopeChange: (element: AnyElementId, scope: EditScope) => void;
+  onPromptChange: (element: AnyElementId, prompt: string) => void;
+  onIndexesChange: (element: AnyElementId, indexes: number[]) => void;
   onPromptForIndexChange: (
-    element: VariationElementId,
+    element: AnyElementId,
     index: number,
     prompt: string,
   ) => void;
-  onCancel: (element: VariationElementId) => void;
+  onCancel: (element: AnyElementId) => void;
   className?: string;
 }
 
@@ -65,6 +83,20 @@ const SCOPE_COPY: Record<EditScope, { label: string; desc: (n: number) => string
 /** Multiple/Individual are meaningless when there is only one variation. */
 function scopeDisabled(scope: EditScope, count: number): boolean {
   return count < 2 && scope !== "all";
+}
+
+/** What the analysis found for a row. Never a fabricated value. */
+function detectedText(field: AnalysedField<string | number> | undefined): string {
+  if (
+    !field ||
+    field.provenance === "not-found" ||
+    field.value === null ||
+    field.value === undefined ||
+    field.value === ""
+  ) {
+    return "N/F";
+  }
+  return String(field.value);
 }
 
 function VariationChip({
@@ -118,10 +150,14 @@ function Notice({ children }: { children: React.ReactNode }) {
 }
 
 export function ElementEditor({
-  element,
+  def,
   count,
-  analysis,
+  seed,
+  detected,
   edit,
+  title,
+  mandatory = false,
+  mandatoryNote,
   onBeginEdit,
   onScopeChange,
   onPromptChange,
@@ -130,9 +166,7 @@ export function ElementEditor({
   onCancel,
   className,
 }: ElementEditorProps) {
-  const def = getVariationElement(element);
-  const seed = def.promptFrom(analysis);
-  const detected = analysis[def.field];
+  const element = def.id;
 
   // Which variation the "individually" editor pane is currently showing.
   // Clamped on read so a shrinking N can never leave it pointing past the end.
@@ -143,11 +177,6 @@ export function ElementEditor({
   const inManualMode = !!edit;
   const indexes = edit?.variationIndexes ?? [];
   const byIndex = edit?.byIndex ?? {};
-
-  const detectedText =
-    detected?.provenance === "not-found" || !detected?.value
-      ? "N/F"
-      : String(detected.value);
 
   const handleScopePick = (next: string) => {
     const nextScope = next as EditScope;
@@ -173,7 +202,9 @@ export function ElementEditor({
             <def.Icon className="h-4 w-4 text-g6-text-secondary" aria-hidden />
           </span>
           <div>
-            <h3 className="text-sm font-semibold leading-tight">Edit {def.label}</h3>
+            <h3 className="text-sm font-semibold leading-tight">
+              {title ?? `Edit ${def.label}`}
+            </h3>
             <p className="mt-0.5 text-xs text-g6-text-secondary">{def.desc}</p>
           </div>
         </div>
@@ -185,9 +216,18 @@ export function ElementEditor({
           className="h-7 shrink-0 gap-1 px-2 text-xs text-g6-text-secondary hover:bg-g6-bg-muted hover:text-g6-text"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
-          Cancel
+          {/* On a mandatory element, dropping the instruction is not removal —
+              what is already there stays. Say which of the two this button does. */}
+          {mandatory ? "Keep as written" : "Cancel"}
         </Button>
       </div>
+
+      {mandatory && mandatoryNote ? (
+        <p className="flex items-start gap-1.5 rounded-g6-base border border-g6-border bg-g6-bg-muted px-3 py-2 text-xs leading-snug text-g6-text-secondary">
+          <Lock className="mt-0.5 h-3 w-3 shrink-0 text-g6-text-tertiary" aria-hidden />
+          <span>{mandatoryNote}</span>
+        </p>
+      ) : null}
 
       {/* -------------------------------------------------------- the scope Q */}
       {/* Pre-manual this is the ONLY question on screen and carries its full
@@ -277,7 +317,7 @@ export function ElementEditor({
           <div className="rounded-g6-base bg-g6-bg-muted px-3 py-2">
             <p className="text-xs text-g6-text-secondary">
               Detected {def.label.toLowerCase()}:{" "}
-              <span className="font-medium text-g6-text">{detectedText}</span>
+              <span className="font-medium text-g6-text">{detectedText(detected)}</span>
               {detected?.provenance === "detected" ? (
                 <span className="ml-1.5 text-g6-text-tertiary">(inferred)</span>
               ) : null}
