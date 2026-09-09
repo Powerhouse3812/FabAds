@@ -132,7 +132,7 @@ export function ScriptPreviewRow({
                 ·
               </span>
               <span
-                className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary"
+                className="shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary-text"
                 title="This script hasn't been reviewed yet — open Edit to read it through and approve it."
               >
                 Needs review

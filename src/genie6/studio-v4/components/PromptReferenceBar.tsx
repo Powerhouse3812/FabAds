@@ -327,15 +327,6 @@ export function PromptReferenceBar({
   const [urlInput, setUrlInput] = useState("");
   const [modelOpen, setModelOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // DEV-ONLY comparison toggle (2026-09-10 UX crit): the "Script" chip and
-  // ScriptPreviewRow below used to both assert the script's status in
-  // different words, spatially split by two unrelated chip rows — Nielsen
-  // #4 violation. V2 drops the chip and moves its "needs review" signal onto
-  // the row itself. Defaults to v2 (the fix) so the live app already shows
-  // it; v1 stays one click away for comparison. NOT wizard state on purpose
-  // — this is a throwaway comparison flag, not persisted product state.
-  // Remove this toggle (and the v1 branches it guards) once a variant wins.
-  const [scriptRowVariant, setScriptRowVariant] = useState<"v1" | "v2">("v2");
 
   const handleAttachPick = (source: AttachSource) => {
     setAttachOpen(false);
@@ -436,9 +427,9 @@ export function PromptReferenceBar({
   // made it a HARD gate from a cold start — the only escape ("Skip review
   // from now on") lives inside the script rail's review phase, reachable
   // only after script text already exists, so Generate was simply disabled
-  // with no way past it. `scriptNeedsReview` now only flags the Script chip
-  // (still visible, still one click to the rail) — it no longer disables
-  // anything.
+  // with no way past it. `scriptNeedsReview` now only flags the Script
+  // preview row below (still visible, still one click to the rail via its
+  // Edit button) — it no longer disables anything.
   const isScriptLed = isScriptLedState(state);
   const scriptNeedsReview =
     isScriptLed && !state.scriptApproved && !state.skipScriptReview;
@@ -543,26 +534,14 @@ export function PromptReferenceBar({
                 selectedConceptIds={state.selectedConceptIds}
                 onClick={() => onChipOpen("concept-angle")}
               />
-              {/* V1 only — this chip is what the UX crit flagged as
-                  duplicating ScriptPreviewRow below in different words. V2
-                  drops it; the row carries the same "needs review" signal
-                  instead (see scriptRowVariant above). */}
-              {scriptRowVariant === "v1" && (
-                <RefChip
-                  label="Script"
-                  value={
-                    scriptNeedsReview
-                      ? "Review"
-                      : state.script
-                        ? "Custom"
-                        : "Auto"
-                  }
-                  emphasize={scriptNeedsReview}
-                  onClick={() => onChipOpen("script")}
-                />
-              )}
-              {/* §5 locks exactly 5 chips: Concept · Script · Style · Brand
-                  Guidelines · Knowledge Base. UGC-led approaches ALSO need an
+              {/* Script chip retired (2026-09-10 UX crit): it used to assert
+                  the script's review status in different words than
+                  ScriptPreviewRow below, spatially split by unrelated chips
+                  in between — Nielsen #4 violation. The row now owns that
+                  signal alone (its `needsReview` prop below); do not
+                  reintroduce a second script-status chip here. */}
+              {/* §5's original chip count included a Script chip that no
+                  longer exists — see above. UGC-led approaches ALSO need an
                   Avatar picker (+ its "voice follows avatar" coupling) — that
                   used to render IN PLACE OF Style, silently dropping a
                   documented chip on exactly the approaches that need an
@@ -587,18 +566,13 @@ export function PromptReferenceBar({
                       always on when the Avatar chip is. Avatar rail itself
                       is owned elsewhere — this is the copy on the control
                       surface owned by this file. */}
-                  {/* V1 keeps the original bare text for a clean A/B; V2
-                      pill-ifies it so it matches the shape language of every
-                      other status in this row (crit finding #4). */}
-                  {scriptRowVariant === "v1" ? (
-                    <span className="inline-flex items-center whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                      Voice follows avatar
-                    </span>
-                  ) : (
-                    <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-dashed border-border/50 bg-background/30 px-2.5 font-mono text-[11px] text-muted-foreground">
-                      Voice follows avatar
-                    </span>
-                  )}
+                  {/* Pill-ified (2026-09-10 UX crit finding #4) — every other
+                      status in this row is a pill; bare text was the one
+                      inconsistent shape. Same solid chip chassis as the rest
+                      (not dashed — this is shipped product, not a dev aid). */}
+                  <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-border/60 bg-background/50 px-2.5 font-mono text-[11px] text-muted-foreground">
+                    Voice follows avatar
+                  </span>
                 </>
               )}
               <span aria-hidden className="mx-1 h-3.5 w-px bg-border/50" />
@@ -614,31 +588,6 @@ export function PromptReferenceBar({
                 active={state.useKnowledgeBase}
                 onClick={() => wizard.set("useKnowledgeBase", !state.useKnowledgeBase)}
               />
-              {/* DEV-ONLY — compares the two Script-status treatments live.
-                  Dashed border signals "not a real product control," unlike
-                  every solid-bordered chip around it. Delete this block (and
-                  scriptRowVariant above) once one variant wins. */}
-              <div
-                title="Dev: compare Script status treatments (V1 = chip + row, V2 = row only)"
-                className="inline-flex h-7 items-center gap-0.5 rounded-full border border-dashed border-muted-foreground/40 bg-background/30 p-0.5"
-              >
-                {(["v1", "v2"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setScriptRowVariant(v)}
-                    aria-pressed={scriptRowVariant === v}
-                    className={cn(
-                      "rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase transition-colors",
-                      scriptRowVariant === v
-                        ? "bg-foreground/10 text-foreground"
-                        : "text-muted-foreground/60 hover:text-muted-foreground",
-                    )}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
               {/* §15 "credits are now also shown in Studio" — a PERSISTENT
                   balance readout, not only inside the Generate button. Static
                   display (no popover) — the button's own breakdown covers the
@@ -661,17 +610,16 @@ export function PromptReferenceBar({
               same card rather than as a standalone card below it. Renders
               nothing once `state.script` is empty — the two-phase Generate
               button above is the entry point for that state, not this row.
-              V1 vs V2 (2026-09-10 UX crit — see scriptRowVariant above): V1
-              keeps the original split (chip owns "needs review", row stays
-              neutral); V2 removes the chip and moves that signal onto the
-              row itself, since asserting it in two places in two different
-              words is the defect being fixed, not a feature to preserve. */}
+              This is the ONE surface that states script status (2026-09-10
+              UX crit) — a separate "Script" chip used to assert the same
+              fact in different words, spatially split from this row by
+              unrelated chips. Do not reintroduce that chip. */}
           {onChipOpen && (
             <ScriptPreviewRow
               script={state.script}
               scriptOrigin={state.scriptOrigin}
               carriedFrom={scriptCarriedFrom}
-              needsReview={scriptRowVariant === "v2" && scriptNeedsReview}
+              needsReview={scriptNeedsReview}
               onEdit={() => onChipOpen("script")}
             />
           )}
@@ -968,7 +916,7 @@ export function PromptReferenceBar({
                         : !state.prompt.trim()
                           ? "Describe what you want, or tap a suggestion above"
                           : scriptNeedsReview
-                            ? "Script is ready to review (see the Script chip above) — or generate now, it's not required"
+                            ? "Script is ready to review (see the Script row above) — or generate now, it's not required"
                             : undefined
                   }
                   className={cn(
