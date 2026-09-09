@@ -1,5 +1,6 @@
 import { Route, Navigate } from "react-router-dom";
 import { Genie6Bridge } from "./shell/Genie6Bridge";
+import { GenerateVariations } from "./variations/GenerateVariations";
 import { Home } from "./home/Home";
 import { OutputCardShowcase } from "./dev/OutputCardShowcase";
 import { Library } from "./library/Library";
@@ -231,6 +232,13 @@ export const genie6Routes = (
         no footer). Lives in parallel with Beta until validated. */}
     <Route path="studio-alpha" element={<StudioAlpha />} />
     <Route path="studio-alpha/:step" element={<StudioAlpha />} />
+
+    {/* Generate Variations — the Mode card that replaced "Custom". Its own
+        route rather than a wizard step: the wizard's step machine is a closed
+        0-5 union with semantically fixed steps (1=Format, 2=Entity,
+        3=Approach, 4=Configure), none of which this flow asks. `?ui=a|b`
+        picks between the two UI versions. */}
+    <Route path="variations" element={<GenerateVariations />} />
 
     {/* A-12.38: Concepts library — full-page browse of catalogue + KB +
         user-saved concepts. Search / filter / sort with URL state. */}
