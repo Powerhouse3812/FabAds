@@ -50,6 +50,10 @@ import { AppScreen } from "./apps/AppScreen";
 import { GenieBrain } from "./brain/GenieBrain";
 import { VideoEditor } from "./editor/VideoEditor";
 import { ProgressShowcase } from "./progress/_dev/ProgressShowcase";
+// Overview sub-nav placeholder (Maalik ruling, 2026-09-09 — see modules.ts's
+// Genie subItems comment). Reuses the existing generic shell-stub page
+// rather than a new component.
+import ShellPage from "@/pages/ShellPage";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -63,6 +67,24 @@ import { ProgressShowcase } from "./progress/_dev/ProgressShowcase";
 export const genie6Routes = (
   <Route path="iq/genie6" element={<Genie6Bridge />}>
     <Route index element={<Home />} />
+
+    {/* Overview — sub-nav entry reinstated 2026-09-09, badged "Soon" (see
+        modules.ts). Deliberately NOT the bare index route above: that one
+        still renders the real (unwired, mock-data) StudioHome and stays the
+        mobile Home tab / tour / onboarding deep-link target. This is a
+        separate, honest placeholder so the desktop sub-nav click never
+        presents that mock page as finished — StudioHome.tsx itself is not
+        touched. */}
+    <Route
+      path="overview"
+      element={
+        <ShellPage
+          title="Overview"
+          description="A single summary of your Genie activity — recent generations, credits, and quick actions in one place."
+          comingSoon
+        />
+      }
+    />
 
     {/* ─── Genie 2.0 ───────────────────────────────────────────────
         §3's locked sub-nav is Overview · Studio · Other Flows · Other Apps ·
