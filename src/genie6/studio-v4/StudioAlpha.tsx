@@ -26,17 +26,48 @@ import {
   type Mode,
   type StepNumber,
   type GenerationTarget,
+  type Category,
   isEntityOptionalMode,
   resolveGenerationStepsForState,
 } from "./state/useWizard";
-import { useStudioAlphaUrlSync } from "./state/useUrlSync";
+import { useStudioAlphaUrlSync, isGenerationTarget } from "./state/useUrlSync";
 import { isKnownConceptId } from "./data/concepts";
 // §6 Rule 5 — the persistent flow banner + the context it renders from. Both
 // owned by other agents (Flow Data / Flows UI) per the shared build brief;
 // imported by contract path + signature, not reimplemented here.
 import { resolveFlowContext, flowInitialPatch } from "@/genie6/flows/data/resolveFlowContext";
 import { FlowBanner } from "@/genie6/flows/FlowBanner";
-import type { FlowContext } from "@/genie6/flows/flowTypes";
+import { FLOW_PARAM_TARGET, type FlowContext } from "@/genie6/flows/flowTypes";
+
+/**
+ * The ONE rule for `WizardState.category` — is this run producing an ad, or an
+ * asset? Two independent things can make it an asset, which is exactly why it
+ * needs to live in one function:
+ *
+ *   1. a non-"ad" generation TARGET — Script / Concept / Storyboard;
+ *   2. Product Shoot, which is an "ad"-target Mode that nevertheless produces
+ *      assets (`startWizard`: `mode === "product-shoot" ? "asset" : "ad"`).
+ *
+ * Case 2 is what made this a bug worth extracting. `readUrlIntoState` used to
+ * force `category = "ad"` for every URL carrying a step slug, and the `?tgt`
+ * branch then corrected it for case 1 only. Product Shoot fits neither: its
+ * target IS "ad", so nothing corrected it, and a refresh mid-run silently
+ * turned `category` from "asset" into "ad". Downstream, `isProductShootRun`
+ * (screens/Step5ResultsQueue.tsx) tests exactly `state.category === "asset"`,
+ * so the refreshed run re-enabled the per-concept fan-out that §12 excludes
+ * for Product Shoot — a different batch shape than the one the user started.
+ *
+ * Called by `readUrlIntoState`, `startWizard` and `startAssetWizard`, so the
+ * URL-restored state and both live entry points cannot disagree.
+ */
+function deriveCategory(
+  target: GenerationTarget | null | undefined,
+  studioMode: AlphaMode | null | undefined,
+): Category {
+  if (target && target !== "ad") return "asset";
+  if (studioMode === "product-shoot") return "asset";
+  return "ad";
+}
 
 /**
  * A-12.49 (Maalik): Read the URL (path :step + query string) and produce a
@@ -60,7 +91,11 @@ function readUrlIntoState(
   const slugStep = pathStep ? SLUG_TO_STEP[pathStep] : undefined;
   if (slugStep !== undefined) {
     patch.step = slugStep;
-    patch.category = "ad";
+    // NOTE: `category` used to be forced to "ad" right here, and that was the
+    // bug. A step slug in the path tells you the run is IN the wizard; it
+    // tells you nothing about what the run produces. See the single
+    // `deriveCategory()` call at the bottom of this function — `category` is
+    // now derived once, from the run's actual shape, after every param read.
   }
   const format = searchParams.get("format");
   if (format === "image" || format === "video") patch.format = format as Format;
@@ -114,6 +149,34 @@ function readUrlIntoState(
   const studioMode = searchParams.get("studioMode");
   if (studioMode && MODES.some((m) => m.id === studioMode)) {
     patch.studioMode = studioMode as AlphaMode;
+  }
+  // §5/§7 — the generation TARGET, at CONSTRUCTION for exactly the same
+  // reason as everything above it. `resolveGenerationStepsForState` reads it
+  // to decide which of the 4 steps this run even has, and `plan` is computed
+  // during the first render: a target arriving one effect tick later means the
+  // first paint renders the Ad plan (all four steps, ad-shaped copy, priced
+  // credits) for what is actually a free Script run, and the skipped-step
+  // guard effect can bounce off a step that only LOOKS skipped because the
+  // target was still "ad".
+  //
+  // Param name is `?tgt` — the one the flows layer already minted
+  // (FLOW_PARAM_TARGET) and `resolveFlowContext` already reads. Reused, not
+  // duplicated. Validated through the shared `isGenerationTarget` guard, never
+  // cast, so a hand-edited ?tgt=poster degrades to the "ad" default.
+  //
+  // This read serves the HOME-entered asset run (`startAssetWizard`), which
+  // had no URL representation at all until now — start a Script, refresh, and
+  // it silently came back an Ad. Deliberately placed BEFORE the flowCtx merge
+  // below: a flow's target is already validated against that action's own
+  // declared `targets`, so it must keep winning over a raw param read.
+  const urlTarget = searchParams.get(FLOW_PARAM_TARGET);
+  if (isGenerationTarget(urlTarget)) {
+    patch.generationTarget = urlTarget;
+    // `category` is NOT set here any more — this branch used to derive it from
+    // the target alone, which covered Script/Concept/Storyboard and missed
+    // Product Shoot (an "ad"-target run that is nonetheless `category:
+    // "asset"`). The derivation moved to `deriveCategory()` at the bottom of
+    // this function so there is exactly one rule, reading every input.
   }
   const scope = searchParams.get("scope");
   if (scope === "entity" || scope === "custom") patch.entityMode = scope;
@@ -186,11 +249,21 @@ function readUrlIntoState(
     Object.assign(patch, flowPatch);
     // `=== undefined`, not `!patch.step` — step 0 is a legal step and falsy.
     if (patch.step === undefined) patch.step = landingStep;
-    // §5/§7 (2026-09-08) — flows now produce Script/Concept/Storyboard too,
-    // not only Ads. `category` must follow the resolved target (mirrors
-    // startWizard's `mode === "product-shoot" ? "asset" : "ad"` derivation),
-    // never be forced to "ad".
-    patch.category = flowCtx.target === "ad" ? "ad" : "asset";
+    // `category` is NOT set here either. `flowInitialPatch` already put
+    // `generationTarget: ctx.target` into the patch above, so the single
+    // derivation below sees the flow's target and reaches the same answer this
+    // line used to — plus Product Shoot, which this line got wrong.
+  }
+  // ── `category`, derived exactly once, from what the run IS ────────────────
+  // Gated on there being a run to describe at all: a bare /studio-alpha (Home,
+  // no step slug, no ?tgt, no flow) leaves `category` at useWizard's null
+  // default, unchanged. The moment the URL describes a wizard run, the run's
+  // own shape decides — never the mere presence of a step slug, which is the
+  // assumption that broke Product Shoot.
+  const describesWizardRun =
+    slugStep !== undefined || isGenerationTarget(urlTarget) || flowCtx !== null;
+  if (describesWizardRun) {
+    patch.category = deriveCategory(patch.generationTarget, patch.studioMode);
   }
   return patch;
 }
@@ -525,7 +598,11 @@ export function StudioAlpha() {
 
   const startWizard = (mode: AlphaMode) => {
     setHomeMode(mode);
-    const category = mode === "product-shoot" ? "asset" : "ad";
+    // Same single rule the URL restore uses (`deriveCategory`), so entering a
+    // Product Shoot and refreshing one cannot land on different values. This
+    // was the literal `mode === "product-shoot" ? "asset" : "ad"` inline —
+    // identical result for every Mode, now stated in one place.
+    const category = deriveCategory("ad", mode);
     // Step 0 (entity scope) is offered only by the Modes whose entity rule
     // makes all three of Brand/Product/Category optional — Social, Animated
     // AI, Custom, Podcast. The four that mandate an entity go straight to
@@ -556,7 +633,14 @@ export function StudioAlpha() {
   // requires Format, so landing on step 1 / "/format" is correct exactly
   // like an Ad's entry, same as `startWizard` below.
   const startAssetWizard = (target: Exclude<GenerationTarget, "ad">) => {
-    wizard.patch({ generationTarget: target, category: "asset", step: 1 });
+    wizard.patch({
+      generationTarget: target,
+      // Same single rule as the URL restore and startWizard — no `studioMode`
+      // for an asset-only run, so the target alone decides. Resolves to
+      // "asset" for all three of Script/Concept/Storyboard.
+      category: deriveCategory(target, null),
+      step: 1,
+    });
     setPhase("wizard");
     navigate("/iq/genie6/studio-alpha/format", { replace: false });
   };
