@@ -43,6 +43,7 @@ import { PreviewVideo as PreviewVideoBase } from "../components/PreviewVideo";
 // never drift from what Configure/Overview show for the same id.
 import { ANGLE_CHIP_LABEL } from "../components/PromptReferenceBar";
 import { CONCEPTS, getConceptById, getConceptVisuals } from "../data/concepts";
+import { getApp } from "@/genie6/apps/data/appRegistry";
 
 interface Step3Props {
   wizard: UseWizardReturn;
@@ -1030,16 +1031,35 @@ export function Step3Approach({
                   <ArrowRight className="h-3 w-3" />
                 </button>
               </p>
-              <p>
-                Removing a background is its own app now —{" "}
-                <Link
-                  to={`${OTHER_APPS_PATH}/bg-remover`}
-                  className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:text-primary"
-                >
-                  open BG Remover
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
-              </p>
+              {/* STATE-DERIVED, not hardcoded (2026-09-10). This line used to
+                  promise "open BG Remover" unconditionally. The owner's Other
+                  Apps scope cut that day demoted `bg-remover` to coming-soon,
+                  which turned that promise into a link to a Coming Soon
+                  placeholder — a recovery note that sends you nowhere is worse
+                  than no note. Reading the app's own `state` means the copy
+                  re-arms itself the moment the app ships again, instead of
+                  needing someone to remember this file exists. */}
+              {(() => {
+                const bgRemover = getApp("bg-remover");
+                if (!bgRemover) return null;
+                return bgRemover.state === "live" ? (
+                  <p>
+                    Removing a background is its own app now —{" "}
+                    <Link
+                      to={`${OTHER_APPS_PATH}/bg-remover`}
+                      className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                    >
+                      open BG Remover
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </p>
+                ) : (
+                  <p>
+                    Removing a background is its own app now — BG Remover is
+                    coming soon.
+                  </p>
+                );
+              })()}
             </div>
           )}
 

@@ -102,7 +102,9 @@ export const genie6Routes = (
     <Route path="flows" element={<OtherFlows />} />
     <Route path="flows/:moduleKey" element={<FlowModuleDetail />} />
 
-    {/* §8 — Other Apps. 22 apps, 8 live. One screen anatomy driven from
+    {/* §8 — Other Apps. 22 apps, 4 live (owner's 2026-09-10 scope cut; the
+        rest render ComingSoonScreen off their registry `state`). One screen
+        anatomy driven from
         apps/data/appRegistry.ts, so a new app is a registry entry rather than
         a new file. All output lands in the central Library (§8), never a
         per-app store. */}

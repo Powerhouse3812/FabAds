@@ -121,13 +121,26 @@ export interface ModeOption {
   tone: "rose" | "fuchsia" | "lime" | "indigo" | "amber" | "sky" | "slate";
 }
 
+/* NO `thumb` FIELD HERE, deliberately (2026-09-10). Studio home's big Mode
+ * cards DO carry artwork, but it is drawn, not photographed: `ModeThumb.tsx`
+ * switches on the Mode id. (Trending cards went the other way — they play
+ * real footage via `videoForSeed`, see studio-visuals.ts.) The first cut of
+ * this pass did add `thumb?: string` pointing
+ * at `src/assets/strategies|templates` — every one of those 45 photos has
+ * AI-generated gibberish baked into the image ("Peermium nal seiecabrle",
+ * "We Understaind You Need"), which is invisible on Genie 5's small strategy
+ * cards but plainly readable at hero-card size. Keeping artwork in a
+ * component rather than a data field also means a new Mode cannot ship a
+ * broken image path — an unmapped id falls back to a neutral composition. */
+
 /** Soft-tint per card. Shared by StudioHome's grid and Step 1's compact row.
- *  `wash` (2026-09-10, Studio home "Tone Grid" direction) is a two-stop
- *  gradient in the same tone, used ONLY by StudioHome's local `ModeCard` as
- *  its live-card background — a mode's colour carries its identity instead
- *  of a flat white card. Soon cards ignore it (SOON_SURFACE always wins),
- *  and Step 1's compact row doesn't read this field, so adding it here is
- *  additive to every existing consumer. */
+ *  `wash` is a two-stop gradient in the same tone. It arrived on 2026-09-10
+ *  for the "Tone Grid" Studio-home direction, which was deleted the same day
+ *  when the owner kept only the Flagship design — but it did NOT go with it:
+ *  `ModeThumb` reads it as the ground for a Mode's drawn artwork, which is
+ *  what keeps that thumbnail in the same tone family as its icon tile. Step
+ *  1's compact row doesn't read this field, so it stays additive to every
+ *  older consumer. */
 export const MODE_SCHEME = {
   rose: {
     bg: "bg-rose-50",   text: "text-rose-600",
