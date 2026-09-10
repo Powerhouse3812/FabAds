@@ -133,6 +133,16 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
       summary = "Background removed, subject cut out.";
       break;
     }
+    // Added 2026-09-10 when the owner's Other Apps scope cut promoted Change
+    // Metadata to live. Without a case here it fell to `default:` and its
+    // Library rows read "Change Metadata / Change Metadata output." instead
+    // of naming the file it acted on, the way every other live app does.
+    case "change-metadata": {
+      const fileTitle = mediaTitle(mediaValue);
+      title = fileTitle;
+      summary = "File metadata refreshed — the creative itself is unchanged.";
+      break;
+    }
     default: {
       title = app.name;
       summary = `${app.name} output.`;

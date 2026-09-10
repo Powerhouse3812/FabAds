@@ -438,9 +438,12 @@ Flag if more per-Mode detail is needed than this.
 
 Not part of the generation-target logic above, but you asked for this list
 specifically saved too. Cross-checked against the live `GENIE_APPS` registry
-(`apps/data/appRegistry.ts` — 22 entries, **8 live + 14 coming-soon** as of
-2026-09-09, counted from the file; it read 7 live until BG Remover was promoted
-from a stub the same day, see §11c) and other places the app already has
+(`apps/data/appRegistry.ts` — 22 entries, **4 live + 18 coming-soon** as of
+2026-09-10, counted from the file. It read 8 live on 2026-09-09, after BG
+Remover was promoted from a stub, see §11c; the owner then cut the launch set
+to four — Translate Videos, Product Placement, Face Swap, Change Metadata —
+and everything else, BG Remover included, went back behind a coming-soon tag
+with its declared flow kept dormant) and other places the app already has
 similar capability:
 
 **Already live, matches an existing app:** Video translator (Translate

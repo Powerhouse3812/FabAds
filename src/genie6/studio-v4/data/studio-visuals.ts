@@ -132,10 +132,25 @@ const CLIPS_BY_THEME: Record<Theme, string[]> = {
 
 /**
  * id → theme. Keys cover every Studio Alpha angle / concept / approach-mode /
- * approach-sub-type / model id. (Duplicate ids across dimensions — e.g.
- * `unboxing` as both angle and sub-type — resolve to the same theme.)
+ * approach-sub-type / model id, PLUS the Studio-home Trending Mode ids
+ * (2026-09-10). (Duplicate ids across dimensions — e.g. `unboxing` as both
+ * angle and sub-type — resolve to the same theme.)
  */
 const THEME_BY_ID: Record<string, Theme> = {
+  // Studio-home Trending Modes (owner, 2026-09-10: "trending wale cards me,
+  // real video thumbnail example add kro"). Routed through the SAME themed
+  // pool the wizard's angle/approach tiles use rather than a second clip
+  // list, so Studio home and Step 3 can never show two different houses'
+  // footage. None of the four is built yet — these are the same design-phase
+  // placeholders as everywhere else, and swap out with the pool when real
+  // generation lands.
+  //   podcast        → a creator talking to camera, which IS the format.
+  //   animated-ai    → no animation bucket exists; hero-cinematic is the
+  //                    closest "stylised, not documentary" look.
+  //   gif-video      → macro product loops read as GIF-length punch.
+  //   static-caption → a calm lifestyle scene, closest to a still + audio.
+  podcast: "talking-head", "animated-ai": "hero-cinematic",
+  "gif-video": "product-closeup", "static-caption": "lifestyle",
   // Angles (20) — promo/urgency angles route to product/lifestyle ads (no gradients)
   hero: "hero-cinematic", lifestyle: "lifestyle", "social-proof": "testimonial",
   urgency: "lifestyle", comparison: "testimonial", "ugc-style": "talking-head",
