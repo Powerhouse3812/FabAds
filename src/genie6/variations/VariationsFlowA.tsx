@@ -141,7 +141,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
       <div className="min-w-0 flex-1 space-y-7">
         <header className="flex items-start gap-3">
           <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-g6-lg border border-g6-primary-border bg-g6-primary-bg">
-            <Layers className="h-4.5 w-4.5 text-g6-primary-active" aria-hidden />
+            <Layers className="h-[18px] w-[18px] text-g6-primary-active" aria-hidden />
           </span>
           <div>
             <h1 className="text-[20px] font-semibold leading-7 text-g6-text">
@@ -212,6 +212,10 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
                   recommendations={flow.recommendations}
                   onAdTypeChange={(adType) => flow.setCardAdType(card.id, adType)}
                   onSummaryChange={flow.reportCardSummary}
+                  // Without this the prompt bar's Generate calls goTo(5), the
+                  // card snaps it back, and the click does nothing at all.
+                  // Every card belongs to ONE run, so it fires that run.
+                  onGenerateRequest={flow.canGenerate ? flow.generate : undefined}
                 />
               ))}
             </div>

@@ -10,7 +10,10 @@ import {
   type LibraryAsset,
   type LibrarySource,
 } from "@/mocks/shared/library-items";
-import type { FlowSourceRef } from "../../flows/flowTypes";
+import { DUMMY_ADS, type InsightAd } from "@/lib/insights-dummy-data";
+import { getDataset, type ReportEntity } from "@/lib/reports-dummy-data";
+import { FLOW_MODULES } from "../../flows/data/flowRegistry";
+import type { FlowModuleKey, FlowSourceRef } from "../../flows/flowTypes";
 import { qualityTier, type MediaType, type OutputData } from "../../types/output";
 
 /**
@@ -155,6 +158,13 @@ export function adCardFromAdgroup(a: LibraryAdgroup): AdCardData {
     media: media.map((m) => m.thumbnail_url ?? m.url),
     mediaKinds: media.map((m) => (m.file_type === "video" ? "video" : "image")),
     qualityScore: a.quality_score ?? null,
+    // §7.2 — `"pinned-insights"` is defined in library-items.ts as "user
+    // pinned a competitor ad from Industry Insights", so the ad on this card
+    // IS a rival's. The footer kicker already says "Insights" in 10px mono;
+    // the chip is what makes it visible at a glance, which is the whole point
+    // of the rule. It changes labelling only — the highlight/entity machinery
+    // §7.2 owns is untouched (flowSources.ts's `creativeLibraryRef` note).
+    competitor: a.source === "pinned-insights",
     typeLabel: text(a.ad_type),
     name: text(a.name),
     provenance: `${count} · ${SOURCE_SHORT[a.source]}`,
@@ -196,38 +206,162 @@ export function adCardFromOutput(o: OutputData): AdCardData {
   };
 }
 
-/**
- * The thinnest source: a reference the user picked inside another module
- * (Industry Insights, Reports, Dashboard, Video Sage…). It carries a title,
- * an evidence subtitle, one thumbnail and the owning brand — and NO ad copy,
- * headline, CTA or destination. Those stay null: the subtitle is evidence
- * about the ad, not its primary text, and presenting it as copy would put
- * words in the ad's mouth.
- *
- * `domain` stays null too. The brand here is the brand "as the SOURCE knows
- * it" and for an Industry Insights ad that is a COMPETITOR outside our
- * catalogue (§7.2), so resolving it against our own brand records would print
- * the wrong company's site — or imply a rival is ours.
- */
-export function adCardFromFlowRef(r: FlowSourceRef): AdCardData {
-  const metrics = r.metrics?.map((m) => `${m.label} ${m.value}`).join(" · ");
-  const subtitle = text(r.subtitle);
-  return {
-    id: r.id,
-    pageName: text(r.sourceBrandName),
+/** The copy slots, decided PER SOURCE MODULE. A `FlowSourceRef` is a pointer
+ *  (module + id) into a module's own rows, and what its `title` means differs
+ *  by module: Industry Insights puts the ad's PRIMARY TEXT there, Reports puts
+ *  an ad name or — when there is none — the headline, and everyone else puts a
+ *  name or a signal title. So the mapping is a per-module branch, never one
+ *  blanket rule, and a module with no honest source for a slot leaves it null
+ *  for the card's own em-dash / ghost-CTA grammar to render. */
+interface RefCopy {
+  /** null → the caller falls back to `sourceBrandName`. */
+  pageName: string | null;
+  avatarUrl: string | null;
+  bodyText: string | null;
+  headline: string | null;
+  domain: string | null;
+  cta: string | null;
+  /** The ad's own NAME. Null wherever the module's `title` is the ad's COPY
+   *  (now shown in the Meta slots above) — reprinting that sentence in the
+   *  footer would say the same thing twice. */
+  name: string | null;
+}
+
+/** Industry Insights rows, indexed on BOTH ids a ref can carry (`resolveLazySource`
+ *  in flowSources.ts matches `a.id` or `a.adId`). Lazy + memoised: an
+ *  Insights card is the first thing that needs it, and a picker resolves ~6
+ *  per open against 800 rows. */
+let INSIGHT_AD_BY_ID: Map<string, InsightAd> | null = null;
+function insightAd(id: string): InsightAd | undefined {
+  if (!INSIGHT_AD_BY_ID) {
+    INSIGHT_AD_BY_ID = new Map();
+    for (const ad of DUMMY_ADS) {
+      INSIGHT_AD_BY_ID.set(ad.id, ad);
+      INSIGHT_AD_BY_ID.set(ad.adId, ad);
+    }
+  }
+  return INSIGHT_AD_BY_ID.get(id);
+}
+
+/** Reports ad rows, same treatment. `getDataset(0)` is itself cached per seed
+ *  in reports-dummy-data.ts, so this only indexes what is already built. */
+let REPORT_AD_BY_ID: Map<string, ReportEntity> | null = null;
+function reportAd(id: string): ReportEntity | undefined {
+  if (!REPORT_AD_BY_ID) {
+    REPORT_AD_BY_ID = new Map(
+      getDataset(0)
+        .filter((e) => e.level === "ad" && !!e.creative)
+        .map((e) => [e.id, e]),
+    );
+  }
+  return REPORT_AD_BY_ID.get(id);
+}
+
+/** §7.2 is a MODULE-level fact (`FlowModule.competitorOwned`), so the registry
+ *  — not a caller — is what decides whether a ref's card is a rival's ad. */
+const COMPETITOR_MODULES = new Set<FlowModuleKey>(
+  FLOW_MODULES.filter((m) => m.competitorOwned).map((m) => m.key),
+);
+
+function refCopy(r: FlowSourceRef): RefCopy {
+  const empty: RefCopy = {
+    pageName: null,
     avatarUrl: null,
     bodyText: null,
     headline: null,
     domain: null,
     cta: null,
+    name: null,
+  };
+
+  if (r.module === "industry-insights") {
+    // The ref's `title` IS this ad's primary text (flowSources.ts's
+    // `insightsRef`), so throwing it away rendered the body slot as "—" while
+    // the real copy sat in the footer. The row itself carries the three slots
+    // the ref never had — headline, CTA and the ad's own destination domain.
+    // Reading THAT domain is the opposite of the mistake §7.2 warns about:
+    // the danger is resolving a rival's name against OUR catalogue records,
+    // not showing the rival's ad as the rival's ad (which the Competitor chip
+    // states outright).
+    const ad = insightAd(r.id);
+    if (!ad) {
+      // Row gone (a hand-edited ref id): still the ad's own copy, just the
+      // single line the ref preserved.
+      return { ...empty, bodyText: text(r.title) };
+    }
+    return {
+      pageName: text(ad.pageName),
+      avatarUrl: text(ad.pageAvatar),
+      bodyText: text(ad.primaryText),
+      headline: text(ad.headline),
+      domain: text(ad.domain),
+      cta: text(ad.cta),
+      // An Ad-Library ad has no name of its own; its identity is its copy.
+      name: null,
+    };
+  }
+
+  if (r.module === "reports") {
+    const e = reportAd(r.id);
+    const c = e?.creative;
+    if (!c) return { ...empty, name: text(r.title) };
+    return {
+      // A Reports creative has no page, no CTA and no destination URL at all
+      // (`CreativeData` in reports-dummy-data.ts) — and its advertiser is an
+      // AD ACCOUNT, which is exactly what `sourceBrandName` already carries,
+      // so the caller's fallback is the honest page line here.
+      pageName: null,
+      avatarUrl: null,
+      bodyText: text(c.primaryText),
+      headline: text(c.headline),
+      domain: null,
+      cta: null,
+      // Only a launch-distributed ad genuinely has a name; on every other row
+      // the ref's `title` fell back to the headline, which is now in the link
+      // strip where it belongs.
+      name: text(e?.sourceAdName),
+    };
+  }
+
+  // Video Sage / Trends / Dashboard / Campaign URLs / Creative Library refs:
+  // `title` is a name or a signal headline and `subtitle` is evidence ABOUT
+  // the ad, never its copy. Presenting either as primary text would put words
+  // in the ad's mouth, so the copy slots stay empty.
+  return { ...empty, name: text(r.title) };
+}
+
+/**
+ * A reference the user picked inside another module (Industry Insights,
+ * Reports, Dashboard, Video Sage…). The ref itself is thin — a title, an
+ * evidence subtitle, one thumbnail and the owning brand — but it names its
+ * module and its row, so the copy slots are filled from that row wherever the
+ * module genuinely holds copy (`refCopy` above). Nothing is invented: a slot
+ * with no honest source stays null and renders as the card's existing gap.
+ */
+export function adCardFromFlowRef(r: FlowSourceRef): AdCardData {
+  const metrics = r.metrics?.map((m) => `${m.label} ${m.value}`).join(" · ");
+  const subtitle = text(r.subtitle);
+  const copy = refCopy(r);
+  return {
+    id: r.id,
+    pageName: copy.pageName ?? text(r.sourceBrandName),
+    avatarUrl: copy.avatarUrl,
+    bodyText: copy.bodyText,
+    headline: copy.headline,
+    domain: copy.domain,
+    cta: copy.cta,
     media: r.thumbnail ? [r.thumbnail] : [],
     mediaKinds: r.thumbnail
       ? [r.sourceFormat === "video" ? "video" : "image"]
       : [],
     qualityScore: null,
-    competitor: Boolean(r.competitorOwned),
+    // Derived, not caller-supplied: Industry Insights marks competitor
+    // ownership at MODULE level, so reading `r.competitorOwned` alone dropped
+    // the §7.2 chip from every card in that universe unless a caller
+    // remembered to force it back on.
+    competitor: Boolean(r.competitorOwned) || COMPETITOR_MODULES.has(r.module),
     typeLabel: r.sourceFormat ? FLOW_FORMAT_LABEL[r.sourceFormat] : null,
-    name: text(r.title),
+    name: copy.name,
     provenance: subtitle,
     provenanceTitle: [subtitle, metrics].filter(Boolean).join(" · ") || null,
   };

@@ -76,14 +76,24 @@ export function ScriptTimelineModal({
 
   const [showVisuals, setShowVisuals] = useState(defaultShowVisuals);
 
+  /* A storyboard-shaped script — every beat a visual direction, none of them a
+     spoken line. Visuals default OFF per the ruling, which on THIS shape would
+     render a table of empty dialogue cells: a modal that says "3 beats" and
+     shows nothing. The default flips only here, where the visuals are the
+     script; the toggle keeps working in both directions. */
+  const visualsOnly = useMemo(
+    () => script.hasVisuals && script.rows.every((r) => !r.dialogue.trim()),
+    [script],
+  );
+
   /* Reopening must not resurrect a discarded edit, and the parent may hand a
      different card's script to the same mounted modal. */
   useEffect(() => {
     if (open) {
       setRows(script.rows);
-      setShowVisuals(defaultShowVisuals && script.hasVisuals);
+      setShowVisuals((defaultShowVisuals || visualsOnly) && script.hasVisuals);
     }
-  }, [open, script, defaultShowVisuals]);
+  }, [open, script, defaultShowVisuals, visualsOnly]);
 
   const draft = useMemo<TimelineScript>(
     () => ({
@@ -174,9 +184,13 @@ export function ScriptTimelineModal({
             </label>
             {toggleUsable ? (
               <span className="truncate text-[11px] leading-4 text-g6-text-tertiary">
-                {showVisuals
-                  ? `Showing on ${summary.visualCount} of ${summary.rowCount} beats`
-                  : `${summary.visualCount} beats carry one`}
+                {visualsOnly
+                  ? showVisuals
+                    ? `All ${summary.rowCount} beats — this script is visuals only`
+                    : "Switch on — this script has nothing but visuals"
+                  : showVisuals
+                    ? `Showing on ${summary.visualCount} of ${summary.rowCount} beats`
+                    : `${summary.visualCount} beats carry one`}
               </span>
             ) : (
               <span
@@ -208,13 +222,30 @@ export function ScriptTimelineModal({
               onChange={(value) => patch(0, "dialogue", value)}
             />
           ) : (
-            <TimelineBody
-              rows={rows}
-              showVisuals={showVisuals}
-              hasTimecodes={script.hasTimecodes}
-              editable={editable}
-              onPatch={patch}
-            />
+            <div className="space-y-3">
+              {/* Without this the body reads as broken: every dialogue cell
+                  empty, while the header still counts beats. Say which half of
+                  the script exists instead of showing a blank table. */}
+              {visualsOnly ? (
+                <p className="flex items-start gap-2 rounded-g6-base border border-g6-primary-border bg-g6-primary-bg px-3 py-2 text-[11px] leading-4 text-g6-primary-active">
+                  <Info className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span>
+                    This script is visual directions only — no dialogue was
+                    written for any beat, so the visuals are shown by default.
+                    {showVisuals
+                      ? " Type into a Dialogue cell to add the spoken line."
+                      : " Switch “Add visual directions” back on to see them."}
+                  </span>
+                </p>
+              ) : null}
+              <TimelineBody
+                rows={rows}
+                showVisuals={showVisuals}
+                hasTimecodes={script.hasTimecodes}
+                editable={editable}
+                onPatch={patch}
+              />
+            </div>
           )}
         </div>
 

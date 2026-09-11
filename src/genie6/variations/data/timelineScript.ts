@@ -113,6 +113,21 @@ const BEAT_LABELS = [
   "scene", "beat", "act", "hero", "detail macro", "context insert", "transition",
 ];
 const BEAT_LABEL_RE = new RegExp(`^(${BEAT_LABELS.join("|")})\\s*:\\s*`, "i");
+/**
+ * `[Hero]` / `[Wide establishing]` — the bracket form the serializer uses for a
+ * beat label the whitelist would NOT re-accept. It exists because the round
+ * trip has to be lossless: the `1.` numbering that produced such a label is
+ * gone by the time the rows are written back, so without a second marker one
+ * edit collapsed the whole timeline (that was the shipped bug).
+ *
+ * This does NOT relax the whitelist's paranoia. Brackets are an explicit
+ * author marker — the same class as `[0:03]`, which this file already trusts —
+ * not the "any Capitalised word before a colon" rule the whitelist refuses:
+ * the wizard's `Format: Video · English.` carries no brackets and still cannot
+ * become a beat. A colon inside is excluded so `[VISUAL: x]` is never read as a
+ * label, and at least one letter is required so `[12]` stays plain text.
+ */
+const BRACKETED_LABEL = /^\[\s*([^[\]:\n]{1,40}?)\s*\]\s*/;
 
 /**
  * From a flat script string — the wizard's `script` field and
@@ -126,6 +141,9 @@ const BEAT_LABEL_RE = new RegExp(`^(${BEAT_LABELS.join("|")})\\s*:\\s*`, "i");
  *   4. `V/O:` `VO:` `VOICEOVER:` `DIALOGUE:` `AUDIO:` `NARRATOR:` → dialogue
  *   5. A whitelisted beat label + colon (`Hook:` … `CTA:`) → the row's `label`
  *   6. `1.` / `1)` ordered items, when at least two are present
+ *   7. `[Hero]` / `[Wide shot]` a bracketed beat label → the row's `label`.
+ *      This is the form `serializeTimelineScript` writes a non-whitelisted
+ *      label in, and the reason the round trip is lossless.
  *
  * REFUSED, deliberately:
  *   - Inventing a timecode. No interpolation from a duration, row count or
@@ -186,19 +204,29 @@ export function fromFlatScript(body: string | null | undefined): TimelineScript 
         structured = true;
       } else {
         const beat = rest.match(BEAT_LABEL_RE);
+        const bracketLabel = beat ? null : rest.match(BRACKETED_LABEL);
         if (beat) {
           label = titleCase(beat[1]);
           rest = rest.slice(beat[0].length);
+          structured = true;
+        } else if (bracketLabel && /[A-Za-z]/.test(bracketLabel[1])) {
+          label = titleCase(bracketLabel[1]);
+          rest = rest.slice(bracketLabel[0].length);
           structured = true;
         } else if (acceptNumbered) {
           const numbered = rest.match(NUMBERED);
           if (numbered) {
             rest = rest.slice(numbered[0].length);
             /* The author's OWN leading phrase becomes the label ("Hero — full
-               product shot"). Capped so a whole sentence never becomes one. */
-            const split = rest.match(new RegExp(`^(.{1,32}?)\\s*${DASH}\\s+`));
+               product shot"). Capped so a whole sentence never becomes one, and
+               `[`/`]`/`:`-free so the label can never contain a character that
+               would break the very marker it is written back with. */
+            const split = rest.match(new RegExp(`^([^\\[\\]:\\n]{1,32}?)\\s*${DASH}\\s+`));
             if (split) {
-              label = split[1].trim();
+              /* Title-cased like every other label so the round trip is exact:
+                 `titleCase` is idempotent, so re-reading a serialized label
+                 reproduces it character for character. */
+              label = titleCase(split[1].trim());
               rest = rest.slice(split[0].length);
             }
             structured = true;
@@ -314,9 +342,25 @@ export function summarizeTimelineScript(script: TimelineScript): TimelineScriptS
 
 /**
  * Back to one blob, for the fields that only store text
- * (`WizardState.script`, `ScriptAsset.body`). Round-trips through
- * `fromFlatScript`: timecodes go back in brackets and visuals behind a
- * `VISUAL:` marker, both patterns this file accepts.
+ * (`WizardState.script`, `ScriptAsset.body`).
+ *
+ * THE CONTRACT, and the reason this function is as fussy as it is: the card
+ * round-trips through here on every save — serialize, then re-parse to
+ * display — so a row written in a form `fromFlatScript` cannot read back is
+ * silent data loss. Editing one word used to collapse a 5-beat timeline into
+ * one flat blob and disable the visuals toggle, because the label form written
+ * here (`Wide establishing: …`) is outside the parser's whitelist and the `1.`
+ * numbering that had produced it was gone.
+ *
+ * So every row is written in a form the parser provably accepts:
+ *   - a real timecode in brackets (`[0:00-0:03] `)
+ *   - a whitelisted label as `Hook: `, any other label as `[Wide shot] `
+ *   - a visual behind `VISUAL: `, on its own line inside the row's paragraph
+ * and nothing is written that the parser cannot represent: the parser reads
+ * line by line, so a BLANK LINE inside a cell and a MULTI-LINE visual have no
+ * readable form — both are normalised rather than emitted as a promise that
+ * breaks on the way back. A row carrying nothing at all is dropped instead of
+ * emitting an empty paragraph that shifts every row after it.
  */
 export function serializeTimelineScript(
   script: TimelineScript,
@@ -325,14 +369,47 @@ export function serializeTimelineScript(
   const includeVisuals = opts.includeVisuals ?? true;
   if (script.provenance === "flat") return script.rows.map((r) => r.dialogue).join("\n\n");
 
-  return script.rows
-    .map((row) => {
-      const head = row.time ? `[${row.time}] ` : row.label ? `${row.label}: ` : "";
-      const lines = [`${head}${row.dialogue}`.trim()];
-      if (includeVisuals && row.visual) lines.push(`VISUAL: ${row.visual}`);
-      return lines.join("\n");
-    })
-    .join("\n\n");
+  const blocks: string[] = [];
+  for (const row of script.rows) {
+    const dialogue = dialogueCell(row.dialogue ?? "");
+    const visual = includeVisuals ? oneLine(row.visual ?? "") : "";
+    let head = `${row.time ? `[${row.time}] ` : ""}${row.label ? labelHead(row.label) : ""}`;
+    /* A row with neither a timecode nor a label carries nothing that marks it
+       as a NEW beat, so anywhere but first the parser reads it as a
+       continuation of the row above and merges the two (that is how a `V/O:`
+       script lost a beat per save). `DIALOGUE:` is the marker for exactly this
+       — a beat with no timing — and the parser already accepts it. */
+    if (!head && dialogue && blocks.length > 0) head = "DIALOGUE: ";
+    const opening = `${head}${dialogue}`.trim();
+    const lines: string[] = [];
+    if (opening) lines.push(opening);
+    if (visual) lines.push(`VISUAL: ${visual}`);
+    if (lines.length) blocks.push(lines.join("\n"));
+  }
+  return blocks.join("\n\n");
+}
+
+/**
+ * A label goes back in the `Hook: ` form ONLY when the parser would re-accept
+ * it as one; everything else takes the bracket form. Brackets are also
+ * stripped from the label text itself — a `]` inside would close the marker
+ * early and destroy the row boundary, which costs far more than the bracket.
+ */
+function labelHead(label: string): string {
+  const clean = oneLine(label).replace(/[[\]:]/g, "").trim();
+  if (!clean) return "";
+  return BEAT_LABEL_RE.test(`${clean}:`) ? `${clean}: ` : `[${clean}] `;
+}
+
+/** One line — what a `VISUAL:` marker can carry, and what a label may be. */
+function oneLine(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Keeps line breaks (the parser reconstitutes those) minus the blank lines it
+ *  reads as nothing, which would otherwise disappear on the way back. */
+function dialogueCell(s: string): string {
+  return s.replace(/[ \t]+\n/g, "\n").replace(/\n\s*\n+/g, "\n").trim();
 }
 
 /* -------------------------------------------------------------------- utils */

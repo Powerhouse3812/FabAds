@@ -97,8 +97,10 @@ import type {
  * four the owner named. Each adapts through `AdgroupCard`'s own converters
  * (`adCardFromOutput` / `adCardFromAdgroup` / `adCardFromFlowRef`), so one
  * card component renders all four and none of them re-implements the chrome.
- * A thin source (a Reports ref has no CTA and no headline) yields a card with
- * honest gaps rather than invented copy. The remaining universes — Video Sage,
+ * A ref-backed universe fills the copy slots its own module genuinely holds
+ * (Insights: primary text, headline, CTA, domain; Reports: primary text and
+ * headline, and nothing else — a Reports creative has no CTA or destination),
+ * and leaves the rest as honest gaps. The remaining universes — Video Sage,
  * Trends, Campaign URLs, Dashboard, every asset kind — stay compact rows:
  * their data has no page, no copy and no media to fill a card with, so a card
  * there would be a frame around three dashes.
@@ -296,10 +298,11 @@ function refRow(
   };
 }
 
-/** A flow ref, as a card. `competitor` is forced from the ROW's verdict, not
- *  the ref's own flag: Industry Insights is competitor-owned at MODULE level
- *  (§7.2) and its individual refs need not repeat it, so reading the ref alone
- *  would drop the chip from every card in that universe. */
+/** A flow ref, as a card. The adapter now DERIVES §7.2 ownership from the
+ *  module registry itself (Industry Insights is competitor-owned at MODULE
+ *  level, so its individual refs never repeat it), which is what makes the
+ *  chip appear without a caller asking. The row's verdict is still spread on
+ *  top so a card can never contradict the row and footer beside it. */
 function refCardRow(ref: FlowSourceRef, moduleLabel: string, moduleCompetitor: boolean): PickRow {
   const row = refRow(ref, moduleLabel, moduleCompetitor);
   return { ...row, card: { ...adCardFromFlowRef(ref), competitor: row.competitor } };
@@ -350,7 +353,15 @@ const LIBRARY_TEXT_BY_ID = new Map(
 );
 
 function adgroupRow(adg: LibraryAdgroup, moduleLabel: string): PickRow {
-  const row = refRow(refForAdgroup(adg), moduleLabel, false, adCardFromAdgroup(adg));
+  // §7.2 — a `"pinned-insights"` adgroup IS a competitor ad the user saved
+  // (library-items.ts's own definition), so the row is marked exactly like an
+  // Industry Insights one and its footer warning reads the same. Derived from
+  // the adgroup, the same field `adCardFromAdgroup` reads, so row and card
+  // cannot disagree. The REF is deliberately left unmarked: `competitorOwned`
+  // on it would change Step 2's highlight, and the owner's call
+  // (flowSources.ts's `creativeLibraryRef`) is that this is labelling only.
+  const competitor = adg.source === "pinned-insights";
+  const row = refRow(refForAdgroup(adg), moduleLabel, competitor, adCardFromAdgroup(adg));
   return {
     ...row,
     searchText: [

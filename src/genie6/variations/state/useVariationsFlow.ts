@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { computeBreakdown, exceedsBalance, type CreditLine } from "../../lib/credits";
+import { exceedsBalance, type CreditLine } from "../../lib/credits";
 import { startBatch } from "../../lib/genieRunStore";
 import type { RunOrigin } from "../../lib/genieRunTypes";
 import { analyseAd } from "../data/analyseAd";
@@ -232,14 +232,31 @@ export function useVariationsFlow(): UseVariationsFlowReturn {
     setState((prev) => ({ ...prev, entity: next }));
   }, []);
 
+  /**
+   * The run costs the SUM of what each card costs — and each card prices
+   * itself with `buildCreditLines`, the same formula the wizard's own prompt
+   * bar quotes inside it.
+   *
+   * This replaced a flat `VARIATION_CREDITS_PER_ITEM × count`, which made the
+   * card say "1 credit" while this rail said "16" for the same run. §21.2
+   * exists for exactly that defect: ONE credit formula, so two surfaces can
+   * never disagree. A card that hasn't reported yet falls back to the nominal
+   * rate so the rail is never blank mid-mount.
+   */
   const credits = useMemo(() => {
+    let reported = 0;
+    let pending = 0;
+    for (const card of state.cards) {
+      const total = state.summaries[card.id]?.creditsTotal;
+      if (typeof total === "number") reported += total;
+      else pending += 1;
+    }
+    const total = reported + pending * VARIATION_CREDITS_PER_ITEM;
     const lines: CreditLine[] = [
-      { label: "Variations", factor: state.count, op: "base" },
-      { label: "Per variation", factor: VARIATION_CREDITS_PER_ITEM, op: "multiply" },
+      { label: `${state.count} variation${state.count === 1 ? "" : "s"}`, factor: total, op: "base" },
     ];
-    const { total } = computeBreakdown(lines);
     return { lines, total, overdrawn: exceedsBalance(total) };
-  }, [state.count]);
+  }, [state.cards, state.summaries, state.count]);
 
   const canGenerate = !!state.picked && !credits.overdrawn;
 

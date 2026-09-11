@@ -13,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { computeBreakdown } from "../../lib/credits";
+import { buildCreditLines } from "../../studio-v4/state/useWizard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getDummyVideos } from "@/lib/video-sage-dummy-data";
 import { angles } from "@/mocks/shared/angles";
@@ -534,7 +536,10 @@ export function VariationCard({
   const summary: VariationCardSummary = useMemo(
     () => ({
       id: card.id,
-      adType: card.adType,
+      // The EFFECTIVE type, not the override. `card.adType` is null while the
+      // card is on Auto, so reporting it dropped the ad type out of the
+      // generate payload for exactly the cards the user never touched.
+      adType: effectiveAdType,
       format: state.format,
       angle: angleText,
       conceptCount: state.selectedConceptIds.length,
@@ -542,10 +547,12 @@ export function VariationCard({
       prompt: state.prompt,
       model: state.modelId,
       aspectRatio: state.aspectRatio,
+      creditsTotal: computeBreakdown(buildCreditLines(state)).total,
     }),
     [
+      state,
       card.id,
-      card.adType,
+      effectiveAdType,
       state.format,
       angleText,
       state.selectedConceptIds.length,
@@ -1138,10 +1145,19 @@ function VariationScriptRow({
   // Newlines are collapsed by the browser (no `whitespace-pre-wrap`), which is
   // what makes a 2-line clamp land predictably — the same reasoning as
   // ScriptPreviewRow's own preview.
-  const preview = timeline.rows
+  // A visuals-only script (visuals, no dialogue) would preview as empty and
+  // make the row claim "no script" while the datum beside it counts beats.
+  // Fall back to the visuals so the preview describes what is actually there.
+  const dialoguePreview = timeline.rows
     .map((r) => r.dialogue.trim())
     .filter(Boolean)
     .join(" ");
+  const preview =
+    dialoguePreview ||
+    timeline.rows
+      .map((r) => r.visual?.trim() ?? "")
+      .filter(Boolean)
+      .join(" ");
 
   const provenance =
     timeline.provenance === "video-sage"

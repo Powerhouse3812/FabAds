@@ -204,6 +204,13 @@ export interface VariationCardSummary {
   prompt?: string | null;
   model?: string | null;
   aspectRatio?: string | null;
+  /**
+   * This card's cost, from the SAME formula the wizard's own prompt bar
+   * quotes (`buildCreditLines` → `computeBreakdown`). The run's total is the
+   * sum of these, so §21.2's "ONE credit formula" holds: a card and the run
+   * rail can no longer disagree, which they did — 1 credit vs 16.
+   */
+  creditsTotal?: number | null;
 }
 
 /* ------------------------------------------------ PART 2: asset variations */
