@@ -153,35 +153,71 @@ export interface RecommendedAction {
   reason: string;
 }
 
-/* -------------------------------------------------------------- the edits */
+/* ----------------------------------------------------- the per-variation card
+ *
+ * REDESIGN, 2026-09-10. The All / Multiple / Individually scope selector and
+ * the per-element editors are GONE. Raising the count now spawns one CARD per
+ * variation, and each card carries the wizard's own configuration section —
+ * chips, prompt, script, approach, brand knowledge — prefilled from the
+ * analysed source and editable in full.
+ *
+ * Maalik's reasoning for dropping the scope model: "change element will be
+ * covered itself because configuration bar/promptbar from wizard have
+ * everything in it." Scoping an edit across N variations stops being a
+ * question once each variation is its own editable card.
+ */
 
 /**
- * Scope of a MANUAL edit. Only raised when the user goes manual on an
- * element — a recommended action never asks this (it applies to all N).
+ * A card's identity and the few things the PARENT must know about it.
+ *
+ * Everything else — format, entity, angle, concepts, script, prompt, model,
+ * aspect ratio — lives in that card's own `useWizard` instance, inside the
+ * card component. The parent deliberately does not mirror the whole wizard;
+ * it holds the id so React keys survive a count change, and the one field the
+ * wizard has no writable home for (see `adType`).
  */
-export type EditScope = "all" | "multiple" | "individual";
+export interface VariationCardState {
+  id: string;
+  /**
+   * The ad type this card generates. Explicit because the owner asked for it
+   * to be choosable per variation, and because ad type is otherwise DERIVED
+   * from which entity is set (category → Category Ad, product → Product Ad,
+   * brand → Brand Ad) with nowhere to write an override.
+   * `null` = follow the derivation from this card's own entity.
+   */
+  adType: AdTypeKind | null;
+}
 
-export interface VariationEdit {
-  element: AnyElementId;
-  scope: EditScope;
-  /** "all" and "multiple" share one prompt. Unused for "individual". */
-  prompt?: string;
-  /** "multiple" only — zero-based variation indexes the prompt applies to. */
-  variationIndexes?: number[];
-  /** "individual" only — one prompt per variation index. */
-  byIndex?: Record<number, string>;
+/**
+ * What a card reports upward on change, so the parent can price the run and
+ * build the generate payload without owning each card's config. A summary,
+ * never a second source of truth — the card's wizard stays authoritative.
+ */
+export interface VariationCardSummary {
+  id: string;
+  adType: AdTypeKind | null;
+  format?: string | null;
+  angle?: string | null;
+  conceptCount?: number;
+  hasScript?: boolean;
+  prompt?: string | null;
+  model?: string | null;
+  aspectRatio?: string | null;
 }
 
 /* ------------------------------------------------ PART 2: asset variations */
 
 /**
- * The three asset kinds a run can vary.
+ * The three asset kinds a run can take AS A SOURCE.
  *
- * Storyboard is NOT a separate journey. Maalik, 2026-09-09: "Storyboard is
- * nothing but script with visual directions" — so a storyboard run is a
- * script run whose visual-direction element is mandatory and pre-filled,
- * where a script run leaves it optional. Adding visuals to a script
- * variation is what makes the output a storyboard (`assetOutputKind`).
+ * Maalik, 2026-09-10: "Asset can be source, but never the output from generate
+ * variation." So an asset run reads a script/concept/storyboard and produces a
+ * WHOLE AD, same as an ad source does. Asset *generation* moves to its own
+ * single-page Other Apps, registered coming-soon until those are built.
+ *
+ * This supersedes the 2026-09-09 output rules: a script no longer produces
+ * scripts, adding visuals no longer produces storyboards, and an asset run is
+ * no longer free — it costs what the ad it produces costs.
  */
 export type AssetKind = "script" | "concept" | "storyboard";
 
@@ -313,14 +349,22 @@ export interface EntitySelection {
 /* --------------------------------------------------------------- ui state */
 
 export interface VariationsFlowState {
-  /** null until a picker resolves — gates everything downstream. */
+  /** null until the picker modal resolves — gates everything downstream. */
   picked: PickedThing | null;
   /** Owned by the shared stepper contract: min 1, max 20, default 4. */
   count: number;
-  /** Quick actions tapped. Applied to all N, stackable, no scope question. */
-  quickActions: AnyElementId[];
-  /** Manual edits, keyed by element id. */
-  edits: Partial<Record<AnyElementId, VariationEdit>>;
-  /** Asset runs only — the entity the variations are for. Empty = Auto. */
+  /**
+   * One entry per variation, always `count` long. Raising the count appends;
+   * lowering it truncates from the end, so the cards the user already tuned
+   * keep their ids — and therefore their mounted wizard state — instead of
+   * every card remounting on a count change.
+   */
+  cards: VariationCardState[];
+  /**
+   * Latest summary each card reported, keyed by card id. Used only for pricing
+   * and the generate payload; the card's own wizard remains authoritative.
+   */
+  summaries: Record<string, VariationCardSummary>;
+  /** The entity the run is for when the source didn't settle it. Empty = Auto. */
   entity: EntitySelection;
 }

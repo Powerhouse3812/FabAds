@@ -761,6 +761,38 @@ export const GENIE_APPS: GenieApp[] = [
     icon: "ImageMinus",
     state: "coming-soon",
   },
+
+  // ──── Coming soon — asset generation (from variations refactor) ────
+  // Generate Variations stops producing assets; these become single-page
+  // flows under Other Apps. Placeholder entries for product visibility
+  // until the flows are built.
+  {
+    key: "generate-script",
+    name: "Generate Script",
+    tagline: "Write an ad script from a brief.",
+    subtitle: "Describe what you want to say and Genie scripts a compelling ad voiceover, ready to record or synthesize.",
+    category: "create",
+    icon: "FileText",
+    state: "coming-soon",
+  },
+  {
+    key: "generate-concept",
+    name: "Generate Concept",
+    tagline: "Brainstorm ad concepts and creative angles.",
+    subtitle: "Feed a product and brief, then Genie generates multiple ad concepts and storyboard directions to choose from.",
+    category: "create",
+    icon: "Lightbulb",
+    state: "coming-soon",
+  },
+  {
+    key: "generate-storyboard",
+    name: "Generate Storyboard",
+    tagline: "Layout a shot-by-shot storyboard for an ad.",
+    subtitle: "Genie breaks down an ad into frames and suggests the shots you need, with framing and notes per scene.",
+    category: "create",
+    icon: "LayoutGrid",
+    state: "coming-soon",
+  },
 ];
 
 /** Single lookup every consumer should use instead of `.find()` inline. */

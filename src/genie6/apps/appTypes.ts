@@ -66,7 +66,13 @@ export type AppKey =
   // Face Swap does).
   | "bg-remover"
   | "resize-image"
-  | "object-remover";
+  | "object-remover"
+  // Coming soon — asset generation (2026-09-10). Generate Variations
+  // stops producing assets; asset generation moves to single-page Other
+  // Apps, not now but declared placeholder entries for visibility.
+  | "generate-script"
+  | "generate-concept"
+  | "generate-storyboard";
 
 /** Filter tabs on the Other Apps grid. */
 export type AppCategory = "create" | "enhance" | "edit" | "live-avatar";
