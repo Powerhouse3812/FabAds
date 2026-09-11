@@ -2,25 +2,28 @@ import type { FlowModuleKey, FlowSourceRef } from "../flows/flowTypes";
 import type { OutputData } from "../types/output";
 
 /**
- * Generate Variations — the shared contract (Part 1: WHOLE AD).
+ * Generate Variations — the shared contract.
  *
- * Replaces the "Custom" Mode card on Studio Home. Locked flow shape:
- *   1. pick ONE source whole ad (inline picker)
- *   2. ask how many variations (N) — BEFORE any analysis is shown
- *   3. show the analysis overview of what was detected
- *   4. offer 3-4 contextual recommended actions derived from (3)
- *   5. a recommended action applies to all N with no scope question; only
- *      going MANUAL on an element raises the All / Multiple / Individual
- *      scope selector and then exposes that element's prompt as text
- *   6. Generate fires the run store directly and lands on the results queue
+ * Replaces the "Custom" Mode card on Studio Home. Flow shape after the
+ * 2026-09-10/11 redesign:
+ *   1. pick ONE source in a MODAL — the dashed dropzone is the entry and
+ *      disappears once something is picked; each chip opens its own modal
+ *   2. ask how many variations (N)
+ *   3. N spawns one editable CARD per variation, each carrying the wizard's
+ *      own configuration section prefilled from the analysed source
+ *   4. 3-4 contextual suggestions ride above each card's prompt bar
+ *   5. Generate fires the run store directly and lands on the results queue
  *
- * Built as two competing UI versions; the inline one won (Maalik, 2026-09-09)
- * and the stepped one is gone. The screen still owns no rule — everything
- * decidable lives in `data/` and the state spine.
+ * The source may be a whole ad OR an asset, but the output is ALWAYS a whole
+ * ad — "Asset can be source, but never the output from generate variation."
+ * Asset generation lives in its own coming-soon Other Apps instead.
  *
- * PART 2 — ASSET VARIATIONS (same day, same owner) reuses every stage above.
- * A run varies EITHER a whole ad OR an asset; the two differ only in what the
- * analysis reports and which elements can be varied. See `AssetKind` below.
+ * The screen owns no rule: everything decidable lives in `data/`, the state
+ * spine, or the card's own wizard.
+ *
+ * Superseded and gone — do not reintroduce: the stepped second UI version
+ * (2026-09-09), the All/Multiple/Individually scope selector with its
+ * per-element editors, and asset OUTPUTS with their free-run path.
  */
 
 /* ------------------------------------------------------------------ source */
@@ -38,8 +41,6 @@ export type PickedSource =
   | { kind: "genie-output"; output: OutputData }
   | { kind: "flow-ref"; ref: FlowSourceRef }
   | { kind: "upload"; file: UploadedAdStub };
-
-export type VariationSourceKind = PickedSource["kind"];
 
 /** Every source kind, either family. `VariationSource` is shared by both. */
 export type AnySourceKind = PickedSource["kind"] | PickedAsset["kind"];
@@ -259,8 +260,6 @@ export type PickedThing =
   | { family: "ad"; ad: PickedSource }
   | { family: "asset"; asset: PickedAsset };
 
-/** What an asset run produces. Visuals present ⇒ storyboards. */
-export type AssetOutputKind = AssetKind;
 
 /**
  * The asset overview's rows. Reuses `AnalysedField` and `AdTypeKind` so the

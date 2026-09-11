@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Copy, Eye, Info, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -67,6 +67,13 @@ export function ScriptTimelineModal({
 }: ScriptTimelineModalProps) {
   const editable = !readOnly && !!onSave;
   const [rows, setRows] = useState<TimelineScriptRow[]>(script.rows);
+  // One card per variation means this modal's markup exists N times, so a
+  // hardcoded id would bind the label to the FIRST switch and point
+  // aria-describedby at another card's reason text.
+  const uid = useId();
+  const visualsId = `script-timeline-visuals-${uid}`;
+  const reasonId = `${visualsId}-reason`;
+
   const [showVisuals, setShowVisuals] = useState(defaultShowVisuals);
 
   /* Reopening must not resurrect a discarded edit, and the parent may hand a
@@ -148,15 +155,15 @@ export function ScriptTimelineModal({
         <div className="flex items-center justify-between gap-4 border-b border-g6-border-secondary bg-g6-bg-base px-5 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <Switch
-              id="script-timeline-visuals"
+              id={visualsId}
               checked={showVisuals}
               disabled={!toggleUsable}
               onCheckedChange={setShowVisuals}
-              aria-describedby={toggleUsable ? undefined : "script-timeline-visuals-reason"}
+              aria-describedby={toggleUsable ? undefined : reasonId}
               className="data-[state=checked]:bg-g6-primary"
             />
             <label
-              htmlFor="script-timeline-visuals"
+              htmlFor={visualsId}
               className={cn(
                 "flex min-w-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium leading-5",
                 toggleUsable ? "text-g6-text" : "cursor-not-allowed text-g6-text-disabled",
@@ -173,7 +180,7 @@ export function ScriptTimelineModal({
               </span>
             ) : (
               <span
-                id="script-timeline-visuals-reason"
+                id={reasonId}
                 className="truncate text-[11px] leading-4 text-g6-text-tertiary"
               >
                 {toggleReason}
