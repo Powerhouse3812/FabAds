@@ -78,8 +78,34 @@ export const APP_CATEGORY_LABELS: Record<AppCategory, string> = {
   "live-avatar": "LiveAvatar",
 };
 
-/** Where a picker draws its options from. Never "a second upload box". */
-export type PickerSource = "library" | "catalogue" | "avatars" | "voices" | "upload";
+/**
+ * Where a picker draws its options from. Never "a second upload box".
+ *
+ * Owner ruling 2026-09-09 — the media sources for every app are:
+ * Upload · Library · Report · Industry Insights · Folder · Genie.
+ *
+ * The important part of that list is that **Library and Genie are now two
+ * different pools**, where `library` used to be both:
+ *   - `library` = media the user BROUGHT IN (uploads, stock, brand footage)
+ *   - `genie`   = things Genie MADE (past generations, by Batch ID)
+ * "Use one of my generated ads" and "use that clip I uploaded" are different
+ * intents, and one merged tab made the user hunt.
+ *
+ * `catalogue` stays: it is not a media source at all — Product Placement picks
+ * a PRODUCT with it. `avatars` and `voices` are declared but referenced by no
+ * registry entry (the `avatar-picker` field owns that job); left in place
+ * rather than removed as drive-by cleanup, but do not reach for them.
+ */
+export type PickerSource =
+  | "upload"
+  | "library"
+  | "genie"
+  | "report"
+  | "industry-insights"
+  | "folder"
+  | "catalogue"
+  | "avatars"
+  | "voices";
 
 /**
  * A field on an app's setup column. Every live app is fully described by an
@@ -115,7 +141,18 @@ export type AppField =
       required: boolean;
     }
   | {
-      kind: "language-multiselect";
+      /**
+       * SINGLE language, not many. Owner ruling 2026-09-09: "single language
+       * selection only", everywhere a language is picked.
+       *
+       * Renamed from `language-multiselect` deliberately rather than keeping
+       * the old name with new behaviour — a field called "multiselect" that
+       * selects one is exactly the kind of lie that has bitten this codebase
+       * before. What this costs: `runPlan` used to fan out one output row PER
+       * language so each could fail and retry independently. One language now
+       * means one output row, and that per-language retry goes with it.
+       */
+      kind: "language-select";
       id: string;
       label: string;
       hint?: string;
@@ -126,7 +163,21 @@ export type AppField =
       id: string;
       label: string;
       hint?: string;
-      options: { value: string; label: string; desc?: string }[];
+      options: {
+        value: string;
+        label: string;
+        desc?: string;
+        /**
+         * Selecting this option makes the WHOLE run free — `appCost.ts`'s
+         * `previewCost` checks every segmented field for one, and short-
+         * circuits the entire breakdown to a single zero-cost line when
+         * found. Built for Translate Videos' "Subtitles only" (owner ruling
+         * 2026-09-09: no voice synthesis happens, so nothing should bill),
+         * but it is a general mechanism — any app can mark a cheap/no-op
+         * mode this way rather than the cost file growing a per-app branch.
+         */
+        zerosCost?: boolean;
+      }[];
       required: boolean;
     }
   | {

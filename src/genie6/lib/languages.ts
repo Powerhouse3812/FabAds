@@ -3,7 +3,9 @@
  *
  * Studio's Configure step gets a LANGUAGE SELECTOR for choosing the output
  * language of the ad (§5 "Updates to Studio in this release"). Translate Videos
- * gets a MULTI-SELECT over the same list — the app spec says "175 available"
+ * gets a SINGLE-SELECT over the same list (owner ruling 2026-09-09: "single
+ * language selection only" — it was a multi-select until then, and this
+ * comment said so) — the app spec says "175 available"
  * (§8), so this file holds exactly 175 and TOTAL_LANGUAGES is derived from the
  * array rather than typed as a literal, so the copy can never drift from the
  * data.
@@ -225,4 +227,165 @@ export function searchLanguages(q: string): LanguageOption[] {
       l.region.toLowerCase().includes(t) ||
       l.code.toLowerCase().includes(t),
   );
+}
+
+/**
+ * Flags for the language picker (owner ruling 2026-09-09, verbatim: "language
+ * selection dropdown me, give flags also instead of just names of the
+ * country"; and on languages spoken across many countries: "A flag on every
+ * entry, pick the most common country.").
+ *
+ * Every one of the 175 `region` values above maps to exactly one ISO 3166-1
+ * alpha-2 country. Most are direct (region IS a country name, e.g. "India" →
+ * IN). A handful of `region` values are NOT literal countries — dialect/script
+ * labels ("Mandarin · Simplified", "Cantonese"), a UK constituent nation
+ * ("Scotland"), a multi-country label ("West Africa"), or languages with no
+ * native state at all ("Classical" Latin, "Constructed" Esperanto, "Global"
+ * Yiddish). Each of those still gets the single most-defensible "most common
+ * country" pick per the ruling above, rather than being left flagless:
+ *   Mandarin·Simplified → China, Mandarin·Traditional → Taiwan,
+ *   Cantonese → Hong Kong, Scotland → United Kingdom (no separate ISO code),
+ *   West Africa (Fulah) → Nigeria (largest Fula-speaking population),
+ *   Classical (Latin) → Vatican City (its one remaining official state),
+ *   Constructed (Esperanto) → Poland (Zamenhof's homeland),
+ *   Global (Yiddish) → Israel (largest present-day speaker base).
+ *
+ * Keyed by `region` (not language code) since region is what's shared across
+ * near-duplicate entries (e.g. every India-based Indic language). Every one
+ * of the 116 distinct `region` values in LANGUAGES has an entry here —
+ * `languageFlag()` falls back to a blank flag glyph only if that ever drifts.
+ */
+const COUNTRY_BY_REGION: Record<string, string> = {
+  "Afghanistan": "AF",
+  "Albania": "AL",
+  "Argentina": "AR",
+  "Armenia": "AM",
+  "Australia": "AU",
+  "Austria": "AT",
+  "Azerbaijan": "AZ",
+  "Belarus": "BY",
+  "Belgium": "BE",
+  "Bhutan": "BT",
+  "Bolivia": "BO",
+  "Bosnia": "BA",
+  "Botswana": "BW",
+  "Brazil": "BR",
+  "Bulgaria": "BG",
+  "Cambodia": "KH",
+  "Canada": "CA",
+  "Cantonese": "HK",
+  "China": "CN",
+  "Classical": "VA",
+  "Constructed": "PL",
+  "Croatia": "HR",
+  "Curaçao": "CW",
+  "Czechia": "CZ",
+  "Denmark": "DK",
+  "Egypt": "EG",
+  "Eritrea": "ER",
+  "Estonia": "EE",
+  "Ethiopia": "ET",
+  "Faroe Islands": "FO",
+  "Fiji": "FJ",
+  "Finland": "FI",
+  "France": "FR",
+  "French Polynesia": "PF",
+  "Georgia": "GE",
+  "Germany": "DE",
+  "Ghana": "GH",
+  "Global": "IL",
+  "Greece": "GR",
+  "Greenland": "GL",
+  "Guatemala": "GT",
+  "Haiti": "HT",
+  "Hungary": "HU",
+  "Iceland": "IS",
+  "India": "IN",
+  "Indonesia": "ID",
+  "Iran": "IR",
+  "Iraq": "IQ",
+  "Ireland": "IE",
+  "Israel": "IL",
+  "Italy": "IT",
+  "Jamaica": "JM",
+  "Japan": "JP",
+  "Kazakhstan": "KZ",
+  "Kenya": "KE",
+  "Kyrgyzstan": "KG",
+  "Laos": "LA",
+  "Latvia": "LV",
+  "Lesotho": "LS",
+  "Lithuania": "LT",
+  "Luxembourg": "LU",
+  "Madagascar": "MG",
+  "Malawi": "MW",
+  "Malaysia": "MY",
+  "Maldives": "MV",
+  "Mali": "ML",
+  "Malta": "MT",
+  "Mandarin · Simplified": "CN",
+  "Mandarin · Traditional": "TW",
+  "Mexico": "MX",
+  "Mongolia": "MN",
+  "Myanmar": "MM",
+  "Nepal": "NP",
+  "Netherlands": "NL",
+  "New Zealand": "NZ",
+  "Nigeria": "NG",
+  "North Macedonia": "MK",
+  "Norway": "NO",
+  "Pakistan": "PK",
+  "Paraguay": "PY",
+  "Peru": "PE",
+  "Philippines": "PH",
+  "Poland": "PL",
+  "Portugal": "PT",
+  "Romania": "RO",
+  "Russia": "RU",
+  "Rwanda": "RW",
+  "Samoa": "WS",
+  "Saudi Arabia": "SA",
+  "Scotland": "GB",
+  "Senegal": "SN",
+  "Serbia": "RS",
+  "Slovakia": "SK",
+  "Slovenia": "SI",
+  "Somalia": "SO",
+  "South Africa": "ZA",
+  "South Korea": "KR",
+  "Spain": "ES",
+  "Sri Lanka": "LK",
+  "Suriname": "SR",
+  "Sweden": "SE",
+  "Switzerland": "CH",
+  "Tajikistan": "TJ",
+  "Thailand": "TH",
+  "Tonga": "TO",
+  "Turkmenistan": "TM",
+  "Türkiye": "TR",
+  "UAE": "AE",
+  "Uganda": "UG",
+  "Ukraine": "UA",
+  "United Kingdom": "GB",
+  "United States": "US",
+  "Uzbekistan": "UZ",
+  "Vietnam": "VN",
+  "West Africa": "NG",
+  "Zimbabwe": "ZW",
+};
+
+/** ISO 3166-1 alpha-2 → Unicode flag emoji, via regional indicator symbols. */
+function countryCodeToFlagEmoji(cc: string): string {
+  return cc
+    .toUpperCase()
+    .replace(/./g, (ch) => String.fromCodePoint(127397 + ch.charCodeAt(0)));
+}
+
+/** One flag per language, chosen for its most common country (see
+ *  `COUNTRY_BY_REGION` above). Falls back to a blank/unknown-flag glyph for
+ *  an unrecognised code so a bad lookup degrades visibly instead of throwing. */
+export function languageFlag(code: string): string {
+  const l = getLanguage(code);
+  const cc = l ? COUNTRY_BY_REGION[l.region] : undefined;
+  return cc ? countryCodeToFlagEmoji(cc) : "🏳️";
 }

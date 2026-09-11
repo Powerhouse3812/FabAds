@@ -2,7 +2,7 @@ import type { AppField } from "../appTypes";
 import type { AvatarPickerValue, MediaPickerValue } from "../lib/fieldHelpers";
 import { MediaPickerField } from "./MediaPickerField";
 import { AvatarPickerField } from "./AvatarPickerField";
-import { LanguageMultiselectField } from "./LanguageMultiselectField";
+import { LanguageSelectField } from "./LanguageSelectField";
 import { SegmentedField } from "./SegmentedField";
 import { SelectField } from "./SelectField";
 import { AspectRatioField } from "./AspectRatioField";
@@ -12,7 +12,7 @@ interface FieldRendererProps {
   field: AppField;
   value: unknown;
   onChange: (value: unknown) => void;
-  /** Only meaningful for `language-multiselect` — the app's per-language rate. */
+  /** Only meaningful for `language-select` — the app's per-language rate. */
   ratePerLanguageMinute?: number;
 }
 
@@ -36,10 +36,10 @@ export function FieldRenderer({ field, value, onChange, ratePerLanguageMinute }:
           onChange={(v) => onChange(v)}
         />
       );
-    case "language-multiselect":
+    case "language-select":
       return (
-        <LanguageMultiselectField
-          value={value as string[] | undefined}
+        <LanguageSelectField
+          value={value as string | undefined}
           onChange={(v) => onChange(v)}
           ratePerLanguageMinute={ratePerLanguageMinute}
         />

@@ -5,7 +5,7 @@
  */
 export { MediaPickerField } from "./MediaPickerField";
 export { AvatarPickerField } from "./AvatarPickerField";
-export { LanguageMultiselectField } from "./LanguageMultiselectField";
+export { LanguageSelectField } from "./LanguageSelectField";
 export { SegmentedField } from "./SegmentedField";
 export { SelectField } from "./SelectField";
 export { AspectRatioField } from "./AspectRatioField";

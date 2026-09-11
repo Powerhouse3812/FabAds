@@ -5,9 +5,16 @@
  * `previewCost()` (owned by the App Data agent) tells the form what the run
  * will cost; this file turns that same form into the actual batch — how many
  * `RunItem`s it produces and what each one is charged, so the two can never
- * quietly disagree. Only Translate Videos fans out into more than one item
- * (one per target language, so each language is independently retryable);
- * every other live app is a single-item batch.
+ * quietly disagree. Every live app — Translate Videos included — is a
+ * single-item batch.
+ *
+ * Translate Videos used to fan out one output item PER target language (so
+ * each language could fail/retry independently) back when its language field
+ * was a multiselect. Owner ruling 2026-09-09 made language selection
+ * single-only everywhere, so that field now holds at most one code — the
+ * fan-out degenerates to exactly 1 item and the loop it used to need is gone.
+ * What this costs: per-language retry granularity (§21.3) no longer applies
+ * here — noted in appTypes.ts's `language-select` doc comment too.
  */
 import type { AppCostPreview, AppFieldValues, GenieApp } from "../appTypes";
 import type { RunItem } from "../../lib/genieRunTypes";
@@ -49,7 +56,7 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
   const total = Math.max(1, preview.total);
   const thumbnail = pickedThumbnail(app, values);
 
-  const langField = firstFieldOfKind(app, "language-multiselect");
+  const langField = firstFieldOfKind(app, "language-select");
   const mediaField = firstFieldOfKind(app, "media-picker");
   const avatarField = firstFieldOfKind(app, "avatar-picker");
   const aspectField = firstFieldOfKind(app, "aspect-ratio");
@@ -58,29 +65,24 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
   const avatarValue = avatarField ? (values[avatarField.id] as AvatarPickerValue | undefined) : undefined;
   const aspectRatio = aspectField ? (values[aspectField.id] as string | undefined) : undefined;
 
-  // Translate Videos: one output PER target language, so each language can
-  // fail/retry independently (§21.3 retry granularity).
+  // Translate Videos: single-select language field, so this is always a
+  // single-item batch now — no fan-out loop needed (see file header).
   if (langField) {
-    const langs = (values[langField.id] as string[] | undefined) ?? [];
-    const count = Math.max(1, langs.length);
-    const creditsPerItem = Math.max(1, Math.ceil(total / count));
+    const code = values[langField.id] as string | undefined;
+    const lbl = code ? languageLabel(code) : "your language";
     const sourceTitle = mediaTitle(mediaValue);
     return {
-      count,
-      creditsPerItem,
+      count: 1,
+      creditsPerItem: total,
       creditsTotal: total,
-      label: `${app.name} · ${count} language${count === 1 ? "" : "s"}`,
-      itemSeed: (i) => {
-        const code = langs[i];
-        const lbl = code ? languageLabel(code) : `Language ${i + 1}`;
-        return {
-          title: `${sourceTitle} — ${lbl}`,
-          summary: `Dubbed into ${lbl}, lip-synced to the source video.`,
-          tags: code ? [code.toUpperCase()] : undefined,
-          thumbnail,
-        };
-      },
-      config: { language: langs[0], aspectRatio, promptSnippet: sourceTitle },
+      label: `${app.name} · ${lbl}`,
+      itemSeed: () => ({
+        title: `${sourceTitle} — ${lbl}`,
+        summary: `Dubbed into ${lbl}, lip-synced to the source video.`,
+        tags: code ? [code.toUpperCase()] : undefined,
+        thumbnail,
+      }),
+      config: { language: code, aspectRatio, promptSnippet: sourceTitle },
     };
   }
 
@@ -165,11 +167,13 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
   };
 }
 
-/** Extra fields the language field wants below its pill list — count + cost
+/** Caption line under the language field — selection state + cost
  *  implication (§8: "the cost implication (6 credits per language per
- *  minute is the whole reason this field is expensive)"). */
-export function languageCostNote(ratePerLanguageMinute: number | undefined, count: number): string {
-  if (!ratePerLanguageMinute) return `${count} of 175 languages selected`;
-  return `${count} of 175 languages selected · ${ratePerLanguageMinute} credits / language / minute`;
+ *  minute is the whole reason this field is expensive)"). Single-select: the
+ *  field holds 0 or 1 languages, never a count, so this reports which. */
+export function languageCostNote(ratePerLanguageMinute: number | undefined, hasLanguage: boolean): string {
+  const status = hasLanguage ? "1 of 175 languages selected" : "0 of 175 languages selected";
+  if (!ratePerLanguageMinute) return status;
+  return `${status} · ${ratePerLanguageMinute} credits / language / minute`;
 }
 

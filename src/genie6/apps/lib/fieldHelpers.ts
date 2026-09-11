@@ -61,8 +61,7 @@ export function isFieldFilled(field: AppField, value: unknown): boolean {
       return mediaPickerHasValue(value as MediaPickerValue | undefined | null);
     case "avatar-picker":
       return !!(value as AvatarPickerValue | undefined | null)?.avatarId;
-    case "language-multiselect":
-      return Array.isArray(value) && value.length > 0;
+    case "language-select":
     case "segmented":
     case "select":
     case "aspect-ratio":
