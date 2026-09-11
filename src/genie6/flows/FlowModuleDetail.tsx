@@ -15,7 +15,7 @@ import type {
 import { flowSearchParams } from "./flowTypes";
 import { actionsForModule, getFlowModule } from "./data/flowRegistry";
 import { getFlowSource, sourcesForModule } from "./data/flowSources";
-import { resolveFlowContext } from "./data/resolveFlowContext";
+import { missingCarriedScriptReason, resolveFlowContext } from "./data/resolveFlowContext";
 import { resolveIcon } from "./icons";
 import { FlowCardSkeleton, FlowPartialNote, FlowRowSkeleton, FlowZeroNote } from "./FlowStateNotes";
 import { CampaignExtractionCard } from "./CampaignExtractionCard";
@@ -176,6 +176,14 @@ export function FlowModuleDetail() {
         reason: ref.blockedReason ?? `Needs analysis in ${module!.label} before this action`,
       };
     }
+    // "Use script" on a row that has no script text. Video Sage is the only
+    // module whose data actually holds one; everywhere else this action would
+    // land the user in a bare Studio with a banner claiming a script that was
+    // never carried. Same fail-closed shape as the analysis gate above, and the
+    // resolver refuses it too — this only stops the click earlier, with a
+    // reason the user can act on.
+    const noScript = selectedAction ? missingCarriedScriptReason(selectedAction, ref) : null;
+    if (noScript) return { blocked: true, reason: noScript };
     return { blocked: false };
   }
 

@@ -38,7 +38,7 @@ import {
 } from "../../lib/credits";
 import { languageLabel, searchLanguages } from "../../lib/languages";
 import { MODEL_CREDIT_MULTIPLIER } from "../data/modelPricing";
-import { buildCreditLines } from "../state/useWizard";
+import { buildCreditLines, FREE_GENERATION_LABEL } from "../state/useWizard";
 // CHANGE #3: saved reference-URLs surfaced inside the URL-attach popover.
 // Mirrors ContextRail.tsx, which imports the same helpers from "@/mocks/shared"
 // (barrel re-exports src/mocks/shared/referenceUrls.ts).
@@ -54,6 +54,12 @@ import {
 } from "@/components/ui/popover";
 import { CtaLayoutToggle } from "./CtaLayoutToggle";
 import { AttachPopover } from "./AttachPopover";
+// Owner ruling 2026-09-09/10: Concept stops being its own chip and folds into
+// Approach (ApproachChip); Script gets an additive full-width preview + Edit
+// row inside this same card, beside — not instead of — the compact chip
+// below (ScriptPreviewRow).
+import { ApproachChip } from "./ApproachChip";
+import { ScriptPreviewRow } from "./ScriptPreviewRow";
 import { getModelVisual } from "../data/studio-visuals";
 import { PreviewVideo } from "./PreviewVideo";
 import { isScriptLedState } from "../state/useWizard";
@@ -113,6 +119,20 @@ interface PromptReferenceBarProps {
    *  performance-marketing job; when absent, filtering still runs off
    *  format + attached references. */
   studioMode?: AlphaMode;
+  /** §6 "Script as a pre-step" — two-phase Generate. When provided AND the
+   *  wizard carries no script yet, the CTA generates the SCRIPT first
+   *  (label + click both switch) instead of firing the batch. Optional on
+   *  purpose: `screens/Step4Configure.tsx` (the dead predecessor screen)
+   *  never passes it, so that mount keeps today's one-phase Generate with
+   *  no change at its call site. */
+  onGenerateScript?: () => void;
+  /** Module label when the current script text arrived verbatim from a flow
+   *  hand-off (e.g. "Video Sage") — computed in AlphaStep3Configure.tsx off
+   *  content equality against the source, not off the flow itself, so it
+   *  goes stale (null) the instant the user edits the text. Threaded through
+   *  to ScriptPreviewRow's provenance badge. Optional: only Studio Alpha's
+   *  mount computes it today. */
+  scriptCarriedFrom?: string | null;
 }
 
 // A-12.73: emoji map → lucide icon map. DS §7 #10 (no emojis in product UI).
@@ -297,6 +317,8 @@ export function PromptReferenceBar({
   hideLayoutToggle = false,
   footerExtras,
   studioMode,
+  onGenerateScript,
+  scriptCarriedFrom,
 }: PromptReferenceBarProps) {
   const { state } = wizard;
 
@@ -405,9 +427,9 @@ export function PromptReferenceBar({
   // made it a HARD gate from a cold start — the only escape ("Skip review
   // from now on") lives inside the script rail's review phase, reachable
   // only after script text already exists, so Generate was simply disabled
-  // with no way past it. `scriptNeedsReview` now only flags the Script chip
-  // (still visible, still one click to the rail) — it no longer disables
-  // anything.
+  // with no way past it. `scriptNeedsReview` now only flags the Script
+  // preview row below (still visible, still one click to the rail via its
+  // Edit button) — it no longer disables anything.
   const isScriptLed = isScriptLedState(state);
   const scriptNeedsReview =
     isScriptLed && !state.scriptApproved && !state.skipScriptReview;
@@ -438,27 +460,31 @@ export function PromptReferenceBar({
   const generateDisabled =
     !state.prompt.trim() || overBudget || missingFormat || missingEntity;
 
+  // §6 two-phase CTA. `scriptPhase` is true only when this mount was given an
+  // onGenerateScript AND no script text exists yet — so the dead
+  // screens/Step4Configure.tsx mount (which passes no handler) can never enter
+  // it and keeps today's single-phase Generate verbatim. `generateDisabled` is
+  // untouched and gates BOTH phases: a run missing a required field stays
+  // disabled whether the button reads "Generate script" or "Generate".
+  const hasScript = !!state.script?.trim();
+  const scriptPhase = !hasScript && !!onGenerateScript;
+  // One handler for the button and the ⌘+Enter shortcut, so the shortcut
+  // always does exactly what clicking would do at that moment.
+  const runGenerateAction = () => {
+    if (generateDisabled) return;
+    if (scriptPhase) {
+      onGenerateScript?.();
+      return;
+    }
+    wizard.goTo(5);
+  };
+
   // Item #2 — real model filtering off format + attached references (and,
   // once wired by the caller, `studioMode`). See getAvailableModels() above.
   const { models: availableModels, hint: modelFilterHint } = useMemo(
     () => getAvailableModels(state, studioMode),
     [state.format, state.attachedReferences, studioMode],
   );
-
-  // Concept · Angle compound value
-  const conceptAngleValue =
-    state.angleId || state.selectedConceptIds.length > 0
-      ? [
-          state.angleId
-            ? ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId
-            : null,
-          state.selectedConceptIds.length > 0
-            ? `${state.selectedConceptIds.length} concept${state.selectedConceptIds.length === 1 ? "" : "s"}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : "Auto";
 
   // Avatar · Voice compound value — show the REAL selected names looked up by
   // id (null → "Auto"). Voice names are "Priya — Warm Hindi"; show the descriptor
@@ -476,35 +502,46 @@ export function PromptReferenceBar({
 
   return (
     <>
-      {/* GLASS container — uses shared .v3-glass utility (light + dark tuned) */}
+      {/* GLASS container — uses shared .v3-glass utility (light + dark tuned).
+          `shrink-0` is load-bearing, not cosmetic. Configure's column is a
+          `h-full overflow-y-auto` flex column, and this card was its only
+          shrinkable child — so adding anything tall below it did NOT scroll
+          the column, it squeezed this card instead. Measured: a 426px panel
+          took it from 257px to 61px and clipped the Generate button out of
+          sight. `getBoundingClientRect()` still reported Generate on-screen
+          (clipped, not moved), so this is invisible to a rect assertion and
+          only shows in a screenshot. With shrink-0 the column overflows and
+          scrolls the way it was always meant to. */}
       <div
         className={cn(
-          "v3-glass relative overflow-hidden rounded-3xl px-5 py-4",
+          "v3-glass relative shrink-0 overflow-hidden rounded-3xl px-5 py-4",
         )}
       >
         <div className="flex w-full flex-col gap-3">
           {/* Row 0 — Reference chips (UNIFIED pill style) */}
           {onChipOpen && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <RefChip
-                label="Concept"
-                value={conceptAngleValue}
+              {/* Chip-kind stays "concept-angle" deliberately — the modal it
+                  opens is being swapped elsewhere; keeping the identifier put
+                  keeps this an isolated change. Concept folded into Approach
+                  (owner ruling 2026-09-10) — ApproachChip renders Angle and
+                  Concept as distinct sub-tags rather than one flat string. */}
+              <ApproachChip
+                mode={state.mode}
+                approachRoute={state.approachRoute}
+                approachSubType={state.approachSubType}
+                angleId={state.angleId}
+                selectedConceptIds={state.selectedConceptIds}
                 onClick={() => onChipOpen("concept-angle")}
               />
-              <RefChip
-                label="Script"
-                value={
-                  scriptNeedsReview
-                    ? "Review"
-                    : state.script
-                      ? "Custom"
-                      : "Auto"
-                }
-                emphasize={scriptNeedsReview}
-                onClick={() => onChipOpen("script")}
-              />
-              {/* §5 locks exactly 5 chips: Concept · Script · Style · Brand
-                  Guidelines · Knowledge Base. UGC-led approaches ALSO need an
+              {/* Script chip retired (2026-09-10 UX crit): it used to assert
+                  the script's review status in different words than
+                  ScriptPreviewRow below, spatially split by unrelated chips
+                  in between — Nielsen #4 violation. The row now owns that
+                  signal alone (its `needsReview` prop below); do not
+                  reintroduce a second script-status chip here. */}
+              {/* §5's original chip count included a Script chip that no
+                  longer exists — see above. UGC-led approaches ALSO need an
                   Avatar picker (+ its "voice follows avatar" coupling) — that
                   used to render IN PLACE OF Style, silently dropping a
                   documented chip on exactly the approaches that need an
@@ -529,7 +566,11 @@ export function PromptReferenceBar({
                       always on when the Avatar chip is. Avatar rail itself
                       is owned elsewhere — this is the copy on the control
                       surface owned by this file. */}
-                  <span className="inline-flex items-center whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                  {/* Pill-ified (2026-09-10 UX crit finding #4) — every other
+                      status in this row is a pill; bare text was the one
+                      inconsistent shape. Same solid chip chassis as the rest
+                      (not dashed — this is shipped product, not a dev aid). */}
+                  <span className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-border/60 bg-background/50 px-2.5 font-mono text-[11px] text-muted-foreground">
                     Voice follows avatar
                   </span>
                 </>
@@ -563,6 +604,24 @@ export function PromptReferenceBar({
                 <span className="font-mono">{formatCredits(CREDITS_LIMIT)}</span>
               </span>
             </div>
+          )}
+
+          {/* Row 0.5 — Script preview + Edit, full width, living inside this
+              same card rather than as a standalone card below it. Renders
+              nothing once `state.script` is empty — the two-phase Generate
+              button above is the entry point for that state, not this row.
+              This is the ONE surface that states script status (2026-09-10
+              UX crit) — a separate "Script" chip used to assert the same
+              fact in different words, spatially split from this row by
+              unrelated chips. Do not reintroduce that chip. */}
+          {onChipOpen && (
+            <ScriptPreviewRow
+              script={state.script}
+              scriptOrigin={state.scriptOrigin}
+              carriedFrom={scriptCarriedFrom}
+              needsReview={scriptNeedsReview}
+              onEdit={() => onChipOpen("script")}
+            />
           )}
 
           {/* Row 1 — attached refs (compact). CHANGE #2: each pill is its own
@@ -702,14 +761,15 @@ export function PromptReferenceBar({
               value={state.prompt}
               onChange={(e) => wizard.set("prompt", e.target.value)}
               onKeyDown={(e) => {
-                // ⌘+Enter (Ctrl+Enter on Windows/Linux) — same Generate path
-                // as the button (`wizard.goTo(5)`), gated by the exact same
-                // disabled condition so a missing prompt, unapproved script,
-                // missing format/entity, or an over-budget total can't be
-                // bypassed by the shortcut.
+                // ⌘+Enter (Ctrl+Enter on Windows/Linux) — routed through the
+                // SAME handler the button uses, so it fires whichever phase
+                // the button currently shows (script-first or the batch), and
+                // is gated by the exact same disabled condition: a missing
+                // prompt, missing format/entity or an over-budget total can't
+                // be bypassed by the shortcut.
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                   e.preventDefault();
-                  if (!generateDisabled) wizard.goTo(5);
+                  runGenerateAction();
                 }
               }}
               rows={2}
@@ -844,10 +904,8 @@ export function PromptReferenceBar({
                 <CreditBreakdownInfo breakdown={creditBreakdown} />
                 <button
                   type="button"
-                  onClick={() => wizard.goTo(5)}
-                  disabled={
-                    !state.prompt.trim() || overBudget || missingFormat || missingEntity
-                  }
+                  onClick={runGenerateAction}
+                  disabled={generateDisabled}
                   title={
                     missingFormat
                       ? "Pick a format (Image or Video) on step 1 to generate"
@@ -858,7 +916,7 @@ export function PromptReferenceBar({
                         : !state.prompt.trim()
                           ? "Describe what you want, or tap a suggestion above"
                           : scriptNeedsReview
-                            ? "Script is ready to review (see the Script chip above) — or generate now, it's not required"
+                            ? "Script is ready to review (see the Script row above) — or generate now, it's not required"
                             : undefined
                   }
                   className={cn(
@@ -890,10 +948,21 @@ export function PromptReferenceBar({
                     </>
                   ) : (
                     <>
-                      Generate
+                      {/* Script generation is free, and the house rule is
+                          that a free target STATES it, rather than merely
+                          not charging for it (`FREE_GENERATION_LABEL`,
+                          useWizard.ts — "e.g. Generate script · Free instead
+                          of Generate (12 credits)"). Showing the ad's total
+                          here instead would read as "pressing this spends N
+                          credits," which is false: nothing is charged until
+                          the ad itself is generated, a separate, later click. */}
+                      {scriptPhase ? "Generate script" : "Generate"}
                       <span className="font-mono text-[10px] font-medium opacity-80">
-                        ({formatCredits(creditBreakdown.total)}{" "}
-                        {creditBreakdown.total === 1 ? "credit" : "credits"})
+                        {scriptPhase
+                          ? `· ${FREE_GENERATION_LABEL}`
+                          : `(${formatCredits(creditBreakdown.total)} ${
+                              creditBreakdown.total === 1 ? "credit" : "credits"
+                            })`}
                       </span>
                     </>
                   )}

@@ -16,6 +16,9 @@
  */
 import type { FlowActionId, FlowModuleKey } from "../flows/flowTypes";
 import type { AppKey } from "../apps/appTypes";
+// Type-only, so it is erased at build and adds no runtime dependency on the
+// wizard. Mirroring the union locally would just let the two drift.
+import type { GenerationTarget } from "../studio-v4/state/useWizard";
 
 /** Where a batch came from. "studio" = a plain Studio run with no flow. */
 export type RunOrigin =
@@ -144,8 +147,19 @@ export interface RunBatch {
   /** Stage names in order. §18 — stage-wise progress, no fixed ETA. */
   stages: string[];
   items: RunItem[];
+  /**
+   * What this batch produced. Absent means "ad" — every batch predating asset
+   * runs is one, so existing callers and seeded data stay correct untouched.
+   *
+   * Added because asset generations used to live in a separate static pool
+   * with string batch ids, which meant they had no real progress, failure or
+   * Retry. One run store owns both now (§ "ONE run store"), and this is the
+   * field that lets a consumer tell them apart.
+   */
+  target?: GenerationTarget;
   /** Total credits CHARGED — sum over DONE items only. Failed and cancelled
-   *  items carry a rate on `RunItem.credits` but were never charged. */
+   *  items carry a rate on `RunItem.credits` but were never charged. Asset
+   *  runs are free (`isFreeGeneration`), so this stays 0 for them. */
   credits: number;
   /** Snapshot of the config, so Library detail can explain how it was made. */
   config?: {

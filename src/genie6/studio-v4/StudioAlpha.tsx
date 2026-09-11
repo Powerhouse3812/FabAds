@@ -17,8 +17,14 @@ import { StudioHome } from "./screens/StudioHome";
 import { MODES, type AlphaMode } from "./data/modes";
 import { ContextRail } from "./components/ContextRail";
 import { MobileContextRailSheet } from "./components/MobileContextRailSheet";
-import { useStudioLayoutVariant } from "./state/useStudioLayoutVariant";
-import { StudioLayoutToggle } from "./components/StudioLayoutToggle";
+// Second Overview layout (2026-09-10) — a full-width band above the step
+// content, no aside. `useOverviewVariant` is the ONE URL-backed reader (also
+// consumed by AlphaStep3Configure, per its own header comment); this file
+// only decides which of the two shapes to mount. `ContextOverviewBand` is
+// owned by a parallel agent — imported by contract path + prop signature,
+// not reimplemented here.
+import { useOverviewVariant, BAND_CONTENT_MAX_W } from "./state/useOverviewVariant";
+import { ContextOverviewBand } from "./components/ContextOverviewBand";
 import {
   useWizard,
   type WizardState,
@@ -26,17 +32,48 @@ import {
   type Mode,
   type StepNumber,
   type GenerationTarget,
+  type Category,
   isEntityOptionalMode,
   resolveGenerationStepsForState,
 } from "./state/useWizard";
-import { useStudioAlphaUrlSync } from "./state/useUrlSync";
+import { useStudioAlphaUrlSync, isGenerationTarget } from "./state/useUrlSync";
 import { isKnownConceptId } from "./data/concepts";
 // §6 Rule 5 — the persistent flow banner + the context it renders from. Both
 // owned by other agents (Flow Data / Flows UI) per the shared build brief;
 // imported by contract path + signature, not reimplemented here.
 import { resolveFlowContext, flowInitialPatch } from "@/genie6/flows/data/resolveFlowContext";
 import { FlowBanner } from "@/genie6/flows/FlowBanner";
-import type { FlowContext } from "@/genie6/flows/flowTypes";
+import { FLOW_PARAM_TARGET, type FlowContext } from "@/genie6/flows/flowTypes";
+
+/**
+ * The ONE rule for `WizardState.category` — is this run producing an ad, or an
+ * asset? Two independent things can make it an asset, which is exactly why it
+ * needs to live in one function:
+ *
+ *   1. a non-"ad" generation TARGET — Script / Concept / Storyboard;
+ *   2. Product Shoot, which is an "ad"-target Mode that nevertheless produces
+ *      assets (`startWizard`: `mode === "product-shoot" ? "asset" : "ad"`).
+ *
+ * Case 2 is what made this a bug worth extracting. `readUrlIntoState` used to
+ * force `category = "ad"` for every URL carrying a step slug, and the `?tgt`
+ * branch then corrected it for case 1 only. Product Shoot fits neither: its
+ * target IS "ad", so nothing corrected it, and a refresh mid-run silently
+ * turned `category` from "asset" into "ad". Downstream, `isProductShootRun`
+ * (screens/Step5ResultsQueue.tsx) tests exactly `state.category === "asset"`,
+ * so the refreshed run re-enabled the per-concept fan-out that §12 excludes
+ * for Product Shoot — a different batch shape than the one the user started.
+ *
+ * Called by `readUrlIntoState`, `startWizard` and `startAssetWizard`, so the
+ * URL-restored state and both live entry points cannot disagree.
+ */
+function deriveCategory(
+  target: GenerationTarget | null | undefined,
+  studioMode: AlphaMode | null | undefined,
+): Category {
+  if (target && target !== "ad") return "asset";
+  if (studioMode === "product-shoot") return "asset";
+  return "ad";
+}
 
 /**
  * A-12.49 (Maalik): Read the URL (path :step + query string) and produce a
@@ -60,7 +97,11 @@ function readUrlIntoState(
   const slugStep = pathStep ? SLUG_TO_STEP[pathStep] : undefined;
   if (slugStep !== undefined) {
     patch.step = slugStep;
-    patch.category = "ad";
+    // NOTE: `category` used to be forced to "ad" right here, and that was the
+    // bug. A step slug in the path tells you the run is IN the wizard; it
+    // tells you nothing about what the run produces. See the single
+    // `deriveCategory()` call at the bottom of this function — `category` is
+    // now derived once, from the run's actual shape, after every param read.
   }
   const format = searchParams.get("format");
   if (format === "image" || format === "video") patch.format = format as Format;
@@ -114,6 +155,34 @@ function readUrlIntoState(
   const studioMode = searchParams.get("studioMode");
   if (studioMode && MODES.some((m) => m.id === studioMode)) {
     patch.studioMode = studioMode as AlphaMode;
+  }
+  // §5/§7 — the generation TARGET, at CONSTRUCTION for exactly the same
+  // reason as everything above it. `resolveGenerationStepsForState` reads it
+  // to decide which of the 4 steps this run even has, and `plan` is computed
+  // during the first render: a target arriving one effect tick later means the
+  // first paint renders the Ad plan (all four steps, ad-shaped copy, priced
+  // credits) for what is actually a free Script run, and the skipped-step
+  // guard effect can bounce off a step that only LOOKS skipped because the
+  // target was still "ad".
+  //
+  // Param name is `?tgt` — the one the flows layer already minted
+  // (FLOW_PARAM_TARGET) and `resolveFlowContext` already reads. Reused, not
+  // duplicated. Validated through the shared `isGenerationTarget` guard, never
+  // cast, so a hand-edited ?tgt=poster degrades to the "ad" default.
+  //
+  // This read serves the HOME-entered asset run (`startAssetWizard`), which
+  // had no URL representation at all until now — start a Script, refresh, and
+  // it silently came back an Ad. Deliberately placed BEFORE the flowCtx merge
+  // below: a flow's target is already validated against that action's own
+  // declared `targets`, so it must keep winning over a raw param read.
+  const urlTarget = searchParams.get(FLOW_PARAM_TARGET);
+  if (isGenerationTarget(urlTarget)) {
+    patch.generationTarget = urlTarget;
+    // `category` is NOT set here any more — this branch used to derive it from
+    // the target alone, which covered Script/Concept/Storyboard and missed
+    // Product Shoot (an "ad"-target run that is nonetheless `category:
+    // "asset"`). The derivation moved to `deriveCategory()` at the bottom of
+    // this function so there is exactly one rule, reading every input.
   }
   const scope = searchParams.get("scope");
   if (scope === "entity" || scope === "custom") patch.entityMode = scope;
@@ -186,11 +255,21 @@ function readUrlIntoState(
     Object.assign(patch, flowPatch);
     // `=== undefined`, not `!patch.step` — step 0 is a legal step and falsy.
     if (patch.step === undefined) patch.step = landingStep;
-    // §5/§7 (2026-09-08) — flows now produce Script/Concept/Storyboard too,
-    // not only Ads. `category` must follow the resolved target (mirrors
-    // startWizard's `mode === "product-shoot" ? "asset" : "ad"` derivation),
-    // never be forced to "ad".
-    patch.category = flowCtx.target === "ad" ? "ad" : "asset";
+    // `category` is NOT set here either. `flowInitialPatch` already put
+    // `generationTarget: ctx.target` into the patch above, so the single
+    // derivation below sees the flow's target and reaches the same answer this
+    // line used to — plus Product Shoot, which this line got wrong.
+  }
+  // ── `category`, derived exactly once, from what the run IS ────────────────
+  // Gated on there being a run to describe at all: a bare /studio-alpha (Home,
+  // no step slug, no ?tgt, no flow) leaves `category` at useWizard's null
+  // default, unchanged. The moment the URL describes a wizard run, the run's
+  // own shape decides — never the mere presence of a step slug, which is the
+  // assumption that broke Product Shoot.
+  const describesWizardRun =
+    slugStep !== undefined || isGenerationTarget(urlTarget) || flowCtx !== null;
+  if (describesWizardRun) {
+    patch.category = deriveCategory(patch.generationTarget, patch.studioMode);
   }
   return patch;
 }
@@ -314,8 +393,6 @@ export function StudioAlpha() {
   // by construction-time hydration below, the phase/step sync effect, and the
   // FlowBanner render. `null` when Studio is running standalone (no ?src).
   const flowCtx = useMemo(() => resolveFlowContext(searchParams), [searchParams]);
-  // Dev-only 2nd layout (Maalik, 2026-09-08) — see useStudioLayoutVariant.ts.
-  const { variant: layoutVariant } = useStudioLayoutVariant();
   // A-12.49 (Maalik): hydrate wizard.state directly from the URL at construction
   // so deep links and hard refresh land on the correct step + selections
   // BEFORE first paint. Previously this happened via useEffect, which left
@@ -393,8 +470,16 @@ export function StudioAlpha() {
   const railOpen = searchParams.get("rail") !== "closed";
   const setRailOpen = (next: boolean) => {
     setSearchParams(
-      (prev) => {
-        const sp = new URLSearchParams(prev);
+      () => {
+        // Live URL, NOT `prev` — the hazard useUrlSync.ts documents on its own
+        // state→URL effect: react-router hands the updater the searchParams of
+        // the RENDER that created `setSearchParams`, so two writers in one
+        // commit both start from the same stale copy and the last one wins.
+        // Latent until the band's "switch to rail" button began calling this
+        // in the same tick as setOverviewVariant("rail"): that call cleared
+        // ?overview, then THIS one rewrote it from a snapshot still holding
+        // overview=band — so the button appeared to do nothing at all.
+        const sp = new URLSearchParams(window.location.search);
         if (next) sp.delete("rail");
         else sp.set("rail", "closed");
         return sp;
@@ -402,6 +487,12 @@ export function StudioAlpha() {
       { replace: true },
     );
   };
+
+  // Which Overview shape to mount — "rail" (default, unchanged) or "band"
+  // (new). URL-backed via ?overview=band; see useOverviewVariant's header
+  // comment for why this is the one reader both this file and
+  // AlphaStep3Configure share.
+  const [overviewVariant, setOverviewVariant] = useOverviewVariant();
 
   // Mobile-only ContextRail tray. Below `md` the inline aside is
   // `hidden md:flex`, so the rail's real state feedback (brand / product /
@@ -524,8 +615,20 @@ export function StudioAlpha() {
   }, [phase, state.step, plan]);
 
   const startWizard = (mode: AlphaMode) => {
+    // Generate Variations is the one Mode that never enters this wizard: it
+    // starts from an ad that already exists, so Format/Entity/Approach are
+    // read off the source instead of asked. Intercepted before any state is
+    // patched, so a bounce back to Home leaves no half-started run behind.
+    if (mode === "generate-variations") {
+      navigate("/iq/genie6/variations");
+      return;
+    }
     setHomeMode(mode);
-    const category = mode === "product-shoot" ? "asset" : "ad";
+    // Same single rule the URL restore uses (`deriveCategory`), so entering a
+    // Product Shoot and refreshing one cannot land on different values. This
+    // was the literal `mode === "product-shoot" ? "asset" : "ad"` inline —
+    // identical result for every Mode, now stated in one place.
+    const category = deriveCategory("ad", mode);
     // Step 0 (entity scope) is offered only by the Modes whose entity rule
     // makes all three of Brand/Product/Category optional — Social, Animated
     // AI, Custom, Podcast. The four that mandate an entity go straight to
@@ -556,7 +659,14 @@ export function StudioAlpha() {
   // requires Format, so landing on step 1 / "/format" is correct exactly
   // like an Ad's entry, same as `startWizard` below.
   const startAssetWizard = (target: Exclude<GenerationTarget, "ad">) => {
-    wizard.patch({ generationTarget: target, category: "asset", step: 1 });
+    wizard.patch({
+      generationTarget: target,
+      // Same single rule as the URL restore and startWizard — no `studioMode`
+      // for an asset-only run, so the target alone decides. Resolves to
+      // "asset" for all three of Script/Concept/Storyboard.
+      category: deriveCategory(target, null),
+      step: 1,
+    });
     setPhase("wizard");
     navigate("/iq/genie6/studio-alpha/format", { replace: false });
   };
@@ -642,7 +752,37 @@ export function StudioAlpha() {
 
       {phase === "wizard" && (
         <>
-          <StudioLayoutToggle />
+          {/* Overview-layout dev switch (2026-09-10) — floating pill, dev-only
+              (`import.meta.env.DEV`) so production users never see the
+              indecision, same convention as Step5ResultsQueue's ?queue=
+              VariantToggle. Mounted at the exact fixed bottom-4 right-4 /
+              z-[999] slot the retired StudioLayoutToggle (Rail/Linear pill)
+              used to occupy on this surface — vacated 2026-09-09 when Linear
+              was retired, free again since. Semantic tokens only, unlike the
+              old toggle's raw bg-white/90 / dark:bg-black/80. */}
+          {/* Suppressed on step 5: neither Overview shape mounts there
+              (Step5ResultsQueue owns its chrome), so the pill would switch a
+              layout the user cannot see — and it sits exactly on top of that
+              screen's bottom PromptDock. */}
+          {import.meta.env.DEV && renderStep !== 5 && (
+            <div className="fixed bottom-4 right-4 z-[999] flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5 shadow-lg backdrop-blur">
+              {(["rail", "band"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setOverviewVariant(v)}
+                  aria-pressed={overviewVariant === v}
+                  className={
+                    overviewVariant === v
+                      ? "inline-flex items-center rounded-full bg-primary px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-primary-foreground shadow-sm"
+                      : "inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  }
+                >
+                  {v === "rail" ? "Rail" : "Band"}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Topbar: ← Back + progress stepper (hidden on Results) */}
           <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/80 px-4 py-2 backdrop-blur md:px-6">
             {/* md:-only. On a phone this sat 54px below the shell's own Back
@@ -686,30 +826,74 @@ export function StudioAlpha() {
               its own exit from ctx.module.modulePath. Lives entirely off the
               URL (?src/?ref/?act) per flowTypes.ts's header comment, so it
               survives step navigation and a hard refresh for free. */}
-          {/* Linear variant folds this into the top of Overview instead
-              (Maalik, 2026-09-08) — see the inline ContextRail below. */}
-          {layoutVariant === "rail" && flowCtx && (
-            <FlowBanner ctx={flowCtx} className="shrink-0" />
-          )}
+          {flowCtx && <FlowBanner ctx={flowCtx} className="shrink-0" />}
 
-          {/* Wizard body. Rail variant: flex layout, main content + a
-              collapsible right rail (unchanged). Linear variant: no
-              separate rail — ContextRail renders inline at the top of
-              <main>, above whichever step is showing. */}
-          <div className="relative flex min-h-0 flex-1">
-            {/* Main step content — scrollable */}
-            <main className="min-h-0 flex-1 overflow-y-auto">
-              {layoutVariant === "linear" && renderStep !== 5 && (
-                <div className="px-4 pt-4 md:px-6 md:pt-6">
-                  <ContextRail
+          {/* Wizard body: main content + one of two Overview layouts. The
+              "Linear" alternative — ContextRail inline above the step, no
+              aside — was retired 2026-09-09 (Maalik: "Remove linear, keep
+              only rail"), along with its toggle. "band" (added 2026-09-10)
+              is a DIFFERENT, purpose-built second layout — not a revival of
+              Linear — chosen via useOverviewVariant() (?overview=band) and
+              the dev-only pill above:
+                - "rail" (default): today's row layout, <main> + the 300px
+                  <aside> (ContextRail), unchanged below.
+                - "band": a column layout — ContextOverviewBand renders
+                  full-width above <main>, pinned (shrink-0, no overflow of
+                  its own) rather than scrolling away with the step content.
+                  Chosen deliberately over the "scrolls with content" default:
+                  the band's whole job is the same persistent at-a-glance
+                  summary the rail gives across steps 1-4, and letting it
+                  scroll out of view on a long step (e.g. Step2Product's
+                  list) would defeat that. <main> stays the only element
+                  with overflow-y-auto either way — no second scrollbar. */}
+          <div
+            className={
+              overviewVariant === "band"
+                ? "relative flex min-h-0 flex-1 flex-col"
+                : "relative flex min-h-0 flex-1"
+            }
+          >
+            {/* Band layout only — full-width overview above the step
+                content. Suppressed on step 5 for the same reason the rail
+                is: Step5ResultsQueue owns its own chrome. */}
+            {overviewVariant === "band" && renderStep !== 5 && (
+              // The border-b spans the full viewport (it's the seam between
+              // chrome and step content) but the band's CONTENT is centred to
+              // BAND_CONTENT_MAX_W — the same width the step column below uses
+              // — so the two share a left and right edge. Full-bleed content
+              // over a narrower column read as an unrelated slab and flattened
+              // the hierarchy (owner, 2026-09-10).
+              // `hidden md:block` mirrors the rail's own `hidden md:flex`.
+              // Below the breakpoint the mobile footer's "Context" button +
+              // MobileContextRailSheet are the overview affordance, and they
+              // are not variant-aware — without this gate a phone in band mode
+              // showed the band AND offered the sheet, i.e. the same summary
+              // twice, with the band's identity row truncated to "Ma…".
+              // Reachable in practice: /studio-alpha/* is on the mobile
+              // allowlist and ?overview=band is a shareable link.
+              <div className="hidden shrink-0 border-b border-border md:block">
+                <div className={`mx-auto w-full px-4 py-3 md:px-6 ${BAND_CONTENT_MAX_W}`}>
+                  <ContextOverviewBand
                     wizard={wizard}
                     studioMode={homeMode ?? undefined}
-                    layout="inline"
-                    angleEditable={renderStep === 4}
-                    flowCtx={flowCtx}
+                    // Must also FORCE the rail open, not just switch variant.
+                  // `railOpen` is its own persisted preference (?rail=), so
+                  // with a previously-collapsed rail this button unmounted the
+                  // band and mounted nothing — a control labelled "Switch
+                  // overview to the side rail" that left the user with no
+                  // overview at all. Clicking it is an explicit request to SEE
+                  // the rail, so overriding the stale collapse preference is
+                  // the honest reading of the intent.
+                  onSwitchToRail={() => {
+                    setOverviewVariant("rail");
+                    setRailOpen(true);
+                  }}
                   />
                 </div>
-              )}
+              </div>
+            )}
+            {/* Main step content — scrollable */}
+            <main className="min-h-0 flex-1 overflow-y-auto">
               {renderStep === 0 && (
                 <Step0Entity
                   value={state.entityMode}
@@ -759,9 +943,8 @@ export function StudioAlpha() {
               )}
             </main>
 
-            {/* Global ContextRail — visible across wizard steps 1-4 ONLY,
-                RAIL VARIANT ONLY (Linear renders it inline inside <main>
-                above). Hidden on step 5 (Results Queue) per Maalik A-12.183:
+            {/* Global ContextRail — visible across wizard steps 1-4 ONLY.
+                Hidden on step 5 (Results Queue) per Maalik A-12.183:
                 the queue surface owns its own chrome (queue list on left in
                 V3, strip on top in V1/V2) and the context rail collides with
                 that, eating horizontal space the results grid needs. The
@@ -769,8 +952,13 @@ export function StudioAlpha() {
                 the rail back open mid-triage.
 
                 If the user navigates back to steps 1-4, the rail honors
-                their last open/closed preference from ?rail= URL state. */}
-            {layoutVariant === "rail" && renderStep !== 5 && railOpen && (
+                their last open/closed preference from ?rail= URL state.
+
+                `overviewVariant === "rail"` gates both this and the
+                re-open button below — band mode renders neither, per
+                useOverviewVariant's contract that only one Overview shape
+                is ever mounted at a time. */}
+            {overviewVariant === "rail" && renderStep !== 5 && railOpen && (
               <aside className="hidden shrink-0 transition-all duration-300 md:flex md:flex-col md:w-[300px]">
                 <div className="flex-1 overflow-y-auto p-3">
                   <ContextRail
@@ -785,9 +973,8 @@ export function StudioAlpha() {
                 closed. md+ only: below the breakpoint the inline aside is
                 `hidden`, so flipping ?rail= there would do nothing visible.
                 The mobile footer's "Context" button is the phone affordance
-                and it is always present (see below). Rail variant only —
-                Linear has no rail to reopen. */}
-            {layoutVariant === "rail" && renderStep !== 5 && !railOpen && (
+                and it is always present (see below). */}
+            {overviewVariant === "rail" && renderStep !== 5 && !railOpen && (
               <button
                 type="button"
                 onClick={() => setRailOpen(true)}

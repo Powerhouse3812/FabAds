@@ -1,5 +1,6 @@
 import { Route, Navigate } from "react-router-dom";
 import { Genie6Bridge } from "./shell/Genie6Bridge";
+import { GenerateVariations } from "./variations/GenerateVariations";
 import { Home } from "./home/Home";
 import { OutputCardShowcase } from "./dev/OutputCardShowcase";
 import { Library } from "./library/Library";
@@ -50,6 +51,10 @@ import { AppScreen } from "./apps/AppScreen";
 import { GenieBrain } from "./brain/GenieBrain";
 import { VideoEditor } from "./editor/VideoEditor";
 import { ProgressShowcase } from "./progress/_dev/ProgressShowcase";
+// Overview sub-nav placeholder (Maalik ruling, 2026-09-09 — see modules.ts's
+// Genie subItems comment). Reuses the existing generic shell-stub page
+// rather than a new component.
+import ShellPage from "@/pages/ShellPage";
 
 /**
  * Genie 6.0 routes — mounted inside FabAds AppLayout at /iq/genie6/*
@@ -63,6 +68,24 @@ import { ProgressShowcase } from "./progress/_dev/ProgressShowcase";
 export const genie6Routes = (
   <Route path="iq/genie6" element={<Genie6Bridge />}>
     <Route index element={<Home />} />
+
+    {/* Overview — sub-nav entry reinstated 2026-09-09, badged "Soon" (see
+        modules.ts). Deliberately NOT the bare index route above: that one
+        still renders the real (unwired, mock-data) StudioHome and stays the
+        mobile Home tab / tour / onboarding deep-link target. This is a
+        separate, honest placeholder so the desktop sub-nav click never
+        presents that mock page as finished — StudioHome.tsx itself is not
+        touched. */}
+    <Route
+      path="overview"
+      element={
+        <ShellPage
+          title="Overview"
+          description="A single summary of your Genie activity — recent generations, credits, and quick actions in one place."
+          comingSoon
+        />
+      }
+    />
 
     {/* ─── Genie 2.0 ───────────────────────────────────────────────
         §3's locked sub-nav is Overview · Studio · Other Flows · Other Apps ·
@@ -79,7 +102,9 @@ export const genie6Routes = (
     <Route path="flows" element={<OtherFlows />} />
     <Route path="flows/:moduleKey" element={<FlowModuleDetail />} />
 
-    {/* §8 — Other Apps. 22 apps, 8 live. One screen anatomy driven from
+    {/* §8 — Other Apps. 22 apps, 4 live (owner's 2026-09-10 scope cut; the
+        rest render ComingSoonScreen off their registry `state`). One screen
+        anatomy driven from
         apps/data/appRegistry.ts, so a new app is a registry entry rather than
         a new file. All output lands in the central Library (§8), never a
         per-app store. */}
@@ -209,6 +234,12 @@ export const genie6Routes = (
         no footer). Lives in parallel with Beta until validated. */}
     <Route path="studio-alpha" element={<StudioAlpha />} />
     <Route path="studio-alpha/:step" element={<StudioAlpha />} />
+
+    {/* Generate Variations — the Mode card that replaced "Custom". Its own
+        route rather than a wizard step: the wizard's step machine is a closed
+        0-5 union with semantically fixed steps (1=Format, 2=Entity,
+        3=Approach, 4=Configure), none of which this flow asks. */}
+    <Route path="variations" element={<GenerateVariations />} />
 
     {/* A-12.38: Concepts library — full-page browse of catalogue + KB +
         user-saved concepts. Search / filter / sort with URL state. */}

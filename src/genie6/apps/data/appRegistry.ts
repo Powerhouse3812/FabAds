@@ -1,12 +1,28 @@
 /**
  * Other Apps — the registry (Genie 2.0 §8).
  *
- * 22 apps, one array. 8 are live and fully declared (sections, cost, zero
- * state, stages); 14 stay "Coming soon" — a card only, no internal screen.
- * 4 of the coming-soon entries (Add Video Captions, Change Metadata,
- * Prompt Generator, Thumbnail Maker) came from Maalik's own additions list —
- * reconciled against the existing 15 in GENERATION_TARGETS.md §11 as
- * genuinely new, no existing match.
+ * 22 apps, one array. As of 2026-09-10 (Maalik's Other Apps scope cut — only
+ * four apps ship live for now) exactly 4 are live and fully declared
+ * (sections, cost, zero state, stages): Translate Videos, Product Placement,
+ * Face Swap, and Change Metadata (promoted the same day). The other 18 stay
+ * "Coming soon" — a card only, no internal screen. Five of those 18 —
+ * Avatar Shots, PPT/PDF to Video, Upscale Video, Speech Cleanup, BG Remover —
+ * were live before this cut and are DEMOTED, not deleted: each still carries
+ * its full `cost`/`sections`/`zeroState`/`stages` block below, dormant, with
+ * a comment on its `state` line saying so. Flipping that one word back to
+ * "live" re-ships any of them; nothing else needs rebuilding. (This mirrors
+ * `available: false` on a finished-but-unshipped Mode in
+ * `studio-v4/data/modes.ts` — same "build stays, flag hides it" pattern.)
+ *
+ * The history below (why each entry was added, and to which group) is still
+ * true and kept for that reason — only the live/coming-soon split at the top
+ * changed on 2026-09-10; nothing about which apps EXIST or what they do did.
+ *
+ * 4 of the coming-soon entries as originally added (Add Video Captions,
+ * Change Metadata, Prompt Generator, Thumbnail Maker) came from Maalik's own
+ * additions list — reconciled against the existing 15 in
+ * GENERATION_TARGETS.md §11 as genuinely new, no existing match. Change
+ * Metadata no longer belongs to that "still coming-soon" set — see above.
  *
  * 3 more coming-soon entries (BG Remover, Resize Image, Object Remover)
  * arrived later, via a separate decision: Other Apps becomes the single home
@@ -23,12 +39,15 @@
  * footage is exactly what Face Swap does; avatar-shots is presenter casting,
  * a different job). Resize Image and Object Remover are still pure "Soon"
  * cards — no sections/cost/zeroState/stages — because there is no real build
- * behind either yet. BG REMOVER IS NOT: it went live on 2026-09-09 when Maalik
- * pulled it out of Studio's Step-3 Approach grid, which made this entry the
- * only home the capability has. See its entry in the live block.
+ * behind either yet. BG Remover is not a pure "Soon" card like them — it went
+ * live on 2026-09-09 when Maalik pulled it out of Studio's Step-3 Approach
+ * grid (which made this entry the only home the capability had), then was
+ * demoted the very next day by the 2026-09-10 scope cut. Because that
+ * Approach-grid entry was never restored, BG Remover currently has no LIVE
+ * surface anywhere in the product — see the flag in its own entry's comment.
  * AppRunner (owned by the Apps UI agent) reads a live app's `sections` and
  * renders the shared 750px setup-column anatomy from them; nothing here
- * hand-builds a screen, so a 23rd app is a registry entry, not a new file.
+ * hand-builds a screen, so a new app is a registry entry, not a new file.
  *
  * RULES BAKED INTO THIS DATA (§8 "Rules that override the file")
  *  - Second inputs always come from a picker, never a second upload box.
@@ -172,7 +191,10 @@ export const GENIE_APPS: GenieApp[] = [
       "Pick the framing, an avatar with its voice and tone, and Genie renders a fully performed on-camera shot.",
     category: "create",
     icon: "UserRound",
-    state: "live",
+    // Dormant, not deleted (2026-09-10, Maalik's Other Apps scope cut to 4
+    // live apps) — cost/sections/zeroState/stages stay intact below; flip
+    // this word back to "live" to re-ship it.
+    state: "coming-soon",
     cost: { rate: 9, unitLabel: "9 credits / shot", unit: "shot" },
     sections: [
       {
@@ -260,7 +282,10 @@ export const GENIE_APPS: GenieApp[] = [
       "Upload a PPTX, PPT or PDF and Genie scripts, voices and renders an avatar walkthrough of every slide.",
     category: "create",
     icon: "Presentation",
-    state: "live",
+    // Dormant, not deleted (2026-09-10, Maalik's Other Apps scope cut to 4
+    // live apps) — cost/sections/zeroState/stages stay intact below; flip
+    // this word back to "live" to re-ship it.
+    state: "coming-soon",
     cost: { rate: 4, unitLabel: "4 credits / slide", unit: "slide" },
     sections: [
       {
@@ -348,7 +373,10 @@ export const GENIE_APPS: GenieApp[] = [
       "Take a lower-resolution video and raise it to 1080p or 4K at 24, 30 or 60 fps without a reshoot.",
     category: "enhance",
     icon: "ArrowUpNarrowWide",
-    state: "live",
+    // Dormant, not deleted (2026-09-10, Maalik's Other Apps scope cut to 4
+    // live apps) — cost/sections/zeroState/stages stay intact below; flip
+    // this word back to "live" to re-ship it.
+    state: "coming-soon",
     cost: { rate: 11, unitLabel: "11 credits / minute", unit: "minute" },
     sections: [
       {
@@ -551,8 +579,11 @@ export const GENIE_APPS: GenieApp[] = [
       "Upload a rough recording and Genie strips noise, levels volume and tightens pacing automatically.",
     category: "enhance",
     icon: "AudioWaveform",
-    state: "live",
-    badge: "New",
+    // Dormant, not deleted (2026-09-10, Maalik's Other Apps scope cut to 4
+    // live apps) — cost/sections/zeroState/stages stay intact below; flip
+    // this word back to "live" to re-ship it. `badge: "New"` dropped with
+    // it — a coming-soon card advertising itself as New is a contradiction.
+    state: "coming-soon",
     cost: { rate: 2, unitLabel: "2 credits / minute", unit: "minute" },
     sections: [
       {
@@ -592,16 +623,19 @@ export const GENIE_APPS: GenieApp[] = [
     ],
   },
   /**
-   * BG Remover — LIVE (2026-09-09, Maalik: "bg remover ko approach se htake,
-   * apps me hi rakho").
+   * BG Remover — went LIVE 2026-09-09 (Maalik: "bg remover ko approach se
+   * htake, apps me hi rakho"), then DEMOTED back to "coming-soon" the very
+   * next day (2026-09-10, Maalik's Other Apps scope cut to 4 live apps).
+   * Dormant, not deleted — cost/sections/zeroState/stages below are exactly
+   * what shipped on 2026-09-09; flip `state` back to "live" to re-ship it.
    *
-   * It moved OUT of Studio's Step-3 Approach grid, so this entry is where the
-   * capability now lives — which is why it is fully declared rather than the
-   * "Soon" card it was between the sidebar-TOOLS fold-in and today. The last
-   * time an approach was deleted expecting an Other Apps hand-off, the app did
-   * not exist and the capability existed nowhere; that revert is documented in
-   * approach-subtypes.ts's APPROACHES_BY_FORMAT comment. This entry lands with
-   * the removal, not after it.
+   * WORTH FLAGGING: this entry moved OUT of Studio's Step-3 Approach grid on
+   * 2026-09-09, so this registry became the ONLY home for the capability
+   * (see approach-subtypes.ts's APPROACHES_BY_FORMAT comment for that
+   * removal). Demoting it here does not restore the old Approach-grid entry
+   * — so as of this change BG Remover has no live surface anywhere in the
+   * product, not just a "coming soon" card standing in for one. Flagging for
+   * the integrator in case that's not what the scope cut intended.
    *
    * `unit: "image"` with no `count` stepper: one image in, one cutout out, so
    * the multiplier floors to 1 and the quoted total is always the flat rate.
@@ -615,7 +649,7 @@ export const GENIE_APPS: GenieApp[] = [
       "Upload an image and get a clean cutout back, ready to drop onto any scene or backdrop.",
     category: "enhance",
     icon: "Eraser",
-    state: "live",
+    state: "coming-soon",
     cost: { rate: 2, unitLabel: "2 credits / image", unit: "image" },
     sections: [
       {
@@ -676,6 +710,72 @@ export const GENIE_APPS: GenieApp[] = [
       "Separating foreground",
       "Refining edges",
       "Exporting the cutout",
+    ],
+  },
+  /**
+   * Change Metadata — LIVE (2026-09-10, Maalik's Other Apps scope cut: only
+   * four apps ship live for now — see the file header — and this is one of
+   * the four, promoted the same day the other five got demoted).
+   *
+   * Flat per-file op: no duration, no page count, nothing to configure
+   * beyond picking the file. Nothing in AppCost's `unit` union names "per
+   * file" directly, so `unit: "image"` is the least-wrong existing option —
+   * same flat floor-to-1 arithmetic BG Remover already uses above (see
+   * appTypes.ts's AppCost comment for why "image" exists at all). "minute"
+   * would be actively wrong (it would bill this by source duration, and a
+   * metadata reset doesn't get more expensive the longer the video is);
+   * "shot"/"scene" read no closer to "one file" than "image" does. The
+   * itemised breakdown line will always read "N image(s)" even when the
+   * input is a video — a cosmetic mismatch, flagged here rather than hidden.
+   *
+   * The source field is typed `media: "image"` to match that noun, with
+   * `accept` widened to include video extensions so an upload still takes
+   * either file type. The Library tab, however, only lists images — it reads
+   * its pool off `field.media` (see MediaPickerField.tsx's `libraryPoolFor`)
+   * — so picking a *video* specifically out of the Library (as opposed to
+   * uploading one) isn't wired. Scoped gap, not a silent one.
+   */
+  {
+    key: "change-metadata",
+    name: "Change Metadata",
+    tagline: "Refresh a file's metadata without touching the creative.",
+    subtitle:
+      "Reset the file metadata on a video or image before you re-upload it — the creative itself never changes.",
+    category: "enhance",
+    icon: "Tags",
+    state: "live",
+    cost: { rate: 2, unitLabel: "2 credits / file", unit: "image" },
+    sections: [
+      {
+        title: "Source",
+        fields: [
+          {
+            kind: "media-picker",
+            id: "file",
+            label: "File",
+            hint: "Upload a video or image, or choose one from your Library.",
+            media: "image",
+            sources: ["library", "upload"],
+            accept: [".jpg", ".jpeg", ".png", ".mp4", ".mov"],
+            required: true,
+          },
+        ],
+      },
+    ],
+    zeroState: {
+      title: "Reset a file's metadata before you re-upload it",
+      line: "Genie strips the existing metadata and writes a fresh set — the creative itself is untouched.",
+      steps: [
+        "Pick a file from your Library or upload one",
+        "Genie clears the existing metadata",
+        "Generate — get back the same file with fresh metadata",
+      ],
+    },
+    stages: [
+      "Reading file",
+      "Stripping existing metadata",
+      "Writing fresh metadata",
+      "Re-exporting file",
     ],
   },
 
@@ -764,15 +864,6 @@ export const GENIE_APPS: GenieApp[] = [
     state: "coming-soon",
   },
   {
-    key: "change-metadata",
-    name: "Change Metadata",
-    tagline: "Refresh a file's metadata without touching the creative.",
-    subtitle: "Reset the file metadata on a video or image before you re-upload it — the creative itself never changes.",
-    category: "enhance",
-    icon: "Tags",
-    state: "coming-soon",
-  },
-  {
     key: "prompt-generator",
     name: "Prompt Generator",
     tagline: "Turn a rough idea into a sharp prompt, then refine it.",
@@ -794,8 +885,10 @@ export const GENIE_APPS: GenieApp[] = [
   // ──────────── Coming soon — folded in from the sidebar TOOLS group ──
   // See the file header for the full "single home for one-shot tools"
   // reasoning. Resize Image and Object Remover stay pure cards, same as every
-  // other coming-soon entry above. BG Remover does NOT — see its entry, which
-  // moved up into the live block.
+  // other coming-soon entry above. BG Remover does NOT sit here with them —
+  // it's fully declared, just demoted; see its entry (still positioned up in
+  // the live block, physically, even though its `state` now reads
+  // "coming-soon") for the full live/demoted/flagged story.
   {
     key: "resize-image",
     name: "Resize Image",

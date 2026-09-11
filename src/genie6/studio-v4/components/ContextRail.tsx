@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   BookOpen,
@@ -14,156 +13,35 @@ import {
   Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveUploadedImage } from "@/genie6/lib/uploaded-image-store";
-import { isEntityOptionalMode } from "../state/useWizard";
 import type { UseWizardReturn } from "../state/useWizard";
 import type { AlphaMode } from "../screens/StudioHome";
-import { MODES } from "../data/modes";
 import {
   brands as ALL_BRANDS,
   products as ALL_PRODUCTS,
   categories as ALL_CATEGORIES,
-  getInstructionsForEntity,
-  getWinnerAdsForEntity,
   getReferenceUrlsForEntity,
   shortUrl,
   type EntityType,
-  type EntityId,
 } from "@/mocks/shared";
-import { ANGLE_CHIP_LABEL } from "./PromptReferenceBar";
 import { SectionHeader } from "./SectionHeader";
-import { ConceptAngleRail } from "./ConceptAngleRail";
-import {
-  useSavedWinnersForEntity,
-  useSavedConceptsForEntity,
-  useSavedInstructionsForEntity,
-} from "@/genie6/concepts/saved-store";
-import { FlowBanner } from "@/genie6/flows/FlowBanner";
-import type { FlowContext } from "@/genie6/flows/flowTypes";
+import { useStudioContextSummary } from "../state/useContextSummary";
 
+/**
+ * This component is read-only context. It never renders the flow banner and
+ * never edits the run: StudioAlpha.tsx mounts a single `<FlowBanner>` above
+ * the whole wizard (§6 Rule 5) and Configure owns Angle/Concept editing. Do
+ * not re-add a flow-banner prop here — the banner would render twice.
+ *
+ * Two mounts, both passing exactly these props: the desktop 300px aside in
+ * StudioAlpha.tsx and the below-`md` bottom sheet in
+ * MobileContextRailSheet.tsx. Keep any new prop optional so both stay valid.
+ */
 interface ContextRailProps {
   wizard: UseWizardReturn;
   studioMode?: AlphaMode;
+  /** Omitted nowhere today, but optional so the rail can be embedded in a
+   *  surface that owns its own dismiss. Renders the header close button. */
   onCollapse?: () => void;
-  /** Default "rail" — the narrow 300px right-side column (unchanged
-   *  behavior). "inline" is the Linear layout variant (Maalik, 2026-09-08):
-   *  rendered full-width at the top of the main column instead. Only
-   *  changes the outer width constraint here — internal content is the
-   *  same either way. */
-  layout?: "rail" | "inline";
-  /** Only passed `true` from AlphaStep3Configure in the Linear variant —
-   *  every other call site omits it, so Angle stays exactly as read-only as
-   *  before. When true, the Angle block becomes a button that opens the
-   *  same ConceptAngleRail picker Configure already uses, writing straight
-   *  to wizard.state via the `wizard` prop this component already holds. */
-  angleEditable?: boolean;
-  /** Linear-variant only: when the wizard was entered via a flow hand-off,
-   *  render FlowBanner as the first element of Overview instead of as a
-   *  separate strip above the whole wizard (StudioAlpha.tsx owns that
-   *  choice — it stops rendering FlowBanner itself when this is passed). */
-  flowCtx?: FlowContext | null;
-}
-
-/** Reads the title straight off the MODES roster rather than keeping a second
- *  copy of it — the hand-maintained map this replaced had already gone stale
- *  (it was missing entries by the time Podcast and Animated AI were added). */
-function modeLabel(m: AlphaMode | undefined): string | null {
-  if (!m) return null;
-  return MODES.find((mode) => mode.id === m)?.title ?? null;
-}
-
-/* ── Ad type (Step-2 tab), independent of Mode ───────────────────────────
- * §5: "The tab the user picks is what determines the ad type. There is no
- * separate ad-type screen anywhere in Genie." `studioMode` is the flow the
- * user launched from Studio home. It IS wired to the URL now (`?studioMode`,
- * added 2026-09-09 — this comment used to say the opposite), but it can still
- * go stale relative to whichever Step-2 tab the user is actually sitting on,
- * so the ad-type chip must read the raw entity ids, not the Mode.
- * Category wins over a hero product picked inside it — §4: "a picked
- * product becomes the hero of the ad" — the ad stays a Category Ad. */
-type AdTypeKey = "brand-ad" | "product-ad" | "performance-ad";
-const AD_TYPE_LABEL: Record<AdTypeKey, string> = {
-  "brand-ad": "Brand Ad",
-  "product-ad": "Product Ad",
-  "performance-ad": "Category Ad",
-};
-
-function deriveAdType(state: {
-  categoryId: string | null;
-  productId: string | null;
-  brandId: string | null;
-}): AdTypeKey | null {
-  if (state.categoryId) return "performance-ad";
-  if (state.productId) return "product-ad";
-  if (state.brandId) return "brand-ad";
-  return null;
-}
-
-/* ── Mode-aware readiness gate ────────────────────────────────────────────
- * §4's table is per-ad-type/Mode, not a single blanket rule:
- *   Brand Ad          → requires Brand alone
- *   Product Ad        → requires Product (or, per §21.2's third route, a
- *                        brand + one uploaded image standing in for it)
- *   Category (Perf.)  → requires Category; a hero product is optional
- *   Product Shoot     → requires a Product, or a Category(/product) — a
- *                        brand alone is NOT enough, brand details travel
- *                        with the product. This was the named defect: the
- *                        old mode-blind gate let Product Shoot read READY
- *                        on a brand alone.
- * Social / Affiliate / Custom-Manual / no Mode yet fall back to the
- * original permissive check (no §4 row names them). */
-function computeHasRequiredEntity(
-  mode: AlphaMode | undefined,
-  opts: {
-    hasCategory: boolean;
-    hasSelectedProduct: boolean;
-    hasBrand: boolean;
-    hasUploadedImage: boolean;
-  },
-): boolean {
-  const { hasCategory, hasSelectedProduct, hasBrand, hasUploadedImage } = opts;
-  // §10a — a Mode whose entity rule makes all three optional (Social, Animated
-  // AI, Custom, Podcast) is READY with nothing picked. Maalik's words were
-  // "either user can pick one or nothing from these 3", so the permissive
-  // default below still demanded *something* and rendered "PICK A BRAND,
-  // PRODUCT OR CATEGORY" — a nag for a requirement that doesn't exist, and the
-  // exact "reads as unfinished rather than deliberate" problem step 0 exists
-  // to remove.
-  if (isEntityOptionalMode(mode ?? null)) return true;
-  switch (mode) {
-    case "brand-ad":
-      return hasBrand;
-    case "product-ad":
-      return hasSelectedProduct || (hasBrand && hasUploadedImage);
-    case "performance-ad":
-      return hasCategory;
-    case "product-shoot":
-      return hasSelectedProduct || hasCategory;
-    default:
-      return (
-        hasCategory ||
-        hasSelectedProduct ||
-        (hasBrand && hasUploadedImage) ||
-        (hasBrand && !hasSelectedProduct && !hasCategory)
-      );
-  }
-}
-
-/** Pending-state copy for the readiness caption, matched to what §4 actually
- *  requires for the active Mode (rather than one generic message for all). */
-function missingEntityCaption(mode: AlphaMode | undefined): string {
-  switch (mode) {
-    case "brand-ad":
-      return "PICK A BRAND";
-    case "product-ad":
-      return "PICK A PRODUCT";
-    case "performance-ad":
-      return "PICK A CATEGORY";
-    case "product-shoot":
-      return "PICK A PRODUCT OR CATEGORY";
-    default:
-      return "PICK A BRAND, PRODUCT OR CATEGORY";
-  }
 }
 
 /* ── Smart Summary Card (Variant 4) ──────────────────────────────────────
@@ -178,12 +56,8 @@ export function ContextRail({
   wizard,
   studioMode,
   onCollapse,
-  layout = "rail",
-  angleEditable = false,
-  flowCtx = null,
 }: ContextRailProps) {
   const { state } = wizard;
-  const [angleRailOpen, setAngleRailOpen] = useState(false);
   // A-12.51 (Maalik): "More details" accordion state is URL-backed via
   // ?more=closed (default = open). Mirrors the ?rail=closed pattern so a
   // hard refresh / HTML.to.design capture restores the exact accordion
@@ -203,154 +77,29 @@ export function ContextRail({
     );
   };
 
-  const selectedProduct = ALL_PRODUCTS.find((p) => p.id === state.productId);
-  // A-12.46: brand resolution now falls back to state.brandId when no product
-  // is picked yet. Earlier the rail only read brand FROM the product, so a
-  // brand-only or category-only selection silently showed "No brand".
-  const brand =
-    (selectedProduct && ALL_BRANDS.find((b) => b.id === selectedProduct.brandId)) ||
-    (state.brandId
-      ? ALL_BRANDS.find((b) => b.id === state.brandId)
-      : undefined) ||
-    null;
-
-  // Precedence: the category the user EXPLICITLY picked wins over the one
-  // inferred from the hero product. Under the old Step-2 XOR only one of the
-  // two could ever be set, so the order didn't matter; Performance Ad now
-  // legitimately holds a category AND a product at once (modes.ts `also`), and
-  // with the product first the rail reported the product's own category —
-  // "Hair Care" for a shampoo picked inside a Skin Care ad — contradicting the
-  // mandatory pick it was made under. Same precedence as
-  // `buildScriptContext` in useWizard.ts, which already had it this way round.
-  const category =
-    (state.categoryId
-      ? ALL_CATEGORIES.find((c) => c.id === state.categoryId)
-      : undefined) ||
-    (selectedProduct?.categoryId &&
-      ALL_CATEGORIES.find((c) => c.id === selectedProduct.categoryId)) ||
-    null;
-
-  const hasUploadedImage = !!state.uploadedProductImage;
-  // DEFECT FIX: state.uploadedProductImage is an opaque TOKEN (see
-  // uploaded-image-store.ts) — resolve it back to the actual data: URL only
-  // where something needs to paint it. undefined when the token no longer
-  // resolves (e.g. after a reload); every render site below must treat that
-  // as "needs re-upload," never point <img src> at the raw token.
-  const uploadedImageUrl = resolveUploadedImage(state.uploadedProductImage);
-  const productName =
-    selectedProduct?.name ?? category?.name ?? (hasUploadedImage ? "Uploaded product" : null);
-
-  const formatText =
-    state.format === "image" ? "Image" : state.format === "video" ? "Video" : null;
-  const modeText = modeLabel(studioMode);
-  // §5's ad type is the Step-2 tab, not the Mode — see deriveAdType above.
-  const adTypeKey = deriveAdType(state);
-  const adTypeLabel = adTypeKey ? AD_TYPE_LABEL[adTypeKey] : null;
-  const isAngleAuto = !state.angleId;
-  const angleText = state.angleId
-    ? (ANGLE_CHIP_LABEL[state.angleId] ?? state.angleId)
-    : null;
-
-  // §4 — THIS IS THE ONE READINESS GATE, keyed off the active Mode — don't
-  // add a second one beside it. It used to be mode-blind (a flat OR across
-  // category/product/brand) which let e.g. Product Shoot read "Ready to
-  // generate" on a brand alone; computeHasRequiredEntity applies §4's
-  // per-Mode row instead.
-  const hasRequiredEntity = computeHasRequiredEntity(studioMode, {
-    hasCategory: !!category,
-    hasSelectedProduct: !!selectedProduct,
-    hasBrand: !!brand,
+  const {
+    brand,
+    selectedProduct,
+    category,
     hasUploadedImage,
-  });
-  // §5 — Angle defaults to "Auto", a real answer, not a blank: Auto must
-  // satisfy readiness on its own, so it's not part of this check.
-  const complete = hasRequiredEntity && !!state.format;
-
-  // Resolve readiness caption. Tone is orange when pending, neutral when ready.
-  let readinessCaption: string;
-  let readinessTone: "ready" | "pending";
-  if (complete) {
-    readinessCaption = "READY TO GENERATE";
-    readinessTone = "ready";
-  } else if (!hasRequiredEntity) {
-    readinessCaption = missingEntityCaption(studioMode);
-    readinessTone = "pending";
-  } else if (!state.format) {
-    readinessCaption = "PICK A FORMAT";
-    readinessTone = "pending";
-  } else {
-    readinessCaption = "ADD MORE CONTEXT TO IMPROVE OUTPUT";
-    readinessTone = "pending";
-  }
-
-  // Resolve active KB entity (priority: product → brand → category).
-  let entity: { type: EntityType; id: EntityId } | null = null;
-  if (state.productId) {
-    entity = { type: "product", id: state.productId as EntityId };
-  } else if (state.brandId) {
-    entity = { type: "brand", id: state.brandId as EntityId };
-  } else if (state.categoryId) {
-    entity = { type: "category", id: state.categoryId as EntityId };
-  }
-
-  // Cross-app saved-store hooks. Always called (rules-of-hooks); narrow with
-  // null entity by passing harmless dummies that produce empty arrays.
-  const savedInstr = useSavedInstructionsForEntity(
-    entity?.type ?? "brand",
-    entity?.id ?? "__none__",
-  );
-  const savedWinners = useSavedWinnersForEntity(
-    entity?.type ?? "brand",
-    entity?.id ?? "__none__",
-  );
-  const savedConcepts = useSavedConceptsForEntity(
-    entity?.type ?? "brand",
-    entity?.id ?? "__none__",
-  );
-
-  const seedGroups = entity
-    ? getInstructionsForEntity(entity.type, entity.id)
-    : { main: null, custom: [], angles: [] };
-  const instructionGroups = entity
-    ? { ...seedGroups, custom: [...seedGroups.custom, ...savedInstr] }
-    : seedGroups;
-  const winners = entity
-    ? [...getWinnerAdsForEntity(entity.type, entity.id), ...savedWinners]
-    : [];
-  const refs = entity ? getReferenceUrlsForEntity(entity.type, entity.id) : [];
-  // Saved concepts not surfaced in this rail today (concepts panel was removed
-  // in earlier rev) — but exposed via the store so future surfaces can use it.
-  void savedConcepts;
-
-  const instructionsCount =
-    (instructionGroups.main ? 1 : 0) +
-    instructionGroups.custom.length +
-    instructionGroups.angles.length;
-
-  const otherProducts = ALL_PRODUCTS.filter(
-    (p) =>
-      p.brandId === selectedProduct?.brandId &&
-      p.categoryId === selectedProduct?.categoryId &&
-      p.id !== state.productId,
-  ).slice(0, 4);
-
-  const titleText = `${brand?.name ?? "No brand"} / ${productName ?? "No product"}`;
+    uploadedImageUrl,
+    titleText,
+    formatText,
+    modeText,
+    adTypeLabel,
+    isAngleAuto,
+    angleText,
+    readinessCaption,
+    readinessTone,
+    entity,
+    winners,
+    refs,
+    instructionsCount,
+    otherProducts,
+  } = useStudioContextSummary(wizard, studioMode);
 
   return (
-    <div
-      className={cn(
-        "v3-glass space-y-4 rounded-3xl p-4",
-        // Linear variant: full-width at the top of the main column instead
-        // of a narrow 300px rail — capped to the same max-w-2xl the rest of
-        // Configure's main column uses, so Overview doesn't stretch to some
-        // arbitrary full-bleed width on a wide viewport.
-        layout === "inline" && "mx-auto w-full max-w-2xl",
-      )}
-    >
-      {/* Flow-origin context — Linear variant only. Rail variant keeps this
-          as StudioAlpha.tsx's own separate FlowBanner above the wizard. */}
-      {layout === "inline" && flowCtx && <FlowBanner ctx={flowCtx} />}
-
+    <div className="v3-glass space-y-4 rounded-3xl p-4">
       {/* Header */}
       <SectionHeader
         title="Overview"
@@ -531,40 +280,17 @@ export function ContextRail({
                 populated state here (§5: Concept/Script/Style/Angle default
                 to "Auto"), so this never renders as an empty/dashed card
                 the way Brand/Product do before anything is picked. */}
-            <AngleDetailCard
-              isAuto={isAngleAuto}
-              label={angleText}
-              onClick={angleEditable ? () => setAngleRailOpen(true) : undefined}
-            />
+            <AngleDetailCard isAuto={isAngleAuto} label={angleText} />
           </div>
         )}
       </div>
-
-      {/* Linear-variant Angle+Concept picker — same ConceptAngleRail
-          Configure's PromptReferenceBar chip already opens, reused
-          standalone here (it's a plain controlled component, no dependency
-          on Configure's own `railMode` state). Writes straight to
-          wizard.state via the `wizard` prop this component already holds. */}
-      {angleEditable && angleRailOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
-          <div className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-            <ConceptAngleRail
-              selectedAngleId={state.angleId}
-              selectedConceptIds={state.selectedConceptIds}
-              onAngleChange={(id) => wizard.set("angleId", id)}
-              onConceptsChange={(ids) => wizard.set("selectedConceptIds", ids)}
-              onClose={() => setAngleRailOpen(false)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
 
-function Chip({
+export function Chip({
   children,
   filled,
   accent,
@@ -956,22 +682,19 @@ function KbGlance({
 
 /* ── More Details · Angle ──────────────────────────────── */
 
+/** Read-only summary. Angle/Concept are edited on Configure, never here —
+ *  the rail is a mirror of the run, not a second editor for it. */
 function AngleDetailCard({
   isAuto,
   label,
-  onClick,
 }: {
   /** Auto is a real, valid answer (§5) — this block never reads as an
    *  empty/dashed placeholder the way an un-picked Brand/Product does. */
   isAuto: boolean;
   label: string | null;
-  /** Linear variant only (`angleEditable`) — turns this card into a picker
-   *  trigger instead of a read-only summary. Undefined everywhere else,
-   *  so Rail-variant / steps 1-3 render byte-identical to before. */
-  onClick?: () => void;
 }) {
-  const body = (
-    <>
+  return (
+    <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
       <div className="mb-1 flex items-center justify-between">
         <BlockLabel>Angle + Concept</BlockLabel>
         <span
@@ -987,36 +710,15 @@ function AngleDetailCard({
       </div>
       <p className="text-[11px] font-medium text-foreground">{label ?? "Auto"}</p>
       <p className="mt-0.5 text-[10px] text-muted-foreground">
-        {onClick
-          ? isAuto
-            ? "Genie picks the strongest angle for this ad — tap to choose your own."
-            : "Tap to change the angle or concept."
-          : isAuto
-            ? "Genie picks the strongest angle for this ad — pick one on Configure to lock it in."
-            : "Locked in for this generation — change it any time on Configure."}
+        {isAuto
+          ? "Genie picks the strongest angle for this ad — pick one on Configure to lock it in."
+          : "Locked in for this generation — change it any time on Configure."}
       </p>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full rounded-xl border border-border/50 bg-background/40 p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
-      >
-        {body}
-      </button>
-    );
-  }
-  return (
-    <div className="rounded-xl border border-border/50 bg-background/40 p-2.5">
-      {body}
     </div>
   );
 }
 
-function KbMetricPill({
+export function KbMetricPill({
   icon: Icon,
   count,
   label,

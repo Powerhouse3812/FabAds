@@ -595,7 +595,14 @@ export function isValidSourceForTarget(
   if (isVariation) {
     return (
       (target === "concept" && source === "concept") ||
-      (target === "storyboard" && source === "storyboard")
+      (target === "storyboard" && source === "storyboard") ||
+      // script ← script (2026-09-09, product owner). The plain list still
+      // omits it for the reason stated there — a script adds nothing to a
+      // script — but Generate Variations asks a different question: N fresh
+      // takes on the SAME brief, driven by varying its angle/concept/
+      // framework. Same shape as the two self-pairs above, so it inherits
+      // Rule 1 (asks nothing) for free.
+      (target === "script" && source === "script")
     );
   }
   return VALID_SOURCES_BY_TARGET[target].includes(source);
@@ -905,11 +912,13 @@ export const FREE_GENERATION_LABEL = "Free";
  * `useEffect` inside `useWizard()` further down.
  * ────────────────────────────────────────────────────────────────────── */
 
-/** Same 7 labels `AlphaStep3Configure.tsx` keeps locally — no central map
- *  exists for `Mode` (its own comment says so), duplicated here rather than
- *  imported to avoid a real runtime cycle (see the file that DOES export one,
- *  `components/queue/batchDisplay.ts`, which imports FROM this file). */
-const MODE_LABEL: Record<Mode, string> = {
+/** Same labels `AlphaStep3Configure.tsx` and `batchDisplay.ts` each keep a
+ *  local copy of — `components/queue/batchDisplay.ts` already imports FROM
+ *  this file safely (this file imports no components, so there's no cycle),
+ *  which is the same direction `PromptReferenceBar.tsx`'s Approach chip now
+ *  imports it in. Exported 2026-09-09 so that chip reads off THIS map rather
+ *  than adding a fourth duplicate. */
+export const MODE_LABEL: Record<Mode, string> = {
   auto: "Auto",
   "product-demo": "Product Demo",
   "lifestyle-scene": "Lifestyle Scene",

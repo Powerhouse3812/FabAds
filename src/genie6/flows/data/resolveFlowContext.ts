@@ -26,7 +26,7 @@
  * exactly like the original Ad-variation family, even though its action
  * (`use-concept`) has `asksNothing: false`.
  */
-import type { FlowActionId, FlowContext, FlowModuleKey, FlowSourceRef } from "../flowTypes";
+import type { FlowAction, FlowActionId, FlowContext, FlowModuleKey, FlowSourceRef } from "../flowTypes";
 import {
   FLOW_PARAM_ACT,
   FLOW_PARAM_REF,
@@ -56,6 +56,58 @@ const VARIATION_ACTION_IDS = new Set<FlowActionId>([
   "generate-variation",
   "refresh-fatigued",
 ]);
+
+/**
+ * The script gate (2026-09-09). An action whose `source` is "script" makes
+ * exactly one promise: the SCRIPT ITSELF travels (`FlowSourceRef.script`).
+ * Only Video Sage's analysed videos actually hold one — and only 6 of its 8
+ * rows, the other two being the still-analysing and the failed video. Where
+ * the hand-off used to arrive with `generationSource: "script"` and an empty
+ * `script`, Studio auto-wrote one locally via `deriveScriptText` and
+ * Configure labelled that local draft "Same script · <module>". The UI
+ * stated a provenance that was false.
+ *
+ * Industry Insights, Reports and Creative Library USED to list `use-script`
+ * against rows that carry ad copy — headline, primary text, description —
+ * and never a script, so the action was disabled on every single one of
+ * their rows. They no longer list it at all (flowRegistry.ts, 2026-09-09);
+ * this gate is what still catches a stale bookmark or a hand-edited URL
+ * pointing at one of those combinations.
+ *
+ * Same fail-closed shape as a hookless trend under `use-hook`: this ONE
+ * action is unavailable on that row, everything else the row offers still
+ * works, and the sentence gives the truthful reason instead of "needs
+ * analysis" (Video Sage's analysing row IS gated on analysis; this gate is
+ * for the rows that pass that check and still hold no script).
+ *
+ * Keyed off `action.source`, never an id list, so any future action that
+ * declares it hands the wizard script content is gated by the same rule
+ * without a second list to keep in sync.
+ *
+ * @returns the human sentence when the action can't be honoured on this ref,
+ *          else null. Exported because the two surfaces that OFFER actions
+ *          (FlowModuleDetail's `isUnpickable`, SendToGenieMenu's `blocked`)
+ *          must block the same rows this resolver refuses, or the user picks
+ *          a live-looking action and lands in a bare, unbannered Studio.
+ */
+export function missingCarriedScriptReason(action: FlowAction, ref: FlowSourceRef | undefined): string | null {
+  if (action.source !== "script") return null;
+  if (hasCarriedScript(ref)) return null;
+  return "No script on this one — only an analysed Video Sage video carries one";
+}
+
+/**
+ * Does this ref actually hold script TEXT? Trimmed, because a truthiness test
+ * passes a whitespace-only string — which then travels as "the script", shows
+ * a "Same script" chip over nothing, and blocks Studio's auto-writer from
+ * filling the empty field (the writer skips any non-null `script`). The value
+ * itself is never trimmed on the way through: whitespace inside a real script
+ * is its formatting, and rewriting the source's text would be its own small
+ * lie about provenance.
+ */
+function hasCarriedScript(ref: FlowSourceRef | undefined): boolean {
+  return typeof ref?.script === "string" && ref.script.trim().length > 0;
+}
 
 export function resolveFlowContext(sp: URLSearchParams): FlowContext | null {
   const srcRaw = sp.get(FLOW_PARAM_SRC);
@@ -88,6 +140,12 @@ export function resolveFlowContext(sp: URLSearchParams): FlowContext | null {
   // `ref.blockedReason` is the human sentence for the same condition; it stays
   // a UI concern (this function has no surface to say it on).
   if (action.requiresAnalysis && !ref.analysed) return null;
+
+  // Content gate, for the same reason and in the same place: an action that
+  // promises the script travels must not resolve on a ref that has none, or
+  // Studio renders a banner and a "Same script" chip over content it never
+  // received. See `missingCarriedScriptReason` above for the full note.
+  if (missingCarriedScriptReason(action, ref)) return null;
 
   // Target — `?tgt` when it names one of THIS action's declared targets,
   // else the action's own default (its first entry, always "ad" for every
@@ -256,9 +314,52 @@ export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partia
     patch.prompt = `Keep the core idea of "${ref.title}". Generate a new variation of this concept — free.`;
   }
 
+  // THE SCRIPT CARRY (2026-09-09) — `use-script` ONLY.
+  //
+  // `use-script` set `generationSource: "script"` and moved no script, so
+  // Studio auto-wrote one locally (`deriveScriptText`) and Configure labelled
+  // that local draft "Same script · <module>" — a false provenance. This is
+  // the carry that makes the label true. `ref.script` is only ever set where
+  // a real script exists (flowSources.ts — Video Sage's analysis, nothing
+  // else), and `missingCarriedScriptReason` has already refused this action
+  // on a ref without one, so by here the text is guaranteed real.
+  //
+  // WHY `vary-script` IS NOT IN THIS CARRY (fixed 2026-09-09, same day):
+  // it briefly was, and that inverted the action's entire meaning. Its own
+  // copy is "Keep the visuals — write a NEW script"; handing it the source's
+  // existing script made Studio open holding the OLD one, and Configure's
+  // chip — asserted off `flowCtx.ref.script` matching state, not off the
+  // action — then badged it "Same script · Video Sage" on the one action
+  // whose whole purpose is that the script is not the same. `vary-script` is
+  // `source: "none"`: it promises same visuals, new words, and needs no
+  // source script to do it. It carries the variation prompt below (which
+  // says what is kept and what changes) and nothing else. Adding a second
+  // action to this carry means re-checking that its copy actually claims the
+  // script travels.
+  //
+  // WHY scriptOrigin IS null, NOT "user": the union is auto | user | null
+  // (WizardState, useWizard.ts — read-only here) and ScriptRail renders
+  // "user" as "Edited by you", which would be a second false claim about text
+  // nobody edited. A non-null `script` with `scriptOrigin: null` is the
+  // documented hand-off shape: the background auto-writer explicitly refuses
+  // to overwrite it (`state.script !== null && state.scriptOrigin === null`)
+  // and no origin badge is drawn. Written EXPLICITLY rather than left to the
+  // default, because `patch()` tags any patch that touches `script` without
+  // an origin as "user" — today this object is Object.assign-ed into state at
+  // construction (StudioAlpha.tsx), but the explicit key keeps it correct if
+  // it ever goes through `patch()` instead.
+  if (action.id === "use-script" && hasCarriedScript(ref)) {
+    patch.script = ref.script;
+    patch.scriptOrigin = null;
+  }
+
   // vary-script — the script came FROM this source and has already been
   // seen once; approving it outright stops §21.2's script gate from
   // re-blocking a flow that isn't touching the script at all.
+  // PRE-EXISTING behaviour, deliberately left unconditional: it predates the
+  // script carry above and does not depend on it. Not a Rule-1 regression —
+  // `scriptNeedsReview` (PromptReferenceBar) only flags the Script chip, it
+  // disables nothing.
   if (action.id === "vary-script") {
     patch.scriptApproved = true;
   }

@@ -52,6 +52,7 @@ import type { OutputData } from "../types/output";
 import { angles } from "../mocks";
 import { MODEL_CREDIT_MULTIPLIER, MODEL_LABEL, MODEL_PRICING } from "../studio-v4/data/modelPricing";
 import { computeBreakdown, type CreditLine } from "./credits";
+import type { GenerationTarget } from "../studio-v4/state/useWizard";
 // ONE stage vocabulary for image/video renders (audit item 3) — the same
 // function Step5ResultsQueue.tsx already calls for every LIVE Studio batch.
 // Importing it here (rather than keeping a second, independently-authored
@@ -68,6 +69,8 @@ export interface StartBatchInput {
   label: string;
   stages: string[];
   count: number;
+  /** What the batch produces. Omit for an ad — see `RunBatch.target`. */
+  target?: GenerationTarget;
   creditsPerItem: number;
   /**
    * The EXACT total quoted on the Generate button (computeBreakdown().total).
@@ -560,6 +563,7 @@ export function startBatch(input: StartBatchInput): string {
     label: input.label,
     stages: input.stages,
     items,
+    target: input.target,
     credits: chargedTotal(items),
     config: input.config,
   };
@@ -735,6 +739,31 @@ export function creditsForRetry(batchId: string, scope: RetryScope, opts?: { mod
     default:
       return 0;
   }
+}
+
+/* ─────────────────────────────── plain reads (no hook) ─────────────────────────────── */
+/*
+ * The hooks below are the ONLY way a component should read this store. But a
+ * PURE deriver cannot call a hook — `analyseAd()` (genie6/variations) is a
+ * plain function inside a `useMemo`, and the approach/language/aspect-ratio it
+ * has to report honestly exist nowhere else but `RunBatch.config`. So these
+ * two read the same `snapshot` the hooks read through, without subscribing.
+ *
+ * NON-REACTIVE BY DESIGN: a batch committed after the caller ran is not
+ * observed — no re-render is triggered. Acceptable for a deriver keyed off a
+ * source the user just picked (the seeded history is committed at module load,
+ * before any of this can be called); anything that must UPDATE on a new batch
+ * belongs on `useBatch`/`useBatches` instead.
+ */
+
+export function getBatchById(batchId: string): RunBatch | undefined {
+  return snapshot.batches.find((b) => b.batchId === batchId);
+}
+
+/** §10's documented join key runs the other way — `RunItem.outputId` points at
+ *  the rich `OutputData`, so an output's batch is found by scanning items. */
+export function getBatchForOutput(outputId: string): RunBatch | undefined {
+  return snapshot.batches.find((b) => b.items.some((i) => i.outputId === outputId));
 }
 
 /* ─────────────────────────────── hooks ─────────────────────────────── */

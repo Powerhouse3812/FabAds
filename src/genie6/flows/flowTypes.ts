@@ -221,6 +221,26 @@ export interface FlowSourceRef {
    * `analysed`/`blockedReason` already encode for a hookless trend.
    */
   hook?: string;
+  /**
+   * The literal SCRIPT this source holds — the real lines, not a summary and
+   * not ad copy. Direct sibling of `hook` above, set on exactly the same
+   * terms: present ONLY where the source module genuinely carries a script.
+   * Today that is Video Sage's `analysis.script` and nothing else — an
+   * Industry Insights ad, a Reports row, a Creative Library adgroup and one
+   * of Genie's own outputs all carry headline/primary/body copy, never a
+   * script — so every other builder in flowSources.ts leaves this undefined
+   * on purpose.
+   *
+   * `use-script` is the action whose entire promise is that this text
+   * travels (`FlowAction.source === "script"`), so a ref without it must not
+   * resolve that action at all: `missingCarriedScriptReason`
+   * (resolveFlowContext.ts) fails the hand-off closed, the same way a
+   * hookless trend fails `use-hook` closed. Inventing a script to make the
+   * action look available is precisely the defect this field ends —
+   * Configure used to label a draft `deriveScriptText` had just written
+   * locally as "Same script · Video Sage".
+   */
+  script?: string;
   /** Campaign URLs only — the visible, editable extraction (§7.5). */
   extraction?: CampaignUrlExtraction;
 }
