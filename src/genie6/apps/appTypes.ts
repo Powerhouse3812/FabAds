@@ -1,8 +1,15 @@
 /**
  * Other Apps — contract types (Genie 2.0 §8).
  *
- * 22 apps. 8 live with full flows, 14 "Coming soon" cards only (BG Remover
- * went live 2026-09-09 when it moved out of Studio's Approach grid). 4 of those
+ * 22 apps. 4 live with full flows, 18 "Coming soon" — the owner's 2026-09-10
+ * scope cut ("only 4 we decided to give for now") left Translate Videos,
+ * Product Placement, Face Swap and Change Metadata live and moved the rest
+ * behind a "coming soon" tag, including five that HAD been live (Avatar
+ * Shots, PPT/PDF to Video, Upscale Video, Speech Cleanup and BG Remover —
+ * the last of which had gone live on 2026-09-09 when it moved out of
+ * Studio's Approach grid). Those five keep their full `sections`/`cost`/
+ * `zeroState`/`stages` declared but dormant, so re-shipping one is a
+ * `state` flip; see appRegistry.ts. 4 of the coming-soon set
  * (Add Video Captions, Change Metadata, Prompt Generator, Thumbnail Maker)
  * came from Maalik's own additions list, reconciled in GENERATION_TARGETS.md
  * §11 as genuinely new with no existing match. 3 more (BG Remover, Resize

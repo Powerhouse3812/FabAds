@@ -121,48 +121,56 @@ export interface ModeOption {
   tone: "rose" | "fuchsia" | "lime" | "indigo" | "amber" | "sky" | "slate";
 }
 
+/* NO `thumb` FIELD HERE, deliberately (2026-09-10). Studio home's big Mode
+ * cards DO carry artwork, but it is drawn, not photographed: `ModeThumb.tsx`
+ * switches on the Mode id. (Trending cards went the other way — they play
+ * real footage via `videoForSeed`, see studio-visuals.ts.) The first cut of
+ * this pass did add `thumb?: string` pointing
+ * at `src/assets/strategies|templates` — every one of those 45 photos has
+ * AI-generated gibberish baked into the image ("Peermium nal seiecabrle",
+ * "We Understaind You Need"), which is invisible on Genie 5's small strategy
+ * cards but plainly readable at hero-card size. Keeping artwork in a
+ * component rather than a data field also means a new Mode cannot ship a
+ * broken image path — an unmapped id falls back to a neutral composition. */
+
 /** Soft-tint per card. Shared by StudioHome's grid and Step 1's compact row.
- *  `wash` (2026-09-10, Studio home "Tone Grid" direction) is a two-stop
- *  gradient in the same tone, used ONLY by StudioHome's local `ModeCard` as
- *  its live-card background — a mode's colour carries its identity instead
- *  of a flat white card. Soon cards ignore it (SOON_SURFACE always wins),
- *  and Step 1's compact row doesn't read this field, so adding it here is
- *  additive to every existing consumer. */
+ *
+ *  HISTORY, so nobody re-adds it: this briefly carried a `wash` key too — a
+ *  two-stop gradient per tone, added 2026-09-10 for the "Tone Grid" home
+ *  direction, then reused as the ground for `ModeThumb`'s drawn artwork. It
+ *  is gone because the owner saw the six tone-washed cards together and
+ *  called it: "too much colors in it, creating distraction for user". Six
+ *  large colour fields in one grid leave the eye nowhere to land. The
+ *  artwork is neutral now and a Mode's tone survives where it started —
+ *  the small icon tile — which is the scale it was designed for. */
 export const MODE_SCHEME = {
   rose: {
     bg: "bg-rose-50",   text: "text-rose-600",
     bgSel: "bg-rose-100", textSel: "text-rose-700",
-    wash: "bg-gradient-to-br from-rose-50 to-rose-100/70",
   },
   fuchsia: {
     bg: "bg-fuchsia-50", text: "text-fuchsia-600",
     bgSel: "bg-fuchsia-100", textSel: "text-fuchsia-700",
-    wash: "bg-gradient-to-br from-fuchsia-50 to-fuchsia-100/70",
   },
   lime: {
     bg: "bg-primary/[0.10]", text: "text-primary",
     bgSel: "bg-primary/[0.18]", textSel: "text-primary",
-    wash: "bg-gradient-to-br from-primary/[0.08] to-primary/[0.16]",
   },
   indigo: {
     bg: "bg-indigo-50", text: "text-indigo-600",
     bgSel: "bg-indigo-100", textSel: "text-indigo-700",
-    wash: "bg-gradient-to-br from-indigo-50 to-indigo-100/70",
   },
   amber: {
     bg: "bg-amber-50", text: "text-amber-600",
     bgSel: "bg-amber-100", textSel: "text-amber-700",
-    wash: "bg-gradient-to-br from-amber-50 to-amber-100/70",
   },
   sky: {
     bg: "bg-sky-50", text: "text-sky-600",
     bgSel: "bg-sky-100", textSel: "text-sky-700",
-    wash: "bg-gradient-to-br from-sky-50 to-sky-100/70",
   },
   slate: {
     bg: "bg-slate-50", text: "text-slate-600",
     bgSel: "bg-slate-100", textSel: "text-slate-700",
-    wash: "bg-gradient-to-br from-slate-50 to-slate-100/70",
   },
 } as const;
 
