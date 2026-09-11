@@ -14,7 +14,7 @@
  * scene). A hand-written branch per app would drift the moment an eighth
  * live app is added. Instead this reads `app.cost.unit` and walks
  * `app.sections` to find the field whose *kind* supplies the multiplier —
- * a `language-multiselect` for language count, a `media-picker` for source
+ * a `language-select` for language count, a `media-picker` for source
  * duration or slide count — so a new live app only has to declare its
  * fields correctly; it never needs a new cost branch.
  *
@@ -96,18 +96,53 @@ function findDurationField(app: GenieApp): AppField | undefined {
   );
 }
 
+/**
+ * A segmented field's option can mark itself `zerosCost` (appTypes.ts) — e.g.
+ * Translate Videos' "Subtitles only", which does no voice synthesis and must
+ * not bill the dubbing rate. Checked BEFORE the unit switch below, so the
+ * whole per-unit breakdown never runs for a free selection.
+ *
+ * Returns the option itself, not just a boolean, so the free line can quote
+ * that option's own label — this file stays generic (§ file header) rather
+ * than hardcoding one app's copy ("Subtitles only") into shared cost logic.
+ */
+function zerosCostOption(
+  app: GenieApp,
+  values: AppFieldValues,
+): { label: string } | undefined {
+  for (const f of allFields(app)) {
+    if (f.kind !== "segmented") continue;
+    const selected = values[f.id];
+    const hit = f.options.find((o) => o.value === selected && o.zerosCost);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 export function previewCost(app: GenieApp, values: AppFieldValues): AppCostPreview {
   if (!app.cost) return { lines: [], total: 0, provisional: true };
-  const { rate, unit } = app.cost;
   const provisional = requiredFieldsMissing(app, values);
 
+  const freeOption = zerosCostOption(app, values);
+  if (freeOption) {
+    return {
+      lines: [{ label: `${freeOption.label} — free`, factor: 0, op: "base" }],
+      total: 0,
+      provisional,
+    };
+  }
+
+  const { rate, unit } = app.cost;
   const lines: CreditLine[] = [{ label: app.cost.unitLabel, factor: rate, op: "base" }];
 
   switch (unit) {
     case "language-minute": {
-      const langField = findField(app, (f) => f.kind === "language-multiselect");
-      const languages = (langField && (values[langField.id] as string[] | undefined)) ?? [];
-      const langCount = Math.max(languages.length, 1);
+      // Single-select (owner ruling 2026-09-09): the language field holds at
+      // most one code, so this multiplier is always exactly 1 once required
+      // fields are filled — same "provisional floor, not a quote" behaviour
+      // as the old multiselect's `Math.max(languages.length, 1)`, just
+      // without an array length to compute it from.
+      const langCount = 1;
 
       const durField = findDurationField(app);
       const media = durField ? asMediaValue(values[durField.id]) : undefined;
