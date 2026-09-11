@@ -53,19 +53,13 @@ function hasEntity(a: AssetAnalysis): boolean {
   return a.entityName.provenance !== "not-found";
 }
 
-/**
- * `RecommendedAction.element` in types.ts is typed `VariationElementId`, which
- * cannot name "framework" or "entity" — it predates Part 2 and wants widening
- * to `AnyElementId` (as `VariationEdit.element` already is). Reported, not
- * edited; this is the one cast that gap forces.
- */
 function act(
   a: AssetAnalysis,
   element: AssetElementId,
   reason: string,
 ): RecommendedAction {
   return {
-    element: element as RecommendedAction["element"],
+    element,
     label: assetActionLabel(element, a),
     reason,
   };
