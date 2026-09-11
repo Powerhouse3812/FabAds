@@ -137,6 +137,8 @@ export interface UseVariationsFlowReturn {
   entity: EntitySelection;
   setEntity: (next: EntitySelection) => void;
 
+  /** Outputs the run produces — the sum of the cards' own counts. */
+  outputCount: number;
   credits: { lines: CreditLine[]; total: number; overdrawn: boolean };
   canGenerate: boolean;
   generate: () => void;
@@ -243,6 +245,22 @@ export function useVariationsFlow(): UseVariationsFlowReturn {
    * never disagree. A card that hasn't reported yet falls back to the nominal
    * rate so the rail is never blank mid-mount.
    */
+  /**
+   * Outputs the run will actually produce: the sum of each card's OWN count.
+   * The stage-2 count is how many cards there are; a card may ask for more
+   * than one output of its configuration, and its prompt bar prices that —
+   * so the batch has to generate it. Charging a card for three and producing
+   * one was the defect this closes.
+   */
+  const outputCount = useMemo(
+    () =>
+      state.cards.reduce(
+        (sum, card) => sum + (state.summaries[card.id]?.outputCount ?? 1),
+        0,
+      ),
+    [state.cards, state.summaries],
+  );
+
   const credits = useMemo(() => {
     let reported = 0;
     let pending = 0;
@@ -252,11 +270,15 @@ export function useVariationsFlow(): UseVariationsFlowReturn {
       else pending += 1;
     }
     const total = reported + pending * VARIATION_CREDITS_PER_ITEM;
-    const lines: CreditLine[] = [
-      { label: `${state.count} variation${state.count === 1 ? "" : "s"}`, factor: total, op: "base" },
-    ];
+    const cardsLabel = `${state.count} card${state.count === 1 ? "" : "s"}`;
+    const lines: CreditLine[] =
+      outputCount === state.count
+        ? [{ label: `${state.count} variation${state.count === 1 ? "" : "s"}`, factor: total, op: "base" }]
+        : [
+            { label: `${cardsLabel} · ${outputCount} outputs`, factor: total, op: "base" },
+          ];
     return { lines, total, overdrawn: exceedsBalance(total) };
-  }, [state.cards, state.summaries, state.count]);
+  }, [state.cards, state.summaries, state.count, outputCount]);
 
   const canGenerate = !!state.picked && !credits.overdrawn;
 
@@ -268,9 +290,9 @@ export function useVariationsFlow(): UseVariationsFlowReturn {
 
     const batchId = startBatch({
       origin: originFor(state.picked, title),
-      label: `${title} · ${state.count} variation${state.count === 1 ? "" : "s"}`,
+      label: `${title} · ${outputCount} variation${outputCount === 1 ? "" : "s"}`,
       stages: VARIATION_STAGES,
-      count: state.count,
+      count: outputCount,
       creditsPerItem: VARIATION_CREDITS_PER_ITEM,
       creditsTotal: credits.total,
       // No `target`: every run produces ads now, and absent means "ad".
@@ -284,7 +306,7 @@ export function useVariationsFlow(): UseVariationsFlowReturn {
       itemSeed: (i) => ({ title: `Variation ${i + 1}` }),
     });
     navigate(`/iq/genie6/studio-alpha/results?batch=${batchId}`);
-  }, [state, analysis, assetAnalysis, credits.total, navigate]);
+  }, [state, analysis, assetAnalysis, credits.total, outputCount, navigate]);
 
   return {
     state,
@@ -300,6 +322,7 @@ export function useVariationsFlow(): UseVariationsFlowReturn {
     reportCardSummary,
     entity: state.entity,
     setEntity,
+    outputCount,
     credits,
     canGenerate,
     generate,
@@ -315,6 +338,11 @@ function shallowEqualSummary(a: VariationCardSummary, b: VariationCardSummary): 
     a.hasScript === b.hasScript &&
     a.prompt === b.prompt &&
     a.model === b.model &&
-    a.aspectRatio === b.aspectRatio
+    a.aspectRatio === b.aspectRatio &&
+    // Both of these feed the rail. Omitting them made a credit-only change
+    // bail out of the reporting guard, leaving the rail's total stale and
+    // contradicting the card that had just changed.
+    a.creditsTotal === b.creditsTotal &&
+    a.outputCount === b.outputCount
   );
 }

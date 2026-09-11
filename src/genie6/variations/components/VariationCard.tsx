@@ -548,6 +548,7 @@ export function VariationCard({
       model: state.modelId,
       aspectRatio: state.aspectRatio,
       creditsTotal: computeBreakdown(buildCreditLines(state)).total,
+      outputCount: state.count,
     }),
     [
       state,

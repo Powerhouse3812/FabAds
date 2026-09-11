@@ -211,6 +211,13 @@ export interface VariationCardSummary {
    * rail can no longer disagree, which they did — 1 credit vs 16.
    */
   creditsTotal?: number | null;
+  /**
+   * How many outputs THIS card produces. The card's own wizard owns a count,
+   * and its prompt bar prices that count — so the run must actually generate
+   * it. Billing a card for 3 and producing 1 was the defect. Total outputs is
+   * the sum of these; the stage-2 count is how many CARDS there are.
+   */
+  outputCount?: number | null;
 }
 
 /* ------------------------------------------------ PART 2: asset variations */

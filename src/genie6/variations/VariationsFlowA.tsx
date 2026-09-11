@@ -231,8 +231,16 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
         {picked && analysis ? (
           <>
             <p className="mt-2 text-[14px] font-semibold leading-[22px] text-g6-primary-active">
-              {state.count} {plural("variation", state.count)}
+              {flow.outputCount} {plural("variation", flow.outputCount)}
             </p>
+            {/* A card can ask for more than one output of its configuration,
+                so cards and outputs diverge — say both rather than letting the
+                total look wrong against the number of cards on screen. */}
+            {flow.outputCount !== state.count ? (
+              <p className="mt-0.5 text-[11px] leading-4 text-g6-text-tertiary">
+                from {state.count} {plural("card", state.count)}
+              </p>
+            ) : null}
             <p className="mt-0.5 text-[12px] leading-5 text-g6-text-secondary">
               of {analysis.source.title}
             </p>
@@ -278,7 +286,7 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
         >
           <Wand2 className="h-4 w-4" aria-hidden />
           {picked
-            ? `Generate ${state.count} · ${creditsLabel(credits.total)}`
+            ? `Generate ${flow.outputCount} · ${creditsLabel(credits.total)}`
             : "Generate"}
         </Button>
         {!flow.canGenerate ? (

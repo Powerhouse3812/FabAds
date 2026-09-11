@@ -379,7 +379,12 @@ export function serializeTimelineScript(
        continuation of the row above and merges the two (that is how a `V/O:`
        script lost a beat per save). `DIALOGUE:` is the marker for exactly this
        — a beat with no timing — and the parser already accepts it. */
-    if (!head && dialogue && blocks.length > 0) head = "DIALOGUE: ";
+    /* Keyed off the ROW COUNT, not `blocks.length`: skipping the first row
+       left a 2-row script with a single marker, which is below the parser's
+       "two structural hits" threshold — so it came back flat and the two
+       beats merged. Every row of a multi-row script gets marked; a lone row
+       stays bare and honestly reads as having no timeline. */
+    if (!head && dialogue && script.rows.length > 1) head = "DIALOGUE: ";
     const opening = `${head}${dialogue}`.trim();
     const lines: string[] = [];
     if (opening) lines.push(opening);
