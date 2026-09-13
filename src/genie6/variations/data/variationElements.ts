@@ -9,7 +9,7 @@ import {
   Palette,
   UserRound,
 } from "lucide-react";
-import type { AdAnalysis, VariationElementDef, VariationElementId } from "../types";
+import type { VariationElementDef, VariationElementId } from "../types";
 
 /**
  * The nine elements of a WHOLE AD this flow can vary (Part 1 only).

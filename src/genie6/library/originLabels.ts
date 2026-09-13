@@ -55,6 +55,9 @@ export const APP_KEY_LABELS: Record<AppKey, string> = {
   "bg-remover": "BG Remover",
   "resize-image": "Resize Image",
   "object-remover": "Object Remover",
+  "generate-script": "Generate Script",
+  "generate-concept": "Generate Concept",
+  "generate-storyboard": "Generate Storyboard",
 };
 
 /** A stable, unique string key for a `RunOrigin` — used as the `?module=` filter value. */
