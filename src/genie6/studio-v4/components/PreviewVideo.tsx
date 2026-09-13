@@ -1,10 +1,26 @@
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PreviewVideoProps {
   src: string;
   poster?: string;
   className?: string;
+  /**
+   * Opt-in manual play/pause toggle rendered over the video. Default `false`
+   * renders no chrome at all, so StudioHome's Trending previews and the
+   * Step-3 approach tiles look exactly as they did.
+   *
+   * NOT quite "byte-for-byte", and the difference is worth knowing: a `pause`
+   * listener is now attached for every caller, so `playing` tracks reality
+   * instead of latching true forever. If a browser pauses a clip on its own
+   * (backgrounded tab, power saving), those tiles will now cross-fade their
+   * poster and "Preview" badge back in rather than showing a frozen frame —
+   * which is the honest behaviour, but it IS new.
+   *
+   * Added for the Other Apps source-ad preview, which needs a real control.
+   */
+  controls?: boolean;
 }
 
 /**
@@ -41,7 +57,7 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function PreviewVideo({ src, poster, className }: PreviewVideoProps) {
+export function PreviewVideo({ src, poster, className, controls = false }: PreviewVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const posterRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -65,21 +81,33 @@ export function PreviewVideo({ src, poster, className }: PreviewVideoProps) {
     const v = videoRef.current;
     if (!v) return;
     setPlaying(false);
-    if (reduceMotion) {
-      v.pause();
-      return;
-    }
     // Critical: set the muted PROPERTY (not just the attribute) so autoplay
-    // isn't blocked.
+    // isn't blocked. Also needed for a `controls` manual play — the button
+    // never unmutes, it just triggers playback of the same silent clip.
     v.muted = true;
     v.defaultMuted = true;
+
+    // Kept regardless of `reduceMotion` so a manual play/pause (via
+    // `controls`) always reflects into `playing` — reduced motion only
+    // suppresses the AUTOMATIC play attempt below, never the ability to
+    // observe real playback state.
+    const onPlaying = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    v.addEventListener("playing", onPlaying);
+    v.addEventListener("pause", onPause);
+
+    if (reduceMotion) {
+      v.pause();
+      return () => {
+        v.removeEventListener("playing", onPlaying);
+        v.removeEventListener("pause", onPause);
+      };
+    }
 
     const tryPlay = () => {
       const p = v.play();
       if (p && typeof p.catch === "function") p.catch(() => {});
     };
-    const onPlaying = () => setPlaying(true);
-    v.addEventListener("playing", onPlaying);
     tryPlay();
 
     // Re-nudge play when the tile scrolls into view (browsers may not start
@@ -94,9 +122,21 @@ export function PreviewVideo({ src, poster, className }: PreviewVideoProps) {
 
     return () => {
       v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("pause", onPause);
       io.disconnect();
     };
   }, [src, reduceMotion]);
+
+  const handleToggle = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (playing) {
+      v.pause();
+    } else {
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    }
+  };
 
   // Ken-Burns the poster while the real video isn't playing — guarantees the
   // tile is never frozen. Web Animations API so we don't need global keyframes.
@@ -153,12 +193,32 @@ export function PreviewVideo({ src, poster, className }: PreviewVideoProps) {
         )}
       />
 
-      {/* "Preview" badge while falling back to the animated poster. */}
+      {/* "Preview" badge while falling back to the animated poster. Sits
+          bottom-right; the manual toggle (bottom-left, when `controls` is
+          on) is deliberately the opposite corner so the two never collide. */}
       {!playing && (
         <span className="pointer-events-none absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider text-foreground/70 backdrop-blur">
           <span className="h-1 w-1 animate-pulse rounded-full bg-primary motion-reduce:animate-none" />
           Preview
         </span>
+      )}
+
+      {/* Manual play/pause toggle — opt-in via `controls`. Reflects and
+          drives real playback state through `handleToggle`; never changes
+          anything when `controls` is false (not rendered at all). */}
+      {controls && (
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-label={playing ? "Pause preview" : "Play preview"}
+          className="fab-focus absolute bottom-1 left-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background/80 text-primary-text backdrop-blur transition-colors hover:bg-background"
+        >
+          {playing ? (
+            <Pause className="h-3 w-3" fill="currentColor" />
+          ) : (
+            <Play className="h-3 w-3" fill="currentColor" />
+          )}
+        </button>
       )}
     </div>
   );

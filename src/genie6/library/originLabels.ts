@@ -37,7 +37,11 @@ export const APP_KEY_LABELS: Record<AppKey, string> = {
   "avatar-shots": "Avatar Shots",
   "ppt-pdf-to-video": "PPT/PDF to Video",
   "upscale-video": "Upscale Video",
-  "product-placement": "Product Placement",
+  // Renamed 2026-09-13. The KEY stays `product-placement` (it is the join key
+  // for every seeded Library row), but the label has to follow the registry's
+  // display name or a Library chip says "Product Placement" next to an app
+  // screen titled "Product Swap".
+  "product-placement": "Product Swap",
   "face-swap": "Face Swap",
   "speech-cleanup": "Speech Cleanup",
   "ai-studio": "AI Studio",

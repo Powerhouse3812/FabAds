@@ -59,6 +59,15 @@ export function isFieldFilled(field: AppField, value: unknown): boolean {
   switch (field.kind) {
     case "media-picker":
       return mediaPickerHasValue(value as MediaPickerValue | undefined | null);
+    /* Added with the kind itself (2026-09-13). Without this arm the `default`
+       below answered false forever, so both apps that declare a required
+       `source-ad-picker` — Product Swap and Face Swap — had their Generate
+       button disabled permanently with no way for the user to satisfy it.
+       `tsc` cannot catch that: the switch has a `default`, so a new kind
+       compiles clean and simply fails at runtime. Any future field kind must
+       be added here in the same change that declares it. */
+    case "source-ad-picker":
+      return !!(value as { card?: unknown } | undefined | null)?.card;
     case "avatar-picker":
       return !!(value as AvatarPickerValue | undefined | null)?.avatarId;
     case "language-select":
@@ -170,6 +179,15 @@ export function pickedThumbnail(app: GenieApp, values: AppFieldValues): string |
     const v = values[mediaField.id] as MediaPickerValue | undefined;
     if (v?.item?.thumbnail) return v.item.thumbnail;
     if (v?.product?.thumbnail) return v.product.thumbnail;
+  }
+  // An app whose source is a whole ad has no `media-picker` at all (Face
+  // Swap since 2026-09-13), so without this its batches landed in Library
+  // with no thumbnail — the card's own still is the right one to use.
+  const sourceAdField = firstFieldOfKind(app, "source-ad-picker");
+  if (sourceAdField) {
+    const v = values[sourceAdField.id] as { card?: { media?: string[] } } | undefined;
+    const still = v?.card?.media?.[0];
+    if (still) return still;
   }
   return undefined;
 }

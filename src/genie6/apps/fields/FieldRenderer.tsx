@@ -7,6 +7,7 @@ import { SegmentedField } from "./SegmentedField";
 import { SelectField } from "./SelectField";
 import { AspectRatioField } from "./AspectRatioField";
 import { StepperField } from "./StepperField";
+import { SourceAdField, type SourceAdValue } from "./SourceAdField";
 
 interface FieldRendererProps {
   field: AppField;
@@ -25,6 +26,14 @@ export function FieldRenderer({ field, value, onChange, ratePerLanguageMinute }:
         <MediaPickerField
           field={field}
           value={value as MediaPickerValue | undefined}
+          onChange={(v) => onChange(v)}
+        />
+      );
+    case "source-ad-picker":
+      return (
+        <SourceAdField
+          field={field}
+          value={value as SourceAdValue | undefined}
           onChange={(v) => onChange(v)}
         />
       );

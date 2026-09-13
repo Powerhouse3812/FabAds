@@ -18,7 +18,14 @@
  * duration or slide count — so a new live app only has to declare its
  * fields correctly; it never needs a new cost branch.
  *
- * THE VALUE SHAPE A `media-picker` FIELD IS EXPECTED TO CARRY
+ * That genericity is load-bearing AND it is not automatic: a new field kind
+ * has to be TAUGHT to the finders below. `source-ad-picker` (2026-09-13) was
+ * not, and Face Swap's per-minute multiplier silently floored to 1 the moment
+ * its target video moved onto that kind. Nothing failed loudly — `findField`
+ * simply returned undefined. If you add a field kind that carries a
+ * multiplier, add it to the matching finder in the same change.
+ *
+ * THE VALUE SHAPE A DURATION-BEARING FIELD IS EXPECTED TO CARRY
  * `AppFieldValues` is `Record<string, unknown>` (locked in appTypes.ts), so
  * this file cannot demand a type at the contract level — but for the preview
  * math to work, whatever the Apps UI puts at `values[field.id]` for a
@@ -88,12 +95,26 @@ function pluralise(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
 
-/** The source media field for a "minute"/"language-minute" unit — video or audio. */
+/* Both kinds that can carry a source duration. `source-ad-picker` was added
+ * 2026-09-13 and Face Swap's target video moved onto it — until this arm
+ * existed the per-minute multiplier floored to 1 for that app, so a 4-minute
+ * source ad quoted 13 credits instead of 52. A silent 4× underquote is
+ * precisely the Configure-vs-Results divergence §21.2 exists to stop, and
+ * nothing type-checks it: `findField` just returns undefined and the caller
+ * falls back to one minute. */
 function findDurationField(app: GenieApp): AppField | undefined {
   return findField(
     app,
-    (f) => f.kind === "media-picker" && (f.media === "video" || f.media === "audio"),
+    (f) =>
+      (f.kind === "media-picker" && (f.media === "video" || f.media === "audio")) ||
+      f.kind === "source-ad-picker",
   );
+}
+
+/** Seconds off whichever duration-bearing field kind was found. */
+function durationSecOf(value: unknown): number | undefined {
+  const v = value as { durationSec?: number } | undefined;
+  return typeof v?.durationSec === "number" ? v.durationSec : undefined;
 }
 
 /**
@@ -145,8 +166,10 @@ export function previewCost(app: GenieApp, values: AppFieldValues): AppCostPrevi
       const langCount = 1;
 
       const durField = findDurationField(app);
-      const media = durField ? asMediaValue(values[durField.id]) : undefined;
-      const minutes = Math.max(media?.durationSec ? minutesFromSeconds(media.durationSec) : 1, 1);
+      // Reads `durationSec` off EITHER duration-bearing kind (media-picker or
+      // source-ad-picker) rather than casting to one of them.
+      const durSec = durField ? durationSecOf(values[durField.id]) : undefined;
+      const minutes = Math.max(durSec ? minutesFromSeconds(durSec) : 1, 1);
 
       lines.push({ label: pluralise(langCount, "language"), factor: langCount, op: "multiply" });
       lines.push({
@@ -171,8 +194,10 @@ export function previewCost(app: GenieApp, values: AppFieldValues): AppCostPrevi
     }
     case "minute": {
       const durField = findDurationField(app);
-      const media = durField ? asMediaValue(values[durField.id]) : undefined;
-      const minutes = Math.max(media?.durationSec ? minutesFromSeconds(media.durationSec) : 1, 1);
+      // Reads `durationSec` off EITHER duration-bearing kind (media-picker or
+      // source-ad-picker) rather than casting to one of them.
+      const durSec = durField ? durationSecOf(values[durField.id]) : undefined;
+      const minutes = Math.max(durSec ? minutesFromSeconds(durSec) : 1, 1);
       lines.push({
         label: pluralise(minutes, "min"),
         factor: minutes,

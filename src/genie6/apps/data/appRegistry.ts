@@ -392,6 +392,21 @@ export const GENIE_APPS: GenieApp[] = [
             accept: [".mp4", ".mov"],
             required: true,
           },
+          {
+            /* "Whole video" (owner, 2026-09-13 — the note item that reads
+               "Whole video → add in other apps", clarified as an Upscale
+               Video option rather than a whole-AD concept). Declared on the
+               dormant flow so it ships the moment this app's `state` flips
+               back to "live"; nothing renders it while it is coming-soon. */
+            kind: "segmented",
+            id: "scope",
+            label: "What to upscale",
+            options: [
+              { value: "whole", label: "Whole video" },
+              { value: "segment", label: "A segment" },
+            ],
+            required: true,
+          },
         ],
       },
       {
@@ -439,41 +454,56 @@ export const GENIE_APPS: GenieApp[] = [
     ],
   },
   {
+    /* PRODUCT SWAP (owner, 2026-09-13, handwritten spec). This shipped as
+     * "Product Placement" — pick a product, pick an avatar, composite a NEW
+     * scene around them. The owner reframed it: you start from an ad that
+     * already exists (one of your own Product Ad / Performance Ad
+     * generations, or an upload) and swap a different product INTO it.
+     *
+     * `key` deliberately stays `product-placement`. It is the join key for
+     * `runPlan.ts`, `genieRunStore`, `originLabels.ts` and every seeded
+     * Library row; renaming it would orphan existing history to rename a
+     * label. Only the display `name` changed.
+     *
+     * The avatar field is GONE, not hidden: casting an avatar made sense
+     * when this generated a scene from nothing. Swapping a product into
+     * footage that already has its own cast and lighting has nobody to cast.
+     */
     key: "product-placement",
-    name: "Product Placement",
-    tagline: "Place any product into a live-action scene.",
+    name: "Product Swap",
+    tagline: "Swap a different product into an ad you already have.",
     subtitle:
-      "Pull a product from Catalogue or upload a cutout, pick the avatar it appears with, and Genie composites the scene.",
+      "Start from one of your own ads — or upload one — then choose the product that takes its place. Genie re-composites the scene around it.",
     category: "create",
     icon: "Package",
     state: "live",
     cost: { rate: 16, unitLabel: "16 credits / scene", unit: "scene" },
     sections: [
       {
-        title: "Source",
+        title: "Source ad",
         fields: [
           {
-            kind: "media-picker",
-            id: "product",
-            label: "Product",
-            hint: "From Catalogue or upload. PNG with transparency, JPG.",
-            media: "product",
-            sources: ["catalogue", "upload"],
-            accept: [".png", ".jpg"],
+            kind: "source-ad-picker",
+            id: "sourceAd",
+            label: "Ad to swap into",
+            hint: "A Product Ad or Performance Ad you already generated, something saved from another module, or an upload.",
+            sources: ["genie", "library", "report", "industry-insights", "upload"],
+            accept: [".mp4", ".mov", ".png", ".jpg"],
             required: true,
           },
         ],
       },
       {
-        title: "Cast",
+        title: "Swap in",
         fields: [
           {
-            kind: "avatar-picker",
-            id: "avatarVoice",
-            label: "Avatar",
-            hint: "The avatar the product appears with in-scene.",
-            withVoice: true,
-            withTone: false,
+            kind: "media-picker",
+            id: "product",
+            label: "Product",
+            hint: "The product that replaces the one in the source ad. From Catalogue or upload — PNG with transparency, JPG.",
+            media: "product",
+            sources: ["catalogue", "upload"],
+            accept: [".png", ".jpg"],
             required: true,
           },
         ],
@@ -497,20 +527,20 @@ export const GENIE_APPS: GenieApp[] = [
       },
     ],
     zeroState: {
-      title: "Place a product inside a live-action scene",
-      line: "Drop your product into a scene with an avatar — no reshoot or physical sample needed.",
+      title: "Swap a product into an ad that already works",
+      line: "Keep the scene, the framing and the performance — change only the product in it.",
       steps: [
-        "Pick a product from Catalogue or upload one",
-        "Choose the avatar the product appears with",
-        "Generate — Genie composites the product into the scene",
+        "Pick the ad to swap into, or upload one",
+        "Choose the product that replaces the one in it",
+        "Generate — Genie re-composites the scene around the new product",
       ],
     },
     stages: [
-      "Segmenting product",
+      "Reading the source ad",
+      "Segmenting the original product",
       "Matching scene lighting",
-      "Compositing placement",
+      "Compositing the swap",
       "Rendering scene",
-      "Finishing pass",
     ],
   },
   {
@@ -518,49 +548,71 @@ export const GENIE_APPS: GenieApp[] = [
     name: "Face Swap",
     tagline: "Swap an avatar's face onto any video.",
     subtitle:
-      "Pick the avatar and the target footage — Genie maps and blends the new face in, frame by frame.",
+      "Start from an ad you already have, pick the avatar that replaces the face in it, and choose the voice and language it speaks.",
     category: "enhance",
     icon: "ScanFace",
     state: "live",
     cost: { rate: 13, unitLabel: "13 credits / minute", unit: "minute" },
+    /* Mirrors Product Swap (owner, 2026-09-13): "same flow, but instead of
+     * Product / Product+Category we will give Avatars + voice + language."
+     * So the source stays a whole ad picked through the same
+     * `source-ad-picker`, and what you choose to put INTO it is a
+     * performance rather than a product.
+     *
+     * `withVoice`/`withTone` flip to true: this app used to swap a face and
+     * nothing else, so a voice would have been a control that changed
+     * nothing. Now that the owner has asked for voice AND language, the
+     * output is a re-performed ad, and `AvatarVoicePicker` already decides
+     * avatar + voice + tone together (§13 — they are one decision). */
     sections: [
+      {
+        title: "Source ad",
+        fields: [
+          {
+            kind: "source-ad-picker",
+            id: "sourceAd",
+            label: "Ad to swap into",
+            hint: "A Product Ad or Performance Ad you already generated, something saved from another module, or an upload.",
+            sources: ["genie", "library", "report", "industry-insights", "upload"],
+            accept: [".mp4", ".mov"],
+            required: true,
+          },
+        ],
+      },
       {
         title: "Cast",
         fields: [
           {
             kind: "avatar-picker",
             id: "face",
-            label: "Face",
-            hint: "The avatar whose face replaces the one in the target video.",
-            withVoice: false,
-            withTone: false,
+            label: "Avatar",
+            hint: "The avatar whose face — and voice — replaces the one in the source ad.",
+            withVoice: true,
+            withTone: true,
             required: true,
           },
-        ],
-      },
-      {
-        title: "Source",
-        fields: [
           {
-            kind: "media-picker",
-            id: "targetVideo",
-            label: "Target video",
-            hint: "The video the face gets swapped into — Library, past Genie generations, Reports, Industry Insights, a Folder, or upload.",
-            media: "video",
-            sources: ["library", "upload", "genie", "report", "industry-insights", "folder"],
-            accept: [".mp4", ".mov"],
+            /* Single-select, not multi: the owner ruled on 2026-09-09 that a
+               language pick REPLACES rather than accumulates, and
+               `LanguageSelectField` is built to that ruling. One swap, one
+               language — dubbing into several at once is Translate Videos'
+               job, not this app's. */
+            kind: "language-select",
+            id: "language",
+            label: "Language",
+            hint: "The language the swapped performance speaks.",
             required: true,
           },
         ],
       },
     ],
     zeroState: {
-      title: "Swap a face into any video",
-      line: "Apply an avatar's face onto footage you already have, frame by frame.",
+      title: "Swap a face into an ad you already have",
+      line: "Keep the ad, change who fronts it — new face, new voice, new language.",
       steps: [
-        "Choose the avatar whose face you want to use",
-        "Pick a target video from your Library or upload one",
-        "Generate — Genie swaps the face in, minute by minute",
+        "Pick the ad to swap into, or upload one",
+        "Choose the avatar, voice and tone that replace the original",
+        "Pick the language, then generate — Genie re-performs it minute by minute",
       ],
     },
     stages: [
@@ -912,6 +964,12 @@ export const GENIE_APPS: GenieApp[] = [
   // Generate Variations stops producing assets; these become single-page
   // flows under Other Apps. Placeholder entries for product visibility
   // until the flows are built.
+  // Independently confirmed by the owner on 2026-09-13 ("add in other apps",
+  // "add them as coming soon") — worth recording because these three are the
+  // capability that came OFF Studio home on 2026-09-09 ("Remove:
+  // script/concept/storyboard generation for now"), which had left it with
+  // no surface anywhere. Other Apps is the right shelf: they each produce an
+  // asset, not a finished ad.
   {
     key: "generate-script",
     name: "Generate Script",

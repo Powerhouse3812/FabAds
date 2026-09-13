@@ -22,7 +22,7 @@ import { avatars } from "@/mocks/shared/avatars";
 import { brands } from "@/mocks/shared/brands";
 import { categories } from "@/mocks/shared/categories";
 import { concepts } from "@/mocks/shared/concepts";
-import { products } from "@/mocks/shared/products";
+import { getProduct, products } from "@/mocks/shared/products";
 import { scripts } from "@/mocks/shared/scripts";
 import { voices } from "@/mocks/shared/voices";
 import { LANGUAGES, languageLabel, searchLanguages } from "../../lib/languages";
@@ -60,6 +60,7 @@ import {
   type TimelineScript,
 } from "../data/timelineScript";
 import { EntityControl } from "./EntityControl";
+import { ProductPickerPanel, ProductSheet } from "./ProductSheet";
 import { ScriptTimelineModal } from "./ScriptTimelineModal";
 import type {
   AdAnalysis,
@@ -154,6 +155,7 @@ type CardRail =
   | "brand-winner-ads"
   | "product-winner-ads"
   | "entity"
+  | "product"
   | "aspect-ratio"
   | "language";
 
@@ -198,6 +200,7 @@ const RAIL_TITLE: Record<Exclude<CardRail, null>, string> = {
   "brand-winner-ads": "Brand winner ads",
   "product-winner-ads": "Product winner ads",
   entity: "Who this ad is for",
+  product: "Attach a product",
   "aspect-ratio": "Aspect ratio",
   language: "Language",
 };
@@ -636,6 +639,30 @@ export function VariationCard({
     [state.brandId, state.productId, state.categoryId],
   );
 
+  /**
+   * The ProductSheet's own picker. Same clearing pair `EntityControl.
+   * selectProduct` already established (re-expressed, not re-derived, per
+   * that file's own header comment): a product clears brand and takes on the
+   * product's own category, so the pair stays coherent; removing clears all
+   * three, matching `selectProduct(null)`.
+   */
+  const applyProductPick = useCallback(
+    (id: string | null) => {
+      if (!id) {
+        patch({ brandId: null, productId: null, productIds: [], categoryId: null });
+        return;
+      }
+      const product = getProduct(id);
+      patch({
+        brandId: null,
+        productId: id,
+        productIds: [id],
+        categoryId: product?.categoryId ?? null,
+      });
+    },
+    [patch],
+  );
+
   const openForElement = useCallback(
     (element: AnyElementId) => {
       setExpanded(true);
@@ -846,6 +873,17 @@ export function VariationCard({
               </span>
             ))}
           </div>
+
+          {/* Product sheet — ALWAYS visible, collapsed or not (Maalik,
+              2026-09-14: "Variation by default"). Brand name, product image
+              and product name once attached; a resting-state CTA when not —
+              never gated behind "Edit details" or a not-found banner. */}
+          <ProductSheet
+            productId={state.productId}
+            onOpen={() => setRailMode("product")}
+            onRemove={() => applyProductPick(null)}
+            className="mt-2"
+          />
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -1024,6 +1062,22 @@ export function VariationCard({
                   detectedIsCompetitor={analysis.source.competitorOwned}
                 />
               </RailShell>
+            )}
+            {/* ProductSheet's own picker — product-only, standard-toned (see
+                ProductSheet.tsx). Not `RailShell`/`EntityControl`: those are
+                g6-toned and Brand-OR-Category+Product general; this is the
+                narrower product-only affordance the owner asked for. It
+                brings its own header + close, so it is mounted bare, same as
+                every other panel here. */}
+            {railMode === "product" && (
+              <ProductPickerPanel
+                value={state.productId}
+                onPick={(id) => {
+                  applyProductPick(id);
+                  setRailMode(null);
+                }}
+                onClose={closeRail}
+              />
             )}
             {railMode === "aspect-ratio" && (
               <RailShell title={RAIL_TITLE["aspect-ratio"]} onClose={closeRail}>
