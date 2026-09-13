@@ -53,8 +53,18 @@
  *  - Second inputs always come from a picker, never a second upload box.
  *    Product Placement's product is a `media-picker` with
  *    `sources: ["catalogue", "upload"]`; Face Swap's face is an
- *    `avatar-picker` (not upload) and its target video is a `media-picker`
- *    with `sources: ["library", "upload"]`.
+ *    `avatar-picker` (not upload) and its target video is a `media-picker`.
+ *  - Owner ruling 2026-09-09: every VIDEO or IMAGE `media-picker` offers the
+ *    full source set — `library, upload, genie, report, industry-insights,
+ *    folder` — because `appPickerData.ts` can honestly supply content from
+ *    all six for those two media kinds. A `document` or `audio` field only
+ *    adds `folder` alongside `library`/`upload`: `genieItemsFor` /
+ *    `reportItemsFor` / `insightsItemsFor` all correctly return `[]` for
+ *    those kinds (Genie makes no audio/documents; Reports and Insights track
+ *    only image/video ad creative), so offering those tabs would show
+ *    nothing — an empty tab that can NEVER hold anything is worse than not
+ *    offering it. `catalogue`-sourced fields (Product Placement's product)
+ *    are a different pool entirely and are exempt from this ruling.
  *  - §13 avatar + voice are decided together: every `avatar-picker` here
  *    carries `withVoice: true` except Face Swap, which swaps a face only —
  *    `withVoice: false, withTone: false`. `withTone` is otherwise only true
@@ -83,8 +93,11 @@ export const GENIE_APPS: GenieApp[] = [
     key: "translate-videos",
     name: "Translate Videos",
     tagline: "Dub one video into 175 languages, voice cloned.",
+    // Singular "language" and no "per track": the field became single-select
+    // on 2026-09-09, and the subtitle sat directly above a field that only
+    // ever takes one — the plural read as a broken control, not as copy.
     subtitle:
-      "Upload a video or pull one from the Library, choose your target languages, and Genie handles transcription, translation and voice cloning per track.",
+      "Upload a video or pull one from your Library, Genie, Reports, Industry Insights or a Folder, choose the target language, and Genie handles transcription, translation and the voice.",
     category: "enhance",
     icon: "Languages",
     state: "live",
@@ -97,9 +110,9 @@ export const GENIE_APPS: GenieApp[] = [
             kind: "media-picker",
             id: "video",
             label: "Video",
-            hint: "Upload a video or choose one from your Library.",
+            hint: "Upload a video, or pull one from your Library, past Genie generations, Reports, Industry Insights or a Folder.",
             media: "video",
-            sources: ["library", "upload"],
+            sources: ["library", "upload", "genie", "report", "industry-insights", "folder"],
             accept: [".mp4", ".mov"],
             required: true,
           },
@@ -109,10 +122,40 @@ export const GENIE_APPS: GenieApp[] = [
         title: "Output",
         fields: [
           {
-            kind: "language-multiselect",
-            id: "languages",
-            label: "Target languages",
-            hint: "175 languages available — voice cloned per language.",
+            kind: "language-select",
+            id: "language",
+            label: "Target language",
+            hint: "175 languages available.",
+            required: true,
+          },
+          {
+            // Owner ruling 2026-09-09 — the app's own subtitle promised
+            // "voice cloning per track" but nothing on the page ever asked
+            // about voice; this field is that missing question. Required, no
+            // default: cloning a real person's voice is consequential enough
+            // that it should be a decision, not a silent default.
+            kind: "segmented",
+            id: "voiceMode",
+            label: "Voice",
+            hint: "How the translated audio track is produced.",
+            options: [
+              {
+                value: "clone",
+                label: "Clone original voice",
+                desc: "Reproduces the source speaker's own voice in each language.",
+              },
+              {
+                value: "stock",
+                label: "Stock voice",
+                desc: "A voice from your Voices library, not the original speaker.",
+              },
+              {
+                value: "subtitles",
+                label: "Subtitles only",
+                desc: "No dubbing — captions burned into the video, plus loose .srt and transcript.",
+                zerosCost: true,
+              },
+            ],
             required: true,
           },
         ],
@@ -120,17 +163,21 @@ export const GENIE_APPS: GenieApp[] = [
     ],
     zeroState: {
       title: "Translate any video into new languages",
-      line: "One upload becomes a translated, voice-cloned version for every language you pick.",
+      line: "One upload becomes a translated, voice-cloned version — or a captioned one — for the language you pick.",
       steps: [
-        "Pick a video from your Library or upload one",
-        "Select the languages you want it translated into",
-        "Generate — each language renders as its own tracked output",
+        "Pick a video from Library, Genie, Reports, Industry Insights or a Folder, or upload one",
+        "Choose the target language",
+        "Pick clone, stock voice, or subtitles only — then generate",
       ],
     },
+    // "Translating N languages" used to hardcode N=4 regardless of what was
+    // actually picked — a lie the moment single-select shipped (2026-09-09).
+    // The language is always exactly one now, so the stage names it directly
+    // instead of counting it.
     stages: [
       "Extracting audio",
       "Transcribing",
-      "Translating 4 languages",
+      "Translating",
       "Cloning voice",
       "Rendering tracks",
       "Muxing video",
@@ -248,9 +295,12 @@ export const GENIE_APPS: GenieApp[] = [
             kind: "media-picker",
             id: "document",
             label: "Document",
-            hint: "Upload a deck or pick one from your Library. PPTX, PPT, PDF.",
+            hint: "Upload a deck or pick one from your Library or a Folder. PPTX, PPT, PDF.",
             media: "document",
-            sources: ["library", "upload"],
+            // No genie/report/industry-insights here — none of those pools
+            // has ever produced a document (appPickerData.ts's own comments
+            // confirm it), so offering the tab would only ever show empty.
+            sources: ["library", "upload", "folder"],
             accept: [".pptx", ".ppt", ".pdf"],
             required: true,
           },
@@ -260,7 +310,7 @@ export const GENIE_APPS: GenieApp[] = [
             label: "Additional images",
             hint: "Optional — extra product or brand shots to slot between slides.",
             media: "image",
-            sources: ["library", "upload"],
+            sources: ["library", "upload", "genie", "report", "industry-insights", "folder"],
             accept: [".jpg", ".png"],
             required: false,
           },
@@ -336,9 +386,9 @@ export const GENIE_APPS: GenieApp[] = [
             kind: "media-picker",
             id: "video",
             label: "Video",
-            hint: "Upload a video or choose one from your Library.",
+            hint: "Upload a video, or pull one from your Library, past Genie generations, Reports, Industry Insights or a Folder.",
             media: "video",
-            sources: ["library", "upload"],
+            sources: ["library", "upload", "genie", "report", "industry-insights", "folder"],
             accept: [".mp4", ".mov"],
             required: true,
           },
@@ -495,9 +545,9 @@ export const GENIE_APPS: GenieApp[] = [
             kind: "media-picker",
             id: "targetVideo",
             label: "Target video",
-            hint: "The video the face gets swapped into.",
+            hint: "The video the face gets swapped into — Library, past Genie generations, Reports, Industry Insights, a Folder, or upload.",
             media: "video",
-            sources: ["library", "upload"],
+            sources: ["library", "upload", "genie", "report", "industry-insights", "folder"],
             accept: [".mp4", ".mov"],
             required: true,
           },
@@ -543,9 +593,12 @@ export const GENIE_APPS: GenieApp[] = [
             kind: "media-picker",
             id: "audio",
             label: "Audio",
-            hint: "Upload audio or choose one from your Library. WAV, MP3, M4A.",
+            hint: "Upload audio, choose one from your Library, or a Folder. WAV, MP3, M4A.",
             media: "audio",
-            sources: ["library", "upload"],
+            // No genie/report/industry-insights — none of those pools ever
+            // carries a standalone audio item (appPickerData.ts confirms it),
+            // so the tab would only ever be empty.
+            sources: ["library", "upload", "folder"],
             accept: [".wav", ".mp3", ".m4a"],
             required: true,
           },
@@ -606,9 +659,9 @@ export const GENIE_APPS: GenieApp[] = [
             kind: "media-picker",
             id: "image",
             label: "Image",
-            hint: "Upload an image or choose one from your Library.",
+            hint: "Upload an image, or pull one from your Library, past Genie generations, Reports, Industry Insights or a Folder.",
             media: "image",
-            sources: ["library", "upload"],
+            sources: ["library", "upload", "genie", "report", "industry-insights", "folder"],
             accept: [".jpg", ".jpeg", ".png", ".webp"],
             required: true,
           },
