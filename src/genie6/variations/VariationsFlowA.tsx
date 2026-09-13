@@ -147,19 +147,23 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
             <h1 className="text-[20px] font-semibold leading-7 text-g6-text">
               Generate Variations
             </h1>
+            {/* "Every run produces whole ads." removed (2026-09-13 UI pass):
+                the Stage-1 hint and the dropzone headline below both said it
+                too, so the same promise landed three times before the user
+                could act. */}
             <p className="mt-0.5 max-w-[70ch] text-[12px] leading-5 text-g6-text-secondary">
               Start from an ad — or a script, concept or storyboard — that already works. Genie
-              reads it, then gives you one editable card per variation. Every run produces whole
-              ads.
+              reads it, then gives you one editable card per variation.
             </p>
           </div>
         </header>
 
-        <Stage
-          n={1}
-          title="What you're varying"
-          hint="One ad, or one asset. Whatever you pick, the output is a whole ad."
-        >
+        {/* No `hint` (2026-09-13 UI pass). It read "One ad, or one asset.
+            Whatever you pick, the output is a whole ad." — which is the page
+            subtitle above and the dropzone headline below, restated a third
+            time in the ~30px between them. The dropzone's own headline is the
+            one worth keeping: it sits where the decision is made. */}
+        <Stage n={1} title="What you're varying">
           {/* The dropzone card is the whole of Stage 1 and is always mounted —
               it is the screen's first impression with nothing picked, and it
               stays put once something is, so changing the source never means
@@ -180,7 +184,11 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
           <Stage
             n={2}
             title="How many variations?"
-            hint={`Between ${COUNT_MIN} and ${COUNT_MAX}. Cards appear below as you change this.`}
+            /* "Cards appear below as you change this." dropped (2026-09-13 UI
+               pass) — the live caption beside the stepper already says "N
+               cards below, one per variation", and says it with the real
+               number instead of describing the behaviour in the abstract. */
+            hint={`Between ${COUNT_MIN} and ${COUNT_MAX}.`}
           >
             <div className="flex items-center gap-3">
               <CountStepper
@@ -230,20 +238,25 @@ export function VariationsFlowA({ flow }: VariationsFlowAProps) {
         </p>
         {picked && analysis ? (
           <>
-            <p className="mt-2 text-[14px] font-semibold leading-[22px] text-g6-primary-active">
-              {flow.outputCount} {plural("variation", flow.outputCount)}
+            {/* The SOURCE leads, not the count (2026-09-13 UI pass). This
+                used to read "4 variations" in the heading slot with the
+                source demoted to grey subtext — but the breakdown directly
+                below already opens with a "4 variations" line, so the count
+                was stated twice ~40px apart while the one thing the panel is
+                actually about was the quietest text in it. Swapping them
+                removes the duplicate and puts the subject first. */}
+            <p className="mt-2 line-clamp-2 text-[14px] font-semibold leading-[22px] text-g6-text">
+              {analysis.source.title}
             </p>
             {/* A card can ask for more than one output of its configuration,
                 so cards and outputs diverge — say both rather than letting the
                 total look wrong against the number of cards on screen. */}
             {flow.outputCount !== state.count ? (
               <p className="mt-0.5 text-[11px] leading-4 text-g6-text-tertiary">
-                from {state.count} {plural("card", state.count)}
+                {flow.outputCount} {plural("variation", flow.outputCount)} from {state.count}{" "}
+                {plural("card", state.count)}
               </p>
             ) : null}
-            <p className="mt-0.5 text-[12px] leading-5 text-g6-text-secondary">
-              of {analysis.source.title}
-            </p>
             <div className="mt-4 space-y-1 border-t border-g6-border-secondary pt-3">
               {credits.lines.map((line) => (
                 <div key={line.label} className="flex items-baseline justify-between gap-2">

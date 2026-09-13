@@ -530,14 +530,16 @@ export function SourcePicker({
           Clear brings the dropzone back. A full dashed panel offering
           "vary something else instead" was too much room for a
           secondary action. */}
-      {/* Label + dashed drop area, 4px apart. The area itself is a real drop
-          target — the support line promises a drop, so it must work, for a
-          media file (an ad) and a text file (an asset) alike. */}
+      {/* The dashed drop area. It is a real drop target — the support line
+          promises a drop, so it must work, for a media file (an ad) and a
+          text file (an asset) alike.
+          The "What to vary" label that used to sit above it is GONE
+          (2026-09-13 UI pass): Stage 1's own heading — "What you're varying"
+          — sits ~30px directly above, so it was two headings of the same
+          words, stacked. The dashed area is unmistakably the thing you act
+          on; it did not need naming twice. */}
       {!picked && (
-        <div className="flex w-full flex-col gap-1">
-          <p className="font-g6-sans text-[13px] leading-5 text-g6-text">
-            What to vary
-          </p>
+        <div className="flex w-full flex-col">
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -573,7 +575,13 @@ export function SourcePicker({
             <p className="text-center font-g6-sans text-[13px] leading-5 text-g6-text">
               Vary one whole ad — or one script, concept or storyboard
             </p>
-            <p className="max-w-md text-center font-g6-sans text-[11px] uppercase leading-[18px] tracking-[-0.08px] text-g6-text-tertiary">
+            {/* NOT `uppercase` (2026-09-13 UI audit). This is a two-line
+                SENTENCE, and setting a sentence in caps strips the word-shape
+                cues readers actually use, measurably slowing it down — caps
+                is for short labels (the chip-row headers below), not prose.
+                It also read as shouting on the emptiest, most-seen state of
+                this screen. */}
+            <p className="max-w-md text-center font-g6-sans text-[11px] leading-[18px] tracking-[-0.08px] text-g6-text-tertiary">
               Open a source below, or drop a file here — an image or video becomes your own ad, a
               .txt or .md becomes a script or concept.
             </p>

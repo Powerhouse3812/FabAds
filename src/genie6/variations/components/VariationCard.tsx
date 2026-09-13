@@ -711,7 +711,12 @@ export function VariationCard({
 
   const chips = useMemo(() => {
     const out: string[] = [];
-    if (state.format) out.push(state.format === "video" ? "Video" : "Image");
+    /* NO format chip (2026-09-13 UI pass). Image/Video is already an ACTIVE
+       TOGGLE in the control row ~14px directly above this line, so the chip
+       restated the selected value immediately under the control that sets
+       it. The toggle wins: it says the same thing and can be acted on. Every
+       other chip here reports something with no visible control on the
+       collapsed row, which is what earns a chip a place. */
     if (angleText) out.push(angleText);
     if (state.selectedConceptIds.length > 0) {
       out.push(
