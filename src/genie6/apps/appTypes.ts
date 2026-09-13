@@ -35,7 +35,13 @@
 import type { CreditLine } from "../lib/credits";
 
 export type AppKey =
-  // Live
+  /* These seven were the original live set. Only four are live TODAY —
+     translate-videos, product-placement (displayed as "Product Swap"),
+     face-swap and change-metadata — after the owner's 2026-09-10 scope
+     cut; the other three keep their flows declared but dormant. This union
+     is about which keys EXIST, not which ship, so the grouping comments
+     here are history, not current state. `appRegistry.ts` is the only
+     honest answer to "what is live", via each entry's `state`. */
   | "translate-videos"
   | "avatar-shots"
   | "ppt-pdf-to-video"
@@ -136,6 +142,41 @@ export type AppField =
       /** Ordered tabs inside the picker. "upload" renders the drop zone. */
       sources: PickerSource[];
       /** Accepted extensions, shown verbatim in the drop zone copy. */
+      accept?: string[];
+      required: boolean;
+    }
+  | {
+      /**
+       * A whole existing AD as the starting point — not raw media. Product
+       * Swap and Face Swap don't take a bare file: they take a PREVIOUS
+       * generation (or an upload standing in for one) and swap ONE element
+       * of it, so the field's value is a full ad — brand/product/category,
+       * a rich "Genie ad card" preview, play/pause on video, and an
+       * analysed-status readout — never a filename.
+       *
+       * Renders the same picker grammar `media-picker` uses (tabs ordered by
+       * `sources`, upload first-class among them), but every non-upload tab
+       * lists ADS the user or Genie already made, not files, and the
+       * selected state is `variations/components/AdgroupCard.tsx` — the
+       * same card Genie outputs / Creative Library / Industry Insights /
+       * Reports already share — not a filename row.
+       */
+      kind: "source-ad-picker";
+      id: string;
+      label: string;
+      hint?: string;
+      /**
+       * Ordered tabs. Meaningful values here: "genie" (past Product Ad /
+       * Performance Ad generations — Studio's own approaches), "library"
+       * (brought-in media, no catalogue provenance), "report", and
+       * "industry-insights" (competitor ads — always flagged as such on the
+       * card, never treated as the user's own brand). "upload" is the
+       * always-available escape hatch. "catalogue" / "avatars" / "voices" /
+       * "folder" render the same "Not an ad source" fallback `MediaPickerField`
+       * uses for its own out-of-scope tabs — none of them is a whole ad.
+       */
+      sources: PickerSource[];
+      /** Accepted upload extensions (image/video), shown in the drop-zone copy. */
       accept?: string[];
       required: boolean;
     }

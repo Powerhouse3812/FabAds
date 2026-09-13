@@ -62,6 +62,17 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
   const aspectField = firstFieldOfKind(app, "aspect-ratio");
 
   const mediaValue = mediaField ? (values[mediaField.id] as MediaPickerValue | undefined) : undefined;
+  /* An app whose source is a whole AD has no `media-picker` at all (Face Swap
+     since 2026-09-13), so `mediaTitle(undefined)` was returning its literal
+     "your file" fallback and every such batch landed in Library titled
+     "your file". The ad's own name is the honest title. */
+  const sourceAdField = firstFieldOfKind(app, "source-ad-picker");
+  const sourceAdValue = sourceAdField
+    ? (values[sourceAdField.id] as
+        | { card?: { name?: string | null }; fileName?: string; originLabel?: string }
+        | undefined)
+    : undefined;
+  const sourceAdTitle = sourceAdValue?.card?.name ?? sourceAdValue?.fileName;
   const avatarValue = avatarField ? (values[avatarField.id] as AvatarPickerValue | undefined) : undefined;
   const aspectRatio = aspectField ? (values[aspectField.id] as string | undefined) : undefined;
 
@@ -111,16 +122,23 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
       summary = "Upscaled to a higher resolution and frame rate.";
       break;
     }
+    // Displayed as "Product Swap" since 2026-09-13 (key unchanged — it is the
+    // join key for every seeded Library row). It no longer casts an avatar
+    // and no longer generates a scene from nothing: it swaps a product into
+    // an ad that already exists, so the old "composited into a generated
+    // scene with your avatar" summary described a flow that is gone.
     case "product-placement": {
       productName = mediaValue?.product?.name;
-      title = productName ?? "Product scene";
-      summary = "Product composited into a generated scene with your avatar.";
+      title = productName ?? "Product swap";
+      summary = "Product swapped into an existing ad, scene re-composited around it.";
       break;
     }
+    // Since 2026-09-13 this swaps a face AND re-performs the ad — the owner
+    // added voice and language, so the output is no longer just a face
+    // replacement and the summary shouldn't claim it is.
     case "face-swap": {
-      const videoTitle = mediaTitle(mediaValue);
-      title = videoTitle;
-      summary = "Face swapped onto the target video.";
+      title = sourceAdTitle ?? mediaTitle(mediaValue);
+      summary = "Face swapped into an existing ad, re-performed with the chosen voice.";
       break;
     }
     case "speech-cleanup": {
