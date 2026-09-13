@@ -197,10 +197,20 @@ export function buildRunPlan(app: GenieApp, values: AppFieldValues, preview: App
 
 /** Caption line under the language field — selection state + cost
  *  implication (§8: "the cost implication (6 credits per language per
- *  minute is the whole reason this field is expensive)"). Single-select: the
- *  field holds 0 or 1 languages, never a count, so this reports which. */
+ *  minute is the whole reason this field is expensive)").
+ *
+ *  COPY FIX (2026-09-13 UI audit): this read "0 of 175 languages selected" /
+ *  "1 of 175 languages selected". "X of N selected" is the multi-select
+ *  idiom — it tells the user they can accumulate, on a field that is
+ *  deliberately single-select (owner ruling 2026-09-09) and SILENTLY
+ *  REPLACES the previous pick. So the caption invited exactly the action
+ *  that loses the user's work without saying so. It now states the real
+ *  state, and once one is picked it names the replace rule at the only
+ *  moment the user needs it. */
 export function languageCostNote(ratePerLanguageMinute: number | undefined, hasLanguage: boolean): string {
-  const status = hasLanguage ? "1 of 175 languages selected" : "0 of 175 languages selected";
+  const status = hasLanguage
+    ? "1 language selected — picking another replaces it"
+    : "No language selected yet";
   if (!ratePerLanguageMinute) return status;
   return `${status} · ${ratePerLanguageMinute} credits / language / minute`;
 }

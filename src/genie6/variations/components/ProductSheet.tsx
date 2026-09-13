@@ -115,7 +115,13 @@ export function ProductSheet({ productId, onOpen, onRemove, className }: Product
             Attach a product
           </span>
           <span className="block truncate text-[11px] leading-4 text-muted-foreground">
-            Brand, image and name show here — this variation stays product-tied.
+            {/* Says "brand and name", NOT "brand, image and name" (2026-09-13
+                UI audit): not one product in `ALL_PRODUCTS` carries a
+                `thumbnail` — it is an optional field nothing populates — so
+                the attached row always falls back to the brand logo. The old
+                copy promised an image that literally cannot render, which
+                reads as a broken image rather than a design choice. */}
+            Brand and name show here — this variation stays product-tied.
           </span>
         </span>
       </button>
