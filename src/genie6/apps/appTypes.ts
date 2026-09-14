@@ -50,6 +50,7 @@ export type AppKey =
   | "face-swap"
   | "speech-cleanup"
   // Coming soon
+  | "campaign-url-to-ad"
   | "ai-studio"
   | "ai-video-generator"
   | "ai-clipping"
@@ -309,6 +310,20 @@ export interface GenieApp {
   state: "live" | "coming-soon";
   /** "New" etc. Only Speech Cleanup carries one today. */
   badge?: string;
+  /**
+   * Show this coming-soon app OUT on Studio home's Other Apps panel as a
+   * real row (in its Soon skin), instead of only inside the full-roster
+   * modal behind the "All apps" button.
+   *
+   * Exists because array position is meaningless here: the demoted apps
+   * (Avatar Shots, Upscale Video…) still sit in the old "live" block near the
+   * top of the registry, so "the first few coming-soon entries" is an
+   * accident of file layout, not a decision. The owner asked for Campaign URL to Ad and
+   * Generate Script to be the two out here — this makes that an explicit
+   * product call someone can find and change, rather than something you would
+   * have to reorder the file to affect.
+   */
+  featured?: boolean;
   cost?: AppCost;
   sections?: AppSection[];
   /** Zero state: title, one line, three numbered steps (§8 anatomy). */

@@ -478,6 +478,17 @@ export const GENIE_APPS: GenieApp[] = [
     icon: "Package",
     state: "live",
     cost: { rate: 16, unitLabel: "16 credits / scene", unit: "scene" },
+    /* FLOW SCREEN OWNS THE UI (2026-09-14, owner: "product swap and faceswap,
+     * is also not using the same generate variation flow and UI. We decided
+     * that already"). `AppScreen.tsx` now intercepts this key to
+     * `ProductSwapScreen` instead of the generic `AppRunner`/`FieldRenderer`
+     * anatomy — `sections` below is NOT rendered field-by-field any more.
+     * Left declared on purpose: it stays the source of truth for cost
+     * (`appCost.ts` reads these `id`s and this `cost` block unchanged),
+     * required-ness, and copy — `ProductSwapScreen`/`useSwapFlow` read the
+     * "Scenes" stepper's own `min`/`max` off this array rather than
+     * hardcoding a range. Don't delete it, and don't let it drift from what
+     * the new screen actually asks for. */
     sections: [
       {
         title: "Source ad",
@@ -563,7 +574,13 @@ export const GENIE_APPS: GenieApp[] = [
      * nothing else, so a voice would have been a control that changed
      * nothing. Now that the owner has asked for voice AND language, the
      * output is a re-performed ad, and `AvatarVoicePicker` already decides
-     * avatar + voice + tone together (§13 — they are one decision). */
+     * avatar + voice + tone together (§13 — they are one decision).
+     *
+     * FLOW SCREEN OWNS THE UI (2026-09-14, same owner ruling as Product
+     * Swap's note above): `AppScreen.tsx` intercepts this key to
+     * `FaceSwapScreen`, so `sections` below is declared data (cost,
+     * required-ness, copy, the "Swaps" stepper's own min/max), not a form
+     * `FieldRenderer` walks any more. */
     sections: [
       {
         title: "Source ad",
@@ -601,6 +618,30 @@ export const GENIE_APPS: GenieApp[] = [
             id: "language",
             label: "Language",
             hint: "The language the swapped performance speaks.",
+            required: true,
+          },
+        ],
+      },
+      {
+        title: "Output",
+        fields: [
+          /* Added 2026-09-14 alongside `FaceSwapScreen` — mirrors Product
+           * Swap's own "Scenes" stepper so BOTH apps' Stage-2 "how many"
+           * derives its min/max from a real registered field instead of one
+           * hardcoded here and one not. `appCost.ts`'s "minute" unit never
+           * reads `values.count` (Face Swap bills per minute of the source
+           * ad, not per output), so this field carries no NEW cost math —
+           * the per-output multiplication happens by `useSwapFlow` summing
+           * `previewCost()` once per card, same as it does for Product
+           * Swap's uniform per-scene rate. */
+          {
+            kind: "stepper",
+            id: "count",
+            label: "Swaps",
+            hint: "Each swap is a full re-performance of the source ad — rendered, and billed, separately.",
+            min: 1,
+            max: 8,
+            unitNoun: ["swap", "swaps"],
             required: true,
           },
         ],
@@ -833,6 +874,32 @@ export const GENIE_APPS: GenieApp[] = [
 
   // ────────────────────────────────────────────────────────── Coming soon ──
   {
+    /* CAMPAIGN URL TO AD (owner, 2026-09-13: "replace upscale video with
+     * Campaign URL to Ad… but coming soon pe rakho isko").
+     *
+     * `featured: true` is what surfaces it on Studio home's Other Apps panel
+     * in place of Upscale Video, exactly as the owner asked — Upscale Video
+     * keeps its entry and stays reachable inside the full modal. Its position
+     * FIRST in the coming-soon block is now cosmetic only; home reads
+     * `featured`, not array order. (It used to be load-bearing, back when the
+     * "View more" button previewed the first three coming-soon names — that
+     * preview line was cut on 2026-09-13.)
+     *
+     * He's right that a flow already exists: `campaign-urls` is a live
+     * source module in `flows/data/flowRegistry.ts` that hands a campaign URL
+     * into Studio. This app is the one-shot version of that trip — URL in,
+     * finished ad out, no wizard. Card only for now. */
+    key: "campaign-url-to-ad",
+    name: "Campaign URL to Ad",
+    tagline: "Turn a campaign URL straight into a finished ad.",
+    subtitle:
+      "Paste a campaign URL and Genie reads the landing page — product, offer and tone — then builds an ad that matches what it's sending traffic to.",
+    category: "create",
+    icon: "Link2",
+    state: "coming-soon",
+    featured: true,
+  },
+  {
     key: "ai-studio",
     name: "AI Studio",
     tagline: "A full creative studio for AI-generated ad concepts.",
@@ -978,6 +1045,9 @@ export const GENIE_APPS: GenieApp[] = [
     category: "create",
     icon: "FileText",
     state: "coming-soon",
+    // Out on the Studio-home panel, not buried in the modal (owner,
+    // 2026-09-13). See `featured` in appTypes.ts.
+    featured: true,
   },
   {
     key: "generate-concept",

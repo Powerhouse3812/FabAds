@@ -51,6 +51,33 @@ interface StudioHomeProps {
 const LIVE_APPS = GENIE_APPS.filter((a) => a.state === "live");
 const SOON_APPS = GENIE_APPS.filter((a) => a.state === "coming-soon");
 
+/**
+ * Coming-soon apps the owner wants OUT on the panel itself rather than buried
+ * in the modal (2026-09-13: "generate script and campaign url to Ad ko bahar
+ * le aao, other app wali bahar ki list me"). They render as normal rows, in
+ * their Soon skin so nothing pretends to be runnable yet.
+ *
+ * Driven by the registry's `featured` flag, NOT array position: the demoted
+ * apps still sit in the old "live" block near the top of that file, so
+ * ordering would surface whatever happens to be there instead of what anyone
+ * chose. Adding a third is one word in `appRegistry.ts`.
+ */
+const FEATURED_SOON_APPS = SOON_APPS.filter((a) => a.featured);
+
+/** The panel's own list: live first, then the featured coming-soon ones. */
+const PANEL_APPS = [...LIVE_APPS, ...FEATURED_SOON_APPS];
+
+/**
+ * What the CTA below opens onto. `OtherAppsModal` is the FULL roster by
+ * design — it re-lists the panel's own rows under Live / Coming soon — so the
+ * badge counts the whole roster, and the dialog's two section counts add up
+ * to exactly this number. An earlier version counted only the coming-soon
+ * apps the panel hides (20): truthful about what's *additional*, but it put
+ * "20" on a button that opens a dialog headed 4 + 22, which is an arithmetic
+ * puzzle rather than a label. Count the thing the dialog actually shows.
+ */
+const ALL_APPS_COUNT = GENIE_APPS.length;
+
 /** Where every output Genie has ever produced lives (§8 — one Library, no
  *  per-surface history). Same literal the other ~15 call sites use; there is
  *  no exported route constant to import, and routes.tsx is not this file's
@@ -280,9 +307,10 @@ function TrendingCard({
  *      to the wizard's V1/V2 Overview toggle in PR #39 the same day.)
  *   2. "Replace placements of Trending of Other Apps" — the two swapped.
  *      Trending was a cramped dashed shelf beside the Ad panel and is now a
- *      full-width row of animated previews; Other Apps was the full 22-card
- *      roster along the bottom and is now a compact 4-app panel with the rest
- *      behind "View more". The swap IS the "more visibility to Trending" ask —
+ *      full-width row of animated previews; Other Apps was the full roster
+ *      along the bottom and is now a compact 6-row panel (4 live + 2 featured
+ *      coming-soon) with the rest behind "All apps". The swap IS the "more
+ *      visibility to Trending" ask —
  *      motion at full width beats a stack of muted rows in a side panel.
  *
  * THE THREE SECTIONS still hold (2026-09-09 IA, unchanged):
@@ -404,9 +432,10 @@ export function StudioHome({ onStart }: StudioHomeProps) {
             </div>
 
             {/* ── Other Apps (compact) ── owner's scope cut: the live roster
-                only, everything queued behind "View more". Both the grid and
-                the button's count read the registry, so neither can claim a
-                number the data doesn't have. */}
+                plus the two coming-soon apps he asked to be surfaced
+                (`featured` in appRegistry.ts), everything else behind "All
+                apps". Both the list and the button's count read the registry,
+                so neither can claim a number the data doesn't have. */}
             {/* Owner (2026-09-10): "Other apps ko waise hi show kro, jaise
                 phle trending ko show kr rhe the" — take the compact
                 stacked-row shelf the Trending panel used before the two
@@ -422,17 +451,60 @@ export function StudioHome({ onStart }: StudioHomeProps) {
               <SectionHeader
                 title="Other Apps"
                 icon={LayoutGrid}
-                count={LIVE_APPS.length}
+                /* Counts the ROWS below, not just the live ones. It read
+                   `LIVE_APPS.length` — fine while the panel held nothing but
+                   live apps, but once the two featured coming-soon rows came
+                   out here it said "4" above a list of six. A count beside a
+                   list is read as that list's length; the Soon badges already
+                   say which of them you can run today. */
+                count={PANEL_APPS.length}
                 size="compact"
               />
               <p className="mb-2 mt-0.5 text-[10px] italic text-muted-foreground/80">
                 one-shot tools — no wizard, no steps
               </p>
 
-              {LIVE_APPS.length > 0 ? (
+              {PANEL_APPS.length > 0 ? (
                 <ul className="space-y-1.5">
-                  {LIVE_APPS.map((app) => {
+                  {PANEL_APPS.map((app) => {
                     const Icon = resolveIcon(app.icon);
+                    const soon = app.state === "coming-soon";
+                    /* A coming-soon row is NOT a link. It carries the same
+                       Soon badge grammar as everywhere else, is not a tab
+                       stop, and does not pretend to navigate — showing it out
+                       here is about visibility, not about implying it runs. */
+                    if (soon) {
+                      return (
+                        <li key={app.key} className="min-w-0">
+                          <div
+                            aria-disabled="true"
+                            className={cn(
+                              "flex w-full cursor-not-allowed items-center gap-2 rounded-lg border px-2 py-1.5 text-left",
+                              SOON_SURFACE,
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+                                SOON_ICON_TILE,
+                              )}
+                            >
+                              <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                            </span>
+                            <p
+                              title={app.name}
+                              className="min-w-0 flex-1 truncate text-[11px] font-semibold text-muted-foreground"
+                            >
+                              {app.name}
+                            </p>
+                            <span className={SOON_BADGE}>
+                              <Lock className="h-2.5 w-2.5" />
+                              Soon
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={app.key} className="min-w-0">
                         <Link
@@ -464,16 +536,23 @@ export function StudioHome({ onStart }: StudioHomeProps) {
                 </div>
               )}
 
-              {SOON_APPS.length > 0 && (
+              {ALL_APPS_COUNT > PANEL_APPS.length && (
+                /* Back to ONE 32px line (owner, 2026-09-13: "CTA ki height
+                   reduce krke 32px krdo normal pe"). It briefly carried a
+                   second line naming a few of the hidden apps, because a bare
+                   count gave the user nothing to recognise — but the two he
+                   was actually hunting for are rows on the panel now, so the
+                   preview line was solving a problem that no longer exists
+                   and costing 20px to do it. */
                 <button
                   type="button"
                   onClick={() => setAppsOpen(true)}
-                  className="fab-focus mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary-text transition-colors hover:bg-primary/15"
+                  className="fab-focus mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary-text transition-colors hover:bg-primary/15"
                 >
                   <Plus className="h-3 w-3" />
-                  View more
+                  All apps
                   <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold">
-                    {SOON_APPS.length}
+                    {ALL_APPS_COUNT}
                   </span>
                 </button>
               )}
