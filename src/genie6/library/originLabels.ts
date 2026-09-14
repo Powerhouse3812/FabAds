@@ -44,6 +44,7 @@ export const APP_KEY_LABELS: Record<AppKey, string> = {
   "product-placement": "Product Swap",
   "face-swap": "Face Swap",
   "speech-cleanup": "Speech Cleanup",
+  "campaign-url-to-ad": "Campaign URL to Ad",
   "ai-studio": "AI Studio",
   "ai-video-generator": "AI Video Generator",
   "ai-clipping": "AI Clipping",

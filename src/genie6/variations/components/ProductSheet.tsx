@@ -39,6 +39,10 @@ export interface ProductSheetProps {
   onOpen: () => void;
   onRemove: () => void;
   className?: string;
+  /** Resting-state subtitle. Defaults to Variations' own wording; Product
+   *  Swap overrides it because "this variation stays product-tied" inside a
+   *  card badged "Scene 1" names a surface the user isn't on. */
+  hint?: string;
 }
 
 const THUMB_BOX = "h-9 w-9";
@@ -95,7 +99,7 @@ function ProductThumb({ product, brand }: { product: Product; brand?: Brand }) {
  * Remove — the three details the owner asked to see, one compact row so it
  * survives sitting on every one of up to 20 cards.
  */
-export function ProductSheet({ productId, onOpen, onRemove, className }: ProductSheetProps) {
+export function ProductSheet({ productId, onOpen, onRemove, className, hint }: ProductSheetProps) {
   const product = productId ? getProduct(productId) : undefined;
   const brand = product ? getBrand(product.brandId) : undefined;
 
@@ -121,7 +125,7 @@ export function ProductSheet({ productId, onOpen, onRemove, className }: Product
                 the attached row always falls back to the brand logo. The old
                 copy promised an image that literally cannot render, which
                 reads as a broken image rather than a design choice. */}
-            Brand and name show here — this variation stays product-tied.
+            {hint ?? "Brand and name show here — this variation stays product-tied."}
           </span>
         </span>
       </button>

@@ -1,12 +1,18 @@
 /**
- * OtherAppsModal — the full Other Apps roster, reached via "View more" on
- * Studio home once the home panel itself only surfaces a handful of live
- * apps (Genie 2.0 §8 consolidation, 2026-09-10).
+ * OtherAppsModal — the full Other Apps roster, reached via the "All apps"
+ * button on Studio home once the home panel itself only surfaces a handful
+ * of apps (Genie 2.0 §8 consolidation, 2026-09-10).
  *
- * Reads `GENIE_APPS` directly — never a hand-copied id list. The roster
- * (22 apps today) has drifted from hardcoded copies before; this modal
- * derives everything (which apps show, live vs coming-soon, counts) from
- * `app.state`, so it tracks the registry automatically as it grows.
+ * It is the FULL roster on purpose: it re-lists the panel's own rows rather
+ * than showing only what the panel hides, which is why the button's badge
+ * counts `GENIE_APPS.length` — the two section counts below add up to
+ * exactly that number, and a badge counting only one state would agree with
+ * the dialog by coincidence at best.
+ *
+ * Reads `GENIE_APPS` directly — never a hand-copied id list. The roster has
+ * drifted from hardcoded copies before; this modal derives everything (which
+ * apps show, live vs coming-soon, counts) from `app.state`, so it tracks the
+ * registry automatically as it grows.
  *
  * Live apps are real `<Link>`s to `APP_PATH(app.key)` that close the modal
  * on click. Coming-soon apps render as inert, unstyled-as-clickable rows —

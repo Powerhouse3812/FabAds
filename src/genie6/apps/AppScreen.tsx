@@ -2,13 +2,23 @@ import { Link, useParams } from "react-router-dom";
 import { getApp } from "./data/appRegistry";
 import { AppRunner } from "./AppRunner";
 import { ComingSoonScreen } from "./components/ComingSoonScreen";
+import { ProductSwapScreen } from "./ProductSwapScreen";
+import { FaceSwapScreen } from "./FaceSwapScreen";
 import type { AppKey } from "./appTypes";
 
 /**
  * AppScreen — route `/iq/genie6/apps/:appKey`.
  *
- * Three outcomes, none of them a crash or a blank:
- *  - a live app renders the shared `AppRunner` anatomy
+ * Four outcomes, none of them a crash or a blank:
+ *  - Product Swap / Face Swap intercept to the Generate-Variations-shaped
+ *    flow (owner, 2026-09-14: "product swap and faceswap, is also not using
+ *    the same generate variation flow and UI. We decided that already") —
+ *    same precedent `StudioAlpha.startWizard` uses to route
+ *    `generate-variations` away from its default wizard before any state is
+ *    touched. `app.sections` stays declared for both (cost/fields source of
+ *    truth — see appRegistry.ts's comment on each), just no longer walked by
+ *    `FieldRenderer`.
+ *  - every OTHER live app renders the shared `AppRunner` anatomy, untouched
  *  - a "Coming soon" app (opened directly by URL) renders a real page
  *  - an unknown/mistyped key renders a plain not-found card with a way back
  */
@@ -35,6 +45,13 @@ export function AppScreen() {
 
   if (app.state === "coming-soon") {
     return <ComingSoonScreen app={app} />;
+  }
+
+  if (app.key === "product-placement") {
+    return <ProductSwapScreen app={app} />;
+  }
+  if (app.key === "face-swap") {
+    return <FaceSwapScreen app={app} />;
   }
 
   return <AppRunner app={app} />;
