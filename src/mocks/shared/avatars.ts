@@ -1,7 +1,8 @@
-import type { Avatar } from "@/genie6/types/entities";
+import type { Avatar, Voice, VoiceId } from "@/genie6/types/entities";
 import type { EnvironmentId, PersonalityId } from "@/genie6/brain/avatarTaxonomy";
 import type { Provenance } from "@/genie6/lib/genieRunTypes";
 import { posterForSeed, videoForSeed } from "@/genie6/studio-v4/data/studio-visuals";
+import { voices } from "./voices";
 
 /**
  * Avatars — single source of truth (Catalogue ↔ Genie sync).
@@ -41,6 +42,134 @@ const CLIENT_CREATED_IDS = new Set([
 /** Deliberately missing a preview clip yet — the "no preview video" edge case. */
 const NO_PREVIEW_IDS = new Set(["ava-david", "ava-mai-vn"]);
 
+/**
+ * `demographic` is the single source of truth for gender/ageRange/race/segment
+ * (owner spec 2026-09-14, see `Avatar` in `@/genie6/types/entities`). We parse
+ * it here instead of hand-typing the four fields alongside the string, because
+ * hand-typing gives two places that describe the same persona and no way to
+ * guarantee they agree — e.g. someone edits "F · 28-34 · South Asian" to
+ * "F · 29-35 · South Asian" and forgets the sibling `ageRange` field, and the
+ * card silently shows the stale age forever.
+ *
+ * Every one of the 52 seed rows below is "F|M · <age range> · <race>" with
+ * zero or more trailing qualifier words ("metro", "mom", "tier-1", or
+ * multi-word ones like "gen-z creator", "urban Shanghai") joined back with
+ * " · " into `segment`. All 52 rows were read and fit this 3-or-4-part shape
+ * (a couple of races are themselves multi-word — "South Indian", "West
+ * African", "Singaporean Chinese" — which is fine since we split on "·", not
+ * spaces). None needed special-casing.
+ *
+ * Malformed/short input must not throw (a hand-edited row should still
+ * render), so missing parts fall back to "" and an unrecognised gender token
+ * is kept verbatim rather than guessed at.
+ */
+function parseDemographic(demographic: string): {
+  gender: string;
+  ageRange: string;
+  race: string;
+  segment?: string;
+} {
+  const parts = demographic
+    .split("·")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const [genderToken = "", ageRange = "", race = "", ...rest] = parts;
+  const gender = genderToken === "F" ? "Female" : genderToken === "M" ? "Male" : genderToken;
+  return {
+    gender,
+    ageRange,
+    race,
+    segment: rest.length > 0 ? rest.join(" · ") : undefined,
+  };
+}
+
+/**
+ * Tiny deterministic hash (FNV-1a) — same algorithm as the one in
+ * `voices.ts`, duplicated rather than imported because this task is scoped
+ * to editing only this file and that hash isn't exported. Stable per input
+ * string, no runtime randomness, so the same avatar always resolves to the
+ * same voice.
+ */
+function hash(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * A handful of voices never spell out "female"/"male" in their own name or
+ * description (the classifier below reads those words literally), because
+ * the seed author trusted the first name to carry it — "Priya", "Vikram",
+ * "David". This is the same trust an Indian-agency demo audience would extend
+ * reading the roster, just made explicit so the voice-pairing rule below can
+ * still honour gender without guessing at name etymology in code.
+ */
+const VOICE_GENDER_OVERRIDES: Record<string, "Female" | "Male"> = {
+  "voice-priya-warm": "Female",
+  "voice-aarav-energetic": "Male",
+  "voice-naina-confident": "Female",
+  "voice-meera-mom": "Female",
+  "voice-vikram-authority": "Male",
+  "voice-rohan-corporate": "Male",
+  "voice-zoya-fashion": "Female",
+  "voice-arjun-genz": "Male",
+  "voice-ananya-storyteller": "Female",
+  "voice-emily-calm": "Female",
+  "voice-marcus-bold": "Male",
+  "voice-james-finance": "Male",
+  "voice-sarah-mom": "Female",
+  "voice-ethan-tech": "Male",
+  "voice-jessica-creator": "Female",
+  "voice-olivia-rp": "Female",
+  "voice-david-narrator": "Male",
+  "voice-yuki-bright": "Female",
+  "voice-hiroshi-narrator": "Male",
+  "voice-uncle-rajan": "Male",
+  "voice-sutradhaar": "Male",
+};
+
+/** Reads a voice's own words first ("Divya — Tamil female"), then the
+ *  override table above, before giving up as unknown. */
+function voiceGender(voice: Voice): "Female" | "Male" | "Unknown" {
+  const text = `${voice.name} ${voice.description}`;
+  if (/\bfemale\b/i.test(text)) return "Female";
+  if (/\bmale\b/i.test(text)) return "Male";
+  return VOICE_GENDER_OVERRIDES[voice.id] ?? "Unknown";
+}
+
+/**
+ * Pairing rule (owner spec 2026-09-14 — Avatar + voice is one row, so every
+ * avatar needs a real `voiceId`, deterministically, never `Math.random()`):
+ *
+ *  1. Language first — narrow to voices whose `language` is one of the
+ *     avatar's own language tags (exact match, e.g. an "en-IN"/"hi-IN"
+ *     avatar only sees Indian-locale voices, never generic "en-US"). If
+ *     nothing matches exactly (a few avatars carry a locale no voice uses
+ *     verbatim, like "en-NG" or "en-PH"), widen to any voice sharing the
+ *     base language before the "-" (so "en-NG" still finds the "en" voices
+ *     instead of falling through to a random language).
+ *  2. Gender second — within that language pool, prefer voices read as the
+ *     avatar's own gender; if none in the pool carry that gender, keep the
+ *     whole language pool rather than leaving the avatar unpaired.
+ *  3. Pick deterministically via `hash(avatarId)` into whatever pool
+ *     survives, so pairings are stable and spread across the roster instead
+ *     of every avatar landing on voice #1.
+ */
+function pickVoiceId(avatarId: string, languages: string[], gender: string): VoiceId {
+  const exact = voices.filter((v) => languages.includes(v.language));
+  const basePrefixes = new Set(languages.map((l) => l.split("-")[0]));
+  const byBaseLanguage = voices.filter((v) => basePrefixes.has(v.language.split("-")[0]));
+  const languagePool = exact.length > 0 ? exact : byBaseLanguage.length > 0 ? byBaseLanguage : voices;
+
+  const genderPool = languagePool.filter((v) => voiceGender(v) === gender);
+  const pool = genderPool.length > 0 ? genderPool : languagePool;
+
+  return pool[hash(`${avatarId}:voice`) % pool.length].id;
+}
+
 const av = (
   id: string,
   name: string,
@@ -52,10 +181,16 @@ const av = (
   const seed = `avatar:${id}`;
   const provenance: Provenance = CLIENT_CREATED_IDS.has(id) ? "client-created" : "fabfunnel-seeded";
   const hasPreview = !NO_PREVIEW_IDS.has(id);
+  const { gender, ageRange, race, segment } = parseDemographic(demographic);
   return {
     id,
     name,
     demographic,
+    gender,
+    ageRange,
+    race,
+    ...(segment !== undefined ? { segment } : {}),
+    voiceId: pickVoiceId(id, language, gender),
     language,
     environmentId,
     personalityId,

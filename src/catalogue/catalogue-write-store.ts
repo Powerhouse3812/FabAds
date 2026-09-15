@@ -27,6 +27,19 @@ export interface CatalogueOverride {
   /** Set by the generic Edit modal (name/tags-only rename — §9 "Edit"). */
   nameOverride?: string;
   tagsOverride?: string[];
+  /**
+   * The asset's own body text, edited in place. Owner, 2026-09-14: "Edit"
+   * appears on Script and nowhere else in his spec, and he asked for "a
+   * simple input field" — the script itself, rewritable.
+   *
+   * Until now "Edit" meant rename + retag for all 14 types and the content
+   * of every creative asset was permanently read-only. This is the one
+   * override that changes what the asset SAYS rather than what it is called,
+   * which is why it is applied in the registry's `resolve()` for the owning
+   * type rather than in `buildCard()` — a card shows a name, a body has to
+   * reach the detail view and anything else reading the entity.
+   */
+  bodyOverride?: string;
   updatedAt?: number;
 }
 
@@ -115,6 +128,21 @@ export function renameAsset(type: CatalogueType, id: string, name: string, tags?
     nameOverride: name,
     ...(tags ? { tagsOverride: tags } : {}),
   });
+}
+
+/**
+ * Rewrite an asset's body text. Separate from `renameAsset` on purpose: a
+ * rename is cosmetic, this changes the asset's content, and only the types
+ * listed in `assetActions.ts` EDITABLE_BODY_TYPES offer it.
+ *
+ * Passing an empty/whitespace-only string CLEARS the override and restores
+ * the seeded body rather than storing a blank — a script with no text is not
+ * a state the user can mean to create from a text box, and "" would otherwise
+ * be indistinguishable from "reset".
+ */
+export function editAssetBody(type: CatalogueType, id: string, body: string) {
+  const trimmed = body.trim();
+  patchOverride(type, id, { bodyOverride: trimmed === "" ? undefined : body });
 }
 
 /** Appends a brand-new client-created row. `data` must already be a fully

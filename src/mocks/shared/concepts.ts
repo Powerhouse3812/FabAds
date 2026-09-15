@@ -1,4 +1,6 @@
 import type { Concept } from "@/genie6/types/entities";
+import { avatars } from "./avatars";
+import { voices } from "./voices";
 
 /**
  * Concepts — single source of truth (Catalogue ↔ Genie sync).
@@ -8,7 +10,106 @@ import type { Concept } from "@/genie6/types/entities";
  * format + visual-direction prose used by the Studio generation flow.
  *
  * Schema: see `Concept` in `@/genie6/types/entities`.
+ *
+ * Owner spec 2026-09-14 — a Concept in the Asset Library reads as "Name ·
+ * content · Angle · Avatar + voice". `visualDirection` + `hook` already ARE
+ * the content (a separate agent handles how the UI surfaces them); this file
+ * only adds the persona link.
+ *
+ * Pairing rule for `CONCEPT_AVATAR` below (deliberately an explicit map, not
+ * a hash): every one of the 47 rows was read for a literal person described
+ * in `visualDirection` first — several spell one out verbatim ("woman
+ * 30-40 · long shiny hair", "Real mom + toddler", "South-Asian woman",
+ * "diverse Indian women", "gen-z model") and that beats everything else. Where
+ * the direction has no person (a product macro shot, a flat-lay, an empty
+ * room), the brand's target demographic and the concept's own `tone` decide —
+ * e.g. "Warm, intimate" or a mom-and-baby brand lands on a warm-friend mom
+ * persona (`ava-meera`/`ava-rohini`/`ava-sarah`/...), "Sharp, performance-led"
+ * lands on a high-energy-hype persona, "Clinical, no-fluff" on calm-expert.
+ * 42 of the 52 avatars appear at least once and only 5 repeat (each exactly
+ * twice) — see `avatarTaxonomy.ts`'s personality tags for what each id reads
+ * as. `voiceId` is intentionally NOT chosen here — see `resolveVoiceId`.
  */
+const CONCEPT_AVATAR: Record<string, string> = {
+  "concept-mamaearth-asp-haircare": "ava-meera",
+  "concept-mamaearth-onion-ingredient": "ava-aarav",
+  "concept-mamaearth-mom-emotional": "ava-rohini",
+  "concept-noise-perf-comparison": "ava-arjun",
+  "concept-noise-amoled-hero": "ava-naina",
+  "concept-noise-cricket-hook": "ava-kavya",
+  "concept-boat-fomo-budget": "ava-rina-id",
+  "concept-boat-bogo-festive": "ava-sanya",
+  "concept-boat-asap-charge": "ava-vikram",
+  "concept-sleepyhead-premium-calm": "ava-rohan",
+  "concept-sleepyhead-100-night": "ava-uncle-rajan",
+  "concept-wakefit-warranty": "ava-margaret",
+  "concept-wakefit-back-pain": "ava-sarah",
+  "concept-plum-niacinamide": "ava-ji-eun",
+  "concept-plum-vegan": "ava-yuki",
+  "concept-derma-clinical": "ava-hiroshi",
+  "concept-derma-sa-clear": "ava-karthik",
+  "concept-minimalist-transparency": "ava-ethan",
+  "concept-foxtale-niacinamide": "ava-ananya",
+  "concept-myglamm-bridal": "ava-zoya",
+  "concept-myglamm-kajal": "ava-naina",
+  "concept-sugar-matte": "ava-isabella",
+  "concept-sugar-shades": "ava-divya",
+  "concept-bewakoof-anime-drop": "ava-min-jun",
+  "concept-bewakoof-bogo": "ava-vikram",
+  "concept-snitch-weekly-drop": "ava-ishaan",
+  "concept-lenskart-3d-tryon": "ava-aaron-sg",
+  "concept-lenskart-blu-cut": "ava-rina-id",
+  "concept-bluestone-try-home": "ava-thandi",
+  "concept-caratlane-anniversary": "ava-charlotte-au",
+  "concept-bsc-6blade-spec": "ava-kenji",
+  "concept-beardo-celeb": "ava-mateo",
+  "concept-beardo-itch": "ava-omar",
+  "concept-yogabar-protein": "ava-marcus",
+  "concept-oziva-women": "ava-priya",
+  "concept-pepperfry-festive": "ava-xiao-lin",
+  "concept-mensa-bundle": "ava-james",
+  "concept-mokobara-warranty": "ava-max-au",
+  "concept-cd-a2-daily": "ava-priya",
+  "concept-licious-2hr": "ava-hassan",
+  "concept-purplle-mass": "ava-emily",
+  "concept-tira-luxury": "ava-sofia",
+  "concept-kapiva-ayurveda": "ava-david",
+  "concept-jockey-comfort": "ava-dev",
+  "concept-damensch-bamboo": "ava-noah",
+  "concept-fabindia-handloom": "ava-uncle-rajan",
+  "concept-uppercase-recycled": "ava-amara",
+};
+
+/**
+ * Tiny deterministic hash (FNV-1a) — same algorithm `voices.ts` and
+ * `avatars.ts` already use for their own deterministic picks, duplicated
+ * rather than imported since neither exports it and this task is scoped to
+ * this file only. Stable per input string, no runtime randomness.
+ */
+function hash(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * `voiceId` tracks whatever `avatarId` is paired with — never an independent
+ * third choice (owner ruling: Avatar + voice is one persona, so a Concept
+ * that named its own voice could disagree with the avatar it also named).
+ * `avatars.ts` is being edited in parallel to add a real `Avatar.voiceId`;
+ * read it live here rather than duplicating that pairing logic, so this
+ * resolves correctly whether that field is populated yet or not and needs no
+ * follow-up edit once it lands. If it hasn't landed yet, fall back to the
+ * same deterministic-hash approach rather than leaving the concept unpaired.
+ */
+function resolveVoiceId(avatarId: string): string {
+  const avatar = avatars.find((a) => a.id === avatarId);
+  if (avatar?.voiceId) return avatar.voiceId;
+  return voices[hash(`${avatarId}:fallback-voice`) % voices.length].id;
+}
 
 const cn = (
   id: string,
@@ -20,7 +121,22 @@ const cn = (
   format: string,
   visualDirection: string,
   generationCount: number = 0
-): Concept => ({ id, name, brandId, angle, hook, tone, format, visualDirection, generationCount });
+): Concept => {
+  const avatarId = CONCEPT_AVATAR[id];
+  const voiceId = avatarId ? resolveVoiceId(avatarId) : undefined;
+  return {
+    id,
+    name,
+    brandId,
+    angle,
+    hook,
+    tone,
+    format,
+    visualDirection,
+    generationCount,
+    ...(avatarId ? { avatarId, voiceId } : {}),
+  };
+};
 
 export const concepts: Concept[] = [
   cn("concept-mamaearth-asp-haircare", "Aspirational hair journey", "mamaearth", "Aspirational lifestyle", "Hair fall is real. This is not.",

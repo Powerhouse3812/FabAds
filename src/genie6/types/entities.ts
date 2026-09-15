@@ -110,6 +110,15 @@ export interface Concept {
   format: string;
   visualDirection: string;
   generationCount: number;
+  /**
+   * Owner spec 2026-09-14 — a Concept in the Asset Library reads as
+   * "Name · content · Angle · Avatar + voice". The persona was the one listed
+   * field with nothing behind it. Optional so the 47 seeds and every existing
+   * consumer keep working; `voiceId` tracks whatever `avatarId` is paired
+   * with rather than being chosen twice.
+   */
+  avatarId?: AvatarId;
+  voiceId?: VoiceId;
 }
 
 export interface Avatar {
@@ -117,6 +126,31 @@ export interface Avatar {
   name: string;
   thumbnail?: string;
   demographic: string; // e.g. "F · 28-34 · South Asian"
+  /**
+   * Owner spec 2026-09-14 — the Asset Library's Avatar + voice roster shows
+   * "name, gender, age, personality, race, tone" as SEPARATE columns. These
+   * three used to be readable only as prose inside `demographic`, which a
+   * card cannot lay out and a filter cannot facet.
+   *
+   * They are PARSED from `demographic` by the seed builder, not typed in
+   * alongside it — one source of truth, so a demographic string and its own
+   * gender can never disagree. See `parseDemographic` in
+   * `src/mocks/shared/avatars.ts`.
+   */
+  gender: string; // "Female" | "Male"
+  ageRange: string; // "28-34"
+  race: string; // "South Asian"
+  /** Extra qualifiers the demographic string carried past race ("metro",
+   *  "mom", "tier-1"). Display-only; absent on most rows. */
+  segment?: string;
+  /**
+   * The voice this avatar is paired with. Owner ruling 2026-09-14: Avatar and
+   * Voice are ONE library item, one row, one "Generate Ad" — so the pairing
+   * has to exist in the data. `tone` on that row is this voice's tone; there
+   * is no tone on an avatar by itself. Swappable in the UI, never null in the
+   * seed, so the roster never renders a half-built persona.
+   */
+  voiceId?: VoiceId;
   language: string[];
   /**
    * Genie 2.0 §11/§13 — additive, all optional so no existing consumer breaks.

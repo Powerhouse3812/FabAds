@@ -658,6 +658,21 @@ export function FrameworkStructure({ framework: fw }: { framework: Framework }) 
                     <p className="truncate font-mono text-sm font-medium tabular-nums text-foreground">
                       {s.name}
                     </p>
+                    {/* Owner spec 2026-09-14: the Framework library must read
+                        correctly "with or without visual direction — both".
+                        The seed carries both kinds (4Ps and QUEST are
+                        structure-only copywriting formulas; the other 7 are
+                        shot-level), but this row never surfaced
+                        `visualDirection`, so the two were indistinguishable
+                        on screen — the distinction existed only in the data.
+                        Rendered only when present, so a structure-only
+                        framework shows a clean section row rather than an
+                        empty line. */}
+                    {s.visualDirection && (
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-primary-text">
+                        {s.visualDirection}
+                      </p>
+                    )}
                     {s.note && (
                       <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">{s.note}</p>
                     )}

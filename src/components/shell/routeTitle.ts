@@ -11,10 +11,28 @@
  * `labelableSegments` from this module instead of recomputing the loop
  * inline. (Left as a follow-up — another agent wires this up.)
  *
- * Pure module: no React import, no JSX.
+ * Pure module: no React import, no JSX (importing the asset registry keeps
+ * that true — `assetTypes.ts` is data + plain functions).
  */
+import { ASSET_TYPES, ASSET_TYPE_ORDER } from "@/catalogue/assetTypes";
+
+/**
+ * Asset-type segments are DERIVED, not retyped. This map was a hand-copy of
+ * the registry and had drifted badly — missing `products`, `scripts`,
+ * `ctas`, `frameworks`, `storyboards` and `templates`, so those routes got a
+ * raw slug as their page title, and three of them are now primary Asset
+ * Library sub-menu items. It also still read "Avatars" after that type
+ * became "Avatar + voice" (owner, 2026-09-14).
+ *
+ * Literal entries below override these, so every non-asset route is
+ * unaffected.
+ */
+const ASSET_LABELS: Record<string, string> = Object.fromEntries(
+  ASSET_TYPE_ORDER.map((id) => [id, ASSET_TYPES[id].label]),
+);
 
 const LABEL_MAP: Record<string, string> = {
+  ...ASSET_LABELS,
   iq: "IQ",
   "creative-library": "Creative Library",
   // Added on main by the Automations work; carried over during the merge so
@@ -46,15 +64,7 @@ const LABEL_MAP: Record<string, string> = {
   "image-to-ad": "Image-to-Ad",
   quick: "Quick mode",
   library: "Library",
-  brands: "Brands",
-  categories: "Categories",
-  avatars: "Avatars",
-  voices: "Voices",
   outputs: "Outputs",
-  hooks: "Hooks",
-  angles: "Angles",
-  concepts: "Concepts",
-  audiences: "Audiences",
   "video-sage": "Video Sage",
   dashboard: "Dashboard",
   integrations: "Integrations",

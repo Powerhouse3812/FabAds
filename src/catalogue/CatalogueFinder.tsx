@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useSearchParams, useNavigate, useParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate, useParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Search, Tag, Building2, Package, ChevronRight, ExternalLink, Plus,
   Layers, FileText, Globe, Settings as SettingsIcon, Wand2,
   Users, Megaphone,
   Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic, Volume2,
-  Languages,
+  Languages, GitBranch,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,8 +39,12 @@ import {
   StoryboardScenes,
   FrameworkStructure,
 } from "./CatalogueDetailPage";
-import type { Framework } from "@/genie6/editor/frameworks";
+import { getFramework, type Framework } from "@/genie6/editor/frameworks";
 import type { StoryboardAsset } from "@/mocks/shared/storyboards";
+// Leaf taxonomy file — no cycle (same file `assetTypes.ts` already imports
+// it from for the exact same reason: Avatar.personalityId / paired-voice
+// tone are ids into these tables, never a raw string).
+import { personalityLabel, VOICE_TONES } from "@/genie6/brain/avatarTaxonomy";
 import { AddBrandModal } from "./AddBrandModal";
 import { AddProductModal } from "./AddProductModal";
 import { AddCategoryModal } from "./AddCategoryModal";
@@ -63,6 +67,7 @@ import { AssetDetailActions } from "./AssetDetailActions";
 import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFromAsset";
 import { useInGenieUrl, bulkUseInGenieUrl, brandNameForProducts } from "./genieHandoff";
 import { AssetFormModal } from "./AssetFormModal";
+import { primaryActionFor } from "./assetActions";
 import { CatalogueBulkBar } from "./CatalogueBulkBar";
 import {
   AlertDialog,
@@ -425,7 +430,12 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
             onArchive={handleBulkArchive}
             onDelete={() => setBulkDeleteConfirmOpen(true)}
             onDownload={handleBulkDownload}
-            onUseInGenie={handleBulkUseInGenie}
+            /* Same reason the Generations panel drops its CTA: the owner asked
+               this type's headline action to be disabled for now, and bulk
+               "Use in Genie" is that same trip by another door. Passing
+               undefined makes CatalogueBulkBar omit the button entirely — it
+               already renders it only when the handler exists. */
+            onUseInGenie={primaryActionFor(type) ? undefined : handleBulkUseInGenie}
             useInGenieLabel="Use in Genie (1 ad)"
             bulkProductNotice={bulkProductNotice}
             onClear={() => setBulkSelected(new Set())}
@@ -961,6 +971,10 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
       { key: "brand", label: "Parent brand", icon: Building2 },
       { key: "angle", label: "Linked angle", icon: Crosshair },
       { key: "hook", label: "Linked hook", icon: MessageSquareQuote },
+      // Owner spec 2026-09-14: Concept reads as "Name · content · Angle ·
+      // Avatar + voice" — the persona is a real navigable section now, not
+      // just a name with nothing behind it.
+      { key: "avatar", label: "Avatar + voice", icon: UserRound },
       { key: "generations", label: "Generations", icon: Wand2, count: 0 },
     ];
   }
@@ -990,10 +1004,37 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
       { key: "generations", label: "Generations", icon: Wand2, count: product?.generatedCount ?? 0 },
     ];
   }
-  // Scripts / CTAs / Frameworks / Templates / References — new §21.2 types
-  // with no relational data model to cross-link, so a generic Overview +
+  if (type === "scripts") {
+    // Owner spec 2026-09-14: Script reads as "content · Angle + concept ·
+    // Avatar + voice · B/P/C+p or no type · Framework". No "Generations"
+    // section — `deriveGenieMatchCriteria` doesn't track scripts (only
+    // brands/products/angles/hooks/concepts do), so a pane-2 tab here would
+    // only ever open on a fabricated-looking "not tracked" tab. The
+    // Overview still surfaces that panel inline (§9 "closes the loop"),
+    // same as Audiences/Avatars/Voices already do without a dedicated tab.
+    return [
+      { key: "overview", label: "Overview", icon: FileText },
+      { key: "angle", label: "Angle + concept", icon: Crosshair },
+      { key: "avatar", label: "Avatar + voice", icon: UserRound },
+      { key: "type", label: "Brand / Product / Category", icon: Building2 },
+      { key: "framework", label: "Framework", icon: GitBranch },
+    ];
+  }
+  if (type === "frameworks") {
+    // Owner spec 2026-09-14: Framework reads as "Name · Angle + concept".
+    // Same "no Generations tab" reasoning as scripts above — frameworks
+    // aren't a tracked criterion either.
+    return [
+      { key: "overview", label: "Overview", icon: FileText },
+      { key: "angle", label: "Angle + concept", icon: Crosshair },
+    ];
+  }
+  // CTAs / Templates / Storyboards — untouched §21.2 types with no
+  // relational data model to cross-link, so a generic Overview +
   // Generations pair (same as every other simple type ends with) is
   // honest rather than inventing bespoke relations that don't exist.
+  // Storyboards keeps this treatment deliberately (its own ordered-scene
+  // list renders inside the generic Overview via `StoryboardScenes`).
   return [
     { key: "overview", label: "Overview", icon: FileText },
     { key: "generations", label: "Generations", icon: Wand2, count: 0 },
@@ -1117,8 +1158,12 @@ function Pane3Detail({
   if (type === "avatars") return <AvatarSectionView avatarId={selectedId} section={section} />;
   if (type === "voices") return <VoiceSectionView voiceId={selectedId} section={section} />;
   if (type === "products") return <ProductSectionView productId={selectedId} section={section} />;
-  // Scripts / CTAs / Frameworks / Templates / References — §21.2 additions
-  // with no bespoke relational view of their own. Generic overview + real
+  // Scripts / Frameworks — owner-spec'd bespoke views (2026-09-14), no
+  // longer the generic fallback below.
+  if (type === "scripts") return <ScriptSectionView scriptId={selectedId} section={section} />;
+  if (type === "frameworks") return <FrameworkSectionView frameworkId={selectedId} section={section} />;
+  // CTAs / Templates / Storyboards — §21.2 additions with no bespoke
+  // relational view of their own. Generic overview + real
   // Generations-from-it + full action set, shared with every other type.
   return <GenericAssetSectionView type={type} selectedId={selectedId} section={section} />;
 }
@@ -1580,6 +1625,12 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
   const brand = brands.find((b) => b.id === concept.brandId);
   const angle = angles.find((a) => a.label.toLowerCase() === concept.angle.toLowerCase());
   const linkedHook = hooks.find((h) => h.text === concept.hook);
+  // Owner spec 2026-09-14: "Avatar + voice" joins Name/content/Angle as the
+  // fourth field a Concept must surface. `voiceId` is never independently
+  // chosen — it's whichever voice `avatarId` is paired with — so only the
+  // persona needs resolving here.
+  const conceptAvatar = concept.avatarId ? avatars.find((a) => a.id === concept.avatarId) : undefined;
+  const conceptVoice = concept.voiceId ? voices.find((v) => v.id === concept.voiceId) : undefined;
   const def = getAssetType("concepts")!;
   const card = def.toCard(concept);
   const genieHref = useInGenieUrl("concepts", concept.id);
@@ -1593,7 +1644,12 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
               <Lightbulb className="h-5 w-5 text-primary-text" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-foreground truncate">{concept.name}</h2>
+              <h2
+                className="text-lg font-semibold text-foreground truncate"
+                title={concept.name.length > 60 ? concept.name : undefined}
+              >
+                {concept.name}
+              </h2>
               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">
                 {concept.angle} · {concept.tone}
               </p>
@@ -1604,6 +1660,9 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
         <Section title="Format"><p className="text-sm text-foreground font-mono">{concept.format}</p></Section>
         <Section title="Visual direction"><p className="text-sm text-foreground">{concept.visualDirection}</p></Section>
         <Section title="Hook copy"><p className="text-sm text-foreground italic">"{concept.hook}"</p></Section>
+        <Section title="Avatar + voice">
+          <PersonaChip avatar={conceptAvatar} voice={conceptVoice} emptyLabel="No persona linked to this concept yet." />
+        </Section>
         <Section title="Generations">
           <div className="flex items-baseline gap-2">
             <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1626,6 +1685,10 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
     if (!linkedHook) return <div className="p-6"><Empty>This concept's hook copy isn't a registered hook entity.</Empty></div>;
     return <HookSectionView hookId={linkedHook.id} section="overview" />;
   }
+  if (section === "avatar") {
+    if (!conceptAvatar) return <div className="p-6"><Empty>No persona linked to this concept yet.</Empty></div>;
+    return <AvatarSectionView avatarId={conceptAvatar.id} section="overview" />;
+  }
   if (section === "generations") {
     return (
       <div className="p-6 max-w-3xl">
@@ -1644,6 +1707,18 @@ function AvatarSectionView({ avatarId, section }: { avatarId: string; section: s
   const def = getAssetType("avatars")!;
   const card = def.toCard(avatar);
   const genieHref = useInGenieUrl("avatars", avatar.id);
+  // Owner spec 2026-09-14: "name, gender, age, personality, race, tone" as
+  // SEPARATE rows. `gender`/`ageRange`/`race` are typed as required on
+  // `Avatar`, but the seed builder that's meant to parse them off
+  // `demographic` (see the entities.ts docblock — "parsed... not typed in
+  // alongside it") hasn't landed in `mocks/shared/avatars.ts` as of this
+  // pass, so they resolve to `undefined` at runtime today despite the type
+  // saying otherwise. Every row below is guarded on the raw value (not the
+  // type) for exactly that reason, and DROPS rather than prints
+  // "Unspecified" when a value is missing — same rule the owner gave for
+  // tone.
+  const personality = avatar.personalityId ? personalityLabel(avatar.personalityId) : undefined;
+  const tone = avatarToneLabel(avatar);
 
   if (section === "overview") {
     return (
@@ -1657,12 +1732,25 @@ function AvatarSectionView({ avatarId, section }: { avatarId: string; section: s
               {visual.initials}
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-foreground">{avatar.name}</h2>
-              <p className="text-xs text-muted-foreground">{avatar.demographic}</p>
+              <h2
+                className="text-lg font-semibold text-foreground truncate"
+                title={avatar.name.length > 60 ? avatar.name : undefined}
+              >
+                {avatar.name}
+              </h2>
+              <p className="text-xs text-muted-foreground truncate">{avatar.demographic}</p>
             </div>
           </div>
           <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
         </div>
+        <FieldList>
+          <FieldRow label="Name" value={avatar.name} />
+          {avatar.gender && <FieldRow label="Gender" value={avatar.gender} />}
+          {avatar.ageRange && <FieldRow label="Age" value={avatar.ageRange} />}
+          {personality && <FieldRow label="Personality" value={personality} />}
+          {avatar.race && <FieldRow label="Race" value={avatar.race} />}
+          {tone && <FieldRow label="Tone" value={tone} />}
+        </FieldList>
         <Section title={`Languages · ${avatar.language.length}`}>
           <div className="flex flex-wrap gap-1.5">
             {avatar.language.map((l) => (
@@ -1777,6 +1865,342 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
     );
   }
   return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+}
+
+/* ─── Script section view ───────────────────────────── */
+/**
+ * Owner spec 2026-09-14 — a Script reads as "content · Angle + concept ·
+ * Avatar + voice · B/P/C+p or no type · Framework". Replaces the generic
+ * Overview + Generations fallback: Scripts aren't a `deriveGenieMatchCriteria`
+ * tracked type (only brands/products/angles/hooks/concepts are), so the old
+ * generic pane-2 "Generations" tab would only ever have opened on a
+ * fabricated-looking "not tracked" state — this view still surfaces that
+ * panel INLINE at the bottom of Overview (§9 "closes the loop"), same as
+ * Audiences/Avatars/Voices already do without a dedicated tab, just doesn't
+ * dedicate a pane-2 slot to it.
+ */
+function ScriptSectionView({ scriptId, section }: { scriptId: string; section: string }) {
+  // The 10 Creative types are mounted both under /catalogue (legacy
+  // redirect-only) and /iq/genie6/assets (their real home) — same reasoning
+  // CatalogueListPage/CatalogueDetailPage already derive `basePath` for, so
+  // a real cross-link resolves correctly regardless of which base this
+  // Finder instance is mounted under.
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
+  const script = findEntityById<ScriptAsset>("scripts", scriptId);
+  if (!script) return <Empty>Script not found</Empty>;
+  const brand = script.brandId ? brands.find((b) => b.id === script.brandId) : undefined;
+  const angle = script.angleId ? angles.find((a) => a.id === script.angleId) : undefined;
+  const concept = script.conceptId ? findEntityById<Concept>("concepts", script.conceptId) : undefined;
+  const avatar = script.avatarId ? avatars.find((a) => a.id === script.avatarId) : undefined;
+  const voice = script.voiceId ? voices.find((v) => v.id === script.voiceId) : undefined;
+  const product = script.productId ? products.find((p) => p.id === script.productId) : undefined;
+  const category = script.categoryId ? categories.find((c) => c.id === script.categoryId) : undefined;
+  const framework = getFramework(script.frameworkId);
+  const def = getAssetType("scripts")!;
+  const card = def.toCard(script);
+  const genieHref = useInGenieUrl("scripts", script.id);
+  const criteria = deriveGenieMatchCriteria("scripts", script);
+
+  // The B/P/C+p spread — brand only / brand+product / brand+category+product
+  // / no entity at all. Shared between the inline Overview row and the
+  // dedicated "type" pane-2 tab so the two can't disagree about which of the
+  // four states a script is in. The "no entity" case is the important edge
+  // case (file header: at least 2 of 12 seed scripts hit it on purpose) and
+  // must read as an explicit, calm row — never a blank.
+  const typeRow = brand ? (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Link
+        to={`/catalogue/brands/${brand.id}`}
+        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:border-primary/40"
+      >
+        {brand.logo && <img src={brand.logo} alt="" className="h-3.5 w-3.5 rounded" />}
+        {brand.name}
+      </Link>
+      {category && (
+        <Link
+          to={`/catalogue/categories/${category.id}`}
+          className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground hover:text-primary-text"
+        >
+          {category.name}
+        </Link>
+      )}
+      {product && (
+        <Link
+          to={`/catalogue/products/${product.id}`}
+          className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground hover:text-primary-text"
+        >
+          {product.name}
+        </Link>
+      )}
+    </div>
+  ) : (
+    <p className="text-sm text-muted-foreground italic">Not tied to a brand yet.</p>
+  );
+
+  if (section === "overview") {
+    return (
+      <div className="p-6 space-y-5 max-w-3xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5 text-primary-text" />
+            </div>
+            <div className="min-w-0">
+              <h2
+                className="text-lg font-semibold text-foreground truncate"
+                title={script.title.length > 60 ? script.title : undefined}
+              >
+                {script.title}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{script.framework} · {script.durationSec}s</p>
+            </div>
+          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+        </div>
+
+        {/* "content (the actual script)" — the primary artifact, shown in
+            full, never clamped (same treatment Concept gives its own
+            visual-direction/hook-copy text). */}
+        <Section title="Script">
+          <p className="text-sm text-foreground whitespace-pre-line">{script.body}</p>
+        </Section>
+
+        <Section title="Angle + concept">
+          {angle || concept ? (
+            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+              {angle && (
+                <Link
+                  to={`${basePath}/angles/${angle.id}`}
+                  className="rounded-md bg-muted px-2 py-1 text-foreground hover:text-primary-text"
+                >
+                  {angle.label}
+                </Link>
+              )}
+              {concept && (
+                <Link
+                  to={`${basePath}/concepts/${concept.id}`}
+                  className="rounded-md border border-border px-2 py-1 text-primary-text hover:border-primary/40"
+                >
+                  {concept.name}
+                </Link>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">No angle or concept linked.</p>
+          )}
+        </Section>
+
+        <Section title="Avatar + voice">
+          <PersonaChip avatar={avatar} voice={voice} emptyLabel="No persona linked yet." />
+        </Section>
+
+        <Section title="Brand / Product / Category">{typeRow}</Section>
+
+        <Section title="Framework">
+          {framework ? (
+            <Link
+              to={`${basePath}/frameworks/${framework.id}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40"
+            >
+              <GitBranch className="h-3.5 w-3.5 text-primary-text" />
+              <span className="font-medium text-foreground">{framework.name}</span>
+              {framework.fullName && <span className="text-xs text-muted-foreground">· {framework.fullName}</span>}
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Framework not found.</p>
+          )}
+        </Section>
+
+        <AssetDetailActions def={def} item={script} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+      </div>
+    );
+  }
+  if (section === "angle") {
+    if (concept) return <ConceptSectionView conceptId={concept.id} section="overview" />;
+    if (angle) return <AngleSectionView angleId={angle.id} section="overview" />;
+    return <div className="p-6"><Empty>No angle or concept linked.</Empty></div>;
+  }
+  if (section === "avatar") {
+    if (!avatar) return <div className="p-6"><Empty>No persona linked yet.</Empty></div>;
+    return <AvatarSectionView avatarId={avatar.id} section="overview" />;
+  }
+  if (section === "type") {
+    if (!brand) return <div className="p-6"><Empty>Not tied to a brand yet.</Empty></div>;
+    return <BrandSectionView brandId={brand.id} section="overview" />;
+  }
+  if (section === "framework") {
+    if (!framework) return <div className="p-6"><Empty>Framework not found.</Empty></div>;
+    return <FrameworkSectionView frameworkId={framework.id} section="overview" />;
+  }
+  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+}
+
+/* ─── Framework section view ───────────────────────────── */
+/**
+ * Owner spec 2026-09-14 — a Framework reads as "Name · Angle + concept",
+ * and that field must read correctly WITH and WITHOUT a worked-example
+ * concept attached (Carousel Reveal deliberately has none — see
+ * `frameworks.ts`'s header note). A linked concept's "actual content" IS
+ * its `visualDirection` field, so "with/without visual direction" here
+ * means: show it when a concept resolves, and render a calm, explicit
+ * absence — never a dangling "Visual direction" heading over nothing —
+ * when it doesn't. The ordered section breakdown itself is unchanged,
+ * still the shared `FrameworkStructure` component used by `/grid/:id` so
+ * the two surfaces can't drift.
+ */
+function FrameworkSectionView({ frameworkId, section }: { frameworkId: string; section: string }) {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
+  const framework = findEntityById<Framework>("frameworks", frameworkId);
+  if (!framework) return <Empty>Framework not found</Empty>;
+  const angle = framework.angleId ? angles.find((a) => a.id === framework.angleId) : undefined;
+  const concept = framework.conceptId ? findEntityById<Concept>("concepts", framework.conceptId) : undefined;
+  const def = getAssetType("frameworks")!;
+  const card = def.toCard(framework);
+  const genieHref = useInGenieUrl("frameworks", framework.id);
+  const criteria = deriveGenieMatchCriteria("frameworks", framework);
+
+  const angleConceptBlock = (
+    <div className="space-y-2">
+      {angle || concept ? (
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          {/* Framework → Angle is a real Link, per spec — every type stays
+              routed even off the sub-nav, so linking out is fine. */}
+          {angle && (
+            <Link
+              to={`${basePath}/angles/${angle.id}`}
+              className="rounded-md bg-muted px-2 py-1 text-foreground hover:text-primary-text"
+            >
+              {angle.label}
+            </Link>
+          )}
+          {concept && (
+            <Link
+              to={`${basePath}/concepts/${concept.id}`}
+              className="rounded-md border border-border px-2 py-1 text-primary-text hover:border-primary/40"
+            >
+              {concept.name}
+            </Link>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">No angle or worked-example concept assigned to this structure.</p>
+      )}
+      {/* WITH visual direction: the linked concept's own content. WITHOUT:
+          an explicit, calm line — not an empty "Visual direction" heading. */}
+      {concept ? (
+        <p className="text-sm text-foreground">{concept.visualDirection}</p>
+      ) : angle ? (
+        <p className="text-sm text-muted-foreground italic">No worked-example concept yet — angle only.</p>
+      ) : null}
+    </div>
+  );
+
+  if (section === "overview") {
+    return (
+      <div className="p-6 space-y-5 max-w-3xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <GitBranch className="h-5 w-5 text-primary-text" />
+            </div>
+            <div className="min-w-0">
+              <h2
+                className="text-lg font-semibold text-foreground truncate"
+                title={framework.name.length > 60 ? framework.name : undefined}
+              >
+                {framework.name}
+              </h2>
+              {framework.fullName && <p className="text-xs text-muted-foreground truncate">{framework.fullName}</p>}
+            </div>
+          </div>
+          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+        </div>
+
+        {framework.description && (
+          <Section title="What it's for"><p className="text-sm text-foreground">{framework.description}</p></Section>
+        )}
+
+        <Section title="Angle + concept">{angleConceptBlock}</Section>
+
+        <FrameworkStructure framework={framework} />
+
+        <AssetDetailActions def={def} item={framework} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+      </div>
+    );
+  }
+  if (section === "angle") {
+    if (concept) return <ConceptSectionView conceptId={concept.id} section="overview" />;
+    if (angle) return <AngleSectionView angleId={angle.id} section="overview" />;
+    return <div className="p-6"><Empty>No angle or concept assigned to this structure yet.</Empty></div>;
+  }
+  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+}
+
+/* ─── Shared small field/persona widgets ─────────────────
+ * Used by Avatar (6 named fields), Concept + Script (Avatar + voice), and
+ * anywhere else a compact "label → value" row reads better than a full
+ * `Section`. One implementation so the "drop the row, don't print
+ * Unspecified" rule can't drift between call sites. */
+function FieldList({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">{children}</div>;
+}
+function FieldRow({ label, value }: { label: string; value: string }) {
+  const isLong = value.length > 60;
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">{label}</span>
+      <span
+        className="text-sm font-medium text-foreground text-right truncate"
+        title={isLong ? value : undefined}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+/** Persona chip — an Avatar (+ its paired Voice, when resolvable) as one
+ *  compact unit. Renders the calm empty state itself so every call site
+ *  (Concept, Script) states the SAME "no persona" copy verbatim unless it
+ *  passes its own `emptyLabel`. */
+function PersonaChip({
+  avatar,
+  voice,
+  emptyLabel = "No persona linked.",
+}: {
+  avatar?: Avatar;
+  voice?: Voice;
+  emptyLabel?: string;
+}) {
+  if (!avatar) return <p className="text-sm text-muted-foreground italic">{emptyLabel}</p>;
+  return (
+    <div className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+      <UserRound className="h-3.5 w-3.5 text-primary-text shrink-0" />
+      <span
+        className="font-medium text-foreground truncate max-w-[220px]"
+        title={avatar.name.length > 60 ? avatar.name : undefined}
+      >
+        {avatar.name}
+      </span>
+      {voice && <span className="text-muted-foreground shrink-0">· {voice.name}</span>}
+    </div>
+  );
+}
+/** The voice a persona reads in, as a display label — resolved through the
+ *  pairing (`voiceId` → that voice's first tone → `VOICE_TONES` label),
+ *  never invented on the avatar itself. `undefined` (not "Unspecified")
+ *  when there's no pairing or no tone, so the caller drops the row instead
+ *  of printing a placeholder. Same logic `assetTypes.ts`'s (unexported)
+ *  `toneLabelForAvatar` uses — kept in sync by being this short. */
+function avatarToneLabel(avatar: Avatar): string | undefined {
+  if (!avatar.voiceId) return undefined;
+  const voice = voices.find((v) => v.id === avatar.voiceId);
+  const toneId = voice?.tones?.[0];
+  if (!toneId) return undefined;
+  return VOICE_TONES.find((t) => t.id === toneId)?.label;
 }
 
 /* ─── Layout helpers ───────────────────────────────────── */

@@ -1,11 +1,25 @@
 import { Link, useLocation } from "react-router-dom";
+import { ASSET_TYPES, ASSET_TYPE_ORDER } from "@/catalogue/assetTypes";
+
+/**
+ * Asset-type segments are DERIVED from the registry, not retyped here.
+ * This map was a hand-copy and had already drifted: it was missing
+ * `scripts`, `ctas`, `frameworks` and `storyboards` entirely, so those
+ * breadcrumbs fell back to a raw slug — and three of those four are now
+ * primary items on the Asset Library sub-menu. It also still said
+ * "Avatars" after that type became "Avatar + voice" (owner, 2026-09-14).
+ *
+ * The literal entries below stay for every NON-asset segment and win over
+ * the derived ones, so nothing outside the Asset Library changes.
+ */
+const ASSET_SEGMENT_LABELS: Record<string, string> = Object.fromEntries(
+  ASSET_TYPE_ORDER.map((id) => [id, ASSET_TYPES[id].label]),
+);
 
 const SEGMENT_LABELS: Record<string, string> = {
+  ...ASSET_SEGMENT_LABELS,
   genie6: "Genie 6.0",
   workspace: "Workspace",
-  brands: "Brands",
-  categories: "Categories",
-  products: "Products",
   generate: "Generate",
   wizard: "Wizard",
   form: "Form",
@@ -13,14 +27,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   results: "Results",
   library: "Library",
   outputs: "Outputs",
-  hooks: "Hooks",
-  angles: "Angles",
-  concepts: "Concepts",
-  templates: "Templates",
-  avatars: "Avatars",
-  audiences: "Audiences",
   settings: "Settings",
-  voices: "Voices",
   "brand-ad": "Brand Ad",
   "product-ad": "Product Ad",
   "affiliate-ad": "Affiliate Ad",

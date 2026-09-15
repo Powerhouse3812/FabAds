@@ -94,6 +94,9 @@ import type { StoryboardAsset } from "@/mocks/shared/storyboards";
 // this file may not exist yet while the Editor agent is still building
 // it; that is expected (see build brief §8).
 import { FRAMEWORKS, type Framework } from "@/genie6/editor/frameworks";
+// Leaf taxonomy file — no cycle. Avatar.personalityId and Voice.tones are
+// ids into these tables; the merged Avatar + voice row shows their LABELS.
+import { personalityLabel, VOICE_TONES } from "@/genie6/brain/avatarTaxonomy";
 import {
   writeKey,
   getWriteSnapshot,
@@ -134,14 +137,18 @@ export const ASSET_TYPE_ORDER: CatalogueType[] = [
   "brands",
   "products",
   "categories",
-  "avatars",
-  "voices",
-  "scripts",
+  // ── Creative, in the owner's own sub-menu order (2026-09-14) ──────────
+  "avatars", // "Avatar + voice" — Voice merged in, see avatarsType below
   "concepts",
-  "hooks",
-  "ctas",
+  "scripts",
   "frameworks",
+  "hooks",
   "storyboards",
+  // ── Still registered and still routed, but OFF the sub-nav (navHidden).
+  //    Order among these is inert; they exist here so every iteration over
+  //    ASSET_TYPE_ORDER still sees them.
+  "voices",
+  "ctas",
   "angles",
   "templates",
   "audiences",
@@ -198,6 +205,22 @@ export interface AssetTypeDef<T = any> {
    */
   addForm?: { nameLabel: string; bodyLabel?: string; bodyPlaceholder?: string };
   buildAdded?: (input: AddAssetInput) => T;
+  /**
+   * Keep the type WORKING but take it off the sub-nav (owner, 2026-09-14:
+   * the Asset Library sub-menu keeps only Avatar + voice / Concept / Script /
+   * Framework / Hook / Storyboard).
+   *
+   * Hidden rather than deleted because the data underneath is load-bearing
+   * elsewhere: Angle labels are read by 11 files and are still a FIELD on
+   * Concept, Script, Framework and Hook; Voice is now half of the merged
+   * Avatar + voice row. Routes stay alive too — the house rule from Genie
+   * 2.0 §8 is "routes for anything pulled from nav stay alive", so old
+   * bookmarks and the Library's saved-asset deep links keep resolving.
+   *
+   * `groupedAssetTypes()` is the ONE place this is applied, which is why
+   * both sub-navs and both index redirects pick it up for free.
+   */
+  navHidden?: boolean;
 }
 
 /* ─────────────────────────────── shared helpers ─────────────────────────────── */
@@ -312,6 +335,9 @@ function makeResolver<T extends { id: string }>(
   type: CatalogueType,
   seed: T[],
   withName: (item: T, name: string) => T,
+  /** Only types with an editable body pass this — see `assetActions.ts`'s
+   *  EDITABLE_BODY_TYPES. Omitted ⇒ a `bodyOverride` is ignored. */
+  withBody?: (item: T, body: string) => T,
 ): (opts?: { includeArchived?: boolean }) => T[] {
   return (opts = {}) => {
     const snap = getWriteSnapshot();
@@ -326,8 +352,16 @@ function makeResolver<T extends { id: string }>(
     });
     all = all.map((item) => {
       const ov = snap.overrides[writeKey(type, item.id)];
-      if (!ov?.nameOverride) return item;
-      return withName(item, ov.nameOverride);
+      if (!ov) return item;
+      let next = item;
+      if (ov.nameOverride) next = withName(next, ov.nameOverride);
+      // Content edits ride the SAME resolve path as renames rather than
+      // being applied at the render site — otherwise the detail view and
+      // anything else reading the entity would disagree about what the
+      // asset says. Only types that pass a `withBody` opt in; for everyone
+      // else a stray override is inert.
+      if (ov.bodyOverride !== undefined && withBody) next = withBody(next, ov.bodyOverride);
+      return next;
     });
     return all;
   };
@@ -417,6 +451,9 @@ const categoriesType: AssetTypeDef<Category> = {
 };
 
 const audiencesType: AssetTypeDef<Audience> = {
+  // Off the sub-nav, NOT deleted:
+  //   owner cut it from the sub-menu 2026-09-14.
+  navHidden: true,
   id: "audiences",
   label: "Audiences",
   singular: "Audience",
@@ -447,6 +484,10 @@ const audiencesType: AssetTypeDef<Audience> = {
 };
 
 const anglesType: AssetTypeDef<Angle> = {
+  // Off the sub-nav, NOT deleted:
+  //   Angle is still a FIELD on Concept / Script / Framework / Hook,
+  //   and 11 files read its labels — the DATA stays, only the page leaves.
+  navHidden: true,
   id: "angles",
   label: "Angles",
   singular: "Angle",
@@ -531,12 +572,43 @@ const conceptsType: AssetTypeDef<Concept> = {
   }),
 };
 
+/**
+ * The voice a persona reads in, as a display label. Owner spec 2026-09-14
+ * puts "tone" on the Avatar + voice row, and tone is a property of the VOICE,
+ * not of the avatar — so it is resolved through the pairing rather than
+ * invented on the avatar. Returns undefined (not "Unspecified") when there is
+ * no pairing or no tone, so the caller can drop the chip instead of printing
+ * a placeholder.
+ */
+function toneLabelForAvatar(a: Avatar): string | undefined {
+  if (!a.voiceId) return undefined;
+  const voice = voices.find((v) => v.id === a.voiceId);
+  const toneId = voice?.tones?.[0];
+  if (!toneId) return undefined;
+  return VOICE_TONES.find((t) => t.id === toneId)?.label;
+}
+
+/**
+ * AVATAR + VOICE — one library item, one row per persona (owner, 2026-09-14:
+ * "Avatar + voice … name, gender, age, personality, race, tone").
+ *
+ * The registry KEY stays `avatars` on purpose. Renaming it would have meant
+ * new routes, a new App.tsx redirect, and re-pointing every deep link that
+ * already writes `/iq/genie6/assets/avatars/…` (the Library's saved-asset
+ * card, the Other Apps SOURCE_LABEL maps). The label is what the user reads;
+ * the key is plumbing, and churning it buys nothing.
+ *
+ * `voicesType` below keeps its own entry so Voice data, its route and its
+ * deep links all still resolve — it is just `navHidden`, because a voice is
+ * now reached THROUGH its persona rather than as a list of its own.
+ */
 const avatarsType: AssetTypeDef<Avatar> = {
   id: "avatars",
-  label: "Avatars",
-  singular: "Avatar",
+  label: "Avatar + voice",
+  singular: "Avatar + voice",
   icon: UserRound,
-  description: "Avatar identities for UGC video generation. Cross-language profiles with demographic + style. Presets only in V1 — avatar creation ships V2.",
+  description:
+    "Personas for UGC generation — each avatar paired with the voice it reads in. Name, gender, age, personality, race and tone on one row. Presets only in V1; avatar creation ships V2.",
   group: "creative",
   resolve: makeResolver("avatars", avatars, (a, name) => ({ ...a, name })),
   getId: (a) => a.id,
@@ -544,8 +616,16 @@ const avatarsType: AssetTypeDef<Avatar> = {
   withName: (a, name) => ({ ...a, name }),
   toCard: (a) =>
     buildCard("avatars", a.id, a.name, {
-      subtitle: a.demographic,
-      tags: a.language.slice(0, 3),
+      // The three fields the owner asked to SEE, in his order. Built from the
+      // parsed columns rather than the raw `demographic` string so the card
+      // shows the same values the detail view and any facet do.
+      subtitle: [a.gender, a.ageRange, a.race].filter(Boolean).join(" · "),
+      // Personality and tone are the other two named fields; language trails
+      // them because it is what the old card led with and it still matters
+      // for picking a persona.
+      tags: [personalityLabel(a.personalityId), toneLabelForAvatar(a), ...a.language.slice(0, 2)]
+        .filter((t): t is string => !!t && t !== "Unspecified")
+        .slice(0, 4),
       usageCount: deterministicUsage(a.id),
       lastUsedAt: deterministicLastUsed(a.id),
       item: a,
@@ -554,6 +634,10 @@ const avatarsType: AssetTypeDef<Avatar> = {
 };
 
 const voicesType: AssetTypeDef<Voice> = {
+  // Off the sub-nav, NOT deleted:
+  //   a voice is now reached through its persona (the merged
+  //   Avatar + voice item), not as a roster of its own.
+  navHidden: true,
   id: "voices",
   label: "Voices",
   singular: "Voice",
@@ -589,7 +673,14 @@ const scriptsType: AssetTypeDef<ScriptAsset> = {
   icon: FileText,
   description: "Reviewed, approved video scripts — written against a framework (PAS / AIDA / BAB / FAB), ready to hand to the video editor.",
   group: "creative",
-  resolve: makeResolver("scripts", scripts, (s, name) => ({ ...s, title: name })),
+  // Script is the ONE type whose content the owner asked to be editable
+  // ("Edit" appears on Script and nowhere else in his 2026-09-14 spec).
+  resolve: makeResolver(
+    "scripts",
+    scripts,
+    (s, name) => ({ ...s, title: name }),
+    (s, body) => ({ ...s, body }),
+  ),
   getId: (s) => s.id,
   getName: (s) => s.title,
   withName: (s, name) => ({ ...s, title: name }),
@@ -618,6 +709,9 @@ const scriptsType: AssetTypeDef<ScriptAsset> = {
 };
 
 const ctasType: AssetTypeDef<CtaAsset> = {
+  // Off the sub-nav, NOT deleted:
+  //   owner cut it from the sub-menu 2026-09-14.
+  navHidden: true,
   id: "ctas",
   label: "CTAs",
   singular: "CTA",
@@ -716,6 +810,9 @@ const storyboardsType: AssetTypeDef<StoryboardAsset> = {
 };
 
 const templatesType: AssetTypeDef<TemplateAsset> = {
+  // Off the sub-nav, NOT deleted:
+  //   owner cut it from the sub-menu 2026-09-14.
+  navHidden: true,
   id: "templates",
   label: "Templates",
   singular: "Template",
@@ -784,7 +881,9 @@ export function groupedAssetTypes(): { group: AssetGroup; label: string; types: 
   return GROUP_ORDER.map((group) => ({
     group,
     label: ASSET_GROUP_LABELS[group],
-    types: ASSET_TYPE_ORDER.map((id) => ASSET_TYPES[id]).filter((d) => d.group === group),
+    types: ASSET_TYPE_ORDER.map((id) => ASSET_TYPES[id]).filter(
+      (d) => d.group === group && !d.navHidden,
+    ),
   }));
 }
 
