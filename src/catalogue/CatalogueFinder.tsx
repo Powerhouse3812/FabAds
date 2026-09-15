@@ -6,7 +6,7 @@ import {
   Layers, FileText, Globe, Settings as SettingsIcon, Wand2,
   Users, Megaphone,
   Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic, Volume2,
-  Languages, GitBranch,
+  Languages, GitBranch, SlidersHorizontal, Copy, Trash2, Target,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -69,7 +69,10 @@ import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFro
 // (a simpler single-string-value pair used by Avatar's own field grid) —
 // the DetailKit versions accept a ReactNode `value` + `emptyLabel`, which
 // is what a real cross-link `<Link>` inside a field row needs.
-import { SectionCard, FieldList as DetailFieldList, FieldRow as DetailFieldRow } from "./detail/DetailKit";
+import {
+  SectionCard, FieldList as DetailFieldList, FieldRow as DetailFieldRow,
+  Chip, ChipList, StatStrip, StatStripItem, CollapsibleCard, PillButton,
+} from "./detail/DetailKit";
 import { useInGenieUrl, bulkUseInGenieUrl, brandNameForProducts } from "./genieHandoff";
 import { AssetFormModal } from "./AssetFormModal";
 import { primaryActionFor } from "./assetActions";
@@ -450,32 +453,83 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
 
       {/* 3-pane Finder body */}
       <div className="flex-1 flex min-h-0">
-        {/* PANE 1 — entity list */}
-        <aside className="w-[260px] flex-shrink-0 border-r border-border flex flex-col">
-          <div className="px-3 py-2 border-b border-border shrink-0 space-y-1.5">
-            <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
-              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${def.label.toLowerCase()}…`}
-                className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none w-full"
-              />
+        {/* PANE 1 — entity list.
+            Owner Figma spec (2026-09-15), Scripts only: dedicated 250px
+            header (pill "+ Add new script" + restyled search/filter row)
+            and dedicated row shape (round tile + two-line title/meta,
+            lime active state). Every other type keeps the original
+            260px generic header + `Pane1Row` untouched. */}
+        <aside className={cnSafe("flex-shrink-0 border-r border-border flex flex-col", type === "scripts" ? "w-[250px]" : "w-[260px]")}>
+          {type === "scripts" ? (
+            <div className="border-b border-border px-3 py-2 shrink-0 space-y-2">
+              <button
+                type="button"
+                onClick={handleAddClick}
+                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-[13px] font-normal leading-5 tracking-[-0.08px] text-primary-foreground transition-transform hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                Add new script
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 flex-1 items-center gap-2 rounded-full bg-foreground/[0.03] px-3">
+                  <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search scripts…"
+                    className="w-full bg-transparent text-sm text-foreground placeholder:text-sm placeholder:text-muted-foreground outline-none"
+                  />
+                </div>
+                {/* Same sort state/wiring as every other type — restyled from
+                    a labeled dropdown into an icon-only filter button
+                    (Select's own chevron hidden via the established
+                    `[&>svg:last-child]:hidden` trick, already used for this
+                    exact "Select as icon button" pattern in
+                    InsightsV2Toolbar.tsx). */}
+                <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                  <SelectTrigger
+                    aria-label="Sort scripts"
+                    className="h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-transparent p-0 [&>svg:last-child]:hidden"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    {SORT_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-              <SelectTrigger className="h-7 w-full text-[11px] text-muted-foreground" aria-label="Sort">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          ) : (
+            <div className="px-3 py-2 border-b border-border shrink-0 space-y-1.5">
+              <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2.5 py-1.5">
+                <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={`Search ${def.label.toLowerCase()}…`}
+                  className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none w-full"
+                />
+              </div>
+              <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                <SelectTrigger className="h-7 w-full text-[11px] text-muted-foreground" aria-label="Sort">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto py-1">
             {isLoading ? (
               <Pane1Skeleton />
@@ -483,6 +537,17 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
               <p className="px-3 py-4 text-xs text-muted-foreground text-center">
                 No {def.label.toLowerCase()} match "{query}"
               </p>
+            ) : type === "scripts" ? (
+              (items as ScriptAsset[]).map((s) => (
+                <ScriptPane1Row
+                  key={s.id}
+                  script={s}
+                  active={selectedId === s.id}
+                  onClick={() => handleSelectEntity(s.id)}
+                  selected={bulkSelected.has(s.id)}
+                  onToggleSelect={() => toggleBulkSelect(s.id)}
+                />
+              ))
             ) : (
               items.map((item) => {
                 const active = selectedId === item.id;
@@ -897,6 +962,102 @@ function Pane1Row({
         {meta.line2 && (
           <p className="text-[10px] text-muted-foreground truncate">{meta.line2}</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Script pane-1 row ─────────────────────────────────── */
+/**
+ * Owner Figma spec (2026-09-15) — Scripts-only row shape, distinct from the
+ * generic `Pane1Row` above (which every other type still uses unmodified):
+ * a 24px round tile + two-line title/meta. Active state is a lime fill +
+ * right-side accent bar, not the generic row's `bg-primary/10` treatment.
+ *
+ * THE CHECKBOX IS REVEALED, NOT RESIDENT. The spec's row anatomy has no
+ * checkbox slot, and an earlier pass read that as "delete bulk-select" —
+ * which made Scripts the only one of nine asset types with no way to reach
+ * the bulk bar (Use in Genie / Duplicate / Archive / Delete), measured 0
+ * checkboxes against 9-60 everywhere else. A drawing of a row at rest is
+ * not an instruction to remove a capability. So: the resting row matches
+ * the spec exactly, and the checkbox appears on hover, on focus, or while
+ * selected — the same reveal the generic `Pane1Row` already uses.
+ *
+ * `#F5FBE2`/`#749818` are the same "fab-funnel/1" / "fab-funnel/7" lime
+ * tint + border already used as literal hex across ~15 non-g6 files
+ * (StrategyEditor.tsx, LaunchSettings.tsx, AccountSelectorPanel.tsx, …) —
+ * there is no non-g6 Tailwind token for them (only the g6-* namespace
+ * registers one, and that cascades via `data-theme` on `<html>` which this
+ * file's `/catalogue`-mounted path never sets — see CLAUDE.md's g6 token
+ * warning), so this follows the established non-g6 literal-hex convention
+ * instead of risking an invisible border outside Genie routes. The active
+ * title colour reuses `text-primary-text` (a real registered token) since
+ * its light-mode value (`hsl(75 84% 25%)` ≈ `#5A750A`) is effectively the
+ * spec's `#5B750A` — a token name over a near-identical raw value, per
+ * house rule. `#F7F7F7` tile bg and `#8B8893` meta text both map onto
+ * `bg-muted` / `text-muted-foreground` — DetailKit's own header already
+ * establishes both of those exact hex → token mappings.
+ */
+function ScriptPane1Row({
+  script,
+  active,
+  onClick,
+  selected,
+  onToggleSelect,
+}: {
+  script: ScriptAsset;
+  active: boolean;
+  onClick: () => void;
+  /** Bulk-select state. Named to match the generic `Pane1Row`'s
+   *  `bulkSelected`/`onToggleBulkSelect` pair it mirrors. */
+  selected: boolean;
+  onToggleSelect: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
+      className={cnSafe(
+        "group/script flex w-full cursor-pointer items-start gap-2 p-3 text-left transition-colors",
+        active ? "rounded-[12px_0_0_12px] border-r-2 border-[#749818] bg-[#F5FBE2]" : "hover:bg-muted/40",
+      )}
+    >
+      <span
+        className={cnSafe(
+          "mt-0.5 shrink-0 transition-opacity",
+          selected ? "opacity-100" : "opacity-0 group-hover/script:opacity-100 group-focus-within/script:opacity-100",
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Checkbox
+          checked={selected}
+          onCheckedChange={() => onToggleSelect()}
+          aria-label={selected ? `Deselect ${script.title}` : `Select ${script.title}`}
+        />
+      </span>
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted">
+        <FileText className="h-3 w-3 text-muted-foreground" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p
+          className={cnSafe(
+            "truncate text-[13px] font-medium leading-5 tracking-[-0.08px]",
+            active ? "text-primary-text" : "text-foreground",
+          )}
+          /* Always set: a length test never fires, because what
+             truncates is WIDTH. 7 of 12 seeded titles clip in the
+             250px pane and none of them reached 40 characters. */
+          title={script.title}
+        >
+          {script.title}
+        </p>
+        <p className="truncate text-[10px] font-normal leading-[15px] text-muted-foreground">
+          {script.framework} · {script.durationSec}s
+        </p>
       </div>
     </div>
   );
@@ -1899,6 +2060,15 @@ function ScriptSectionView({ scriptId }: { scriptId: string }) {
   // a real cross-link resolves correctly regardless of which base this
   // Finder instance is mounted under.
   const location = useLocation();
+  const navigate = useNavigate();
+  // Hooks must run unconditionally before the `!script` early return below
+  // (Rules of Hooks) — this one specifically matters here because deleting
+  // the currently-viewed script via the new title-row Delete button changes
+  // `writes`, which can re-render this component with a now-stale
+  // `scriptId` for one frame before the parent's own effect reassigns
+  // `selectedId`. A `useState` placed after the early return would then be
+  // skipped on that render, changing the hook count and crashing React.
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
   const script = findEntityById<ScriptAsset>("scripts", scriptId);
   if (!script) return <Empty>Script not found</Empty>;
@@ -1915,175 +2085,320 @@ function ScriptSectionView({ scriptId }: { scriptId: string }) {
   const genieHref = useInGenieUrl("scripts", script.id);
   const criteria = deriveGenieMatchCriteria("scripts", script);
 
-  // The B/P/C+p spread — brand only / brand+product / brand+category+product
-  // / no entity at all. The "no entity" case is the important edge case
-  // (file header: at least 2 of 12 seed scripts hit it on purpose) and must
-  // read as an explicit, calm row — never a blank. Links stay hardcoded to
-  // `/catalogue` (not `basePath`) — Brand/Category/Product are Business
-  // types, real home is `/catalogue` only, unlike the Creative cross-links
-  // below.
-  const typeContent = brand ? (
-    <DetailFieldList>
-      <DetailFieldRow
-        label="Brand"
-        value={
-          <Link
-            to={`/catalogue/brands/${brand.id}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-medium text-foreground hover:border-primary/40"
-          >
-            {brand.logo && <img src={brand.logo} alt="" className="h-3.5 w-3.5 rounded" />}
-            {brand.name}
-          </Link>
-        }
-      />
-      {category && (
-        <DetailFieldRow
-          label="Category"
-          value={
-            <Link
-              to={`/catalogue/categories/${category.id}`}
-              className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground hover:text-primary-text"
-            >
-              {category.name}
-            </Link>
-          }
-        />
-      )}
-      {product && (
-        <DetailFieldRow
-          label="Product"
-          value={
-            <Link
-              to={`/catalogue/products/${product.id}`}
-              className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground hover:text-primary-text"
-            >
-              {product.name}
-            </Link>
-          }
-        />
-      )}
-    </DetailFieldList>
-  ) : (
-    <p className="text-[11px] italic text-muted-foreground">Not tied to a brand yet.</p>
-  );
+  // Title-row Duplicate/Delete (owner Figma spec, 2026-09-15) — same store
+  // calls `AssetDetailActions` below already makes for its own Duplicate/
+  // Delete buttons, just surfaced a second time up top per spec. Delete
+  // still confirms (house policy: destructive actions confirm); Duplicate
+  // doesn't, matching `AssetDetailActions.handleDuplicate` exactly.
+  const handleTopDuplicate = () => {
+    const clone = buildDuplicate(def, script);
+    duplicateAsset(def.id, script.id, clone);
+    toast.success(`${def.getName(clone)} created`, {
+      description: "Duplicate appears in the list — local to this session.",
+    });
+  };
+  const handleTopDeleteConfirm = () => {
+    deleteAsset(def.id, script.id);
+    toast.success(`${script.title} deleted`, { description: "Local to this session — reload restores it." });
+    setConfirmDeleteOpen(false);
+  };
+
+  // Creative Identity's copy action — copies real field values only
+  // (Hook/Brief/CTA), skipping any that are empty rather than printing
+  // "undefined" or the "No data" label into the clipboard.
+  const handleCopyIdentity = () => {
+    const lines = [
+      script.hook ? `Hook: ${script.hook}` : undefined,
+      `Brief: ${script.body}`,
+      script.cta ? `CTA: ${script.cta}` : undefined,
+    ].filter((line): line is string => Boolean(line));
+    const text = lines.join("\n");
+    if (!navigator.clipboard?.writeText) {
+      toast.error("Clipboard isn't available in this browser");
+      return;
+    }
+    navigator.clipboard.writeText(text).then(
+      () => toast.success("Creative identity copied"),
+      () => toast.error("Couldn't copy — try selecting the text manually"),
+    );
+  };
+
+  // The three-beat strategy strip is either fully present-or-partial (every
+  // seed row that has ANY of the three has all three) or fully absent (both
+  // draft rows). A fully-empty strip reads as three dead "—" tiles in a row,
+  // which is worse than not showing the section at all — so this hides the
+  // whole `StatStrip` rather than rendering an all-empty one. Any partial
+  // case (none exist in the seed data today, but the data model allows it)
+  // still renders, with `StatStripItem`'s own per-item "—" handling covering
+  // whichever field is missing.
+  const hasStrategyStrip = Boolean(script.who || script.wantsThemTo || script.by);
 
   return (
-    <div className="p-6 space-y-4 max-w-3xl">
-      {/* Identity — title, framework · duration, provenance. Not a
-          SectionCard: this is the page header, not one of the data
-          sections below it. */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <FileText className="h-5 w-5 text-primary-text" />
+    <div className="min-h-full bg-[#FAFAF7]">
+      <div className="max-w-3xl space-y-4 border-l border-[rgba(0,0,0,0.06)] pb-6 pl-5 pr-6 pt-6">
+        {/* 1. Title row — title + provenance pill, right-aligned
+            Duplicate/Delete, uploaded/edited meta, hairline divider. */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2
+                className="min-w-0 truncate text-[14px] font-semibold leading-[22px] text-foreground"
+                /* Always set — see ScriptPane1Row: width truncates, not
+                   character count, so a length gate never fires. */
+                title={script.title}
+              >
+                {script.title}
+              </h2>
+              <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <PillButton icon={Copy} onClick={handleTopDuplicate}>
+                Duplicate
+              </PillButton>
+              <PillButton icon={Trash2} onClick={() => setConfirmDeleteOpen(true)}>
+                Delete
+              </PillButton>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2
-              className="text-lg font-semibold text-foreground truncate"
-              title={script.title.length > 60 ? script.title : undefined}
-            >
-              {script.title}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{script.framework} · {script.durationSec}s</p>
-          </div>
+          {/* The spec's literal string was "Uploaded 4d ago · Edited 2h ago",
+              and it shipped hardcoded — the same sentence on all 12 scripts,
+              stating two timestamps `ScriptAsset` does not carry. Figma copy
+              is a placeholder for real data, not the data. `lastUsedAt` IS
+              real, so that is what this says now; the two invented dates are
+              gone rather than dressed up. */}
+          <p className="font-mono text-[12px] font-medium leading-4 text-muted-foreground">
+            Last used {card.lastUsedLabel} · {script.usageCount} runs
+          </p>
+          <div className="h-px w-full bg-[rgba(0,0,0,0.06)]" />
         </div>
-        <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+
+        {/* 2. Framework & Script — the actual script content, open by
+            default (it's the primary artifact, not something to hide
+            behind a click). "Use framework" opens the real Framework
+            library item (there's no "insert framework" flow to wire to);
+            "Use script" reuses the same honest Genie hand-off the bottom
+            actions row's primary CTA already uses. */}
+        <CollapsibleCard
+          title="Framework & Script"
+          icon={GitBranch}
+          defaultOpen
+          actions={
+            <>
+              <PillButton
+                disabled={!framework}
+                onClick={() => framework && navigate(`${basePath}/frameworks/${framework.id}`)}
+              >
+                Use framework
+              </PillButton>
+              <PillButton onClick={() => navigate(genieHref)}>Use script</PillButton>
+            </>
+          }
+        >
+          <p className="text-[11px] leading-[15px] text-muted-foreground">Script</p>
+          <p className="mt-1 whitespace-pre-line text-[13px] leading-5 tracking-[-0.08px] text-foreground">
+            {script.body}
+          </p>
+        </CollapsibleCard>
+
+        {/* 3. Who / Wants them to / By — see `hasStrategyStrip` above for
+            the empty-section decision. */}
+        {hasStrategyStrip && (
+          <StatStrip>
+            <StatStripItem icon={Users} tint="lime" caption="Who" value={script.who} />
+            <StatStripItem icon={Target} tint="purple" caption="Wants them to" value={script.wantsThemTo} />
+            <StatStripItem icon={Megaphone} tint="teal" caption="By" value={script.by} />
+          </StatStrip>
+        )}
+
+        {/* 4. Two-up row — Creative Identity / Audience & Strategy. */}
+        <div className="grid grid-cols-2 gap-3">
+          <SectionCard
+            title="Creative Identity"
+            icon={MessageSquareQuote}
+            tint="lime"
+            actions={
+              <button
+                type="button"
+                onClick={handleCopyIdentity}
+                aria-label="Copy creative identity"
+                className="fab-focus flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <Copy className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            }
+          >
+            <DetailFieldList>
+              <DetailFieldRow label="Hook:" value={script.hook} />
+              {/* `brief` is the APPROACH in one line, never the script. This
+                  row pointed at `script.body` for want of a real field, which
+                  printed the entire script a second time — the Framework &
+                  Script card above already shows it in full. On the one page
+                  whose purpose was removing repeats, that was the repeat. */}
+              <DetailFieldRow label="Brief:" value={script.brief} />
+              <DetailFieldRow label="CTA:" value={script.cta} />
+            </DetailFieldList>
+          </SectionCard>
+
+          <SectionCard title="Audience & Strategy" icon={Users} tint="purple">
+            <DetailFieldList>
+              <DetailFieldRow label="Audience:" value={script.audience} />
+              <DetailFieldRow
+                label="Tone:"
+                emptyLabel="No data"
+                value={
+                  script.tone && script.tone.length > 0 ? (
+                    <ChipList>
+                      {script.tone.map((t) => (
+                        <Chip key={t}>{t}</Chip>
+                      ))}
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+              <DetailFieldRow
+                label="Angles:"
+                emptyLabel="No data"
+                value={
+                  angle ? (
+                    <ChipList>
+                      <Chip to={`${basePath}/angles/${angle.id}`}>{angle.label}</Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+              <DetailFieldRow
+                label="Framework:"
+                emptyLabel="No data"
+                value={
+                  framework ? (
+                    <Link
+                      to={`${basePath}/frameworks/${framework.id}`}
+                      className="fab-focus text-primary-text hover:underline"
+                    >
+                      {framework.name}
+                    </Link>
+                  ) : undefined
+                }
+              />
+            </DetailFieldList>
+          </SectionCard>
+        </div>
+
+        {/* 5. Concept — the linked concept's own visual direction, or a
+            calm explicit absence (mcaffeine has none seeded, nor do either
+            draft script). */}
+        <CollapsibleCard title="Concept" icon={Lightbulb} defaultOpen>
+          {concept ? (
+            <div className="space-y-1.5">
+              {/* The concept's own NAME and route came back with it — the
+                  card had been reduced to a paragraph of its visual
+                  direction, which read as loose prose belonging to nothing. */}
+              <Link
+                to={`${basePath}/concepts/${concept.id}`}
+                className="fab-focus inline-block text-[11px] font-medium leading-4 text-primary-text hover:underline"
+              >
+                {concept.name}
+              </Link>
+              <p className="text-[11px] leading-4 text-foreground">{concept.visualDirection}</p>
+            </div>
+          ) : (
+            <p className="text-[11px] leading-4 text-muted-foreground">No concept linked.</p>
+          )}
+        </CollapsibleCard>
+
+        {/* 6. Other details — two columns. `Ad type:` has no source
+            anywhere on ScriptAsset (no field for it at all), so it always
+            renders the explicit "No data" empty state below rather than
+            guessing a value. */}
+        <SectionCard title="Other details" icon={Building2} tint="purple">
+          <div className="grid grid-cols-2 gap-6">
+            <DetailFieldList>
+              <DetailFieldRow
+                label="Product:"
+                emptyLabel="No data"
+                value={
+                  product ? (
+                    <Link
+                      to={`/catalogue/products/${product.id}`}
+                      className="fab-focus text-primary-text hover:underline"
+                    >
+                      {product.name}
+                    </Link>
+                  ) : undefined
+                }
+              />
+              <DetailFieldRow
+                label="Brand:"
+                emptyLabel="No data"
+                value={brand ? <Chip to={`/catalogue/brands/${brand.id}`}>{brand.name}</Chip> : undefined}
+              />
+              <DetailFieldRow
+                label="Category:"
+                emptyLabel="No data"
+                value={
+                  category ? (
+                    <ChipList>
+                      <Chip to={`/catalogue/categories/${category.id}`}>{category.name}</Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+            </DetailFieldList>
+            <DetailFieldList>
+              <DetailFieldRow label="Ad type:" value={undefined} emptyLabel="No data" />
+              <DetailFieldRow
+                label="Avatar:"
+                emptyLabel="No data"
+                value={
+                  avatar ? (
+                    <ChipList>
+                      <Chip to={`${basePath}/avatars/${avatar.id}`}>{avatar.name}</Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+              <DetailFieldRow
+                label="Voice & lang.:"
+                emptyLabel="No data"
+                value={
+                  voice ? (
+                    <ChipList>
+                      <Chip to={`${basePath}/voices/${voice.id}`}>
+                        {voice.name} · {voice.language}
+                      </Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+            </DetailFieldList>
+          </div>
+        </SectionCard>
+
+        {/* 7. Existing actions + generations, untouched. */}
+        <AssetDetailActions def={def} item={script} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
       </div>
 
-      {/* "content (the actual script)" — the primary artifact, shown in
-          full, never clamped (same treatment Concept gives its own
-          visual-direction/hook-copy text). */}
-      <SectionCard title="Script" icon={FileText} tint="lime">
-        <p className="whitespace-pre-line text-[13px] leading-5 text-foreground">{script.body}</p>
-      </SectionCard>
-
-      <SectionCard title="Angle + concept" icon={Crosshair} tint="teal">
-        <DetailFieldList>
-          <DetailFieldRow
-            label="Angle"
-            value={
-              angle ? (
-                <Link
-                  to={`${basePath}/angles/${angle.id}`}
-                  className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-foreground hover:text-primary-text"
-                >
-                  {angle.label}
-                </Link>
-              ) : undefined
-            }
-            emptyLabel="No angle linked"
-          />
-          <DetailFieldRow
-            label="Concept"
-            value={
-              concept ? (
-                <Link
-                  to={`${basePath}/concepts/${concept.id}`}
-                  className="inline-flex items-center rounded-md border border-border px-2 py-1 text-primary-text hover:border-primary/40"
-                >
-                  {concept.name}
-                </Link>
-              ) : undefined
-            }
-            emptyLabel="No concept linked"
-          />
-        </DetailFieldList>
-      </SectionCard>
-
-      <SectionCard title="Avatar + voice" icon={UserRound} tint="purple">
-        <DetailFieldList>
-          <DetailFieldRow
-            label="Avatar"
-            value={
-              avatar ? (
-                <Link
-                  to={`${basePath}/avatars/${avatar.id}`}
-                  className="text-primary-text hover:underline"
-                >
-                  {avatar.name}
-                </Link>
-              ) : undefined
-            }
-            emptyLabel="No persona linked yet."
-          />
-          <DetailFieldRow
-            label="Voice"
-            value={
-              voice ? (
-                <Link
-                  to={`${basePath}/voices/${voice.id}`}
-                  className="text-primary-text hover:underline"
-                >
-                  {voice.name}
-                </Link>
-              ) : undefined
-            }
-            emptyLabel="No voice paired"
-          />
-        </DetailFieldList>
-      </SectionCard>
-
-      <SectionCard title="Brand / Product / Category" icon={Building2} tint="lime">
-        {typeContent}
-      </SectionCard>
-
-      <SectionCard title="Framework" icon={GitBranch} tint="teal">
-        {framework ? (
-          <Link
-            to={`${basePath}/frameworks/${framework.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 hover:border-primary/40"
-          >
-            <GitBranch className="h-3.5 w-3.5 text-primary-text" />
-            <span className="font-medium text-foreground">{framework.name}</span>
-            {framework.fullName && <span className="text-xs text-muted-foreground">· {framework.fullName}</span>}
-          </Link>
-        ) : (
-          <p className="text-[11px] italic text-muted-foreground">Framework not found.</p>
-        )}
-      </SectionCard>
-
-      <AssetDetailActions def={def} item={script} useInGenieHref={genieHref} />
-      <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{script.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This can't be undone within this session — the row is gone until reload resets the
+              demo data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleTopDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

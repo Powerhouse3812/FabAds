@@ -42,6 +42,20 @@ import { FRAMEWORKS } from "@/genie6/editor/frameworks";
  *    unchanged). Derived from `framework` inside the `s()` builder below —
  *    never hand-typed per row — so the two can never disagree.
  *
+ * Owner Figma spec (2026-09-15) — a richer Script detail page needs a hook,
+ * a closing CTA, an audience line, tone chips, and a three-beat strategy
+ * strip (`who` / `wantsThemTo` / `by`). All demo copy, hand-written per row
+ * against that row's own `body`/`framework`/entity — never generic filler
+ * reused across rows. `tone` is drawn from one small reused vocabulary
+ * (Empathetic / Reassuring / Clinical / Direct / Confident / Playful / Warm /
+ * Urgent), same principle as the `ScriptFramework` union, so chips stay
+ * recognizable rather than one-off adjectives. `who`/`wantsThemTo`/`by` each
+ * stay under ~35 chars so the three read as one sentence in a 3-up strip.
+ * The two entity-less drafts (`script-client-diwali-bundle`,
+ * `script-client-boat-monsoon`) are deliberately left partial — see the
+ * per-row comments — so the detail page's empty states have something real
+ * to render instead of being untested.
+ *
  * THE B/P/C+p SPREAD — every script ties to one of four entity states, and
  * all four are deliberately represented across the 12 seed rows so the UI
  * has to render each at least once:
@@ -91,6 +105,41 @@ export interface ScriptAsset {
   /** ISO date. */
   lastUsedAt: string;
   provenance: Provenance;
+
+  /** Owner Figma spec (2026-09-15) — richer Script detail page fields.
+   *  All optional so the two hand-built `ScriptAsset` literals elsewhere
+   *  (`src/catalogue/assetTypes.ts`, `generatedAssetsStore.ts`) keep
+   *  compiling unchanged — see the file header. Demo copy, specific to
+   *  each row. */
+
+  /** The opening line — what stops the scroll. Echoes/sharpens the first
+   *  line of `body`, never contradicts it. */
+  hook?: string;
+  /**
+   * ONE line describing the creative approach — "UGC testimonial reframing
+   * bloating as solvable, into a low-friction offer". It is NOT the script.
+   *
+   * It exists because the detail page renders the full `body` in its own
+   * Framework & Script card, and Creative Identity's "Brief:" row was
+   * pointed at `body` too for want of anything else — printing the entire
+   * script twice on the page whose whole point (owner, 2026-09-15) was
+   * "repeat pe jo data hai wo remove krdena". A brief summarises; a body
+   * is the thing itself.
+   */
+  brief?: string;
+  /** The closing ask, e.g. "Start your 7-day reset" — end-card, tap-to-shop. */
+  cta?: string;
+  /** Who this is for, one line: "Women 25+ struggling with gut issues". */
+  audience?: string;
+  /** Tone chips, 2-3 of them, from a small reused vocabulary (Empathetic /
+   *  Reassuring / Clinical / Direct / Confident / Playful / Warm / Urgent)
+   *  — see the file header. */
+  tone?: string[];
+  /** The three-beat strategy strip on the detail page — reads as one
+   *  sentence left to right: who → wantsThemTo → by. Each under ~35 chars. */
+  who?: string; // "Women 25+ · gut issues"
+  wantsThemTo?: string; // "Try a 3-strain supplement"
+  by?: string; // "Bloating = solvable · 7-day reset"
 }
 
 /** Tiny deterministic hash (FNV-1a) — same technique `./voices.ts` uses for
@@ -143,6 +192,16 @@ const s = (
     productId?: string;
     categoryId?: string;
   } = {},
+  detail: {
+    hook?: string;
+    brief?: string;
+    cta?: string;
+    audience?: string;
+    tone?: string[];
+    who?: string;
+    wantsThemTo?: string;
+    by?: string;
+  } = {},
 ): ScriptAsset => ({
   id,
   title,
@@ -161,6 +220,14 @@ const s = (
   usageCount,
   lastUsedAt,
   provenance,
+  hook: detail.hook,
+  brief: detail.brief,
+  cta: detail.cta,
+  audience: detail.audience,
+  tone: detail.tone,
+  who: detail.who,
+  wantsThemTo: detail.wantsThemTo,
+  by: detail.by,
 });
 
 export const scripts: ScriptAsset[] = [
@@ -178,6 +245,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // C+p — brand + category + product, all three consistent (mamaearth-onion-shampoo is mamaearth/hair-care).
     { conceptId: "concept-mamaearth-onion-ingredient", avatarId: "ava-priya", productId: "mamaearth-onion-shampoo", categoryId: "hair-care" },
+    {
+      hook: "Hair fall every time you shower? You're not imagining it.",
+      brief: "Ingredient-led reassurance — reframes hair fall as a scalp-oil problem, closes on a risk-free trial.",
+      cta: "Start your 30-day risk-free trial",
+      audience: "Women 25+ with visible hair fall from harsh shampoos",
+      tone: ["Empathetic", "Reassuring", "Clinical"],
+      who: "Women 25+ with hair fall",
+      wantsThemTo: "Switch to Onion Shampoo",
+      by: "Root cause fixed in 6 weeks",
+    },
   ),
   s(
     "script-mamaearth-onion-testimonial",
@@ -193,6 +270,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand only — no product/category.
     { conceptId: "concept-mamaearth-mom-emotional", avatarId: "ava-meera" },
+    {
+      hook: "Finding hair clumps on your pillow every morning?",
+      brief: "Mom-to-mom testimonial, six-week before/after carrying the proof instead of claims.",
+      cta: "See her hairline transformation",
+      audience: "Moms and women 30+ worried about daily hair fall",
+      tone: ["Empathetic", "Warm"],
+      who: "Moms losing hair after 30",
+      wantsThemTo: "Switch shampoos for 6 weeks",
+      by: "Real regrowth, no parabens",
+    },
   ),
   s(
     "script-noise-colorfit-aida",
@@ -208,6 +295,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand + product — no category (product's own categoryId "smartwatches" stays internal to ./products).
     { conceptId: "concept-noise-perf-comparison", avatarId: "ava-rohan", productId: "noise-colorfit-pro-5" },
+    {
+      hook: "Every smartwatch promises battery life. Most lie.",
+      brief: "Category call-out into a live battery demo — earns the spec sheet before it shows one.",
+      cta: "Tap the link — grab yours",
+      audience: "Budget-conscious smartwatch shoppers who obsess over battery life",
+      tone: ["Direct", "Confident"],
+      who: "Buyers comparing smartwatches",
+      wantsThemTo: "Pick ColorFit Pro 5 today",
+      by: "7-day battery, proven live",
+    },
   ),
   s(
     "script-boat-airdopes-fab",
@@ -223,6 +320,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // C+p — brand + category + product, all three consistent (boat-airdopes-141 is boat/wireless-earbuds).
     { conceptId: "concept-boat-asap-charge", avatarId: "ava-arjun", productId: "boat-airdopes-141", categoryId: "wireless-earbuds" },
+    {
+      hook: "40-hour battery. Charge once a week, not once a day.",
+      brief: "Spec-forward value play; each feature lands as a daily-commute benefit, not a number.",
+      cta: "Get Airdopes 161 for ₹999",
+      audience: "Daily commuters who hate charging earbuds every night",
+      tone: ["Direct", "Confident"],
+      who: "Daily commuters, budget earbuds",
+      wantsThemTo: "Buy Airdopes 161 at ₹999",
+      by: "Charge weekly, survive monsoons",
+    },
   ),
   s(
     "script-plum-serum-pas",
@@ -238,6 +345,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand + product — no category (product's own categoryId "skin-care" stays internal to ./products).
     { conceptId: "concept-plum-vegan", avatarId: "ava-divya", productId: "plum-gh-serum" },
+    {
+      hook: "Dull skin no amount of concealer fixes?",
+      brief: "Problem-first skincare read — concealer as the failed workaround, serum as the actual fix.",
+      cta: "Shop the 15% Vit C serum",
+      audience: "Women with dull, dehydrated skin masked by concealer",
+      tone: ["Empathetic", "Clinical"],
+      who: "Women with dull, tired skin",
+      wantsThemTo: "Add Vit C serum nightly",
+      by: "Brighter tone in 2 weeks",
+    },
   ),
   s(
     "script-sleepyhead-mattress-bab",
@@ -253,6 +370,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand only — no product/category.
     { conceptId: "concept-sleepyhead-100-night", avatarId: "ava-dev" },
+    {
+      hook: "Waking up with a stiff back every single morning?",
+      brief: "Before/after sleep story where the 100-night trial removes the reason to hesitate.",
+      cta: "Start your 100-night trial",
+      audience: "Adults with chronic back pain from old mattresses",
+      tone: ["Empathetic", "Reassuring"],
+      who: "Adults with chronic back pain",
+      wantsThemTo: "Try the 100-night trial",
+      by: "Memory foam ends the ache",
+    },
   ),
   s(
     "script-mcaffeine-scrub-aida",
@@ -268,6 +395,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand + product — no concept (mcaffeine has none seeded yet in ./concepts, left undefined rather than borrowed).
     { avatarId: "ava-naina", productId: "mcaffeine-coffee-bodyscrub" },
+    {
+      hook: "Ever notice how a coffee scrub resets your skin?",
+      brief: "Sensory routine-upgrade pitch — curiosity opener into an everyday shower ritual.",
+      cta: "Upgrade your shower today",
+      audience: "Lifestyle shoppers wanting an energizing shower upgrade",
+      tone: ["Playful", "Confident"],
+      who: "Shower-routine upgraders",
+      wantsThemTo: "Try the coffee body scrub",
+      by: "Exfoliates and energizes skin",
+    },
   ),
   s(
     "script-wakefit-pillow-fab",
@@ -283,6 +420,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand only — no product/category (no pillow SKU seeded in ./products for wakefit; only mattress/bed exist, and neither is this pillow).
     { conceptId: "concept-wakefit-warranty", avatarId: "ava-karthik" },
+    {
+      hook: "Ortho-curve design built for real neck support, not just softness.",
+      brief: "Feature-to-benefit walk translating ortho-curve and cooling gel into a night of actual sleep.",
+      cta: "Try the pillow for 100 nights",
+      audience: "Side/back sleepers with neck pain from flat pillows",
+      tone: ["Direct", "Confident"],
+      who: "Sleepers with neck pain",
+      wantsThemTo: "Try the ortho pillow",
+      by: "Cooling gel, real support",
+    },
   ),
   s(
     "script-client-diwali-bundle",
@@ -302,6 +449,18 @@ export const scripts: ScriptAsset[] = [
     "client-created",
     // No conceptId either — a concept is always brand-scoped, and this row has no brand.
     { avatarId: "ava-rohini" },
+    // Deliberately partial (draft, [DRAFT — needs the bundle SKU list] in body):
+    // hook/audience/tone are copy-level and safe to write against the body
+    // alone, but `cta` and the who/wantsThemTo/by strip are entity/strategy
+    // level — nothing to point a tap-to-shop at, and no locked brand/product
+    // to hang a one-sentence strategy on, until the SKU list lands. Left
+    // undefined on purpose, not an oversight.
+    {
+      hook: "Still haven't picked a Diwali gift that doesn't feel like an afterthought?",
+      brief: "Festive gifting angle, bundle-led — approach locked, SKU list still open.",
+      audience: "Gift shoppers hunting for a festive skincare hamper",
+      tone: ["Warm", "Playful"],
+    },
   ),
   s(
     "script-client-boat-monsoon",
@@ -319,6 +478,20 @@ export const scripts: ScriptAsset[] = [
     "2026-09-05",
     "client-created",
     { avatarId: "ava-ishaan" },
+    // Deliberately partial (draft, [Client note: swap in the new waterproof
+    // B-roll once it's back from the shoot]): `cta` is copy-level and the
+    // script already earns one from its own line, but `audience` and the
+    // who/wantsThemTo/by strip are left undefined — no locked brand/product
+    // yet to hang a one-sentence strategy on, so "who this is for" can't be
+    // stated with confidence until it's tagged. Left undefined on purpose,
+    // not an oversight (varies from the Diwali draft above on purpose, so
+    // both partial shapes exist in the seed data).
+    {
+      hook: "Monsoon commute, and your last earbuds died from one splash.",
+      brief: "Seasonal durability hook aimed at monsoon commuters; positioning still being tuned.",
+      cta: "Shop monsoon-ready Airdopes",
+      tone: ["Direct", "Urgent"],
+    },
   ),
   s(
     "script-noise-comparison-long",
@@ -334,6 +507,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // brand only — no product/category.
     { conceptId: "concept-noise-amoled-hero", avatarId: "ava-vikram" },
+    {
+      hook: "I lined up three smartwatches under ₹5,000 for 10 days.",
+      brief: "Long-form head-to-head review; credibility comes from naming the rivals, not dodging them.",
+      cta: "Full breakdown — link below",
+      audience: "Value shoppers comparing smartwatches before buying",
+      tone: ["Direct", "Confident"],
+      who: "Shoppers comparing smartwatches",
+      wantsThemTo: "Choose ColorFit Pro 5",
+      by: "Wins on display + battery",
+    },
   ),
   s(
     "script-plum-niacinamide-pas",
@@ -349,6 +532,16 @@ export const scripts: ScriptAsset[] = [
     "fabfunnel-seeded",
     // C+p — brand + category + product, all three consistent (plum-niacinamide is plum/acne).
     { conceptId: "concept-plum-niacinamide", avatarId: "ava-ananya", productId: "plum-niacinamide", categoryId: "acne" },
+    {
+      hook: "Dark spots foundation just sits on top of, never fading?",
+      brief: "Clinical pigmentation read — names the active and the timeline rather than promising glow.",
+      cta: "Shop the Niacinamide serum",
+      audience: "Women with stubborn post-acne dark spots",
+      tone: ["Empathetic", "Clinical"],
+      who: "Women with acne dark spots",
+      wantsThemTo: "Add niacinamide serum daily",
+      by: "Marks fade visibly in 4 weeks",
+    },
   ),
 ];
 
