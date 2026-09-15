@@ -8,6 +8,7 @@ import {
   Crosshair, MessageSquareQuote, Lightbulb, UserRound, Mic, Volume2,
   Languages, GitBranch, SlidersHorizontal, Copy, Trash2, Target,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -53,7 +54,9 @@ import {
   findEntityById,
   firstIdForType,
   buildDuplicate,
+  groupedAssetTypes,
   type CatalogueType,
+  type AssetCardData,
 } from "./assetTypes";
 import {
   useCatalogueWrites,
@@ -99,6 +102,22 @@ type AnyEntity =
  *  "Default" preserves the registry's existing resolve() order (unsorted)
  *  so picking no option changes nothing about today's behaviour. */
 type SortKey = "default" | "name-asc" | "name-desc" | "recent" | "usage";
+/**
+ * The asset types that wear the owner's 2026-09-15 Figma treatment: the
+ * 250px panel with "+ Add new …", and a single-page detail with no section
+ * column. Scripts got it first; he then asked for "the other sub menu also,
+ * just like script".
+ *
+ * DERIVED from the registry — it is exactly "the creative types currently on
+ * the sub-nav", i.e. not `navHidden`. Hand-listing six strings here would be
+ * a seventh copy of the type list in a file that already learned that lesson
+ * (routes, the App redirect table and two breadcrumb maps had all drifted).
+ * Surface a new type in `appRegistry.ts` and it inherits this automatically.
+ */
+const SPEC_TYPES: ReadonlySet<CatalogueType> = new Set(
+  (groupedAssetTypes().find((g) => g.group === "creative")?.types ?? []).map((d) => d.id),
+);
+
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "default", label: "Default order" },
   { value: "name-asc", label: "Name (A–Z)" },
@@ -459,16 +478,29 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
             and dedicated row shape (round tile + two-line title/meta,
             lime active state). Every other type keeps the original
             260px generic header + `Pane1Row` untouched. */}
-        <aside className={cnSafe("flex-shrink-0 border-r border-border flex flex-col", type === "scripts" ? "w-[250px]" : "w-[260px]")}>
-          {type === "scripts" ? (
+        <aside className={cnSafe("flex-shrink-0 border-r border-border flex flex-col", SPEC_TYPES.has(type) ? "w-[250px]" : "w-[260px]")}>
+          {SPEC_TYPES.has(type) ? (
             <div className="border-b border-border px-3 py-2 shrink-0 space-y-2">
+              {/* Label from the registry, never the word "script" — this
+                  header is now shared by all six types. `canAdd` is false
+                  for the ones with no `addForm` (Avatar + voice, Framework,
+                  Storyboard are presets-only by registry decision), and a
+                  button that opens a modal which cannot build the thing is
+                  worse than one that says so. */}
               <button
                 type="button"
                 onClick={handleAddClick}
-                className="flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-[13px] font-normal leading-5 tracking-[-0.08px] text-primary-foreground transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                disabled={!canAdd}
+                title={canAdd ? undefined : `${def.singular} is presets-only for now`}
+                className={cnSafe(
+                  "flex h-8 w-full items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-normal leading-5 tracking-[-0.08px] transition-transform",
+                  canAdd
+                    ? "bg-primary text-primary-foreground hover:scale-[1.01] active:scale-[0.99]"
+                    : "cursor-not-allowed bg-primary/10 text-primary-text",
+                )}
               >
                 <Plus className="h-4 w-4" aria-hidden />
-                Add new script
+                Add new {def.singular.toLowerCase()}
               </button>
               <div className="flex items-center gap-2">
                 <div className="flex h-8 flex-1 items-center gap-2 rounded-full bg-foreground/[0.03] px-3">
@@ -477,7 +509,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search scripts…"
+                    placeholder={`Search ${def.label.toLowerCase()}…`}
                     className="w-full bg-transparent text-sm text-foreground placeholder:text-sm placeholder:text-muted-foreground outline-none"
                   />
                 </div>
@@ -489,7 +521,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
                     InsightsV2Toolbar.tsx). */}
                 <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
                   <SelectTrigger
-                    aria-label="Sort scripts"
+                    aria-label={`Sort ${def.label.toLowerCase()}`}
                     className="h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-transparent p-0 [&>svg:last-child]:hidden"
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
@@ -537,17 +569,21 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
               <p className="px-3 py-4 text-xs text-muted-foreground text-center">
                 No {def.label.toLowerCase()} match "{query}"
               </p>
-            ) : type === "scripts" ? (
-              (items as ScriptAsset[]).map((s) => (
-                <ScriptPane1Row
-                  key={s.id}
-                  script={s}
-                  active={selectedId === s.id}
-                  onClick={() => handleSelectEntity(s.id)}
-                  selected={bulkSelected.has(s.id)}
-                  onToggleSelect={() => toggleBulkSelect(s.id)}
-                />
-              ))
+            ) : SPEC_TYPES.has(type) ? (
+              items.map((item) => {
+                const id = def.getId(item);
+                return (
+                  <SpecPane1Row
+                    key={id}
+                    card={def.toCard(item)}
+                    icon={def.icon}
+                    active={selectedId === id}
+                    onClick={() => handleSelectEntity(id)}
+                    selected={bulkSelected.has(id)}
+                    onToggleSelect={() => toggleBulkSelect(id)}
+                  />
+                );
+              })
             ) : (
               items.map((item) => {
                 const active = selectedId === item.id;
@@ -575,7 +611,7 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
             the linked entity's OWN overview, which `ScriptSectionView`'s
             "overview" branch already showed inline. One scrolling page,
             no duplicate tab nav. Other entity types still render pane 2. */}
-        {type !== "brands" && type !== "products" && type !== "categories" && type !== "scripts" && (isLoading || selectedId) && (
+        {type !== "brands" && type !== "products" && type !== "categories" && !SPEC_TYPES.has(type) && (isLoading || selectedId) && (
           <aside className="w-[280px] flex-shrink-0 border-r border-border flex flex-col">
             {isLoading ? (
               <Pane2Skeleton />
@@ -967,10 +1003,11 @@ function Pane1Row({
   );
 }
 
-/* ─── Script pane-1 row ─────────────────────────────────── */
+/* ─── Spec pane-1 row (all SPEC_TYPES) ──────────────────── */
 /**
- * Owner Figma spec (2026-09-15) — Scripts-only row shape, distinct from the
- * generic `Pane1Row` above (which every other type still uses unmodified):
+ * Owner Figma spec (2026-09-15), now worn by every type on the sub-nav —
+ * distinct from the generic `Pane1Row` above (which the `navHidden` types
+ * and the three Business types still use unmodified):
  * a 24px round tile + two-line title/meta. Active state is a lime fill +
  * right-side accent bar, not the generic row's `bg-primary/10` treatment.
  *
@@ -998,14 +1035,19 @@ function Pane1Row({
  * `bg-muted` / `text-muted-foreground` — DetailKit's own header already
  * establishes both of those exact hex → token mappings.
  */
-function ScriptPane1Row({
-  script,
+function SpecPane1Row({
+  card,
+  icon: Icon,
   active,
   onClick,
   selected,
   onToggleSelect,
 }: {
-  script: ScriptAsset;
+  /** The registry's own normalised card — so the meta line is whatever that
+   *  type already decided it was ("PAS · 28s", "Female · 28-34 · South
+   *  Asian", "3 scenes · 9:16"), never re-derived per type here. */
+  card: AssetCardData;
+  icon: LucideIcon;
   active: boolean;
   onClick: () => void;
   /** Bulk-select state. Named to match the generic `Pane1Row`'s
@@ -1036,11 +1078,11 @@ function ScriptPane1Row({
         <Checkbox
           checked={selected}
           onCheckedChange={() => onToggleSelect()}
-          aria-label={selected ? `Deselect ${script.title}` : `Select ${script.title}`}
+          aria-label={selected ? `Deselect ${card.name}` : `Select ${card.name}`}
         />
       </span>
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted">
-        <FileText className="h-3 w-3 text-muted-foreground" aria-hidden />
+        <Icon className="h-3 w-3 text-muted-foreground" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
         <p
@@ -1051,12 +1093,12 @@ function ScriptPane1Row({
           /* Always set: a length test never fires, because what
              truncates is WIDTH. 7 of 12 seeded titles clip in the
              250px pane and none of them reached 40 characters. */
-          title={script.title}
+          title={card.name}
         >
-          {script.title}
+          {card.name}
         </p>
         <p className="truncate text-[10px] font-normal leading-[15px] text-muted-foreground">
-          {script.framework} · {script.durationSec}s
+          {card.subtitle || "—"}
         </p>
       </div>
     </div>
@@ -1127,35 +1169,11 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
       { key: "generations", label: "Generations", icon: Wand2, count: 0 },
     ];
   }
-  if (type === "hooks") {
-    return [
-      { key: "overview", label: "Overview", icon: FileText },
-      { key: "brand", label: "Parent brand", icon: Building2 },
-      { key: "angle", label: "Linked angle", icon: Crosshair },
-      { key: "generations", label: "Generations", icon: Wand2, count: 0 },
-    ];
-  }
-  if (type === "concepts") {
-    return [
-      { key: "overview", label: "Overview", icon: FileText },
-      { key: "brand", label: "Parent brand", icon: Building2 },
-      { key: "angle", label: "Linked angle", icon: Crosshair },
-      { key: "hook", label: "Linked hook", icon: MessageSquareQuote },
-      // Owner spec 2026-09-14: Concept reads as "Name · content · Angle ·
-      // Avatar + voice" — the persona is a real navigable section now, not
-      // just a name with nothing behind it.
-      { key: "avatar", label: "Avatar + voice", icon: UserRound },
-      { key: "generations", label: "Generations", icon: Wand2, count: 0 },
-    ];
-  }
-  if (type === "avatars") {
-    const avatar = avatars.find((a) => a.id === selectedId);
-    return [
-      { key: "overview", label: "Overview", icon: FileText },
-      { key: "languages", label: "Languages", icon: Languages, count: avatar?.language.length ?? 0 },
-      { key: "generations", label: "Generations", icon: Wand2, count: 0 },
-    ];
-  }
+  // Hooks / Concepts / Avatars: owner spec 2026-09-15 — pane 2 removed
+  // entirely (see the Finder's pane-2 render guard above), same treatment
+  // as Scripts. `HookSectionView` / `ConceptSectionView` / `AvatarSectionView`
+  // are now one scrolling page each, so `getSections` is never called for
+  // these three.
   if (type === "voices") {
     return [
       { key: "overview", label: "Overview", icon: FileText },
@@ -1178,21 +1196,12 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
   // Finder's pane-2 render guard above). `ScriptSectionView` is now one
   // scrolling page carrying everything this section list used to gate
   // behind tabs, so `getSections` is never called for "scripts".
-  if (type === "frameworks") {
-    // Owner spec 2026-09-14: Framework reads as "Name · Angle + concept".
-    // Same "no Generations tab" reasoning as scripts above — frameworks
-    // aren't a tracked criterion either.
-    return [
-      { key: "overview", label: "Overview", icon: FileText },
-      { key: "angle", label: "Angle + concept", icon: Crosshair },
-    ];
-  }
-  // CTAs / Templates / Storyboards — untouched §21.2 types with no
+  // Frameworks / Storyboards: same removal as Hooks/Concepts/Avatars above
+  // — one scrolling page, no pane-2 section list.
+  // CTAs / Templates / References — untouched §21.2 types with no
   // relational data model to cross-link, so a generic Overview +
   // Generations pair (same as every other simple type ends with) is
   // honest rather than inventing bespoke relations that don't exist.
-  // Storyboards keeps this treatment deliberately (its own ordered-scene
-  // list renders inside the generic Overview via `StoryboardScenes`).
   return [
     { key: "overview", label: "Overview", icon: FileText },
     { key: "generations", label: "Generations", icon: Wand2, count: 0 },
@@ -1311,17 +1320,19 @@ function Pane3Detail({
   if (type === "categories") return <CategorySectionView categoryId={selectedId} section={section} />;
   if (type === "audiences") return <AudienceSectionView audienceId={selectedId} section={section} />;
   if (type === "angles") return <AngleSectionView angleId={selectedId} section={section} />;
-  if (type === "hooks") return <HookSectionView hookId={selectedId} section={section} />;
-  if (type === "concepts") return <ConceptSectionView conceptId={selectedId} section={section} />;
-  if (type === "avatars") return <AvatarSectionView avatarId={selectedId} section={section} />;
+  // Hooks / Concepts / Avatars / Frameworks / Storyboards — owner spec
+  // 2026-09-15, same "one scrolling page, no section tabs" treatment
+  // Scripts got first. No `section` prop left to pass through — each of
+  // these five is now a single bespoke view with nothing left to switch.
+  if (type === "hooks") return <HookSectionView hookId={selectedId} />;
+  if (type === "concepts") return <ConceptSectionView conceptId={selectedId} />;
+  if (type === "avatars") return <AvatarSectionView avatarId={selectedId} />;
   if (type === "voices") return <VoiceSectionView voiceId={selectedId} section={section} />;
   if (type === "products") return <ProductSectionView productId={selectedId} section={section} />;
-  // Scripts / Frameworks — owner-spec'd bespoke views (2026-09-14), no
-  // longer the generic fallback below. Scripts (2026-09-15): one scrolling
-  // page, no pane-2 section to switch — no `section` prop to pass through.
   if (type === "scripts") return <ScriptSectionView scriptId={selectedId} />;
-  if (type === "frameworks") return <FrameworkSectionView frameworkId={selectedId} section={section} />;
-  // CTAs / Templates / Storyboards — §21.2 additions with no bespoke
+  if (type === "frameworks") return <FrameworkSectionView frameworkId={selectedId} />;
+  if (type === "storyboards") return <StoryboardSectionView storyboardId={selectedId} />;
+  // CTAs / Templates / References — §21.2 additions with no bespoke
   // relational view of their own. Generic overview + real
   // Generations-from-it + full action set, shared with every other type.
   return <GenericAssetSectionView type={type} selectedId={selectedId} section={section} />;
@@ -1389,35 +1400,18 @@ function GenericAssetSectionView({
         </div>
       )}
 
-      {/* Frameworks are excluded because `FrameworkStructure` below renders
-          its OWN usage row, and the two disagreed on screen: this line said
-          "Last used 1mo ago" (a deterministic fallback) directly above
-          "Last used — not tracked for frameworks". The component's row is the
-          honest one and is what the `/grid/:id` page already shows alone, so
-          this generic row stands down for that one type rather than the two
-          contradicting each other. */}
-      {type !== "frameworks" && (
-        <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
-          <span>{card.usageCount} runs</span>
-          <span aria-hidden>·</span>
-          <span>Last used {card.lastUsedLabel}</span>
-        </div>
-      )}
-
-      {/* A storyboard's ordered scene list IS the asset — showing only tags
-          and a usage count here left its entire substance unrendered, while
-          the card grammar happily advertised "5 scenes". Same component the
-          `/grid/:id` detail page uses, so the two surfaces can't drift. */}
-      {type === "storyboards" && (
-        <StoryboardScenes storyboard={item as unknown as StoryboardAsset} />
-      )}
-
-      {/* Frameworks had the identical gap — the ordered sections ARE the
-          framework, and this surface rendered none of them while the
-          `/grid/:id` page did. Same shared component, same reason. */}
-      {type === "frameworks" && (
-        <FrameworkStructure framework={item as unknown as Framework} />
-      )}
+      {/* Frameworks and Storyboards no longer reach this generic view — they
+          each got their own bespoke card-language page (owner spec
+          2026-09-15), so the "type !== frameworks" usage-row exception and
+          the storyboard-scenes / framework-structure branches that used to
+          live here are gone with them. This view is CTAs / Templates /
+          References only now — all three have a real, honest `card`
+          usage/last-used pair. */}
+      <div className="flex items-center gap-4 font-mono text-xs text-muted-foreground tabular-nums">
+        <span>{card.usageCount} runs</span>
+        <span aria-hidden>·</span>
+        <span>Last used {card.lastUsedLabel}</span>
+      </div>
 
       <AssetDetailActions def={def} item={item} useInGenieHref={genieHref} />
 
@@ -1636,10 +1630,10 @@ function AudienceQuickCard({ audienceId }: { audienceId: string }) {
   return <AudienceSectionView audienceId={audienceId} section="overview" />;
 }
 function HookQuickCard({ hookId }: { hookId: string }) {
-  return <HookSectionView hookId={hookId} section="overview" />;
+  return <HookSectionView hookId={hookId} />;
 }
 function ConceptQuickCard({ conceptId }: { conceptId: string }) {
-  return <ConceptSectionView conceptId={conceptId} section="overview" />;
+  return <ConceptSectionView conceptId={conceptId} />;
 }
 
 /* ─── Angle section view ───────────────────────────── */
@@ -1703,7 +1697,20 @@ function AngleSectionView({ angleId, section }: { angleId: string; section: stri
 }
 
 /* ─── Hook section view ───────────────────────────── */
-function HookSectionView({ hookId, section }: { hookId: string; section: string }) {
+/**
+ * Owner spec 2026-09-15 — same "one scrolling page, no section tabs"
+ * treatment Script got first. Locked field spec (2026-09-14): "the hook
+ * text itself, Angle." The two dead branches that used to open ANOTHER
+ * record's full page (`brand` → `BrandSectionView`, `angle` →
+ * `AngleSectionView`) are gone — Angle is a real `Chip` link straight off
+ * this page instead of a second tab that re-rendered the Angle's own
+ * overview. Brand stays as plain context text under the title (unchanged
+ * from before — it was never a tab of its own, `brand` was) since it isn't
+ * part of the locked field list.
+ */
+function HookSectionView({ hookId }: { hookId: string }) {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
   // `findEntityById`, not `hooks.find` — the raw seed array does not contain
   // session-added rows, so a hook saved from Genie's Library (Hooks tab →
   // "Save to Assets") appeared in panes 1 and 2 and then hit "Hook not found"
@@ -1719,71 +1726,94 @@ function HookSectionView({ hookId, section }: { hookId: string; section: string 
   const card = def.toCard(hook);
   const genieHref = useInGenieUrl("hooks", hook.id);
 
-  if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <MessageSquareQuote className="h-5 w-5 text-primary-text" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-foreground italic leading-snug">"{hook.text}"</h2>
-              {(brand || angle) && (
-                <p className="text-xs text-muted-foreground mt-1 truncate">
-                  {brand?.name}{brand && angle && " · "}{angle?.label}
-                </p>
-              )}
+  return (
+    <div className="min-h-full bg-[#FAFAF7]">
+      <div className="max-w-3xl space-y-4 border-l border-[rgba(0,0,0,0.06)] pb-6 pl-5 pr-6 pt-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
+              <h2
+                className="min-w-0 text-[14px] font-semibold italic leading-[22px] text-foreground"
+                title={hook.text}
+              >
+                "{hook.text}"
+              </h2>
+              <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
             </div>
           </div>
-          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+          {/* Named AND reachable. This was a plain <p>: the brand was printed
+              and the deleted `brand` tab had been its only route out, so the
+              one entity a hook names became a dead end. Storyboard already
+              links its brand; all three are consistent now. */}
+          {brand && (
+            <div>
+              <Chip to={`/catalogue/brands/${brand.id}`}>{brand.name}</Chip>
+            </div>
+          )}
+          <div className="h-px w-full bg-[rgba(0,0,0,0.06)]" />
         </div>
+
+        <SectionCard title="Angle" icon={Crosshair} tint="lime">
+          <DetailFieldList>
+            <DetailFieldRow
+              label="Angle:"
+              emptyLabel="No angle linked"
+              value={
+                angle ? (
+                  <ChipList>
+                    <Chip to={`${basePath}/angles/${angle.id}`}>{angle.label}</Chip>
+                  </ChipList>
+                ) : undefined
+              }
+            />
+          </DetailFieldList>
+        </SectionCard>
+
         {hook.performance && (
-          <Section title="Performance">
+          <SectionCard title="Performance" icon={MessageSquareQuote} tint="purple">
             <div className="flex items-center gap-6 font-mono tabular-nums">
               <div>
-                <p className="text-xs text-muted-foreground">CTR</p>
-                <p className="text-2xl font-bold text-foreground">{hook.performance.ctr.toFixed(2)}%</p>
+                <p className="text-[11px] leading-4 text-muted-foreground">CTR</p>
+                <p className="text-[18px] font-semibold text-foreground">{hook.performance.ctr.toFixed(2)}%</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Impressions</p>
-                <p className="text-2xl font-bold text-foreground">{formatCompactN(hook.performance.impressions)}</p>
+                <p className="text-[11px] leading-4 text-muted-foreground">Impressions</p>
+                <p className="text-[18px] font-semibold text-foreground">
+                  {formatCompactN(hook.performance.impressions)}
+                </p>
               </div>
             </div>
-          </Section>
+          </SectionCard>
         )}
+
         <AssetDetailActions def={def} item={hook} useInGenieHref={genieHref} />
-      </div>
-    );
-  }
-  if (section === "brand") {
-    if (!brand) return <div className="p-6"><Empty>No brand linked.</Empty></div>;
-    return <BrandSectionView brandId={brand.id} section="overview" />;
-  }
-  if (section === "angle") {
-    if (!angle) return <div className="p-6"><Empty>No angle linked.</Empty></div>;
-    return <AngleSectionView angleId={angle.id} section="overview" />;
-  }
-  if (section === "generations") {
-    return (
-      <div className="p-6 max-w-3xl">
         <GenerationsFromAsset {...deriveGenieMatchCriteria("hooks", hook)} useInGenieHref={genieHref} />
       </div>
-    );
-  }
-  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+    </div>
+  );
 }
 
 /* ─── Concept section view ───────────────────────────── */
-function ConceptSectionView({ conceptId, section }: { conceptId: string; section: string }) {
+/**
+ * Owner spec 2026-09-15 — same "one scrolling page, no section tabs"
+ * treatment Script got first. Locked field spec (2026-09-14): "Name, the
+ * concept content itself, Angle, Avatar + voice." The three dead branches
+ * that used to open ANOTHER record's full page (`brand` → `BrandSectionView`,
+ * `hook` → `HookSectionView` for the concept's own hook COPY happening to
+ * match a registered Hook entity, `avatar` → `AvatarSectionView`) are gone —
+ * Angle and Avatar + voice are real `Chip` links straight off this page now,
+ * and the hook copy itself is still shown inline (it always was, as "Hook
+ * copy" — that content isn't lost, only the second full-page tab for it is).
+ */
+function ConceptSectionView({ conceptId }: { conceptId: string }) {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
   // Merged lookup, not the raw seed array — see HookSectionView above. A
   // concept saved from Genie's Library rendered "Concept not found" here
   // while showing correctly in panes 1 and 2.
   const concept = findEntityById<Concept>("concepts", conceptId);
   if (!concept) return <Empty>Concept not found</Empty>;
-  const brand = brands.find((b) => b.id === concept.brandId);
   const angle = angles.find((a) => a.label.toLowerCase() === concept.angle.toLowerCase());
-  const linkedHook = hooks.find((h) => h.text === concept.hook);
   // Owner spec 2026-09-14: "Avatar + voice" joins Name/content/Angle as the
   // fourth field a Concept must surface. `voiceId` is never independently
   // chosen — it's whichever voice `avatarId` is paired with — so only the
@@ -1794,157 +1824,220 @@ function ConceptSectionView({ conceptId, section }: { conceptId: string; section
   const card = def.toCard(concept);
   const genieHref = useInGenieUrl("concepts", concept.id);
 
-  if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Lightbulb className="h-5 w-5 text-primary-text" />
-            </div>
-            <div className="min-w-0">
+  return (
+    <div className="min-h-full bg-[#FAFAF7]">
+      <div className="max-w-3xl space-y-4 border-l border-[rgba(0,0,0,0.06)] pb-6 pl-5 pr-6 pt-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
               <h2
-                className="text-lg font-semibold text-foreground truncate"
-                title={concept.name.length > 60 ? concept.name : undefined}
+                className="min-w-0 truncate text-[14px] font-semibold leading-[22px] text-foreground"
+                title={concept.name}
               >
                 {concept.name}
               </h2>
-              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">
-                {concept.angle} · {concept.tone}
-              </p>
+              <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
             </div>
           </div>
-          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+          {/* `generationCount` is a real tracked field on the entity (unlike
+              this card's `lastUsedAt`, which `assetTypes.ts` fabricates via
+              `deterministicLastUsed` for Concepts) — so only the runs count
+              rides this line, same "don't dress up a fake date as a real
+              one" call the Framework view below makes explicitly. */}
+          <p className="font-mono text-[12px] font-medium leading-4 text-muted-foreground">
+            {concept.angle} · {concept.tone} · {concept.generationCount} runs
+          </p>
+          <div className="h-px w-full bg-[rgba(0,0,0,0.06)]" />
         </div>
-        <Section title="Format"><p className="text-sm text-foreground font-mono">{concept.format}</p></Section>
-        <Section title="Visual direction"><p className="text-sm text-foreground">{concept.visualDirection}</p></Section>
-        <Section title="Hook copy"><p className="text-sm text-foreground italic">"{concept.hook}"</p></Section>
-        <Section title="Avatar + voice">
-          <PersonaChip avatar={conceptAvatar} voice={conceptVoice} emptyLabel="No persona linked to this concept yet." />
-        </Section>
-        <Section title="Generations">
-          <div className="flex items-baseline gap-2">
-            <Wand2 className="h-3.5 w-3.5 text-muted-foreground" />
-            <p className="text-sm text-foreground font-mono tabular-nums">{concept.generationCount} runs</p>
+
+        {/* The concept's own substance — format, visual direction, hook
+            copy — grouped as one open-by-default card, same grammar Script
+            uses for its "Framework & Script" primary content. */}
+        <CollapsibleCard title="Concept" icon={Lightbulb} defaultOpen>
+          <div className="space-y-3">
+            <div>
+              <p className="text-[11px] leading-4 text-muted-foreground">Format</p>
+              <p className="mt-0.5 font-mono text-[13px] leading-5 text-foreground">{concept.format}</p>
+            </div>
+            <div>
+              <p className="text-[11px] leading-4 text-muted-foreground">Visual direction</p>
+              <p className="mt-0.5 text-[13px] leading-5 tracking-[-0.08px] text-foreground">
+                {concept.visualDirection}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] leading-4 text-muted-foreground">Hook copy</p>
+              <p className="mt-0.5 text-[13px] italic leading-5 text-foreground">"{concept.hook}"</p>
+            </div>
           </div>
-        </Section>
+        </CollapsibleCard>
+
+        <div className="grid grid-cols-2 gap-3">
+          <SectionCard title="Angle" icon={Crosshair} tint="lime">
+            <DetailFieldList>
+              <DetailFieldRow
+                label="Angle:"
+                emptyLabel={`"${concept.angle}" not found in registry`}
+                value={
+                  angle ? (
+                    <ChipList>
+                      <Chip to={`${basePath}/angles/${angle.id}`}>{angle.label}</Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+            </DetailFieldList>
+          </SectionCard>
+
+          <SectionCard title="Avatar + voice" icon={UserRound} tint="purple">
+            <DetailFieldList>
+              <DetailFieldRow
+                label="Avatar:"
+                emptyLabel="No persona linked to this concept yet"
+                value={
+                  conceptAvatar ? (
+                    <ChipList>
+                      <Chip to={`${basePath}/avatars/${conceptAvatar.id}`}>{conceptAvatar.name}</Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+              <DetailFieldRow
+                label="Voice:"
+                emptyLabel="No data"
+                value={
+                  conceptVoice ? (
+                    <ChipList>
+                      {/* One template string, not two JSX children — `Chip`
+                          only derives its `title` when the child IS a string,
+                          so the array form silently shipped a chip that
+                          truncates at 1024 with no tooltip at all. */}
+                      <Chip to={`${basePath}/voices/${conceptVoice.id}`}>
+                        {`${conceptVoice.name} · ${conceptVoice.language}`}
+                      </Chip>
+                    </ChipList>
+                  ) : undefined
+                }
+              />
+            </DetailFieldList>
+          </SectionCard>
+        </div>
+
         <AssetDetailActions def={def} item={concept} useInGenieHref={genieHref} />
-      </div>
-    );
-  }
-  if (section === "brand") {
-    if (!brand) return <div className="p-6"><Empty>No brand linked.</Empty></div>;
-    return <BrandSectionView brandId={brand.id} section="overview" />;
-  }
-  if (section === "angle") {
-    if (!angle) return <div className="p-6"><Empty>Angle "{concept.angle}" not found in registry.</Empty></div>;
-    return <AngleSectionView angleId={angle.id} section="overview" />;
-  }
-  if (section === "hook") {
-    if (!linkedHook) return <div className="p-6"><Empty>This concept's hook copy isn't a registered hook entity.</Empty></div>;
-    return <HookSectionView hookId={linkedHook.id} section="overview" />;
-  }
-  if (section === "avatar") {
-    if (!conceptAvatar) return <div className="p-6"><Empty>No persona linked to this concept yet.</Empty></div>;
-    return <AvatarSectionView avatarId={conceptAvatar.id} section="overview" />;
-  }
-  if (section === "generations") {
-    return (
-      <div className="p-6 max-w-3xl">
         <GenerationsFromAsset {...deriveGenieMatchCriteria("concepts", concept)} useInGenieHref={genieHref} />
       </div>
-    );
-  }
-  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+    </div>
+  );
 }
 
 /* ─── Avatar section view ───────────────────────────── */
-function AvatarSectionView({ avatarId, section }: { avatarId: string; section: string }) {
-  const avatar = avatars.find((a) => a.id === avatarId);
+/**
+ * Owner spec 2026-09-15 — same "one scrolling page, no section tabs"
+ * treatment Script got first. Locked field spec (2026-09-14): "name,
+ * gender, age, personality, race, tone" as SEPARATE rows. Avatar has no
+ * Brand/Angle relation of its own to link out to (unlike Hook/Concept/
+ * Framework), so its one real cross-link is Tone → the paired Voice's own
+ * page, resolved through the pairing exactly like the label already was.
+ */
+function AvatarSectionView({ avatarId }: { avatarId: string }) {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
+  // `findEntityById`, not `avatars.find` — a duplicated avatar (the
+  // Duplicate action in `AssetDetailActions` below works on every type,
+  // Avatar included, even though Avatar has no `addForm`) lives only in the
+  // write store, same "Hook not found" bug class `HookSectionView` already
+  // fixed above.
+  const avatar = findEntityById<Avatar>("avatars", avatarId);
   if (!avatar) return <Empty>Avatar not found</Empty>;
   const visual = avatarVisual(avatar);
   const def = getAssetType("avatars")!;
   const card = def.toCard(avatar);
   const genieHref = useInGenieUrl("avatars", avatar.id);
-  // Owner spec 2026-09-14: "name, gender, age, personality, race, tone" as
-  // SEPARATE rows. `gender`/`ageRange`/`race` are typed as required on
-  // `Avatar`, but the seed builder that's meant to parse them off
-  // `demographic` (see the entities.ts docblock — "parsed... not typed in
-  // alongside it") hasn't landed in `mocks/shared/avatars.ts` as of this
-  // pass, so they resolve to `undefined` at runtime today despite the type
-  // saying otherwise. Every row below is guarded on the raw value (not the
-  // type) for exactly that reason, and DROPS rather than prints
-  // "Unspecified" when a value is missing — same rule the owner gave for
-  // tone.
+  // `gender`/`ageRange`/`race` are typed as required on `Avatar`, but the
+  // seed builder that's meant to parse them off `demographic` (see the
+  // entities.ts docblock — "parsed... not typed in alongside it") hasn't
+  // landed in `mocks/shared/avatars.ts` as of this pass, so they resolve to
+  // `undefined` at runtime today despite the type saying otherwise. Every
+  // row below is guarded on the raw value (not the type) for exactly that
+  // reason. Unlike Tone, these four still RENDER their row with the
+  // DetailFieldRow "No data" empty state rather than disappearing — dropping
+  // only applies to Tone (no pairing to point at), not to a field that's
+  // simply missing.
   const personality = avatar.personalityId ? personalityLabel(avatar.personalityId) : undefined;
+  const voice = avatar.voiceId ? voices.find((v) => v.id === avatar.voiceId) : undefined;
   const tone = avatarToneLabel(avatar);
 
-  if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="h-12 w-12 rounded-full flex items-center justify-center text-[14px] font-semibold shrink-0"
-              style={{ background: visual.bg, color: visual.fg }}
-            >
-              {visual.initials}
-            </div>
-            <div className="min-w-0">
-              <h2
-                className="text-lg font-semibold text-foreground truncate"
-                title={avatar.name.length > 60 ? avatar.name : undefined}
+  return (
+    <div className="min-h-full bg-[#FAFAF7]">
+      <div className="max-w-3xl space-y-4 border-l border-[rgba(0,0,0,0.06)] pb-6 pl-5 pr-6 pt-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold"
+                style={{ background: visual.bg, color: visual.fg }}
               >
-                {avatar.name}
-              </h2>
-              <p className="text-xs text-muted-foreground truncate">{avatar.demographic}</p>
+                {visual.initials}
+              </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2
+                    className="min-w-0 truncate text-[14px] font-semibold leading-[22px] text-foreground"
+                    title={avatar.name}
+                  >
+                    {avatar.name}
+                  </h2>
+                  <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+                </div>
+                <p className="truncate text-[11px] leading-4 text-muted-foreground">{avatar.demographic}</p>
+              </div>
             </div>
           </div>
-          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+          {/* No "Last used / N runs" line here — unlike Storyboards (a real
+              tracked field), an Avatar's `usageCount`/`lastUsedAt` are both
+              `deterministicUsage`/`deterministicLastUsed` hashes in
+              `assetTypes.ts` (fabricated, not real facts), the exact
+              dishonesty `FrameworkStructure` already refuses to paper over
+              for Frameworks. The original overview never showed this either. */}
+          <div className="h-px w-full bg-[rgba(0,0,0,0.06)]" />
         </div>
-        <FieldList>
-          <FieldRow label="Name" value={avatar.name} />
-          {avatar.gender && <FieldRow label="Gender" value={avatar.gender} />}
-          {avatar.ageRange && <FieldRow label="Age" value={avatar.ageRange} />}
-          {personality && <FieldRow label="Personality" value={personality} />}
-          {avatar.race && <FieldRow label="Race" value={avatar.race} />}
-          {tone && <FieldRow label="Tone" value={tone} />}
-        </FieldList>
-        <Section title={`Languages · ${avatar.language.length}`}>
-          <div className="flex flex-wrap gap-1.5">
+
+        <SectionCard title="Avatar & voice" icon={UserRound} tint="lime">
+          <DetailFieldList>
+            <DetailFieldRow label="Name" value={avatar.name} />
+            <DetailFieldRow label="Gender" value={avatar.gender} />
+            <DetailFieldRow label="Age" value={avatar.ageRange} />
+            <DetailFieldRow label="Personality" value={personality} />
+            <DetailFieldRow label="Race" value={avatar.race} />
+            {tone && (
+              <DetailFieldRow
+                label="Tone"
+                value={
+                  <ChipList>
+                    <Chip to={voice ? `${basePath}/voices/${voice.id}` : undefined}>{tone}</Chip>
+                  </ChipList>
+                }
+              />
+            )}
+          </DetailFieldList>
+        </SectionCard>
+
+        <SectionCard title={`Languages · ${avatar.language.length}`} icon={Languages} tint="purple">
+          <ChipList emptyLabel="No languages set">
             {avatar.language.map((l) => (
-              <span key={l} className="text-xs font-mono rounded bg-muted px-2 py-1 text-muted-foreground">{l}</span>
+              <Chip key={l}>{l}</Chip>
             ))}
-          </div>
-        </Section>
+          </ChipList>
+        </SectionCard>
+
         {/* No "New avatar" affordance anywhere (V1 = presets only, §9/§13) —
             but Edit/Duplicate/Archive/Delete/Use-in-Genie on an existing
             preset are all fine, so the full action row still applies. */}
         <AssetDetailActions def={def} item={avatar} useInGenieHref={genieHref} />
         <GenerationsFromAsset {...deriveGenieMatchCriteria("avatars", avatar)} useInGenieHref={genieHref} />
       </div>
-    );
-  }
-  if (section === "languages") {
-    return (
-      <div className="p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-3">Languages · {avatar.language.length}</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {avatar.language.map((l) => (
-            <span key={l} className="text-xs font-mono rounded bg-muted px-2 py-1 text-muted-foreground">{l}</span>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (section === "generations") {
-    return (
-      <div className="p-6 max-w-3xl">
-        <GenerationsFromAsset {...deriveGenieMatchCriteria("avatars", avatar)} useInGenieHref={genieHref} />
-      </div>
-    );
-  }
-  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+    </div>
+  );
 }
 
 /* ─── Voice section view ───────────────────────────── */
@@ -2145,9 +2238,9 @@ function ScriptSectionView({ scriptId }: { scriptId: string }) {
                 className="min-w-0 truncate text-[14px] font-semibold leading-[22px] text-foreground"
                 /* Always set — see ScriptPane1Row: width truncates, not
                    character count, so a length gate never fires. */
-                title={script.title}
+                title={card.name}
               >
-                {script.title}
+                {card.name}
               </h2>
               <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
             </div>
@@ -2416,7 +2509,18 @@ function ScriptSectionView({ scriptId }: { scriptId: string }) {
  * still the shared `FrameworkStructure` component used by `/grid/:id` so
  * the two surfaces can't drift.
  */
-function FrameworkSectionView({ frameworkId, section }: { frameworkId: string; section: string }) {
+/**
+ * Owner spec 2026-09-15 — same "one scrolling page, no section tabs"
+ * treatment Script got first. Locked field spec (2026-09-14): "Name,
+ * Angle + concept." The dead `angle` branch that used to open a full
+ * `ConceptSectionView`/`AngleSectionView` page is gone — Angle and Concept
+ * are real `Chip` links straight off this page now. `FrameworkStructure`
+ * (the shared, unchanged component) is what already reads correctly with
+ * and without a visual direction per section — PAS carries one on every
+ * beat, 4Ps/QUEST deliberately don't (see `frameworks.ts`'s header note) —
+ * so nothing new was needed there.
+ */
+function FrameworkSectionView({ frameworkId }: { frameworkId: string }) {
   const location = useLocation();
   const basePath = location.pathname.startsWith("/iq/genie6/assets") ? "/iq/genie6/assets" : "/catalogue";
   const framework = findEntityById<Framework>("frameworks", frameworkId);
@@ -2428,133 +2532,183 @@ function FrameworkSectionView({ frameworkId, section }: { frameworkId: string; s
   const genieHref = useInGenieUrl("frameworks", framework.id);
   const criteria = deriveGenieMatchCriteria("frameworks", framework);
 
-  const angleConceptBlock = (
-    <div className="space-y-2">
-      {angle || concept ? (
-        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          {/* Framework → Angle is a real Link, per spec — every type stays
-              routed even off the sub-nav, so linking out is fine. */}
-          {angle && (
-            <Link
-              to={`${basePath}/angles/${angle.id}`}
-              className="rounded-md bg-muted px-2 py-1 text-foreground hover:text-primary-text"
-            >
-              {angle.label}
-            </Link>
-          )}
-          {concept && (
-            <Link
-              to={`${basePath}/concepts/${concept.id}`}
-              className="rounded-md border border-border px-2 py-1 text-primary-text hover:border-primary/40"
-            >
-              {concept.name}
-            </Link>
-          )}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground italic">No angle or worked-example concept assigned to this structure.</p>
-      )}
-      {/* WITH visual direction: the linked concept's own content. WITHOUT:
-          an explicit, calm line — not an empty "Visual direction" heading. */}
-      {concept ? (
-        <p className="text-sm text-foreground">{concept.visualDirection}</p>
-      ) : angle ? (
-        <p className="text-sm text-muted-foreground italic">No worked-example concept yet — angle only.</p>
-      ) : null}
-    </div>
-  );
-
-  if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <GitBranch className="h-5 w-5 text-primary-text" />
-            </div>
-            <div className="min-w-0">
+  return (
+    <div className="min-h-full bg-[#FAFAF7]">
+      <div className="max-w-3xl space-y-4 border-l border-[rgba(0,0,0,0.06)] pb-6 pl-5 pr-6 pt-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
               <h2
-                className="text-lg font-semibold text-foreground truncate"
-                title={framework.name.length > 60 ? framework.name : undefined}
+                className="min-w-0 truncate text-[14px] font-semibold leading-[22px] text-foreground"
+                title={framework.name}
               >
                 {framework.name}
               </h2>
-              {framework.fullName && <p className="text-xs text-muted-foreground truncate">{framework.fullName}</p>}
+              <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
             </div>
           </div>
-          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+          {framework.fullName && (
+            <p className="truncate text-[11px] leading-4 text-muted-foreground">{framework.fullName}</p>
+          )}
+          {/* No "Last used / N runs" meta line here — `FrameworkStructure`
+              below renders its OWN honest usage row ("N logged uses · Last
+              used — not tracked for frameworks"). A second, differently-
+              worded line up here is exactly the repeat this whole rebuild
+              is about — see the original bug this avoided (two rows that
+              disagreed on screen, one real, one a fabricated date). */}
+          <div className="h-px w-full bg-[rgba(0,0,0,0.06)]" />
         </div>
 
         {framework.description && (
-          <Section title="What it's for"><p className="text-sm text-foreground">{framework.description}</p></Section>
+          <SectionCard title="What it's for">
+            <p className="text-[13px] leading-5 text-foreground">{framework.description}</p>
+          </SectionCard>
         )}
 
-        <Section title="Angle + concept">{angleConceptBlock}</Section>
+        <SectionCard title="Angle + concept" icon={Crosshair} tint="lime">
+          <DetailFieldList>
+            <DetailFieldRow
+              label="Angle + concept:"
+              emptyLabel="No angle or worked-example concept assigned to this structure"
+              value={
+                angle || concept ? (
+                  <ChipList>
+                    {angle && <Chip to={`${basePath}/angles/${angle.id}`}>{angle.label}</Chip>}
+                    {concept && <Chip to={`${basePath}/concepts/${concept.id}`}>{concept.name}</Chip>}
+                  </ChipList>
+                ) : undefined
+              }
+            />
+          </DetailFieldList>
+          {/* WITH a worked-example concept: its own visual direction.
+              WITHOUT (Carousel Reveal — see `frameworks.ts`'s header note):
+              an explicit, calm line rather than a dangling empty heading. */}
+          {concept ? (
+            <p className="mt-2 text-[13px] leading-5 text-foreground">{concept.visualDirection}</p>
+          ) : angle ? (
+            <p className="mt-2 text-[11px] italic leading-4 text-muted-foreground">
+              No worked-example concept yet — angle only.
+            </p>
+          ) : null}
+        </SectionCard>
 
         <FrameworkStructure framework={framework} />
 
         <AssetDetailActions def={def} item={framework} useInGenieHref={genieHref} />
         <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
       </div>
-    );
-  }
-  if (section === "angle") {
-    if (concept) return <ConceptSectionView conceptId={concept.id} section="overview" />;
-    if (angle) return <AngleSectionView angleId={angle.id} section="overview" />;
-    return <div className="p-6"><Empty>No angle or concept assigned to this structure yet.</Empty></div>;
-  }
-  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+    </div>
+  );
 }
 
-/* ─── Shared small field/persona widgets ─────────────────
- * Used by Avatar (6 named fields), Concept + Script (Avatar + voice), and
- * anywhere else a compact "label → value" row reads better than a full
- * `Section`. One implementation so the "drop the row, don't print
- * Unspecified" rule can't drift between call sites. */
-function FieldList({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">{children}</div>;
-}
-function FieldRow({ label, value }: { label: string; value: string }) {
-  const isLong = value.length > 60;
+/* ─── Storyboard section view ───────────────────────────── */
+/**
+ * Owner spec 2026-09-15 — Storyboards were the `GenericAssetSectionView`
+ * fallback (shared with CTAs/Templates/References); they get their own view
+ * now, same as the other four SPEC_TYPES, but the CONTENT is unchanged from
+ * that fallback per spec ("keep what it shows today … just restyled into
+ * the card language"): thumbnail, tags, provenance, and the shared
+ * `StoryboardScenes` component (still the one the `/grid/:id` page also
+ * renders, so the two can't drift).
+ *
+ * One real addition, not a new field: `brandId` was already on the entity
+ * and already in `card.subtitle` as plain text next to the scene count —
+ * exactly the "cross-link rendered as text, zero anchors on the page"
+ * pattern the report already flagged twice elsewhere. Restyling it as a
+ * real `Chip` link is "the card language", not new scope. `productName` is
+ * a free string with no Product id, but it matches a real record by name —
+ * resolved the same way this file already resolves Concept→Angle by label,
+ * and falling back to plain text when nothing matches.
+ */
+function StoryboardSectionView({ storyboardId }: { storyboardId: string }) {
+  // Hook BEFORE the early return. This file has 12 pre-existing
+  // `rules-of-hooks` errors from exactly this shape (hook called after a
+  // `return <Empty>`), and it is not cosmetic: the row can vanish mid-render
+  // — `AssetDetailActions` right below has a Delete — and React then throws
+  // on the changed hook order. Twelve inherited instances are their own
+  // cleanup; this view is new, so it does not become the thirteenth.
+  const genieHref = useInGenieUrl("storyboards", storyboardId);
+  const storyboard = findEntityById<StoryboardAsset>("storyboards", storyboardId);
+  if (!storyboard) return <Empty>Storyboard not found</Empty>;
+  const brand = storyboard.brandId ? brands.find((b) => b.id === storyboard.brandId) : undefined;
+  const def = getAssetType("storyboards")!;
+  const card = def.toCard(storyboard);
+  const criteria = deriveGenieMatchCriteria("storyboards", storyboard);
+
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2">
-      <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">{label}</span>
-      <span
-        className="text-sm font-medium text-foreground text-right truncate"
-        title={isLong ? value : undefined}
-      >
-        {value}
-      </span>
+    <div className="min-h-full bg-[#FAFAF7]">
+      <div className="max-w-3xl space-y-4 border-l border-[rgba(0,0,0,0.06)] pb-6 pl-5 pr-6 pt-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
+                {storyboard.thumbnail ? (
+                  <img src={storyboard.thumbnail} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <def.icon className="h-5 w-5 text-primary-text" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2
+                    className="min-w-0 truncate text-[14px] font-semibold leading-[22px] text-foreground"
+                    title={storyboard.title}
+                  >
+                    {storyboard.title}
+                  </h2>
+                  <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+                </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
+                  {brand && <Chip to={`/catalogue/brands/${brand.id}`}>{brand.name}</Chip>}
+                  {/* `productName` is a free string, not an id — but it is an
+                      exact match to a real Product, and this file already
+                      resolves Concept→Angle by label the same way. Falls back
+                      to plain text when no record matches, so a hand-typed
+                      name never becomes a broken link. */}
+                  {storyboard.productName &&
+                    (() => {
+                      const sbProduct = products.find((pr) => pr.name === storyboard.productName);
+                      return sbProduct ? (
+                        <Chip to={`/catalogue/products/${sbProduct.id}`}>{storyboard.productName}</Chip>
+                      ) : (
+                        <span>{storyboard.productName}</span>
+                      );
+                    })()}
+                  <span>{storyboard.formatLabel}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="font-mono text-[12px] font-medium leading-4 text-muted-foreground">
+            Last used {card.lastUsedLabel} · {card.usageCount} runs
+          </p>
+          <div className="h-px w-full bg-[rgba(0,0,0,0.06)]" />
+        </div>
+
+        {card.tags.length > 0 && (
+          <ChipList>
+            {card.tags.map((tag) => (
+              <Chip key={tag}>{tag}</Chip>
+            ))}
+          </ChipList>
+        )}
+
+        <StoryboardScenes storyboard={storyboard} />
+
+        <AssetDetailActions def={def} item={storyboard} useInGenieHref={genieHref} />
+        <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+      </div>
     </div>
   );
 }
-/** Persona chip — an Avatar (+ its paired Voice, when resolvable) as one
- *  compact unit. Renders the calm empty state itself so every call site
- *  (Concept, Script) states the SAME "no persona" copy verbatim unless it
- *  passes its own `emptyLabel`. */
-function PersonaChip({
-  avatar,
-  voice,
-  emptyLabel = "No persona linked.",
-}: {
-  avatar?: Avatar;
-  voice?: Voice;
-  emptyLabel?: string;
-}) {
-  if (!avatar) return <p className="text-sm text-muted-foreground italic">{emptyLabel}</p>;
-  return (
-    <div className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
-      <UserRound className="h-3.5 w-3.5 text-primary-text shrink-0" />
-      <span
-        className="font-medium text-foreground truncate max-w-[220px]"
-        title={avatar.name.length > 60 ? avatar.name : undefined}
-      >
-        {avatar.name}
-      </span>
-      {voice && <span className="text-muted-foreground shrink-0">· {voice.name}</span>}
-    </div>
-  );
-}
+
+/* ─── Shared small field widget ─────────────────
+ * `avatarToneLabel` below is still used by `AvatarSectionView`. The local
+ * `FieldList`/`FieldRow`/`PersonaChip` trio that used to live here is gone —
+ * every call site (Avatar, Concept) now goes through DetailKit's own
+ * `FieldList`/`FieldRow` (imported here as `DetailFieldList`/`DetailFieldRow`),
+ * which accepts a real `<Chip to=…>` as its value where this hand-rolled
+ * version only ever took a plain string. */
 /** The voice a persona reads in, as a display label — resolved through the
  *  pairing (`voiceId` → that voice's first tone → `VOICE_TONES` label),
  *  never invented on the avatar itself. `undefined` (not "Unspecified")
