@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Bookmark, MoreVertical, Wand2, Copy, Download, Pencil, Archive, Trash2 } from "lucide-react";
+import { Bookmark, MoreVertical, Wand2, Lock, Copy, Download, Pencil, Archive, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import type { AssetCardData } from "./assetTypes";
 import { ProvenanceBadge } from "./CatalogueShared";
+import { primaryActionFor } from "./assetActions";
 
 /**
  * §21.2 asset-card grammar — "one for all types": preview · name · tags ·
@@ -63,6 +64,13 @@ export function AssetCard({
   onDelete,
   className,
 }: AssetCardProps) {
+  // Owner spec (2026-09-14, assetActions.ts): kept types each carry one named
+  // headline action, shipped DISABLED — visible and labelled, not wired yet
+  // (the real Genie hand-off for these types doesn't exist). `undefined` here
+  // means the type keeps the existing live "Use in Genie" hand-off below
+  // (Brands / Products / Categories today) — that must not regress.
+  const primaryAction = primaryActionFor(card.type);
+
   return (
     <div
       className={cn(
@@ -161,8 +169,47 @@ export function AssetCard({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between">
-        {onUseInGenie ? (
+      <div className="flex items-center justify-between gap-1.5">
+        {primaryAction ? (
+          // Coming-soon control, NOT a bare grey disabled button. Matches the
+          // Lock-icon + "Soon" grammar from
+          // src/genie6/studio-v4/screens/StudioHome.tsx (SOON_SURFACE /
+          // SOON_BADGE / aria-disabled) so this reads as *coming*, not
+          // *broken* — same border/bg/text tokens, re-typed here rather than
+          // importing StudioHome's module-local constants across the
+          // catalogue/genie6 boundary.
+          //
+          // A plain <span> with no onClick/tabIndex: inert by construction —
+          // not clickable, not a tab stop — plus aria-disabled for AT that
+          // still walks it. `title` surfaces the hint on hover/long-press.
+          //
+          // Narrow-card decision: the grid's `grid-cols-2` base is below the
+          // 768px mobile gate for this route (mobileRoutePolicy fails closed
+          // on unlisted /iq/genie6/assets/* paths), so grid-cols-3 @768px is
+          // the narrowest column reachable in practice — measured there at
+          // ~49px of label room next to the fixed 28px overflow trigger. A
+          // second "Soon" chip does not fit in that budget, so the label
+          // (the named action itself, e.g. "Generate Ad") wins the space over
+          // the redundant word "Soon" — the Lock icon + muted surface already
+          // say "not live", and `title` carries the hint text. `min-w-0` +
+          // `truncate` degrade the label to a single-line ellipsis rather
+          // than wrapping or silently clipping; verified in-browser at 768px
+          // that "Generate Ad" truncates to "Generat…" while "Use hook"
+          // fits close to whole — the icon and overflow trigger never shrink
+          // or disappear. Label kept at `text-foreground` (full contrast)
+          // rather than dimmed — same choice AssetDetailActions.tsx makes for
+          // the same reason: "disabled" reads via the icon + muted surface,
+          // never by greying the words below AA.
+          <span
+            role="button"
+            aria-disabled="true"
+            title={`${primaryAction.label} — ${primaryAction.hint}`}
+            className="inline-flex min-w-0 items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 cursor-not-allowed"
+          >
+            <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="truncate text-[11px] font-semibold text-foreground">{primaryAction.label}</span>
+          </span>
+        ) : onUseInGenie ? (
           <button
             type="button"
             onClick={(e) => {

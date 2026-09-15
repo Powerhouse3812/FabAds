@@ -43,6 +43,63 @@
  * currently in the section, not an independent toggle.
  */
 import type { Provenance } from "../lib/genieRunTypes";
+import { angles } from "@/mocks/shared/angles";
+import { concepts } from "@/mocks/shared/concepts";
+
+/**
+ * Owner spec 2026-09-14 — a Framework in the Asset Library reads as "Name ·
+ * Angle + concept", and must cover "with or without visual direction — both".
+ * This adds the two new fields below (`angleId`/`conceptId`, both optional —
+ * see the per-framework rationale comments next to each seed for why) and
+ * audits the existing `visualDirection` split.
+ *
+ * Cycle check done first, per instruction: `angles.ts` imports only
+ * `Angle` (type-only) from `types/entities`, so it's a leaf — no risk.
+ * `concepts.ts` was mid-edit by another agent to value-import `avatars.ts` +
+ * `voices.ts`; traced both — `avatars.ts` value-imports
+ * `studio-v4/data/studio-visuals.ts` (which only type-imports from
+ * `mocks/sample-outputs.ts`), and `voices.ts` value-imports
+ * `brain/avatarTaxonomy.ts` (which only type-imports `Brand`). Neither leads
+ * back to this file, `catalogue/assetTypes.ts`, `brain/GenieBrain.tsx`, or
+ * `video-sage/SaveFrameworkDialog.tsx` (the only files that import this
+ * module) — no cycle.
+ *
+ * `visualDirection` audit BEFORE this change: all 9 frameworks carried it on
+ * every section (PAS/AIDA/BAB/FAB derived verbatim from real analysed video,
+ * HSO/StoryBrand/Carousel Reveal are shot-specific by nature). AFTER: 4Ps and
+ * QUEST have it stripped from every section — both are named, described
+ * above as translations of pure copywriting/direct-response formulas (4Ps:
+ * "Copywriting's oldest structure, translated to video"; QUEST: a
+ * considered-purchase funnel, not a shot list) rather than a specific shoot
+ * plan, so they are the honest "structure only" candidates the owner asked
+ * for. The other 7 keep every section's `visualDirection` unchanged.
+ */
+/**
+ * Drops an `angleId`/`conceptId` that no longer resolves, rather than letting
+ * it through — a dangling id would render as a broken cross-link in the
+ * Asset Library.
+ *
+ * It DROPS and warns; it must never throw. This runs at module load, and
+ * `FRAMEWORKS` is imported by `catalogue/assetTypes.ts`, which the sidebar
+ * itself imports — so a throw here does not surface as "one framework has a
+ * bad link", it blanks the entire app before anything renders. The seed
+ * arrays this validates against are edited by hand in a prototype; a typo
+ * there should cost one missing chip, not the whole build. (Same class of
+ * failure as the TDZ `ReferenceError` documented in CLAUDE.md: it
+ * type-checked fine, only running it failed.)
+ */
+function withResolvedLinks(fw: Framework): Framework {
+  const next = { ...fw };
+  if (next.angleId && !angles.some((a) => a.id === next.angleId)) {
+    console.warn(`[frameworks] "${next.id}" drops unknown angleId "${next.angleId}"`);
+    next.angleId = undefined;
+  }
+  if (next.conceptId && !concepts.some((c) => c.id === next.conceptId)) {
+    console.warn(`[frameworks] "${next.id}" drops unknown conceptId "${next.conceptId}"`);
+    next.conceptId = undefined;
+  }
+  return next;
+}
 
 /** LOCKED — do not rename or drop a required field. Optional fields below
  *  are the storyboard extension: a storyboard is a Framework whose sections
@@ -103,6 +160,17 @@ export interface Framework {
   /** Video Sage's `demo-video-*` id this framework was analysed from, when
    *  the framework is a derivation rather than an authored template. */
   sourceVideoId?: string;
+
+  /** Owner spec 2026-09-14 — the selling angle (from `@/mocks/shared/angles`)
+   *  this structure best suits, e.g. PAS → a problem-led angle. Optional:
+   *  a structure can be angle-agnostic. */
+  angleId?: string;
+  /** Owner spec 2026-09-14 — a worked example concept (from
+   *  `@/mocks/shared/concepts`) showing the structure applied to a real
+   *  brand/visual-direction pairing. Optional and deliberately UNSET on one
+   *  seed below (Carousel Reveal) — see its comment for why "with or without
+   *  a concept" is the honest state, not an oversight. */
+  conceptId?: string;
 }
 
 type SegSeed = {
@@ -111,7 +179,10 @@ type SegSeed = {
   roll: "a-roll" | "b-roll";
   thumbnail?: string;
   note?: string;
-  visualDirection: string;
+  /** Optional — see the owner-spec comment above `withResolvedLinks`: 4Ps and
+   *  QUEST omit this on every section (structure-only), everyone else keeps
+   *  it, so both render states exist in the seed data. */
+  visualDirection?: string;
   dialogue: string;
 };
 
@@ -129,7 +200,7 @@ function buildSections(frameworkId: string, segs: SegSeed[]): FrameworkSection[]
       roll: s.roll,
       thumbnail: s.thumbnail ?? `https://picsum.photos/seed/fw-${frameworkId}-${i + 1}/400/225`,
       ...(s.note ? { note: s.note } : {}),
-      visualDirection: s.visualDirection,
+      ...(s.visualDirection ? { visualDirection: s.visualDirection } : {}),
       dialogue: s.dialogue,
     };
   });
@@ -148,6 +219,12 @@ const PAS: Framework = {
   provenance: "fabfunnel-seeded",
   usageCount: 212,
   sourceVideoId: "demo-video-2",
+  // Angle: problem-led, the direct hit for a Problem-Agitate-Solution beat.
+  // Concept: the-derma-co's BHA concept is itself tagged "Problem-solution"
+  // and its visual direction is literally an acne before/after + 30-day
+  // timeline — Agitate (acne) into Solution (proof), the same shape as PAS.
+  angleId: "ang-problem-solution",
+  conceptId: "concept-derma-sa-clear",
   sections: buildSections("pas", [
     { label: "Hook", duration: 3, roll: "a-roll", visualDirection: "Close-up, direct address to camera", dialogue: "Are you tired of dealing with this every single day?" },
     { label: "Problem", duration: 8, roll: "b-roll", visualDirection: "Montage — the everyday frustration this problem causes, shown not told", dialogue: "This is a problem millions of people deal with, quietly, every day." },
@@ -165,6 +242,12 @@ const AIDA: Framework = {
   provenance: "fabfunnel-seeded",
   usageCount: 178,
   sourceVideoId: "demo-video-3",
+  // Angle: Comparison — AIDA's Interest beat is explicitly "compared against
+  // the old way". Concept: noise's ColorFit Pro 5 concept is tagged
+  // "Comparison" too and its own arc (3 watches lined up → the one that
+  // stayed → pricing) tracks AIDA's four beats almost exactly.
+  angleId: "ang-comparison",
+  conceptId: "concept-noise-perf-comparison",
   sections: buildSections("aida", [
     { label: "Attention", duration: 4, roll: "a-roll", visualDirection: "High-energy cold open — mid-action, dramatic framing", dialogue: "What if the thing you've been putting up with didn't have to be this hard?" },
     { label: "Interest", duration: 10, roll: "b-roll", visualDirection: "Explainer visuals — the mechanism, compared against the old way", dialogue: "Here's exactly why this works faster than what you're used to." },
@@ -181,6 +264,14 @@ const BAB: Framework = {
   provenance: "fabfunnel-seeded",
   usageCount: 96,
   sourceVideoId: "demo-video-4",
+  // Angle: Before-after, the literal name-match for a transformation
+  // structure. Concept: Wakefit's back-pain concept is tagged
+  // "Problem-solution" in its own catalogue entry, but its visual direction
+  // — "Person tossing in bed → switch → peaceful sleep · split-screen" — IS
+  // a before/after split screen, a better fit for BAB than any concept
+  // actually labelled "Before-after" (none exists in the catalogue).
+  angleId: "ang-before-after",
+  conceptId: "concept-wakefit-back-pain",
   sections: buildSections("bab", [
     { label: "Before", duration: 10, roll: "a-roll", visualDirection: "The old way — visibly effortful, cluttered, exhausting", dialogue: "Before this, it used to take hours and it was exhausting every time." },
     { label: "After", duration: 12, roll: "a-roll", visualDirection: "Same subject, visibly relaxed, the product doing the work", dialogue: "Now it takes minutes — same effort, ten times the result." },
@@ -196,6 +287,12 @@ const FAB: Framework = {
   provenance: "fabfunnel-seeded",
   usageCount: 61,
   sourceVideoId: "demo-video-6",
+  // Angle + concept: Plum's niacinamide concept is tagged "Ingredient
+  // deep-dive" and its own arc — macro pore-texture before/after over a
+  // 30-day timeline — walks Feature (the ingredient %) → Advantage (visible
+  // pore change) → Benefit (clear skin over time), the same shape as FAB.
+  angleId: "ang-ingredient-deep-dive",
+  conceptId: "concept-plum-niacinamide",
   sections: buildSections("fab", [
     { label: "Features", duration: 10, roll: "b-roll", visualDirection: "Product walkthrough — each feature shown doing its job, back to back", dialogue: "Here's exactly what it does — no fluff, just the feature list." },
     { label: "Advantages", duration: 10, roll: "b-roll", visualDirection: "Comparison — time, effort or cost saved against doing it manually", dialogue: "That means far less time spent on the parts that used to slow you down." },
@@ -215,6 +312,12 @@ const HSO: Framework = {
   description: "The DTC UGC workhorse — three beats only. A strong cold open, a lived story, a hard offer.",
   provenance: "fabfunnel-seeded",
   usageCount: 34,
+  // Angle + concept: Mamaearth's mom-emotional concept is tagged "Emotional
+  // storytelling" and its own visual direction — "Real mom + toddler in
+  // bath · UGC handheld feel · 30s narrative arc" — is a literal HSO Story
+  // beat (UGC talking-head intercut with daily use).
+  angleId: "ang-emotional-story",
+  conceptId: "concept-mamaearth-mom-emotional",
   sections: buildSections("hso", [
     { label: "Hook", duration: 4, roll: "a-roll", visualDirection: "Handheld, mid-sentence cold open — feels caught, not staged", dialogue: "I almost didn't post this, but enough people asked." },
     { label: "Story", duration: 20, roll: "a-roll", visualDirection: "UGC talking-head intercut with the product in daily use", dialogue: "I'd tried everything before this — this is the only one that actually stuck." },
@@ -229,6 +332,11 @@ const STORYBRAND: Framework = {
   description: "The customer is the hero, the brand is the guide. Five beats, built for founder-led and B2B ads.",
   provenance: "client-created",
   usageCount: 9,
+  // Angle + concept: the-derma-co's clinical-credibility concept is tagged
+  // "Authority" and shows the brand positioned as the dermatologist expert —
+  // exactly StoryBrand's Guide beat ("the brand is the guide").
+  angleId: "ang-authority",
+  conceptId: "concept-derma-clinical",
   sections: buildSections("storybrand", [
     { label: "Character", duration: 5, roll: "a-roll", visualDirection: "Founder or customer introduced, establishing shot", dialogue: "Every person like you hits the same wall eventually." },
     { label: "Problem", duration: 8, roll: "b-roll", visualDirection: "The obstacle, made concrete and specific", dialogue: "It's not one big problem — it's the same small one, every single day." },
@@ -245,11 +353,21 @@ const FOUR_PS: Framework = {
   description: "Copywriting's oldest structure, translated to video — make a promise, picture the payoff, prove it, push to act.",
   provenance: "fabfunnel-seeded",
   usageCount: 17,
+  // Angle + concept: Promise's own dialogue ("...or your money back") IS a
+  // risk-reversal promise. Sleepyhead's 100-night-trial concept is tagged
+  // "Risk reversal" and its hook is the same guarantee verbatim.
+  angleId: "ang-risk-reversal",
+  conceptId: "concept-sleepyhead-100-night",
+  // visualDirection stripped from every section below — 4Ps is "Copywriting's
+  // oldest structure, translated to video" (see description above), a
+  // direct-response copy formula rather than a shot list. This is one of the
+  // 2 seeds deliberately left structure-only, per the owner-spec comment
+  // above `withResolvedLinks` — the "without visual direction" render state.
   sections: buildSections("4ps", [
-    { label: "Promise", duration: 5, roll: "a-roll", visualDirection: "Bold on-screen claim, direct address", dialogue: "A real result, in a real number of days — or your money back." },
-    { label: "Picture", duration: 10, roll: "b-roll", visualDirection: "Aspirational shots of the payoff, lived-in not staged", dialogue: "Picture actually liking the result, without thinking twice about it." },
-    { label: "Proof", duration: 10, roll: "b-roll", visualDirection: "Before/after or close-up detail, review overlay", dialogue: "Thousands of verified reviews say the same thing we just did." },
-    { label: "Push", duration: 5, roll: "a-roll", visualDirection: "Product in hand, offer card on screen", dialogue: "Today only — act on it before the offer's gone." },
+    { label: "Promise", duration: 5, roll: "a-roll", dialogue: "A real result, in a real number of days — or your money back." },
+    { label: "Picture", duration: 10, roll: "b-roll", dialogue: "Picture actually liking the result, without thinking twice about it." },
+    { label: "Proof", duration: 10, roll: "b-roll", dialogue: "Thousands of verified reviews say the same thing we just did." },
+    { label: "Push", duration: 5, roll: "a-roll", dialogue: "Today only — act on it before the offer's gone." },
   ]),
 };
 
@@ -260,12 +378,21 @@ const QUEST: Framework = {
   description: "A slower-burn five-beat structure for considered purchases — qualifies the viewer before it educates them.",
   provenance: "client-created",
   usageCount: 3,
+  // Angle + concept: the Educate beat is a demo of the mechanism — Lenskart's
+  // 3D try-on concept is tagged "Explainer" and is that exact demo, for the
+  // same kind of considered purchase (eyewear) QUEST is built for.
+  angleId: "ang-explainer",
+  conceptId: "concept-lenskart-3d-tryon",
+  // visualDirection stripped from every section below — the other of the 2
+  // deliberately structure-only seeds (see the 4Ps comment above and the
+  // owner-spec note by `withResolvedLinks`): QUEST is a considered-purchase
+  // funnel shape, not a shoot plan.
   sections: buildSections("quest", [
-    { label: "Qualify", duration: 4, roll: "a-roll", visualDirection: "Direct question to camera, filters the audience", dialogue: "Still comparing options after weeks of looking? This one's for you." },
-    { label: "Understand", duration: 6, roll: "a-roll", visualDirection: "Empathetic delivery, names the specific frustration", dialogue: "You've read every review. You still don't know which one to trust." },
-    { label: "Educate", duration: 10, roll: "b-roll", visualDirection: "Cutaway diagram or demo of how it actually works", dialogue: "Here's the one thing that makes this different, tested and proven." },
-    { label: "Stimulate", duration: 8, roll: "b-roll", visualDirection: "Real customer reaction, first use or first result", dialogue: "Thousands of people already switched over in the last year alone." },
-    { label: "Transition", duration: 4, roll: "a-roll", visualDirection: "Product shot with the risk-reversal clearly on screen", dialogue: "Try it risk-free — send it back if it's not the one." },
+    { label: "Qualify", duration: 4, roll: "a-roll", dialogue: "Still comparing options after weeks of looking? This one's for you." },
+    { label: "Understand", duration: 6, roll: "a-roll", dialogue: "You've read every review. You still don't know which one to trust." },
+    { label: "Educate", duration: 10, roll: "b-roll", dialogue: "Here's the one thing that makes this different, tested and proven." },
+    { label: "Stimulate", duration: 8, roll: "b-roll", dialogue: "Thousands of people already switched over in the last year alone." },
+    { label: "Transition", duration: 4, roll: "a-roll", dialogue: "Try it risk-free — send it back if it's not the one." },
   ]),
 };
 
@@ -289,6 +416,17 @@ const CAROUSEL_REVEAL: Framework = {
   usageCount: 2,
   mediaKind: "image-sequence",
   // imageOutputMode intentionally omitted — see note above.
+  // Angle: Feature 2's beat is a certification badge shot verbatim
+  // ("Tested and certified — nothing to second-guess") — "ang-certification"
+  // is the literal match, distinct from every other framework's angle here.
+  angleId: "ang-certification",
+  // conceptId deliberately left UNSET — this is the "one or two frameworks
+  // with no concept" the owner said was fine and realistic. Carousel Reveal
+  // is a generic, product-agnostic Meta-carousel shape (any brand, any
+  // vertical); tying it to one brand's worked example would undercut the
+  // universality that's the whole point of the template, unlike the other 8
+  // seeds above which each got a concept chosen for a specific structural
+  // echo.
   sections: buildSections("carousel-reveal", [
     { label: "Cover", duration: 3, roll: "a-roll", visualDirection: "Bold product hero shot, single word headline", dialogue: "Finally." },
     { label: "Problem", duration: 3, roll: "b-roll", visualDirection: "The frustration, shown not told — failed attempts, visibly discarded", dialogue: "Tried everything else. None of it actually worked." },
@@ -298,7 +436,13 @@ const CAROUSEL_REVEAL: Framework = {
   ]),
 };
 
-/** At least 8, seeded — Catalogue's Frameworks asset type reads this directly. */
+/** At least 8, seeded — Catalogue's Frameworks asset type reads this directly.
+ *  `.map(withResolvedLinks)` validates every `angleId`/`conceptId` above at
+ *  module load and DROPS any that no longer resolves, warning to the console.
+ *  It deliberately does not throw — see that function's own comment for why a
+ *  throw here would blank the whole app. `strict`/`strictNullChecks` are OFF
+ *  in this repo (CLAUDE.md's typecheck gotcha), so `tsc` alone cannot catch a
+ *  bad id and this runtime pass is what actually does. */
 export const FRAMEWORKS: Framework[] = [
   PAS,
   AIDA,
@@ -309,7 +453,7 @@ export const FRAMEWORKS: Framework[] = [
   FOUR_PS,
   QUEST,
   CAROUSEL_REVEAL,
-];
+].map(withResolvedLinks);
 
 export function getFramework(id: string): Framework | undefined {
   return FRAMEWORKS.find((f) => f.id === id);

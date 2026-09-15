@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Bookmark, Pencil, Copy, Download, Archive, Trash2, Wand2 } from "lucide-react";
+import { Bookmark, Pencil, Copy, Download, Archive, Trash2, Wand2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ import {
   renameAsset,
 } from "./catalogue-write-store";
 import { AssetFormModal } from "./AssetFormModal";
+import { hasEditableBody, primaryActionFor } from "./assetActions";
 
 /**
  * §9 "Actions on every asset": Edit / delete / duplicate — plus Archive
@@ -57,6 +58,16 @@ export function AssetDetailActions<T extends { id: string }>({
   const id = def.getId(item);
   const name = def.getName(item);
   const card = def.toCard(item);
+  const primaryAction = primaryActionFor(def.id);
+  /* The asset's own text, for the Edit field. Read off the resolved entity so
+     an already-edited script reopens with the edited text, not the seed —
+     `makeResolver` applies `bodyOverride` before this ever sees the item.
+     Read generically (the field is called `body` on ScriptAsset) and guarded,
+     because `AssetDetailActions` is generic over all 14 types and most of
+     them have no body at all. */
+  const editableBody = hasEditableBody(def.id)
+    ? ((item as { body?: string }).body ?? "")
+    : "";
   const override = useAssetOverride(def.id, id);
   const bookmarked = !!override?.bookmarked;
   const archived = !!override?.archived;
@@ -95,13 +106,38 @@ export function AssetDetailActions<T extends { id: string }>({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <Link
-        to={useInGenieHref}
-        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.99]"
-      >
-        <Wand2 className="h-3.5 w-3.5" />
-        Use in Genie
-      </Link>
+      {primaryAction ? (
+        // Owner spec (assetActions.ts): this type's headline action is named
+        // but not wired yet — inert by design, not a bug. Same slot/weight as
+        // the live "Use in Genie" pill below, but a <span> (no href, no
+        // onClick, no tabIndex) so it is never a tab stop, plus
+        // aria-disabled="true" so assistive tech announces it as disabled
+        // rather than silent. Grammar mirrors StudioHome's SOON_SURFACE /
+        // SOON_BADGE treatment (Lock icon + "Soon" pill) — matched here, not
+        // imported, since that module is a different screen's internals.
+        // Label text stays `text-foreground` (full contrast) so "disabled"
+        // reads via the icon/badge, never by dimming the words below AA.
+        <span
+          role="button"
+          aria-disabled="true"
+          title={primaryAction.hint}
+          className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-3 py-1.5 text-xs font-semibold text-foreground"
+        >
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+          {primaryAction.label}
+          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {primaryAction.hint}
+          </span>
+        </span>
+      ) : (
+        <Link
+          to={useInGenieHref}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-transform hover:scale-[1.02] active:scale-[0.99]"
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+          Use in Genie
+        </Link>
+      )}
 
       <ActionBtn
         icon={Bookmark}
@@ -128,6 +164,17 @@ export function AssetDetailActions<T extends { id: string }>({
         initialName={name}
         initialTags={card.tags}
         onSubmit={(input) => renameAsset(def.id, id, input.name, input.tags)}
+        /* Owner, 2026-09-14: "Edit" is listed on Script alone, as "a simple
+           input field". Handing the modal the row's identity plus its current
+           text is what unlocks that field; every other type passes the same
+           props and the modal simply doesn't offer a body for them, because
+           `assetActions.EDITABLE_BODY_TYPES` gates it. The body write goes
+           straight to the store from inside the modal — see its header for
+           why it doesn't ride along on `onSubmit`. */
+        assetType={def.id}
+        assetId={id}
+        initialBody={editableBody}
+        editBodyLabel={def.addForm?.bodyLabel}
       />
 
       <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>

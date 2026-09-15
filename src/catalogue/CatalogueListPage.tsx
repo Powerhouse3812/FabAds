@@ -32,6 +32,7 @@ import { AssetCard } from "./AssetCard";
 import { AssetFilterBar, matchesFilters, type DateRange } from "./AssetFilterBar";
 import { CatalogueBulkBar } from "./CatalogueBulkBar";
 import { AssetFormModal } from "./AssetFormModal";
+import { primaryActionFor } from "./assetActions";
 import { CreditsPill, UnknownAssetType, SessionScopeNote } from "./CatalogueShared";
 import { useInGenieUrl, bulkUseInGenieUrl } from "./genieHandoff";
 import { AddBrandModal } from "./AddBrandModal";
@@ -211,7 +212,12 @@ export function CatalogueListPage({ type }: { type: string }) {
           onArchive={handleBulkArchive}
           onDelete={() => setBulkDeleteOpen(true)}
           onDownload={handleBulkDownload}
-          onUseInGenie={handleBulkUseInGenie}
+          /* Same reason the Generations panel drops its CTA: the owner asked
+             this type's headline action to be disabled for now, and bulk
+             "Use in Genie" is that same trip by another door. Passing
+             undefined makes CatalogueBulkBar omit the button entirely — it
+             already renders it only when the handler exists. */
+          onUseInGenie={primaryActionFor(type as CatalogueType) ? undefined : handleBulkUseInGenie}
           useInGenieLabel="Use in Genie (1 ad)"
           bulkProductNotice={bulkProductNotice}
           onClear={() => setSelected(new Set())}

@@ -9,6 +9,7 @@ import { useBatches } from "@/genie6/lib/genieRunStore";
 import { batchStatus, batchDoneCount, type RunBatch } from "@/genie6/lib/genieRunTypes";
 import { SectionHeader } from "@/genie6/studio-v4/components/SectionHeader";
 import { brands, angles } from "@/mocks/shared";
+import { primaryActionFor } from "./assetActions";
 import { getAssetType, type CatalogueType } from "./assetTypes";
 
 /**
@@ -37,6 +38,21 @@ export interface GenieMatchCriteria {
   angleLabel?: string;
   tracked: boolean;
   /**
+   * Which asset type this panel belongs to. Carried on the CRITERIA for the
+   * same reason `assetLabel` is: all 22 call sites already spread this
+   * object, so a hand-passed prop would have been forgotten at most of them.
+   *
+   * It exists so this panel can honour `assetActions.primaryActionFor()`.
+   * The owner asked for the headline action ("Generate Ad" / "Use hook") to
+   * be DISABLED for now — but this panel shipped its own live green "Use in
+   * Genie" in both of its branches, so every one of the six kept types was
+   * rendering a working button to the exact trip that was supposed to be
+   * coming-soon, a few inches below the disabled one. Optional so the single
+   * hand-built call site (`CatalogueFinder`'s Product panel, a Business type
+   * that keeps its live hand-off) still compiles unchanged.
+   */
+  type?: CatalogueType;
+  /**
    * Singular type label for the "not tracked" copy, e.g. "Storyboard".
    * Part of the CRITERIA rather than a hand-passed prop on purpose: every
    * call site already spreads this object, so the label can no longer be
@@ -53,26 +69,26 @@ export function deriveGenieMatchCriteria(
   item: any,
 ): GenieMatchCriteria {
   const assetLabel = getAssetType(type)?.singular ?? "saved";
-  if (type === "brands") return { brandName: item?.name, tracked: true, assetLabel };
+  if (type === "brands") return { brandName: item?.name, tracked: true, assetLabel, type };
   if (type === "products") {
     const brand = brands.find((b) => b.id === item?.brandId);
-    return { brandName: brand?.name, productName: item?.name, tracked: true, assetLabel };
+    return { brandName: brand?.name, productName: item?.name, tracked: true, assetLabel, type };
   }
-  if (type === "angles") return { angleLabel: item?.label, tracked: true, assetLabel };
+  if (type === "angles") return { angleLabel: item?.label, tracked: true, assetLabel, type };
   if (type === "hooks") {
     const brand = item?.brandId ? brands.find((b) => b.id === item.brandId) : undefined;
     const angle = item?.angleId ? angles.find((a) => a.id === item.angleId) : undefined;
-    return { brandName: brand?.name, angleLabel: angle?.label, tracked: true, assetLabel };
+    return { brandName: brand?.name, angleLabel: angle?.label, tracked: true, assetLabel, type };
   }
   if (type === "concepts") {
     const brand = brands.find((b) => b.id === item?.brandId);
-    return { brandName: brand?.name, angleLabel: item?.angle, tracked: true, assetLabel };
+    return { brandName: brand?.name, angleLabel: item?.angle, tracked: true, assetLabel, type };
   }
   // Categories / Avatars / Voices / Frameworks / Templates / Storyboards: no
   // criterion. Audiences / Scripts / CTAs: brand-only would over-match every
   // batch for the brand, which is worse than an honest zero — see the
   // docblock above.
-  return { tracked: false, assetLabel };
+  return { tracked: false, assetLabel, type };
 }
 
 /**
@@ -97,6 +113,7 @@ export function GenerationsFromAsset({
   tracked,
   useInGenieHref,
   className,
+  type,
   // REQUIRED — no default. A default is what let "Not tracked for asset
   // assets yet" ship: an omitted label read as valid copy instead of failing
   // the build. It now arrives with the criteria (see `GenieMatchCriteria`),
@@ -104,6 +121,11 @@ export function GenerationsFromAsset({
   assetLabel,
 }: GenerationsFromAssetProps) {
   const batches = useBatches();
+  /* The owner's headline action for this type is disabled for now, so this
+     panel must not offer the same trip as a live button — see the `type`
+     field's comment on GenieMatchCriteria. The explanatory copy stays; only
+     the control goes, because the sentence is still true and useful. */
+  const ctaSuppressed = !!primaryActionFor(type);
 
   const matched = useMemo(() => {
     if (!tracked) return [];
@@ -127,13 +149,15 @@ export function GenerationsFromAsset({
             Not tracked for {assetLabel} assets yet — Genie's run history doesn't carry a link back
             to a specific {assetLabel}, so this can't honestly show a count.
           </p>
-          <Link
-            to={useInGenieHref}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] transition-transform"
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-            Use in Genie
-          </Link>
+          {!ctaSuppressed && (
+            <Link
+              to={useInGenieHref}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] transition-transform"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              Use in Genie
+            </Link>
+          )}
         </div>
       </section>
     );
@@ -148,13 +172,15 @@ export function GenerationsFromAsset({
             <p className="text-sm text-muted-foreground">
               Nothing generated from this yet — the loop from input to output starts with a run.
             </p>
-            <Link
-              to={useInGenieHref}
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] transition-transform"
-            >
-              <Wand2 className="h-3.5 w-3.5" />
-              Use in Genie
-            </Link>
+            {!ctaSuppressed && (
+              <Link
+                to={useInGenieHref}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:scale-[1.02] transition-transform"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                Use in Genie
+              </Link>
+            )}
           </div>
         ) : (
           <ul className="space-y-1.5">
