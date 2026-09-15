@@ -65,6 +65,11 @@ import {
 import { CreditsPill, ProvenanceBadge, UnknownAssetType } from "./CatalogueShared";
 import { AssetDetailActions } from "./AssetDetailActions";
 import { GenerationsFromAsset, deriveGenieMatchCriteria } from "./GenerationsFromAsset";
+// Aliased: this file already declares its own local `FieldList`/`FieldRow`
+// (a simpler single-string-value pair used by Avatar's own field grid) —
+// the DetailKit versions accept a ReactNode `value` + `emptyLabel`, which
+// is what a real cross-link `<Link>` inside a field row needs.
+import { SectionCard, FieldList as DetailFieldList, FieldRow as DetailFieldRow } from "./detail/DetailKit";
 import { useInGenieUrl, bulkUseInGenieUrl, brandNameForProducts } from "./genieHandoff";
 import { AssetFormModal } from "./AssetFormModal";
 import { primaryActionFor } from "./assetActions";
@@ -500,8 +505,12 @@ export function CatalogueFinder({ type }: { type: CatalogueType }) {
         {/* PANE 2 — sections.
             A-12.42-45 (Maalik): pane-2 sub-nav removed for brands, products,
             AND categories — each detail component carries its own tab strip
-            in pane 3. Other entity types still render pane 2. */}
-        {type !== "brands" && type !== "products" && type !== "categories" && (isLoading || selectedId) && (
+            in pane 3. Owner spec 2026-09-15: removed for scripts too — the
+            four other tabs (angle/avatar/type/framework) just re-rendered
+            the linked entity's OWN overview, which `ScriptSectionView`'s
+            "overview" branch already showed inline. One scrolling page,
+            no duplicate tab nav. Other entity types still render pane 2. */}
+        {type !== "brands" && type !== "products" && type !== "categories" && type !== "scripts" && (isLoading || selectedId) && (
           <aside className="w-[280px] flex-shrink-0 border-r border-border flex flex-col">
             {isLoading ? (
               <Pane2Skeleton />
@@ -1004,22 +1013,10 @@ function getSections(type: CatalogueType, selectedId: string): SectionDef[] {
       { key: "generations", label: "Generations", icon: Wand2, count: product?.generatedCount ?? 0 },
     ];
   }
-  if (type === "scripts") {
-    // Owner spec 2026-09-14: Script reads as "content · Angle + concept ·
-    // Avatar + voice · B/P/C+p or no type · Framework". No "Generations"
-    // section — `deriveGenieMatchCriteria` doesn't track scripts (only
-    // brands/products/angles/hooks/concepts do), so a pane-2 tab here would
-    // only ever open on a fabricated-looking "not tracked" tab. The
-    // Overview still surfaces that panel inline (§9 "closes the loop"),
-    // same as Audiences/Avatars/Voices already do without a dedicated tab.
-    return [
-      { key: "overview", label: "Overview", icon: FileText },
-      { key: "angle", label: "Angle + concept", icon: Crosshair },
-      { key: "avatar", label: "Avatar + voice", icon: UserRound },
-      { key: "type", label: "Brand / Product / Category", icon: Building2 },
-      { key: "framework", label: "Framework", icon: GitBranch },
-    ];
-  }
+  // Scripts: owner spec 2026-09-15 — pane 2 removed entirely (see the
+  // Finder's pane-2 render guard above). `ScriptSectionView` is now one
+  // scrolling page carrying everything this section list used to gate
+  // behind tabs, so `getSections` is never called for "scripts".
   if (type === "frameworks") {
     // Owner spec 2026-09-14: Framework reads as "Name · Angle + concept".
     // Same "no Generations tab" reasoning as scripts above — frameworks
@@ -1159,8 +1156,9 @@ function Pane3Detail({
   if (type === "voices") return <VoiceSectionView voiceId={selectedId} section={section} />;
   if (type === "products") return <ProductSectionView productId={selectedId} section={section} />;
   // Scripts / Frameworks — owner-spec'd bespoke views (2026-09-14), no
-  // longer the generic fallback below.
-  if (type === "scripts") return <ScriptSectionView scriptId={selectedId} section={section} />;
+  // longer the generic fallback below. Scripts (2026-09-15): one scrolling
+  // page, no pane-2 section to switch — no `section` prop to pass through.
+  if (type === "scripts") return <ScriptSectionView scriptId={selectedId} />;
   if (type === "frameworks") return <FrameworkSectionView frameworkId={selectedId} section={section} />;
   // CTAs / Templates / Storyboards — §21.2 additions with no bespoke
   // relational view of their own. Generic overview + real
@@ -1879,7 +1877,22 @@ function VoiceSectionView({ voiceId, section }: { voiceId: string; section: stri
  * Audiences/Avatars/Voices already do without a dedicated tab, just doesn't
  * dedicate a pane-2 slot to it.
  */
-function ScriptSectionView({ scriptId, section }: { scriptId: string; section: string }) {
+/**
+ * Owner spec 2026-09-15 (Hinglish, verbatim: "ek hi page ho jayega saara
+ * data... repeat pe jo data hai wo remove krdena") — Script's pane-2 tab
+ * strip is GONE (see the Finder's pane-2 render guard + `getSections`
+ * above). This is now one scrolling page carrying everything the four
+ * removed tabs (`angle` / `avatar` / `type` / `framework`) used to gate:
+ * each of those tabs just re-rendered the linked entity's OWN "overview"
+ * section, which this "overview" content already showed inline — that
+ * duplication is what "repeat" meant, so those four branches are gone,
+ * not just hidden. Pane 1 (the script list) is untouched.
+ *
+ * Section order (owner spec): identity → Script body → Angle + concept →
+ * Avatar + voice → Brand / Product / Category → Framework → actions →
+ * generations. No `section` prop — there is nothing left to switch.
+ */
+function ScriptSectionView({ scriptId }: { scriptId: string }) {
   // The 10 Creative types are mounted both under /catalogue (legacy
   // redirect-only) and /iq/genie6/assets (their real home) — same reasoning
   // CatalogueListPage/CatalogueDetailPage already derive `basePath` for, so
@@ -1903,138 +1916,176 @@ function ScriptSectionView({ scriptId, section }: { scriptId: string; section: s
   const criteria = deriveGenieMatchCriteria("scripts", script);
 
   // The B/P/C+p spread — brand only / brand+product / brand+category+product
-  // / no entity at all. Shared between the inline Overview row and the
-  // dedicated "type" pane-2 tab so the two can't disagree about which of the
-  // four states a script is in. The "no entity" case is the important edge
-  // case (file header: at least 2 of 12 seed scripts hit it on purpose) and
-  // must read as an explicit, calm row — never a blank.
-  const typeRow = brand ? (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <Link
-        to={`/catalogue/brands/${brand.id}`}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground hover:border-primary/40"
-      >
-        {brand.logo && <img src={brand.logo} alt="" className="h-3.5 w-3.5 rounded" />}
-        {brand.name}
-      </Link>
+  // / no entity at all. The "no entity" case is the important edge case
+  // (file header: at least 2 of 12 seed scripts hit it on purpose) and must
+  // read as an explicit, calm row — never a blank. Links stay hardcoded to
+  // `/catalogue` (not `basePath`) — Brand/Category/Product are Business
+  // types, real home is `/catalogue` only, unlike the Creative cross-links
+  // below.
+  const typeContent = brand ? (
+    <DetailFieldList>
+      <DetailFieldRow
+        label="Brand"
+        value={
+          <Link
+            to={`/catalogue/brands/${brand.id}`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 font-medium text-foreground hover:border-primary/40"
+          >
+            {brand.logo && <img src={brand.logo} alt="" className="h-3.5 w-3.5 rounded" />}
+            {brand.name}
+          </Link>
+        }
+      />
       {category && (
-        <Link
-          to={`/catalogue/categories/${category.id}`}
-          className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground hover:text-primary-text"
-        >
-          {category.name}
-        </Link>
+        <DetailFieldRow
+          label="Category"
+          value={
+            <Link
+              to={`/catalogue/categories/${category.id}`}
+              className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground hover:text-primary-text"
+            >
+              {category.name}
+            </Link>
+          }
+        />
       )}
       {product && (
-        <Link
-          to={`/catalogue/products/${product.id}`}
-          className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground hover:text-primary-text"
-        >
-          {product.name}
-        </Link>
+        <DetailFieldRow
+          label="Product"
+          value={
+            <Link
+              to={`/catalogue/products/${product.id}`}
+              className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground hover:text-primary-text"
+            >
+              {product.name}
+            </Link>
+          }
+        />
       )}
-    </div>
+    </DetailFieldList>
   ) : (
-    <p className="text-sm text-muted-foreground italic">Not tied to a brand yet.</p>
+    <p className="text-[11px] italic text-muted-foreground">Not tied to a brand yet.</p>
   );
 
-  if (section === "overview") {
-    return (
-      <div className="p-6 space-y-5 max-w-3xl">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-primary-text" />
-            </div>
-            <div className="min-w-0">
-              <h2
-                className="text-lg font-semibold text-foreground truncate"
-                title={script.title.length > 60 ? script.title : undefined}
-              >
-                {script.title}
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{script.framework} · {script.durationSec}s</p>
-            </div>
+  return (
+    <div className="p-6 space-y-4 max-w-3xl">
+      {/* Identity — title, framework · duration, provenance. Not a
+          SectionCard: this is the page header, not one of the data
+          sections below it. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <FileText className="h-5 w-5 text-primary-text" />
           </div>
-          <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+          <div className="min-w-0">
+            <h2
+              className="text-lg font-semibold text-foreground truncate"
+              title={script.title.length > 60 ? script.title : undefined}
+            >
+              {script.title}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{script.framework} · {script.durationSec}s</p>
+          </div>
         </div>
+        <ProvenanceBadge provenance={card.provenance} className="shrink-0" />
+      </div>
 
-        {/* "content (the actual script)" — the primary artifact, shown in
-            full, never clamped (same treatment Concept gives its own
-            visual-direction/hook-copy text). */}
-        <Section title="Script">
-          <p className="text-sm text-foreground whitespace-pre-line">{script.body}</p>
-        </Section>
+      {/* "content (the actual script)" — the primary artifact, shown in
+          full, never clamped (same treatment Concept gives its own
+          visual-direction/hook-copy text). */}
+      <SectionCard title="Script" icon={FileText} tint="lime">
+        <p className="whitespace-pre-line text-[13px] leading-5 text-foreground">{script.body}</p>
+      </SectionCard>
 
-        <Section title="Angle + concept">
-          {angle || concept ? (
-            <div className="flex flex-wrap items-center gap-1.5 text-sm">
-              {angle && (
+      <SectionCard title="Angle + concept" icon={Crosshair} tint="teal">
+        <DetailFieldList>
+          <DetailFieldRow
+            label="Angle"
+            value={
+              angle ? (
                 <Link
                   to={`${basePath}/angles/${angle.id}`}
-                  className="rounded-md bg-muted px-2 py-1 text-foreground hover:text-primary-text"
+                  className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-foreground hover:text-primary-text"
                 >
                   {angle.label}
                 </Link>
-              )}
-              {concept && (
+              ) : undefined
+            }
+            emptyLabel="No angle linked"
+          />
+          <DetailFieldRow
+            label="Concept"
+            value={
+              concept ? (
                 <Link
                   to={`${basePath}/concepts/${concept.id}`}
-                  className="rounded-md border border-border px-2 py-1 text-primary-text hover:border-primary/40"
+                  className="inline-flex items-center rounded-md border border-border px-2 py-1 text-primary-text hover:border-primary/40"
                 >
                   {concept.name}
                 </Link>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">No angle or concept linked.</p>
-          )}
-        </Section>
+              ) : undefined
+            }
+            emptyLabel="No concept linked"
+          />
+        </DetailFieldList>
+      </SectionCard>
 
-        <Section title="Avatar + voice">
-          <PersonaChip avatar={avatar} voice={voice} emptyLabel="No persona linked yet." />
-        </Section>
+      <SectionCard title="Avatar + voice" icon={UserRound} tint="purple">
+        <DetailFieldList>
+          <DetailFieldRow
+            label="Avatar"
+            value={
+              avatar ? (
+                <Link
+                  to={`${basePath}/avatars/${avatar.id}`}
+                  className="text-primary-text hover:underline"
+                >
+                  {avatar.name}
+                </Link>
+              ) : undefined
+            }
+            emptyLabel="No persona linked yet."
+          />
+          <DetailFieldRow
+            label="Voice"
+            value={
+              voice ? (
+                <Link
+                  to={`${basePath}/voices/${voice.id}`}
+                  className="text-primary-text hover:underline"
+                >
+                  {voice.name}
+                </Link>
+              ) : undefined
+            }
+            emptyLabel="No voice paired"
+          />
+        </DetailFieldList>
+      </SectionCard>
 
-        <Section title="Brand / Product / Category">{typeRow}</Section>
+      <SectionCard title="Brand / Product / Category" icon={Building2} tint="lime">
+        {typeContent}
+      </SectionCard>
 
-        <Section title="Framework">
-          {framework ? (
-            <Link
-              to={`${basePath}/frameworks/${framework.id}`}
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40"
-            >
-              <GitBranch className="h-3.5 w-3.5 text-primary-text" />
-              <span className="font-medium text-foreground">{framework.name}</span>
-              {framework.fullName && <span className="text-xs text-muted-foreground">· {framework.fullName}</span>}
-            </Link>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">Framework not found.</p>
-          )}
-        </Section>
+      <SectionCard title="Framework" icon={GitBranch} tint="teal">
+        {framework ? (
+          <Link
+            to={`${basePath}/frameworks/${framework.id}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 hover:border-primary/40"
+          >
+            <GitBranch className="h-3.5 w-3.5 text-primary-text" />
+            <span className="font-medium text-foreground">{framework.name}</span>
+            {framework.fullName && <span className="text-xs text-muted-foreground">· {framework.fullName}</span>}
+          </Link>
+        ) : (
+          <p className="text-[11px] italic text-muted-foreground">Framework not found.</p>
+        )}
+      </SectionCard>
 
-        <AssetDetailActions def={def} item={script} useInGenieHref={genieHref} />
-        <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
-      </div>
-    );
-  }
-  if (section === "angle") {
-    if (concept) return <ConceptSectionView conceptId={concept.id} section="overview" />;
-    if (angle) return <AngleSectionView angleId={angle.id} section="overview" />;
-    return <div className="p-6"><Empty>No angle or concept linked.</Empty></div>;
-  }
-  if (section === "avatar") {
-    if (!avatar) return <div className="p-6"><Empty>No persona linked yet.</Empty></div>;
-    return <AvatarSectionView avatarId={avatar.id} section="overview" />;
-  }
-  if (section === "type") {
-    if (!brand) return <div className="p-6"><Empty>Not tied to a brand yet.</Empty></div>;
-    return <BrandSectionView brandId={brand.id} section="overview" />;
-  }
-  if (section === "framework") {
-    if (!framework) return <div className="p-6"><Empty>Framework not found.</Empty></div>;
-    return <FrameworkSectionView frameworkId={framework.id} section="overview" />;
-  }
-  return <div className="p-6"><Empty>Pick a section to see details.</Empty></div>;
+      <AssetDetailActions def={def} item={script} useInGenieHref={genieHref} />
+      <GenerationsFromAsset {...criteria} useInGenieHref={genieHref} />
+    </div>
+  );
 }
 
 /* ─── Framework section view ───────────────────────────── */
