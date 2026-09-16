@@ -17,8 +17,10 @@ import { Check, FolderInput, Sparkles, Tag, UploadCloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   NODE_KIND_META,
+  SYNC_GRANULARITY_META,
   describeNode,
   nodeConfigIssue,
+  type SyncGranularity,
   type WorkflowNodeData,
 } from "@/automations/model";
 import { useNodeRunStatus } from "@/automations/canvas/runStatusContext";
@@ -49,6 +51,29 @@ export const ActionNode = memo(function ActionNode({ id, data, selected }: NodeP
   // source handle makes that visible rather than letting a user drag from a
   // handle whose every connection would be refused.
   const isTerminal = nodeData.kind === "syncFolderToAccounts";
+
+  /**
+   * Which granularity a sync node is set to, as a chip.
+   *
+   * `describeNode` already words the summary per mode, so this is NOT a second
+   * copy of that information for its own sake — it's the case the summary line
+   * can't cover. That line `truncate`s inside a 210px card (a real folder name
+   * plus "→ 3 ad accounts" overflows easily) and, on an unfinished node, is
+   * REPLACED wholesale by the config issue. So on exactly the cards where a
+   * reader most needs to know which of two jobs this step is, the mode is
+   * invisible. One chip in the row that already carries "simulated" fixes that
+   * without changing the card's shape.
+   *
+   * Missing/unrecognised `mode` reads as "folder" — the same fallback the
+   * executor and the config panel use, so all three agree about a graph saved
+   * before the mode existed.
+   */
+  const syncMode: SyncGranularity | null =
+    nodeData.kind === "syncFolderToAccounts"
+      ? nodeData.mode === "creatives"
+        ? "creatives"
+        : "folder"
+      : null;
 
   // `selected` wins over the running pulse — two differently-coloured `ring-2`
   // utilities would resolve by stylesheet order, not class order.
@@ -82,11 +107,22 @@ export const ActionNode = memo(function ActionNode({ id, data, selected }: NodeP
         {summary}
       </div>
 
-      <div className="mt-1.5 flex items-center gap-1">
+      {/* `flex-wrap`: a sync node can carry three chips (simulated + mode +
+          Needs setup), which is a few pixels past 210px — wrapping to a second
+          row is correct, clipping the third chip is not. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
         {/* Non-negotiable: an action that cannot really act must say so. */}
         <span className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground">
           simulated
         </span>
+        {syncMode && (
+          <span
+            className="rounded border border-border px-1 font-mono text-[10px] text-muted-foreground"
+            title={SYNC_GRANULARITY_META[syncMode].blurb}
+          >
+            {syncMode}
+          </span>
+        )}
         {issue && (
           <span
             className="rounded border border-border px-1 font-mono text-[10px] text-warning-text"

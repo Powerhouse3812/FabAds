@@ -4,7 +4,12 @@
  * Maalik's actual ask: "creative report me btana bhi pd skta hai ki you
  * already uploaded/synced this creative in these ad accounts... kisi or
  * automation se kisi or me chla gya ho." — this band is the provenance
- * answer. Per account: what happened, when, and which rule (if any) did it.
+ * answer. Per account: what happened, when, which rule (if any) did it, what
+ * KIND of automation that was (canvas workflow vs Creative-Report rule — see
+ * `sourceKind` below), and whether it rode along with a whole Creative
+ * Library folder push (see `folderLine` below) rather than an ad-hoc
+ * selection — that folder case is the literal "kisi or automation se kisi or
+ * me chla gya ho" scenario.
  *
  * Deliberately NOT the same fact as RunningInTable above it in the drawer:
  * "where it's running" = live ad delivery context; this band = whether the
@@ -46,11 +51,59 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
+/**
+ * A canvas workflow (Automation Center) and a Creative-Report rule are both
+ * just a `ruleId`/`ruleName` pair on the record today — nothing on the
+ * SyncRecord says which SYSTEM fired it, only which specific one did. Maalik's
+ * ask ("kisi or automation se kisi or me chla gya ho") is exactly about
+ * telling those apart, so this resolves the KIND of automation without
+ * resolving the specific workflow.
+ *
+ * FRAGILE ON PURPOSE, and documented as such: this file cannot import the
+ * canvas graph store (`src/automations/graphStore.ts`) to look the workflow
+ * up by id without pulling automation-builder internals into the creative
+ * drawer — a layering violation for a "which kind" label. Instead it reads
+ * the id's own shape: canvas workflow ids are minted as `wf-<ts>-<n>` by
+ * `makeGraphId()` (graphStore.ts), Creative-Report rule ids as
+ * `rule-<ts>-<n>` by `makeId()` (creative-report/automations/rulesStore.ts).
+ * Both are literal template strings with no user input in the prefix, so the
+ * two spaces don't collide today — but if either generator's prefix ever
+ * changes, this silently misclassifies the KIND. It never invents WHICH rule
+ * fired (`ruleName` already carries that, verbatim), so the worst case of
+ * this heuristic breaking is a wrong category word next to a still-correct
+ * name — never a fabricated name.
+ */
+type SyncSourceKind = "manual" | "workflow" | "rule";
+
+function sourceKind(ruleId: string | null): SyncSourceKind {
+  if (ruleId === null) return "manual";
+  return ruleId.startsWith("wf-") ? "workflow" : "rule";
+}
+
+/**
+ * VOCABULARY ALIGNMENT (decided 2026-08-13): this drawer is a PROSE surface —
+ * one row read at a time — so it spells these out in full: "Synced manually" /
+ * "Creative Report rule" / "Automation Center workflow". `SyncHistoryScreen.tsx`
+ * (`src/automations/center/`) is a DENSE TABLE surface and renders the same
+ * three categories as short uppercase chips instead (its own
+ * `SOURCE_KIND_LABEL`, duplicated rather than imported — see that file's
+ * header). That's a density choice for two different layouts, not two
+ * different provenance models — both read off the same `ruleId`/`ruleName`
+ * and the same `sourceKind()`-shaped reasoning. Do not compact these strings
+ * here; do not expand the chips there.
+ */
+const SOURCE_KIND_LABEL: Record<Exclude<SyncSourceKind, "manual">, string> = {
+  workflow: "Automation Center workflow",
+  rule: "Creative Report rule",
+};
+
 /** Honest provenance copy — never fabricates a rule name, a new timestamp,
  *  or an API error string. See file header + task contract for the exact
  *  phrasing this must produce for the manual / resumed cases. */
 function provenanceLine(record: SyncRecord): string {
-  const source = record.ruleId === null ? "Synced manually" : `via "${record.ruleName}"`;
+  const kind = sourceKind(record.ruleId);
+  const source =
+    kind === "manual" ? "Synced manually" : `via ${SOURCE_KIND_LABEL[kind]} "${record.ruleName}"`;
 
   if (record.resumedAfterReload) {
     // Still sitting in the requeued state from the reload rewind — the only
@@ -71,12 +124,34 @@ function provenanceLine(record: SyncRecord): string {
   return `${source} · ${fmtTime(ts)} (simulated)`;
 }
 
+/**
+ * "kisi or automation se kisi or me chla gya ho" — this line is the whole
+ * point of the folder half of that ask: a creative can leave via a folder
+ * push (a canvas workflow's `addToFolder` → `syncFolderToAccounts` chain)
+ * rather than an ad-hoc creative selection, and a user only looking at "who
+ * synced this" would miss that it rode along with an entire folder. Guard on
+ * `folderName` alone, not `folderId` — every pre-2026-08-13 record and every
+ * `mode: "creatives"` workflow push carries neither field (see the file
+ * header on syncModel.ts's `SyncRecord.folderId`). `folderId` without a
+ * resolvable name is ACTIVELY PREVENTED, not merely assumed away: since
+ * Finding S12 (2026-08-13), `syncStore.ts`'s `sanitize()` strips both folder
+ * fields together whenever exactly one is present on a loaded record (see
+ * `hasAsymmetricFolderFields` there), so by the time a record reaches this
+ * component `folderName` is either a real, renderable snapshot or absent —
+ * never a dangling `folderId` with nothing to show.
+ */
+function folderLine(record: SyncRecord): string | null {
+  if (!record.folderName) return null;
+  return `Pushed as part of the "${record.folderName}" folder`;
+}
+
 function SyncRow({ record }: { record: SyncRecord }) {
   const account = ACCOUNT_BY_ID[record.accountId];
   // Honesty layer: never render a raw account id where a name belongs — an
   // unresolvable id (account removed since the record was written) says so.
   const accountName = account?.name ?? "Unknown account";
   const platformLabel = account ? PLATFORM_LABELS[account.platform] : null;
+  const folderNote = folderLine(record);
 
   return (
     <div className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0">
@@ -114,6 +189,8 @@ function SyncRow({ record }: { record: SyncRecord }) {
       {record.status === "running" && <Progress value={record.progress} className="h-1.5" />}
 
       <p className="text-xs text-muted-foreground">{provenanceLine(record)}</p>
+
+      {folderNote && <p className="text-xs text-muted-foreground">{folderNote}</p>}
 
       {record.status === "failed" && record.failedReason && (
         <p className="text-xs text-destructive">{record.failedReason}</p>

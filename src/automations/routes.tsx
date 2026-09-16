@@ -23,6 +23,7 @@ import { OverviewScreen } from "@/automations/center/OverviewScreen";
 import { WorkflowsScreen } from "@/automations/center/WorkflowsScreen";
 import { CreativeReportScreen } from "@/automations/center/CreativeReportScreen";
 import { ModulePreviewScreen } from "@/automations/center/ModulePreviewScreen";
+import { SyncHistoryScreen } from "@/automations/center/SyncHistoryScreen";
 
 const BuilderScreen = lazy(() =>
   import("@/automations/BuilderScreen").then((m) => ({ default: m.BuilderScreen })),
@@ -50,6 +51,12 @@ export const automationsRoutes = (
       }
     />
     <Route path="creative-report" element={<CreativeReportScreen />} />
+    {/* Sync history is a cross-module AUDIT view (which creative went where,
+        fired by which automation) — not a "module" adapter like the four
+        below, so it isn't in center/model.ts's CENTER_MODULES. Eager, same
+        as every other sub-screen here: it touches neither @xyflow/react nor
+        the canvas graph store. */}
+    <Route path="sync-history" element={<SyncHistoryScreen />} />
     <Route path="launch" element={<ModulePreviewScreen module="launch" />} />
     <Route path="rrm" element={<ModulePreviewScreen module="rrm" />} />
     <Route path="genie" element={<ModulePreviewScreen module="genie" />} />

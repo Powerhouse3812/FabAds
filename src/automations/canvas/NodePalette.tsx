@@ -12,6 +12,14 @@
  * A keyboard "Add step" affordance is the follow-up. A fake `onKeyDown` that
  * looked operable but dropped nodes at an arbitrary position would be worse
  * than an honest gap.
+ *
+ * TWO LAYOUTS, ONE COMPONENT. From `2xl` up this is a static 224px column, as
+ * it always was. Below `2xl` it is an absolute overlay ON TOP of the canvas,
+ * opened by the canvas's own "Steps" button — because a `shrink-0` column at
+ * that width leaves the canvas nothing (see `WorkflowCanvas.tsx` header note
+ * 3, which owns the reasoning). `open` is therefore meaningful ONLY below
+ * `2xl`: the responsive classes below keep the column visible above it no
+ * matter what `open` says, so the wide layout can never be closed away.
  */
 import {
   FolderInput,
@@ -21,7 +29,9 @@ import {
   StickyNote,
   Tag,
   UploadCloud,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   NODE_KIND_META,
@@ -61,12 +71,47 @@ const FAMILY_HEADINGS: Record<(typeof FAMILY_ORDER)[number], string> = {
   annotation: "Annotation",
 };
 
-export function NodePalette({ nodes }: { nodes: WorkflowNode[] }) {
+export function NodePalette({
+  nodes,
+  open = true,
+  onClose,
+}: {
+  nodes: WorkflowNode[];
+  /** Overlay open state. Read only below `2xl` — see the file header. */
+  open?: boolean;
+  /** Closes the overlay. Rendered `2xl:hidden`, since the wide layout has
+   *  nothing to close. */
+  onClose?: () => void;
+}) {
   return (
-    <aside className="w-56 shrink-0 space-y-4 overflow-y-auto border-r border-border bg-background p-3">
-      <div>
-        <h2 className="text-sm font-medium text-foreground">Steps</h2>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">Drag a step onto the canvas.</p>
+    <aside
+      className={cn(
+        "w-56 shrink-0 space-y-4 overflow-y-auto border-r border-border bg-background p-3",
+        // Overlay below `2xl`, in-flow column from `2xl` up. `bg-background` is
+        // already opaque, so floating over the canvas needs only the shadow to
+        // read as a layer above it.
+        "absolute inset-y-0 left-0 z-20 shadow-lg 2xl:static 2xl:z-auto 2xl:shadow-none",
+        open ? "block" : "hidden 2xl:block",
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-medium text-foreground">Steps</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Drag a step onto the canvas.</p>
+        </div>
+        {/* Explicit close only — this repo's overlays never dismiss on an
+            outside click, and here that rule earns its keep twice over: the
+            "outside" is a canvas you drag onto, so a dismiss-on-click would
+            fire mid-drag. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 text-muted-foreground 2xl:hidden"
+          onClick={onClose}
+          aria-label="Close the step palette"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       {FAMILY_ORDER.map((family) => {
