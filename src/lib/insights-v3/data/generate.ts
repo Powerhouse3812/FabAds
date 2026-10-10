@@ -698,7 +698,10 @@ export function generateUniverse(opts: GenerateOptions): Universe {
     let startedMs: number | null = null;
     if (!chance(rDates, 0.08)) {
       const lagRoll = rDates();
-      const lag = lagRoll < 0.6 ? rDates() * 3 : lagRoll < 0.9 ? 3 + rDates() * 27 : 30 + rDates() * 90;
+      let lag = lagRoll < 0.6 ? rDates() * 3 : lagRoll < 0.9 ? 3 + rDates() * 27 : 30 + rDates() * 90;
+      // Ads that are New (first seen in the last 48h) started within 3 days of being indexed,
+      // so "New" never sits next to a long run length. Same RNG draws, so the rest of the data is stable.
+      if (recentSet.has(assignIdx)) lag = Math.min(lag, lagRoll * 3);
       startedMs = firstSeenMs - lag * DAY;
     }
 
@@ -797,7 +800,7 @@ export function generateUniverse(opts: GenerateOptions): Universe {
       delivery: deliveryStats(rExtra, countries),
       demographics: demographicsFor(rExtra, theme),
       locations: locationsFor(rExtra, countries),
-      transparencyRegions: chance(rExtra, 0.5) ? [] : sample(rExtra, TRANSPARENCY_REGION_POOL, int(rExtra, 1, 2)),
+      transparencyRegions: transparencyFor(rExtra, countries),
       lastSyncedAt: chance(rExtra, 0.1) ? null : iso(now - int(rExtra, 5, 72 * 60) * MINUTE),
     });
   });
@@ -989,6 +992,12 @@ function demographicsFor(rng: Rng, theme: ThemeId): AdDemographic[] {
   pct[pct.length - 1] += 100 - pct.reduce((s, p) => s + p, 0);
   const gender = weighted(rng, ["All", "Female", "Male"], [6, 3, 2]);
   return AGE_GROUPS.map((ageGroup, i) => ({ ageGroup, gender, percentage: Math.max(0, pct[i]) })).filter((d) => d.percentage > 0);
+}
+
+/** Transparency regions only for ads with a known country (an ad with no country has none). Draws are the same either way. */
+function transparencyFor(rng: Rng, countries: string[]): string[] {
+  const regions = chance(rng, 0.5) ? [] : sample(rng, TRANSPARENCY_REGION_POOL, int(rng, 1, 2));
+  return countries.length ? regions : [];
 }
 
 function locationsFor(rng: Rng, countries: string[]): AdLocation[] {

@@ -116,7 +116,8 @@ function lpLabel(url: string): string {
 }
 
 /** Display label for one tag id. Falls back to the id. */
-export function tagLabel(key: TagGroupKey, id: string, data: DataIndex = INDEX): string {
+export function tagLabel(key: TagGroupKey, rawId: string, data: DataIndex = INDEX): string {
+  const id = normalizeTagId(key, rawId, data) ?? rawId;
   switch (key) {
     case "hookStyle": return data.elementById.hook.get(id)?.label ?? id;
     case "angle": return data.elementById.angle.get(id)?.label ?? id;
@@ -160,9 +161,11 @@ function sortOptions(options: TagOption[]): TagOption[] {
 /** Full option lists (count desc) for each requested group, counted on `scopedAds`. */
 export function tagGroups(scopedAds: Ad[], keys: TagGroupKey[], data: DataIndex = INDEX): TopTenGroup[] {
   const counts = keys.map(() => new Map<string, number>());
+  const missing = keys.map(() => 0);
   for (const ad of scopedAds) {
     for (let k = 0; k < keys.length; k++) {
       const ids = adTagIds(ad, keys[k], data);
+      if (ids.length === 0) missing[k]++;
       const m = counts[k];
       for (const id of ids) m.set(id, (m.get(id) ?? 0) + 1);
     }
@@ -177,33 +180,115 @@ export function tagGroups(scopedAds: Ad[], keys: TagGroupKey[], data: DataIndex 
     } else {
       options = Array.from(m, ([id, count]) => ({ id, label: tagLabel(key, id, data), count }));
     }
-    return { key, label: TAG_GROUP_LABEL[key], options: sortOptions(options) };
+    // `missing` = scoped ads with no value in this group (e.g. no country), so the UI can say why counts don't add up.
+    return { key, label: TAG_GROUP_LABEL[key], options: sortOptions(options), missing: missing[k] };
   });
 }
 
 /* ── union filter ───────────────────────────────────────────────────────── */
 
-/** Drop empty groups. Returns null when nothing is selected. */
-function activeSelection(selected: SelectedTags | undefined): [TagGroupKey, Set<string>][] | null {
-  if (!selected) return null;
-  const out: [TagGroupKey, Set<string>][] = [];
-  for (const key of Object.keys(selected) as TagGroupKey[]) {
-    const ids = selected[key];
-    if (ids && ids.length) out.push([key, new Set(ids)]);
+/* ── validating selected ids (hand-edited URLs) ─────────────────────────── */
+
+const validIdCache = new WeakMap<DataIndex, Partial<Record<TagGroupKey, Set<string>>>>();
+
+/** Every id that can exist in a group for this data (independent of scope). */
+function validIds(key: TagGroupKey, data: DataIndex): Set<string> {
+  let perData = validIdCache.get(data);
+  if (!perData) {
+    perData = {};
+    validIdCache.set(data, perData);
   }
+  const cached = perData[key];
+  if (cached) return cached;
+  let ids: string[];
+  const vocab = closedVocabulary(key, data);
+  if (vocab) ids = vocab.map((v) => v.id);
+  else {
+    switch (key) {
+      case "angle": ids = data.universe.elements.angle.map((e) => e.id); break;
+      case "country": ids = Object.keys(COUNTRY_NAME); break;
+      case "advertiser": ids = data.advertisers.filter((a) => a.kind === "domain").map((a) => a.id); break;
+      case "landingPage": ids = data.landingPages.map((l) => l.id); break;
+      case "offerDomain": ids = data.offers.map((o) => o.id); break;
+      default: {
+        const found = new Set<string>();
+        for (const ad of data.ads) for (const id of adTagIds(ad, key, data)) found.add(id);
+        ids = Array.from(found);
+      }
+    }
+  }
+  const set = new Set(ids);
+  perData[key] = set;
+  return set;
+}
+
+/**
+ * Canonical id for a (possibly hand-edited) tag id, or null when it isn't a
+ * valid option. Country ISO-2 is case-insensitive ("fr" → "FR"); every other
+ * group's ids are lowercase slugs / ids, so they are lower-cased.
+ */
+export function normalizeTagId(key: TagGroupKey, id: string, data: DataIndex = INDEX): string | null {
+  if (typeof id !== "string") return null;
+  const trimmed = id.trim();
+  if (!trimmed) return null;
+  const valid = validIds(key, data);
+  if (valid.has(trimmed)) return trimmed;
+  const cased = key === "country" ? trimmed.toUpperCase() : trimmed.toLowerCase();
+  return valid.has(cased) ? cased : null;
+}
+
+/**
+ * Drop unknown groups / ids and normalise case. Pass `groups` (the page's
+ * TopTenGroup list, or its group keys) to also keep only the groups on the
+ * page; with TopTenGroup[] an id must also exist as an option there.
+ */
+export function sanitizeSelectedTags(
+  selected: SelectedTags | undefined,
+  groups?: TopTenGroup[] | TagGroupKey[],
+  data: DataIndex = INDEX,
+): SelectedTags {
+  const out: SelectedTags = {};
+  if (!selected) return out;
+  const groupList = groups as (TopTenGroup | TagGroupKey)[] | undefined;
+  const allowedKeys = groupList ? new Set(groupList.map((g) => (typeof g === "string" ? g : g.key))) : null;
+  const optionIds = new Map<TagGroupKey, Set<string>>();
+  if (groupList) for (const g of groupList) if (typeof g !== "string") optionIds.set(g.key, new Set(g.options.map((o) => o.id)));
+  for (const key of Object.keys(selected) as TagGroupKey[]) {
+    if (!(key in TAG_GROUP_LABEL)) continue;
+    if (allowedKeys && !allowedKeys.has(key)) continue;
+    const ids = selected[key];
+    if (!Array.isArray(ids)) continue;
+    const kept: string[] = [];
+    for (const raw of ids) {
+      const id = normalizeTagId(key, raw, data);
+      if (!id || kept.includes(id)) continue;
+      const opts = optionIds.get(key);
+      if (opts && !opts.has(id)) continue;
+      kept.push(id);
+    }
+    if (kept.length) out[key] = kept;
+  }
+  return out;
+}
+
+/** Valid, non-empty groups only (invalid ids ignored). Null when nothing valid is selected. */
+function activeSelection(selected: SelectedTags | undefined, data: DataIndex): [TagGroupKey, Set<string>][] | null {
+  const clean = sanitizeSelectedTags(selected, undefined, data);
+  const out: [TagGroupKey, Set<string>][] = [];
+  for (const key of Object.keys(clean) as TagGroupKey[]) out.push([key, new Set(clean[key])]);
   return out.length ? out : null;
 }
 
-export function hasSelection(selected: SelectedTags | undefined): boolean {
-  return activeSelection(selected) != null;
+export function hasSelection(selected: SelectedTags | undefined, data: DataIndex = INDEX): boolean {
+  return activeSelection(selected, data) != null;
 }
 
-export function countSelected(selected: SelectedTags | undefined): number {
-  return (activeSelection(selected) ?? []).reduce((s, [, ids]) => s + ids.size, 0);
+export function countSelected(selected: SelectedTags | undefined, data: DataIndex = INDEX): number {
+  return (activeSelection(selected, data) ?? []).reduce((s, [, ids]) => s + ids.size, 0);
 }
 
 export function adMatchesTags(ad: Ad, selected: SelectedTags | undefined, data: DataIndex = INDEX): boolean {
-  const sel = activeSelection(selected);
+  const sel = activeSelection(selected, data);
   if (!sel) return true;
   return matchSel(ad, sel, data);
 }
@@ -217,7 +302,7 @@ function matchSel(ad: Ad, sel: [TagGroupKey, Set<string>][], data: DataIndex): b
 
 /** Ads matching ANY selected tag in ANY group. No selection → the same array back. */
 export function filterByTagUnion(ads: Ad[], selected: SelectedTags | undefined, data: DataIndex = INDEX): Ad[] {
-  const sel = activeSelection(selected);
+  const sel = activeSelection(selected, data);
   if (!sel) return ads;
   return ads.filter((ad) => matchSel(ad, sel, data));
 }
@@ -242,7 +327,7 @@ export function filterListByTagUnion<T>(
   selected: SelectedTags | undefined,
   data: DataIndex = INDEX,
 ): T[] {
-  const sel = activeSelection(selected);
+  const sel = activeSelection(selected, data);
   if (!sel) return items;
   return items.filter((item) => adsOf(item).some((ad) => matchSel(ad, sel, data)));
 }
@@ -256,7 +341,7 @@ export interface SelectedChip {
 
 /** Chips for the selected-tags row, in group order then selection order. */
 export function selectedChips(selected: SelectedTags | undefined, data: DataIndex = INDEX): SelectedChip[] {
-  const sel = activeSelection(selected);
+  const sel = activeSelection(selected, data);
   if (!sel) return [];
   const out: SelectedChip[] = [];
   for (const [key, ids] of sel) {

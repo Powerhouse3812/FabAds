@@ -43,7 +43,7 @@ const HOOK_DEFS: [string, string, string][] = [
   ["personal-story", "Personal story", "Starts in the first person with a moment from the speaker's life."],
   ["callout", "Callout", "Calls out a specific audience by who they are or where they live."],
   ["warning", "Warning", "Opens with an alert or a reason to stop and pay attention."],
-  ["before-after", "Before/after", "Contrasts how things were with how they are now."],
+  ["before-after", "Before / after", "Contrasts how things were with how they are now."],
   ["authority", "Authority", "Borrows trust from an expert, doctor, agent or official source."],
   ["offer-led", "Offer-led", "Puts the price, discount or free offer in the first line."],
   ["testimonial", "Testimonial", "Opens on a customer quote or result."],

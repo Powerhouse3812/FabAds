@@ -61,7 +61,8 @@ describe("KPIs", () => {
   it("avg days live excludes unknown starts and says so", () => {
     const k = discoverKpis(U.ads, scope, ctx).find((x) => x.key === "avgDaysLive")!;
     const known = scoped.filter((a) => a.daysLive != null).length;
-    expect(k.sub).toContain(`${known} ads with a known start`);
+    expect(k.sub).toBe(`${known} with known start`);
+    expect(k.tooltip).toContain(`${known} ads with a known start`);
     const none = discoverKpis([makeAd({ daysLive: null, startedAt: null })], scope, ctx).find((x) => x.key === "avgDaysLive")!;
     expect(none.disabledReason).toBeTruthy();
   });
