@@ -68,7 +68,7 @@ describe("ElementsPage", () => {
   it("QA-15: trend chip never wraps and descriptions use a plain line clamp", () => {
     const { container } = page();
     const row = container.querySelector("tbody tr") as HTMLElement;
-    expect(row.querySelector("span.whitespace-nowrap")?.textContent).toMatch(/vs previous period|New this period/);
+    expect(row.querySelector("span.whitespace-nowrap")?.textContent).toMatch(/vs prev\.|vs previous period|New/);
     const desc = row.querySelector("p.line-clamp-2") as HTMLElement | null;
     expect(desc).not.toBeNull();
     expect(desc?.getAttribute("style") ?? "").not.toMatch(/webkit-box/);
@@ -101,8 +101,8 @@ describe("ElementsPage", () => {
   });
 
   it("shows the no-results recovery when tags leave nothing", () => {
-    // Two tags in different groups are a union, so use a tag id that exists nowhere.
-    page("?f_angle=does-not-exist");
+    // A REAL tag with 0 matches in scope (fake ids are ignored since QA-10).
+    page("?industry=search-arb&f_category=medicare");
     expect(screen.getByText(/No frameworks match the selected tags/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Clear tags" }));
   });

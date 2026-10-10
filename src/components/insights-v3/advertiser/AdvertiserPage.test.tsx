@@ -145,11 +145,12 @@ describe("AdvertiserPage", () => {
   });
 
   it("a tag that matches nothing offers a one-click clear", () => {
-    // 'zz-none' is not an angle id, so no advertiser has an ad matching it.
-    renderAt("/industry-insights/advertisers?f_angle=zz-none");
+    // A REAL tag with 0 matches in scope: no Search Arb ad is in Medicare
+    // (fake ids are ignored since QA-10).
+    renderAt("/industry-insights/advertisers?industry=search-arb&f_category=medicare");
     expect(screen.getByText(/No domains match the selected tags/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Clear tags" }));
-    expect(screen.getByTestId("where").textContent).not.toMatch(/f_angle/);
+    expect(screen.getByTestId("where").textContent).not.toMatch(/f_category/);
     expect(screen.getByRole("table", { name: "Domains" })).toBeInTheDocument();
   });
 

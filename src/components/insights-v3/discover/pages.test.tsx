@@ -127,7 +127,8 @@ describe("Discover page", () => {
   });
 
   it("tags that match nothing show EmptyResults with one-click clear", () => {
-    renderAt(<DiscoverPage />, "/industry-insights/discover?f_country=zz");
+    // A REAL tag with 0 matches in scope (fake ids are ignored since QA-10).
+    renderAt(<DiscoverPage />, "/industry-insights/discover?industry=search-arb&f_category=medicare");
     expect(screen.getByText(/No ads match the selected tags/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Clear tags" }));
     expect(adCards().length).toBe(24);
