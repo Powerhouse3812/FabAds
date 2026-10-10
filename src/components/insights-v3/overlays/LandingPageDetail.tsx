@@ -124,7 +124,11 @@ export function LandingPageDetail({ id, nav }: { id: string; nav: OverlayNav }) 
       <OverlaySection title="Page capture">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
           <div>
-            <LpThumb url={capture.screenshotUrl} title={label} className="aspect-[2/3] w-full max-w-[220px]" />
+            <LpThumb
+              url={capture.screenshotUrl}
+              title={label}
+              className={capture.screenshotUrl ? "aspect-[2/3] w-full max-w-[220px]" : "aspect-[4/3] w-full max-w-[220px]"}
+            />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               {capture.screenshotUrl
                 ? `Captured ${capture.capturedAt ? DATE.format(new Date(capture.capturedAt)) : "(date not recorded)"}`

@@ -18,8 +18,14 @@ function subTone(sub: string): string {
   return "text-muted-foreground";
 }
 
+/** "800", "97 days", "47% video", "—" are numeric; "Personal story" is a name and gets prose styling. */
+function isNumericDisplay(display: string): boolean {
+  return /^[\d—+−-]/.test(display.trim());
+}
+
 function KpiTile({ kpi, dense }: { kpi: Kpi; dense?: boolean }) {
   const disabled = !!kpi.disabledReason;
+  const numeric = disabled || isNumericDisplay(kpi.display);
   const tile = (
     <div
       role="group"
@@ -39,15 +45,25 @@ function KpiTile({ kpi, dense }: { kpi: Kpi; dense?: boolean }) {
         <TruncatedText text={kpi.label} lines={2} className="flex-1 leading-4" focusable={!disabled} />
         {!disabled && <InfoGlyph tip={kpi.tooltip} className="mt-0.5" />}
       </div>
-      <TruncatedText
-        text={disabled ? "—" : kpi.display}
-        focusable={!disabled}
-        className={cn(
-          "mt-0.5 font-mono font-semibold tabular-nums",
-          dense ? "text-lg leading-6" : "text-2xl leading-8",
-          disabled ? "text-muted-foreground" : "text-foreground",
-        )}
-      />
+      {numeric ? (
+        <TruncatedText
+          text={disabled ? "—" : kpi.display}
+          focusable={!disabled}
+          className={cn(
+            "mt-0.5 font-mono font-semibold tabular-nums",
+            dense ? "text-lg leading-6" : "text-2xl leading-8",
+            disabled ? "text-muted-foreground" : "text-foreground",
+          )}
+        />
+      ) : (
+        // A name, not a number: smaller, wraps to two lines, never "Persona…".
+        <TruncatedText
+          text={kpi.display}
+          lines={2}
+          focusable
+          className={cn("mt-1 font-semibold text-foreground", dense ? "text-sm leading-5" : "text-base leading-5")}
+        />
+      )}
       {!dense && (
         <div className="mt-0.5 min-h-[16px] text-xs">
           {disabled ? (

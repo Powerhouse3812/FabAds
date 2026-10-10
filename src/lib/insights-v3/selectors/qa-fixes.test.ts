@@ -43,8 +43,8 @@ describe("QA-04 KPI values and subs stay short; full text goes in the tooltip", 
 
   it("video vs image is compact, full split in sub + tooltip", () => {
     const v = k("videoVsImage");
-    expect(v.display).toMatch(/^\d+ \/ \d+%$/);
-    expect(v.sub).toMatch(/% video · \d+% image · \d+% carousel$/);
+    expect(v.display).toMatch(/^\d+%$/);
+    expect(v.sub).toMatch(/^\d+% image · \d+% carousel$/);
     expect(v.tooltip).toMatch(/% video, \d+% image, \d+% carousel/);
   });
 

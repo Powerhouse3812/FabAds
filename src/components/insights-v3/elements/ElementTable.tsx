@@ -137,7 +137,7 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
             {row.description && (
               // Plain line-clamp (not TruncatedText's -webkit-box + overflow) so the first glyph of a wrapped line is never clipped.
               <Hint content={row.description}>
-                <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground">{row.description}</p>
+                <p className="mt-0.5 line-clamp-2 px-px -mx-px text-xs leading-4 text-muted-foreground">{row.description}</p>
               </Hint>
             )}
           </div>

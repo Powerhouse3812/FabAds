@@ -8,7 +8,8 @@
  */
 import { useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Check, ImageOff, Plus, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
+import { TYPE_ICON } from "@/components/insights-v3/shared/typeMeta";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { snapshotFor } from "@/lib/insights-v3/selectors";
@@ -141,7 +142,10 @@ function SaveDialog({ target, onClose }: { target: SavedItemRef; onClose: () => 
                 {snapshot?.thumbnailUrl ? (
                   <img src={snapshot.thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                 ) : (
-                  <ImageOff className="h-4 w-4" aria-hidden="true" />
+                  (() => {
+                    const Icon = TYPE_ICON[target.type];
+                    return <Icon className="h-5 w-5 text-primary-text" aria-hidden="true" />;
+                  })()
                 )}
               </div>
               <div className="min-w-0 flex-1 space-y-0.5">

@@ -566,7 +566,8 @@ export function generateUniverse(opts: GenerateOptions): Universe {
     // Media
     const mediaKind: MediaKind = chance(rAds, 0.1) ? "carousel" : chance(rAds, Math.min(0.85, t.videoShare * 1.12)) ? "video" : "image";
     const aspectRatio = pick(rAds, mediaKind === "video" ? VIDEO_ASPECTS : mediaKind === "carousel" ? CAROUSEL_ASPECTS : IMAGE_ASPECTS);
-    const thumbnail = chance(rAds, 0.1) ? null : thumbnailUrl(id, aspectRatio);
+    const noThumbRoll = chance(rAds, 0.1);
+    const thumbnail = noThumbRoll && !recentSet.has(assignIdx) ? null : thumbnailUrl(id, aspectRatio);
     const videoUrl = mediaKind === "video" ? pick(rAds, VIDEO_URLS) : null;
 
     // Copy style: brand-led (no DR signals) on some e-com / lifestyle ads; else short / medium / long DR copy.

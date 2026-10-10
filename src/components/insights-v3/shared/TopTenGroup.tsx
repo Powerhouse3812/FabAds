@@ -150,7 +150,7 @@ export interface TopTenGroupsProps {
 export function TopTenGroups({ groups, selected, onToggle, onViewMore, hiddenKeys, noun, limit, className }: TopTenGroupsProps) {
   const visible = groups.filter((g) => !hiddenKeys?.includes(g.key));
   return (
-    <div className={cn("grid grid-cols-1 gap-3 md:grid-cols-2", className)}>
+    <div className={cn("grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3", className)}>
       {visible.map((g) => (
         <TopTenGroup
           key={g.key}

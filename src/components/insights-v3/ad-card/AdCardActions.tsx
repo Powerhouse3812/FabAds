@@ -2,7 +2,7 @@
 import { Link2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { buildDownloads } from "@/lib/insights-v3/selectors";
-import { useBoardCountForItem } from "@/lib/insights-v3/stores";
+import { useBoardCountForItem, useIsAdSaved } from "@/lib/insights-v3/stores";
 import type { SavedItemRef } from "@/lib/insights-v3/types";
 import { DownloadButton, SaveButton } from "@/components/insights-v3/shared";
 import { UseInGenie } from "@/components/insights-v3/genie/UseInGenie";
@@ -37,9 +37,11 @@ async function copyAdLink(adId: string) {
 export function AdCardActions({ adId, pageName }: { adId: string; pageName: string }) {
   const ref: SavedItemRef = { type: "ad", id: adId };
   const savedCount = useBoardCountForItem(ref);
+  const inSavedAds = useIsAdSaved(adId);
   return (
     <div className="flex items-center gap-1.5">
-      <SaveButton target={ref} savedCount={savedCount} variant="icon" />
+      {/* Filled when the ad is in Saved Ads or on a board — one "saved" signal on the card. */}
+      <SaveButton target={ref} savedCount={savedCount} saved={inSavedAds || savedCount > 0} variant="icon" />
       <DownloadButton build={() => buildDownloads(ref)} ariaLabel={`Download ad from ${pageName}`} label="Download ad" variant="icon" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

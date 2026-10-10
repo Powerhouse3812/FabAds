@@ -358,9 +358,10 @@ describe("SavedAdsPage", () => {
     expect(screen.getByText("Sort")).toBeInTheDocument();
   });
 
-  it("QA-19: explains that the card bookmark is 'add to a board', not the Saved state", () => {
+  it("QA-19: the saved state is shown on the card itself, not explained in a sentence", () => {
     renderPage();
-    expect(screen.getByText(/bookmark on a card adds that ad to a board/)).toBeInTheDocument();
+    expect(screen.queryByText(/bookmark on a card adds that ad to a board/)).toBeNull();
+    expect(screen.getByText(/for the scope above/)).toBeInTheDocument();
   });
 
   it("unsave removes the ad from Saved Ads only", () => {

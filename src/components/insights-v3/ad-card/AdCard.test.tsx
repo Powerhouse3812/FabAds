@@ -113,7 +113,7 @@ describe("AdCard", () => {
     renderCard(degraded);
     const card = screen.getByRole("article");
     expect(card.querySelector("img[src*='picsum']")).toBeNull(); // no thumbnail, no broken <img>
-    expect(within(card).getByRole("img", { name: /No preview available/ })).toBeInTheDocument();
+    expect(within(card).getByRole("img", { name: /No creative preview/ })).toBeInTheDocument();
     expect(within(card).getByText("Start date unknown")).toBeInTheDocument();
     expect(within(card).getByText("Not seen recently")).toBeInTheDocument();
     // analysis chips are simply absent

@@ -9,17 +9,22 @@ export interface SaveButtonProps {
   target: SavedItemRef;
   /** Number of boards this item is on. > 0 → filled state + count. */
   savedCount?: number;
+  /** Force the filled state (e.g. an ad in Saved Ads but on no board). Defaults to savedCount > 0. */
+  saved?: boolean;
   variant: "icon" | "button";
   className?: string;
 }
 
 /** Opens the (separately built) save modal via the URL (`modal=save&target=…`). */
-export function SaveButton({ target, savedCount = 0, variant, className }: SaveButtonProps) {
+export function SaveButton({ target, savedCount = 0, saved: savedProp, variant, className }: SaveButtonProps) {
   const { open } = useSaveModal();
-  const saved = savedCount > 0;
+  const saved = savedProp ?? savedCount > 0;
   const what = SAVABLE_LABEL[target.type].toLowerCase();
+  const boardsText = `${savedCount} ${savedCount === 1 ? "board" : "boards"}`;
   const label = saved
-    ? `Saved to ${savedCount} ${savedCount === 1 ? "board" : "boards"}. Manage boards for this ${what}`
+    ? savedCount > 0
+      ? `Saved to ${boardsText}. Manage boards for this ${what}`
+      : `Saved. Add this ${what} to a board`
     : `Save this ${what} to a board`;
 
   const onClick = (e: React.MouseEvent) => {
@@ -36,7 +41,7 @@ export function SaveButton({ target, savedCount = 0, variant, className }: SaveB
 
   if (variant === "icon") {
     return (
-      <Hint content={saved ? `Saved · ${savedCount} ${savedCount === 1 ? "board" : "boards"}` : "Save to board"}>
+      <Hint content={saved ? (savedCount > 0 ? `Saved · ${boardsText}` : "Saved · add to a board") : "Save to board"}>
         <button
           type="button"
           aria-label={label}
@@ -52,7 +57,7 @@ export function SaveButton({ target, savedCount = 0, variant, className }: SaveB
           )}
         >
           {icon}
-          {saved && <span className="font-mono text-[11px] tabular-nums">{fmtInt(savedCount)}</span>}
+          {saved && savedCount > 0 && <span className="font-mono text-[11px] tabular-nums">{fmtInt(savedCount)}</span>}
         </button>
       </Hint>
     );
@@ -76,7 +81,7 @@ export function SaveButton({ target, savedCount = 0, variant, className }: SaveB
       {icon}
       {saved ? (
         <>
-          Saved <span className="font-mono text-xs tabular-nums">· {fmtInt(savedCount)}</span>
+          Saved {savedCount > 0 && <span className="font-mono text-xs tabular-nums">· {fmtInt(savedCount)}</span>}
         </>
       ) : (
         "Save"

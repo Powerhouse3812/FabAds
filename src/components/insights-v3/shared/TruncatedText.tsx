@@ -35,7 +35,8 @@ export function TruncatedText({ text, lines = 1, as, className, tooltip, side = 
             ref={ref}
             tabIndex={focusable && overflowing ? 0 : undefined}
             className={cn(
-              "min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              // px-px/-mx-px: overflow:hidden at a fractional x clips the first glyph's left edge ("‿anding").
+              "min-w-0 rounded-sm px-px -mx-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               lines === 1 ? "block truncate" : "block overflow-hidden",
               className,
             )}

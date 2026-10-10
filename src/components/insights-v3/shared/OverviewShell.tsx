@@ -36,6 +36,8 @@ export interface OverviewShellProps {
   /** AI summary. Null/undefined renders a disabled summary using `summaryDisabledReason`. */
   summary?: AiSummary | null;
   summaryDisabledReason?: string;
+  /** Rendered under the AI summary, in the same column (e.g. trending tags) so the two columns balance. */
+  summaryBelow?: ReactNode;
   /** Launch-frequency chart etc. (compose TrendBars). Expanded only. */
   charts?: ReactNode;
   /** Rising + Scaling. Rendered only when expanded. */
@@ -58,6 +60,7 @@ export function OverviewShell({
   kpis,
   summary,
   summaryDisabledReason,
+  summaryBelow,
   charts,
   expandedOnly,
   groups,
@@ -109,7 +112,7 @@ export function OverviewShell({
               >
                 {showSummary && (
                   // self-start: the summary keeps its natural height instead of stretching to the chart column.
-                  <div className="min-w-0 self-start">
+                  <div className="min-w-0 space-y-3 self-start">
                     {summary ? (
                       <AiSummaryBlock summary={summary} className="h-auto" />
                     ) : (
@@ -118,6 +121,7 @@ export function OverviewShell({
                         disabledReason={summaryDisabledReason ?? "Not enough data in this scope to write a summary."}
                       />
                     )}
+                    {summaryBelow}
                   </div>
                 )}
                 {charts && <div className="min-w-0">{charts}</div>}

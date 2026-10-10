@@ -38,7 +38,8 @@ import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 type TypeFilter = "all" | SavableType;
 const FILTER_KEYS: TypeFilter[] = ["all", ...BOARD_TYPE_ORDER];
 
-const GRID = "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] items-start gap-3";
+// Masonry: an ad card is ~3× the height of an element card, so a row grid left huge gaps.
+const GRID = "columns-1 gap-3 sm:columns-2 lg:columns-3 2xl:columns-4 [&>*]:mb-3 [&>*]:break-inside-avoid";
 
 const btn =
   "inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";

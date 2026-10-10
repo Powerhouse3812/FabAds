@@ -205,16 +205,14 @@ export function AdsMarketView({
         kpis={kpis}
         summary={summary}
         summaryDisabledReason="No ads in this scope, so there is nothing to summarise."
+        summaryBelow={<TrendingTags tags={trending} selected={tags.selected} onToggle={tags.toggle} basedOn={base.length} />}
         charts={
-          <div className="space-y-3">
-            <TrendBars
-              series={series}
-              title="Launch frequency"
-              basedOn={base.length}
-              emptyReason="No ads launched in this period, so there is nothing to chart."
-            />
-            <TrendingTags tags={trending} selected={tags.selected} onToggle={tags.toggle} basedOn={base.length} />
-          </div>
+          <TrendBars
+            series={series}
+            title="Launch frequency"
+            basedOn={base.length}
+            emptyReason="No ads launched in this period, so there is nothing to chart."
+          />
         }
         expandedOnly={<RisingScaling baseAds={base} period={scope.period} now={MODULE_NOW} basedOn={base.length} />}
         groups={<TopTenGroups groups={groups} selected={tags.selected} onToggle={tags.toggle} />}

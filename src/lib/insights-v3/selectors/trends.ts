@@ -252,6 +252,7 @@ export interface TrendListOpts {
 /** Rising entities, top by trend % (no minimum base, Q7). */
 export function rising(kind: TrendEntityKind, baseAds: Ad[], period: PeriodKey, now: number, opts: TrendListOpts = {}): TrendItem[] {
   return trendItems(kind, baseAds, period, now, opts.data)
+    .filter((x) => x.id !== "other") // the catch-all bucket is never a "rising element"
     .filter(isRisingComparison)
     .sort(byKeys<TrendItem>(risingRank, (x) => x.cur))
     .slice(0, opts.limit ?? 10);
@@ -260,6 +261,7 @@ export function rising(kind: TrendEntityKind, baseAds: Ad[], period: PeriodKey, 
 /** Scaling entities: active count up vs previous period AND ≥1 winner. */
 export function scaling(kind: TrendEntityKind, baseAds: Ad[], period: PeriodKey, now: number, opts: TrendListOpts = {}): TrendItem[] {
   return trendItems(kind, baseAds, period, now, opts.data)
+    .filter((x) => x.id !== "other")
     .filter(isScalingComparison)
     .sort(byKeys<TrendItem>((x) => x.activeNow - x.activePrev, (x) => x.winners))
     .slice(0, opts.limit ?? 10);

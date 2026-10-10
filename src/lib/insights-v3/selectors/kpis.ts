@@ -341,10 +341,10 @@ export function elementKpis(type: ElementType, baseAds: Ad[], scope: Scope, ctx:
     }),
     kpi({
       key: "videoVsImage",
-      label: "Video vs image",
+      label: "Video share",
       value: pct(video, analysed.length),
-      display: `${pct(video, analysed.length)} / ${pct(image, analysed.length)}%`,
-      sub: `${pct(video, analysed.length)}% video · ${pct(image, analysed.length)}% image · ${pct(carousel, analysed.length)}% carousel`,
+      display: `${pct(video, analysed.length)}%`,
+      sub: `${pct(image, analysed.length)}% image · ${pct(carousel, analysed.length)}% carousel`,
       tooltip: `Media split of the ${formatCompact(analysed.length)} ads with a ${type} identified: ${pct(video, analysed.length)}% video, ${pct(image, analysed.length)}% image, ${pct(carousel, analysed.length)}% carousel (shown separately).`,
       disabledReason: analysed.length === 0 ? `No ad in this scope has a ${type} identified.` : undefined,
     }),

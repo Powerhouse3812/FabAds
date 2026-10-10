@@ -15,7 +15,8 @@ export function AdCardMedia({ ad, className, compact }: { ad: Ad; className?: st
     <div
       data-testid="ad-media"
       className={cn("relative w-full overflow-hidden bg-muted", !compact && "max-h-[460px]", className)}
-      style={compact ? undefined : { aspectRatio: ad.aspectRatio || "1/1" }}
+      // No creative → a fixed, shorter copy-first tile instead of a tall empty box in the ad's aspect ratio.
+      style={compact ? undefined : { aspectRatio: showImg ? ad.aspectRatio || "1/1" : "4/3" }}
     >
       {showImg ? (
         <img
@@ -28,11 +29,24 @@ export function AdCardMedia({ ad, className, compact }: { ad: Ad; className?: st
       ) : (
         <div
           role="img"
-          aria-label={`No preview available for this ${KIND_LABEL[ad.mediaKind].toLowerCase()} ad`}
-          className="flex h-full min-h-[64px] w-full flex-col items-center justify-center gap-1 bg-primary/5 text-muted-foreground"
+          aria-label={`No creative preview for this ${KIND_LABEL[ad.mediaKind].toLowerCase()} ad: ${ad.headline}`}
+          className={cn(
+            "flex h-full min-h-[64px] w-full flex-col bg-primary/10 text-foreground",
+            compact ? "items-center justify-center" : "justify-between p-4",
+          )}
         >
-          <Placeholder className="h-6 w-6 text-primary-text" aria-hidden="true" />
-          {!compact && <span className="text-[11px]">No preview</span>}
+          {compact ? (
+            <Placeholder className="h-5 w-5 text-primary-text" aria-hidden="true" />
+          ) : (
+            <>
+              {/* Copy-first: the headline is the creative when there is no image. */}
+              <p className="line-clamp-4 px-px -mx-px text-lg font-semibold leading-6 tracking-tight">{ad.headline}</p>
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Placeholder className="h-3.5 w-3.5 text-primary-text" aria-hidden="true" />
+                {KIND_LABEL[ad.mediaKind]} · no preview
+              </span>
+            </>
+          )}
         </div>
       )}
       {ad.mediaKind !== "image" && !compact && (
