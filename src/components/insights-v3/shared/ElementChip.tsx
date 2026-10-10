@@ -2,6 +2,7 @@ import { useState, type MouseEvent } from "react";
 import { SAVABLE_LABEL, type SavableType } from "@/lib/insights-v3/types";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { fmtInt } from "./format";
 import { useOverflow } from "./useOverflow";
 import { TYPE_ICON } from "./typeMeta";
 import { savedRefToDetailTarget, useAdDrawer, useDetailStack } from "./url";
@@ -55,7 +56,9 @@ export function ElementChip({ type, id, label, onClick, className, count }: Elem
               {label}
             </span>
             {typeof count === "number" && (
-              <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">{count}</span>
+              <span className="shrink-0 rounded-full bg-primary/15 px-1.5 font-mono text-[11px] leading-4 tabular-nums text-primary-text">
+                {fmtInt(count)}
+              </span>
             )}
           </button>
         </TooltipTrigger>
