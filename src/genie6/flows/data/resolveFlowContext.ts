@@ -455,6 +455,29 @@ export function flowInitialPatch(ctx: FlowContext, sp?: URLSearchParams): Partia
       : `Open with the hook from "${ref.title}". Build the rest around it.`;
   }
 
+  // "Use angle / framework / concept" — the element itself travels, the same
+  // way `use-hook` carries its line above. Only refs that genuinely hold the
+  // element set `ref.elements` (Industry Insights V2 today), so every other
+  // module's ref skips this block and behaves exactly as before. A concept ←
+  // concept VARIATION already seeded its own prompt above; that one is left
+  // alone (Rule 1 owns it). The angle also fills `angleDescription`, the
+  // wizard's free-text angle slot — `SOURCE_CARRIES.angle` already tells Step 3
+  // the angle is carried, so this is what makes that claim true.
+  if (action.id === "use-angle" || action.id === "use-framework" || action.id === "use-concept") {
+    const kind = action.id === "use-angle" ? "angle" : action.id === "use-framework" ? "framework" : "concept";
+    const value = ref.elements?.[kind]?.trim();
+    if (value && !(ctx.isVariation && !action.asksNothing)) {
+      if (kind === "angle") {
+        patch.angleDescription = value;
+        patch.prompt = `Build on this angle: "${value}" — seen in "${ref.title}".`;
+      } else if (kind === "framework") {
+        patch.prompt = `Structure it with the ${value} framework, as in "${ref.title}".`;
+      } else {
+        patch.prompt = `Use the "${value}" concept, as in "${ref.title}".`;
+      }
+    }
+  }
+
   // Campaign URLs — the extraction is visible and editable in its own card
   // (§7.5); this is just the prompt head start built from the same data.
   // If the user edited the extraction in FlowModuleDetail, those edits
