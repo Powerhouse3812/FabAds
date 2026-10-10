@@ -16,6 +16,8 @@ import ElementsPage from "./ElementsPage";
 import SavedAdsPage from "./SavedAdsPage";
 import BoardsPage from "./BoardsPage";
 import BoardDetailPage from "./BoardDetailPage";
+// Dev-only: shared UI kit preview (all states). Not in nav.
+import KitPreview from "@/components/insights-v3/shared/__preview__/KitPreview";
 
 export const insightsV3Routes = (
   <Route path="industry-insights">
@@ -28,5 +30,6 @@ export const insightsV3Routes = (
     <Route path="saved" element={<SavedAdsPage />} />
     <Route path="boards" element={<BoardsPage />} />
     <Route path="boards/:id" element={<BoardDetailPage />} />
+    <Route path="_kit" element={<KitPreview />} />
   </Route>
 );

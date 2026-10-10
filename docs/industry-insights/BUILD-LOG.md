@@ -207,4 +207,4 @@ Total agents: 8 (2 + 5 + 1).
 - 2026-10-10 · URL: filters/scope/sort/tab replace history; drawer/overlay/modal push (Back closes them). Scope restores from session when a page is opened without scope params, so it carries across sub-nav.
 
 ## Agent reports
-(none yet)
+- **F2 shared UI kit** — `af3879d`, merged. 31 files, only `src/components/insights-v3/shared/**`. Gates green (typecheck, eslint 0, vitest 97/97). Orchestrator review: ownership clean; DetailOverlay = Radix, no outside-click close, back chip, focus trap; accent at rest confirmed in browser (`/industry-insights/_kit`); Geist Mono numerals = design system v1.2 rule. Deviations accepted: `periodCounts` on ScopeBar, `usePageTab` clears tags/sort on tab switch, badges not tab stops (aria text instead). Notes carried to Phase 2: don't chain two different URL hooks' writes in one handler; ad drawer must portal above overlays; host mounts ViewMoreModal once; save modal = D.
