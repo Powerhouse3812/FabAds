@@ -9,6 +9,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Render smoke tests (Industry Insights V2 pages/overlays build an
+    // 800-ad universe) sit near the 5s default when the machine is busy with
+    // parallel sessions; 15s keeps the gate about correctness, not load.
+    testTimeout: 15000,
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
