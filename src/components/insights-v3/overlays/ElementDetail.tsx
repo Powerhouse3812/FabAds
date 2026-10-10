@@ -140,18 +140,21 @@ export function ElementDetail({ elementType, id, nav }: { elementType: ElementTy
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <MixList
             title="Categories"
+            unit={`share of ads using this ${what}`}
             items={d.whereItWorks.categories.items}
             basedOn={d.whereItWorks.categories.basedOn}
             emptyText="No category data for these ads."
           />
           <MixList
             title="Industries"
+            unit={`share of ads using this ${what}`}
             items={d.whereItWorks.industries.items}
             basedOn={d.whereItWorks.industries.basedOn}
             emptyText="No industry data for these ads."
           />
           <MixList
             title="Advertisers"
+            unit={`share of ads using this ${what}`}
             items={d.whereItWorks.advertisers.items}
             basedOn={d.whereItWorks.advertisers.basedOn}
             emptyText="No advertiser data for these ads."

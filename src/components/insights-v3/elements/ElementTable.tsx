@@ -135,7 +135,10 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
               {isNew && <NewBadge />}
             </div>
             {row.description && (
-              <TruncatedText text={row.description} lines={2} className="mt-0.5 block text-xs text-muted-foreground" focusable={false} />
+              // Plain line-clamp (not TruncatedText's -webkit-box + overflow) so the first glyph of a wrapped line is never clipped.
+              <Hint content={row.description}>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground">{row.description}</p>
+              </Hint>
             )}
           </div>
         </div>
@@ -177,10 +180,10 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
       </td>
 
       {/* Trend */}
-      <td className="px-3 py-3">
+      <td className="min-w-[184px] px-3 py-3">
         <TrendSpark series={row.trend} width={88} height={26} />
         <div className="mt-1 text-[11px] text-muted-foreground">{row.trend.unit}</div>
-        <ChangeChip changePct={row.changePct} className="mt-1" />
+        <ChangeChip changePct={row.changePct} className="mt-1 whitespace-nowrap" />
       </td>
 
       {/* Example + top advertisers */}
