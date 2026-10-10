@@ -8,8 +8,8 @@ Orchestrator session worktree: `.claude/worktrees/priceless-payne-e2f7a1`. Nothi
 | Phase | State |
 |---|---|
 | 0 — Read, inventory, contracts, questions | ✅ done — answers in, **GO given 2026-10-10** |
-| 1 — F1 data, F2 shared UI, orchestrator routes/sidebar | **in progress** — skeleton ✅ `ce79ae4` (routes, sidebar module w/ V2 rail chip, owns-layout, mobile rows, placeholders, contract stubs); F1 (Opus) + F2 (Sonnet) running in worktrees |
-| 2 — A Discover+Feeds, B Advertiser, C Elements, D Drawer+Boards, E Cross-surface | not started |
+| 1 — F1 data, F2 shared UI, orchestrator routes/sidebar | ✅ done — F1 + F2 merged with follow-up fixes; host, sub-nav counts, pinned-boards slot, contract stubs wired; gates green (typecheck, eslint on touched files 0, vitest 194/194) |
+| 2 — A Discover+Feeds, B Advertiser, C Elements, D Drawer+Boards, E Cross-surface | **in progress** — 5 agents in worktrees |
 | 3 — Merge, Q (QA), final report | not started |
 
 ### Baseline on `origin/main` (before any v3 code)
@@ -207,4 +207,7 @@ Total agents: 8 (2 + 5 + 1).
 - 2026-10-10 · URL: filters/scope/sort/tab replace history; drawer/overlay/modal push (Back closes them). Scope restores from session when a page is opened without scope params, so it carries across sub-nav.
 
 ## Agent reports
+- **F1 data layer** — `c440e24` + fix `c5670be`, merged. Only `src/lib/insights-v3/{data,selectors,stores}`. 800 ads (Lead Gen 241, VSL 199, E-com 144, Telehealth 98, Others 79, Search Arb 39); active 51.6%, winners 18.5%, engagement 18.1%, no country 13.5%, start unknown 7.2%; 25 new in 48h; 130 pages, 100 domains, 265 LPs, 52 offers. AI score per reference A §3. 175 tests. Orchestrator review: sampled ads read as real DR copy; doubts decided — CTA groups by button label; "Advertiser / domain" = domain advertisers; LP-tab tag counts are ad counts; Discover Rising = rising elements, Scaling = scaling pages; +700% kept (Q7). Fix asked + landed: unknown start falls back to firstSeenAt for period membership.
+- **F2 follow-up** — `3ac3177`: DownloadButton accepts one file, an array (Q16 media + text) or null.
+- **Orchestrator wiring** — InsightsOverlayHost (detail stack → overlay, save modal, ad drawer on top), OverlayNav contract, sub-nav counts (lazy, follow scope: 800 → 156 for Lead Gen · 30d verified in browser), V2 pinned-boards slot in sub-nav, stubs for UseInGenie + InsightsSearch, API map `docs/industry-insights/API.md`.
 - **F2 shared UI kit** — `af3879d`, merged. 31 files, only `src/components/insights-v3/shared/**`. Gates green (typecheck, eslint 0, vitest 97/97). Orchestrator review: ownership clean; DetailOverlay = Radix, no outside-click close, back chip, focus trap; accent at rest confirmed in browser (`/industry-insights/_kit`); Geist Mono numerals = design system v1.2 rule. Deviations accepted: `periodCounts` on ScopeBar, `usePageTab` clears tags/sort on tab switch, badges not tab stops (aria text instead). Notes carried to Phase 2: don't chain two different URL hooks' writes in one handler; ad drawer must portal above overlays; host mounts ViewMoreModal once; save modal = D.

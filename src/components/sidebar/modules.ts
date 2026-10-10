@@ -40,6 +40,12 @@ export interface SubItem {
    * deprioritized item in a flat sub-items list.
    */
   deprioritized?: boolean;
+  /**
+   * Live count chip after the label (Industry Insights V2: "counts on every
+   * menu item"). The key is resolved by a lazily loaded component, so a
+   * count never costs anything for modules that don't use it.
+   */
+  countKey?: string;
 }
 
 export interface SectionGroup {
@@ -189,12 +195,12 @@ export const MODULES: ModuleDef[] = [
     // Advertiser, competitor data shows in My Feeds.
     key: "insights-v3", label: "Industry Insights V2", icon: Telescope, badge: "V2",
     subItems: [
-      { label: "My Feeds",                  path: "/industry-insights/feeds",       icon: Rss },
-      { label: "Discover",                  path: "/industry-insights/discover",    icon: Compass },
-      { label: "Advertiser",                path: "/industry-insights/advertisers", icon: Building2 },
-      { label: "Creative Element Insights", path: "/industry-insights/elements",    icon: Shapes },
-      { label: "Saved Ads",                 path: "/industry-insights/saved",       icon: Bookmark },
-      { label: "Boards",                    path: "/industry-insights/boards",      icon: Layers },
+      { label: "My Feeds",                  path: "/industry-insights/feeds",       icon: Rss, countKey: "feeds" },
+      { label: "Discover",                  path: "/industry-insights/discover",    icon: Compass, countKey: "discover" },
+      { label: "Advertiser",                path: "/industry-insights/advertisers", icon: Building2, countKey: "advertisers" },
+      { label: "Creative Element Insights", path: "/industry-insights/elements",    icon: Shapes, countKey: "elements" },
+      { label: "Saved Ads",                 path: "/industry-insights/saved",       icon: Bookmark, countKey: "saved" },
+      { label: "Boards",                    path: "/industry-insights/boards",      icon: Layers, countKey: "boards" },
     ],
   },
   {
