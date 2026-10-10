@@ -8,7 +8,7 @@ Orchestrator session worktree: `.claude/worktrees/priceless-payne-e2f7a1`. Nothi
 | Phase | State |
 |---|---|
 | 0 — Read, inventory, contracts, questions | ✅ done — answers in, **GO given 2026-10-10** |
-| 1 — F1 data, F2 shared UI, orchestrator routes/sidebar | **in progress** |
+| 1 — F1 data, F2 shared UI, orchestrator routes/sidebar | **in progress** — skeleton ✅ `ce79ae4` (routes, sidebar module w/ V2 rail chip, owns-layout, mobile rows, placeholders, contract stubs); F1 (Opus) + F2 (Sonnet) running in worktrees |
 | 2 — A Discover+Feeds, B Advertiser, C Elements, D Drawer+Boards, E Cross-surface | not started |
 | 3 — Merge, Q (QA), final report | not started |
 
@@ -201,7 +201,10 @@ Total agents: 8 (2 + 5 + 1).
 ---
 
 ## Decisions taken during the build
-(none yet)
+- 2026-10-10 · Module key `insights-v3`, label "Industry Insights V2", rail chip "V2" (both modules truncate to "Industry…" in the rail; chip disambiguates). Route index `/industry-insights` → Discover (spec: "user lands here").
+- 2026-10-10 · V2 routes are owns-layout (like the old feed): pages own their scroll container; compact header attaches to it.
+- 2026-10-10 · Mobile: feeds/discover/saved/boards full; advertisers/elements blocked → fallback Discover.
+- 2026-10-10 · URL: filters/scope/sort/tab replace history; drawer/overlay/modal push (Back closes them). Scope restores from session when a page is opened without scope params, so it carries across sub-nav.
 
 ## Agent reports
 (none yet)
