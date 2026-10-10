@@ -187,9 +187,14 @@ export function AdDrawer({ adId, onClose }: { adId: string; onClose: () => void 
           className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[1280px] flex-col border-l border-border bg-background shadow-2xl outline-none duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:w-[calc(100vw-48px)]"
         >
           <header className="flex shrink-0 items-center gap-2 border-b border-border bg-background px-4 py-3 sm:px-6">
-            <DialogPrimitive.Title className="min-w-0 flex-1 truncate font-mono text-sm font-semibold text-foreground">
-              Ad ID: {ad?.externalId ?? adId}
-            </DialogPrimitive.Title>
+            <div className="min-w-0 flex-1">
+              <DialogPrimitive.Title className="truncate text-sm font-semibold text-foreground">
+                {ad?.headline ?? "Ad"}
+              </DialogPrimitive.Title>
+              <p className="truncate font-mono text-[11px] leading-4 text-muted-foreground">
+                Ad ID {ad?.externalId ?? adId}
+              </p>
+            </div>
             {ad && (
               <Hint content="Copy ad ID">
                 <button

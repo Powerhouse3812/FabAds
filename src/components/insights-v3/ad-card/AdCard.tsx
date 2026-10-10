@@ -10,6 +10,7 @@
 import { memo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { getCategory, getElement, getIndustry } from "@/lib/insights-v3/data";
 import { isEngagementStandout, isNew, isWinner } from "@/lib/insights-v3/selectors";
+import { toast } from "sonner";
 import { toggleFollowPage, useIsPageFollowed, useLastVisitAt } from "@/lib/insights-v3/stores";
 import type { Ad, ElementType } from "@/lib/insights-v3/types";
 import {
@@ -79,7 +80,9 @@ function FollowPageButton({ ad }: { ad: Ad }) {
       aria-label={`${followed ? "Unfollow" : "Follow"} ${ad.pageName}`}
       onClick={(e) => {
         e.stopPropagation();
-        toggleFollowPage(ad.pageAdvertiserId);
+        // Same feedback as "Mark as competitor": say what changed and where it shows up.
+        const nowFollowing = toggleFollowPage(ad.pageAdvertiserId);
+        toast.success(nowFollowing ? `Following ${ad.pageName} — their ads now land in My Feeds.` : `Unfollowed ${ad.pageName}.`);
       }}
       onKeyDown={(e) => e.stopPropagation()}
       className={cn(

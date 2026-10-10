@@ -86,6 +86,69 @@ export function ListSkeleton({ rows = 8, className }: { rows?: number; className
 }
 
 /** Ad-card placeholders. Same footprint as a real card so nothing shifts when data lands. */
+/**
+ * Mirrors OverviewShell's expanded layout (KPI tiles → summary + chart → groups) so the
+ * page doesn't jump when the real overview mounts. Decorative: the list skeleton below
+ * it is the page's single "Loading" status node.
+ */
+export function OverviewSkeleton({ className }: { className?: string }) {
+  return (
+    <div aria-hidden="true" className={cn("rounded-2xl border border-border bg-card/60 p-3 sm:p-4", className)}>
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3.5 w-28" />
+      </div>
+      <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(148px,1fr))] gap-2">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="space-y-2 rounded-lg border border-border border-t-2 border-t-primary/30 bg-card px-3 py-3">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-16" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="space-y-3">
+          <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-11/12" />
+            <Skeleton className="h-3.5 w-3/4" />
+          </div>
+          <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+            <Skeleton className="h-4 w-28" />
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-7 w-24 rounded-full" />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <Skeleton className="h-4 w-32" />
+          <div className="mt-6 flex h-40 items-end gap-3">
+            {[40, 55, 50, 60, 48, 66, 72, 70, 84, 100, 78].map((h, i) => (
+              <Skeleton key={i} className="w-full rounded-sm" style={{ height: `${h}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2 rounded-xl border border-border bg-card p-3">
+            <Skeleton className="h-4 w-24" />
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from({ length: 7 }).map((_, j) => (
+                <Skeleton key={j} className="h-7 w-28 rounded-full" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function GridSkeleton({ count = 8, className }: { count?: number; className?: string }) {
   return (
     <div

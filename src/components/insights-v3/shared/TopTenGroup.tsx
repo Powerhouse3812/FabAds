@@ -32,7 +32,7 @@ export function TagChip({
         if (!empty) onToggle();
       }}
       className={cn(
-        "inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border pl-2.5 pr-1 text-xs font-medium transition-colors",
+        "inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border pl-2.5 pr-1 text-xs font-medium transition-colors max-sm:h-8",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         empty
           ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground"

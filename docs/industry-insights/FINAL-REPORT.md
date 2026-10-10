@@ -27,7 +27,7 @@ Every page has: URL-backed state for everything (deep links and refresh reproduc
 - No spy-tool or source names anywhere.
 
 ## Quality gates (final)
-- A UI/UX crit pass (Nielsen + cognitive-load lenses) followed QA; 12 fixes landed in `f8d0758` (see BUILD-LOG › Agent reports).
+- Two UI/UX crit passes followed QA: layout/hierarchy (`f8d0758`) and states/interaction/a11y (round 2). See BUILD-LOG › Agent reports.
 - `npm run typecheck` passes.
 - `npm run test` passes, **385/385**.
 - `npm run build` passes. The only warning is the >500 kB chunk warning that existed before this build.

@@ -28,6 +28,7 @@ import {
   EmptyState,
   InsightsPageLayout,
   ListSkeleton,
+  OverviewSkeleton,
   OverviewShell,
   PageTabs,
   ScopeBar,
@@ -181,7 +182,7 @@ export default function ElementsPage() {
             }))}
           />
         }
-        overview={loading ? undefined : overview}
+        overview={loading ? <OverviewSkeleton /> : overview}
         chips={loading ? undefined : chips}
         list={list}
       />

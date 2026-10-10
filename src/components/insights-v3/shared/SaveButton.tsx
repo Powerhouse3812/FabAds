@@ -72,9 +72,11 @@ export function SaveButton({ target, savedCount = 0, saved: savedProp, variant, 
       className={cn(
         "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        // Secondary at rest: Save sits next to a screen's primary CTA (Create Variations, Use in Genie)
+        // and must not compete with it. Saved = lime tint so the state still reads at a glance.
         saved
           ? "border-primary/40 bg-primary/15 text-primary-text hover:bg-primary/25"
-          : "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+          : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5",
         className,
       )}
     >

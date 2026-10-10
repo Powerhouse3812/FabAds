@@ -47,7 +47,7 @@ describe("AdDrawer · populated", () => {
   it("renders every kept section and the added analysis", () => {
     renderDrawer(FULL.id);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(`Ad ID: ${FULL.externalId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Ad ID ${FULL.externalId}`)).toBeInTheDocument();
 
     // kept
     for (const t of ["Ad details", "Ad keywords (AI generated)", "Platforms", "Targeted demographics", "Similar ads"]) {

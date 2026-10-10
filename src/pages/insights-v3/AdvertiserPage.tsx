@@ -48,6 +48,7 @@ import {
   EmptyState,
   InsightsPageLayout,
   ListSkeleton,
+  OverviewSkeleton,
   OverviewShell,
   PageTabs,
   ScopeBar,
@@ -348,7 +349,7 @@ export default function AdvertiserPage() {
             ]}
           />
         }
-        overview={loading ? undefined : overviewNode}
+        overview={loading ? <OverviewSkeleton /> : overviewNode}
         chips={loading ? undefined : chipsNode}
         list={listNode}
       />

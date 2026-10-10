@@ -38,6 +38,7 @@ import {
   EmptyResults,
   EmptyState,
   GridSkeleton,
+  OverviewSkeleton,
   InsightsPageLayout,
   OverviewShell,
   ScopeBar,
@@ -197,8 +198,9 @@ export function AdsMarketView({
     </>
   );
 
-  const overview =
-    loading || noSource ? undefined : (
+  const overview = loading ? (
+    <OverviewSkeleton />
+  ) : noSource ? undefined : (
       <OverviewShell
         pageKey={pageKey}
         basedOn={scoped.length}

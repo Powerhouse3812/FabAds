@@ -46,7 +46,7 @@ export function ElementChip({ type, id, label, onClick, className, count }: Elem
             onClick={handle}
             aria-label={`${SAVABLE_LABEL[type]}: ${label}. Open details`}
             className={cn(
-              "inline-flex h-6 max-w-full items-center gap-1 rounded-full border border-border bg-card px-2 text-xs text-foreground transition-colors",
+              "inline-flex h-6 max-w-full items-center gap-1 rounded-full border border-border bg-card px-2 text-xs text-foreground max-sm:h-8 transition-colors",
               "hover:border-primary/40 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               className,
             )}
