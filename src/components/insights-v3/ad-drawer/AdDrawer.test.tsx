@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { getAds } from "@/lib/insights-v3/data";
 import { isWinner } from "@/lib/insights-v3/selectors";
@@ -137,5 +138,39 @@ describe("AdDrawer · dismissal", () => {
     const onClose = renderDrawer(FULL.id);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AdDrawer · QA fixes", () => {
+  it("QA-09: a visible Download button sits right next to Save", () => {
+    renderDrawer(FULL.id);
+    const save = screen.getByRole("button", { name: /Save this ad to a board|Saved to \d+ board/ });
+    const download = screen.getByRole("button", { name: "Download" });
+    expect(download).toBeVisible();
+    expect(save.nextElementSibling).toBe(download);
+  });
+
+  it("QA-05: closing returns focus to the element that opened the drawer", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <MemoryRouter initialEntries={[`/industry-insights/discover?ad=${FULL.id}`]}>
+          <button type="button" onClick={() => setOpen(true)}>
+            opener card
+          </button>
+          {open && <AdDrawer adId={FULL.id} onClose={() => setOpen(false)} />}
+        </MemoryRouter>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "opener card" });
+    act(() => opener.focus());
+    fireEvent.click(opener);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(document.activeElement).not.toBe(opener);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 });

@@ -22,6 +22,7 @@ import { toggleCompetitor, useBoardCountForItem, useIsCompetitor } from "@/lib/i
 import type { Ad } from "@/lib/insights-v3/types";
 import { cn } from "@/lib/utils";
 import {
+  DownloadButton,
   Hint,
   SaveButton,
   StatusPill,
@@ -154,6 +155,14 @@ export function AdMetaPanel({ ad }: { ad: Ad }) {
         </Hint>
 
         <SaveButton target={{ type: "ad", id: ad.id }} savedCount={boardCount} variant="button" />
+
+        {/* Download sits right next to Save (spec: "Download sits next to Save on every element"). */}
+        <DownloadButton
+          build={() => buildDownloads({ type: "ad", id: ad.id })}
+          label="Download"
+          ariaLabel="Download creative and analysis"
+          variant="button"
+        />
 
         <Hint content="Copy link to this ad">
           <button

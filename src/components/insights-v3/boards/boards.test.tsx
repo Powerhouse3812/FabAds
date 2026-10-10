@@ -277,6 +277,30 @@ describe("BoardDetailPage", () => {
     expect(screen.getByTestId("element-overlay")).toHaveTextContent("hook:callout");
   });
 
+  it("QA-21: clicking the card body (or Enter on it) opens the item; inner controls don't", () => {
+    renderPage(SEED_HOOKS);
+    const card = screen.getByRole("article", { name: "Callout (Hook)" });
+    // inner controls keep their own behaviour
+    fireEvent.click(within(card).getByRole("button", { name: "Edit note" }));
+    expect(screen.getByTestId("where").textContent).not.toContain("detail=");
+    fireEvent.click(within(card).getByRole("button", { name: /^Remove / }));
+    expect(screen.getByTestId("where").textContent).not.toContain("detail=");
+  });
+
+  it("QA-21: card body click opens the overlay it was saved from", () => {
+    renderPage(SEED_HOOKS);
+    fireEvent.click(screen.getByRole("article", { name: "Callout (Hook)" }));
+    expect(screen.getByTestId("where").textContent).toMatch(/detail=hook(%3A|:)callout/);
+  });
+
+  it("QA-21: Enter on a focused card opens it", () => {
+    renderPage(SEED_HOOKS);
+    const card = screen.getByRole("article", { name: "Callout (Hook)" });
+    expect(card).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(screen.getByTestId("where").textContent).toMatch(/detail=hook(%3A|:)callout/);
+  });
+
   it("partial: an item missing from the data set stays removable, not openable", () => {
     addToBoard(SEED_HOOKS, { type: "hook", id: "ghost-hook" }, { title: "Ghost hook" });
     renderPage(SEED_HOOKS);
@@ -332,6 +356,11 @@ describe("SavedAdsPage", () => {
     expect(screen.getAllByTestId("ad-card")).toHaveLength(getSavedAds().length);
     expect(screen.getByText(/saved ads for the scope above/)).toBeInTheDocument();
     expect(screen.getByText("Sort")).toBeInTheDocument();
+  });
+
+  it("QA-19: explains that the card bookmark is 'add to a board', not the Saved state", () => {
+    renderPage();
+    expect(screen.getByText(/bookmark on a card adds that ad to a board/)).toBeInTheDocument();
   });
 
   it("unsave removes the ad from Saved Ads only", () => {

@@ -126,16 +126,25 @@ export function AdDrawer({ adId, onClose }: { adId: string; onClose: () => void 
   const { stack } = useDetailStack();
 
   // Overlays opened FROM the drawer sit on top of the stack height it mounted with.
+  const coveredRef = useRef(false);
   const baseline = useRef(stack.length);
   useEffect(() => {
     if (stack.length < baseline.current) baseline.current = stack.length;
   }, [stack.length]);
   const covered = stack.length > baseline.current;
+  coveredRef.current = covered;
 
   // Keep scroll across the step-aside; reset when a similar ad swaps in.
   const scrollTop = useRef(0);
   const scroller = useRef<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement | null>(null);
+
+  // Remember what opened the drawer so closing it hands focus back (keyboard access).
+  const opener = useRef<{ el: HTMLElement | null; label: string | null } | null>(null);
+  if (opener.current === null) {
+    const el = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+    opener.current = { el: el && el !== document.body ? el : null, label: el?.getAttribute?.("aria-label") ?? null };
+  }
   const setScroller = useCallback((node: HTMLDivElement | null) => {
     scroller.current = node;
     if (node) node.scrollTop = scrollTop.current;
@@ -156,6 +165,20 @@ export function AdDrawer({ adId, onClose }: { adId: string; onClose: () => void 
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             content.current?.focus();
+          }}
+          // Closing for real returns focus to the opener (the card or row). Stepping aside for
+          // a drill-down overlay must not: that overlay owns focus now.
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            if (coveredRef.current) return;
+            const { el, label } = opener.current ?? { el: null, label: null };
+            const target =
+              el && el.isConnected
+                ? el
+                : label
+                  ? (Array.from(document.querySelectorAll<HTMLElement>("[aria-label]")).find((n) => n.getAttribute("aria-label") === label) ?? null)
+                  : null;
+            target?.focus();
           }}
           // Standing rule: drawers never dismiss on outside click. X or Esc only.
           onPointerDownOutside={(e) => e.preventDefault()}
