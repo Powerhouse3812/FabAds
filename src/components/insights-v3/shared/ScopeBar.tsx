@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Hint } from "./Hint";
 import { TruncatedText } from "./TruncatedText";
 import { fmtInt } from "./format";
+import { buildScopeOptions } from "./scopeOptions";
 
 export interface ScopeOption {
   id: string;
@@ -23,8 +24,15 @@ export interface ScopeBarProps {
   industries: ScopeOption[];
   /** Global A–Z list; the same options in every industry (0-count disabled). */
   categories: ScopeOption[];
-  /** Total ads in scope — shown on "All industries" / "All categories". */
+  /**
+   * Fallback count for the "All industries" / "All categories" rows when neither an
+   * `*AllCount` prop nor an id "all" row in the options array provides one.
+   */
   totalCount: number;
+  /** Ads across ALL industries (same category + period). Wins over an "all" row and `totalCount`. */
+  industryAllCount?: number;
+  /** Ads across ALL categories (within the picked industry + period). Wins over an "all" row and `totalCount`. */
+  categoryAllCount?: number;
   /** Optional per-period counts. When given, periods show counts and 0 is disabled. */
   periodCounts?: Partial<Record<PeriodKey, number>>;
   compact?: boolean;
@@ -162,6 +170,8 @@ export function ScopeBar({
   industries,
   categories,
   totalCount,
+  industryAllCount,
+  categoryAllCount,
   periodCounts,
   compact,
   rightSlot,
@@ -172,14 +182,12 @@ export function ScopeBar({
   const cat = categories.find((c) => c.id === scope.category);
   const period = PERIOD_OPTIONS.find((p) => p.key === scope.period) ?? PERIOD_OPTIONS[PERIOD_OPTIONS.length - 1];
 
-  const indOptions: PickerOption[] = [
-    { id: ALL, label: "All industries", count: totalCount },
-    ...industries.map((i) => ({ id: i.id, label: i.label, count: i.count, disabled: i.count === 0 })),
-  ];
-  const catOptions: PickerOption[] = [
-    { id: ALL, label: "All categories", count: totalCount },
-    ...categories.map((c) => ({ id: c.id, label: c.label, count: c.count, disabled: c.count === 0 })),
-  ];
+  const { options: indOptions, allCount: indAll } = buildScopeOptions(
+    industries, "All industries", totalCount, industryAllCount,
+  );
+  const { options: catOptions, allCount: catAll } = buildScopeOptions(
+    categories, "All categories", totalCount, categoryAllCount,
+  );
   const periodOptions: PickerOption[] = PERIOD_OPTIONS.map((p) => {
     const c = periodCounts?.[p.key];
     return { id: p.key, label: p.label, count: c, disabled: c === 0 };
@@ -195,7 +203,7 @@ export function ScopeBar({
           caption="Industry"
           value={scope.industry}
           valueLabel={scope.industry === ALL ? "All industries" : ind?.label ?? scope.industry}
-          valueCount={scope.industry === ALL ? totalCount : ind?.count}
+          valueCount={scope.industry === ALL ? indAll : ind?.count}
           isDefault={scope.industry === ALL}
           options={indOptions}
           onPick={(id) => onChange({ ...scope, industry: id })}
@@ -206,7 +214,7 @@ export function ScopeBar({
           caption="Category"
           value={scope.category}
           valueLabel={scope.category === ALL ? "All categories" : cat?.label ?? scope.category}
-          valueCount={scope.category === ALL ? totalCount : cat?.count}
+          valueCount={scope.category === ALL ? catAll : cat?.count}
           isDefault={scope.category === ALL}
           options={catOptions}
           onPick={(id) => onChange({ ...scope, category: id })}
