@@ -10,7 +10,7 @@ Orchestrator session worktree: `.claude/worktrees/priceless-payne-e2f7a1`. Nothi
 | 0 — Read, inventory, contracts, questions | ✅ done — answers in, **GO given 2026-10-10** |
 | 1 — F1 data, F2 shared UI, orchestrator routes/sidebar | ✅ done — F1 + F2 merged with follow-up fixes; host, sub-nav counts, pinned-boards slot, contract stubs wired; gates green (typecheck, eslint on touched files 0, vitest 194/194) |
 | 2 — A Discover+Feeds, B Advertiser, C Elements, D Drawer+Boards, E Cross-surface | ✅ all merged; follow-ups in flight (A: `q` search, E: V2 exit path + test timeout). Gates green: typecheck, eslint touched 0 errors, vitest 335/335 (×2) |
-| 3 — Merge, Q (QA), final report | **in progress** — all branches + follow-ups merged; gates green: typecheck ✅, eslint (V2 + touched files) 0 errors ✅, vitest 343/343 ✅, `npm run build` ✅ (pre-existing >500 kB chunk warning only). Agent Q (Opus) running: checklist, both flows, edge cases, forbidden text, screenshots via headless Chrome → `docs/industry-insights/qa/` |
+| 3 — Merge, Q (QA), final report | ✅ done — QA: 0 blocker / 4 major / 10 minor / 7 cosmetic → all 21 fixed and merged, majors re-verified in browser. Final gates: typecheck ✅, eslint 0 errors on every V2 + touched file ✅, vitest 385/385 ✅, `npm run build` ✅. Final report: `docs/industry-insights/FINAL-REPORT.md` |
 
 ### Baseline on `origin/main` (before any v3 code)
 - `npm run typecheck` ✅ · `npm run test` ✅ 81/81 · `npm run build` (not yet run)
@@ -110,95 +110,104 @@ Total agents: 8 (2 + 5 + 1).
 
 ## Spec checklist (one line per spec section; ticked only after QA)
 
+All lines ticked after Agent Q (QA-REPORT.md: 62 PASS, the FAIL/PARTIAL lines all traced to QA-01…QA-21) **and** the fix round, re-verified by the orchestrator in the browser 2026-10-10. Lines met with an accepted deviation are marked ◐ in the notes below.
+
+
 **Rules on every page (00 §2)**
-- [ ] 1 Scope bar Industry › Category › Period, default All, everything follows it; no Industry/Category tabs
-- [ ] 2 Counts on every filter, menu, tag; 0 = visible + disabled
-- [ ] 3 Top-10 union within + across groups; other counts never change; each ad once
-- [ ] 4 Winner = days + clones + status; never likes
-- [ ] 5 Engagement: no filter/sort; grouped block; "Not reported"
-- [ ] 6 No analysed toggle / badge / Analyse buttons anywhere
-- [ ] 7 Missing data → disabled section + tooltip; layout stable
-- [ ] 8 "Based on X ads" on every overview / summary / analysis block
-- [ ] 9 AI copy never equates most common with best
-- [ ] 10 No spy-tool / source names in UI or user-visible dummy data (grep clean)
-- [ ] 11 Save to board + download on ads, hooks, frameworks, angles, concepts, landing pages
-- [ ] 12 Kept: URL state, compact header on scroll, Follow brand, pinned boards, Genie handoff
-- [ ] 13 Every bar/trend chart: unit label + tooltip
-- [ ] 14 New = since last visit
-- [ ] 15 Dark/light parity, keyboard, narrow viewport, 60+ char truncation + tooltip
+- [x] 1 Scope bar Industry › Category › Period, default All, everything follows it; no Industry/Category tabs
+- [x] 2 Counts on every filter, menu, tag; 0 = visible + disabled
+- [x] 3 Top-10 union within + across groups; other counts never change; each ad once
+- [x] 4 Winner = days + clones + status; never likes
+- [x] 5 Engagement: no filter/sort; grouped block; "Not reported"
+- [x] 6 No analysed toggle / badge / Analyse buttons anywhere
+- [x] 7 Missing data → disabled section + tooltip; layout stable
+- [x] 8 "Based on X ads" on every overview / summary / analysis block
+- [x] 9 AI copy never equates most common with best
+- [x] 10 No spy-tool / source names in UI or user-visible dummy data (grep clean)
+- [x] 11 Save to board + download on ads, hooks, frameworks, angles, concepts, landing pages
+- [x] 12 Kept: URL state, compact header on scroll, Follow brand, pinned boards, Genie handoff
+- [x] 13 Every bar/trend chart: unit label + tooltip
+- [x] 14 New = since last visit
+- [x] 15 Dark/light parity, keyboard, narrow viewport, 60+ char truncation + tooltip
 
 **IA / nav (PRD)**
-- [ ] New module "Industry Insights V2" in sidebar; sub-nav = My Feeds, Discover, Advertiser, Creative Element Insights, Saved Ads, Boards (with counts per rule 2)
-- [ ] No Domains / Competitors / Home / Trends / My preference items in V2; "My preference" = Discover toggle
-- [ ] Old Industry Insights module: zero diff (verified by `git diff --stat` on its paths)
+- [x] New module "Industry Insights V2" in sidebar; sub-nav = My Feeds, Discover, Advertiser, Creative Element Insights, Saved Ads, Boards (with counts per rule 2)
+- [x] No Domains / Competitors / Home / Trends / My preference items in V2; "My preference" = Discover toggle
+- [x] Old Industry Insights module: zero diff (verified by `git diff --stat` on its paths)
 
 **Discover**
-- [ ] Scope bar + "My preferences only" toggle (off by default); no tabs
-- [ ] KPI row: Total, Active, Winning, Advertisers, New, Avg days live, LPs & offers
-- [ ] AI summary + based-on note
-- [ ] Launch frequency chart (unit + tooltip)
-- [ ] Rising + Scaling (expanded only)
-- [ ] Trending tags = real data
-- [ ] 11 top-10 groups (Category only when no category scoped) + View more modal
-- [ ] Selected chips + Clear all + total
-- [ ] Card: industry+category chips, New, Winner(+engagement mark), days/status/clones, AI score, analysis chips, save+download
-- [ ] Sort: Newest, Oldest, Longest running, Most cloned, AI score
-- [ ] Click tag → filter; ad → drawer; element on card → element overlay
+- [x] Scope bar + "My preferences only" toggle (off by default); no tabs
+- [x] KPI row: Total, Active, Winning, Advertisers, New, Avg days live, LPs & offers
+- [x] AI summary + based-on note
+- [x] Launch frequency chart (unit + tooltip)
+- [x] Rising + Scaling (expanded only)
+- [x] Trending tags = real data
+- [x] 11 top-10 groups (Category only when no category scoped) + View more modal
+- [x] Selected chips + Clear all + total
+- [x] Card: industry+category chips, New, Winner(+engagement mark), days/status/clones, AI score, analysis chips, save+download
+- [x] Sort: Newest, Oldest, Longest running, Most cloned, AI score
+- [x] Click tag → filter; ad → drawer; element on card → element overlay
 
 **My Feeds**
-- [ ] Sources: competitor marks + followed pages + followed industries; no prefs toggle
-- [ ] Discover layout as-is (same KPIs, groups, card, sort)
-- [ ] Empty: explains sources + links to Advertiser
+- [x] Sources: competitor marks + followed pages + followed industries; no prefs toggle
+- [x] Discover layout as-is (same KPIs, groups, card, sort)
+- [x] Empty: explains sources + links to Advertiser
 
 **Advertiser**
-- [ ] Tabs Domain · Page · LP & Offers (URL-backed)
-- [ ] Domain/Page KPIs: Total, Active, New, Scaling, Rising
-- [ ] Domain/Page groups: Hook, Angle, Framework, Concept, CTA, Country, Category*
-- [ ] Domain/Page columns: Name, Total+Active, Winning+Longest run, Launch trend, Top framework/hook/concept, Industry+Category, LPs/offers, Actions
-- [ ] Mark as competitor (domain+page) → My Feeds; Follow (pages) → prefs → My Feeds
-- [ ] Domain/Page sort: Most ads, Most active/scaling, Most winners, Longest run
-- [ ] LP KPIs: LPs+offers, Active+New LPs, Rising LPs + avg ads/LP
-- [ ] LP groups: Funnel type, Offer domain, Hook, Framework, Concept, Country, CTA
-- [ ] LP columns: Page (thumb, domain, title), Offer ("Not traced"), Funnel, Ads, Advertisers, Winners
-- [ ] LP sort: Most ads, Most active, Most advertisers, Longest running, Fastest rising
+- [x] Tabs Domain · Page · LP & Offers (URL-backed)
+- [x] Domain/Page KPIs: Total, Active, New, Scaling, Rising
+- [x] Domain/Page groups: Hook, Angle, Framework, Concept, CTA, Country, Category*
+- [x] Domain/Page columns: Name, Total+Active, Winning+Longest run, Launch trend, Top framework/hook/concept, Industry+Category, LPs/offers, Actions
+- [x] Mark as competitor (domain+page) → My Feeds; Follow (pages) → prefs → My Feeds
+- [x] Domain/Page sort: Most ads, Most active/scaling, Most winners, Longest run
+- [x] LP KPIs: LPs+offers, Active+New LPs, Rising LPs + avg ads/LP
+- [x] LP groups: Funnel type, Offer domain, Hook, Framework, Concept, Country, CTA
+- [x] LP columns: Page (thumb, domain, title), Offer ("Not traced"), Funnel, Ads, Advertisers, Winners
+- [x] LP sort: Most ads, Most active, Most advertisers, Longest running, Fastest rising
 
 **Creative Element Insights**
-- [ ] Tabs Framework · Hook · Angle · Concept
-- [ ] KPIs: items + ads analysed, top item + share, fastest rising, video vs image, + all Discover KPIs/summary/charts
-- [ ] Groups = Discover's minus the tab's own element
-- [ ] Columns: Item, Ads+share, Winning+avg days, Trend, Example+top advertisers, Live ads/advertisers/longest run/clones
-- [ ] Sort: Most used, Most winners, Fastest rising, Longest running
-- [ ] Save + download on every row
+- [x] Tabs Framework · Hook · Angle · Concept
+- [x] KPIs: items + ads analysed, top item + share, fastest rising, video vs image, + all Discover KPIs/summary/charts
+- [x] Groups = Discover's minus the tab's own element
+- [x] Columns: Item, Ads+share, Winning+avg days, Trend, Example+top advertisers, Live ads/advertisers/longest run/clones
+- [x] Sort: Most used, Most winners, Fastest rising, Longest running
+- [x] Save + download on every row
 
 **Detail overlays** (large overlay, URL-backed, follows scope, back chip for nesting, dynamic sections)
-- [ ] Advertiser: header (Mark/Follow) + AI summary + KPIs; launch activity; hooks/angles/frameworks/concepts/CTA/keywords; winners + longest + LPs
-- [ ] Element: header + summary + KPIs; where it works; works well with; top ads + Use in Genie + Save
-- [ ] LP & Offers: page capture; funnel; ads + advertisers; creative mix
+- [x] Advertiser: header (Mark/Follow) + AI summary + KPIs; launch activity; hooks/angles/frameworks/concepts/CTA/keywords; winners + longest + LPs
+- [x] Element: header + summary + KPIs; where it works; works well with; top ads + Use in Genie + Save
+- [x] LP & Offers: page capture; funnel; ads + advertisers; creative mix
 
 **Ad drawer**
-- [ ] All kept sections (creative, meta row, actions, stats grid, keywords+platforms, demographics, location, domains+language, similar ads)
-- [ ] Removed: analysed badge, Analyse again, Add to analysis queue
-- [ ] Added: chips/New/Winner; metrics + engagement group; AI score breakdown w/ reasons + examples; merged creative breakdown (clickable elements); LP+offer+funnel; Use in Genie + save/download per element
+- [x] All kept sections (creative, meta row, actions, stats grid, keywords+platforms, demographics, location, domains+language, similar ads)
+- [x] Removed: analysed badge, Analyse again, Add to analysis queue
+- [x] Added: chips/New/Winner; metrics + engagement group; AI score breakdown w/ reasons + examples; merged creative breakdown (clickable elements); LP+offer+funnel; Use in Genie + save/download per element
 
 **Saved Ads and Boards**
-- [ ] Save from cards, drawer, every list row, every overlay
-- [ ] Boards accept every element type; Saved Ads = ads only
-- [ ] Download next to Save everywhere; pinned boards kept
-- [ ] Opening a saved item opens the same drawer/overlay
+- [x] Save from cards, drawer, every list row, every overlay
+- [x] Boards accept every element type; Saved Ads = ads only
+- [x] Download next to Save everywhere; pinned boards kept
+- [x] Opening a saved item opens the same drawer/overlay
 
 **States**
-- [ ] Disabled-with-tooltip sections; "Not reported"; 0-count disabled options; Country gap disclosed
-- [ ] New since last visit on ads + New ads / New advertisers KPIs
-- [ ] Trend % no minimum base; unit + tooltip
-- [ ] No-results → one-click clear; My Feeds empty → explain + link; loading = existing skeletons
+- [x] Disabled-with-tooltip sections; "Not reported"; 0-count disabled options; Country gap disclosed
+- [x] New since last visit on ads + New ads / New advertisers KPIs
+- [x] Trend % no minimum base; unit + tooltip
+- [x] No-results → one-click clear; My Feeds empty → explain + link; loading = existing skeletons
 
 **Prototype surfaces that change (E)**
-- [ ] V2 search popover scopes follow the new menu
-- [ ] Genie picker: frameworks, hooks, angles, concepts + ads (additive)
-- [ ] V2 "Use in Genie" resolves V2 ids in Genie flows
+- [x] V2 search popover scopes follow the new menu
+- [x] Genie picker: frameworks, hooks, angles, concepts + ads (additive)
+- [x] V2 "Use in Genie" resolves V2 ids in Genie flows
 - [x] Dashboard tiles / onboarding / Reports card — stay on V1 by decision (Q17), out of scope
 
 ---
+
+**Met with an accepted deviation (◐), for Maalik's call**
+- ◐ Rule 1 "scope bar on every page": not on Boards / Board detail (boards hold saved items, not market data). Saved Ads has it.
+- ◐ Rule 11 / Genie: "Use this script in Genie" in the drawer sends the ad (Winner-aware action) — Genie has no carrier for Industry Insights script text (`use-script` isn't offered for the module; `use-storyboard` carries no text). Hooks/angles/frameworks/concepts DO travel.
+- ◐ Saved Ads vs boards are two separate "saved" concepts (spec: Saved Ads = ads only, elements live in boards); the Saved Ads page explains the bookmark = add to board.
+- ◐ "Most used / share %" on element rows is relative to ads with that element identified (honest under partial analysis; tooltip says so).
 
 ## Decisions taken during the build
 - 2026-10-10 · Module key `insights-v3`, label "Industry Insights V2", rail chip "V2" (both modules truncate to "Industry…" in the rail; chip disambiguates). Route index `/industry-insights` → Discover (spec: "user lands here").
@@ -219,5 +228,6 @@ Total agents: 8 (2 + 5 + 1).
 - **Orchestrator** — mounted `InsightsSearch` on Elements, Saved Ads, Boards, Board detail (B mounted its own; A doing Discover/My Feeds with `q`).
 - **Follow-ups merged** — A `5bd9419` (Discover/My Feeds read `q`; search chip; header search), E `ec37837` (V2 refs exit Genie to `/industry-insights/discover` via optional `FlowSourceRef.exitPath`; picker test de-flaked).
 - **Test infra** — vitest `testTimeout` 15s: render smoke tests timed out at 5s only when machine load average hit ~113 (parallel sessions + leftover agent dev servers, which were stopped).
+- **QA round (Agent Q, Opus)** — `qa/QA-REPORT.md` + 57 screenshots. Fixes routed by owner and merged: F1 `faa84b9` (QA-03 data, 04, 06, 10, 13, 18, 20) · F2 `3203c27` (QA-01, 03 UI, 04, 05, 10 UI, 14, 15, 16, 17) · A `217b2d7` (QA-11) · B `1caa20b` (QA-07) · C `0fb1d07` (QA-08, 15) · D `ce528e9` (QA-05 drawer, 09, 19, 21) · E `3557fd6` (QA-02, 12, 17 search) · orchestrator: nav count on forced empty (QA-11), compact chip wiring (QA-15), 3 tests moved to real zero-match tags after QA-10. After-fix shots: `qa/screens-after-fixes/`.
 - **Orchestrator wiring** — InsightsOverlayHost (detail stack → overlay, save modal, ad drawer on top), OverlayNav contract, sub-nav counts (lazy, follow scope: 800 → 156 for Lead Gen · 30d verified in browser), V2 pinned-boards slot in sub-nav, stubs for UseInGenie + InsightsSearch, API map `docs/industry-insights/API.md`.
 - **F2 shared UI kit** — `af3879d`, merged. 31 files, only `src/components/insights-v3/shared/**`. Gates green (typecheck, eslint 0, vitest 97/97). Orchestrator review: ownership clean; DetailOverlay = Radix, no outside-click close, back chip, focus trap; accent at rest confirmed in browser (`/industry-insights/_kit`); Geist Mono numerals = design system v1.2 rule. Deviations accepted: `periodCounts` on ScopeBar, `usePageTab` clears tags/sort on tab switch, badges not tab stops (aria text instead). Notes carried to Phase 2: don't chain two different URL hooks' writes in one handler; ad drawer must portal above overlays; host mounts ViewMoreModal once; save modal = D.
