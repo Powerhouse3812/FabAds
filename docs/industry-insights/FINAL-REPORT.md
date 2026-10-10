@@ -27,6 +27,7 @@ Every page has: URL-backed state for everything (deep links and refresh reproduc
 - No spy-tool or source names anywhere.
 
 ## Quality gates (final)
+- A UI/UX crit pass (Nielsen + cognitive-load lenses) followed QA; 12 fixes landed in `f8d0758` (see BUILD-LOG › Agent reports).
 - `npm run typecheck` passes.
 - `npm run test` passes, **385/385**.
 - `npm run build` passes. The only warning is the >500 kB chunk warning that existed before this build.
@@ -68,6 +69,7 @@ Genie's flow code now imports the V2 data module, so the V2 universe (~80 ms) bu
 5. Dev states: add `?state=loading` or `?state=empty` to any page. The kit preview is at `/industry-insights/_kit`.
 
 ## Screenshots
+- UI/UX crit round (after): `docs/industry-insights/qa/screens-ux-round/`
 - QA pass: `docs/industry-insights/qa/screens/` (57)
 - After fixes: `docs/industry-insights/qa/screens-after-fixes/`
 - Full QA report: `docs/industry-insights/qa/QA-REPORT.md`
