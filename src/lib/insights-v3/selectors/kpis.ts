@@ -7,11 +7,22 @@ import { ACTIVE_WINDOW_DAYS, WINNER_RULE } from "../types";
 import type { Ad, AdvertiserKind, ElementType, Kpi, Scope } from "../types";
 import { ELEMENT_TYPE_PLURAL, INDEX } from "../data";
 import type { DataIndex } from "../data";
-import { comparisonLabel, formatChange, formatCompact, formatDays, pct, plural } from "./context";
+import { comparisonDays, comparisonLabel, formatChange, formatCompact, formatDays, pct, plural } from "./context";
 import type { SelectorCtx } from "./context";
 import { adsInBaseScope, adsInScope } from "./scope";
 import { compareEntity, groupByEntity, isRisingComparison, isScalingComparison, launchCompare, rising } from "./trends";
 import { countActive, countWinners, isNew } from "./winner";
+
+/** Short comparison tag for KPI subs: "vs prev. 30d". The full sentence goes in the tooltip. */
+export function shortComparison(period: Scope["period"]): string {
+  return `vs prev. ${comparisonDays(period)}d`;
+}
+
+/** "+50% vs prev. 30d" / "New this period". */
+function shortChange(changePct: number | null, cur: number, period: Scope["period"]): string {
+  const c = formatChange(changePct, cur);
+  return changePct == null ? c : `${c} ${shortComparison(period)}`;
+}
 
 function kpi(k: Kpi): Kpi {
   return k;
@@ -68,8 +79,8 @@ export function discoverKpis(baseAds: Ad[], scope: Scope, ctx: SelectorCtx): Kpi
       label: "Total ads",
       value: n,
       display: formatCompact(n),
-      sub: `${formatChange(cmp.changePct, cmp.cur)} launches vs ${comparisonLabel(scope.period)}`,
-      tooltip: "All ads in the current scope (industry, category and period).",
+      sub: shortChange(cmp.changePct, cmp.cur, scope.period),
+      tooltip: `All ads in the current scope (industry, category and period). New-ad launches: ${formatChange(cmp.changePct, cmp.cur)} vs ${comparisonLabel(scope.period)}.`,
     }),
     kpi({
       key: "active",
@@ -109,8 +120,8 @@ export function discoverKpis(baseAds: Ad[], scope: Scope, ctx: SelectorCtx): Kpi
       label: "Avg days live",
       value: avg.value,
       display: avg.value == null ? "—" : formatDays(avg.value),
-      sub: `based on ${plural(avg.basedOn, "ad")} with a known start`,
-      tooltip: "Average days from start date to last seen. Ads with an unknown start date are left out, never estimated.",
+      sub: `${formatCompact(avg.basedOn)} with known start`,
+      tooltip: `Average days from start date to last seen, based on ${plural(avg.basedOn, "ad")} with a known start date. Ads with an unknown start date are left out, never estimated.`,
       disabledReason: avg.basedOn === 0 ? "No ad in this scope has a known start date." : undefined,
     }),
     kpi({
@@ -146,14 +157,22 @@ export function advertiserKpis(kind: AdvertiserKind, baseAds: Ad[], scope: Scope
   }
   const total = inScope.size;
   const noun = kind === "page" ? "pages" : "domains";
+  const { basedOn, scoped: scopedCount } = advertiserKpiBase(kind, baseAds, scope, ctx);
+  const baseSub =
+    kind === "domain" && basedOn < scopedCount
+      ? `${formatCompact(basedOn)} of ${formatCompact(scopedCount)} ads have a domain`
+      : `${plural(basedOn, "ad")} in scope`;
   return [
     kpi({
       key: "total",
       label: kind === "page" ? "Total pages" : "Total domains",
       value: total,
       display: formatCompact(total),
-      sub: `${plural(scoped.length, "ad")} in scope`,
-      tooltip: `${kind === "page" ? "Pages (brands)" : "Domains"} with at least one ad in the current scope.`,
+      sub: baseSub,
+      tooltip:
+        kind === "domain"
+          ? `Domains with at least one ad in the current scope. Based on the ${formatCompact(basedOn)} of ${formatCompact(scopedCount)} ads in scope that have a domain; ads with no domain or landing page are left out of this tab.`
+          : "Pages (brands) with at least one ad in the current scope.",
     }),
     kpi({
       key: "active",
@@ -177,16 +196,16 @@ export function advertiserKpis(kind: AdvertiserKind, baseAds: Ad[], scope: Scope
       label: kind === "page" ? "Scaling pages" : "Scaling domains",
       value: scalingCount,
       display: formatCompact(scalingCount),
-      sub: `active ads up vs ${comparisonLabel(scope.period)}`,
-      tooltip: `More active ads now than at the end of the previous period, and at least one winner.`,
+      sub: `active ads up ${shortComparison(scope.period)}`,
+      tooltip: `More active ads now than at the end of the previous period (${comparisonLabel(scope.period)}), and at least one winner.`,
     }),
     kpi({
       key: "rising",
       label: kind === "page" ? "Rising pages" : "Rising domains",
       value: risingCount,
       display: formatCompact(risingCount),
-      sub: `launching more than ${comparisonLabel(scope.period)}`,
-      tooltip: "Launched more new ads this period than in the previous equal period (or started launching this period). No minimum base.",
+      sub: `more launches ${shortComparison(scope.period)}`,
+      tooltip: `Launched more new ads this period than in ${comparisonLabel(scope.period)} (or started launching this period). No minimum base.`,
     }),
   ];
 }
@@ -225,7 +244,7 @@ export function landingPageKpis(baseAds: Ad[], scope: Scope, ctx: SelectorCtx): 
       label: "Active landing pages",
       value: active,
       display: formatCompact(active),
-      sub: lastVisitKnown(ctx) ? `${formatCompact(newCount)} new since your last visit` : undefined,
+      sub: lastVisitKnown(ctx) ? `${formatCompact(newCount)} new since last visit` : undefined,
       tooltip: `Landing pages with at least one ad seen live in the last ${ACTIVE_WINDOW_DAYS} days. "New" = first seen since your last visit.`,
     }),
     kpi({
@@ -233,10 +252,19 @@ export function landingPageKpis(baseAds: Ad[], scope: Scope, ctx: SelectorCtx): 
       label: "Rising landing pages",
       value: risingCount,
       display: formatCompact(risingCount),
-      sub: `avg ${avgAds} ads per landing page`,
-      tooltip: "Landing pages getting more new ads this period than in the previous equal period. The sub-line is the average number of ads per landing page in scope.",
+      sub: `avg ${avgAds} ads per page`,
+      tooltip: `Landing pages getting more new ads this period than in ${comparisonLabel(scope.period)}. On average each landing page in scope has ${avgAds} ads.`,
     }),
   ];
+}
+
+/**
+ * The ad base behind the Advertiser overview for a tab. On the Domain tab only
+ * ads with a domain count (`basedOn`); `scoped` is every ad in scope.
+ */
+export function advertiserKpiBase(kind: AdvertiserKind, baseAds: Ad[], scope: Scope, ctx: SelectorCtx): { basedOn: number; scoped: number } {
+  const scoped = adsInScope(baseAds, scope, ctx);
+  return { basedOn: kind === "domain" ? scoped.filter((a) => a.domainAdvertiserId != null).length : scoped.length, scoped: scoped.length };
 }
 
 /** Ads with this element type analysed (field not null). */
@@ -285,7 +313,7 @@ export function elementKpis(type: ElementType, baseAds: Ad[], scope: Scope, ctx:
       label: `Total ${noun}`,
       value: counts.size,
       display: formatCompact(counts.size),
-      sub: `across ${formatCompact(analysed.length)} ads analysed`,
+      sub: `in ${formatCompact(analysed.length)} ads analysed`,
       tooltip: `Distinct ${noun} found in ads in scope. Ads where the ${type} could not be read are left out.`,
       disabledReason: analysed.length === 0 ? `No ad in this scope has a ${type} identified.` : undefined,
     }),
@@ -294,8 +322,10 @@ export function elementKpis(type: ElementType, baseAds: Ad[], scope: Scope, ctx:
       label: `Most used ${type}`,
       value: topId ? pct(topCount, analysed.length) : null,
       display: topLabel ?? "—",
-      sub: topId ? `${pct(topCount, analysed.length)}% of ${formatCompact(analysed.length)} analysed ads` : undefined,
-      tooltip: `The ${type} that appears in the most ads in scope. This counts usage only; it says nothing about results.`,
+      sub: topId ? `${pct(topCount, analysed.length)}% of analysed ads` : undefined,
+      tooltip: topId
+        ? `Most used ${type}: ${topLabel}, in ${formatCompact(topCount)} of ${formatCompact(analysed.length)} analysed ads (${pct(topCount, analysed.length)}%). This counts usage only; it says nothing about results.`
+        : `The ${type} that appears in the most ads in scope. This counts usage only; it says nothing about results.`,
       disabledReason: topId ? undefined : `No ad in this scope has a ${type} identified.`,
     }),
     kpi({
@@ -303,17 +333,19 @@ export function elementKpis(type: ElementType, baseAds: Ad[], scope: Scope, ctx:
       label: "Fastest rising",
       value: fastest ? fastest.changePct : null,
       display: fastest ? fastest.label : "—",
-      sub: fastest ? `${formatChange(fastest.changePct, fastest.cur)} launches vs ${comparisonLabel(scope.period)}` : undefined,
-      tooltip: `The ${type} whose new-ad count grew most against the previous equal period. No minimum base.`,
+      sub: fastest ? shortChange(fastest.changePct, fastest.cur, scope.period) : undefined,
+      tooltip: fastest
+        ? `Fastest rising ${type}: ${fastest.label}. New-ad launches ${formatChange(fastest.changePct, fastest.cur)} vs ${comparisonLabel(scope.period)} (${fastest.cur} vs ${fastest.prev}). No minimum base.`
+        : `The ${type} whose new-ad count grew most against the previous equal period. No minimum base.`,
       disabledReason: fastest ? undefined : `No ${type} launched more ads than in the previous period.`,
     }),
     kpi({
       key: "videoVsImage",
       label: "Video vs image",
       value: pct(video, analysed.length),
-      display: `${pct(video, analysed.length)}% / ${pct(image, analysed.length)}%`,
-      sub: `video / image · carousel ${pct(carousel, analysed.length)}%`,
-      tooltip: `Media split of the ${formatCompact(analysed.length)} ads with a ${type} identified. Carousels are shown separately.`,
+      display: `${pct(video, analysed.length)} / ${pct(image, analysed.length)}%`,
+      sub: `${pct(video, analysed.length)}% video · ${pct(image, analysed.length)}% image · ${pct(carousel, analysed.length)}% carousel`,
+      tooltip: `Media split of the ${formatCompact(analysed.length)} ads with a ${type} identified: ${pct(video, analysed.length)}% video, ${pct(image, analysed.length)}% image, ${pct(carousel, analysed.length)}% carousel (shown separately).`,
       disabledReason: analysed.length === 0 ? `No ad in this scope has a ${type} identified.` : undefined,
     }),
   ];

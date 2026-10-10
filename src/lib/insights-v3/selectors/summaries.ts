@@ -86,6 +86,20 @@ function winnersClause(ads: Ad[], type: ElementType, data: DataIndex, verb = "us
   return `${formatCompact(m.count)} of the ${formatCompact(winners.length)} winners ${verb} ${quoteLabel(type, m.label)}.`;
 }
 
+/**
+ * Only the "X of the Y winners use Z" part, for summaries that already stated
+ * the winner count via `liveAndWinners` (QA-06: never state the winner fact twice).
+ * Empty when there are no winners or their element isn't identified.
+ */
+function winnersUsage(ads: Ad[], type: ElementType, data: DataIndex): string {
+  const winners = ads.filter(isWinner);
+  if (!winners.length) return "";
+  const m = mostUsed(winners, type, data);
+  if (!m) return "";
+  if (winners.length === 1) return ` The one winner uses ${quoteLabel(type, m.label)}.`;
+  return ` ${formatCompact(m.count)} of the ${formatCompact(winners.length)} winners use ${quoteLabel(type, m.label)}.`;
+}
+
 function passClause(winners: number): string {
   if (winners === 0) return "none pass the Winner rule yet";
   return `${formatCompact(winners)} ${winners === 1 ? "passes" : "pass"} the Winner rule`;
@@ -120,7 +134,7 @@ export function aiSummary(subject: SummarySubject, data: DataIndex = INDEX): AiS
         hook && fw
           ? `The most used hook style is ${hook.label.toLowerCase()} (in ${hook.share}% of analysed ads) and the most used framework is ${fw.label}.`
           : "Hook and framework data are too thin here to show a pattern.";
-      return { ads: n, text: `Based on ${adsWord(n)}${where}. ${liveAndWinners(ads)} ${usage} ${winnersClause(ads, "framework", data)}` };
+      return { ads: n, text: `Based on ${adsWord(n)}${where}. ${liveAndWinners(ads)} ${usage}${winnersUsage(ads, "framework", data)}` };
     }
 
     case "advertiser": {
@@ -135,7 +149,7 @@ export function aiSummary(subject: SummarySubject, data: DataIndex = INDEX): AiS
           : "";
       return {
         ads: n,
-        text: `Based on ${adsWord(n)} from ${advertiser.name}. ${liveAndWinners(ads)}${run}${usage} ${winnersClause(ads, "framework", data)}`,
+        text: `Based on ${adsWord(n)} from ${advertiser.name}. ${liveAndWinners(ads)}${run}${usage}${winnersUsage(ads, "framework", data)}`,
       };
     }
 
