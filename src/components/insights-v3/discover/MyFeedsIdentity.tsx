@@ -46,7 +46,27 @@ function Group({ title, empty, children }: { title: string; empty: boolean; chil
   );
 }
 
-export function MyFeedsIdentity({ prefs }: { prefs: UserPrefs }) {
+/**
+ * `empty` = the page is showing its "nothing feeds My Feeds" state (nothing followed or marked, or `?state=empty`).
+ * The row then says so instead of quoting counts that contradict the screen below it.
+ */
+export function MyFeedsIdentity({ prefs, empty = false }: { prefs: UserPrefs; empty?: boolean }) {
+  if (empty) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 px-2.5 py-1 text-foreground">
+          <Layers className="h-3.5 w-3.5 text-primary-text" aria-hidden="true" />
+          Nothing followed yet
+        </span>
+        <Link
+          to={INSIGHTS_ROUTES.advertiser}
+          className="rounded-sm text-xs font-medium text-primary-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Mark competitors or follow pages
+        </Link>
+      </div>
+    );
+  }
   const competitors: { kind: CompetitorKind; id: string }[] = [
     ...prefs.competitorPageIds.map((id) => ({ kind: "page" as const, id })),
     ...prefs.competitorDomainIds.map((id) => ({ kind: "domain" as const, id })),
