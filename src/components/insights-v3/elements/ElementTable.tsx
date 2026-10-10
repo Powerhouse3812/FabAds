@@ -183,7 +183,7 @@ const ElementTableRow = memo(function ElementTableRow({ row, type, scope, isNew 
       <td className="min-w-[184px] px-3 py-3">
         <TrendSpark series={row.trend} width={88} height={26} />
         <div className="mt-1 text-[11px] text-muted-foreground">{row.trend.unit}</div>
-        <ChangeChip changePct={row.changePct} className="mt-1 whitespace-nowrap" />
+        <ChangeChip changePct={row.changePct} compact className="mt-1 whitespace-nowrap" />
       </td>
 
       {/* Example + top advertisers */}
