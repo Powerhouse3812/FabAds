@@ -1,8 +1,10 @@
 /**
  * Scope filtering: Industry › Category › Period (+ "My preferences only").
  * inPeriod follows reference A §2: the ad passes when it was first seen inside
- * the window OR it was live during the window (started on/before now and last
- * seen inside the window).
+ * the window OR it was live during the window (started on/before the window end
+ * and last seen inside the window). An unknown start date falls back to
+ * firstSeenAt, so an ad seen live recently never drops out of a short period
+ * just because its start is unknown (daysLive stays null).
  */
 import { ALL } from "../types";
 import type { Ad, PeriodKey, Scope, TagOption } from "../types";
@@ -17,9 +19,9 @@ export function inPeriod(ad: Ad, period: PeriodKey, now: number): boolean {
   const start = now - days * DAY_MS;
   const first = toMs(ad.firstSeenAt) ?? 0;
   if (first >= start) return true;
-  const started = toMs(ad.startedAt);
+  const started = toMs(ad.startedAt) ?? first;
   const last = toMs(ad.lastSeenAt) ?? 0;
-  return started != null && started <= now && last >= start;
+  return started <= now && last >= start;
 }
 
 /** Ad belongs to the user's preferences: followed page/industry or a competitor-marked page/domain. */

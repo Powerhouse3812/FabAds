@@ -75,8 +75,16 @@ describe("scope: period + preferences", () => {
     expect(inPeriod(ad, "7d", NOW)).toBe(true); // live in window
     expect(inPeriod({ ...ad, lastSeenAt: iso(NOW - 20 * DAY) }, "7d", NOW)).toBe(false);
     expect(inPeriod({ ...ad, firstSeenAt: iso(NOW - 3 * DAY), lastSeenAt: iso(NOW - 3 * DAY) }, "7d", NOW)).toBe(true);
-    expect(inPeriod({ ...ad, startedAt: null }, "7d", NOW)).toBe(false); // live-during needs a start date (reference)
+    expect(inPeriod({ ...ad, startedAt: null, lastSeenAt: iso(NOW - 20 * DAY) }, "7d", NOW)).toBe(false);
     expect(inPeriod({ ...ad, lastSeenAt: iso(NOW - 300 * DAY) }, "all", NOW)).toBe(true);
+  });
+
+  it("unknown start date: an ad seen live recently stays in short periods (start falls back to firstSeenAt)", () => {
+    const unknown = makeAd({ startedAt: null, daysLive: null, firstSeenAt: iso(NOW - 150 * DAY), lastSeenAt: iso(NOW - 1 * DAY) });
+    expect(inPeriod(unknown, "7d", NOW)).toBe(true);
+    expect(inPeriod(unknown, "14d", NOW)).toBe(true);
+    expect(adsInScope([unknown], { ...DEFAULT_SCOPE, period: "7d" }, { now: NOW })).toHaveLength(1);
+    expect(unknown.daysLive).toBeNull();
   });
 
   it("My preferences only limits to followed pages/industries + competitor pages/domains", () => {
