@@ -33,6 +33,7 @@ import {
   fmtInt,
   usePageTab,
 } from "@/components/insights-v3/shared";
+import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 
 type TypeFilter = "all" | SavableType;
 const FILTER_KEYS: TypeFilter[] = ["all", ...BOARD_TYPE_ORDER];
@@ -214,6 +215,7 @@ export default function BoardDetailPage() {
         countNoun={shown.length === 1 ? "item" : "items"}
         headerActions={
           <>
+            <InsightsSearch />
             <button type="button" onClick={() => togglePinWithToast(board)} aria-pressed={board.pinned} className={btn}>
               {board.pinned ? <PinOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Pin className="h-3.5 w-3.5" aria-hidden="true" />}
               {board.pinned ? "Unpin" : "Pin"}

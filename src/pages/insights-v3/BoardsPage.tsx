@@ -26,6 +26,7 @@ import {
   fmtInt,
   useListSort,
 } from "@/components/insights-v3/shared";
+import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 
 type BoardSort = "recent" | "items" | "az";
 const BOARD_SORT_LABEL: Record<BoardSort, string> = {
@@ -208,14 +209,17 @@ export default function BoardsPage() {
         count={forced === "loading" ? null : boards.length}
         countNoun={boards.length === 1 ? "board" : "boards"}
         headerActions={
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            New board
-          </button>
+          <>
+            <InsightsSearch />
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              New board
+            </button>
+          </>
         }
         scopeBar={toolbar}
         list={list}

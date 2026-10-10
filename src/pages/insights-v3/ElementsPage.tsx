@@ -46,6 +46,7 @@ import { ElementTable } from "@/components/insights-v3/elements/ElementTable";
 import { RisingScaling } from "@/components/insights-v3/elements/RisingScaling";
 import { isElementNew } from "@/components/insights-v3/elements/useElementNovelty";
 import { useElementsData } from "@/components/insights-v3/elements/useElementsData";
+import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 
 /** The ads behind a row, for the union tag filter (a row stays when any of its ads matches). */
 const adsOfRow = (row: ElementRow) => row.adIds.map((id) => getAd(id)).filter((a): a is NonNullable<typeof a> => !!a);
@@ -154,6 +155,7 @@ export default function ElementsPage() {
     <>
       <InsightsPageLayout
         title="Creative Element Insights"
+        headerActions={<InsightsSearch />}
         count={loading ? null : filtered.length}
         countNoun={noun}
         scopeBar={(compact) => (

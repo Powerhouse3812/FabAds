@@ -37,6 +37,7 @@ import {
   useInsightsScope,
   useListSort,
 } from "@/components/insights-v3/shared";
+import { InsightsSearch } from "@/components/insights-v3/search/InsightsSearch";
 
 const AD_SORTS = Object.keys(AD_SORT_LABEL) as AdSort[];
 const GRID = "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] items-start gap-3";
@@ -176,6 +177,7 @@ export default function SavedAdsPage() {
     <>
       <InsightsPageLayout
         title="Saved Ads"
+        headerActions={<InsightsSearch />}
         count={forced === "loading" ? null : sorted.length}
         countNoun={sorted.length === 1 ? "ad" : "ads"}
         scopeBar={(compact) => (
