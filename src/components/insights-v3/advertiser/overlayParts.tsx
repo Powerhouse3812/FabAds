@@ -51,9 +51,9 @@ export function AdStrip({ adIds, label }: { adIds: string[]; label: string }) {
   const drawer = useAdDrawer();
   const ads = adIds.map((id) => getAd(id)).filter((a): a is NonNullable<typeof a> => !!a);
   return (
-    <ul aria-label={label} className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+    <ul aria-label={label} className="-mx-1 flex snap-x items-start gap-3 overflow-x-auto px-1 pb-2">
       {ads.map((ad) => (
-        <li key={ad.id} className="w-[240px] shrink-0 snap-start">
+        <li key={ad.id} className="w-[280px] shrink-0 snap-start">
           <AdCard ad={ad} onOpen={drawer.open} />
         </li>
       ))}
