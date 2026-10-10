@@ -49,7 +49,21 @@ export default function NavCount({ countKey }: { countKey: string }) {
   const scope = readCurrentScope(pathname, search);
   const scopeKey = `${scope.industry}|${scope.category}|${scope.period}`;
 
+  // Dev state `?state=empty` forces the open page empty; its nav count must
+  // agree, or the empty screen sits next to a non-zero number (QA-11).
+  const forcedEmpty = new URLSearchParams(search).get("state") === "empty";
+  const routeFor: Record<NavCountKey, string> = {
+    feeds: INSIGHTS_ROUTES.myFeeds,
+    discover: INSIGHTS_ROUTES.discover,
+    advertisers: INSIGHTS_ROUTES.advertiser,
+    elements: INSIGHTS_ROUTES.elements,
+    saved: INSIGHTS_ROUTES.savedAds,
+    boards: INSIGHTS_ROUTES.boards,
+  };
+  const isForcedEmptyHere = forcedEmpty && pathname === routeFor[countKey as NavCountKey];
+
   const value = useMemo(() => {
+    if (isForcedEmptyHere) return 0;
     const opts = { now: MODULE_NOW };
     const base = { ...scope, myPrefsOnly: false };
     switch (countKey as NavCountKey) {
@@ -77,7 +91,7 @@ export default function NavCount({ countKey }: { countKey: string }) {
         return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scopeKey stands in for scope
-  }, [countKey, scopeKey, prefs, savedIds, boards]);
+  }, [countKey, scopeKey, prefs, savedIds, boards, isForcedEmptyHere]);
 
   if (value === null) return null;
   return (
