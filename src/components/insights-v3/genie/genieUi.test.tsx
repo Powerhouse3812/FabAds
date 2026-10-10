@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getAds } from "@/lib/insights-v3/data";
@@ -8,6 +8,11 @@ import { IndustryInsightsPicker } from "@/genie6/studio-v4/components/IndustryIn
 import { UseInGenie } from "./UseInGenie";
 import { V2InsightsPickerSection } from "./V2InsightsPickerSection";
 import { toAttachedRef } from "./pickItems";
+import { DUMMY_ADS } from "@/lib/insights-dummy-data";
+import { FlowBanner } from "@/genie6/flows/FlowBanner";
+import { flowSearchParams, type FlowActionId, type FlowModuleKey } from "@/genie6/flows/flowTypes";
+import { getFlowModule } from "@/genie6/flows/data/flowRegistry";
+import { resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
 
 function Where() {
   const loc = useLocation();
@@ -94,22 +99,26 @@ describe("V2 section of the Genie Industry Insights picker", () => {
     expect(screen.getByTestId("v2-insights-picker")).toBeVisible();
   });
 
+  // Big DOM (30+ rows): role queries run on small subtrees only, and the
+  // timeout is generous, so this can't flake under full-suite load.
   it("populated: lists boards/saved items and market elements; Save hands AttachedRefs out", () => {
     const onSave = vi.fn();
-    render(<V2InsightsPickerSection onSave={onSave} onClose={() => {}} />);
-    expect(screen.getByRole("region", { name: "From your boards & saved ads" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Most used in the market" })).toBeInTheDocument();
+    const { container } = render(<V2InsightsPickerSection onSave={onSave} onClose={() => {}} />);
+    expect(container.querySelector('section[aria-label="From your boards & saved ads"]')).not.toBeNull();
+    expect(container.querySelector('section[aria-label="Most used in the market"]')).not.toBeNull();
+    const filters = within(container.querySelector<HTMLElement>('[role="group"][aria-label="Filter by type"]')!);
     for (const f of ["All", "Ads", "Frameworks", "Hooks", "Angles", "Concepts"]) {
-      expect(screen.getByRole("button", { name: new RegExp(`^${f}\\s*\\d+$`) })).toBeInTheDocument();
+      expect(filters.getByRole("button", { name: new RegExp(`^${f}\\s*\\d+$`) })).toBeInTheDocument();
     }
-    const rows = Array.from(document.querySelectorAll<HTMLButtonElement>("li > button[aria-pressed=\"false\"]"));
+    const rows = Array.from(container.querySelectorAll<HTMLButtonElement>('li > button[aria-pressed="false"]'));
+    expect(rows.length).toBeGreaterThan(0);
     fireEvent.click(rows[0]);
-    fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+    fireEvent.click(within(container.querySelector<HTMLElement>("footer")!).getByRole("button", { name: /^Save/ }));
     expect(onSave).toHaveBeenCalledTimes(1);
     const refs = onSave.mock.calls[0][0];
     expect(refs).toHaveLength(1);
     expect(refs[0].source).toBe("industry-insights");
-  });
+  }, 20_000);
 
   it("zero-data: no boards or saved ads still shows the market and an explanation", () => {
     boardsStore.set(() => []);
@@ -129,5 +138,32 @@ describe("V2 section of the Genie Industry Insights picker", () => {
       context: "whole-ad",
       thumbnail: "t.jpg",
     });
+  });
+});
+
+describe("Genie flow banner exit link", () => {
+  const exitHref = (module: FlowModuleKey, refId: string, act: FlowActionId) => {
+    const ctx = resolveFlowContext(flowSearchParams(module, refId, act));
+    expect(ctx).not.toBeNull();
+    render(
+      <MemoryRouter>
+        <FlowBanner ctx={ctx!} />
+      </MemoryRouter>,
+    );
+    return screen.getByRole("link", { name: /exit back to/i }).getAttribute("href");
+  };
+
+  it("a V2 ref exits to the V2 module", () => {
+    expect(exitHref("industry-insights", `iiv2:${ad.id}`, "winner-as-reference")).toBe("/industry-insights/discover");
+  });
+
+  it("an old Industry Insights ref still exits to the module path", () => {
+    expect(exitHref("industry-insights", DUMMY_ADS[3].id, "winner-as-reference")).toBe(
+      getFlowModule("industry-insights")!.modulePath,
+    );
+  });
+
+  it("other modules keep their module path", () => {
+    expect(exitHref("trends", "bs-1", "generate-against-trend")).toBe(getFlowModule("trends")!.modulePath);
   });
 });

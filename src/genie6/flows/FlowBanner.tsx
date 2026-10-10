@@ -60,7 +60,9 @@ export function FlowBanner({ ctx, className }: { ctx: FlowContext; className?: s
         <Fact label="Action">{ctx.action.label}</Fact>
 
         <Link
-          to={ctx.module.modulePath}
+          // A ref can name its own way back (Industry Insights V2 refs share the
+          // old module's key but must exit to the V2 module); else the module's.
+          to={ctx.ref.exitPath ?? ctx.module.modulePath}
           aria-label={`Exit back to ${ctx.module.label}`}
           className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 font-mono text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >

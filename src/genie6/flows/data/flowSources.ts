@@ -171,6 +171,7 @@ function v2InsightsRef(ad: V2Ad): FlowSourceRef {
     sourceBrandName: ad.pageName,
     competitorOwned: true,
     sourceNote: "From Industry Insights V2",
+    exitPath: "/industry-insights/discover",
     analysed: true,
     sourceFormat: ad.mediaKind,
     // Never likes / engagement — the V2 winner rule doesn't use them either.
