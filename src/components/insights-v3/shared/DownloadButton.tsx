@@ -1,13 +1,16 @@
 import { Download } from "lucide-react";
 import { toast } from "sonner";
-import type { DownloadFile } from "@/lib/insights-v3/types";
-import { triggerDownload } from "./download";
+import { normalizeDownloads, triggerDownloads, type DownloadBuild } from "./download";
 import { cn } from "@/lib/utils";
 import { Hint } from "./Hint";
 
 export interface DownloadButtonProps {
-  /** Built lazily on click (data layer's `buildDownload(ref)`). May throw. */
-  build: () => DownloadFile;
+  /**
+   * Built lazily on click: the data layer's `buildDownload(ref)` (one file or null)
+   * or `buildDownloads(ref)` (several, e.g. media + text). May throw.
+   * An array downloads each file in sequence; null / empty → error toast.
+   */
+  build: () => DownloadBuild;
   /** With a label the button shows text; without, it's an icon button. */
   label?: string;
   /** Accessible name when icon-only. Default "Download". */
@@ -34,9 +37,13 @@ export function DownloadButton({
     e.stopPropagation(); // lives inside clickable cards / rows
     if (disabled) return;
     try {
-      const file = build();
-      triggerDownload(file);
-      toast.success(`Downloaded ${file.filename}`);
+      const files = normalizeDownloads(build());
+      if (files.length === 0) {
+        toast.error("Nothing to download for this item");
+        return;
+      }
+      void triggerDownloads(files);
+      toast.success(files.length === 1 ? `Downloaded ${files[0].filename}` : `Downloading ${files.length} files`);
     } catch {
       toast.error("Couldn't prepare that download. Try again.");
     }

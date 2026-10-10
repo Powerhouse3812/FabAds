@@ -22,7 +22,7 @@ export * from "./ElementChip";
 export * from "./EngagementGroup";
 export * from "./TruncatedText";
 export { useOverflow } from "./useOverflow";
-export { triggerDownload } from "./download";
+export { triggerDownload, triggerDownloads, normalizeDownloads, type DownloadBuild } from "./download";
 export * from "./EmptyResults";
 export * from "./Hint";
 export { fmtInt, fmtPct, pluralize, bucketRangeLabel } from "./format";
