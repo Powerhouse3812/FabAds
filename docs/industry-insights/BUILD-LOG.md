@@ -68,10 +68,10 @@ Orchestrator session worktree: `.claude/worktrees/priceless-payne-e2f7a1`. Nothi
 | Q12 | Home + Trends | "disable them for now, don't change anything in them" → V2 has no Home/Trends; old module untouched |
 | Q13 | Source names | "nahi chahiye" → none anywhere in V2 (UI + dummy data), grep-gated |
 | Q14 | QA screenshots | Maalik asked what this is → explained; default = in-app browser screenshots, no new dependency |
-| Q15 | Lint gate | no answer → default: zero lint errors in files V2 adds/touches |
-| Q16 | Download | no answer → default: ad = media + .txt (copy + analysis); element = Markdown one-pager; LP = screenshot + page text |
+| Q15 | Lint gate | explained to Maalik (repo has 798 pre-existing errors) → zero lint errors in files V2 adds/touches; old errors left alone |
+| Q16 | Download | ok → ad = media + .txt (copy + analysis); element = Markdown one-pager; LP = screenshot + page text |
 | Sketch | Discover sketch | not shared → building to spec |
-| Open | Dashboard tiles / onboarding / Reports card / old search popover point at the OLD module | asked Maalik; E does only additive Genie work until answered |
+| Q17 | Dashboard tiles / onboarding / Reports card / old search popover | "leave them in V1 for now" → not touched; E does only V2 search + additive Genie work |
 
 ---
 
@@ -89,7 +89,7 @@ Stubs at contract paths are created by the orchestrator in Phase 1, then owned b
 | **B Advertiser** | Sonnet | 2 | `src/pages/insights-v3/AdvertiserPage.tsx` · `src/components/insights-v3/advertiser/**` · `src/components/insights-v3/overlays/AdvertiserDetail.tsx` · `overlays/LandingPageDetail.tsx` · `overlays/OfferDetail.tsx` | Advertiser (Domain, Page, LP & Offers); Detail overlays › Advertiser, LP & Offers |
 | **C Creative Elements** | Sonnet | 2 | `src/pages/insights-v3/ElementsPage.tsx` · `src/components/insights-v3/elements/**` · `src/components/insights-v3/overlays/ElementDetail.tsx` | Creative Element Insights; Detail overlays › Element |
 | **D Drawer + Saving** | Sonnet | 2 | `src/components/insights-v3/ad-drawer/**` · `src/pages/insights-v3/SavedAdsPage.tsx` · `BoardsPage.tsx` · `BoardDetailPage.tsx` · `src/components/insights-v3/boards/**` | Ad drawer; Saved Ads and Boards |
-| **E Cross-surface** | Sonnet | 2 | `src/components/insights-v3/search/**` (V2's own search popover) · `genie6/studio-v4/components/IndustryInsightsPicker.tsx` (additive: V2 elements + ads) · `genie6/flows/data/flowSources.ts` (additive V2 resolver). Dashboard tiles / onboarding / Reports card **only if Maalik says repoint** | PRD › Prototype surfaces that change |
+| **E Cross-surface** | Sonnet | 2 | `src/components/insights-v3/search/**` (V2's own search popover) · `genie6/studio-v4/components/IndustryInsightsPicker.tsx` (additive: V2 elements + ads) · `genie6/flows/data/flowSources.ts` (additive V2 resolver). Dashboard tiles / onboarding / Reports card stay on V1 (Q17) | PRD › Prototype surfaces that change |
 | **Q QA** | Opus | 3 | `docs/industry-insights/qa/**` (read-only on code) | everything; reports only |
 
 Total agents: 8 (2 + 5 + 1).
@@ -196,7 +196,7 @@ Total agents: 8 (2 + 5 + 1).
 - [ ] V2 search popover scopes follow the new menu
 - [ ] Genie picker: frameworks, hooks, angles, concepts + ads (additive)
 - [ ] V2 "Use in Genie" resolves V2 ids in Genie flows
-- [ ] Dashboard tiles / onboarding / Reports card — pending Maalik (repoint to V2 or leave on old)
+- [x] Dashboard tiles / onboarding / Reports card — stay on V1 by decision (Q17), out of scope
 
 ---
 
