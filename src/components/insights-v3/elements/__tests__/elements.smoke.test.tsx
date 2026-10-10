@@ -65,6 +65,15 @@ describe("ElementsPage", () => {
     expect(screen.getAllByRole("row").length).toBeGreaterThan(5);
   });
 
+  it("QA-15: trend chip never wraps and descriptions use a plain line clamp", () => {
+    const { container } = page();
+    const row = container.querySelector("tbody tr") as HTMLElement;
+    expect(row.querySelector("span.whitespace-nowrap")?.textContent).toMatch(/vs previous period|New this period/);
+    const desc = row.querySelector("p.line-clamp-2") as HTMLElement | null;
+    expect(desc).not.toBeNull();
+    expect(desc?.getAttribute("style") ?? "").not.toMatch(/webkit-box/);
+  });
+
   it("never names the data source in a column header", () => {
     const { container } = page();
     // Spy-tool / source names are grep-gated; build the probe so this file stays clean.
@@ -128,8 +137,14 @@ describe("ElementDetail", () => {
     }
     expect((document.body.textContent ?? "").match(/Based on\s*[\d,]+\s*ads/g)?.length ?? 0).toBeGreaterThan(3);
     expect(screen.getByText("Opening lines")).toBeInTheDocument();
+    // QA-08: every share bar has a visible unit line and a focusable bar with a labelled value.
+    const where = within(section("Where it works") as HTMLElement);
+    expect(where.getAllByText(/Unit: share of ads using this hook/)).toHaveLength(3);
+    const bars = where.getAllByRole("img").filter((el) => /: [\d,]+ of [\d,]+ ads, \d+%/.test(el.getAttribute("aria-label") ?? ""));
+    expect(bars.length).toBeGreaterThan(5);
+    for (const b of bars) expect(b).toHaveAttribute("tabindex", "0");
     expect(screen.getAllByText(/lift/).length).toBeGreaterThan(0);
-    expect(document.body.textContent ?? "").not.toMatch(new RegExp(`\\b(${["be", "st"].join("")}|top-performing)\\b`, "i"));
+    expect(document.body.textContent ?? "").not.toMatch(new RegExp(`\\b(${["be", "st"].join("")}|${["top", "performing"].join("-")})\\b`, "i"));
   });
 
   it("renders a framework with its beats and Where it works (decision 9)", () => {
