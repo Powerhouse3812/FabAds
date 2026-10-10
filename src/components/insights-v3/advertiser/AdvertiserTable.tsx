@@ -2,6 +2,11 @@
  * Domain / Page list. Columns (spec, exactly): Name · Total + Active ads ·
  * Winning ads + Longest run · Launch trend · Top framework / hook / concept ·
  * Industry + Category · Landing pages / offers · Actions.
+ *
+ * Compact rows: fixed column widths (see columns.ts) so every column fits a
+ * 1440px screen with the sub-nav open; the three top elements share one cell
+ * with small label-prefixed chips; Actions are icon-only buttons (tooltip +
+ * aria-label) in a sticky-right column.
  */
 import { memo, type ReactNode } from "react";
 import { Trophy } from "lucide-react";
@@ -9,31 +14,31 @@ import type { AdvertiserKind, ElementType, Scope } from "@/lib/insights-v3/types
 import { formatDays, type AdvertiserRow } from "@/lib/insights-v3/selectors";
 import { ElementChip, Hint, NewBadge, TruncatedText, TrendSpark, fmtInt, fmtPct, useDetailStack } from "../shared";
 import { FollowButton, MarkCompetitorButton, SaveDownload } from "./ActionButtons";
+import { advertiserColumns } from "./columns";
 import { AdvertiserAvatar } from "./parts";
-import { Cell, ClickableRow, TableFrame, type Column } from "./tableParts";
+import { Cell, ClickableRow, TableFrame } from "./tableParts";
 
-const COLUMNS = (kind: AdvertiserKind): Column[] => [
-  { key: "name", label: kind === "page" ? "Page" : "Domain", sticky: true, className: "min-w-[220px]" },
-  { key: "ads", label: "Total + active ads", className: "min-w-[110px]" },
-  { key: "winners", label: "Winning ads + longest run", className: "min-w-[150px]" },
-  { key: "trend", label: "Launch trend", className: "min-w-[140px]" },
-  { key: "top", label: "Top framework / hook / concept", className: "min-w-[210px]" },
-  { key: "where", label: "Industry + category", className: "min-w-[170px]" },
-  { key: "lps", label: "Landing pages / offers", className: "min-w-[120px]" },
-  { key: "actions", label: "Actions", className: "min-w-[220px]" },
-];
+const TOP_LABEL: Record<"framework" | "hook" | "concept", string> = {
+  framework: "Frame",
+  hook: "Hook",
+  concept: "Concept",
+};
 
-function TopElement({ type, item }: { type: ElementType; item: AdvertiserRow["topFramework"] }) {
-  if (!item) {
-    return (
-      <Hint content={`No ${type} could be identified in this advertiser's ads in scope.`}>
-        <span tabIndex={0} className="inline-flex h-6 items-center rounded-sm px-1 text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          —
-        </span>
-      </Hint>
-    );
-  }
-  return <ElementChip type={type} id={item.id} label={item.label} />;
+function TopElement({ type, item }: { type: Extract<ElementType, "framework" | "hook" | "concept">; item: AdvertiserRow["topFramework"] }) {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span className="w-[42px] shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{TOP_LABEL[type]}</span>
+      {item ? (
+        <ElementChip type={type} id={item.id} label={item.label} className="h-5 min-w-0 flex-1 justify-start text-[11px]" />
+      ) : (
+        <Hint content={`No ${type} could be identified in this advertiser's ads in scope.`}>
+          <span tabIndex={0} className="text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            —
+          </span>
+        </Hint>
+      )}
+    </div>
+  );
 }
 
 function SecondLine({ first, rest, noun }: { first: string | undefined; rest: string[]; noun: string }) {
@@ -67,28 +72,28 @@ const RowView = memo(function RowView({ row, kind, scope }: { row: AdvertiserRow
   return (
     <ClickableRow onOpen={open} label={`Open ${row.name}`}>
       <Cell sticky>
-        <div className="flex min-w-0 items-center gap-2.5">
-          <AdvertiserAvatar name={row.name} url={row.avatarUrl} />
+        <div className="flex min-w-0 items-center gap-2">
+          <AdvertiserAvatar name={row.name} url={row.avatarUrl} className="h-7 w-7" />
           <div className="min-w-0 flex-1">
-            <TruncatedText text={row.name} className="max-w-[200px] font-medium text-foreground" focusable={false} />
-            {row.isNew && <NewBadge className="mt-1" />}
+            <TruncatedText text={row.name} className="font-medium text-foreground" focusable={false} />
+            {row.isNew && <NewBadge className="mt-0.5" />}
           </div>
         </div>
       </Cell>
       <Cell>
         <div className="font-mono text-sm font-semibold tabular-nums text-foreground">{fmtInt(row.totalAds)}</div>
         <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${row.activeAds > 0 ? "bg-success-text" : "bg-muted-foreground/50"}`} />
+          <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${row.activeAds > 0 ? "bg-success-text" : "bg-muted-foreground/50"}`} />
           <span className="font-mono tabular-nums text-foreground">{fmtInt(row.activeAds)}</span> active
         </div>
       </Cell>
       <Cell>
         <div className="flex items-center gap-1 text-sm">
-          <Trophy className={`h-3.5 w-3.5 ${row.winningAds > 0 ? "text-warning-text" : "text-muted-foreground"}`} aria-hidden="true" />
+          <Trophy className={`h-3.5 w-3.5 shrink-0 ${row.winningAds > 0 ? "text-warning-text" : "text-muted-foreground"}`} aria-hidden="true" />
           <span className="font-mono font-semibold tabular-nums text-foreground">{fmtInt(row.winningAds)}</span>
-          <span className="text-xs text-muted-foreground">{row.winningAds === 1 ? "winner" : "winners"}</span>
+          <span className="truncate text-xs text-muted-foreground">{row.winningAds === 1 ? "winner" : "winners"}</span>
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">
           {row.longestRunDays === null ? (
             <span className="italic">Start date unknown</span>
           ) : (
@@ -99,14 +104,14 @@ const RowView = memo(function RowView({ row, kind, scope }: { row: AdvertiserRow
         </div>
       </Cell>
       <Cell>
-        <div className="flex items-center gap-2">
-          <TrendSpark series={row.launchTrend} />
+        <div className="flex items-center gap-1.5">
+          <TrendSpark series={row.launchTrend} width={56} />
           <span className={`font-mono text-xs font-medium tabular-nums ${changeTone}`}>{change}</span>
         </div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">{row.launchTrend.unit}</div>
+        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{row.launchTrend.unit}</div>
       </Cell>
       <Cell>
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-col gap-0.5">
           <TopElement type="framework" item={row.topFramework} />
           <TopElement type="hook" item={row.topHook} />
           <TopElement type="concept" item={row.topConcept} />
@@ -127,10 +132,10 @@ const RowView = memo(function RowView({ row, kind, scope }: { row: AdvertiserRow
           <span className="font-mono tabular-nums text-foreground">{fmtInt(row.offerCount)}</span> {row.offerCount === 1 ? "offer" : "offers"}
         </div>
       </Cell>
-      <Cell>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <MarkCompetitorButton kind={kind} id={row.id} name={row.name} />
-          {kind === "page" && <FollowButton id={row.id} name={row.name} />}
+      <Cell stickyRight>
+        <div className="flex items-center gap-1" role="group" aria-label={`Actions for ${row.name}`}>
+          <MarkCompetitorButton kind={kind} id={row.id} name={row.name} compact />
+          {kind === "page" && <FollowButton id={row.id} name={row.name} compact />}
           <SaveDownload target={{ type: kind, id: row.id }} scope={scope} />
         </div>
       </Cell>
@@ -150,7 +155,7 @@ export function AdvertiserTable({
   footer?: ReactNode;
 }) {
   return (
-    <TableFrame label={kind === "page" ? "Pages" : "Domains"} columns={COLUMNS(kind)} minWidth={1240} footer={footer}>
+    <TableFrame label={kind === "page" ? "Pages" : "Domains"} columns={advertiserColumns(kind)} footer={footer}>
       {rows.map((r) => (
         <RowView key={r.id} row={r} kind={kind} scope={scope} />
       ))}

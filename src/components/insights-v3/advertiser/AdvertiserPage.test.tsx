@@ -3,6 +3,7 @@ import { cloneElement, type ReactElement } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import AdvertiserPage from "@/pages/insights-v3/AdvertiserPage";
+import { LP_COLUMNS, advertiserColumns, columnsWidth } from "./columns";
 
 // jsdom has no layout, so recharts would warn about a 0x0 chart on every render.
 vi.mock("recharts", async (orig) => {
@@ -161,5 +162,38 @@ describe("AdvertiserPage", () => {
     const after = within(screen.getByRole("table", { name: "Pages" })).getAllByRole("row").length;
     expect(after).toBeLessThanOrEqual(before);
     expect(screen.getByTestId("where").textContent).toMatch(/f_framework=/);
+  });
+
+  // QA-07: at 1440px with the sub-nav open the table frame is ~1121px wide.
+  const FRAME_1440 = 1121 - 2;
+
+  it("the Domain, Page and LP tables fit a 1440px screen, Actions included", () => {
+    expect(columnsWidth(advertiserColumns("domain"))).toBeLessThanOrEqual(FRAME_1440);
+    expect(columnsWidth(advertiserColumns("page"))).toBeLessThanOrEqual(FRAME_1440);
+    expect(columnsWidth(LP_COLUMNS)).toBeLessThanOrEqual(FRAME_1440);
+    renderAt("/industry-insights/advertisers?tab=page");
+    const table = screen.getByRole("table", { name: "Pages" });
+    expect(Number(table.getAttribute("data-table-width"))).toBe(columnsWidth(advertiserColumns("page")));
+  });
+
+  it("renders an Actions column with icon buttons that keep their accessible names", () => {
+    renderAt("/industry-insights/advertisers?tab=page");
+    const table = screen.getByRole("table", { name: "Pages" });
+    const actionsHead = within(table).getByRole("columnheader", { name: "Actions" });
+    expect(actionsHead.className).toMatch(/right-0/); // sticky right: stays visible if the frame scrolls sideways
+    const group = within(table).getAllByRole("group", { name: /^Actions for / })[0];
+    expect(within(group).getByRole("button", { name: /competitor/i })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: /^(Follow|Unfollow) / })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: /Save this page|Saved to/ })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: /^Download page$/ })).toBeInTheDocument();
+    // icon-only: no visible text label
+    expect(group.textContent?.trim()).toBe("");
+  });
+
+  it("the LP table also keeps Actions (Save + Download) per row", () => {
+    renderAt("/industry-insights/advertisers?tab=lp");
+    const table = screen.getByRole("table", { name: "Landing pages" });
+    expect(within(table).getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    expect(within(table).getAllByRole("button", { name: /^Download landing page$/ }).length).toBeGreaterThan(0);
   });
 });

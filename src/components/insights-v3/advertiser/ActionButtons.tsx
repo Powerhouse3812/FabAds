@@ -26,11 +26,14 @@ export function MarkCompetitorButton({
   id,
   name,
   className,
+  compact,
 }: {
   kind: AdvertiserKind;
   id: string;
   name: string;
   className?: string;
+  /** Icon-only (table rows). The tooltip and aria-label carry the text. */
+  compact?: boolean;
 }) {
   const marked = useIsCompetitor(kind, id);
   const noun = kind === "page" ? "page" : "domain";
@@ -58,18 +61,30 @@ export function MarkCompetitorButton({
           marked
             ? "border-primary/40 bg-primary/15 text-primary-text hover:bg-primary/25"
             : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5",
+          compact && "w-8 justify-center px-0",
           className,
         )}
       >
         {marked ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Star className="h-3.5 w-3.5" aria-hidden="true" />}
-        {marked ? "Competitor" : "Mark as competitor"}
+        {!compact && (marked ? "Competitor" : "Mark as competitor")}
       </button>
     </Hint>
   );
 }
 
 /** Pages only. Brand = Page, so following here is the same as following a brand. */
-export function FollowButton({ id, name, className }: { id: string; name: string; className?: string }) {
+export function FollowButton({
+  id,
+  name,
+  className,
+  compact,
+}: {
+  id: string;
+  name: string;
+  className?: string;
+  /** Icon-only (table rows). The tooltip and aria-label carry the text. */
+  compact?: boolean;
+}) {
   const following = useIsPageFollowed(id);
   const onClick = (e: MouseEvent) => {
     e.stopPropagation();
@@ -89,11 +104,12 @@ export function FollowButton({ id, name, className }: { id: string; name: string
           following
             ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
             : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5",
+          compact && "w-8 justify-center px-0",
           className,
         )}
       >
         {following ? <Eye className="h-3.5 w-3.5" aria-hidden="true" /> : <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />}
-        {following ? "Following" : "Follow"}
+        {!compact && (following ? "Following" : "Follow")}
       </button>
     </Hint>
   );

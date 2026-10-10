@@ -13,38 +13,42 @@ import { fmtInt } from "../shared";
 export interface Column {
   key: string;
   label: ReactNode;
+  /** Fixed width in px. The table's width is the sum of these. */
+  width: number;
   className?: string;
   /** Sticky-left first column. */
   sticky?: boolean;
+  /** Sticky-right column (Actions): stays visible whenever the frame scrolls sideways. */
+  stickyRight?: boolean;
 }
 
 export function TableFrame({
   label,
   columns,
-  minWidth,
   children,
   footer,
 }: {
   label: string;
   columns: Column[];
-  /** Below this the frame scrolls horizontally. */
-  minWidth: number;
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  // Fixed layout: the table is exactly the sum of its columns (or the frame, if wider).
+  const minWidth = columns.reduce((n, c) => n + c.width, 0);
   return (
     <div className="min-w-0">
       <div className="relative max-h-[72dvh] min-h-[160px] overflow-auto rounded-xl border border-border bg-card">
-        <table aria-label={label} style={{ minWidth }} className="w-full border-separate border-spacing-0 text-sm">
+        <table aria-label={label} data-table-width={minWidth} style={{ minWidth }} className="w-full table-fixed border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
               {columns.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
+                  style={{ width: c.width }}
                   className={cn(
-                    "sticky top-0 whitespace-nowrap border-b border-border bg-muted px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-muted-foreground",
-                    c.sticky ? "left-0 z-[3]" : "z-[2]",
+                    "sticky top-0 overflow-hidden border-b border-border bg-muted px-2.5 py-2 text-left text-[11px] font-medium uppercase leading-tight tracking-wide text-muted-foreground",
+                    c.sticky ? "left-0 z-[3]" : c.stickyRight ? "right-0 z-[3] border-l" : "z-[2]",
                     c.className,
                   )}
                 >
@@ -96,16 +100,19 @@ export function Cell({
   children,
   className,
   sticky,
+  stickyRight,
 }: {
   children: ReactNode;
   className?: string;
   sticky?: boolean;
+  stickyRight?: boolean;
 }) {
   return (
     <td
       className={cn(
-        "border-b border-border px-3 py-2.5 align-top",
+        "overflow-hidden border-b border-border px-2.5 py-1.5 align-top",
         sticky && "sticky left-0 z-[1] bg-card group-hover:bg-muted group-focus-visible:bg-muted",
+        stickyRight && "sticky right-0 z-[1] border-l bg-card group-hover:bg-muted group-focus-visible:bg-muted",
         className,
       )}
     >

@@ -11,17 +11,8 @@ import type { LandingPageRow } from "@/lib/insights-v3/selectors";
 import { ElementChip, Hint, NewBadge, TruncatedText, fmtInt, useDetailStack } from "../shared";
 import { SaveDownload } from "./ActionButtons";
 import { LpThumb } from "./parts";
-import { Cell, ClickableRow, TableFrame, type Column } from "./tableParts";
-
-const COLUMNS: Column[] = [
-  { key: "page", label: "Page", sticky: true, className: "min-w-[300px]" },
-  { key: "offer", label: "Offer", className: "min-w-[190px]" },
-  { key: "funnel", label: "Funnel type", className: "min-w-[140px]" },
-  { key: "ads", label: "Ads (total + active)", className: "min-w-[130px]" },
-  { key: "advertisers", label: "Advertisers", className: "min-w-[100px]" },
-  { key: "winners", label: "Winners", className: "min-w-[90px]" },
-  { key: "actions", label: "Actions", className: "min-w-[100px]" },
-];
+import { LP_COLUMNS } from "./columns";
+import { Cell, ClickableRow, TableFrame } from "./tableParts";
 
 const RowView = memo(function RowView({ row, scope }: { row: LandingPageRow; scope: Scope }) {
   const detail = useDetailStack();
@@ -33,11 +24,11 @@ const RowView = memo(function RowView({ row, scope }: { row: LandingPageRow; sco
           <LpThumb url={row.screenshotUrl} title={label} className="h-14 w-10" />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <TruncatedText text={row.domain} className="max-w-[210px] font-medium text-foreground" focusable={false} />
+              <TruncatedText text={row.domain} className="font-medium text-foreground" focusable={false} />
               {row.isNew && <NewBadge />}
             </div>
             {row.title ? (
-              <TruncatedText text={row.title} className="mt-0.5 max-w-[240px] text-xs text-muted-foreground" focusable={false} />
+              <TruncatedText text={row.title} className="mt-0.5 text-xs text-muted-foreground" focusable={false} />
             ) : (
               <span className="mt-0.5 block text-xs italic text-muted-foreground">Untitled page</span>
             )}
@@ -84,7 +75,7 @@ const RowView = memo(function RowView({ row, scope }: { row: LandingPageRow; sco
           <span className="font-mono font-semibold tabular-nums text-foreground">{fmtInt(row.winners)}</span>
         </span>
       </Cell>
-      <Cell>
+      <Cell stickyRight>
         <div className="flex items-center gap-1.5">
           <SaveDownload target={{ type: "landing-page", id: row.id }} scope={scope} />
         </div>
@@ -95,7 +86,7 @@ const RowView = memo(function RowView({ row, scope }: { row: LandingPageRow; sco
 
 export function LandingPageTable({ rows, scope, footer }: { rows: LandingPageRow[]; scope: Scope; footer?: ReactNode }) {
   return (
-    <TableFrame label="Landing pages" columns={COLUMNS} minWidth={1000} footer={footer}>
+    <TableFrame label="Landing pages" columns={LP_COLUMNS} footer={footer}>
       {rows.map((r) => (
         <RowView key={r.id} row={r} scope={scope} />
       ))}
