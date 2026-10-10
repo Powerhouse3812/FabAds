@@ -7,10 +7,20 @@ import { flowSearchParams, type FlowActionId } from "@/genie6/flows/flowTypes";
 import { getFlowModule } from "@/genie6/flows/data/flowRegistry";
 import { DEFAULT_BRAND_ID, getFlowSource, v2InsightsRefId } from "@/genie6/flows/data/flowSources";
 import { flowInitialPatch, resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
-import { DEFAULT_GENIE_ACTION, buildGenieHandoff, elementValueOf, exampleAdForElement } from "./genieHandoff";
+import { isWinner } from "@/lib/insights-v3/selectors";
+import {
+  AD_GENIE_ACTION,
+  DEFAULT_GENIE_ACTION,
+  buildGenieHandoff,
+  defaultAdAction,
+  elementValueOf,
+  exampleAdForElement,
+} from "./genieHandoff";
 
-/** Every action the V2 UI fires: the per-type defaults + the drawer's "Create Variations". */
-const FIRED: FlowActionId[] = [...new Set([...Object.values(DEFAULT_GENIE_ACTION), "generate-variation" as FlowActionId])];
+/** Every action the V2 UI fires: element defaults, both ad defaults, and the drawer's overrides. */
+const FIRED: FlowActionId[] = [
+  ...new Set([...Object.values(DEFAULT_GENIE_ACTION), ...Object.values(AD_GENIE_ACTION), "use-storyboard" as FlowActionId]),
+];
 
 const ctxFor = (adId: string, act: FlowActionId) =>
   resolveFlowContext(flowSearchParams("industry-insights", v2InsightsRefId(adId), act));
@@ -92,16 +102,41 @@ describe("V2 → Genie: the element value is carried", () => {
 });
 
 describe("V2 → Genie: hand-off builder", () => {
-  it("ad target defaults to winner-as-reference; action prop overrides", () => {
-    const a = buildGenieHandoff({ type: "ad", id: richAd.id });
-    expect(a).toMatchObject({ ok: true, action: "winner-as-reference", adId: richAd.id });
+  // QA-02 — one Winner definition everywhere.
+  const winner = ads.find(isWinner)!;
+  const nonWinner = ads.find((a) => !isWinner(a))!;
+
+  it("a winner ad defaults to winner-as-reference", () => {
+    expect(defaultAdAction(winner)).toBe("winner-as-reference");
+    const a = buildGenieHandoff({ type: "ad", id: winner.id });
+    expect(a).toMatchObject({ ok: true, action: "winner-as-reference", adId: winner.id });
     if ("path" in a) {
       expect(a.path).toMatch(/^\/iq\/genie6\/studio-alpha\/(format|product|configure)\?/);
       expect(a.path).toContain("src=industry-insights");
-      expect(a.path).toContain(`ref=iiv2%3A${richAd.id}`);
+      expect(a.path).toContain(`ref=iiv2%3A${winner.id}&`);
     }
-    const v = buildGenieHandoff({ type: "ad", id: richAd.id }, { action: "generate-variation" });
-    expect(v).toMatchObject({ ok: true, action: "generate-variation" });
+  });
+
+  it("a non-winner ad defaults to generate-variation, never 'winner'", () => {
+    expect(defaultAdAction(nonWinner)).toBe("generate-variation");
+    const a = buildGenieHandoff({ type: "ad", id: nonWinner.id });
+    expect(a).toMatchObject({ ok: true, action: "generate-variation", adId: nonWinner.id });
+    if ("path" in a) expect(a.path).not.toContain("winner-as-reference");
+  });
+
+  it("an explicit action still wins over the default", () => {
+    expect(buildGenieHandoff({ type: "ad", id: nonWinner.id }, { action: "winner-as-reference" })).toMatchObject({
+      ok: true,
+      action: "winner-as-reference",
+    });
+    expect(buildGenieHandoff({ type: "ad", id: winner.id }, { action: "generate-variation" })).toMatchObject({
+      ok: true,
+      action: "generate-variation",
+    });
+    expect(buildGenieHandoff({ type: "ad", id: richAd.id }, { action: "use-storyboard" })).toMatchObject({
+      ok: true,
+      action: "use-storyboard",
+    });
   });
 
   it("element target uses its top example ad and act=use-<type>", () => {
@@ -114,8 +149,36 @@ describe("V2 → Genie: hand-off builder", () => {
         const ex = ads.find((a) => a.id === h.adId)!;
         expect(elementValueOf(ex, type)).toBe(id);
         if (type === "hook") expect(ex.analysis.hookText).toBeTruthy();
+        expect(h.path).toContain(`ref=iiv2%3A${ex.id}%40${type}&`);
       }
     }
+  });
+
+  it("QA-12: an element hand-off names the element in the banner's reference", () => {
+    const types: ElementType[] = ["framework", "hook", "angle", "concept"];
+    const typeLabel = { framework: "Framework", hook: "Hook", angle: "Angle", concept: "Concept" } as const;
+    for (const type of types) {
+      const label = getElement(type, elementValueOf(richAd, type)!)!.label;
+      const ctx = resolveFlowContext(
+        flowSearchParams("industry-insights", v2InsightsRefId(richAd.id, type), `use-${type}` as FlowActionId),
+      );
+      expect(ctx, type).not.toBeNull();
+      expect(ctx!.ref.title).toBe(`${typeLabel[type]} · ${label} — from "${richAd.headline}"`);
+      expect(ctx!.ref.sourceNote).toContain(`${typeLabel[type]} · ${label}`);
+      // The element value still travels exactly as for a plain ad ref.
+      expect(flowInitialPatch(ctx!).prompt).toBeTruthy();
+    }
+    // Plain ad refs are untouched.
+    expect(getFlowSource(v2InsightsRefId(richAd.id))!.title).toBe(richAd.headline);
+  });
+
+  it("QA-12: a bad element suffix degrades to no ref, never throws", () => {
+    for (const bad of [`iiv2:${richAd.id}@nope`, `iiv2:${richAd.id}@toString`, `iiv2:${richAd.id}@hook@angle`]) {
+      expect(getFlowSource(bad), bad).toBeUndefined();
+      expect(resolveFlowContext(flowSearchParams("industry-insights", bad, "use-hook"))).toBeNull();
+    }
+    const noAngle = ads.find((a) => !a.analysis.angle)!;
+    expect(getFlowSource(v2InsightsRefId(noAngle.id, "angle"))).toBeUndefined();
   });
 
   it("an empty scope falls back to the whole universe instead of failing", () => {

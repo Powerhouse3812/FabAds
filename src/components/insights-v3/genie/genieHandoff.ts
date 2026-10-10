@@ -3,9 +3,11 @@
  *
  * Uses the EXISTING flow contract of the `industry-insights` module
  * (src/genie6/flows): `?src=industry-insights&ref=iiv2:<adId>&act=<action>`.
- * - Ad      → the ad itself, `winner-as-reference` by default (the drawer passes
- *             `generate-variation` for "Create Variations").
- * - Element → the element's top example ad in the current scope, `use-<type>`.
+ * - Ad      → the ad itself. Default `winner-as-reference` only when the ad
+ *             passes the Winner rule, else `generate-variation`; an explicit
+ *             `action` always wins.
+ * - Element → the element's top example ad in the current scope, `use-<type>`,
+ *             ref `iiv2:<adId>@<type>` so the banner names the element.
  *             The element value travels on that ad's own analysis (`hook`,
  *             `elements.angle|framework|concept` on the resolved ref).
  * Every action fired here must be listed by the module, or resolveFlowContext
@@ -14,7 +16,7 @@
  */
 import { ALL, type Ad, type ElementType, type SavedItemRef, type Scope } from "@/lib/insights-v3/types";
 import { ELEMENT_TYPE_LABEL, MODULE_NOW, getAd, getAds } from "@/lib/insights-v3/data";
-import { adsInScope, pickExampleAd, type UserPrefs } from "@/lib/insights-v3/selectors";
+import { adsInScope, isWinner, pickExampleAd, type UserPrefs } from "@/lib/insights-v3/selectors";
 import { flowSearchParams, type FlowActionId } from "@/genie6/flows/flowTypes";
 import { FLOW_ACTIONS, getFlowModule } from "@/genie6/flows/data/flowRegistry";
 import { v2InsightsRefId } from "@/genie6/flows/data/flowSources";
@@ -22,9 +24,23 @@ import { resolveFlowContext } from "@/genie6/flows/data/resolveFlowContext";
 
 export const GENIE_FLOW_MODULE = "industry-insights" as const;
 
-/** Default action per target type. */
-export const DEFAULT_GENIE_ACTION: Record<"ad" | ElementType, FlowActionId> = {
-  ad: "winner-as-reference",
+/**
+ * Default action for an AD target. "Winner ad as reference" is only true of an
+ * ad that passes THE Winner rule (`isWinner`: active + days + clones, never
+ * likes) — one definition everywhere. Any other ad goes as a neutral
+ * "make a variation of this ad".
+ */
+export const AD_GENIE_ACTION = {
+  winner: "winner-as-reference",
+  other: "generate-variation",
+} as const satisfies Record<string, FlowActionId>;
+
+export function defaultAdAction(ad: Ad): FlowActionId {
+  return isWinner(ad) ? AD_GENIE_ACTION.winner : AD_GENIE_ACTION.other;
+}
+
+/** Default action per element type. */
+export const DEFAULT_GENIE_ACTION: Record<ElementType, FlowActionId> = {
   framework: "use-framework",
   hook: "use-hook",
   angle: "use-angle",
@@ -79,8 +95,8 @@ export function buildGenieHandoff(
   let fallback: FlowActionId;
   if (target.type === "ad") {
     ad = getAd(target.id);
-    fallback = DEFAULT_GENIE_ACTION.ad;
     if (!ad) return { ok: false, reason: "This ad is no longer available." };
+    fallback = defaultAdAction(ad);
   } else if (target.type === "framework" || target.type === "hook" || target.type === "angle" || target.type === "concept") {
     ad = exampleAdForElement(target.type, target.id, scope, opts.prefs);
     fallback = DEFAULT_GENIE_ACTION[target.type];
@@ -104,7 +120,10 @@ export function buildGenieHandoff(
     return { ok: false, reason: "Genie can't take this action from Industry Insights." };
   }
 
-  const sp = flowSearchParams(GENIE_FLOW_MODULE, v2InsightsRefId(ad.id), action);
+  // An element hand-off names the element in the ref, so Genie's banner shows
+  // what was handed ("Hook · Callout — from …"), not only the example ad.
+  const refId = target.type === "ad" ? v2InsightsRefId(ad.id) : v2InsightsRefId(ad.id, target.type);
+  const sp = flowSearchParams(GENIE_FLOW_MODULE, refId, action);
   if (flowAction.toOtherApps) return { ok: true, path: `/iq/genie6/apps?${sp.toString()}`, adId: ad.id, action };
   const ctx = resolveFlowContext(sp);
   if (!ctx) return { ok: false, reason: "Genie couldn't open this item. Try another ad." };

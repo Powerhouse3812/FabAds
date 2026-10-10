@@ -119,6 +119,9 @@ export function InsightsSearch() {
           )}
         >
           <Search className="h-3.5 w-3.5 shrink-0 text-primary-text" aria-hidden="true" />
+          {/* Narrow widths (QA-17): the long placeholder clips at 375px, so it is
+              transparent below `sm` and a short "Search…" stands in. Pure CSS. */}
+          <span className="relative flex h-full min-w-0 flex-1">
           <Command.Input
             ref={inputRef}
             value={query}
@@ -136,8 +139,18 @@ export function InsightsSearch() {
             }}
             placeholder="Search ads, advertisers, hooks…"
             aria-label="Search Industry Insights V2"
-            className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="h-full w-full min-w-0 bg-transparent text-[13px] text-foreground outline-none placeholder:text-transparent sm:placeholder:text-muted-foreground"
           />
+          {!query && (
+            <span
+              aria-hidden="true"
+              data-testid="search-short-placeholder"
+              className="pointer-events-none absolute inset-y-0 left-0 flex items-center text-[13px] text-muted-foreground sm:hidden"
+            >
+              Search…
+            </span>
+          )}
+          </span>
           {query ? (
             <button
               type="button"
