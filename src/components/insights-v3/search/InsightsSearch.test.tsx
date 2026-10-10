@@ -120,6 +120,18 @@ describe("<InsightsSearch />", () => {
     expect(where).toContain("q=insurance");
   });
 
+  it("QA-17: narrow widths get a short placeholder; the long one shows from sm up", () => {
+    renderSearch();
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    expect(input.className).toContain("placeholder:text-transparent");
+    expect(input.className).toContain("sm:placeholder:text-muted-foreground");
+    const short = screen.getByTestId("search-short-placeholder");
+    expect(short).toHaveTextContent("Search…");
+    expect(short.className).toContain("sm:hidden");
+    fireEvent.change(input, { target: { value: "x" } });
+    expect(screen.queryByTestId("search-short-placeholder")).toBeNull();
+  });
+
   it("shows a composed no-results state with a one-click clear", () => {
     renderSearch();
     const input = screen.getByRole("combobox");

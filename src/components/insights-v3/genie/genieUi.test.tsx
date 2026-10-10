@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getAds } from "@/lib/insights-v3/data";
+import { isWinner } from "@/lib/insights-v3/selectors";
 import { boardsStore, savedAdsStore } from "@/lib/insights-v3/stores";
 import { IndustryInsightsPicker } from "@/genie6/studio-v4/components/IndustryInsightsPicker";
 import { UseInGenie } from "./UseInGenie";
@@ -44,21 +45,33 @@ describe("<UseInGenie />", () => {
     expect(container.querySelector("button")).toBeNull();
   });
 
-  it("button: lime at rest, navigates to Studio with the V2 ref", () => {
-    withRouter(<UseInGenie target={{ type: "ad", id: ad.id }} />);
+  it("button: lime at rest; a winner goes as winner-as-reference", () => {
+    const winner = getAds().find(isWinner)!;
+    withRouter(<UseInGenie target={{ type: "ad", id: winner.id }} />);
     const btn = screen.getByRole("button", { name: /use in genie/i });
     expect(btn.className).toContain("bg-primary");
     fireEvent.click(btn);
     const where = screen.getByTestId("where").textContent!;
     expect(where).toMatch(/^\/iq\/genie6\/studio-alpha\//);
-    expect(where).toContain(`ref=iiv2%3A${ad.id}`);
+    expect(where).toContain(`ref=iiv2%3A${winner.id}`);
     expect(where).toContain("act=winner-as-reference");
   });
 
-  it("element: hook goes as use-hook on an example ad", () => {
+  it("QA-02: a non-winner never goes as 'winner'", () => {
+    const other = getAds().find((a) => !isWinner(a))!;
+    withRouter(<UseInGenie target={{ type: "ad", id: other.id }} />);
+    fireEvent.click(screen.getByRole("button", { name: /use in genie/i }));
+    const where = screen.getByTestId("where").textContent!;
+    expect(where).toContain("act=generate-variation");
+    expect(where).not.toContain("winner-as-reference");
+  });
+
+  it("element: hook goes as use-hook on an example ad, with the element named in the ref", () => {
     withRouter(<UseInGenie target={{ type: "hook", id: ad.analysis.hookStyle! }} variant="icon" />);
     fireEvent.click(screen.getByRole("button", { name: /use in genie/i }));
-    expect(screen.getByTestId("where").textContent).toContain("act=use-hook");
+    const where = screen.getByTestId("where").textContent!;
+    expect(where).toContain("act=use-hook");
+    expect(where).toMatch(/ref=iiv2%3Aad-\d+%40hook&/);
   });
 
   it("drawer's Create Variations passes generate-variation", () => {

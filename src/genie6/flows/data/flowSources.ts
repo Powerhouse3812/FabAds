@@ -134,9 +134,24 @@ function insightsRefs(): FlowSourceRef[] {
 
 export const V2_INSIGHTS_REF_PREFIX = "iiv2:";
 
-/** The flow ref id for an Industry Insights V2 ad. */
-export function v2InsightsRefId(adId: string): string {
-  return `${V2_INSIGHTS_REF_PREFIX}${adId}`;
+/** Separates the ad id from the handed element type: `iiv2:<adId>@<type>`. */
+const V2_ELEMENT_SEPARATOR = "@";
+type V2ElementType = "framework" | "hook" | "angle" | "concept";
+const V2_ELEMENT_LABEL: Record<V2ElementType, string> = {
+  framework: "Framework",
+  hook: "Hook",
+  angle: "Angle",
+  concept: "Concept",
+};
+
+/**
+ * The flow ref id for an Industry Insights V2 ad. Pass `element` when the
+ * user handed an ELEMENT (the ad is its top example): the ref then names that
+ * element first ("Hook · Callout — from "…""), so the banner's Reference says
+ * what was handed, not only which ad carried it.
+ */
+export function v2InsightsRefId(adId: string, element?: V2ElementType): string {
+  return `${V2_INSIGHTS_REF_PREFIX}${adId}${element ? `${V2_ELEMENT_SEPARATOR}${element}` : ""}`;
 }
 
 const V2_MEDIA_LABEL: Record<V2Ad["mediaKind"], string> = { image: "Image", video: "Video", carousel: "Carousel" };
@@ -153,7 +168,7 @@ function v2Script(ad: V2Ad): string | undefined {
   return lines.length ? lines.join("\n") : undefined;
 }
 
-function v2InsightsRef(ad: V2Ad): FlowSourceRef {
+function v2InsightsRef(ad: V2Ad, element?: V2ElementType): FlowSourceRef {
   const an = ad.analysis;
   const label = (type: "angle" | "framework" | "concept", id: string | null) =>
     id ? (getV2Element(type, id)?.label ?? undefined) : undefined;
@@ -162,15 +177,25 @@ function v2InsightsRef(ad: V2Ad): FlowSourceRef {
     framework: label("framework", an.framework),
     concept: label("concept", an.concept),
   };
+  // The handed element's own value on this ad (its top example), by label.
+  const elementId =
+    element === "hook" ? an.hookStyle
+    : element === "angle" ? an.angle
+    : element === "framework" ? an.framework
+    : element === "concept" ? an.concept
+    : null;
+  const elementLabel = element && elementId ? getV2Element(element, elementId)?.label : undefined;
+  const named = element && elementLabel ? `${V2_ELEMENT_LABEL[element]} · ${elementLabel}` : undefined;
   return {
-    id: v2InsightsRefId(ad.id),
+    id: v2InsightsRefId(ad.id, element),
     module: "industry-insights" as FlowModuleKey,
-    title: ad.headline,
+    // Element first, so it survives the banner's truncation.
+    title: named ? `${named} — from "${ad.headline}"` : ad.headline,
     subtitle: `${ad.pageName} · ${V2_MEDIA_LABEL[ad.mediaKind]} · ${v2DaysLive(ad.daysLive)}`,
     thumbnail: ad.thumbnailUrl ?? undefined,
     sourceBrandName: ad.pageName,
     competitorOwned: true,
-    sourceNote: "From Industry Insights V2",
+    sourceNote: named ? `${named} — from Industry Insights V2` : "From Industry Insights V2",
     exitPath: "/industry-insights/discover",
     analysed: true,
     sourceFormat: ad.mediaKind,
@@ -188,8 +213,15 @@ function v2InsightsRef(ad: V2Ad): FlowSourceRef {
 
 function resolveV2InsightsSource(id: string): FlowSourceRef | undefined {
   if (!id.startsWith(V2_INSIGHTS_REF_PREFIX)) return undefined;
-  const ad = getV2Ad(id.slice(V2_INSIGHTS_REF_PREFIX.length));
-  return ad ? v2InsightsRef(ad) : undefined;
+  const [adId, element, ...rest] = id.slice(V2_INSIGHTS_REF_PREFIX.length).split(V2_ELEMENT_SEPARATOR);
+  // A hand-edited suffix that isn't one of the four element types, or names an
+  // element this ad doesn't carry, degrades to "no such ref" — never throws.
+  if (rest.length > 0 || (element !== undefined && !Object.prototype.hasOwnProperty.call(V2_ELEMENT_LABEL, element))) return undefined;
+  const ad = getV2Ad(adId);
+  if (!ad) return undefined;
+  const ref = v2InsightsRef(ad, element as V2ElementType | undefined);
+  if (element !== undefined && ref.title === ad.headline) return undefined;
+  return ref;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
