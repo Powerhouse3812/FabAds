@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cloneElement, type ReactElement } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { INDEX } from "@/lib/insights-v3/data";
 import { AdvertiserDetail } from "../overlays/AdvertiserDetail";
@@ -54,6 +54,9 @@ function show(node: ReactElement, url = "/industry-insights/advertisers") {
   );
 }
 
+/** The overlay's own header (title + actions), so cards in the body can't match. */
+const header = () => within(screen.getByRole("dialog").querySelector("header") as HTMLElement);
+
 const adCount = (m: Map<string, unknown[]>, id: string) => m.get(id)?.length ?? 0;
 // Advertisers with plenty of ads, so every section is populated.
 const topPage = INDEX.advertisers.filter((a) => a.kind === "page").sort((a, b) => adCount(INDEX.adsByPage, b.id) - adCount(INDEX.adsByPage, a.id))[0];
@@ -72,23 +75,23 @@ describe("AdvertiserDetail", () => {
     }
     expect(screen.getByText(/Landing pages: where the traffic goes/)).toBeInTheDocument();
     expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(3);
-    expect(screen.getByRole("button", { name: /competitor/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^(Follow|Unfollow) / })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Save this page to a board|Saved to/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Download this page/ })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /competitor/i })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /^(Follow|Unfollow) / })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /Save this page to a board|Saved to/ })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /Download this page/ })).toBeInTheDocument();
   });
 
   it("a domain has no Follow button", () => {
     show(<AdvertiserDetail kind="domain" id={topDomain.id} nav={nav()} />);
-    expect(screen.queryByRole("button", { name: /^(Follow|Unfollow) / })).toBeNull();
-    expect(screen.getByRole("button", { name: /competitor/i })).toBeInTheDocument();
+    expect(header().queryByRole("button", { name: /^(Follow|Unfollow) / })).toBeNull();
+    expect(header().getByRole("button", { name: /competitor/i })).toBeInTheDocument();
   });
 
   it("toggles the competitor mark", () => {
     show(<AdvertiserDetail kind="domain" id={topDomain.id} nav={nav()} />);
-    const before = screen.getByRole("button", { name: /competitor/i }).getAttribute("aria-pressed");
-    fireEvent.click(screen.getByRole("button", { name: /competitor/i }));
-    expect(screen.getByRole("button", { name: /competitor/i }).getAttribute("aria-pressed")).not.toBe(before);
+    const before = header().getByRole("button", { name: /competitor/i }).getAttribute("aria-pressed");
+    fireEvent.click(header().getByRole("button", { name: /competitor/i }));
+    expect(header().getByRole("button", { name: /competitor/i }).getAttribute("aria-pressed")).not.toBe(before);
   });
 
   it("an unknown id shows an empty state with a Close button", () => {
@@ -124,7 +127,7 @@ describe("LandingPageDetail", () => {
     }
     expect(screen.getByText(/Creative mix/)).toBeInTheDocument();
     expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(2);
-    expect(screen.getByRole("button", { name: /Download this landing page/ })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /Download this landing page/ })).toBeInTheDocument();
   });
 
   it("filters and highlights the page text", () => {
@@ -170,8 +173,8 @@ describe("OfferDetail", () => {
       expect(screen.getAllByText(t).length).toBeGreaterThan(0);
     }
     expect(screen.getAllByText(/Based on/).length).toBeGreaterThan(2);
-    expect(screen.getByRole("button", { name: /Save this offer to a board|Saved to/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Download this offer/ })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /Save this offer to a board|Saved to/ })).toBeInTheDocument();
+    expect(header().getByRole("button", { name: /Download this offer/ })).toBeInTheDocument();
   });
 
   it("opens a landing page from the list", () => {
